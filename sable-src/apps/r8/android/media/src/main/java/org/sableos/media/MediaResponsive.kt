@@ -12,6 +12,7 @@ import org.sableos.design.SableMiniPlayerPolicy
 import org.sableos.design.SablePlaybackState
 import org.sableos.design.SableRowAction
 import org.sableos.design.SableSpacing
+import org.sableos.media.MediaText.t
 
 /*
  * DESIGN-KF-D part 2 adoption in Sable Media: the mini-player always states
@@ -20,7 +21,7 @@ import org.sableos.design.SableSpacing
  * transport actions sit in its menu on constrained layouts.
  */
 
-internal const val NOTHING_QUEUED_TITLE = "Nothing queued"
+internal val NOTHING_QUEUED_TITLE: String get() = t("nothing_queued")
 
 internal fun PlaybackUiState.miniPlayerModel(): SableMiniPlayerModel? {
     val idle = title == NOTHING_QUEUED_TITLE && queue.isEmpty() && !isPlaying
@@ -40,9 +41,9 @@ internal fun PlaybackUiState.miniPlayerModel(): SableMiniPlayerModel? {
     )
 }
 
-private val PreviousAction = SableRowAction("previous", "Previous")
-private val NextAction = SableRowAction("next", "Next")
-private val QueueAction = SableRowAction("queue", "Up next")
+private val PreviousAction: SableRowAction get() = SableRowAction("previous", t("previous"))
+private val NextAction: SableRowAction get() = SableRowAction("next", t("next"))
+private val QueueAction: SableRowAction get() = SableRowAction("queue", t("up_next_2"))
 
 /** Pinned (non-scrolling) mini-player shared by Collection, Podcasts and Radio. */
 @Composable

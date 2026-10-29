@@ -10,6 +10,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import org.sableos.media.MediaText.t
 
 internal data class QueueItemUiState(
     val index: Int,
@@ -24,8 +25,8 @@ internal enum class PlaybackSkip {
 
 internal data class PlaybackUiState(
     val connected: Boolean = false,
-    val title: String = "Nothing queued",
-    val source: String = "Local music or radio",
+    val title: String = t("nothing_queued"),
+    val source: String = t("local_music_or_radio"),
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
@@ -239,12 +240,12 @@ internal class PlaybackController(
                     metadata.title
                         ?.toString()
                         ?.takeIf(String::isNotBlank)
-                        ?: "Untitled audio",
+                        ?: t("untitled_audio"),
                 source =
                     metadata.artist
                         ?.toString()
                         ?.takeIf(String::isNotBlank)
-                        ?: "Local audio",
+                        ?: t("local_audio"),
             )
         }
 
@@ -256,12 +257,12 @@ internal class PlaybackController(
                 metadata.title
                     ?.toString()
                     ?.takeIf(String::isNotBlank)
-                    ?: "Nothing queued",
+                    ?: t("nothing_queued"),
             source =
                 metadata.artist
                     ?.toString()
                     ?.takeIf(String::isNotBlank)
-                    ?: "Local music or radio",
+                    ?: t("local_music_or_radio"),
             isPlaying = player.isPlaying,
             positionMs = player.currentPosition.coerceAtLeast(0L),
             durationMs = resolvedDuration(player),

@@ -50,6 +50,7 @@ import org.sableos.design.SableRowAction
 import org.sableos.design.SableSpacing
 import org.sableos.design.SableTile
 import org.sableos.design.sableFocusRing
+import org.sableos.media.MediaText.t
 
 @Composable
 internal fun QueueScreen(
@@ -87,7 +88,7 @@ internal fun QueueScreen(
     ) {
         item(key = "queue-back") {
             C2BackTitle(
-                title = "up next",
+                title = t("up_next"),
                 onBack = onBack,
             )
         }
@@ -107,9 +108,9 @@ internal fun QueueScreen(
         if (upcomingCount <= 0) {
             item(key = "queue-empty") {
                 C2InfoPanel(
-                    title = "Nothing else queued",
+                    title = t("nothing_else_queued"),
                     detail =
-                        "The current track is shown above. Add or play more local audio to build Up Next.",
+                        t("the_current_track_is_shown"),
                 )
             }
         } else {
@@ -141,10 +142,10 @@ internal fun QueueScreen(
                         modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
                         actions =
                             buildList {
-                                add(SableRowAction(QUEUE_ACTION_PLAY, "Play", primary = true))
-                                if (canMoveUp) add(SableRowAction(QUEUE_ACTION_UP, "Move up"))
-                                if (canMoveDown) add(SableRowAction(QUEUE_ACTION_DOWN, "Move down"))
-                                add(SableRowAction(QUEUE_ACTION_REMOVE, "Remove from up next"))
+                                add(SableRowAction(QUEUE_ACTION_PLAY, t("play"), primary = true))
+                                if (canMoveUp) add(SableRowAction(QUEUE_ACTION_UP, t("move_up")))
+                                if (canMoveDown) add(SableRowAction(QUEUE_ACTION_DOWN, t("move_down")))
+                                add(SableRowAction(QUEUE_ACTION_REMOVE, t("remove_from_up_next")))
                             },
                         onAction = { action ->
                             when (action.id) {
@@ -162,8 +163,7 @@ internal fun QueueScreen(
         item(key = "queue-footer") {
             Text(
                 text =
-                    "Queue changes are applied directly to the active Media3 session. " +
-                        "Sable does not persist listening history.",
+                    t("queue_changes_are_applied_directly"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -218,24 +218,24 @@ private fun QueueTransportControls(
                 horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
             ) {
                 SableActionButton(
-                    text = "Prev",
+                    text = t("prev"),
                     primary = false,
                     modifier = Modifier.weight(1f),
                     onClick = onPrevious,
                 )
                 SableActionButton(
-                    text = if (playback.isPlaying) "Pause" else "Play",
+                    text = if (playback.isPlaying) t("pause") else t("play"),
                     modifier = Modifier.weight(1f),
                     onClick = onPlayPause,
                 )
                 SableActionButton(
-                    text = "Next",
+                    text = t("next"),
                     primary = false,
                     modifier = Modifier.weight(1f),
                     onClick = onNext,
                 )
                 SableActionButton(
-                    text = "Stop",
+                    text = t("stop"),
                     primary = false,
                     modifier = Modifier.weight(1f),
                     onClick = onStop,
@@ -273,9 +273,9 @@ internal fun PlaylistEditorScreen(
             C2BackTitle(
                 title =
                     if (editingPlaylist == null) {
-                        "new playlist"
+                        t("new_playlist")
                     } else {
-                        "edit playlist"
+                        t("edit_playlist")
                     },
                 onBack = onCancel,
             )
@@ -287,7 +287,7 @@ internal fun PlaylistEditorScreen(
                 onValueChange = onNameChange,
                 modifier = Modifier.fillMaxWidth().mediaTextInput(),
                 singleLine = true,
-                label = { Text("Playlist name") },
+                label = { Text(t("playlist_name")) },
             )
         }
 
@@ -301,8 +301,8 @@ internal fun PlaylistEditorScreen(
         if (localItems.isEmpty()) {
             item(key = "playlist-empty") {
                 C2InfoPanel(
-                    title = "No local tracks",
-                    detail = "Add local audio to the Collection before creating a playlist.",
+                    title = t("no_local_tracks"),
+                    detail = t("add_local_audio_to_the"),
                 )
             }
         } else {
@@ -377,13 +377,13 @@ internal fun PlaylistEditorScreen(
                 horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
             ) {
                 SableActionButton(
-                    text = "Cancel",
+                    text = t("cancel"),
                     primary = false,
                     modifier = Modifier.weight(1f),
                     onClick = onCancel,
                 )
                 SableActionButton(
-                    text = "Save playlist",
+                    text = t("save_playlist"),
                     modifier = Modifier.weight(1f),
                     onClick = onSave,
                 )
@@ -393,8 +393,7 @@ internal fun PlaylistEditorScreen(
         item(key = "playlist-footer") {
             Text(
                 text =
-                    "Playlists contain references to audio files you explicitly added to Sable Media. " +
-                        "They stay local on this device.",
+                    t("playlists_contain_references_to_audio"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -412,12 +411,12 @@ internal fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
     ) {
         C2BackTitle(
-            title = "media settings",
+            title = t("media_settings"),
             onBack = onBack,
         )
 
         Text(
-            text = "start screen",
+            text = t("start_screen"),
             style = MaterialTheme.typography.titleLarge,
         )
 
@@ -426,8 +425,8 @@ internal fun SettingsScreen(
             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
         ) {
             SableTile(
-                title = "Collection",
-                subtitle = "local library",
+                title = t("collection"),
+                subtitle = t("local_library"),
                 active = settings.startPage == MediaStartPage.Collection,
                 modifier = Modifier.weight(1f),
                 onClick = {
@@ -439,8 +438,8 @@ internal fun SettingsScreen(
                 },
             )
             SableTile(
-                title = "Radio",
-                subtitle = "saved stations",
+                title = t("radio"),
+                subtitle = t("saved_stations"),
                 active = settings.startPage == MediaStartPage.Radio,
                 modifier = Modifier.weight(1f),
                 onClick = {
@@ -454,8 +453,8 @@ internal fun SettingsScreen(
         }
 
         SettingsToggleRow(
-            title = "Show mini player",
-            detail = "Show the active item below Collection and Radio.",
+            title = t("show_mini_player"),
+            detail = t("show_the_active_item_below"),
             checked = settings.showMiniPlayer,
             onCheckedChange = { enabled ->
                 onSettingsChange(
@@ -467,8 +466,8 @@ internal fun SettingsScreen(
         )
 
         SettingsToggleRow(
-            title = "Keep screen awake while playing",
-            detail = "Prevents display sleep only while Sable Media is actively playing.",
+            title = t("keep_screen_awake_while_playing"),
+            detail = t("prevents_display_sleep_only_while"),
             checked = settings.keepScreenAwakeWhilePlaying,
             onCheckedChange = { enabled ->
                 onSettingsChange(
@@ -482,8 +481,7 @@ internal fun SettingsScreen(
         C2InfoPanel(
             title = "privacy",
             detail =
-                "These preferences are stored locally. Sable Media does not create a cloud profile " +
-                    "or send playback preferences to a recommendation service.",
+                t("these_preferences_are_stored_locally"),
         )
     }
 }
@@ -623,7 +621,7 @@ internal fun MediaKeyDialogs(
     if (showInfo) {
         AlertDialog(
             onDismissRequest = onDismissInfo,
-            title = { Text("now playing") },
+            title = { Text(t("now_playing")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs)) {
                     mediaInfoLines(playback).forEach { (label, value) ->
@@ -638,7 +636,7 @@ internal fun MediaKeyDialogs(
             },
             confirmButton = {
                 TextButton(onClick = onDismissInfo, modifier = Modifier.sableFocusRing()) {
-                    Text("Close")
+                    Text(t("close"))
                 }
             },
         )
@@ -647,11 +645,10 @@ internal fun MediaKeyDialogs(
     if (pendingRemoval != null) {
         AlertDialog(
             onDismissRequest = onDismissRemoval,
-            title = { Text("Remove from collection?") },
+            title = { Text(t("remove_from_collection")) },
             text = {
                 Text(
-                    "\"${pendingRemoval.title}\" leaves the Sable Media collection, its playlists and " +
-                        "favorites. The file stays on the device.",
+                    t("leaves_the_sable_media_collection", pendingRemoval.title),
                 )
             },
             confirmButton = {
@@ -659,12 +656,12 @@ internal fun MediaKeyDialogs(
                     onClick = { onConfirmRemoval(pendingRemoval) },
                     modifier = Modifier.sableFocusRing(),
                 ) {
-                    Text("Remove")
+                    Text(t("remove"))
                 }
             },
             dismissButton = {
                 TextButton(onClick = onDismissRemoval, modifier = Modifier.sableFocusRing()) {
-                    Text("Keep")
+                    Text(t("keep"))
                 }
             },
         )
@@ -681,11 +678,11 @@ internal fun mediaInfoLines(playback: PlaybackUiState): List<Pair<String, String
                 if (playback.durationMs > 0L) {
                     "$position / ${formatClock(playback.durationMs)}"
                 } else {
-                    "live · $position"
+                    t("live", position)
                 },
         )
         if (playback.currentIndex >= 0 && playback.queue.isNotEmpty()) {
-            add("queue" to "${playback.currentIndex + 1} of ${playback.queue.size}")
+            add("queue" to t("of", playback.currentIndex + 1, playback.queue.size))
         }
         add("state" to if (playback.isPlaying) "playing" else "paused")
     }
@@ -771,10 +768,10 @@ internal fun MediaSearchBar(
                         }
                     },
             singleLine = true,
-            label = { Text("Search title, artist or album") },
+            label = { Text(t("search_title_artist_or_album")) },
             supportingText = {
                 Text(
-                    text = "$resultCount in $pivotLabel · Enter for results · Esc closes",
+                    text = t("in_enter_for_results_esc", resultCount, pivotLabel),
                     style = MaterialTheme.typography.bodySmall,
                 )
             },
@@ -785,7 +782,7 @@ internal fun MediaSearchBar(
             onClick = onClose,
             modifier = Modifier.sableFocusRing(),
         ) {
-            Text("Close")
+            Text(t("close"))
         }
     }
 }

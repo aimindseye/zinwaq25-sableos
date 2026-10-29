@@ -16,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import org.sableos.media.MediaText.t
 
 class PlaybackService : MediaSessionService() {
     private var player: ExoPlayer? = null
@@ -121,7 +122,7 @@ class PlaybackService : MediaSessionService() {
         val metadata =
             MediaMetadata
                 .Builder()
-                .setTitle(title?.takeIf { it.isNotBlank() } ?: "Sable Media")
+                .setTitle(title?.takeIf { it.isNotBlank() } ?: t("sable_media"))
                 .setArtist(source?.takeIf { it.isNotBlank() })
                 .build()
 
@@ -188,8 +189,8 @@ class PlaybackService : MediaSessionService() {
         val metadata =
             MediaMetadata
                 .Builder()
-                .setTitle(title?.takeIf { it.isNotBlank() } ?: "Local audio")
-                .setArtist(artist?.takeIf { it.isNotBlank() } ?: "Unknown artist")
+                .setTitle(title?.takeIf { it.isNotBlank() } ?: t("local_audio"))
+                .setArtist(artist?.takeIf { it.isNotBlank() } ?: t("unknown_artist"))
                 .build()
 
         return MediaItem

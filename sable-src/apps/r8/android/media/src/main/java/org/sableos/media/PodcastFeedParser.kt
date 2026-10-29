@@ -2,6 +2,7 @@ package org.sableos.media
 
 import android.text.Html
 import android.util.Xml
+import org.sableos.media.MediaText.t
 import org.xmlpull.v1.XmlPullParser
 import java.io.ByteArrayInputStream
 import java.net.URI
@@ -54,7 +55,7 @@ internal object PodcastFeedParser {
             )
 
         require(!prolog.contains(DOCTYPE_DECLARATION_MARKER, ignoreCase = true)) {
-            "Podcast feed document types are not accepted."
+            t("podcast_feed_document_types_are")
         }
     }
 
@@ -408,7 +409,7 @@ internal object PodcastFeedParser {
                     ).take(MAX_EPISODES_PER_FEED)
 
             require(normalizedEpisodes.isNotEmpty()) {
-                "No playable audio episodes were found in this feed."
+                t("no_playable_audio_episodes_were")
             }
 
             return PodcastSubscription(

@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import org.json.JSONArray
 import org.json.JSONObject
+import org.sableos.media.MediaText.t
 import java.util.UUID
 
 internal data class RadioStation(
@@ -58,7 +59,7 @@ internal class RadioStationRepository(
     ): List<RadioStation> {
         val normalizedUrl = url.trim()
         require(isSupportedUrl(normalizedUrl)) {
-            "Station URL must use HTTP or HTTPS."
+            t("station_url_must_use_http")
         }
 
         val normalizedName =
@@ -101,7 +102,7 @@ internal class RadioStationRepository(
     ): List<RadioStation> {
         val normalizedUrl = url.trim()
         require(isSupportedUrl(normalizedUrl)) {
-            "Station URL must use HTTP or HTTPS."
+            t("station_url_must_use_http")
         }
 
         val normalizedName =

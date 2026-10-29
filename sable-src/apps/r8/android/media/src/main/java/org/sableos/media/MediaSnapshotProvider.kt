@@ -8,6 +8,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Binder
 import android.os.Process
+import org.sableos.media.MediaText.t
 
 class MediaSnapshotProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
@@ -26,7 +27,7 @@ class MediaSnapshotProvider : ContentProvider() {
         return MatrixCursor(COLUMNS).apply {
             addRow(
                 arrayOf<Any?>(
-                    "Media",
+                    t("media"),
                     snapshotDetail(snapshot),
                     if (snapshot.title.isNotBlank()) "LIVE" else "EMPTY",
                     snapshot.observedAt,
@@ -61,7 +62,7 @@ class MediaSnapshotProvider : ContentProvider() {
 
     private fun snapshotDetail(snapshot: MediaSnapshot): String {
         if (snapshot.title.isBlank()) {
-            return "nothing playing"
+            return t("nothing_playing")
         }
 
         return buildString {
@@ -70,7 +71,7 @@ class MediaSnapshotProvider : ContentProvider() {
                 append(" · ")
                 append(snapshot.artist)
             }
-            append(if (snapshot.playing) " · playing" else " · paused")
+            append(if (snapshot.playing) t("playing") else t("paused"))
         }
     }
 

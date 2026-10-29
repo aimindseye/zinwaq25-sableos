@@ -15,11 +15,12 @@
     </queries>
 
     <application
+        android:name="org.sableos.media.MediaApplication"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_sable_media"
         android:roundIcon="@mipmap/ic_sable_media_round"
-        android:label="Sable Media"
+        android:label="@string/app_name"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>

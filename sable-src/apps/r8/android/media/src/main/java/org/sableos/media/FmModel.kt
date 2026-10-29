@@ -1,6 +1,7 @@
 package org.sableos.media
 
 import android.view.KeyEvent
+import org.sableos.media.MediaText.t
 import java.util.Locale
 
 /**
@@ -106,14 +107,14 @@ internal object FmBand {
     /** One line for the status panel. */
     fun status(state: FmUiState): String =
         when {
-            !state.connected -> "Connecting to the FM tuner…"
-            state.scanning -> "Scanning the band…"
-            state.seeking -> "Seeking…"
-            !state.antenna -> "Plug in wired headphones: they are the antenna"
-            !state.powered -> "Off"
-            state.muted -> "Muted"
-            state.speaker -> "Playing on the speaker"
-            else -> "Playing on headphones"
+            !state.connected -> t("connecting_to_the_fm_tuner")
+            state.scanning -> t("scanning_the_band")
+            state.seeking -> t("seeking")
+            !state.antenna -> t("plug_in_wired_headphones_they")
+            !state.powered -> t("off")
+            state.muted -> t("muted")
+            state.speaker -> t("playing_on_the_speaker")
+            else -> t("playing_on_headphones")
         }
 }
 

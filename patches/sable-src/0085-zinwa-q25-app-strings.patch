@@ -4196,6 +4196,2122 @@ index 0000000..dff07cc
 +        }
 +    }
 +}
+diff --git a/sable-src/apps/r8/android/media/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/media/src/main/AndroidManifest.xml
+index ecfdbe2..bf0a412 100644
+--- a/sable-src/apps/r8/android/media/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/media/src/main/AndroidManifest.xml
+@@ -15,11 +15,12 @@
+     </queries>
+ 
+     <application
++        android:name="org.sableos.media.MediaApplication"
+         android:allowBackup="false"
+         android:usesCleartextTraffic="false"
+         android:icon="@mipmap/ic_sable_media"
+         android:roundIcon="@mipmap/ic_sable_media_round"
+-        android:label="Sable Media"
++        android:label="@string/app_name"
+         android:theme="@android:style/Theme.Material.NoActionBar">
+         <activity android:name=".MainActivity" android:exported="true">
+             <intent-filter>
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt
+index 7700767..b5a0458 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.media
+ 
+ import android.view.KeyEvent
++import org.sableos.media.MediaText.t
+ import java.util.Locale
+ 
+ /**
+@@ -106,14 +107,14 @@ internal object FmBand {
+     /** One line for the status panel. */
+     fun status(state: FmUiState): String =
+         when {
+-            !state.connected -> "Connecting to the FM tuner…"
+-            state.scanning -> "Scanning the band…"
+-            state.seeking -> "Seeking…"
+-            !state.antenna -> "Plug in wired headphones: they are the antenna"
+-            !state.powered -> "Off"
+-            state.muted -> "Muted"
+-            state.speaker -> "Playing on the speaker"
+-            else -> "Playing on headphones"
++            !state.connected -> t("connecting_to_the_fm_tuner")
++            state.scanning -> t("scanning_the_band")
++            state.seeking -> t("seeking")
++            !state.antenna -> t("plug_in_wired_headphones_they")
++            !state.powered -> t("off")
++            state.muted -> t("muted")
++            state.speaker -> t("playing_on_the_speaker")
++            else -> t("playing_on_headphones")
+         }
+ }
+ 
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmScreen.kt
+index 7db1060..eb53447 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmScreen.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmScreen.kt
+@@ -24,12 +24,12 @@ import org.sableos.design.SableDenseRow
+ import org.sableos.design.SableRowAction
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.SableValuePanel
++import org.sableos.media.MediaText.t
+ 
+ /** Whether the FM destination is offered in the top navigation (the FM bridge is installed). */
+ internal val LocalFmAvailable = staticCompositionLocalOf { false }
+ 
+-private const val FM_KEY_HINT =
+-    "Space on/off · J/K seek · Shift+J/K ±0.1 · Alt+1-9 presets · F star · O output · M mute · R scan"
++private val FM_KEY_HINT: String get() = t("space_on_off_j_k")
+ private const val FM_ACTION_TUNE = "tune"
+ private const val FM_ACTION_STAR = "star"
+ private val FmBadgeSize = 48.dp
+@@ -55,9 +55,9 @@ internal fun FmScreen(
+     Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg)) {
+         if (!fm.available) {
+             SableValuePanel(
+-                label = "fm radio",
+-                value = "Not available",
+-                supportingText = "This device has no FM tuner service Sable Media can use.",
++                label = t("fm_radio"),
++                value = t("not_available"),
++                supportingText = t("this_device_has_no_fm"),
+             )
+         } else {
+             FmTunerPanel(fm)
+@@ -83,15 +83,14 @@ private fun FmTunerPanel(fm: FmUiState) {
+                 .orEmpty()
+         }
+     SableValuePanel(
+-        label = if (tuned) "${FmBand.format(fm.station)} MHz" else "fm radio",
++        label = if (tuned) "${FmBand.format(fm.station)} MHz" else t("fm_radio"),
+         value = FmBand.status(fm),
+         supportingText = listOf(name, fm.radioText).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { null },
+     )
+     if (fm.connected && !fm.antenna) {
+         Text(
+             text =
+-                "FM uses wired headphones as its antenna. Plug them in to listen; " +
+-                    "Speaker then plays through the speaker with the headphones still in.",
++                t("fm_uses_wired_headphones_as"),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.error,
+         )
+@@ -114,19 +113,27 @@ private fun FmControls(
+     val rows =
+         listOf(
+             listOf(
+-                FmButton("◀ Seek") { actions.onSeek(false) },
+-                FmButton(if (fm.powered) "Turn off" else "Turn on", primary = true, onClick = actions.onPower),
+-                FmButton("Seek ▶") { actions.onSeek(true) },
++                FmButton(t("seek")) { actions.onSeek(false) },
++                FmButton(if (fm.powered) t("turn_off") else t("turn_on"), primary = true, onClick = actions.onPower),
++                FmButton(t("seek_2")) { actions.onSeek(true) },
+             ),
+             listOf(
+                 FmButton("−0.1") { actions.onStep(false) },
+-                FmButton(if (fm.speaker) "Headphones" else "Speaker", onClick = actions.onToggleSpeaker),
++                FmButton(if (fm.speaker) t("headphones") else t("speaker"), onClick = actions.onToggleSpeaker),
+                 FmButton("+0.1") { actions.onStep(true) },
+             ),
+             listOf(
+-                FmButton(if (fm.muted) "Unmute" else "Mute", onClick = actions.onToggleMute),
+-                FmButton(if (fm.scanning) "Stop scan" else "Scan", onClick = actions.onScan),
+-                FmButton(if (fm.station in favorites) "Unstar" else "Star") { actions.onToggleFavorite(fm.station) },
++                FmButton(if (fm.muted) t("unmute") else t("mute"), onClick = actions.onToggleMute),
++                FmButton(if (fm.scanning) t("stop_scan") else t("scan"), onClick = actions.onScan),
++                FmButton(
++                    if (fm.station in
++                        favorites
++                    ) {
++                        t("unstar")
++                    } else {
++                        t("star")
++                    },
++                ) { actions.onToggleFavorite(fm.station) },
+             ),
+         )
+     rows.forEach { buttons ->
+@@ -163,7 +170,7 @@ private fun FmStationList(
+     val list = FmPresets.list(favorites, fm.stations)
+     if (list.isEmpty()) {
+         Text(
+-            text = "No stations yet. Press R to scan, or star a station with F.",
++            text = t("no_stations_yet_press_r"),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+@@ -214,8 +221,8 @@ private fun FmStationRow(
+             modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
+             actions =
+                 listOf(
+-                    SableRowAction(FM_ACTION_TUNE, "Tune", primary = true),
+-                    SableRowAction(FM_ACTION_STAR, if (starred) "Remove star ★" else "Star ☆"),
++                    SableRowAction(FM_ACTION_TUNE, t("tune"), primary = true),
++                    SableRowAction(FM_ACTION_STAR, if (starred) t("remove_star") else t("star_2")),
+                 ),
+             onAction = { action ->
+                 when (action.id) {
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
+index cdb4be6..8c366f2 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
+@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
++import org.sableos.media.MediaText.t
+ 
+ /** The event handlers behind [MediaApp], grouped by area so each stays small. */
+ internal class MediaControllers(
+@@ -63,7 +64,7 @@ internal class MediaLibraryController(
+                 state.localItems = loadedItems
+                 state.playlists = loadedPlaylists
+             }.onFailure {
+-                state.message = "Local collection could not be loaded."
++                state.message = t("local_collection_could_not_be")
+             }
+         state.localLibraryLoading = false
+     }
+@@ -123,11 +124,11 @@ internal class MediaLibraryController(
+     fun toggleFocusedFavorite() {
+         val item = state.focusedTrack
+         if (item == null) {
+-            toast("Move focus to a track to change its favorite.")
++            toast(t("move_focus_to_a_track"))
+             return
+         }
+         toggleFavorite(item)
+-        toast(if (item.uri in state.favoriteAudioUris) "Added to favorites." else "Removed from favorites.")
++        toast(if (item.uri in state.favoriteAudioUris) t("added_to_favorites") else t("removed_from_favorites"))
+     }
+ 
+     fun importAudio(uris: List<Uri>) {
+@@ -139,7 +140,7 @@ internal class MediaLibraryController(
+ 
+         val currentItems = state.localItems
+         val currentPlaylists = state.playlists
+-        state.message = "Importing ${uris.size} audio file${pluralSuffix(uris.size)}…"
++        state.message = if (uris.size == 1) t("importing_1_audio_file") else t("importing_audio_files", uris.size)
+ 
+         scope.launch {
+             runCatching {
+@@ -148,9 +149,10 @@ internal class MediaLibraryController(
+                 }
+             }.onSuccess { (updatedItems, updatedPlaylists) ->
+                 applyImport(updatedItems, updatedPlaylists)
+-                state.message = "${uris.size} local audio file${pluralSuffix(uris.size)} added."
++                state.message =
++                    if (uris.size == 1) t("n1_local_audio_file_added") else t("local_audio_files_added", uris.size)
+             }.onFailure {
+-                state.message = "Audio import failed. Existing collection was not changed."
++                state.message = t("audio_import_failed_existing_collection")
+             }
+         }
+     }
+@@ -164,7 +166,7 @@ internal class MediaLibraryController(
+ 
+         val currentItems = state.localItems
+         val currentPlaylists = state.playlists
+-        state.message = "Scanning audio folder…"
++        state.message = t("scanning_audio_folder")
+ 
+         scope.launch {
+             runCatching {
+@@ -174,15 +176,21 @@ internal class MediaLibraryController(
+                 }
+             }.onSuccess { imported ->
+                 if (imported == null) {
+-                    state.message = "No audio files found in that folder."
++                    state.message = t("no_audio_files_found_in")
+                 } else {
+                     val (collection, importedCount) = imported
+                     applyImport(collection.first, collection.second)
+                     state.message =
+-                        "$importedCount audio file${pluralSuffix(importedCount)} imported from folder."
++                        if (importedCount ==
++                            1
++                        ) {
++                            t("n1_audio_file_imported_from")
++                        } else {
++                            t("audio_files_imported_from_folder", importedCount)
++                        }
+                 }
+             }.onFailure {
+-                state.message = "Folder import failed. Existing collection was not changed."
++                state.message = t("folder_import_failed_existing_collection")
+             }
+         }
+     }
+@@ -224,8 +232,8 @@ internal class MediaLibraryController(
+     }
+ 
+     private companion object {
+-        const val REMOVED_MESSAGE = "Removed from the Sable Media collection."
+-        const val LIBRARY_LOADING_MESSAGE = "Local collection is still loading."
++        val REMOVED_MESSAGE: String get() = t("removed_from_the_sable_media")
++        val LIBRARY_LOADING_MESSAGE: String get() = t("local_collection_is_still_loading")
+     }
+ }
+ 
+@@ -255,7 +263,7 @@ internal class MediaPlaylistController(
+                 current = state.playlists,
+                 playlistId = playlist.id,
+             )
+-        state.message = "Playlist removed."
++        state.message = t("playlist_removed")
+     }
+ 
+     fun play(playlist: MediaPlaylist) {
+@@ -268,7 +276,7 @@ internal class MediaPlaylistController(
+                 }
+ 
+             if (queue.isEmpty()) {
+-                state.message = "This playlist has no available tracks."
++                state.message = t("this_playlist_has_no_available")
+             } else {
+                 host.playLocalQueue(queue, 0)
+                 state.destination = MediaDestination.NowPlaying
+@@ -295,7 +303,7 @@ internal class MediaPlaylistController(
+                 name = state.playlistName,
+                 itemUris = state.selectedPlaylistUris,
+             )
+-        closeEditor(message = "Playlist saved locally.")
++        closeEditor(message = t("playlist_saved_locally"))
+     }
+ 
+     fun cancel() {
+@@ -325,7 +333,7 @@ internal class MediaPodcastController(
+         val candidate = state.podcastFeedUrl.trim()
+         when {
+             state.podcastBusy -> Unit
+-            !PodcastRepository.isSupportedFeedUrl(candidate) -> state.podcastMessage = "Podcast feed must use HTTPS."
++            !PodcastRepository.isSupportedFeedUrl(candidate) -> state.podcastMessage = t("podcast_feed_must_use_https")
+             else -> subscribe(candidate)
+         }
+     }
+@@ -338,7 +346,7 @@ internal class MediaPodcastController(
+         val currentSubscriptions = state.podcastSubscriptions
+         state.podcastBusy = true
+         state.podcastRefreshing = true
+-        state.podcastMessage = "Refreshing subscribed feeds…"
++        state.podcastMessage = t("refreshing_subscribed_feeds")
+ 
+         scope.launch {
+             runCatching {
+@@ -349,7 +357,7 @@ internal class MediaPodcastController(
+                 state.podcastSubscriptions = refresh.subscriptions
+                 state.podcastMessage = refreshMessage(refresh.failedFeeds)
+             }.onFailure { error ->
+-                state.podcastMessage = error.messageOr("Podcast refresh failed; cached episodes were kept.")
++                state.podcastMessage = error.messageOr(t("podcast_refresh_failed_cached_episodes"))
+             }
+             state.podcastRefreshing = false
+             state.podcastBusy = false
+@@ -362,7 +370,7 @@ internal class MediaPodcastController(
+                 current = state.podcastSubscriptions,
+                 podcastId = subscription.id,
+             )
+-        state.podcastMessage = "Podcast removed from this device."
++        state.podcastMessage = t("podcast_removed_from_this_device")
+     }
+ 
+     fun play(episode: PodcastEpisode) {
+@@ -382,7 +390,7 @@ internal class MediaPodcastController(
+                 title = episode.title,
+                 source = episode.podcastTitle,
+             )
+-        state.podcastMessage = if (queued) "Added to Up Next." else "Player is still connecting. Try again."
++        state.podcastMessage = if (queued) t("added_to_up_next") else t("player_is_still_connecting_try")
+     }
+ 
+     fun toggleSaved(episode: PodcastEpisode) {
+@@ -396,7 +404,7 @@ internal class MediaPodcastController(
+     private fun subscribe(candidate: String) {
+         val currentSubscriptions = state.podcastSubscriptions
+         state.podcastBusy = true
+-        state.podcastMessage = "Contacting podcast feed…"
++        state.podcastMessage = t("contacting_podcast_feed")
+ 
+         scope.launch {
+             runCatching {
+@@ -409,9 +417,9 @@ internal class MediaPodcastController(
+             }.onSuccess { updated ->
+                 state.podcastSubscriptions = updated
+                 state.podcastFeedUrl = ""
+-                state.podcastMessage = "Podcast subscribed. Pull down to refresh feeds."
++                state.podcastMessage = t("podcast_subscribed_pull_down_to")
+             }.onFailure { error ->
+-                state.podcastMessage = error.messageOr("Podcast feed could not be added.")
++                state.podcastMessage = error.messageOr(t("podcast_feed_could_not_be"))
+             }
+             state.podcastBusy = false
+         }
+@@ -419,9 +427,9 @@ internal class MediaPodcastController(
+ 
+     private fun refreshMessage(failedFeeds: Int): String =
+         if (failedFeeds == 0) {
+-            "Podcasts refreshed."
++            t("podcasts_refreshed")
+         } else {
+-            "Podcasts refreshed with $failedFeeds feed failure(s); cached episodes were kept."
++            t("podcasts_refreshed_with_feed_failure", failedFeeds)
+         }
+ }
+ 
+@@ -431,7 +439,7 @@ internal class MediaStationController(
+     private val host: MediaHostServices,
+ ) {
+     fun play(station: RadioStation) {
+-        host.playUri(Uri.parse(station.url), station.name, "live radio")
++        host.playUri(Uri.parse(station.url), station.name, t("live_radio"))
+         state.destination = MediaDestination.NowPlaying
+     }
+ 
+@@ -472,7 +480,7 @@ internal class MediaStationController(
+             state.clearStationForm()
+         }
+ 
+-        state.message = "Station removed."
++        state.message = t("station_removed")
+     }
+ 
+     fun saveNew() {
+@@ -490,7 +498,7 @@ internal class MediaStationController(
+                 url = candidate,
+             )
+         state.clearStationForm()
+-        state.message = "Station saved locally."
++        state.message = t("station_saved_locally")
+         state.destination = MediaDestination.Radio
+     }
+ 
+@@ -500,7 +508,7 @@ internal class MediaStationController(
+ 
+         when {
+             editing == null -> {
+-                state.message = "Choose a station to edit."
++                state.message = t("choose_a_station_to_edit")
+             }
+ 
+             !RadioStationRepository.isSupportedUrl(candidate) -> {
+@@ -516,7 +524,7 @@ internal class MediaStationController(
+                         url = candidate,
+                     )
+                 state.clearStationForm()
+-                state.message = "Station updated."
++                state.message = t("station_updated")
+             }
+         }
+     }
+@@ -530,7 +538,7 @@ internal class MediaStationController(
+     }
+ 
+     private companion object {
+-        const val UNSUPPORTED_URL_MESSAGE = "Station URL must use HTTP or HTTPS."
++        val UNSUPPORTED_URL_MESSAGE: String get() = t("station_url_must_use_http")
+     }
+ }
+ 
+@@ -685,6 +693,4 @@ internal class MediaKeyController(
+     }
+ }
+ 
+-private fun pluralSuffix(count: Int): String = if (count == 1) "" else "s"
+-
+ private fun Throwable.messageOr(fallback: String): String = message?.takeIf { it.isNotBlank() } ?: fallback
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApplication.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApplication.kt
+new file mode 100644
+index 0000000..1c7f049
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApplication.kt
+@@ -0,0 +1,11 @@
++package org.sableos.media
++
++import android.app.Application
++
++/** Binds [MediaText] to the app's string resources once per process, so the phone's language is used. */
++class MediaApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        MediaText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaC2Screens.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaC2Screens.kt
+index c82d171..57c7bcd 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaC2Screens.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaC2Screens.kt
+@@ -50,6 +50,7 @@ import org.sableos.design.SableRowAction
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.SableTile
+ import org.sableos.design.sableFocusRing
++import org.sableos.media.MediaText.t
+ 
+ @Composable
+ internal fun QueueScreen(
+@@ -87,7 +88,7 @@ internal fun QueueScreen(
+     ) {
+         item(key = "queue-back") {
+             C2BackTitle(
+-                title = "up next",
++                title = t("up_next"),
+                 onBack = onBack,
+             )
+         }
+@@ -107,9 +108,9 @@ internal fun QueueScreen(
+         if (upcomingCount <= 0) {
+             item(key = "queue-empty") {
+                 C2InfoPanel(
+-                    title = "Nothing else queued",
++                    title = t("nothing_else_queued"),
+                     detail =
+-                        "The current track is shown above. Add or play more local audio to build Up Next.",
++                        t("the_current_track_is_shown"),
+                 )
+             }
+         } else {
+@@ -141,10 +142,10 @@ internal fun QueueScreen(
+                         modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
+                         actions =
+                             buildList {
+-                                add(SableRowAction(QUEUE_ACTION_PLAY, "Play", primary = true))
+-                                if (canMoveUp) add(SableRowAction(QUEUE_ACTION_UP, "Move up"))
+-                                if (canMoveDown) add(SableRowAction(QUEUE_ACTION_DOWN, "Move down"))
+-                                add(SableRowAction(QUEUE_ACTION_REMOVE, "Remove from up next"))
++                                add(SableRowAction(QUEUE_ACTION_PLAY, t("play"), primary = true))
++                                if (canMoveUp) add(SableRowAction(QUEUE_ACTION_UP, t("move_up")))
++                                if (canMoveDown) add(SableRowAction(QUEUE_ACTION_DOWN, t("move_down")))
++                                add(SableRowAction(QUEUE_ACTION_REMOVE, t("remove_from_up_next")))
+                             },
+                         onAction = { action ->
+                             when (action.id) {
+@@ -162,8 +163,7 @@ internal fun QueueScreen(
+         item(key = "queue-footer") {
+             Text(
+                 text =
+-                    "Queue changes are applied directly to the active Media3 session. " +
+-                        "Sable does not persist listening history.",
++                    t("queue_changes_are_applied_directly"),
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -218,24 +218,24 @@ private fun QueueTransportControls(
+                 horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+             ) {
+                 SableActionButton(
+-                    text = "Prev",
++                    text = t("prev"),
+                     primary = false,
+                     modifier = Modifier.weight(1f),
+                     onClick = onPrevious,
+                 )
+                 SableActionButton(
+-                    text = if (playback.isPlaying) "Pause" else "Play",
++                    text = if (playback.isPlaying) t("pause") else t("play"),
+                     modifier = Modifier.weight(1f),
+                     onClick = onPlayPause,
+                 )
+                 SableActionButton(
+-                    text = "Next",
++                    text = t("next"),
+                     primary = false,
+                     modifier = Modifier.weight(1f),
+                     onClick = onNext,
+                 )
+                 SableActionButton(
+-                    text = "Stop",
++                    text = t("stop"),
+                     primary = false,
+                     modifier = Modifier.weight(1f),
+                     onClick = onStop,
+@@ -273,9 +273,9 @@ internal fun PlaylistEditorScreen(
+             C2BackTitle(
+                 title =
+                     if (editingPlaylist == null) {
+-                        "new playlist"
++                        t("new_playlist")
+                     } else {
+-                        "edit playlist"
++                        t("edit_playlist")
+                     },
+                 onBack = onCancel,
+             )
+@@ -287,7 +287,7 @@ internal fun PlaylistEditorScreen(
+                 onValueChange = onNameChange,
+                 modifier = Modifier.fillMaxWidth().mediaTextInput(),
+                 singleLine = true,
+-                label = { Text("Playlist name") },
++                label = { Text(t("playlist_name")) },
+             )
+         }
+ 
+@@ -301,8 +301,8 @@ internal fun PlaylistEditorScreen(
+         if (localItems.isEmpty()) {
+             item(key = "playlist-empty") {
+                 C2InfoPanel(
+-                    title = "No local tracks",
+-                    detail = "Add local audio to the Collection before creating a playlist.",
++                    title = t("no_local_tracks"),
++                    detail = t("add_local_audio_to_the"),
+                 )
+             }
+         } else {
+@@ -377,13 +377,13 @@ internal fun PlaylistEditorScreen(
+                 horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+             ) {
+                 SableActionButton(
+-                    text = "Cancel",
++                    text = t("cancel"),
+                     primary = false,
+                     modifier = Modifier.weight(1f),
+                     onClick = onCancel,
+                 )
+                 SableActionButton(
+-                    text = "Save playlist",
++                    text = t("save_playlist"),
+                     modifier = Modifier.weight(1f),
+                     onClick = onSave,
+                 )
+@@ -393,8 +393,7 @@ internal fun PlaylistEditorScreen(
+         item(key = "playlist-footer") {
+             Text(
+                 text =
+-                    "Playlists contain references to audio files you explicitly added to Sable Media. " +
+-                        "They stay local on this device.",
++                    t("playlists_contain_references_to_audio"),
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -412,12 +411,12 @@ internal fun SettingsScreen(
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+     ) {
+         C2BackTitle(
+-            title = "media settings",
++            title = t("media_settings"),
+             onBack = onBack,
+         )
+ 
+         Text(
+-            text = "start screen",
++            text = t("start_screen"),
+             style = MaterialTheme.typography.titleLarge,
+         )
+ 
+@@ -426,8 +425,8 @@ internal fun SettingsScreen(
+             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+         ) {
+             SableTile(
+-                title = "Collection",
+-                subtitle = "local library",
++                title = t("collection"),
++                subtitle = t("local_library"),
+                 active = settings.startPage == MediaStartPage.Collection,
+                 modifier = Modifier.weight(1f),
+                 onClick = {
+@@ -439,8 +438,8 @@ internal fun SettingsScreen(
+                 },
+             )
+             SableTile(
+-                title = "Radio",
+-                subtitle = "saved stations",
++                title = t("radio"),
++                subtitle = t("saved_stations"),
+                 active = settings.startPage == MediaStartPage.Radio,
+                 modifier = Modifier.weight(1f),
+                 onClick = {
+@@ -454,8 +453,8 @@ internal fun SettingsScreen(
+         }
+ 
+         SettingsToggleRow(
+-            title = "Show mini player",
+-            detail = "Show the active item below Collection and Radio.",
++            title = t("show_mini_player"),
++            detail = t("show_the_active_item_below"),
+             checked = settings.showMiniPlayer,
+             onCheckedChange = { enabled ->
+                 onSettingsChange(
+@@ -467,8 +466,8 @@ internal fun SettingsScreen(
+         )
+ 
+         SettingsToggleRow(
+-            title = "Keep screen awake while playing",
+-            detail = "Prevents display sleep only while Sable Media is actively playing.",
++            title = t("keep_screen_awake_while_playing"),
++            detail = t("prevents_display_sleep_only_while"),
+             checked = settings.keepScreenAwakeWhilePlaying,
+             onCheckedChange = { enabled ->
+                 onSettingsChange(
+@@ -482,8 +481,7 @@ internal fun SettingsScreen(
+         C2InfoPanel(
+             title = "privacy",
+             detail =
+-                "These preferences are stored locally. Sable Media does not create a cloud profile " +
+-                    "or send playback preferences to a recommendation service.",
++                t("these_preferences_are_stored_locally"),
+         )
+     }
+ }
+@@ -623,7 +621,7 @@ internal fun MediaKeyDialogs(
+     if (showInfo) {
+         AlertDialog(
+             onDismissRequest = onDismissInfo,
+-            title = { Text("now playing") },
++            title = { Text(t("now_playing")) },
+             text = {
+                 Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs)) {
+                     mediaInfoLines(playback).forEach { (label, value) ->
+@@ -638,7 +636,7 @@ internal fun MediaKeyDialogs(
+             },
+             confirmButton = {
+                 TextButton(onClick = onDismissInfo, modifier = Modifier.sableFocusRing()) {
+-                    Text("Close")
++                    Text(t("close"))
+                 }
+             },
+         )
+@@ -647,11 +645,10 @@ internal fun MediaKeyDialogs(
+     if (pendingRemoval != null) {
+         AlertDialog(
+             onDismissRequest = onDismissRemoval,
+-            title = { Text("Remove from collection?") },
++            title = { Text(t("remove_from_collection")) },
+             text = {
+                 Text(
+-                    "\"${pendingRemoval.title}\" leaves the Sable Media collection, its playlists and " +
+-                        "favorites. The file stays on the device.",
++                    t("leaves_the_sable_media_collection", pendingRemoval.title),
+                 )
+             },
+             confirmButton = {
+@@ -659,12 +656,12 @@ internal fun MediaKeyDialogs(
+                     onClick = { onConfirmRemoval(pendingRemoval) },
+                     modifier = Modifier.sableFocusRing(),
+                 ) {
+-                    Text("Remove")
++                    Text(t("remove"))
+                 }
+             },
+             dismissButton = {
+                 TextButton(onClick = onDismissRemoval, modifier = Modifier.sableFocusRing()) {
+-                    Text("Keep")
++                    Text(t("keep"))
+                 }
+             },
+         )
+@@ -681,11 +678,11 @@ internal fun mediaInfoLines(playback: PlaybackUiState): List<Pair<String, String
+                 if (playback.durationMs > 0L) {
+                     "$position / ${formatClock(playback.durationMs)}"
+                 } else {
+-                    "live · $position"
++                    t("live", position)
+                 },
+         )
+         if (playback.currentIndex >= 0 && playback.queue.isNotEmpty()) {
+-            add("queue" to "${playback.currentIndex + 1} of ${playback.queue.size}")
++            add("queue" to t("of", playback.currentIndex + 1, playback.queue.size))
+         }
+         add("state" to if (playback.isPlaying) "playing" else "paused")
+     }
+@@ -771,10 +768,10 @@ internal fun MediaSearchBar(
+                         }
+                     },
+             singleLine = true,
+-            label = { Text("Search title, artist or album") },
++            label = { Text(t("search_title_artist_or_album")) },
+             supportingText = {
+                 Text(
+-                    text = "$resultCount in $pivotLabel · Enter for results · Esc closes",
++                    text = t("in_enter_for_results_esc", resultCount, pivotLabel),
+                     style = MaterialTheme.typography.bodySmall,
+                 )
+             },
+@@ -785,7 +782,7 @@ internal fun MediaSearchBar(
+             onClick = onClose,
+             modifier = Modifier.sableFocusRing(),
+         ) {
+-            Text("Close")
++            Text(t("close"))
+         }
+     }
+ }
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaResponsive.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaResponsive.kt
+index fb4ebf2..5c8adbb 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaResponsive.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaResponsive.kt
+@@ -12,6 +12,7 @@ import org.sableos.design.SableMiniPlayerPolicy
+ import org.sableos.design.SablePlaybackState
+ import org.sableos.design.SableRowAction
+ import org.sableos.design.SableSpacing
++import org.sableos.media.MediaText.t
+ 
+ /*
+  * DESIGN-KF-D part 2 adoption in Sable Media: the mini-player always states
+@@ -20,7 +21,7 @@ import org.sableos.design.SableSpacing
+  * transport actions sit in its menu on constrained layouts.
+  */
+ 
+-internal const val NOTHING_QUEUED_TITLE = "Nothing queued"
++internal val NOTHING_QUEUED_TITLE: String get() = t("nothing_queued")
+ 
+ internal fun PlaybackUiState.miniPlayerModel(): SableMiniPlayerModel? {
+     val idle = title == NOTHING_QUEUED_TITLE && queue.isEmpty() && !isPlaying
+@@ -40,9 +41,9 @@ internal fun PlaybackUiState.miniPlayerModel(): SableMiniPlayerModel? {
+     )
+ }
+ 
+-private val PreviousAction = SableRowAction("previous", "Previous")
+-private val NextAction = SableRowAction("next", "Next")
+-private val QueueAction = SableRowAction("queue", "Up next")
++private val PreviousAction: SableRowAction get() = SableRowAction("previous", t("previous"))
++private val NextAction: SableRowAction get() = SableRowAction("next", t("next"))
++private val QueueAction: SableRowAction get() = SableRowAction("queue", t("up_next_2"))
+ 
+ /** Pinned (non-scrolling) mini-player shared by Collection, Podcasts and Radio. */
+ @Composable
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
+index 67fb15d..90af115 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
+@@ -57,6 +57,7 @@ import org.sableos.design.SableRowAction
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.sableFocusRing
+ import org.sableos.design.sableLetterJump
++import org.sableos.media.MediaText.t
+ import java.util.Locale
+ 
+ internal val MediaPink = Color(0xFFFF4F9A)
+@@ -82,7 +83,7 @@ internal enum class MediaDestination(
+ ) {
+     Collection("music"),
+     Podcasts("podcasts"),
+-    NowPlaying("now playing"),
++    NowPlaying(t("now_playing")),
+     Radio("radio"),
+     Fm("fm"),
+     ManageStations("manage"),
+@@ -361,12 +362,12 @@ internal fun MediaScreen(
+                         ) {
+                             item {
+                                 SableHeroHeader(
+-                                    eyebrow = "Sable Media",
++                                    eyebrow = t("sable_media"),
+                                     title =
+                                         when (destination) {
+                                             MediaDestination.Podcasts -> "podcasts"
+ 
+-                                            MediaDestination.Fm -> "fm radio"
++                                            MediaDestination.Fm -> t("fm_radio")
+ 
+                                             MediaDestination.Radio,
+                                             MediaDestination.ManageStations,
+@@ -383,7 +384,7 @@ internal fun MediaScreen(
+                                             MediaDestination.PlaylistEditor,
+                                             -> "media"
+                                         },
+-                                    subtitle = "Music, podcasts, and radio in one private playback flow.",
++                                    subtitle = t("music_podcasts_and_radio_in"),
+                                 )
+                             }
+ 
+@@ -648,7 +649,7 @@ private fun MediaUtilityBar(
+             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+         ) {
+             Text(
+-                text = "search  /",
++                text = t("search"),
+                 modifier = Modifier.padding(MediaCompactPadding),
+                 style = MaterialTheme.typography.labelLarge,
+             )
+@@ -661,7 +662,7 @@ private fun MediaUtilityBar(
+                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+             ) {
+                 Text(
+-                    text = "up next · $upNextCount  Q",
++                    text = t("up_next_q", upNextCount),
+                     modifier = Modifier.padding(MediaCompactPadding),
+                     style = MaterialTheme.typography.labelLarge,
+                 )
+@@ -918,9 +919,9 @@ private fun LazyListScope.collectionHeader(
+ ) {
+     item {
+         SableHeroHeader(
+-            eyebrow = "Sable Media",
++            eyebrow = t("sable_media"),
+             title = "music",
+-            subtitle = "Your local collection, playlists, and one continuous playback queue.",
++            subtitle = t("your_local_collection_playlists_and"),
+         )
+     }
+ 
+@@ -978,12 +979,12 @@ private fun CollectionImportButtons(
+         horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+     ) {
+         SableActionButton(
+-            text = "Add audio files",
++            text = t("add_audio_files"),
+             modifier = Modifier.weight(1f),
+             onClick = onAddLocalAudio,
+         )
+         SableActionButton(
+-            text = "Import folder",
++            text = t("import_folder"),
+             primary = false,
+             modifier = Modifier.weight(1f),
+             onClick = onAddLocalFolder,
+@@ -1002,8 +1003,8 @@ private fun LazyListScope.collectionBody(
+         content.loading -> {
+             item {
+                 C2InfoPanel(
+-                    title = "Loading local collection",
+-                    detail = "Indexing saved songs, artists, and albums off the UI thread.",
++                    title = t("loading_local_collection"),
++                    detail = t("indexing_saved_songs_artists_and"),
+                 )
+             }
+         }
+@@ -1011,10 +1012,9 @@ private fun LazyListScope.collectionBody(
+         !content.hasItems -> {
+             item {
+                 EmptyPanel(
+-                    title = "No local audio yet",
++                    title = t("no_local_audio_yet"),
+                     detail =
+-                        "Choose audio with Android's document picker. " +
+-                            "Sable keeps access only to files you explicitly select.",
++                        t("choose_audio_with_android_s"),
+                 )
+             }
+         }
+@@ -1022,8 +1022,8 @@ private fun LazyListScope.collectionBody(
+         index == null -> {
+             item {
+                 C2InfoPanel(
+-                    title = "Indexing collection",
+-                    detail = "Preparing songs, artists, albums, favorites, and A–Z navigation.",
++                    title = t("indexing_collection"),
++                    detail = t("preparing_songs_artists_albums_favorites"),
+                 )
+             }
+         }
+@@ -1044,8 +1044,8 @@ private fun LazyListScope.collectionResults(
+     if (query.isNotBlank() && index.songs.isEmpty() && content.pivot != LibraryPivot.Playlists) {
+         item {
+             C2InfoPanel(
+-                title = "No matches for \"${query.trim()}\"",
+-                detail = "Search looks at title, artist and album. Esc closes search.",
++                title = t("no_matches_for", query.trim()),
++                detail = t("search_looks_at_title_artist"),
+             )
+         }
+     }
+@@ -1109,8 +1109,8 @@ private fun LazyListScope.favoriteItems(
+     if (favorites.isEmpty()) {
+         item {
+             C2InfoPanel(
+-                title = "No favorite tracks",
+-                detail = "Mark local tracks with ★ to keep a quick local favorites view.",
++                title = t("no_favorite_tracks"),
++                detail = t("mark_local_tracks_with_to"),
+             )
+         }
+     } else {
+@@ -1126,7 +1126,7 @@ private fun LazyListScope.playlistItems(
+ ) {
+     item {
+         SableActionButton(
+-            text = "Create playlist",
++            text = t("create_playlist"),
+             modifier = Modifier.fillMaxWidth(),
+             onClick = actions.onCreate,
+         )
+@@ -1136,8 +1136,8 @@ private fun LazyListScope.playlistItems(
+         item {
+             C2InfoPanel(
+                 title =
+-                    if (query.isBlank()) "No playlists yet" else "No matching playlists",
+-                detail = "Create a local playlist from audio already added to Sable Media.",
++                    if (query.isBlank()) t("no_playlists_yet") else t("no_matching_playlists"),
++                detail = t("create_a_local_playlist_from"),
+             )
+         }
+     } else {
+@@ -1234,7 +1234,7 @@ private fun buildMediaCollectionIndex(
+                 val tracks = entry.value
+                 MediaGroupSummary(
+                     name = entry.key,
+-                    detail = "${tracks.size} track${if (tracks.size == 1) "" else "s"}",
++                    detail = if (tracks.size == 1) t("n1_track") else t("tracks", tracks.size),
+                     sourceIndex = sourceIndexByUri.getValue(tracks.first().uri),
+                 )
+             }
+@@ -1306,10 +1306,10 @@ private fun LocalTrackRow(
+             onClick = onPlay,
+             actions =
+                 listOf(
+-                    SableRowAction(ROW_ACTION_PLAY, "Play", primary = true),
++                    SableRowAction(ROW_ACTION_PLAY, t("play"), primary = true),
+                     SableRowAction(
+                         ROW_ACTION_FAVORITE,
+-                        if (favorite) "Remove from favorites ★" else "Add to favorites ☆",
++                        if (favorite) t("remove_from_favorites") else t("add_to_favorites"),
+                     ),
+                 ),
+             onAction = { action ->
+@@ -1352,13 +1352,13 @@ private fun PlaylistCard(
+         Column(modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs)) {
+             SableDenseRow(
+                 title = playlist.name,
+-                subtitle = "$trackCount track${if (trackCount == 1) "" else "s"}",
++                subtitle = if (trackCount == 1) t("n1_track") else t("tracks", trackCount),
+                 onClick = onPlay,
+                 actions =
+                     listOf(
+-                        SableRowAction(ROW_ACTION_PLAY, "Play", primary = true),
+-                        SableRowAction(ROW_ACTION_EDIT, "Edit"),
+-                        SableRowAction(ROW_ACTION_REMOVE, "Remove", destructive = true),
++                        SableRowAction(ROW_ACTION_PLAY, t("play"), primary = true),
++                        SableRowAction(ROW_ACTION_EDIT, t("edit")),
++                        SableRowAction(ROW_ACTION_REMOVE, t("remove"), destructive = true),
+                     ),
+                 onAction = { action ->
+                     when (action.id) {
+@@ -1374,7 +1374,7 @@ private fun PlaylistCard(
+                     horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+                 ) {
+                     SableActionButton(
+-                        text = "Remove playlist",
++                        text = t("remove_playlist"),
+                         modifier = Modifier.weight(1f),
+                         onClick = {
+                             confirmRemove = false
+@@ -1382,7 +1382,7 @@ private fun PlaylistCard(
+                         },
+                     )
+                     SableActionButton(
+-                        text = "Keep",
++                        text = t("keep"),
+                         primary = false,
+                         modifier = Modifier.weight(1f),
+                         onClick = { confirmRemove = false },
+@@ -1462,7 +1462,7 @@ private fun NowPlayingScreen(
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
+     ) {
+         Text(
+-            text = "now playing",
++            text = t("now_playing"),
+             style = MaterialTheme.typography.headlineLarge,
+         )
+ 
+@@ -1550,7 +1550,7 @@ private fun NowPlayingScreen(
+             )
+             PlayerButton(
+                 text = if (playback.isPlaying) "❚❚" else "▶",
+-                keyLabel = "Space",
++                keyLabel = t("space"),
+                 active = true,
+                 modifier = Modifier.weight(1f),
+                 onClick = onPlayPause,
+@@ -1580,7 +1580,7 @@ private fun NowPlayingScreen(
+ }
+ 
+ /** The Now playing hint line: the keys MediaKeymap gives this screen. */
+-internal const val NOW_PLAYING_KEY_HINT = "J prev · Space play · K next · Shift+J/K seek · Q queue"
++internal val NOW_PLAYING_KEY_HINT: String get() = t("j_prev_space_play_k")
+ 
+ @Composable
+ private fun RadioScreen(
+@@ -1602,12 +1602,12 @@ private fun RadioScreen(
+             verticalAlignment = Alignment.CenterVertically,
+         ) {
+             Text(
+-                text = "internet radio",
++                text = t("internet_radio"),
+                 modifier = Modifier.weight(1f),
+                 style = MaterialTheme.typography.headlineLarge,
+             )
+             SableActionButton(
+-                text = "Manage",
++                text = t("manage"),
+                 primary = false,
+                 onClick = onManage,
+             )
+@@ -1672,15 +1672,15 @@ private fun RadioScreen(
+             EmptyPanel(
+                 title =
+                     if (showFavoritesOnly) {
+-                        "No favorite stations"
++                        t("no_favorite_stations")
+                     } else {
+-                        "No saved stations"
++                        t("no_saved_stations")
+                     },
+                 detail =
+                     if (showFavoritesOnly) {
+-                        "Mark stations with ★ to keep a quick local favorites view."
++                        t("mark_stations_with_to_keep")
+                     } else {
+-                        "Add a station by name and direct HTTP(S) stream URL."
++                        t("add_a_station_by_name")
+                     },
+             )
+         } else {
+@@ -1695,7 +1695,7 @@ private fun RadioScreen(
+         }
+ 
+         SableActionButton(
+-            text = "Add new station",
++            text = t("add_new_station"),
+             modifier = Modifier.fillMaxWidth(),
+             onClick = onAdd,
+         )
+@@ -1727,10 +1727,10 @@ private fun RadioStationRow(
+             modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
+             actions =
+                 listOf(
+-                    SableRowAction(ROW_ACTION_PLAY, "Play", primary = true),
++                    SableRowAction(ROW_ACTION_PLAY, t("play"), primary = true),
+                     SableRowAction(
+                         ROW_ACTION_FAVORITE,
+-                        if (favorite) "Remove from favorites ★" else "Add to favorites ☆",
++                        if (favorite) t("remove_from_favorites") else t("add_to_favorites"),
+                     ),
+                 ),
+             onAction = { action ->
+@@ -1781,7 +1781,7 @@ private fun ManageStationsScreen(
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+     ) {
+         BackTitle(
+-            title = "station management",
++            title = t("station_management"),
+             onBack = onBack,
+         )
+ 
+@@ -1817,12 +1817,12 @@ private fun ManageStationsScreen(
+                         )
+                     }
+                     SableActionButton(
+-                        text = "Edit",
++                        text = t("edit"),
+                         primary = false,
+                         onClick = { onEdit(station) },
+                     )
+                     SableActionButton(
+-                        text = "Remove",
++                        text = t("remove"),
+                         primary = false,
+                         onClick = { onDelete(station) },
+                     )
+@@ -1832,7 +1832,7 @@ private fun ManageStationsScreen(
+ 
+         if (editingStation != null) {
+             Text(
+-                text = "edit station",
++                text = t("edit_station"),
+                 style = MaterialTheme.typography.titleLarge,
+             )
+             StationFields(
+@@ -1846,13 +1846,13 @@ private fun ManageStationsScreen(
+                 horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+             ) {
+                 SableActionButton(
+-                    text = "Cancel edit",
++                    text = t("cancel_edit"),
+                     primary = false,
+                     modifier = Modifier.weight(1f),
+                     onClick = onCancelEdit,
+                 )
+                 SableActionButton(
+-                    text = "Save changes",
++                    text = t("save_changes"),
+                     modifier = Modifier.weight(1f),
+                     onClick = onSave,
+                 )
+@@ -1868,7 +1868,7 @@ private fun ManageStationsScreen(
+         }
+ 
+         Text(
+-            text = "Manage edits and removes existing stations only. Use Add new station from Radio to create one.",
++            text = t("manage_edits_and_removes_existing"),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+@@ -1889,12 +1889,12 @@ private fun AddStationScreen(
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+     ) {
+         BackTitle(
+-            title = "add station",
++            title = t("add_station"),
+             onBack = onCancel,
+         )
+ 
+         Text(
+-            text = "Add one live-radio stream. Existing stations are managed separately.",
++            text = t("add_one_live_radio_stream"),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+@@ -1911,13 +1911,13 @@ private fun AddStationScreen(
+             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+         ) {
+             SableActionButton(
+-                text = "Cancel",
++                text = t("cancel"),
+                 primary = false,
+                 modifier = Modifier.weight(1f),
+                 onClick = onCancel,
+             )
+             SableActionButton(
+-                text = "Add station",
++                text = t("add_station_2"),
+                 modifier = Modifier.weight(1f),
+                 onClick = onSave,
+             )
+@@ -1945,14 +1945,14 @@ private fun StationFields(
+         onValueChange = onStationNameChange,
+         modifier = Modifier.fillMaxWidth().mediaTextInput(),
+         singleLine = true,
+-        label = { Text("Station name") },
++        label = { Text(t("station_name")) },
+     )
+     OutlinedTextField(
+         value = stationUrl,
+         onValueChange = onStationUrlChange,
+         modifier = Modifier.fillMaxWidth().mediaTextInput(),
+         singleLine = true,
+-        label = { Text("HTTP(S) stream URL") },
++        label = { Text(t("http_s_stream_url")) },
+     )
+ }
+ 
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaSnapshotProvider.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaSnapshotProvider.kt
+index d889f4a..ca9a8a0 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaSnapshotProvider.kt
+@@ -8,6 +8,7 @@ import android.database.MatrixCursor
+ import android.net.Uri
+ import android.os.Binder
+ import android.os.Process
++import org.sableos.media.MediaText.t
+ 
+ class MediaSnapshotProvider : ContentProvider() {
+     override fun onCreate(): Boolean = true
+@@ -26,7 +27,7 @@ class MediaSnapshotProvider : ContentProvider() {
+         return MatrixCursor(COLUMNS).apply {
+             addRow(
+                 arrayOf<Any?>(
+-                    "Media",
++                    t("media"),
+                     snapshotDetail(snapshot),
+                     if (snapshot.title.isNotBlank()) "LIVE" else "EMPTY",
+                     snapshot.observedAt,
+@@ -61,7 +62,7 @@ class MediaSnapshotProvider : ContentProvider() {
+ 
+     private fun snapshotDetail(snapshot: MediaSnapshot): String {
+         if (snapshot.title.isBlank()) {
+-            return "nothing playing"
++            return t("nothing_playing")
+         }
+ 
+         return buildString {
+@@ -70,7 +71,7 @@ class MediaSnapshotProvider : ContentProvider() {
+                 append(" · ")
+                 append(snapshot.artist)
+             }
+-            append(if (snapshot.playing) " · playing" else " · paused")
++            append(if (snapshot.playing) t("playing") else t("paused"))
+         }
+     }
+ 
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaText.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaText.kt
+new file mode 100644
+index 0000000..9993fcc
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaText.kt
+@@ -0,0 +1,252 @@
++package org.sableos.media
++
++import org.sableos.design.SableTexts
++
++/**
++ * Every line Sable Media shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (MediaTextTest keeps the two equal) and res/values-<lang>/strings.xml translates
++ * them.
++ */
++object MediaText {
++    val EN: Map<String, String> =
++        mapOf(
++            "no_episodes_yet" to "No episodes yet",
++            "add_an_rss_or_atom" to
++                "Add an RSS or Atom feed. Sable Media contacts only feeds you explicitly " +
++                "subscribe to.",
++            "no_subscriptions" to "No subscriptions",
++            "paste_a_direct_podcast_feed" to
++                "Paste a direct podcast feed URL below. There is no account, recommendation " +
++                "profile, or ambient directory lookup.",
++            "nothing_saved" to "Nothing saved",
++            "save_an_episode_to_keep" to
++                "Save an episode to keep it in a local listening list. Saved does not imply " +
++                "downloaded.",
++            "shows" to "%1\$s shows",
++            "n1_recent_episode" to "1 recent episode",
++            "recent_episodes" to "%1\$s recent episodes",
++            "play" to "Play",
++            "add_to_up_next" to "Add to up next",
++            "remove_from_saved" to "Remove from saved ★",
++            "save" to "Save ☆",
++            "episodes_refreshed" to "%1\$s episodes · refreshed %2\$s",
++            "remove_show" to "Remove show",
++            "add_a_show" to "add a show",
++            "paste_the_publisher_s_rss" to "Paste the publisher's RSS or Atom feed URL.",
++            "feed_url" to "Feed URL",
++            "subscribe" to "Subscribe",
++            "working" to "Working…",
++            "network_model" to "network model",
++            "sable_media_refreshes_only_feeds" to
++                "Sable Media refreshes only feeds you add and streams only episodes you choose. " +
++                "No podcast account, analytics SDK, recommendation profile, or automatic " +
++                "directory query is built into this flow.",
++            "n1_min" to "< 1 min",
++            "n1_min_2" to "1 min",
++            "min" to "%1\$s min",
++            "up_next" to "up next",
++            "nothing_else_queued" to "Nothing else queued",
++            "the_current_track_is_shown" to
++                "The current track is shown above. Add or play more local audio to build Up Next.",
++            "move_up" to "Move up",
++            "move_down" to "Move down",
++            "remove_from_up_next" to "Remove from up next",
++            "queue_changes_are_applied_directly" to
++                "Queue changes are applied directly to the active Media3 session. Sable does not " +
++                "persist listening history.",
++            "prev" to "Prev",
++            "pause" to "Pause",
++            "next" to "Next",
++            "stop" to "Stop",
++            "new_playlist" to "new playlist",
++            "edit_playlist" to "edit playlist",
++            "playlist_name" to "Playlist name",
++            "no_local_tracks" to "No local tracks",
++            "add_local_audio_to_the" to
++                "Add local audio to the Collection before creating a playlist.",
++            "cancel" to "Cancel",
++            "save_playlist" to "Save playlist",
++            "playlists_contain_references_to_audio" to
++                "Playlists contain references to audio files you explicitly added to Sable " +
++                "Media. They stay local on this device.",
++            "media_settings" to "media settings",
++            "start_screen" to "start screen",
++            "collection" to "Collection",
++            "local_library" to "local library",
++            "radio" to "Radio",
++            "saved_stations" to "saved stations",
++            "show_mini_player" to "Show mini player",
++            "show_the_active_item_below" to "Show the active item below Collection and Radio.",
++            "keep_screen_awake_while_playing" to "Keep screen awake while playing",
++            "prevents_display_sleep_only_while" to
++                "Prevents display sleep only while Sable Media is actively playing.",
++            "these_preferences_are_stored_locally" to
++                "These preferences are stored locally. Sable Media does not create a cloud " +
++                "profile or send playback preferences to a recommendation service.",
++            "now_playing" to "now playing",
++            "close" to "Close",
++            "remove_from_collection" to "Remove from collection?",
++            "leaves_the_sable_media_collection" to
++                "\"%1\$s\" leaves the Sable Media collection, its playlists and favorites. The " +
++                "file stays on the device.",
++            "remove" to "Remove",
++            "keep" to "Keep",
++            "live" to "live · %1\$s",
++            "of" to "%1\$s of %2\$s",
++            "search_title_artist_or_album" to "Search title, artist or album",
++            "in_enter_for_results_esc" to "%1\$s in %2\$s · Enter for results · Esc closes",
++            "podcast_feed_must_use_https" to "Podcast feed must use HTTPS.",
++            "podcast_feed_returned_http" to "Podcast feed returned HTTP %1\$s.",
++            "podcast_feed_redirected_to_a" to "Podcast feed redirected to a non-HTTPS URL.",
++            "podcast_feed_is_larger_than" to
++                "Podcast feed is larger than the Sable Media safety limit.",
++            "station_url_must_use_http" to "Station URL must use HTTP or HTTPS.",
++            "connecting_to_the_fm_tuner" to "Connecting to the FM tuner…",
++            "scanning_the_band" to "Scanning the band…",
++            "seeking" to "Seeking…",
++            "plug_in_wired_headphones_they" to "Plug in wired headphones: they are the antenna",
++            "off" to "Off",
++            "muted" to "Muted",
++            "playing_on_the_speaker" to "Playing on the speaker",
++            "playing_on_headphones" to "Playing on headphones",
++            "media" to "Media",
++            "nothing_playing" to "nothing playing",
++            "playing" to " · playing",
++            "paused" to " · paused",
++            "nothing_queued" to "Nothing queued",
++            "previous" to "Previous",
++            "up_next_2" to "Up next",
++            "space_on_off_j_k" to
++                "Space on/off · J/K seek · Shift+J/K ±0.1 · Alt+1-9 presets · F star · O output " +
++                "· M mute · R scan",
++            "fm_radio" to "fm radio",
++            "not_available" to "Not available",
++            "this_device_has_no_fm" to "This device has no FM tuner service Sable Media can use.",
++            "fm_uses_wired_headphones_as" to
++                "FM uses wired headphones as its antenna. Plug them in to listen; Speaker then " +
++                "plays through the speaker with the headphones still in.",
++            "seek" to "◀ Seek",
++            "turn_off" to "Turn off",
++            "turn_on" to "Turn on",
++            "seek_2" to "Seek ▶",
++            "headphones" to "Headphones",
++            "speaker" to "Speaker",
++            "unmute" to "Unmute",
++            "mute" to "Mute",
++            "stop_scan" to "Stop scan",
++            "scan" to "Scan",
++            "unstar" to "Unstar",
++            "star" to "Star",
++            "no_stations_yet_press_r" to
++                "No stations yet. Press R to scan, or star a station with F.",
++            "tune" to "Tune",
++            "remove_star" to "Remove star ★",
++            "star_2" to "Star ☆",
++            "local_music_or_radio" to "Local music or radio",
++            "untitled_audio" to "Untitled audio",
++            "local_audio" to "Local audio",
++            "sable_media" to "Sable Media",
++            "music_podcasts_and_radio_in" to
++                "Music, podcasts, and radio in one private playback flow.",
++            "search" to "search  /",
++            "up_next_q" to "up next · %1\$s  Q",
++            "your_local_collection_playlists_and" to
++                "Your local collection, playlists, and one continuous playback queue.",
++            "add_audio_files" to "Add audio files",
++            "import_folder" to "Import folder",
++            "loading_local_collection" to "Loading local collection",
++            "indexing_saved_songs_artists_and" to
++                "Indexing saved songs, artists, and albums off the UI thread.",
++            "no_local_audio_yet" to "No local audio yet",
++            "choose_audio_with_android_s" to
++                "Choose audio with Android's document picker. Sable keeps access only to files " +
++                "you explicitly select.",
++            "indexing_collection" to "Indexing collection",
++            "preparing_songs_artists_albums_favorites" to
++                "Preparing songs, artists, albums, favorites, and A–Z navigation.",
++            "no_matches_for" to "No matches for \"%1\$s\"",
++            "search_looks_at_title_artist" to
++                "Search looks at title, artist and album. Esc closes search.",
++            "no_favorite_tracks" to "No favorite tracks",
++            "mark_local_tracks_with_to" to
++                "Mark local tracks with ★ to keep a quick local favorites view.",
++            "create_playlist" to "Create playlist",
++            "no_playlists_yet" to "No playlists yet",
++            "no_matching_playlists" to "No matching playlists",
++            "create_a_local_playlist_from" to
++                "Create a local playlist from audio already added to Sable Media.",
++            "n1_track" to "1 track",
++            "tracks" to "%1\$s tracks",
++            "remove_from_favorites" to "Remove from favorites ★",
++            "add_to_favorites" to "Add to favorites ☆",
++            "edit" to "Edit",
++            "remove_playlist" to "Remove playlist",
++            "space" to "Space",
++            "j_prev_space_play_k" to "J prev · Space play · K next · Shift+J/K seek · Q queue",
++            "internet_radio" to "internet radio",
++            "manage" to "Manage",
++            "no_favorite_stations" to "No favorite stations",
++            "no_saved_stations" to "No saved stations",
++            "mark_stations_with_to_keep" to
++                "Mark stations with ★ to keep a quick local favorites view.",
++            "add_a_station_by_name" to "Add a station by name and direct HTTP(S) stream URL.",
++            "add_new_station" to "Add new station",
++            "station_management" to "station management",
++            "edit_station" to "edit station",
++            "cancel_edit" to "Cancel edit",
++            "save_changes" to "Save changes",
++            "manage_edits_and_removes_existing" to
++                "Manage edits and removes existing stations only. Use Add new station from Radio " +
++                "to create one.",
++            "add_station" to "add station",
++            "add_one_live_radio_stream" to
++                "Add one live-radio stream. Existing stations are managed separately.",
++            "add_station_2" to "Add station",
++            "station_name" to "Station name",
++            "http_s_stream_url" to "HTTP(S) stream URL",
++            "podcast_feed_document_types_are" to "Podcast feed document types are not accepted.",
++            "no_playable_audio_episodes_were" to
++                "No playable audio episodes were found in this feed.",
++            "unknown_artist" to "Unknown artist",
++            "local_collection_could_not_be" to "Local collection could not be loaded.",
++            "move_focus_to_a_track" to "Move focus to a track to change its favorite.",
++            "added_to_favorites" to "Added to favorites.",
++            "removed_from_favorites" to "Removed from favorites.",
++            "importing_1_audio_file" to "Importing 1 audio file…",
++            "importing_audio_files" to "Importing %1\$s audio files…",
++            "n1_local_audio_file_added" to "1 local audio file added.",
++            "local_audio_files_added" to "%1\$s local audio files added.",
++            "audio_import_failed_existing_collection" to
++                "Audio import failed. Existing collection was not changed.",
++            "scanning_audio_folder" to "Scanning audio folder…",
++            "no_audio_files_found_in" to "No audio files found in that folder.",
++            "n1_audio_file_imported_from" to "1 audio file imported from folder.",
++            "audio_files_imported_from_folder" to "%1\$s audio files imported from folder.",
++            "folder_import_failed_existing_collection" to
++                "Folder import failed. Existing collection was not changed.",
++            "removed_from_the_sable_media" to "Removed from the Sable Media collection.",
++            "local_collection_is_still_loading" to "Local collection is still loading.",
++            "playlist_removed" to "Playlist removed.",
++            "this_playlist_has_no_available" to "This playlist has no available tracks.",
++            "playlist_saved_locally" to "Playlist saved locally.",
++            "refreshing_subscribed_feeds" to "Refreshing subscribed feeds…",
++            "podcast_refresh_failed_cached_episodes" to
++                "Podcast refresh failed; cached episodes were kept.",
++            "podcast_removed_from_this_device" to "Podcast removed from this device.",
++            "added_to_up_next" to "Added to Up Next.",
++            "player_is_still_connecting_try" to "Player is still connecting. Try again.",
++            "contacting_podcast_feed" to "Contacting podcast feed…",
++            "podcast_subscribed_pull_down_to" to "Podcast subscribed. Pull down to refresh feeds.",
++            "podcast_feed_could_not_be" to "Podcast feed could not be added.",
++            "podcasts_refreshed" to "Podcasts refreshed.",
++            "podcasts_refreshed_with_feed_failure" to
++                "Podcasts refreshed with %1\$s feed failure(s); cached episodes were kept.",
++            "live_radio" to "live radio",
++            "station_removed" to "Station removed.",
++            "station_saved_locally" to "Station saved locally.",
++            "choose_a_station_to_edit" to "Choose a station to edit.",
++            "station_updated" to "Station updated.",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackController.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackController.kt
+index 96c2d77..41207ed 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackController.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackController.kt
+@@ -10,6 +10,7 @@ import androidx.media3.common.MediaMetadata
+ import androidx.media3.common.Player
+ import androidx.media3.session.MediaController
+ import androidx.media3.session.SessionToken
++import org.sableos.media.MediaText.t
+ 
+ internal data class QueueItemUiState(
+     val index: Int,
+@@ -24,8 +25,8 @@ internal enum class PlaybackSkip {
+ 
+ internal data class PlaybackUiState(
+     val connected: Boolean = false,
+-    val title: String = "Nothing queued",
+-    val source: String = "Local music or radio",
++    val title: String = t("nothing_queued"),
++    val source: String = t("local_music_or_radio"),
+     val isPlaying: Boolean = false,
+     val positionMs: Long = 0L,
+     val durationMs: Long = 0L,
+@@ -239,12 +240,12 @@ internal class PlaybackController(
+                     metadata.title
+                         ?.toString()
+                         ?.takeIf(String::isNotBlank)
+-                        ?: "Untitled audio",
++                        ?: t("untitled_audio"),
+                 source =
+                     metadata.artist
+                         ?.toString()
+                         ?.takeIf(String::isNotBlank)
+-                        ?: "Local audio",
++                        ?: t("local_audio"),
+             )
+         }
+ 
+@@ -256,12 +257,12 @@ internal class PlaybackController(
+                 metadata.title
+                     ?.toString()
+                     ?.takeIf(String::isNotBlank)
+-                    ?: "Nothing queued",
++                    ?: t("nothing_queued"),
+             source =
+                 metadata.artist
+                     ?.toString()
+                     ?.takeIf(String::isNotBlank)
+-                    ?: "Local music or radio",
++                    ?: t("local_music_or_radio"),
+             isPlaying = player.isPlaying,
+             positionMs = player.currentPosition.coerceAtLeast(0L),
+             durationMs = resolvedDuration(player),
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackService.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackService.kt
+index 651e1cd..53f845f 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackService.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackService.kt
+@@ -16,6 +16,7 @@ import kotlinx.coroutines.Job
+ import kotlinx.coroutines.SupervisorJob
+ import kotlinx.coroutines.cancel
+ import kotlinx.coroutines.launch
++import org.sableos.media.MediaText.t
+ 
+ class PlaybackService : MediaSessionService() {
+     private var player: ExoPlayer? = null
+@@ -121,7 +122,7 @@ class PlaybackService : MediaSessionService() {
+         val metadata =
+             MediaMetadata
+                 .Builder()
+-                .setTitle(title?.takeIf { it.isNotBlank() } ?: "Sable Media")
++                .setTitle(title?.takeIf { it.isNotBlank() } ?: t("sable_media"))
+                 .setArtist(source?.takeIf { it.isNotBlank() })
+                 .build()
+ 
+@@ -188,8 +189,8 @@ class PlaybackService : MediaSessionService() {
+         val metadata =
+             MediaMetadata
+                 .Builder()
+-                .setTitle(title?.takeIf { it.isNotBlank() } ?: "Local audio")
+-                .setArtist(artist?.takeIf { it.isNotBlank() } ?: "Unknown artist")
++                .setTitle(title?.takeIf { it.isNotBlank() } ?: t("local_audio"))
++                .setArtist(artist?.takeIf { it.isNotBlank() } ?: t("unknown_artist"))
+                 .build()
+ 
+         return MediaItem
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastFeedParser.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastFeedParser.kt
+index 5eaad2f..201f78b 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastFeedParser.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastFeedParser.kt
+@@ -2,6 +2,7 @@ package org.sableos.media
+ 
+ import android.text.Html
+ import android.util.Xml
++import org.sableos.media.MediaText.t
+ import org.xmlpull.v1.XmlPullParser
+ import java.io.ByteArrayInputStream
+ import java.net.URI
+@@ -54,7 +55,7 @@ internal object PodcastFeedParser {
+             )
+ 
+         require(!prolog.contains(DOCTYPE_DECLARATION_MARKER, ignoreCase = true)) {
+-            "Podcast feed document types are not accepted."
++            t("podcast_feed_document_types_are")
+         }
+     }
+ 
+@@ -408,7 +409,7 @@ internal object PodcastFeedParser {
+                     ).take(MAX_EPISODES_PER_FEED)
+ 
+             require(normalizedEpisodes.isNotEmpty()) {
+-                "No playable audio episodes were found in this feed."
++                t("no_playable_audio_episodes_were")
+             }
+ 
+             return PodcastSubscription(
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastRepository.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastRepository.kt
+index 2df6436..d86e8ce 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastRepository.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastRepository.kt
+@@ -3,6 +3,7 @@ package org.sableos.media
+ import android.content.Context
+ import org.json.JSONArray
+ import org.json.JSONObject
++import org.sableos.media.MediaText.t
+ import java.io.ByteArrayOutputStream
+ import java.io.InputStream
+ import java.net.HttpURLConnection
+@@ -62,7 +63,7 @@ internal class PodcastRepository(
+     ): List<PodcastSubscription> {
+         val normalized = feedUrl.trim()
+         require(isSupportedFeedUrl(normalized)) {
+-            "Podcast feed must use HTTPS."
++            t("podcast_feed_must_use_https")
+         }
+ 
+         val fetched = fetch(normalized)
+@@ -118,7 +119,7 @@ internal class PodcastRepository(
+ 
+         try {
+             require(connection.responseCode in HTTP_SUCCESS_RANGE) {
+-                "Podcast feed returned HTTP ${connection.responseCode}."
++                t("podcast_feed_returned_http", connection.responseCode)
+             }
+ 
+             val resolvedFeedUrl =
+@@ -128,7 +129,7 @@ internal class PodcastRepository(
+                     ?: feedUrl
+ 
+             require(isSupportedFeedUrl(resolvedFeedUrl)) {
+-                "Podcast feed redirected to a non-HTTPS URL."
++                t("podcast_feed_redirected_to_a")
+             }
+ 
+             val bytes =
+@@ -168,7 +169,7 @@ internal class PodcastRepository(
+         while (read >= 0) {
+             total += read
+             require(total <= MAX_FEED_BYTES) {
+-                "Podcast feed is larger than the Sable Media safety limit."
++                t("podcast_feed_is_larger_than")
+             }
+             output.write(buffer, 0, read)
+             read = input.read(buffer)
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastScreen.kt
+index 958cf7d..0d36fea 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastScreen.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastScreen.kt
+@@ -32,6 +32,7 @@ import org.sableos.design.SableDenseRow
+ import org.sableos.design.SableDestination
+ import org.sableos.design.SableRowAction
+ import org.sableos.design.SableSpacing
++import org.sableos.media.MediaText.t
+ import java.text.DateFormat
+ import java.util.Date
+ 
+@@ -129,9 +130,9 @@ internal fun PodcastScreen(
+             PodcastPivot.Latest -> {
+                 if (latest.isEmpty()) {
+                     PodcastEmptyPanel(
+-                        title = "No episodes yet",
++                        title = t("no_episodes_yet"),
+                         detail =
+-                            "Add an RSS or Atom feed. Sable Media contacts only feeds you explicitly subscribe to.",
++                            t("add_an_rss_or_atom"),
+                     )
+                 } else {
+                     latest.forEach { episode ->
+@@ -150,11 +151,9 @@ internal fun PodcastScreen(
+             PodcastPivot.Shows -> {
+                 if (subscriptions.isEmpty()) {
+                     PodcastEmptyPanel(
+-                        title = "No subscriptions",
++                        title = t("no_subscriptions"),
+                         detail =
+-                            "Paste a direct podcast feed URL below. " +
+-                                "There is no account, recommendation profile, " +
+-                                "or ambient directory lookup.",
++                            t("paste_a_direct_podcast_feed"),
+                     )
+                 } else {
+                     subscriptions.forEach { subscription ->
+@@ -169,9 +168,9 @@ internal fun PodcastScreen(
+             PodcastPivot.Saved -> {
+                 if (saved.isEmpty()) {
+                     PodcastEmptyPanel(
+-                        title = "Nothing saved",
++                        title = t("nothing_saved"),
+                         detail =
+-                            "Save an episode to keep it in a local listening list. Saved does not imply downloaded.",
++                            t("save_an_episode_to_keep"),
+                     )
+                 } else {
+                     saved.forEach { episode ->
+@@ -241,15 +240,15 @@ private fun PodcastStatusDeck(
+                 verticalArrangement = Arrangement.spacedBy(2.dp),
+             ) {
+                 Text(
+-                    text = "$subscriptionCount shows",
++                    text = t("shows", subscriptionCount),
+                     style = MaterialTheme.typography.headlineSmall,
+                 )
+                 Text(
+                     text =
+                         if (episodeCount == 1) {
+-                            "1 recent episode"
++                            t("n1_recent_episode")
+                         } else {
+-                            "$episodeCount recent episodes"
++                            t("recent_episodes", episodeCount)
+                         },
+                     style = MaterialTheme.typography.bodyMedium,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+@@ -295,9 +294,9 @@ private fun PodcastEpisodeRow(
+             modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
+             actions =
+                 listOf(
+-                    SableRowAction(EPISODE_ACTION_PLAY, "Play", primary = true),
+-                    SableRowAction(EPISODE_ACTION_QUEUE, "Add to up next"),
+-                    SableRowAction(EPISODE_ACTION_SAVE, if (saved) "Remove from saved ★" else "Save ☆"),
++                    SableRowAction(EPISODE_ACTION_PLAY, t("play"), primary = true),
++                    SableRowAction(EPISODE_ACTION_QUEUE, t("add_to_up_next")),
++                    SableRowAction(EPISODE_ACTION_SAVE, if (saved) t("remove_from_saved") else t("save")),
+                 ),
+             onAction = { action ->
+                 when (action.id) {
+@@ -391,13 +390,13 @@ private fun PodcastSubscriptionCard(
+ 
+             Text(
+                 text =
+-                    "${subscription.episodes.size} episodes · refreshed ${formatPodcastDate(subscription.refreshedAt)}",
++                    t("episodes_refreshed", subscription.episodes.size, formatPodcastDate(subscription.refreshedAt)),
+                 style = MaterialTheme.typography.labelMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+ 
+             SableActionButton(
+-                text = "Remove show",
++                text = t("remove_show"),
+                 primary = false,
+                 modifier = Modifier.fillMaxWidth(),
+                 onClick = onRemove,
+@@ -423,11 +422,11 @@ private fun PodcastFeedEntry(
+             verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
+         ) {
+             Text(
+-                text = "add a show",
++                text = t("add_a_show"),
+                 style = MaterialTheme.typography.headlineSmall,
+             )
+             Text(
+-                text = "Paste the publisher's RSS or Atom feed URL.",
++                text = t("paste_the_publisher_s_rss"),
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -438,14 +437,14 @@ private fun PodcastFeedEntry(
+                 enabled = enabled,
+                 singleLine = true,
+                 label = {
+-                    Text("Feed URL")
++                    Text(t("feed_url"))
+                 },
+                 placeholder = {
+                     Text("https://example.org/podcast/feed.xml")
+                 },
+             )
+             SableActionButton(
+-                text = if (enabled) "Subscribe" else "Working…",
++                text = if (enabled) t("subscribe") else t("working"),
+                 modifier = Modifier.fillMaxWidth(),
+                 onClick = {
+                     if (enabled && value.isNotBlank()) {
+@@ -463,15 +462,13 @@ private fun PodcastPrivacyNote() {
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
+     ) {
+         Text(
+-            text = "network model",
++            text = t("network_model"),
+             style = MaterialTheme.typography.labelLarge,
+             color = MediaPink,
+         )
+         Text(
+             text =
+-                "Sable Media refreshes only feeds you add and streams only episodes you choose. " +
+-                    "No podcast account, analytics SDK, recommendation profile, " +
+-                    "or automatic directory query is built into this flow.",
++                t("sable_media_refreshes_only_feeds"),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+@@ -564,9 +561,9 @@ private fun podcastEpisodeMeta(episode: PodcastEpisode): String {
+         val minutes = episode.durationMs / MILLIS_PER_MINUTE
+         pieces +=
+             when {
+-                minutes < 1L -> "< 1 min"
+-                minutes == 1L -> "1 min"
+-                else -> "$minutes min"
++                minutes < 1L -> t("n1_min")
++                minutes == 1L -> t("n1_min_2")
++                else -> t("min", minutes)
+             }
+     }
+ 
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/RadioStationRepository.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/RadioStationRepository.kt
+index 9e578c9..5e0736a 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/RadioStationRepository.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/RadioStationRepository.kt
+@@ -4,6 +4,7 @@ import android.content.Context
+ import android.net.Uri
+ import org.json.JSONArray
+ import org.json.JSONObject
++import org.sableos.media.MediaText.t
+ import java.util.UUID
+ 
+ internal data class RadioStation(
+@@ -58,7 +59,7 @@ internal class RadioStationRepository(
+     ): List<RadioStation> {
+         val normalizedUrl = url.trim()
+         require(isSupportedUrl(normalizedUrl)) {
+-            "Station URL must use HTTP or HTTPS."
++            t("station_url_must_use_http")
+         }
+ 
+         val normalizedName =
+@@ -101,7 +102,7 @@ internal class RadioStationRepository(
+     ): List<RadioStation> {
+         val normalizedUrl = url.trim()
+         require(isSupportedUrl(normalizedUrl)) {
+-            "Station URL must use HTTP or HTTPS."
++            t("station_url_must_use_http")
+         }
+ 
+         val normalizedName =
+diff --git a/sable-src/apps/r8/android/media/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/r8/android/media/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..678426c
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/main/res/values/strings.xml
+@@ -0,0 +1,198 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to MediaText.EN (MediaTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sable Media</string>
++    <string name="no_episodes_yet">No episodes yet</string>
++    <string name="add_an_rss_or_atom">Add an RSS or Atom feed. Sable Media contacts only feeds you explicitly subscribe to.</string>
++    <string name="no_subscriptions">No subscriptions</string>
++    <string name="paste_a_direct_podcast_feed">Paste a direct podcast feed URL below. There is no account, recommendation profile, or ambient directory lookup.</string>
++    <string name="nothing_saved">Nothing saved</string>
++    <string name="save_an_episode_to_keep">Save an episode to keep it in a local listening list. Saved does not imply downloaded.</string>
++    <string name="shows">%1$s shows</string>
++    <string name="n1_recent_episode">1 recent episode</string>
++    <string name="recent_episodes">%1$s recent episodes</string>
++    <string name="play">Play</string>
++    <string name="add_to_up_next">Add to up next</string>
++    <string name="remove_from_saved">Remove from saved ★</string>
++    <string name="save">Save ☆</string>
++    <string name="episodes_refreshed">%1$s episodes · refreshed %2$s</string>
++    <string name="remove_show">Remove show</string>
++    <string name="add_a_show">add a show</string>
++    <string name="paste_the_publisher_s_rss">Paste the publisher\'s RSS or Atom feed URL.</string>
++    <string name="feed_url">Feed URL</string>
++    <string name="subscribe">Subscribe</string>
++    <string name="working">Working…</string>
++    <string name="network_model">network model</string>
++    <string name="sable_media_refreshes_only_feeds">Sable Media refreshes only feeds you add and streams only episodes you choose. No podcast account, analytics SDK, recommendation profile, or automatic directory query is built into this flow.</string>
++    <string name="n1_min">&lt; 1 min</string>
++    <string name="n1_min_2">1 min</string>
++    <string name="min">%1$s min</string>
++    <string name="up_next">up next</string>
++    <string name="nothing_else_queued">Nothing else queued</string>
++    <string name="the_current_track_is_shown">The current track is shown above. Add or play more local audio to build Up Next.</string>
++    <string name="move_up">Move up</string>
++    <string name="move_down">Move down</string>
++    <string name="remove_from_up_next">Remove from up next</string>
++    <string name="queue_changes_are_applied_directly">Queue changes are applied directly to the active Media3 session. Sable does not persist listening history.</string>
++    <string name="prev">Prev</string>
++    <string name="pause">Pause</string>
++    <string name="next">Next</string>
++    <string name="stop">Stop</string>
++    <string name="new_playlist">new playlist</string>
++    <string name="edit_playlist">edit playlist</string>
++    <string name="playlist_name">Playlist name</string>
++    <string name="no_local_tracks">No local tracks</string>
++    <string name="add_local_audio_to_the">Add local audio to the Collection before creating a playlist.</string>
++    <string name="cancel">Cancel</string>
++    <string name="save_playlist">Save playlist</string>
++    <string name="playlists_contain_references_to_audio">Playlists contain references to audio files you explicitly added to Sable Media. They stay local on this device.</string>
++    <string name="media_settings">media settings</string>
++    <string name="start_screen">start screen</string>
++    <string name="collection">Collection</string>
++    <string name="local_library">local library</string>
++    <string name="radio">Radio</string>
++    <string name="saved_stations">saved stations</string>
++    <string name="show_mini_player">Show mini player</string>
++    <string name="show_the_active_item_below">Show the active item below Collection and Radio.</string>
++    <string name="keep_screen_awake_while_playing">Keep screen awake while playing</string>
++    <string name="prevents_display_sleep_only_while">Prevents display sleep only while Sable Media is actively playing.</string>
++    <string name="these_preferences_are_stored_locally">These preferences are stored locally. Sable Media does not create a cloud profile or send playback preferences to a recommendation service.</string>
++    <string name="now_playing">now playing</string>
++    <string name="close">Close</string>
++    <string name="remove_from_collection">Remove from collection?</string>
++    <string name="leaves_the_sable_media_collection">\"%1$s\" leaves the Sable Media collection, its playlists and favorites. The file stays on the device.</string>
++    <string name="remove">Remove</string>
++    <string name="keep">Keep</string>
++    <string name="live">live · %1$s</string>
++    <string name="of">%1$s of %2$s</string>
++    <string name="search_title_artist_or_album">Search title, artist or album</string>
++    <string name="in_enter_for_results_esc">%1$s in %2$s · Enter for results · Esc closes</string>
++    <string name="podcast_feed_must_use_https">Podcast feed must use HTTPS.</string>
++    <string name="podcast_feed_returned_http">Podcast feed returned HTTP %1$s.</string>
++    <string name="podcast_feed_redirected_to_a">Podcast feed redirected to a non-HTTPS URL.</string>
++    <string name="podcast_feed_is_larger_than">Podcast feed is larger than the Sable Media safety limit.</string>
++    <string name="station_url_must_use_http">Station URL must use HTTP or HTTPS.</string>
++    <string name="connecting_to_the_fm_tuner">Connecting to the FM tuner…</string>
++    <string name="scanning_the_band">Scanning the band…</string>
++    <string name="seeking">Seeking…</string>
++    <string name="plug_in_wired_headphones_they">Plug in wired headphones: they are the antenna</string>
++    <string name="off">Off</string>
++    <string name="muted">Muted</string>
++    <string name="playing_on_the_speaker">Playing on the speaker</string>
++    <string name="playing_on_headphones">Playing on headphones</string>
++    <string name="media">Media</string>
++    <string name="nothing_playing">nothing playing</string>
++    <string name="playing">" · playing"</string>
++    <string name="paused">" · paused"</string>
++    <string name="nothing_queued">Nothing queued</string>
++    <string name="previous">Previous</string>
++    <string name="up_next_2">Up next</string>
++    <string name="space_on_off_j_k">Space on/off · J/K seek · Shift+J/K ±0.1 · Alt+1-9 presets · F star · O output · M mute · R scan</string>
++    <string name="fm_radio">fm radio</string>
++    <string name="not_available">Not available</string>
++    <string name="this_device_has_no_fm">This device has no FM tuner service Sable Media can use.</string>
++    <string name="fm_uses_wired_headphones_as">FM uses wired headphones as its antenna. Plug them in to listen; Speaker then plays through the speaker with the headphones still in.</string>
++    <string name="seek">◀ Seek</string>
++    <string name="turn_off">Turn off</string>
++    <string name="turn_on">Turn on</string>
++    <string name="seek_2">Seek ▶</string>
++    <string name="headphones">Headphones</string>
++    <string name="speaker">Speaker</string>
++    <string name="unmute">Unmute</string>
++    <string name="mute">Mute</string>
++    <string name="stop_scan">Stop scan</string>
++    <string name="scan">Scan</string>
++    <string name="unstar">Unstar</string>
++    <string name="star">Star</string>
++    <string name="no_stations_yet_press_r">No stations yet. Press R to scan, or star a station with F.</string>
++    <string name="tune">Tune</string>
++    <string name="remove_star">Remove star ★</string>
++    <string name="star_2">Star ☆</string>
++    <string name="local_music_or_radio">Local music or radio</string>
++    <string name="untitled_audio">Untitled audio</string>
++    <string name="local_audio">Local audio</string>
++    <string name="sable_media">Sable Media</string>
++    <string name="music_podcasts_and_radio_in">Music, podcasts, and radio in one private playback flow.</string>
++    <string name="search">"search  /"</string>
++    <string name="up_next_q">"up next · %1$s  Q"</string>
++    <string name="your_local_collection_playlists_and">Your local collection, playlists, and one continuous playback queue.</string>
++    <string name="add_audio_files">Add audio files</string>
++    <string name="import_folder">Import folder</string>
++    <string name="loading_local_collection">Loading local collection</string>
++    <string name="indexing_saved_songs_artists_and">Indexing saved songs, artists, and albums off the UI thread.</string>
++    <string name="no_local_audio_yet">No local audio yet</string>
++    <string name="choose_audio_with_android_s">Choose audio with Android\'s document picker. Sable keeps access only to files you explicitly select.</string>
++    <string name="indexing_collection">Indexing collection</string>
++    <string name="preparing_songs_artists_albums_favorites">Preparing songs, artists, albums, favorites, and A–Z navigation.</string>
++    <string name="no_matches_for">No matches for \"%1$s\"</string>
++    <string name="search_looks_at_title_artist">Search looks at title, artist and album. Esc closes search.</string>
++    <string name="no_favorite_tracks">No favorite tracks</string>
++    <string name="mark_local_tracks_with_to">Mark local tracks with ★ to keep a quick local favorites view.</string>
++    <string name="create_playlist">Create playlist</string>
++    <string name="no_playlists_yet">No playlists yet</string>
++    <string name="no_matching_playlists">No matching playlists</string>
++    <string name="create_a_local_playlist_from">Create a local playlist from audio already added to Sable Media.</string>
++    <string name="n1_track">1 track</string>
++    <string name="tracks">%1$s tracks</string>
++    <string name="remove_from_favorites">Remove from favorites ★</string>
++    <string name="add_to_favorites">Add to favorites ☆</string>
++    <string name="edit">Edit</string>
++    <string name="remove_playlist">Remove playlist</string>
++    <string name="space">Space</string>
++    <string name="j_prev_space_play_k">J prev · Space play · K next · Shift+J/K seek · Q queue</string>
++    <string name="internet_radio">internet radio</string>
++    <string name="manage">Manage</string>
++    <string name="no_favorite_stations">No favorite stations</string>
++    <string name="no_saved_stations">No saved stations</string>
++    <string name="mark_stations_with_to_keep">Mark stations with ★ to keep a quick local favorites view.</string>
++    <string name="add_a_station_by_name">Add a station by name and direct HTTP(S) stream URL.</string>
++    <string name="add_new_station">Add new station</string>
++    <string name="station_management">station management</string>
++    <string name="edit_station">edit station</string>
++    <string name="cancel_edit">Cancel edit</string>
++    <string name="save_changes">Save changes</string>
++    <string name="manage_edits_and_removes_existing">Manage edits and removes existing stations only. Use Add new station from Radio to create one.</string>
++    <string name="add_station">add station</string>
++    <string name="add_one_live_radio_stream">Add one live-radio stream. Existing stations are managed separately.</string>
++    <string name="add_station_2">Add station</string>
++    <string name="station_name">Station name</string>
++    <string name="http_s_stream_url">HTTP(S) stream URL</string>
++    <string name="podcast_feed_document_types_are">Podcast feed document types are not accepted.</string>
++    <string name="no_playable_audio_episodes_were">No playable audio episodes were found in this feed.</string>
++    <string name="unknown_artist">Unknown artist</string>
++    <string name="local_collection_could_not_be">Local collection could not be loaded.</string>
++    <string name="move_focus_to_a_track">Move focus to a track to change its favorite.</string>
++    <string name="added_to_favorites">Added to favorites.</string>
++    <string name="removed_from_favorites">Removed from favorites.</string>
++    <string name="importing_1_audio_file">Importing 1 audio file…</string>
++    <string name="importing_audio_files">Importing %1$s audio files…</string>
++    <string name="n1_local_audio_file_added">1 local audio file added.</string>
++    <string name="local_audio_files_added">%1$s local audio files added.</string>
++    <string name="audio_import_failed_existing_collection">Audio import failed. Existing collection was not changed.</string>
++    <string name="scanning_audio_folder">Scanning audio folder…</string>
++    <string name="no_audio_files_found_in">No audio files found in that folder.</string>
++    <string name="n1_audio_file_imported_from">1 audio file imported from folder.</string>
++    <string name="audio_files_imported_from_folder">%1$s audio files imported from folder.</string>
++    <string name="folder_import_failed_existing_collection">Folder import failed. Existing collection was not changed.</string>
++    <string name="removed_from_the_sable_media">Removed from the Sable Media collection.</string>
++    <string name="local_collection_is_still_loading">Local collection is still loading.</string>
++    <string name="playlist_removed">Playlist removed.</string>
++    <string name="this_playlist_has_no_available">This playlist has no available tracks.</string>
++    <string name="playlist_saved_locally">Playlist saved locally.</string>
++    <string name="refreshing_subscribed_feeds">Refreshing subscribed feeds…</string>
++    <string name="podcast_refresh_failed_cached_episodes">Podcast refresh failed; cached episodes were kept.</string>
++    <string name="podcast_removed_from_this_device">Podcast removed from this device.</string>
++    <string name="added_to_up_next">Added to Up Next.</string>
++    <string name="player_is_still_connecting_try">Player is still connecting. Try again.</string>
++    <string name="contacting_podcast_feed">Contacting podcast feed…</string>
++    <string name="podcast_subscribed_pull_down_to">Podcast subscribed. Pull down to refresh feeds.</string>
++    <string name="podcast_feed_could_not_be">Podcast feed could not be added.</string>
++    <string name="podcasts_refreshed">Podcasts refreshed.</string>
++    <string name="podcasts_refreshed_with_feed_failure">Podcasts refreshed with %1$s feed failure(s); cached episodes were kept.</string>
++    <string name="live_radio">live radio</string>
++    <string name="station_removed">Station removed.</string>
++    <string name="station_saved_locally">Station saved locally.</string>
++    <string name="choose_a_station_to_edit">Choose a station to edit.</string>
++    <string name="station_updated">Station updated.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaTextTest.kt b/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaTextTest.kt
+new file mode 100644
+index 0000000..236a254
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaTextTest.kt
+@@ -0,0 +1,58 @@
++package org.sableos.media
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.media.MediaText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class MediaTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        MediaText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, MediaText.EN.keys, tr.keys.intersect(MediaText.EN.keys))
++            MediaText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
 diff --git a/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml
 index c41ea96..ede38ca 100644
 --- a/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml
