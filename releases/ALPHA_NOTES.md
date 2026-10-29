@@ -16,6 +16,10 @@ driven without touching the screen.
 - **Sable Hub, Messages, Mail, Calendar, Weather, Media, Calculator, Tools** and
   the other Sable apps, each with single-key shortcuts (T top, B bottom, Space
   page, N/P next and previous in lists).
+- **Sable Reader** for books (EPUB), PDF, comics (CBZ or image folders, with
+  manga and webtoon modes) and audiobooks (MP3, M4A/M4B, folders), each kind
+  on its own tab. Audiobooks keep playing with the screen off; Space plays,
+  Left/Right skip, N/P change chapter and A sets speed and the sleep timer.
 - **Phone** with letter-key contact jumps, hardware digits on the dial screen,
   M/S/D in a call and Space to answer, and speed dial: hold a letter on the
   home screen or in Phone to call the contact you gave it.

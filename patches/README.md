@@ -102,7 +102,13 @@
   (built-in English list, `ld`/`lt`/`myver`, your own entries, undo with Backspace), single-key list
   movement (`SableListKeys`: T/B/Space/N/P in Messages, T/B in Hub, B in Mail), speed dial on held
   letters in Sable Start (calls through Phone's 0710 trampoline) and the Sound Profiles app with its
-  Quick Settings tile. Applied in order to a
+  Quick Settings tile, 0077 the alpha-20261028 review (Weather header fix, Sound Profiles in the
+  Sable look, BlackBerry 7 home dials, swipes and favourites, one pure black palette, seven more
+  games), 0078 the BlackBerry 7 home coming back after a Hub visit (`Bb7Detour`), 0079 N/P chapter
+  keys for audiobooks in Sable Reader (the Q25 has no PageUp/PageDown), and 0080 Sable Reader's
+  Comics and Audio tabs (the shelf narrowed to one kind), Comics & Audiobooks defaults in Reader
+  Settings (`AudioSettingsStore`, `ComicViewDefaults` fallback) and the short-window layout
+  (`ReaderLayoutProfile.isShort`) for the 411 x 387 dp screen. Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 
