@@ -8,7 +8,7 @@ What a user sees in another language, and how to add one.
 |---|---|
 | Android and LineageOS (Settings, Phone, Contacts, system dialogs) | Every Android language. Pick it in first-boot setup or Settings > System > Languages |
 | Typing (Sable Keyboard) | 35 typing languages: Latin languages with accents (Español, Français, Deutsch, Português, Italiano, Polski, Türkçe, Svenska, Nederlands), Cyrillic, Greek, Arabic, Hebrew, Urdu, Hindi and nine other Indic scripts (InScript and an "ABC" phonetic layout), Korean, Japanese kana and Chinese pinyin. Add them in Sable Keyboard's settings; Ctrl+Space or the globe key switches. Non-Latin layouts are on-screen; the physical keys type Latin |
-| Sable apps | English only, except Sable Setup, which has a pilot Spanish translation (sable-src 0075) |
+| Sable apps | English only, except Sable Setup, which has Spanish, French and German drafts (sable-src 0075, 0082) |
 
 ## Translating a Sable app
 
@@ -30,8 +30,12 @@ complete) keeps them in step.
 
 ## Order of work
 
-1. Sable Setup (done, Spanish pilot).
+1. Sable Setup (done: Spanish, French and German drafts).
 2. The apps a new user meets first: Sable Start, Sable Hub, Phone and Messages strings, Sable Tools.
 3. The rest of the Sable apps.
 
-Each translation needs a fluent reviewer before it ships; the Spanish pilot was written without one.
+Each translation needs a fluent reviewer before it ships, and none of the Setup drafts has had one yet.
+The owner's 2026-10-29 drafts also covered 15 more languages (it, pt, nl, pl, sv, tr, ru, el, ar,
+he, ur, hi, ko, ja and Pinyin Chinese). They were left out because about a third of each file
+was English words mixed into the translation, which reads worse than the English fallback.
+Chinese should be Simplified Chinese (`values-zh-rCN`), not Pinyin.

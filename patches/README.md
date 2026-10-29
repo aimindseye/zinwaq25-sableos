@@ -109,7 +109,8 @@
   Comics and Audio tabs (the shelf narrowed to one kind), Comics & Audiobooks defaults in Reader
   Settings (`AudioSettingsStore`, `ComicViewDefaults` fallback) and the short-window layout
   (`ReaderLayoutProfile.isShort`) for the 411 x 387 dp screen, and 0081 Sable Notes (the `notes`
-  r8 module, its Phosphor notepad icon and Start glyph). Applied in order to a
+  r8 module, its Phosphor notepad icon and Start glyph), and 0082 Sable Setup's French and German
+  drafts and an updated Spanish one. Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 
