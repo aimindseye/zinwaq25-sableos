@@ -1,6 +1,7 @@
 package org.sableos.notes.core
 
 import java.io.File
+import java.nio.file.Files
 import java.util.UUID
 
 /** Notes as files in an app-private directory, one `<id>.note` file each ([NoteCodec]). */
@@ -22,13 +23,14 @@ class NoteStore(
         val tmp = File(dir, note.id + ".tmp")
         tmp.writeText(NoteCodec.encode(note))
         if (!tmp.renameTo(file(note.id))) {
-            tmp.delete()
+            Files.deleteIfExists(tmp.toPath())
             error("could not save note ${note.id}")
         }
     }
 
+    /** Throws when the file exists and cannot be removed. */
     fun delete(id: String) {
-        file(id).delete()
+        Files.deleteIfExists(file(id).toPath())
     }
 
     private fun file(id: String): File {

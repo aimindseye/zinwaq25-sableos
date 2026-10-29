@@ -775,13 +775,14 @@ index 0000000..3bda85b
 +}
 diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteStore.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteStore.kt
 new file mode 100644
-index 0000000..a1026b2
+index 0000000..012defd
 --- /dev/null
 +++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NoteStore.kt
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,47 @@
 +package org.sableos.notes.core
 +
 +import java.io.File
++import java.nio.file.Files
 +import java.util.UUID
 +
 +/** Notes as files in an app-private directory, one `<id>.note` file each ([NoteCodec]). */
@@ -803,13 +804,14 @@ index 0000000..a1026b2
 +        val tmp = File(dir, note.id + ".tmp")
 +        tmp.writeText(NoteCodec.encode(note))
 +        if (!tmp.renameTo(file(note.id))) {
-+            tmp.delete()
++            Files.deleteIfExists(tmp.toPath())
 +            error("could not save note ${note.id}")
 +        }
 +    }
 +
++    /** Throws when the file exists and cannot be removed. */
 +    fun delete(id: String) {
-+        file(id).delete()
++        Files.deleteIfExists(file(id).toPath())
 +    }
 +
 +    private fun file(id: String): File {
