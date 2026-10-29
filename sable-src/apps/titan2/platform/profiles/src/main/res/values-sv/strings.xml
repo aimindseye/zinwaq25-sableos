@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">Ljudprofil</string>
+    <string name="allow_do_not_disturb_access">Tillåt åtkomst till Stör ej för Sound Profiles</string>
+    <string name="choose">Välj</string>
+    <string name="use">Använd %1$s</string>
+    <string name="edit">Redigera %1$s</string>
+    <string name="quick_settings_tile">Snabbinställningsruta</string>
+    <string name="pull_down_the_shade_choose">Dra ned panelen, välj Redigera och dra in rutan Ljudprofil.</string>
+    <string name="close">Stäng</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter använder en profil · E redigerar den · Menu visar fler alternativ</string>
+    <string name="quick_settings_pull_down_the">Snabbinställningar: dra ned panelen, välj Redigera och lägg till rutan Ljudprofil.</string>
+    <string name="volume">Volym %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter höjer med 10% · Shift+Enter sänker med 10%</string>
+    <string name="ringtone">Ringsignal</string>
+    <string name="notification_tone">Aviseringsljud</string>
+    <string name="vibrate_for_calls">Vibrera vid samtal</string>
+    <string name="space_turns_it_on_or">Space slår på eller av</string>
+    <string name="notification_light">Aviseringslampa</string>
+    <string name="is_on_allow_changing_system">%1$s är på. Tillåt ändringar av systeminställningar så att signaler, vibration och lampan kan ställas in, och välj sedan profilen igen.</string>
+    <string name="allow_do_not_disturb_access_2">Tillåt åtkomst till Stör ej för Sound Profiles och välj sedan %1$s igen.</string>
+    <string name="phone_s_current_tone">Aktuell ringsignal på telefonen</string>
+    <string name="normal">Normal</string>
+    <string name="rings_and_alerts_at_your">Samtal och aviseringar med din volym</string>
+    <string name="loud">Hög</string>
+    <string name="rings_and_alerts_at_full">Samtal och aviseringar på full volym</string>
+    <string name="vibrate_only">Endast vibration</string>
+    <string name="vibrates_for_calls_and_alerts">Vibrerar vid samtal och aviseringar, utan ljud</string>
+    <string name="phone_calls_only">Endast telefonsamtal</string>
+    <string name="only_calls_ring_messages_and">Endast samtal ringer; meddelanden och aviseringar är tysta</string>
+    <string name="all_alerts_off">Alla aviseringar av</string>
+    <string name="nothing_rings_or_vibrates_alarms">Inget ljud eller vibration; alarm hörs fortfarande</string>
+</resources>

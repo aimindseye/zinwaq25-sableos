@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">وضع الصوت</string>
+    <string name="allow_do_not_disturb_access">السماح لتطبيق Sound Profiles بالوصول إلى وضع عدم الإزعاج</string>
+    <string name="choose">اختيار</string>
+    <string name="use">استخدام %1$s</string>
+    <string name="edit">تعديل %1$s</string>
+    <string name="quick_settings_tile">مربع الإعدادات السريعة</string>
+    <string name="pull_down_the_shade_choose">اسحب لوحة الإشعارات إلى أسفل، واختر تعديل، ثم اسحب مربع وضع الصوت إليها.</string>
+    <string name="close">إغلاق</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">يطبّق Enter الوضع · يعدّله E · يفتح Menu مزيدًا من الخيارات</string>
+    <string name="quick_settings_pull_down_the">الإعدادات السريعة: اسحب لوحة الإشعارات إلى أسفل، واختر تعديل، ثم أضف مربع وضع الصوت.</string>
+    <string name="volume">مستوى الصوت %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">يزيد Enter المستوى بنسبة 10% · يخفضه Shift+Enter بنسبة 10%</string>
+    <string name="ringtone">نغمة الرنين</string>
+    <string name="notification_tone">نغمة الإشعارات</string>
+    <string name="vibrate_for_calls">الاهتزاز للمكالمات</string>
+    <string name="space_turns_it_on_or">يُفعّل Space الخيار أو يعطّله</string>
+    <string name="notification_light">ضوء الإشعارات</string>
+    <string name="is_on_allow_changing_system">وضع %1$s مفعّل. اسمح بتغيير إعدادات النظام حتى يتمكن من ضبط النغمات والاهتزاز والضوء، ثم اختره مجددًا.</string>
+    <string name="allow_do_not_disturb_access_2">اسمح لتطبيق Sound Profiles بالوصول إلى وضع عدم الإزعاج، ثم اختر %1$s مجددًا.</string>
+    <string name="phone_s_current_tone">نغمة الرنين الحالية للهاتف</string>
+    <string name="normal">عادي</string>
+    <string name="rings_and_alerts_at_your">رنين المكالمات والتنبيهات بمستوى الصوت الذي حددته</string>
+    <string name="loud">مرتفع</string>
+    <string name="rings_and_alerts_at_full">رنين المكالمات والتنبيهات بأعلى مستوى للصوت</string>
+    <string name="vibrate_only">اهتزاز فقط</string>
+    <string name="vibrates_for_calls_and_alerts">يهتز للمكالمات والتنبيهات من دون صوت</string>
+    <string name="phone_calls_only">المكالمات الهاتفية فقط</string>
+    <string name="only_calls_ring_messages_and">المكالمات وحدها ترن؛ الرسائل والتنبيهات صامتة</string>
+    <string name="all_alerts_off">تعطيل جميع التنبيهات</string>
+    <string name="nothing_rings_or_vibrates_alarms">لا رنين ولا اهتزاز؛ تظل المنبهات تصدر صوتًا</string>
+</resources>

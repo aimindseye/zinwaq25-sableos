@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">Tonprofil</string>
+    <string name="allow_do_not_disturb_access">Zugriff auf „Nicht stören“ für Sound Profiles erlauben</string>
+    <string name="choose">Auswählen</string>
+    <string name="use">%1$s verwenden</string>
+    <string name="edit">%1$s bearbeiten</string>
+    <string name="quick_settings_tile">Kachel für Schnelleinstellungen</string>
+    <string name="pull_down_the_shade_choose">Benachrichtigungsleiste herunterziehen, „Bearbeiten“ auswählen und die Kachel „Tonprofil“ hineinziehen.</string>
+    <string name="close">Schließen</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter aktiviert ein Profil · E bearbeitet es · Menu zeigt weitere Optionen</string>
+    <string name="quick_settings_pull_down_the">Schnelleinstellungen: Leiste herunterziehen, „Bearbeiten“ auswählen und die Kachel „Tonprofil“ hinzufügen.</string>
+    <string name="volume">Lautstärke %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter erhöht um 10% · Shift+Enter verringert um 10%</string>
+    <string name="ringtone">Klingelton</string>
+    <string name="notification_tone">Benachrichtigungston</string>
+    <string name="vibrate_for_calls">Bei Anrufen vibrieren</string>
+    <string name="space_turns_it_on_or">Space schaltet die Option ein oder aus</string>
+    <string name="notification_light">Benachrichtigungslicht</string>
+    <string name="is_on_allow_changing_system">%1$s ist aktiviert. Änderungen an Systemeinstellungen erlauben, damit Töne, Vibration und Licht eingestellt werden können. Danach erneut auswählen.</string>
+    <string name="allow_do_not_disturb_access_2">Zugriff auf „Nicht stören“ für Sound Profiles erlauben und anschließend %1$s erneut auswählen.</string>
+    <string name="phone_s_current_tone">Aktueller Klingelton des Telefons</string>
+    <string name="normal">Normal</string>
+    <string name="rings_and_alerts_at_your">Anrufe und Hinweise mit Ihrer Lautstärke</string>
+    <string name="loud">Laut</string>
+    <string name="rings_and_alerts_at_full">Anrufe und Hinweise mit voller Lautstärke</string>
+    <string name="vibrate_only">Nur vibrieren</string>
+    <string name="vibrates_for_calls_and_alerts">Vibration bei Anrufen und Hinweisen, kein Ton</string>
+    <string name="phone_calls_only">Nur Telefonanrufe</string>
+    <string name="only_calls_ring_messages_and">Nur Anrufe klingeln; Nachrichten und Hinweise bleiben stumm</string>
+    <string name="all_alerts_off">Alle Hinweise aus</string>
+    <string name="nothing_rings_or_vibrates_alarms">Keine Töne oder Vibrationen; Wecker klingeln weiterhin</string>
+</resources>

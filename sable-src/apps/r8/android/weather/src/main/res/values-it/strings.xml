@@ -1,40 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Italian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
 <resources>
-    <string name="city_or_name_lat_lon">città, o Nome, lat, lon, Area/Zona</string>
-    <string name="no_match_enter_name_latitude">Nessuna corrispondenza. Inserisci Nome, latitudine, longitudine, Area/Zona.</string>
+    <string name="city_or_name_lat_lon">città oppure nome, latitudine, longitudine, area/fuso</string>
+    <string name="no_match_enter_name_latitude">Nessuna corrispondenza. Inserisci nome, latitudine, longitudine e area/fuso.</string>
     <string name="remove">Rimuovere %1$s?</string>
-    <string name="reset_to_the_built_in">Ripristinare le città integrate? Le città aggiunte vengono rimosse.</string>
+    <string name="reset_to_the_built_in">Ripristinare le città predefinite? Le città aggiunte verranno rimosse.</string>
     <string name="current_manual_city">attuale · città manuale</string>
     <string name="add_city">aggiungi città</string>
-    <string name="type_a_name_or_press">digita un nome, o premi qualsiasi lettera</string>
-    <string name="reset_to_built_in_cities">ripristina città integrate</string>
-    <string name="refreshing_forecast">Aggiornamento previsioni in corso…</string>
-    <string name="loading_forecast">caricamento previsioni</string>
+    <string name="type_a_name_or_press">digita un nome o premi una lettera qualsiasi</string>
+    <string name="reset_to_built_in_cities">ripristina le città predefinite</string>
+    <string name="refreshing_forecast">Aggiornamento delle previsioni…</string>
+    <string name="loading_forecast">caricamento delle previsioni</string>
     <string name="forecast_unavailable">previsioni non disponibili</string>
     <string name="weather_ready">meteo pronto</string>
-    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · memorizzato localmente nella cache · posizione approssimativa o città scelta · la posizione precisa non viene mai utilizzata</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · cache locale · posizione approssimativa o città scelta · la posizione precisa non viene mai utilizzata</string>
     <string name="use_current_location">Usa posizione attuale</string>
     <string name="finding_where_you_are">Ricerca della tua posizione…</string>
-    <string name="off_showing_the_chosen_city">Disattivato: mostra la città scelta</string>
-    <string name="feels_like">"percepito "</string>
+    <string name="off_showing_the_chosen_city">Disattivato: viene mostrata la città scelta</string>
+    <string name="feels_like">"percepita "</string>
     <string name="next_hours">prossime ore</string>
     <string name="n7_days">7 giorni</string>
     <string name="live">" · in tempo reale"</string>
     <string name="cached">" · in cache"</string>
-    <string name="fetching">" · recupero"</string>
+    <string name="fetching">" · recupero dati"</string>
     <string name="unavailable">" · non disponibile"</string>
     <string name="local">" · locale"</string>
     <string name="partly_cloudy">parzialmente nuvoloso</string>
     <string name="conditions_unavailable">condizioni non disponibili</string>
     <string name="forecast_not_loaded_yet">Previsioni non ancora caricate.</string>
     <string name="refresh_to_load_the_forecast">Aggiorna per caricare le previsioni.</string>
-    <string name="cached_forecast_could_not_be">Impossibile leggere le previsioni nella cache.</string>
-    <string name="forecast_is_current">Le previsioni sono attuali.</string>
-    <string name="showing_cached_forecast">Mostra previsioni in cache.</string>
+    <string name="cached_forecast_could_not_be">Impossibile leggere le previsioni memorizzate nella cache.</string>
+    <string name="forecast_is_current">Le previsioni sono aggiornate.</string>
+    <string name="showing_cached_forecast">Visualizzazione delle previsioni in cache.</string>
     <string name="forecast_available">Previsioni disponibili.</string>
-    <string name="offline_showing_last_known_forecast">Offline · mostra le ultime previsioni note.</string>
+    <string name="offline_showing_last_known_forecast">Offline · visualizzazione delle ultime previsioni note.</string>
     <string name="forecast_unavailable_check_the_connection">Previsioni non disponibili. Controlla la connessione e riprova.</string>
-    <string name="provider_response_could_not_be">Impossibile normalizzare la risposta del provider.</string>
+    <string name="provider_response_could_not_be">Impossibile normalizzare la risposta del fornitore.</string>
     <string name="updated_from_open_meteo">Aggiornato da Open-Meteo.</string>
 </resources>

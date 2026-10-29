@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Korean. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">소리 프로필</string>
+    <string name="allow_do_not_disturb_access">Sound Profiles의 방해 금지 모드 접근 허용</string>
+    <string name="choose">선택</string>
+    <string name="use">%1$s 사용</string>
+    <string name="edit">%1$s 편집</string>
+    <string name="quick_settings_tile">빠른 설정 타일</string>
+    <string name="pull_down_the_shade_choose">알림 창을 아래로 내리고 편집을 선택한 다음 소리 프로필 타일을 끌어다 놓으세요.</string>
+    <string name="close">닫기</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter로 프로필 적용 · E로 편집 · Menu로 추가 옵션 보기</string>
+    <string name="quick_settings_pull_down_the">빠른 설정: 알림 창을 내리고 편집을 선택하여 소리 프로필 타일을 추가하세요.</string>
+    <string name="volume">음량 %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter로 10% 올리기 · Shift+Enter로 10% 내리기</string>
+    <string name="ringtone">벨소리</string>
+    <string name="notification_tone">알림음</string>
+    <string name="vibrate_for_calls">전화 올 때 진동</string>
+    <string name="space_turns_it_on_or">Space로 켜거나 끄기</string>
+    <string name="notification_light">알림 표시등</string>
+    <string name="is_on_allow_changing_system">%1$s이(가) 켜져 있습니다. 벨소리, 진동 및 표시등을 설정할 수 있도록 시스템 설정 변경을 허용한 다음 다시 선택하세요.</string>
+    <string name="allow_do_not_disturb_access_2">Sound Profiles의 방해 금지 모드 접근을 허용한 다음 %1$s을(를) 다시 선택하세요.</string>
+    <string name="phone_s_current_tone">휴대전화의 현재 벨소리</string>
+    <string name="normal">일반</string>
+    <string name="rings_and_alerts_at_your">설정한 음량으로 전화 및 알림 울림</string>
+    <string name="loud">크게</string>
+    <string name="rings_and_alerts_at_full">최대 음량으로 전화 및 알림 울림</string>
+    <string name="vibrate_only">진동만</string>
+    <string name="vibrates_for_calls_and_alerts">전화 및 알림 시 소리 없이 진동</string>
+    <string name="phone_calls_only">전화 통화만</string>
+    <string name="only_calls_ring_messages_and">전화만 울리고 메시지와 알림은 무음</string>
+    <string name="all_alerts_off">모든 알림 끄기</string>
+    <string name="nothing_rings_or_vibrates_alarms">소리와 진동이 모두 꺼지지만 알람은 계속 울림</string>
+</resources>

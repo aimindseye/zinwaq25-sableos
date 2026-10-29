@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">声音模式</string>
+    <string name="allow_do_not_disturb_access">允许 Sound Profiles 使用勿扰模式</string>
+    <string name="choose">选择</string>
+    <string name="use">使用 %1$s</string>
+    <string name="edit">编辑 %1$s</string>
+    <string name="quick_settings_tile">快捷设置磁贴</string>
+    <string name="pull_down_the_shade_choose">下拉通知面板，选择“编辑”，然后将“声音模式”磁贴拖入其中。</string>
+    <string name="close">关闭</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">按 Enter 应用模式 · 按 E 编辑 · 按 Menu 查看更多选项</string>
+    <string name="quick_settings_pull_down_the">快捷设置：下拉通知面板，选择“编辑”，添加“声音模式”磁贴。</string>
+    <string name="volume">音量 %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">按 Enter 增加 10% · 按 Shift+Enter 减少 10%</string>
+    <string name="ringtone">来电铃声</string>
+    <string name="notification_tone">通知铃声</string>
+    <string name="vibrate_for_calls">来电时振动</string>
+    <string name="space_turns_it_on_or">按 Space 开启或关闭</string>
+    <string name="notification_light">通知指示灯</string>
+    <string name="is_on_allow_changing_system">%1$s 已开启。允许修改系统设置，以便设置铃声、振动和指示灯，然后再次选择。</string>
+    <string name="allow_do_not_disturb_access_2">允许 Sound Profiles 使用勿扰模式，然后再次选择 %1$s。</string>
+    <string name="phone_s_current_tone">手机的当前铃声</string>
+    <string name="normal">正常</string>
+    <string name="rings_and_alerts_at_your">来电和通知使用设定的音量</string>
+    <string name="loud">响亮</string>
+    <string name="rings_and_alerts_at_full">来电和通知使用最大音量</string>
+    <string name="vibrate_only">仅振动</string>
+    <string name="vibrates_for_calls_and_alerts">来电和通知时只振动，不发出声音</string>
+    <string name="phone_calls_only">仅来电</string>
+    <string name="only_calls_ring_messages_and">仅来电响铃；消息和通知静音</string>
+    <string name="all_alerts_off">关闭所有通知</string>
+    <string name="nothing_rings_or_vibrates_alarms">没有铃声和振动；闹钟仍会响起</string>
+</resources>

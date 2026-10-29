@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- German. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
 <resources>
-    <string name="city_or_name_lat_lon">Stadt, oder Name, Breitengrad, Längengrad, Gebiet/Zone</string>
-    <string name="no_match_enter_name_latitude">Kein Treffer. Name, Breitengrad, Längengrad, Gebiet/Zone eingeben.</string>
+    <string name="city_or_name_lat_lon">Stadt oder Name, Breite, Länge, Region/Zeitzone</string>
+    <string name="no_match_enter_name_latitude">Kein Treffer. Name, Breitengrad, Längengrad und Region/Zeitzone eingeben.</string>
     <string name="remove">%1$s entfernen?</string>
-    <string name="reset_to_the_built_in">Auf integrierte Städte zurücksetzen? Hinzugefügte Städte werden entfernt.</string>
-    <string name="current_manual_city">aktuell · manuelle Stadt</string>
+    <string name="reset_to_the_built_in">Auf die integrierten Städte zurücksetzen? Hinzugefügte Städte werden entfernt.</string>
+    <string name="current_manual_city">aktuell · manuell gewählte Stadt</string>
     <string name="add_city">Stadt hinzufügen</string>
-    <string name="type_a_name_or_press">Namen eingeben, oder beliebigen Buchstaben drücken</string>
-    <string name="reset_to_built_in_cities">auf integrierte Städte zurücksetzen</string>
-    <string name="refreshing_forecast">Wettervorhersage wird aktualisiert…</string>
+    <string name="type_a_name_or_press">Namen eingeben oder eine beliebige Buchstabentaste drücken</string>
+    <string name="reset_to_built_in_cities">integrierte Städte wiederherstellen</string>
+    <string name="refreshing_forecast">Vorhersage wird aktualisiert…</string>
     <string name="loading_forecast">Vorhersage wird geladen</string>
     <string name="forecast_unavailable">Vorhersage nicht verfügbar</string>
-    <string name="weather_ready">Wetter bereit</string>
-    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · lokal zwischengespeichert · ungefährer Standort oder gewählte Stadt · genauer Standort wird nie verwendet</string>
+    <string name="weather_ready">Wetterdaten bereit</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · lokal zwischengespeichert · ungefährer Standort oder ausgewählte Stadt · genauer Standort wird nie verwendet</string>
     <string name="use_current_location">Aktuellen Standort verwenden</string>
-    <string name="finding_where_you_are">Suche nach Ihrem Standort…</string>
-    <string name="off_showing_the_chosen_city">Aus: Gewählte Stadt wird angezeigt</string>
-    <string name="feels_like">"gefühlt wie "</string>
+    <string name="finding_where_you_are">Standort wird ermittelt…</string>
+    <string name="off_showing_the_chosen_city">Aus: ausgewählte Stadt wird angezeigt</string>
+    <string name="feels_like">"gefühlt "</string>
     <string name="next_hours">nächste Stunden</string>
     <string name="n7_days">7 Tage</string>
     <string name="live">" · live"</string>
@@ -25,16 +25,16 @@
     <string name="fetching">" · wird abgerufen"</string>
     <string name="unavailable">" · nicht verfügbar"</string>
     <string name="local">" · lokal"</string>
-    <string name="partly_cloudy">teils bewölkt</string>
-    <string name="conditions_unavailable">Bedingungen nicht verfügbar</string>
-    <string name="forecast_not_loaded_yet">Vorhersage noch nicht geladen.</string>
-    <string name="refresh_to_load_the_forecast">Aktualisieren, um Vorhersage zu laden.</string>
+    <string name="partly_cloudy">teilweise bewölkt</string>
+    <string name="conditions_unavailable">Wetterbedingungen nicht verfügbar</string>
+    <string name="forecast_not_loaded_yet">Die Vorhersage wurde noch nicht geladen.</string>
+    <string name="refresh_to_load_the_forecast">Aktualisieren, um die Vorhersage zu laden.</string>
     <string name="cached_forecast_could_not_be">Zwischengespeicherte Vorhersage konnte nicht gelesen werden.</string>
-    <string name="forecast_is_current">Vorhersage ist aktuell.</string>
-    <string name="showing_cached_forecast">Zeigt zwischengespeicherte Vorhersage.</string>
+    <string name="forecast_is_current">Die Vorhersage ist aktuell.</string>
+    <string name="showing_cached_forecast">Zwischengespeicherte Vorhersage wird angezeigt.</string>
     <string name="forecast_available">Vorhersage verfügbar.</string>
     <string name="offline_showing_last_known_forecast">Offline · letzte bekannte Vorhersage wird angezeigt.</string>
     <string name="forecast_unavailable_check_the_connection">Vorhersage nicht verfügbar. Verbindung prüfen und erneut versuchen.</string>
-    <string name="provider_response_could_not_be">Anbieterantwort konnte nicht normalisiert werden.</string>
+    <string name="provider_response_could_not_be">Antwort des Anbieters konnte nicht normalisiert werden.</string>
     <string name="updated_from_open_meteo">Von Open-Meteo aktualisiert.</string>
 </resources>

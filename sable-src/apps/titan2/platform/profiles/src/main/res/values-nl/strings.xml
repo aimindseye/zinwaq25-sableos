@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dutch. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">Geluidsprofiel</string>
+    <string name="allow_do_not_disturb_access">Geef Sound Profiles toegang tot Niet storen</string>
+    <string name="choose">Kiezen</string>
+    <string name="use">%1$s gebruiken</string>
+    <string name="edit">%1$s bewerken</string>
+    <string name="quick_settings_tile">Tegel voor Snelle instellingen</string>
+    <string name="pull_down_the_shade_choose">Veeg het meldingenpaneel omlaag, kies Bewerken en sleep de tegel Geluidsprofiel erin.</string>
+    <string name="close">Sluiten</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter past een profiel toe · E bewerkt het · Menu toont meer opties</string>
+    <string name="quick_settings_pull_down_the">Snelle instellingen: veeg het paneel omlaag, kies Bewerken en voeg de tegel Geluidsprofiel toe.</string>
+    <string name="volume">Volume %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter verhoogt met 10% · Shift+Enter verlaagt met 10%</string>
+    <string name="ringtone">Beltoon</string>
+    <string name="notification_tone">Meldingsgeluid</string>
+    <string name="vibrate_for_calls">Trillen bij oproepen</string>
+    <string name="space_turns_it_on_or">Space schakelt het in of uit</string>
+    <string name="notification_light">Meldingslampje</string>
+    <string name="is_on_allow_changing_system">%1$s is ingeschakeld. Sta wijziging van systeeminstellingen toe om geluiden, trilling en het lampje in te stellen en kies het profiel daarna opnieuw.</string>
+    <string name="allow_do_not_disturb_access_2">Geef Sound Profiles toegang tot Niet storen en kies %1$s daarna opnieuw.</string>
+    <string name="phone_s_current_tone">Huidige beltoon van de telefoon</string>
+    <string name="normal">Normaal</string>
+    <string name="rings_and_alerts_at_your">Oproepen en meldingen op het gekozen volume</string>
+    <string name="loud">Luid</string>
+    <string name="rings_and_alerts_at_full">Oproepen en meldingen op maximaal volume</string>
+    <string name="vibrate_only">Alleen trillen</string>
+    <string name="vibrates_for_calls_and_alerts">Trilt bij oproepen en meldingen, zonder geluid</string>
+    <string name="phone_calls_only">Alleen telefoongesprekken</string>
+    <string name="only_calls_ring_messages_and">Alleen oproepen gaan over; berichten en meldingen blijven stil</string>
+    <string name="all_alerts_off">Alle meldingen uit</string>
+    <string name="nothing_rings_or_vibrates_alarms">Geen geluid of trilling; wekkers blijven afgaan</string>
+</resources>

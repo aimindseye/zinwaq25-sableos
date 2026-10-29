@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">Προφίλ ήχου</string>
+    <string name="allow_do_not_disturb_access">Να επιτρέπεται η πρόσβαση στη λειτουργία Μην ενοχλείτε για το Sound Profiles</string>
+    <string name="choose">Επιλογή</string>
+    <string name="use">Χρήση του %1$s</string>
+    <string name="edit">Επεξεργασία του %1$s</string>
+    <string name="quick_settings_tile">Πλακίδιο Γρήγορων ρυθμίσεων</string>
+    <string name="pull_down_the_shade_choose">Σύρετε τη σκίαση προς τα κάτω, επιλέξτε Επεξεργασία και σύρετε μέσα το πλακίδιο Προφίλ ήχου.</string>
+    <string name="close">Κλείσιμο</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter εφαρμόζει προφίλ · E το επεξεργάζεται · Menu για περισσότερες επιλογές</string>
+    <string name="quick_settings_pull_down_the">Γρήγορες ρυθμίσεις: σύρετε τη σκίαση προς τα κάτω, επιλέξτε Επεξεργασία και προσθέστε το πλακίδιο Προφίλ ήχου.</string>
+    <string name="volume">Ένταση %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter αυξάνει κατά 10% · Shift+Enter μειώνει κατά 10%</string>
+    <string name="ringtone">Ήχος κλήσης</string>
+    <string name="notification_tone">Ήχος ειδοποίησης</string>
+    <string name="vibrate_for_calls">Δόνηση στις κλήσεις</string>
+    <string name="space_turns_it_on_or">Space το ενεργοποιεί ή το απενεργοποιεί</string>
+    <string name="notification_light">Φωτεινή ειδοποίηση</string>
+    <string name="is_on_allow_changing_system">Το %1$s είναι ενεργό. Επιτρέψτε την αλλαγή ρυθμίσεων συστήματος ώστε να οριστούν ήχοι, δόνηση και φωτισμός και επιλέξτε το ξανά.</string>
+    <string name="allow_do_not_disturb_access_2">Επιτρέψτε την πρόσβαση στη λειτουργία Μην ενοχλείτε για το Sound Profiles και επιλέξτε ξανά %1$s.</string>
+    <string name="phone_s_current_tone">Τρέχων ήχος κλήσης του τηλεφώνου</string>
+    <string name="normal">Κανονικό</string>
+    <string name="rings_and_alerts_at_your">Κλήσεις και ειδοποιήσεις στην ένταση που επιλέξατε</string>
+    <string name="loud">Δυνατό</string>
+    <string name="rings_and_alerts_at_full">Κλήσεις και ειδοποιήσεις στη μέγιστη ένταση</string>
+    <string name="vibrate_only">Μόνο δόνηση</string>
+    <string name="vibrates_for_calls_and_alerts">Δονείται για κλήσεις και ειδοποιήσεις, χωρίς ήχο</string>
+    <string name="phone_calls_only">Μόνο τηλεφωνικές κλήσεις</string>
+    <string name="only_calls_ring_messages_and">Ηχούν μόνο οι κλήσεις· τα μηνύματα και οι ειδοποιήσεις είναι αθόρυβα</string>
+    <string name="all_alerts_off">Όλες οι ειδοποιήσεις κλειστές</string>
+    <string name="nothing_rings_or_vibrates_alarms">Δεν ακούγεται ήχος ούτε υπάρχει δόνηση· οι αφυπνίσεις εξακολουθούν να ηχούν</string>
+</resources>

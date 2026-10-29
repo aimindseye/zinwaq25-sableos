@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">Звуковой профиль</string>
+    <string name="allow_do_not_disturb_access">Разрешите Sound Profiles доступ к режиму «Не беспокоить»</string>
+    <string name="choose">Выбрать</string>
+    <string name="use">Использовать %1$s</string>
+    <string name="edit">Изменить %1$s</string>
+    <string name="quick_settings_tile">Плитка быстрых настроек</string>
+    <string name="pull_down_the_shade_choose">Откройте шторку, выберите «Изменить» и перетащите плитку «Звуковой профиль».</string>
+    <string name="close">Закрыть</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter применяет профиль · E редактирует · Menu открывает другие действия</string>
+    <string name="quick_settings_pull_down_the">Быстрые настройки: откройте шторку, выберите «Изменить» и добавьте плитку «Звуковой профиль».</string>
+    <string name="volume">Громкость %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter прибавляет 10% · Shift+Enter убавляет 10%</string>
+    <string name="ringtone">Мелодия звонка</string>
+    <string name="notification_tone">Звук уведомления</string>
+    <string name="vibrate_for_calls">Вибрация при вызовах</string>
+    <string name="space_turns_it_on_or">Space включает или выключает</string>
+    <string name="notification_light">Индикатор уведомлений</string>
+    <string name="is_on_allow_changing_system">%1$s включён. Разрешите изменение системных настроек для управления звуками, вибрацией и индикатором, затем выберите его снова.</string>
+    <string name="allow_do_not_disturb_access_2">Разрешите Sound Profiles доступ к режиму «Не беспокоить», затем снова выберите %1$s.</string>
+    <string name="phone_s_current_tone">Текущая мелодия телефона</string>
+    <string name="normal">Обычный</string>
+    <string name="rings_and_alerts_at_your">Звонки и уведомления с выбранной громкостью</string>
+    <string name="loud">Громкий</string>
+    <string name="rings_and_alerts_at_full">Звонки и уведомления с максимальной громкостью</string>
+    <string name="vibrate_only">Только вибрация</string>
+    <string name="vibrates_for_calls_and_alerts">Вибрирует при вызовах и уведомлениях, без звука</string>
+    <string name="phone_calls_only">Только телефонные вызовы</string>
+    <string name="only_calls_ring_messages_and">Звучат только вызовы; сообщения и уведомления без звука</string>
+    <string name="all_alerts_off">Все уведомления выключены</string>
+    <string name="nothing_rings_or_vibrates_alarms">Нет звука и вибрации; будильники продолжают звонить</string>
+</resources>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">Profil dźwięku</string>
+    <string name="allow_do_not_disturb_access">Zezwól Sound Profiles na dostęp do trybu Nie przeszkadzać</string>
+    <string name="choose">Wybierz</string>
+    <string name="use">Użyj %1$s</string>
+    <string name="edit">Edytuj %1$s</string>
+    <string name="quick_settings_tile">Kafelek Szybkich ustawień</string>
+    <string name="pull_down_the_shade_choose">Rozwiń panel, wybierz Edytuj i przeciągnij na niego kafelek Profil dźwięku.</string>
+    <string name="close">Zamknij</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter włącza profil · E go edytuje · Menu pokazuje więcej opcji</string>
+    <string name="quick_settings_pull_down_the">Szybkie ustawienia: rozwiń panel, wybierz Edytuj i dodaj kafelek Profil dźwięku.</string>
+    <string name="volume">Głośność %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter zwiększa o 10% · Shift+Enter zmniejsza o 10%</string>
+    <string name="ringtone">Dzwonek</string>
+    <string name="notification_tone">Dźwięk powiadomienia</string>
+    <string name="vibrate_for_calls">Wibracje przy połączeniach</string>
+    <string name="space_turns_it_on_or">Space włącza lub wyłącza</string>
+    <string name="notification_light">Dioda powiadomień</string>
+    <string name="is_on_allow_changing_system">%1$s jest włączony. Zezwól na zmianę ustawień systemowych, aby można było ustawić dźwięki, wibracje i diodę, a następnie wybierz go ponownie.</string>
+    <string name="allow_do_not_disturb_access_2">Zezwól Sound Profiles na dostęp do trybu Nie przeszkadzać, a następnie ponownie wybierz %1$s.</string>
+    <string name="phone_s_current_tone">Bieżący dzwonek telefonu</string>
+    <string name="normal">Normalny</string>
+    <string name="rings_and_alerts_at_your">Połączenia i alerty przy wybranej głośności</string>
+    <string name="loud">Głośny</string>
+    <string name="rings_and_alerts_at_full">Połączenia i alerty z maksymalną głośnością</string>
+    <string name="vibrate_only">Tylko wibracje</string>
+    <string name="vibrates_for_calls_and_alerts">Wibracje dla połączeń i alertów, bez dźwięku</string>
+    <string name="phone_calls_only">Tylko połączenia</string>
+    <string name="only_calls_ring_messages_and">Dzwonią tylko połączenia; wiadomości i alerty są wyciszone</string>
+    <string name="all_alerts_off">Wszystkie alerty wyłączone</string>
+    <string name="nothing_rings_or_vibrates_alarms">Brak dźwięków i wibracji; alarmy nadal dzwonią</string>
+</resources>

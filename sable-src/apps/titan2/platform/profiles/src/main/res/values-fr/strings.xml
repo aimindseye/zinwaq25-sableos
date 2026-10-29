@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">Profil sonore</string>
+    <string name="allow_do_not_disturb_access">Autoriser l’accès à Ne pas déranger pour Sound Profiles</string>
+    <string name="choose">Choisir</string>
+    <string name="use">Utiliser %1$s</string>
+    <string name="edit">Modifier %1$s</string>
+    <string name="quick_settings_tile">Tuile des paramètres rapides</string>
+    <string name="pull_down_the_shade_choose">Faites glisser le volet vers le bas, choisissez Modifier et faites-y glisser la tuile Profil sonore.</string>
+    <string name="close">Fermer</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter applique un profil · E le modifie · Menu affiche les options</string>
+    <string name="quick_settings_pull_down_the">Paramètres rapides : faites glisser le volet vers le bas, choisissez Modifier et ajoutez la tuile Profil sonore.</string>
+    <string name="volume">Volume %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter augmente de 10% · Shift+Enter diminue de 10%</string>
+    <string name="ringtone">Sonnerie</string>
+    <string name="notification_tone">Son de notification</string>
+    <string name="vibrate_for_calls">Vibrer pour les appels</string>
+    <string name="space_turns_it_on_or">Space l’active ou le désactive</string>
+    <string name="notification_light">Voyant de notification</string>
+    <string name="is_on_allow_changing_system">%1$s est activé. Autorisez la modification des paramètres système pour régler les sonneries, la vibration et le voyant, puis sélectionnez-le à nouveau.</string>
+    <string name="allow_do_not_disturb_access_2">Autorisez l’accès à Ne pas déranger pour Sound Profiles, puis sélectionnez de nouveau %1$s.</string>
+    <string name="phone_s_current_tone">Sonnerie actuelle de l\'appareil</string>
+    <string name="normal">Normal</string>
+    <string name="rings_and_alerts_at_your">Appels et alertes au volume choisi</string>
+    <string name="loud">Fort</string>
+    <string name="rings_and_alerts_at_full">Appels et alertes au volume maximal</string>
+    <string name="vibrate_only">Vibreur uniquement</string>
+    <string name="vibrates_for_calls_and_alerts">Vibre pour les appels et les alertes, sans son</string>
+    <string name="phone_calls_only">Appels uniquement</string>
+    <string name="only_calls_ring_messages_and">Seuls les appels sonnent ; messages et alertes restent silencieux</string>
+    <string name="all_alerts_off">Toutes les alertes désactivées</string>
+    <string name="nothing_rings_or_vibrates_alarms">Aucune sonnerie ni vibration ; les alarmes continuent de sonner</string>
+</resources>

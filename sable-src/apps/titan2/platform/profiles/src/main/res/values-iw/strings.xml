@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hebrew. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (ProfilesTextTest checks). -->
+<resources>
+    <string name="sound_profile">פרופיל שמע</string>
+    <string name="allow_do_not_disturb_access">מתן גישה למצב נא לא להפריע עבור Sound Profiles</string>
+    <string name="choose">בחירה</string>
+    <string name="use">שימוש ב־%1$s</string>
+    <string name="edit">עריכת %1$s</string>
+    <string name="quick_settings_tile">אריח הגדרות מהירות</string>
+    <string name="pull_down_the_shade_choose">החליקו את לוח ההתראות כלפי מטה, בחרו עריכה וגררו לתוכו את האריח פרופיל שמע.</string>
+    <string name="close">סגירה</string>
+    <string name="sound_profiles">Sound Profiles</string>
+    <string name="enter_uses_a_profile_e">Enter מחיל פרופיל · E עורך אותו · Menu מציג אפשרויות נוספות</string>
+    <string name="quick_settings_pull_down_the">הגדרות מהירות: החליקו את הלוח כלפי מטה, בחרו עריכה והוסיפו את האריח פרופיל שמע.</string>
+    <string name="volume">עוצמת שמע %1$s%%</string>
+    <string name="enter_adds_10_shift_enter">Enter מגביר ב־10% · Shift+Enter מנמיך ב־10%</string>
+    <string name="ringtone">צלצול</string>
+    <string name="notification_tone">צליל התראה</string>
+    <string name="vibrate_for_calls">רטט בשיחות</string>
+    <string name="space_turns_it_on_or">Space מפעיל או מכבה</string>
+    <string name="notification_light">נורית התראות</string>
+    <string name="is_on_allow_changing_system">%1$s מופעל. אפשרו שינוי הגדרות מערכת כדי שיוכל להגדיר צלילים, רטט ונורית, ואז בחרו בו שוב.</string>
+    <string name="allow_do_not_disturb_access_2">אפשרו ל־Sound Profiles גישה למצב נא לא להפריע, ואז בחרו שוב ב־%1$s.</string>
+    <string name="phone_s_current_tone">הצלצול הנוכחי של הטלפון</string>
+    <string name="normal">רגיל</string>
+    <string name="rings_and_alerts_at_your">שיחות והתראות בעוצמת השמע שבחרתם</string>
+    <string name="loud">חזק</string>
+    <string name="rings_and_alerts_at_full">שיחות והתראות בעוצמה מרבית</string>
+    <string name="vibrate_only">רטט בלבד</string>
+    <string name="vibrates_for_calls_and_alerts">רטט בשיחות ובהתראות, ללא קול</string>
+    <string name="phone_calls_only">שיחות טלפון בלבד</string>
+    <string name="only_calls_ring_messages_and">רק שיחות מצלצלות; הודעות והתראות מושתקות</string>
+    <string name="all_alerts_off">כל ההתראות כבויות</string>
+    <string name="nothing_rings_or_vibrates_alarms">אין צלצול או רטט; השעונים המעוררים ממשיכים לצלצל</string>
+</resources>
