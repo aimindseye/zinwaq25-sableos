@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">Więcej działań dla: %1$s</string>
     <string name="sable_jump_to">Przejdź do: %1$s</string>
     <string name="sable_return_to">Wróć do: %1$s</string>
+    <string name="letter_shortcut">Skrót przez przytrzymanie</string>
+    <string name="letter_shortcut_current">Skrót przez przytrzymanie: %1$s</string>
+    <string name="letter_shortcut_press">Naciśnij literę, którą przytrzymasz na ekranie głównym, aby otworzyć tę aplikację. Backspace ją usuwa. Zastępuje szybkie wybieranie na tej samej literze.</string>
 </resources>

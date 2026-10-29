@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">עוד פעולות עבור %1$s</string>
     <string name="sable_jump_to">מעבר אל %1$s</string>
     <string name="sable_return_to">חזרה אל %1$s</string>
+    <string name="letter_shortcut">קיצור בלחיצה ארוכה</string>
+    <string name="letter_shortcut_current">קיצור בלחיצה ארוכה: %1$s</string>
+    <string name="letter_shortcut_press">הקש את האות שתחזיק במסך הבית כדי לפתוח את האפליקציה הזו. מקש המחיקה מסיר אותה. היא מחליפה חיוג מהיר על אותה אות.</string>
 </resources>

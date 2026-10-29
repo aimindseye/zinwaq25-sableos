@@ -8,25 +8,31 @@ import kotlinx.coroutines.withContext
 import org.sableos.start.model.SpeedDialKeys
 
 /**
- * Phone's speed dial, seen from Start: which letters have a number (Phone's read-only provider
- * returns letters only) and the request to call one. Both need the signature permission
- * org.sableos.permission.SPEED_DIAL; without Phone, or without it, no letter is assigned.
+ * The letters held on the home screen: Phone's speed dial (which letters have a number, Phone's read-only provider
+ * returns letters only, and the request to call one; both need the signature permission
+ * org.sableos.permission.SPEED_DIAL, so without Phone, or without it, no number is assigned) and the app shortcuts
+ * Start keeps itself ([LetterShortcutRepository]). A letter with an app opens that app, ahead of any number.
  */
 class SpeedDialRepository(
     private val context: Context,
+    private val shortcuts: LetterShortcutRepository? = null,
 ) {
     suspend fun assignedLetters(): Set<Char> =
-        withContext(Dispatchers.IO) {
-            val uri = Uri.Builder().scheme("content").authority(SpeedDialKeys.AUTHORITY).build()
-            runCatching {
-                context.contentResolver.query(uri, arrayOf(SpeedDialKeys.COLUMN_LETTER), null, null, null)?.use { c ->
-                    buildSet { while (c.moveToNext()) c.getString(0)?.singleOrNull()?.let(::add) }
-                }
-            }.getOrNull() ?: emptySet()
-        }
+        withContext(Dispatchers.IO) { phoneLetters() + (shortcuts?.load()?.letters.orEmpty()) }
 
-    /** Asks Phone to call [letter]'s number; false when Phone cannot be reached. */
-    fun call(letter: Char): Boolean =
+    private fun phoneLetters(): Set<Char> {
+        val uri = Uri.Builder().scheme("content").authority(SpeedDialKeys.AUTHORITY).build()
+        return runCatching {
+            context.contentResolver.query(uri, arrayOf(SpeedDialKeys.COLUMN_LETTER), null, null, null)?.use { c ->
+                buildSet { while (c.moveToNext()) c.getString(0)?.singleOrNull()?.let(::add) }
+            }
+        }.getOrNull() ?: emptySet()
+    }
+
+    /** Opens [letter]'s app, else asks Phone to call its number; false when neither can be reached. */
+    fun call(letter: Char): Boolean = shortcuts?.launch(letter) == true || callPhone(letter)
+
+    private fun callPhone(letter: Char): Boolean =
         runCatching {
             context.startActivity(
                 Intent(SpeedDialKeys.ACTION_SPEED_DIAL)

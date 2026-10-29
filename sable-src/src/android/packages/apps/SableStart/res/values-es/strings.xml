@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">Más acciones para %1$s</string>
     <string name="sable_jump_to">Ir a %1$s</string>
     <string name="sable_return_to">Volver a %1$s</string>
+    <string name="letter_shortcut">Atajo al mantener una tecla</string>
+    <string name="letter_shortcut_current">Atajo al mantener una tecla: %1$s</string>
+    <string name="letter_shortcut_press">Pulsa la letra que mantendrás pulsada en Inicio para abrir esta app. Retroceso la quita. Sustituye a una marcación rápida en la misma letra.</string>
 </resources>

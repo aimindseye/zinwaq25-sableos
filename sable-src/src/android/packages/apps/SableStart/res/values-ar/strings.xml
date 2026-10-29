@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">مزيد من الإجراءات لـ %1$s</string>
     <string name="sable_jump_to">الانتقال إلى %1$s</string>
     <string name="sable_return_to">العودة إلى %1$s</string>
+    <string name="letter_shortcut">اختصار الضغط المطوّل</string>
+    <string name="letter_shortcut_current">اختصار الضغط المطوّل: %1$s</string>
+    <string name="letter_shortcut_press">اضغط الحرف الذي ستضغط عليه مطوّلًا في الشاشة الرئيسية لفتح هذا التطبيق. مفتاح الحذف يزيله. يحلّ محلّ الاتصال السريع على الحرف نفسه.</string>
 </resources>

@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">Mais ações para %1$s</string>
     <string name="sable_jump_to">Ir para %1$s</string>
     <string name="sable_return_to">Voltar para %1$s</string>
+    <string name="letter_shortcut">Atalho por tecla pressionada</string>
+    <string name="letter_shortcut_current">Atalho por tecla pressionada: %1$s</string>
+    <string name="letter_shortcut_press">Pressione a letra que você vai manter pressionada no início para abrir este app. Backspace remove. Ela substitui uma discagem rápida na mesma letra.</string>
 </resources>

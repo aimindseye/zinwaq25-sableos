@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">%1$s のその他の操作</string>
     <string name="sable_jump_to">%1$s へ移動</string>
     <string name="sable_return_to">%1$s に戻る</string>
+    <string name="letter_shortcut">長押しショートカット</string>
+    <string name="letter_shortcut_current">長押しショートカット: %1$s</string>
+    <string name="letter_shortcut_press">ホームで長押しするとこのアプリを開く文字キーを押してください。Backspaceで解除します。同じ文字のクイックダイヤルは置き換えられます。</string>
 </resources>

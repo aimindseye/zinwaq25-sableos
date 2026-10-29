@@ -248,4 +248,7 @@
     <string name="sable_more_actions_for">More actions for %1$s</string>
     <string name="sable_jump_to">Jump to %1$s</string>
     <string name="sable_return_to">Return to %1$s</string>
+    <string name="letter_shortcut">Hold-key shortcut</string>
+    <string name="letter_shortcut_current">Hold-key shortcut: %1$s</string>
+    <string name="letter_shortcut_press">Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.</string>
 </resources>

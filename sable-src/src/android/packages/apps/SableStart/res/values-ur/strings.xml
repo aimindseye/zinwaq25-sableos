@@ -244,4 +244,7 @@
     <string name="sable_more_actions_for">%1$s کے لیے مزید اقدامات</string>
     <string name="sable_jump_to">%1$s پر جائیں</string>
     <string name="sable_return_to">%1$s پر واپس جائیں</string>
+    <string name="letter_shortcut">دیر تک دبانے کا شارٹ کٹ</string>
+    <string name="letter_shortcut_current">دیر تک دبانے کا شارٹ کٹ: %1$s</string>
+    <string name="letter_shortcut_press">ہوم پر وہ حرف دبائیں جسے دبائے رکھنے سے یہ ایپ کھلے۔ Backspace اسے ہٹاتا ہے۔ یہ اسی حرف پر اسپیڈ ڈائل کی جگہ لے لیتا ہے۔</string>
 </resources>
