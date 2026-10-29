@@ -24,6 +24,7 @@ import org.sableos.titan2.keyboard.core.InputClass
 import org.sableos.titan2.keyboard.core.Key
 import org.sableos.titan2.keyboard.core.KeyEv
 import org.sableos.titan2.keyboard.core.KeyShortcuts
+import org.sableos.titan2.keyboard.core.KeyboardText.t
 import org.sableos.titan2.keyboard.core.Mod
 import org.sableos.titan2.keyboard.core.ModState
 import org.sableos.titan2.keyboard.core.Out
@@ -383,10 +384,10 @@ class SableImeService : InputMethodService() {
         resolver.mods.markChordUse()
         when {
             !prefs.getBool(CLIP_HISTORY, false) ->
-                toast("Turn on clipboard history in Sable Keyboard settings")
+                toast(t("turn_on_clipboard_history_in"))
 
             getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true ->
-                toast("Unlock to use clipboard history")
+                toast(t("unlock_to_use_clipboard_history"))
 
             else -> clipSelected = 0
         }
@@ -541,10 +542,10 @@ class SableImeService : InputMethodService() {
 
             is Out.Send -> sendNav(o)
 
-            is Out.NavMode -> toast(if (o.on) "Nav mode on (Alt+Space to exit)" else "Nav mode off")
+            is Out.NavMode -> toast(if (o.on) t("nav_mode_on_alt_space") else t("nav_mode_off"))
 
             Out.NextLanguage -> if (!switchToNextInputMethod(true)) {
-                toast("Enable more languages in Settings > Keyboard > Sable")
+                toast(t("enable_more_languages_in_settings"))
             }
 
             Out.ToggleSoftKeyboard -> {

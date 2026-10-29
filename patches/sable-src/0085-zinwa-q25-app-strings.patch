@@ -8178,6 +8178,547 @@ index 0000000..3802cc6
 +        }
 +    }
 +}
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
+index 0bfea45..c663fec 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
+@@ -8,6 +8,7 @@
+ 
+     <!-- No permissions. directBootAware so the keyboard works at the lockscreen before first unlock. -->
+     <application
++        android:name="org.sableos.titan2.keyboard.KeyboardApplication"
+         android:allowBackup="false"
+         android:usesCleartextTraffic="false"
+         android:icon="@mipmap/ic_sable_keyboard"
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/KeyboardApplication.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/KeyboardApplication.kt
+new file mode 100644
+index 0000000..a24da5e
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/KeyboardApplication.kt
+@@ -0,0 +1,13 @@
++package org.sableos.titan2.keyboard
++
++import android.app.Application
++import org.sableos.titan2.keyboard.core.KeyboardText
++import org.sableos.titan2.theme.bindTo
++
++/** Binds [KeyboardText] to the app's string resources once per process, so the phone's language is used. */
++class KeyboardApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        KeyboardText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/AutoTextActivity.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/AutoTextActivity.kt
+index 76fc005..86e1a99 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/AutoTextActivity.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/AutoTextActivity.kt
+@@ -10,6 +10,7 @@ import android.widget.LinearLayout
+ import android.widget.ScrollView
+ import android.widget.TextView
+ import org.sableos.titan2.keyboard.core.AutoText
++import org.sableos.titan2.keyboard.core.KeyboardText.t
+ 
+ /**
+  * The user's AutoText list as plain text, one `shortcut=replacement` per line, so it is edited with the hardware
+@@ -21,12 +22,7 @@ class AutoTextActivity : Activity() {
+         const val TITLE_SP = 20f
+         const val NOTE_SP = 12f
+         const val MIN_LINES = 6
+-        const val HELP =
+-            "One entry per line: shortcut=replacement, for example brb=be right back. " +
+-                "A shortcut is one word of letters or digits. Your entries work in every " +
+-                "language and replace a built-in one with the same shortcut. In a replacement, " +
+-                "%D is the date, %T the time and %V the build number. Backspace straight " +
+-                "after an expansion puts back what you typed."
++        val HELP: String get() = t("one_entry_per_line_shortcut")
+     }
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+@@ -55,17 +51,17 @@ class AutoTextActivity : Activity() {
+         val status = TextView(this).apply { textSize = NOTE_SP }
+         col.addView(
+             Button(this).apply {
+-                text = "Save"
++                text = t("save")
+                 setOnClickListener {
+                     val text = edit.text.toString()
+                     val entries = AutoText.parse(text)
+                     prefs.autoTextEntries = entries
+                     val skipped = text.lines().count { it.isNotBlank() } - entries.size
+-                    status.text = "Saved ${entries.size} entries" +
++                    status.text = t("saved_entries", entries.size) +
+                         if (skipped >
+                             0
+                         ) {
+-                            "; $skipped lines skipped (not shortcut=replacement)"
++                            t("lines_skipped_not_shortcut_replacement", skipped)
+                         } else {
+                             ""
+                         }
+@@ -74,7 +70,7 @@ class AutoTextActivity : Activity() {
+             }
+         )
+         col.addView(status)
+-        note("Built in (English typing language)", TITLE_SP)
++        note(t("built_in_english_typing_language"), TITLE_SP)
+         note(AutoText.BUILT_IN.entries.joinToString("\n") { "${it.key} → ${it.value}" })
+         setContentView(
+             ScrollView(this).apply {
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
+index 04ccf6c..00120af 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardSettingsActivity.kt
+@@ -13,6 +13,7 @@ import android.widget.Toast
+ import org.sableos.titan2.keyboard.core.ImeAction
+ import org.sableos.titan2.keyboard.core.ImeLaunchReport
+ import org.sableos.titan2.keyboard.core.ImeStatusModel
++import org.sableos.titan2.keyboard.core.KeyboardText.t
+ 
+ /** Plain-View settings so it works with the hardware keyboard (Tab/arrows/Enter) with no extra dependencies. */
+ class KeyboardSettingsActivity : Activity() {
+@@ -37,21 +38,21 @@ class KeyboardSettingsActivity : Activity() {
+                 setOnCheckedChangeListener { _, v -> prefs.setBool(key, v) }
+             }
+         )
+-        sw("Auto-capitalise sentences", "autoCap", true)
+-        sw("Double space inserts period", "doubleSpace", true)
+-        sw("AutoText (dont becomes don't, ld the date)", AUTO_TEXT, true)
+-        sw("Long-press a letter for its Alt character", "longPressAlt", true)
+-        sw("Letters type digits in numeric fields", "numericAutoAlt", true)
+-        sw("Nav mode (IJKL arrows) enabled", "navMode", true)
+-        sw("Alt+Space toggles Nav mode", "altSpaceNav", true)
+-        sw("Show on-screen keyboard for numeric/PIN fields", "softForNumeric", true)
+-        sw("Always show on-screen keyboard", "forceSoft", false)
++        sw(t("auto_capitalise_sentences"), "autoCap", true)
++        sw(t("double_space_inserts_period"), "doubleSpace", true)
++        sw(t("autotext_dont_becomes_don_t"), AUTO_TEXT, true)
++        sw(t("long_press_a_letter_for"), "longPressAlt", true)
++        sw(t("letters_type_digits_in_numeric"), "numericAutoAlt", true)
++        sw(t("nav_mode_ijkl_arrows_enabled"), "navMode", true)
++        sw(t("alt_space_toggles_nav_mode"), "altSpaceNav", true)
++        sw(t("show_on_screen_keyboard_for"), "softForNumeric", true)
++        sw(t("always_show_on_screen_keyboard"), "forceSoft", false)
+         sw(
+-            "Compact status strip when the on-screen keyboard is hidden",
++            t("compact_status_strip_when_the"),
+             "compactStrip",
+             KeyboardPrefs.compactStripDefault()
+         )
+-        sw("Enter sends in apps that offer Send (Shift+Enter: new line)", ENTER_SENDS, false)
++        sw(t("enter_sends_in_apps_that"), ENTER_SENDS, false)
+         addClipboardSwitch(col, prefs)
+     }
+ 
+@@ -59,7 +60,7 @@ class KeyboardSettingsActivity : Activity() {
+     private fun addClipboardSwitch(col: LinearLayout, prefs: KeyboardPrefs) {
+         col.addView(
+             Switch(this).apply {
+-                text = "Clipboard history (Alt+Shift+V; kept in memory, never saved)"
++                text = t("clipboard_history_alt_shift_v")
+                 isChecked = prefs.getBool(CLIP_HISTORY, false)
+                 setOnCheckedChangeListener { _, v ->
+                     prefs.setBool(CLIP_HISTORY, v)
+@@ -69,10 +70,14 @@ class KeyboardSettingsActivity : Activity() {
+         )
+         col.addView(
+             Button(this).apply {
+-                text = "Clear clipboard history"
++                text = t("clear_clipboard_history")
+                 setOnClickListener {
+                     ClipboardWatcher.history.clear()
+-                    Toast.makeText(context, "Clipboard history cleared", Toast.LENGTH_SHORT).show()
++                    Toast.makeText(
++                        context,
++                        t("clipboard_history_cleared"),
++                        Toast.LENGTH_SHORT
++                    ).show()
+                 }
+             }
+         )
+@@ -86,8 +91,8 @@ class KeyboardSettingsActivity : Activity() {
+                 setOnClickListener { startActivity(Intent(this@KeyboardSettingsActivity, screen)) }
+             }
+         )
+-        open("AutoText entries", AutoTextActivity::class.java)
+-        open("Key event probe (diagnostic)", KeyProbeActivity::class.java)
++        open(t("autotext_entries"), AutoTextActivity::class.java)
++        open(t("key_event_probe_diagnostic"), KeyProbeActivity::class.java)
+     }
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+@@ -99,14 +104,14 @@ class KeyboardSettingsActivity : Activity() {
+         }
+         col.addView(
+             TextView(this).apply {
+-                text = "Sable Keyboard"
++                text = t("sable_keyboard")
+                 textSize = TITLE_SP
+             }
+         )
+         col.addView(
+             TextView(this).apply {
+                 text =
+-                    "Layout: provisional until key legends are captured on this device."
++                    t("layout_provisional_until_key_legends")
+                 textSize = NOTE_SP
+             }
+         )
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+index 42b5c1e..f0e890c 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+@@ -24,6 +24,7 @@ import org.sableos.titan2.keyboard.core.InputClass
+ import org.sableos.titan2.keyboard.core.Key
+ import org.sableos.titan2.keyboard.core.KeyEv
+ import org.sableos.titan2.keyboard.core.KeyShortcuts
++import org.sableos.titan2.keyboard.core.KeyboardText.t
+ import org.sableos.titan2.keyboard.core.Mod
+ import org.sableos.titan2.keyboard.core.ModState
+ import org.sableos.titan2.keyboard.core.Out
+@@ -383,10 +384,10 @@ class SableImeService : InputMethodService() {
+         resolver.mods.markChordUse()
+         when {
+             !prefs.getBool(CLIP_HISTORY, false) ->
+-                toast("Turn on clipboard history in Sable Keyboard settings")
++                toast(t("turn_on_clipboard_history_in"))
+ 
+             getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true ->
+-                toast("Unlock to use clipboard history")
++                toast(t("unlock_to_use_clipboard_history"))
+ 
+             else -> clipSelected = 0
+         }
+@@ -541,10 +542,10 @@ class SableImeService : InputMethodService() {
+ 
+             is Out.Send -> sendNav(o)
+ 
+-            is Out.NavMode -> toast(if (o.on) "Nav mode on (Alt+Space to exit)" else "Nav mode off")
++            is Out.NavMode -> toast(if (o.on) t("nav_mode_on_alt_space") else t("nav_mode_off"))
+ 
+             Out.NextLanguage -> if (!switchToNextInputMethod(true)) {
+-                toast("Enable more languages in Settings > Keyboard > Sable")
++                toast(t("enable_more_languages_in_settings"))
+             }
+ 
+             Out.ToggleSoftKeyboard -> {
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt
+index 5cbb948..7eec2f6 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt
+@@ -15,6 +15,7 @@ import android.widget.Button
+ import android.widget.LinearLayout
+ import android.widget.PopupWindow
+ import org.sableos.titan2.keyboard.core.KeyLayout
++import org.sableos.titan2.keyboard.core.KeyboardText.t
+ import org.sableos.titan2.keyboard.core.Language
+ import org.sableos.titan2.keyboard.core.Languages
+ import org.sableos.titan2.keyboard.core.SoftKeyboardGeometry
+@@ -227,7 +228,7 @@ class SoftKeyboardView(
+         if (language.tag == Languages.English.tag) return "space"
+         val region = language.tag.substringBefore('_').uppercase()
+         val suffix = if (language.layout.isEmpty()) "" else "·ABC"
+-        return "space · $region$suffix"
++        return t("space", region, suffix)
+     }
+ 
+     private fun punctKey(p: String): View {
+@@ -410,7 +411,7 @@ class SoftKeyboardView(
+                 LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, weight).apply {
+                     setMargins(px(2), px(KEY_MARGIN_V_DP), px(2), px(KEY_MARGIN_V_DP))
+                 }
+-            contentDescription = if (hintText != null) "$label, alternate $hintText" else label
++            contentDescription = if (hintText != null) t("alternate", label, hintText) else label
+             if (opts.repeat) {
+                 installRepeat(this, click)
+             } else {
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/ClipboardHistory.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/ClipboardHistory.kt
+index 8b53991..4d423f0 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/ClipboardHistory.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/ClipboardHistory.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.keyboard.core
+ 
++import org.sableos.titan2.keyboard.core.KeyboardText.t
++
+ /**
+  * Clipboard history (opt-in, off by default). Pure Kotlin so every rule is JVM-tested. Entries live
+  * only in memory: nothing is written to storage, so a reboot or a restart of the keyboard empties
+@@ -105,7 +107,7 @@ object ClipPicker {
+      * result is the position chip; chip i > 0 is entry [selected] + i - 1.
+      */
+     fun chips(entries: List<String>, selected: Int): List<String> {
+-        if (entries.isEmpty()) return listOf("Clipboard empty")
++        if (entries.isEmpty()) return listOf(t("clipboard_empty"))
+         val from = selected.coerceIn(0, entries.lastIndex)
+         val shown = entries.drop(from).take(VISIBLE).map { ClipboardHistory.preview(it) }
+         return listOf("${from + 1}/${entries.size}") + shown
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/ImeContract.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/ImeContract.kt
+index 050b08d..5315702 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/ImeContract.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/ImeContract.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.keyboard.core
+ 
++import org.sableos.titan2.keyboard.core.KeyboardText.t
++
+ /**
+  * The first-party input method as the canonical lane must provision it (interface request IR-005), plus the
+  * product policy around it. This is a declaration and an observation model only: nothing here, or anywhere in
+@@ -33,9 +35,11 @@ object ImeContract {
+ /** What the app can honestly say about the keyboard setup. [Unknown] is never turned into "not selected". */
+ enum class ImeStatus { SableSelected, SableEnabledOtherSelected, SableNotEnabled, Unknown }
+ 
+-enum class ImeAction(val label: String) {
+-    OpenInputMethodSettings("Input method settings"),
+-    ShowPicker("Keyboard picker")
++enum class ImeAction(private val labelKey: String) {
++    OpenInputMethodSettings("input_method_settings"),
++    ShowPicker("keyboard_picker");
++
++    val label: String get() = t(labelKey)
+ }
+ 
+ object ImeStatusModel {
+@@ -47,14 +51,14 @@ object ImeStatusModel {
+     }
+ 
+     fun describe(status: ImeStatus): String = when (status) {
+-        ImeStatus.SableSelected -> "Sable Keyboard is the selected keyboard."
++        ImeStatus.SableSelected -> t("sable_keyboard_is_the_selected")
+ 
+         ImeStatus.SableEnabledOtherSelected ->
+-            "Another keyboard is selected. Your choice is kept; Sable Keyboard never switches it for you."
++            t("another_keyboard_is_selected_your")
+ 
+-        ImeStatus.SableNotEnabled -> "Sable Keyboard is not enabled yet."
++        ImeStatus.SableNotEnabled -> t("sable_keyboard_is_not_enabled")
+ 
+-        ImeStatus.Unknown -> "Could not read which keyboard is selected."
++        ImeStatus.Unknown -> t("could_not_read_which_keyboard")
+     }
+ 
+     /** Screens the user may open. Opening one changes nothing by itself. */
+@@ -81,11 +85,11 @@ object ImeLaunchReport {
+                 ImeLaunchOutcome.Launched -> return null
+ 
+                 ImeLaunchOutcome.TargetMissing ->
+-                    "Could not open ${action.label}: " + "not available on this device."
++                    t("could_not_open_not_available", action.label)
+ 
+-                ImeLaunchOutcome.Denied -> "Could not open ${action.label}: blocked by the system."
++                ImeLaunchOutcome.Denied -> t("could_not_open_blocked_by", action.label)
+ 
+-                ImeLaunchOutcome.Failed -> "Could not open ${action.label}."
++                ImeLaunchOutcome.Failed -> t("could_not_open", action.label)
+             }
+         return text.take(MAX_MESSAGE)
+     }
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyboardText.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyboardText.kt
+new file mode 100644
+index 0000000..c0f5725
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyboardText.kt
+@@ -0,0 +1,70 @@
++package org.sableos.titan2.keyboard.core
++
++import org.sableos.titan2.theme.SableTexts
++
++/**
++ * Every line Sable Keyboard shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (KeyboardTextTest keeps the two equal) and res/values-<lang>/strings.xml translates
++ * them.
++ */
++object KeyboardText {
++    val EN: Map<String, String> =
++        mapOf(
++            "one_entry_per_line_shortcut" to
++                "One entry per line: shortcut=replacement, for example brb=be right back. A " +
++                "shortcut is one word of letters or digits. Your entries work in every language " +
++                "and replace a built-in one with the same shortcut. In a replacement, %D is the " +
++                "date, %T the time and %V the build number. Backspace straight after an " +
++                "expansion puts back what you typed.",
++            "save" to "Save",
++            "saved_entries" to "Saved %1\$s entries",
++            "lines_skipped_not_shortcut_replacement" to
++                "; %1\$s lines skipped (not shortcut=replacement)",
++            "built_in_english_typing_language" to "Built in (English typing language)",
++            "turn_on_clipboard_history_in" to
++                "Turn on clipboard history in Sable Keyboard settings",
++            "unlock_to_use_clipboard_history" to "Unlock to use clipboard history",
++            "nav_mode_on_alt_space" to "Nav mode on (Alt+Space to exit)",
++            "nav_mode_off" to "Nav mode off",
++            "enable_more_languages_in_settings" to
++                "Enable more languages in Settings > Keyboard > Sable",
++            "auto_capitalise_sentences" to "Auto-capitalise sentences",
++            "double_space_inserts_period" to "Double space inserts period",
++            "autotext_dont_becomes_don_t" to "AutoText (dont becomes don't, ld the date)",
++            "long_press_a_letter_for" to "Long-press a letter for its Alt character",
++            "letters_type_digits_in_numeric" to "Letters type digits in numeric fields",
++            "nav_mode_ijkl_arrows_enabled" to "Nav mode (IJKL arrows) enabled",
++            "alt_space_toggles_nav_mode" to "Alt+Space toggles Nav mode",
++            "show_on_screen_keyboard_for" to "Show on-screen keyboard for numeric/PIN fields",
++            "always_show_on_screen_keyboard" to "Always show on-screen keyboard",
++            "compact_status_strip_when_the" to
++                "Compact status strip when the on-screen keyboard is hidden",
++            "enter_sends_in_apps_that" to
++                "Enter sends in apps that offer Send (Shift+Enter: new line)",
++            "clipboard_history_alt_shift_v" to
++                "Clipboard history (Alt+Shift+V; kept in memory, never saved)",
++            "clear_clipboard_history" to "Clear clipboard history",
++            "clipboard_history_cleared" to "Clipboard history cleared",
++            "autotext_entries" to "AutoText entries",
++            "key_event_probe_diagnostic" to "Key event probe (diagnostic)",
++            "sable_keyboard" to "Sable Keyboard",
++            "layout_provisional_until_key_legends" to
++                "Layout: provisional until key legends are captured on this device.",
++            "space" to "space · %1\$s%2\$s",
++            "alternate" to "%1\$s, alternate %2\$s",
++            "clipboard_empty" to "Clipboard empty",
++            "input_method_settings" to "Input method settings",
++            "keyboard_picker" to "Keyboard picker",
++            "sable_keyboard_is_the_selected" to "Sable Keyboard is the selected keyboard.",
++            "another_keyboard_is_selected_your" to
++                "Another keyboard is selected. Your choice is kept; Sable Keyboard never " +
++                "switches it for you.",
++            "sable_keyboard_is_not_enabled" to "Sable Keyboard is not enabled yet.",
++            "could_not_read_which_keyboard" to "Could not read which keyboard is selected.",
++            "could_not_open_not_available" to "Could not open %1\$s: not available on this device.",
++            "could_not_open_blocked_by" to "Could not open %1\$s: blocked by the system.",
++            "could_not_open" to "Could not open %1\$s."
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/titan2/platform/keyboard/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/keyboard/src/main/res/values/strings.xml
+index 44a2b2e..6935d36 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/res/values/strings.xml
+@@ -1,3 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to KeyboardText.EN (KeyboardTextTest checks); translations go in values-<lang>/. -->
+ <resources>
+-    <string name="app_name">Sable Keyboard</string>
++    <string name="one_entry_per_line_shortcut">One entry per line: shortcut=replacement, for example brb=be right back. A shortcut is one word of letters or digits. Your entries work in every language and replace a built-in one with the same shortcut. In a replacement, %D is the date, %T the time and %V the build number. Backspace straight after an expansion puts back what you typed.</string>
++    <string name="save">Save</string>
++    <string name="saved_entries">Saved %1$s entries</string>
++    <string name="lines_skipped_not_shortcut_replacement">; %1$s lines skipped (not shortcut=replacement)</string>
++    <string name="built_in_english_typing_language">Built in (English typing language)</string>
++    <string name="turn_on_clipboard_history_in">Turn on clipboard history in Sable Keyboard settings</string>
++    <string name="unlock_to_use_clipboard_history">Unlock to use clipboard history</string>
++    <string name="nav_mode_on_alt_space">Nav mode on (Alt+Space to exit)</string>
++    <string name="nav_mode_off">Nav mode off</string>
++    <string name="enable_more_languages_in_settings">Enable more languages in Settings &gt; Keyboard &gt; Sable</string>
++    <string name="auto_capitalise_sentences">Auto-capitalise sentences</string>
++    <string name="double_space_inserts_period">Double space inserts period</string>
++    <string name="autotext_dont_becomes_don_t">AutoText (dont becomes don\'t, ld the date)</string>
++    <string name="long_press_a_letter_for">Long-press a letter for its Alt character</string>
++    <string name="letters_type_digits_in_numeric">Letters type digits in numeric fields</string>
++    <string name="nav_mode_ijkl_arrows_enabled">Nav mode (IJKL arrows) enabled</string>
++    <string name="alt_space_toggles_nav_mode">Alt+Space toggles Nav mode</string>
++    <string name="show_on_screen_keyboard_for">Show on-screen keyboard for numeric/PIN fields</string>
++    <string name="always_show_on_screen_keyboard">Always show on-screen keyboard</string>
++    <string name="compact_status_strip_when_the">Compact status strip when the on-screen keyboard is hidden</string>
++    <string name="enter_sends_in_apps_that">Enter sends in apps that offer Send (Shift+Enter: new line)</string>
++    <string name="clipboard_history_alt_shift_v">Clipboard history (Alt+Shift+V; kept in memory, never saved)</string>
++    <string name="clear_clipboard_history">Clear clipboard history</string>
++    <string name="clipboard_history_cleared">Clipboard history cleared</string>
++    <string name="autotext_entries">AutoText entries</string>
++    <string name="key_event_probe_diagnostic">Key event probe (diagnostic)</string>
++    <string name="sable_keyboard">Sable Keyboard</string>
++    <string name="layout_provisional_until_key_legends">Layout: provisional until key legends are captured on this device.</string>
++    <string name="space">space · %1$s%2$s</string>
++    <string name="alternate">%1$s, alternate %2$s</string>
++    <string name="clipboard_empty">Clipboard empty</string>
++    <string name="input_method_settings">Input method settings</string>
++    <string name="keyboard_picker">Keyboard picker</string>
++    <string name="sable_keyboard_is_the_selected">Sable Keyboard is the selected keyboard.</string>
++    <string name="another_keyboard_is_selected_your">Another keyboard is selected. Your choice is kept; Sable Keyboard never switches it for you.</string>
++    <string name="sable_keyboard_is_not_enabled">Sable Keyboard is not enabled yet.</string>
++    <string name="could_not_read_which_keyboard">Could not read which keyboard is selected.</string>
++    <string name="could_not_open_not_available">Could not open %1$s: not available on this device.</string>
++    <string name="could_not_open_blocked_by">Could not open %1$s: blocked by the system.</string>
++    <string name="could_not_open">Could not open %1$s.</string>
++    <string name="app_name" translatable="false">Sable Keyboard</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/KeyboardTextTest.kt b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/KeyboardTextTest.kt
+new file mode 100644
+index 0000000..5325272
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/KeyboardTextTest.kt
+@@ -0,0 +1,62 @@
++package org.sableos.titan2.keyboard
++
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.titan2.keyboard.core.KeyboardText
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class KeyboardTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map {
++        it.value
++    }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        KeyboardText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f ->
++            f.name.startsWith("values-") && File(f, "strings.xml").isFile
++        }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, KeyboardText.EN.keys, tr.keys.intersect(KeyboardText.EN.keys))
++            KeyboardText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
 diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt
 new file mode 100644
 index 0000000..1859eda

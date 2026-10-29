@@ -15,6 +15,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import org.sableos.titan2.keyboard.core.KeyLayout
+import org.sableos.titan2.keyboard.core.KeyboardText.t
 import org.sableos.titan2.keyboard.core.Language
 import org.sableos.titan2.keyboard.core.Languages
 import org.sableos.titan2.keyboard.core.SoftKeyboardGeometry
@@ -227,7 +228,7 @@ class SoftKeyboardView(
         if (language.tag == Languages.English.tag) return "space"
         val region = language.tag.substringBefore('_').uppercase()
         val suffix = if (language.layout.isEmpty()) "" else "·ABC"
-        return "space · $region$suffix"
+        return t("space", region, suffix)
     }
 
     private fun punctKey(p: String): View {
@@ -410,7 +411,7 @@ class SoftKeyboardView(
                 LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, weight).apply {
                     setMargins(px(2), px(KEY_MARGIN_V_DP), px(2), px(KEY_MARGIN_V_DP))
                 }
-            contentDescription = if (hintText != null) "$label, alternate $hintText" else label
+            contentDescription = if (hintText != null) t("alternate", label, hintText) else label
             if (opts.repeat) {
                 installRepeat(this, click)
             } else {

@@ -10,6 +10,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import org.sableos.titan2.keyboard.core.AutoText
+import org.sableos.titan2.keyboard.core.KeyboardText.t
 
 /**
  * The user's AutoText list as plain text, one `shortcut=replacement` per line, so it is edited with the hardware
@@ -21,12 +22,7 @@ class AutoTextActivity : Activity() {
         const val TITLE_SP = 20f
         const val NOTE_SP = 12f
         const val MIN_LINES = 6
-        const val HELP =
-            "One entry per line: shortcut=replacement, for example brb=be right back. " +
-                "A shortcut is one word of letters or digits. Your entries work in every " +
-                "language and replace a built-in one with the same shortcut. In a replacement, " +
-                "%D is the date, %T the time and %V the build number. Backspace straight " +
-                "after an expansion puts back what you typed."
+        val HELP: String get() = t("one_entry_per_line_shortcut")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,17 +51,17 @@ class AutoTextActivity : Activity() {
         val status = TextView(this).apply { textSize = NOTE_SP }
         col.addView(
             Button(this).apply {
-                text = "Save"
+                text = t("save")
                 setOnClickListener {
                     val text = edit.text.toString()
                     val entries = AutoText.parse(text)
                     prefs.autoTextEntries = entries
                     val skipped = text.lines().count { it.isNotBlank() } - entries.size
-                    status.text = "Saved ${entries.size} entries" +
+                    status.text = t("saved_entries", entries.size) +
                         if (skipped >
                             0
                         ) {
-                            "; $skipped lines skipped (not shortcut=replacement)"
+                            t("lines_skipped_not_shortcut_replacement", skipped)
                         } else {
                             ""
                         }
@@ -74,7 +70,7 @@ class AutoTextActivity : Activity() {
             }
         )
         col.addView(status)
-        note("Built in (English typing language)", TITLE_SP)
+        note(t("built_in_english_typing_language"), TITLE_SP)
         note(AutoText.BUILT_IN.entries.joinToString("\n") { "${it.key} → ${it.value}" })
         setContentView(
             ScrollView(this).apply {

@@ -8,6 +8,7 @@
 
     <!-- No permissions. directBootAware so the keyboard works at the lockscreen before first unlock. -->
     <application
+        android:name="org.sableos.titan2.keyboard.KeyboardApplication"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_sable_keyboard"

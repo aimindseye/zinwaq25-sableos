@@ -1,5 +1,7 @@
 package org.sableos.titan2.keyboard.core
 
+import org.sableos.titan2.keyboard.core.KeyboardText.t
+
 /**
  * Clipboard history (opt-in, off by default). Pure Kotlin so every rule is JVM-tested. Entries live
  * only in memory: nothing is written to storage, so a reboot or a restart of the keyboard empties
@@ -105,7 +107,7 @@ object ClipPicker {
      * result is the position chip; chip i > 0 is entry [selected] + i - 1.
      */
     fun chips(entries: List<String>, selected: Int): List<String> {
-        if (entries.isEmpty()) return listOf("Clipboard empty")
+        if (entries.isEmpty()) return listOf(t("clipboard_empty"))
         val from = selected.coerceIn(0, entries.lastIndex)
         val shown = entries.drop(from).take(VISIBLE).map { ClipboardHistory.preview(it) }
         return listOf("${from + 1}/${entries.size}") + shown
