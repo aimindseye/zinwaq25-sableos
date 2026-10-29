@@ -14,7 +14,7 @@ app-security	Privacy and security defaults	manual	Settings > Apps > an app > App
 app-blocker	Apps	manual	Settings > Apps > Mobile Manager > App blocker
 hub	Sable Start	manual	Hub (left page of Start)
 app-grid	Sable Start	manual	App pages (right page of Start), the 5-column grid
-phone	Apps	app:phone	Phone
+phone	Apps	intent:android.intent.action.DIAL	Phone (the dialer)
 messages	Apps	app:messages	Sable Messages
 calendar	Apps	app:calendar	Calendar week view
 notes	Apps	app:notes	Notes
