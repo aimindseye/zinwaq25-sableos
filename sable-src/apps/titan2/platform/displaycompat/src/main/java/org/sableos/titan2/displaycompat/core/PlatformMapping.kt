@@ -1,5 +1,7 @@
 package org.sableos.titan2.displaycompat.core
 
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+
 /**
  * Values of the hidden `PackageManager.USER_MIN_ASPECT_RATIO_*` constants, checked against LineageOS 23.2
  * (Android 16) `frameworks/base` at f4ed08a0: UNSET 0, SPLIT_SCREEN 1, DISPLAY_SIZE 2, 4_3 3, 16_9 4, 3_2 5,
@@ -51,13 +53,13 @@ object UserMinAspectRatio {
     private fun Ratio.sameAs(o: Ratio): Boolean = w.toLong() * o.h == h.toLong() * o.w
 
     fun label(value: Int): String = when (value) {
-        UNSET -> "app default"
-        DISPLAY_SIZE -> "display size"
+        UNSET -> t("app_default")
+        DISPLAY_SIZE -> t("display_size")
         RATIO_4_3 -> "4:3"
         RATIO_16_9 -> "16:9"
         RATIO_3_2 -> "3:2"
         FULLSCREEN -> "fullscreen"
-        else -> "value $value"
+        else -> t("value", value)
     }
 }
 
@@ -116,9 +118,9 @@ data class PlatformRequest(
 
     fun describe(): String = buildString {
         append("aspect ").append(UserMinAspectRatio.label(minAspectRatio))
-        append(", orientation ").append(orientationLabel())
-        if (live.isNotEmpty()) append("; while in front: ").append(live.joinToString(", "))
-        if (notApplied.isNotEmpty()) append("; stored only: ").append(notApplied.joinToString(", "))
+        append(t("orientation_2")).append(orientationLabel())
+        if (live.isNotEmpty()) append(t("while_in_front")).append(live.joinToString(", "))
+        if (notApplied.isNotEmpty()) append(t("stored_only")).append(notApplied.joinToString(", "))
     }
 
     private fun orientationLabel(): String = when {
@@ -130,7 +132,7 @@ data class PlatformRequest(
             enableOrientation ->
             "landscape"
 
-        else -> "app default"
+        else -> t("app_default")
     }
 
     companion object {
@@ -149,10 +151,10 @@ object PlatformMapping {
         if (p.letterboxBackground !=
             LetterboxBackground.System
         ) {
-            notApplied += "letterbox background"
+            notApplied += t("letterbox_background_2")
         }
-        if (p.keyboardSafeArea != Tri.Default) notApplied += "keyboard-safe area"
-        if (p.statusNav != BarsPref.Default) notApplied += "status/nav bars"
+        if (p.keyboardSafeArea != Tri.Default) notApplied += t("keyboard_safe_area_2")
+        if (p.statusNav != BarsPref.Default) notApplied += t("status_nav_bars_2")
         if (p.stretch) notApplied += "stretch"
         return PlatformRequest(
             aspect ?: UserMinAspectRatio.UNSET,
@@ -163,10 +165,10 @@ object PlatformMapping {
     }
 
     private fun live(p: DisplayProfile): List<String> = buildList {
-        if (p.canvas != TallCanvas.Native) add("tall canvas " + p.canvas.shape)
+        if (p.canvas != TallCanvas.Native) add(t("tall_canvas_2") + p.canvas.shape)
         when (p.orientation) {
-            OrientationPref.Portrait -> add("rotation portrait")
-            OrientationPref.Landscape -> add("rotation landscape")
+            OrientationPref.Portrait -> add(t("rotation_portrait"))
+            OrientationPref.Landscape -> add(t("rotation_landscape"))
             OrientationPref.Auto -> add("auto-rotate")
             OrientationPref.Default -> Unit
         }

@@ -1,11 +1,15 @@
 package org.sableos.titan2.displaycompat.core
 
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+
 /** System-wide rotation, in Display tools. Follow apps leaves the user's own setting alone. */
-enum class SystemRotation(val id: String, val label: String) {
-    FollowApps("follow", "Follow apps"),
-    Auto("auto", "Auto-rotate"),
-    Portrait("portrait", "Portrait"),
-    Landscape("landscape", "Landscape");
+enum class SystemRotation(val id: String, private val labelKey: String) {
+    FollowApps("follow", "follow_apps"),
+    Auto("auto", "auto_rotate"),
+    Portrait("portrait", "portrait"),
+    Landscape("landscape", "landscape");
+
+    val label: String get() = t(labelKey)
 
     companion object {
         fun fromId(id: String?): SystemRotation = entries.firstOrNull { it.id == id } ?: FollowApps

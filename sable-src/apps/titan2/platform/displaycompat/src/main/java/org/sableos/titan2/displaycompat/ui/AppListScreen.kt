@@ -49,6 +49,7 @@ import org.sableos.titan2.displaycompat.core.AppStylePolicy
 import org.sableos.titan2.displaycompat.core.AppStyleState
 import org.sableos.titan2.displaycompat.core.AspectProfile
 import org.sableos.titan2.displaycompat.core.BackendAvailability
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
 import org.sableos.titan2.displaycompat.core.DisplayProfile
 import org.sableos.titan2.displaycompat.core.TallCanvas
 
@@ -270,7 +271,7 @@ fun AppListScreen(
 
 @Composable
 private fun ListTitle(app: DisplayCompatApp) {
-    Text("App display compatibility", color = C.text, fontSize = 18.sp)
+    Text(t("app_display_compatibility"), color = C.text, fontSize = 18.sp)
     val availability = app.controller.backendAvailability
     Text(
         availability.banner,
@@ -280,9 +281,9 @@ private fun ListTitle(app: DisplayCompatApp) {
 }
 
 private fun emptyListMessage(noAppsAtAll: Boolean, query: String): String = if (noAppsAtAll) {
-    "No launchable apps were found for this user."
+    t("no_launchable_apps_were_found")
 } else {
-    "No apps match \"$query\"."
+    t("no_apps_match", query)
 }
 
 private fun messageTint(msg: String): androidx.compose.ui.graphics.Color =
@@ -305,7 +306,7 @@ private fun FilterField(query: String, onQueryChange: (String) -> Unit, fr: Focu
             decorationBox = { inner ->
                 if (query.isEmpty()) {
                     Text(
-                        "Type to filter apps",
+                        t("type_to_filter_apps"),
                         color = C.muted,
                         fontSize = 14.sp
                     )
@@ -339,16 +340,16 @@ private fun AppRow(label: String, p: DisplayProfile, selected: Boolean, onClick:
     }
 }
 
-private const val STORED = " · stored"
+private val STORED: String get() = t("stored")
 
 private fun badge(p: DisplayProfile): String = when {
-    p.isNative -> "Native"
+    p.isNative -> t("native_label_2")
 
     p.canvas != TallCanvas.Native && p.profile == AspectProfile.Native ->
         "tall " + p.canvas.shape + STORED
 
     p.canvas != TallCanvas.Native ->
-        p.profile.id.replace('_', ' ') + " + tall " + p.canvas.shape + STORED
+        p.profile.id.replace('_', ' ') + t("tall") + p.canvas.shape + STORED
 
     else -> p.profile.id.replace('_', ' ') + STORED
 }
@@ -369,9 +370,9 @@ private fun ToolsEntry(app: DisplayCompatApp, focused: Boolean, onOpen: () -> Un
             .padding(10.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text("Display tools", color = C.text, fontSize = 14.sp)
+        Text(t("display_tools"), color = C.text, fontSize = 14.sp)
         Text(
-            "Rotation " + settings.systemRotation.label + " · Alt+Shift+R",
+            t("rotation") + settings.systemRotation.label + t("alt_shift_r"),
             color = C.accent,
             fontSize = 12.sp
         )
@@ -386,18 +387,18 @@ private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: ()
     ) {
         Text(
             if (styleFocused) {
-                "←→ choose · Enter switch/open · ↑↓ move"
+                t("choose_enter_switch_open_move")
             } else {
-                "↑↓ select · Enter edit · Back"
+                t("select_enter_edit_back")
             },
             color = C.muted,
             fontSize = 11.sp
         )
         Text(
             if (confirmReset) {
-                "Press Ctrl+R again to reset ALL profiles"
+                t("press_ctrl_r_again_to")
             } else {
-                "Ctrl+R: reset all profiles"
+                t("ctrl_r_reset_all_profiles")
             },
             color = C.warn,
             fontSize = 11.sp,
@@ -432,7 +433,7 @@ private fun AppStyleSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Sable app style", color = C.text, fontSize = 14.sp)
+            Text(t("sable_app_style"), color = C.text, fontSize = 14.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 AppCornerStyle.entries.forEach { option ->
                     StyleOption(option, option == s.style, s.enabled) { onPick(option) }
@@ -441,7 +442,7 @@ private fun AppStyleSection(
         }
         Text(
             if (s.enabled) {
-                "Corners for all Sable apps. ${s.style.summary}"
+                t("corners_for_all_sable_apps", s.style.summary)
             } else {
                 AppStylePolicy.UNAVAILABLE_TEXT
             },

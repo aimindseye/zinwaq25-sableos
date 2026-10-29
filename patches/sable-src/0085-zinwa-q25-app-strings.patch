@@ -9888,6 +9888,1592 @@ index 0000000..1f37658
 +        }
 +    }
 +}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/CanvasHotkeyReceiver.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/CanvasHotkeyReceiver.kt
+index 30e328f..e0c16c0 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/CanvasHotkeyReceiver.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/CanvasHotkeyReceiver.kt
+@@ -6,6 +6,7 @@ import android.content.Intent
+ import android.content.pm.PackageManager
+ import android.widget.Toast
+ import org.sableos.titan2.displaycompat.core.CycleText
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+ 
+ /**
+  * The resolution hotkey (Alt+Shift+R, or Sym+Shift+R). PhoneWindowManager (frameworks/base 0313)
+@@ -22,7 +23,8 @@ class CanvasHotkeyReceiver : BroadcastReceiver() {
+         val moment = DeviceMoment.read(context)
+         val outcome = app.tools.cycle(moment)
+         app.refreshDisplay()
+-        val label = moment.frontPackage?.let { labelOf(context.packageManager, it) } ?: "this app"
++        val label =
++            moment.frontPackage?.let { labelOf(context.packageManager, it) } ?: t("this_app")
+         Toast.makeText(context, CycleText.message(outcome, label), Toast.LENGTH_SHORT).show()
+     }
+ 
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
+index 5ccd8ee..cce2f4b 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
+@@ -6,9 +6,11 @@ import android.content.Intent
+ import android.os.UserManager
+ import android.util.Log
+ import org.sableos.titan2.displaycompat.core.AppStyleController
++import org.sableos.titan2.displaycompat.core.DisplayCompatText
+ import org.sableos.titan2.displaycompat.core.DisplayTools
+ import org.sableos.titan2.displaycompat.core.ProfileController
+ import org.sableos.titan2.displaycompat.core.ProfileStore
++import org.sableos.titan2.theme.bindTo
+ 
+ /**
+  * Everything is created on first use: the boot receiver runs before the first unlock, when
+@@ -28,6 +30,7 @@ class DisplayCompatApp : Application() {
+ 
+     override fun onCreate() {
+         super.onCreate()
++        DisplayCompatText.t.bindTo(this)
+         // SAFE_MODE_RESET_ALL_DISPLAY_PROFILES: booting to safe mode clears every per-app profile
+         // so a bad profile cannot trap the user. Before the first unlock the boot receiver does it.
+         if (packageManager.isSafeMode && unlocked()) {
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
+index a2a24be..5c1626c 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/GatedPlatformBackend.kt
+@@ -6,6 +6,7 @@ import org.sableos.titan2.displaycompat.core.ApplyResult
+ import org.sableos.titan2.displaycompat.core.BackendAvailability
+ import org.sableos.titan2.displaycompat.core.CanvasPlan
+ import org.sableos.titan2.displaycompat.core.DisplayBackend
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+ import org.sableos.titan2.displaycompat.core.DisplayProfile
+ import org.sableos.titan2.displaycompat.core.PlatformMapping
+ import org.sableos.titan2.displaycompat.core.PlatformRequest
+@@ -42,8 +43,8 @@ class GatedPlatformBackend : DisplayBackend {
+             sent != null -> sent
+ 
+             !request.hasEffect && request.live.isEmpty() -> ApplyResult.Unsupported(
+-                "no platform equivalent for " + request.notApplied.joinToString(", ") +
+-                    "; stored only, platform settings cleared"
++                t("no_platform_equivalent_for") + request.notApplied.joinToString(", ") +
++                    t("stored_only_platform_settings_cleared")
+             )
+ 
+             !request.hasEffect -> ApplyResult.Applied(request.describe() + LIVE)
+@@ -55,7 +56,7 @@ class GatedPlatformBackend : DisplayBackend {
+     override fun clear(pkg: String): ApplyResult {
+         if (!open()) return ApplyResult.NoOp
+         return send(pkg, PlatformRequest.CLEAR)
+-            ?: ApplyResult.Applied("platform settings cleared$NEXT_LAUNCH")
++            ?: ApplyResult.Applied(t("platform_settings_cleared", NEXT_LAUNCH))
+     }
+ 
+     /** Sends [request]; null on success, else the failure. */
+@@ -93,7 +94,7 @@ class GatedPlatformBackend : DisplayBackend {
+             String::class.java,
+             Int::class.javaPrimitiveType
+         ).invoke(packageManagerService(), pkg, myUserId()) as Int
+-        "; platform reports aspect $v"
++        t("platform_reports_aspect", v)
+     }.getOrDefault("")
+ 
+     private fun guarded(call: () -> Unit): ApplyResult? = try {
+@@ -110,13 +111,13 @@ class GatedPlatformBackend : DisplayBackend {
+     }
+ 
+     private fun unsupported(t: Throwable): ApplyResult = ApplyResult.Unsupported(
+-        (t.cause ?: t).javaClass.simpleName + ": " + ((t.cause ?: t).message ?: "no detail")
++        (t.cause ?: t).javaClass.simpleName + ": " + ((t.cause ?: t).message ?: t("no_detail"))
+     )
+ 
+     private fun packageManagerService(): Any = requireNotNull(
+         Class.forName("android.app.ActivityThread").getMethod("getPackageManager").invoke(null)
+     ) {
+-        "package manager unavailable"
++        t("package_manager_unavailable")
+     }
+ 
+     private fun platformCompat(): Any {
+@@ -128,7 +129,7 @@ class GatedPlatformBackend : DisplayBackend {
+             Class.forName("com.android.internal.compat.IPlatformCompat\$Stub")
+                 .getMethod("asInterface", IBinder::class.java)
+                 .invoke(null, binder)
+-        ) { "platform_compat interface unavailable" }
++        ) { t("platform_compat_interface_unavailable") }
+     }
+ 
+     private fun enabledOverride(): Any {
+@@ -136,7 +137,7 @@ class GatedPlatformBackend : DisplayBackend {
+         val builder = builderClass.getConstructor().newInstance()
+         builderClass.getMethod("setEnabled", Boolean::class.javaPrimitiveType).invoke(builder, true)
+         return requireNotNull(builderClass.getMethod("build").invoke(builder)) {
+-            "no PackageOverride"
++            t("no_packageoverride")
+         }
+     }
+ 
+@@ -150,8 +151,8 @@ class GatedPlatformBackend : DisplayBackend {
+         fun isOpen(): Boolean = SysProps.get(GATE_PROPERTY) == GATE_OPEN
+         private const val PLATFORM_COMPAT_SERVICE = "platform_compat"
+         private const val PER_USER_RANGE = 100_000
+-        private const val NEXT_LAUNCH = "; takes effect the next time the app starts"
+-        private const val LIVE = "; the display tools service holds it while the app is in front"
++        private val NEXT_LAUNCH: String get() = t("takes_effect_the_next_time")
++        private val LIVE: String get() = t("the_display_tools_service_holds")
+         private val PM_INTERFACE: Class<*> by lazy {
+             Class.forName("android.content.pm.IPackageManager")
+         }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/WmDisplayPort.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/WmDisplayPort.kt
+index effc0a5..86c2199 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/WmDisplayPort.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/WmDisplayPort.kt
+@@ -5,6 +5,7 @@ import android.graphics.Point
+ import android.os.Process
+ import android.provider.Settings
+ import org.sableos.titan2.displaycompat.core.CurrentDisplay
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+ import org.sableos.titan2.displaycompat.core.DisplayPort
+ import org.sableos.titan2.displaycompat.core.DisplayStep
+ import org.sableos.titan2.displaycompat.core.SizePx
+@@ -20,7 +21,7 @@ class WmDisplayPort(private val resolver: ContentResolver) : DisplayPort {
+         requireNotNull(
+             Class.forName("android.view.WindowManagerGlobal")
+                 .getMethod("getWindowManagerService").invoke(null)
+-        ) { "window manager unavailable" }
++        ) { t("window_manager_unavailable") }
+     }
+ 
+     private fun method(name: String, vararg types: Class<*>) = WM_INTERFACE.getMethod(name, *types)
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppStyle.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppStyle.kt
+index f50ba99..0e1658f 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppStyle.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppStyle.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.displaycompat.core
+ 
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
++
+ /*
+  * "Sable app style" section of App display compatibility: the global corner style every Sable
+  * app reads from the appearance authority (content://org.sableos.appearance/appearance, column
+@@ -14,9 +16,16 @@ package org.sableos.titan2.displaycompat.core
+  * SableAppearancePolicy.CORNER_STYLES in the Settings patch (tests/check-sable-design.py compares
+  * them). Compact is the default, so Sable apps look the same until the user picks Rounded.
+  */
+-enum class AppCornerStyle(val stableValue: String, val label: String, val summary: String) {
+-    Compact("compact", "Compact", "Tight 2-6dp corners, the original Sable app look."),
+-    Rounded("rounded", "Rounded", "8dp controls, 12dp cards and sheets, like Quick Settings.");
++enum class AppCornerStyle(
++    val stableValue: String,
++    private val labelKey: String,
++    private val summaryKey: String
++) {
++    Compact("compact", "compact", "tight_2_6dp_corners_the"),
++    Rounded("rounded", "rounded", "n8dp_controls_12dp_cards_and");
++
++    val label: String get() = t(labelKey)
++    val summary: String get() = t(summaryKey)
+ 
+     companion object {
+         val DEFAULT = Compact
+@@ -78,13 +87,12 @@ object AppStylePolicy {
+ 
+     /** Status line after a change. Failure text contains "could not" (the screen tints it). */
+     fun message(style: AppCornerStyle, saved: Boolean): String = if (saved) {
+-        "Sable apps now use ${style.label} corners."
++        t("sable_apps_now_use_corners", style.label)
+     } else {
+-        "Sable app style could not be saved; Sable apps keep their current corners."
++        t("sable_app_style_could_not")
+     }
+ 
+-    const val UNAVAILABLE_TEXT =
+-        "Sable app style needs the SableOS appearance service in Settings; not on this build."
++    val UNAVAILABLE_TEXT: String get() = t("sable_app_style_needs_the")
+ }
+ 
+ /** Applies a choice through the store and reports the resulting state and message. */
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/CanvasPlanner.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/CanvasPlanner.kt
+index fd0a689..130945e 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/CanvasPlanner.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/CanvasPlanner.kt
+@@ -2,6 +2,7 @@ package org.sableos.titan2.displaycompat.core
+ 
+ import kotlin.math.min
+ import kotlin.math.roundToInt
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+ 
+ /**
+  * Result of planning a profile on a physical display.
+@@ -30,18 +31,18 @@ object CanvasPlanner {
+      */
+     fun plan(display: SizePx, p: DisplayProfile, softKeyboardFraction: Float = 0.40f): CanvasPlan =
+         when (p.profile) {
+-            AspectProfile.Native -> plain(display, p, "Native: app and platform defaults.")
++            AspectProfile.Native -> plain(display, p, t("native_app_and_platform_defaults"))
+ 
+             AspectProfile.FullscreenMedia -> plain(
+                 display,
+                 p,
+-                "Fullscreen media: no forced letterboxing."
++                t("fullscreen_media_no_forced_letterboxing")
+             )
+ 
+             AspectProfile.SquareSafe -> plain(
+                 display,
+                 p,
+-                "Square-safe: full display with a 1:1 minimum-aspect hint; no bars."
++                t("square_safe_full_display_with")
+             )
+ 
+             AspectProfile.KeyboardSafe -> keyboardSafe(display, p, softKeyboardFraction)
+@@ -52,14 +53,14 @@ object CanvasPlanner {
+                 display,
+                 Ratio.R16_9.value,
+                 p,
+-                "16:9 letterbox"
++                t("n16_9_letterbox")
+             )
+ 
+             AspectProfile.Ratio4x3Letterbox -> letterbox(
+                 display,
+                 Ratio.R4_3.value,
+                 p,
+-                "4:3 letterbox"
++                t("n4_3_letterbox")
+             )
+ 
+             AspectProfile.Custom -> custom(display, p)
+@@ -91,29 +92,29 @@ object CanvasPlanner {
+         } else {
+             (display.h * softKeyboardFraction).roundToInt()
+         }
+-        return plain(display, p, "Keyboard-safe: reserves ${reserve}px for text entry.", reserve)
++        return plain(display, p, t("keyboard_safe_reserves_px_for", reserve), reserve)
+     }
+ 
+     /** A phone-shaped window: portrait unless the profile asks for landscape (the platform's own behaviour). */
+     private fun miniMode(display: SizePx, p: DisplayProfile): CanvasPlan {
+         val phone = if (p.orientation == OrientationPref.Landscape) MINI_RATIO else 1f / MINI_RATIO
+         val unturned = p.copy(orientation = OrientationPref.Default)
+-        return letterbox(display, phone, unturned, "Mini mode (3:2 phone window)")
++        return letterbox(display, phone, unturned, t("mini_mode_3_2_phone"))
+             .copy(lockedOrientation = orientationLock(p))
+     }
+ 
+     private fun custom(display: SizePx, p: DisplayProfile): CanvasPlan {
+         val r = p.customRatio
+         return when {
+-            r == null -> plain(display, p, "Custom ratio missing: no-op.")
++            r == null -> plain(display, p, t("custom_ratio_missing_no_op"))
+ 
+             r.value < Ratio.MIN || r.value > Ratio.MAX -> plain(
+                 display,
+                 p,
+-                "Custom ratio $r out of range: no-op."
++                t("custom_ratio_out_of_range", r)
+             )
+ 
+-            else -> letterbox(display, r.value, p, "Custom $r letterbox")
++            else -> letterbox(display, r.value, p, t("custom_letterbox", r))
+         }
+     }
+ 
+@@ -129,8 +130,7 @@ object CanvasPlanner {
+             1f - visible,
+             orientationLock(p),
+             0,
+-            "16:9 fill: ${((1f - visible) * PERCENT).roundToInt()}% of the app canvas " +
+-                "is cropped. Use letterbox if controls go missing."
++            t("n16_9_fill_of_the", ((1f - visible) * PERCENT).roundToInt())
+         )
+     }
+ 
+@@ -166,7 +166,13 @@ object CanvasPlanner {
+             0f,
+             orientationLock(p),
+             0,
+-            "$label: ${canvas.w}x${canvas.h} centred, background ${p.letterboxBackground.name.lowercase()}."
++            t(
++                "x_centred_background",
++                label,
++                canvas.w,
++                canvas.h,
++                p.letterboxBackground.name.lowercase()
++            )
+         )
+     }
+ 
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt
+new file mode 100644
+index 0000000..22ad19a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt
+@@ -0,0 +1,222 @@
++package org.sableos.titan2.displaycompat.core
++
++import org.sableos.titan2.theme.SableTexts
++
++/**
++ * Every line App display compatibility shows, in English, by string resource name.
++ * res/values/strings.xml repeats them (DisplayCompatTextTest keeps the two equal) and
++ * res/values-<lang>/strings.xml translates them.
++ */
++object DisplayCompatText {
++    val EN: Map<String, String> =
++        mapOf(
++            "display_tools" to "Display tools",
++            "enforcement_backend_closed_these_settings" to
++                "Enforcement backend: CLOSED. These settings are stored but not applied.",
++            "alt_shift_r_sym_shift" to "Alt+Shift+R (Sym+Shift+R) cycles the app in front: ",
++            "portrait_and_landscape_lock_the" to
++                "Portrait and Landscape lock the screen and make apps that ask for another " +
++                "orientation fit instead of turning it. While any app has an aspect ratio " +
++                "profile, apps' orientation requests are fitted the same way (Android needs that " +
++                "for aspect ratios). A per-app orientation wins while its app is in front.",
++            "row_change_enter_change_act" to "↑↓ row · ←→ change · Enter change/act · Back",
++            "system_rotation" to "System rotation: %1\$s.",
++            "display_restored_profiles_apply_again" to
++                "Display restored. Profiles apply again when their app comes to the front.",
++            "could_not_restore_try_again" to "Could not restore: %1\$s. Try again or reboot.",
++            "no_favourite_sizes_yet" to "no favourite sizes yet.",
++            "native_label" to " → Native.",
++            "system_rotation_2" to "System rotation",
++            "favourite" to "Favourite ",
++            "restore_the_native_display_now" to "Restore the native display now",
++            "back" to "Back",
++            "on" to "On",
++            "off" to "Off",
++            "profile" to "Profile",
++            "tall_canvas" to "Tall canvas",
++            "orientation" to "Orientation",
++            "scaling" to "Scaling",
++            "letterbox_background" to "Letterbox background",
++            "keyboard_safe_area" to "Keyboard-safe area",
++            "status_nav_bars" to "Status / nav bars",
++            "stretch_distorts" to "Stretch (distorts)",
++            "custom_ratio" to "Custom ratio",
++            "advanced_profiles" to "Advanced profiles",
++            "acknowledge_warnings" to "Acknowledge warnings",
++            "save_profile" to "Save profile",
++            "reset_this_app_to_native" to "Reset this app to Native",
++            "yes" to "Yes",
++            "no" to "No",
++            "not_saved" to "Not saved",
++            "not_enforced" to "NOT enforced",
++            "could_not" to "could not",
++            "not_verified" to "not verified",
++            "platform" to "Platform: ",
++            "keyboard_input_protected" to " · Keyboard input: protected",
++            "app_display_compatibility" to "App display compatibility",
++            "no_launchable_apps_were_found" to "No launchable apps were found for this user.",
++            "no_apps_match" to "No apps match \"%1\$s\".",
++            "type_to_filter_apps" to "Type to filter apps",
++            "stored" to " · stored",
++            "native_label_2" to "Native",
++            "tall" to " + tall ",
++            "rotation" to "Rotation ",
++            "alt_shift_r" to " · Alt+Shift+R",
++            "choose_enter_switch_open_move" to "←→ choose · Enter switch/open · ↑↓ move",
++            "select_enter_edit_back" to "↑↓ select · Enter edit · Back",
++            "press_ctrl_r_again_to" to "Press Ctrl+R again to reset ALL profiles",
++            "ctrl_r_reset_all_profiles" to "Ctrl+R: reset all profiles",
++            "sable_app_style" to "Sable app style",
++            "corners_for_all_sable_apps" to "Corners for all Sable apps. %1\$s",
++            "window_manager_unavailable" to "window manager unavailable",
++            "this_app" to "this app",
++            "no_platform_equivalent_for" to "no platform equivalent for ",
++            "stored_only_platform_settings_cleared" to "; stored only, platform settings cleared",
++            "platform_settings_cleared" to "platform settings cleared%1\$s",
++            "platform_reports_aspect" to "; platform reports aspect %1\$s",
++            "no_detail" to "no detail",
++            "package_manager_unavailable" to "package manager unavailable",
++            "platform_compat_interface_unavailable" to "platform_compat interface unavailable",
++            "no_packageoverride" to "no PackageOverride",
++            "takes_effect_the_next_time" to "; takes effect the next time the app starts",
++            "the_display_tools_service_holds" to
++                "; the display tools service holds it while the app is in front",
++            "compact" to "Compact",
++            "tight_2_6dp_corners_the" to "Tight 2-6dp corners, the original Sable app look.",
++            "rounded" to "Rounded",
++            "n8dp_controls_12dp_cards_and" to
++                "8dp controls, 12dp cards and sheets, like Quick Settings.",
++            "sable_apps_now_use_corners" to "Sable apps now use %1\$s corners.",
++            "sable_app_style_could_not" to
++                "Sable app style could not be saved; Sable apps keep their current corners.",
++            "sable_app_style_needs_the" to
++                "Sable app style needs the SableOS appearance service in Settings; not on this " +
++                "build.",
++            "mini_mode_opens_the_app" to
++                "Mini mode opens the app in a 3:2 phone-shaped window (480x720 on a 720x720 " +
++                "screen).",
++            "the_phone_app_must_keep" to
++                "The phone app must keep the native display so calls stay easy to read and " +
++                "answer.",
++            "check_codes_and_prompts_stay" to
++                "Check codes and prompts stay readable on the smaller tall canvas.",
++            "the_camera_preview_is_shown" to
++                "The camera preview is shown smaller on a tall canvas.",
++            "tall_canvas_already_gives_a" to
++                "Tall canvas already gives a phone shape; an aspect profile narrows it again.",
++            "tall_canvas_while_this_app" to
++                "Tall canvas: while this app is in front the screen gets a taller size, drawn " +
++                "smaller. Leaving the app, locking or a crash puts the native size back.",
++            "locking_orientation_can_rotate_the" to
++                "Locking orientation can rotate the camera preview unexpectedly.",
++            "landscape_turns_the_app_sideways" to
++                "Landscape turns the app sideways (reverse landscape) above the keyboard. Typing " +
++                "still works.",
++            "auto_turns_auto_rotate_on" to
++                "Auto turns auto-rotate on while this app is in front; an app that fixes its own " +
++                "orientation keeps it.",
++            "with_an_aspect_ratio_android" to
++                "With an aspect ratio Android keeps the app portrait unless the app itself asks " +
++                "for landscape.",
++            "system_ui_settings_keyboards_accessibility" to
++                "System UI, Settings, keyboards, accessibility services and the launcher cannot " +
++                "use display profiles.",
++            "the_phone_app_must_keep_2" to
++                "The phone app must keep the full display so calls and emergency dialling stay " +
++                "reachable.",
++            "authenticator_and_payment_apps_cannot" to
++                "Authenticator and payment apps cannot be cropped, stretched or given a custom " +
++                "ratio.",
++            "check_codes_and_prompts_stay_2" to
++                "Check codes and prompts stay fully visible after applying this profile.",
++            "camera_preview_must_not_be" to "Camera preview must not be cropped or stretched.",
++            "media_apps_usually_look_best" to
++                "Media apps usually look best with Fullscreen media instead of bars.",
++            "fill_can_crop_edges_use" to
++                "Fill can crop edges. Use letterbox if buttons or text are missing.",
++            "stretch_distorts_text_maps_camera" to
++                "Stretch distorts text, maps, camera previews and games. It is off by default.",
++            "custom_ratios_are_an_advanced" to
++                "Custom ratios are an advanced setting. Enable advanced profiles first.",
++            "choose_a_custom_ratio" to "Choose a custom ratio.",
++            "custom_ratio_must_be_between" to "Custom ratio must be between %1\$s and %2\$s.",
++            "a_custom_ratio_is_stored" to "A custom ratio is stored but not used by this profile.",
++            "follow_apps" to "Follow apps",
++            "portrait" to "Portrait",
++            "landscape" to "Landscape",
++            "native_x" to "Native %1\$sx%2\$s",
++            "not_taller_here" to "%1\$s (not taller here)",
++            "app_default" to "app default",
++            "display_size" to "display size",
++            "value" to "value %1\$s",
++            "orientation_2" to ", orientation ",
++            "while_in_front" to "; while in front: ",
++            "stored_only" to "; stored only: ",
++            "letterbox_background_2" to "letterbox background",
++            "keyboard_safe_area_2" to "keyboard-safe area",
++            "status_nav_bars_2" to "status/nav bars",
++            "tall_canvas_2" to "tall canvas ",
++            "rotation_portrait" to "rotation portrait",
++            "rotation_landscape" to "rotation landscape",
++            "native_app_and_platform_defaults" to "Native: app and platform defaults.",
++            "fullscreen_media_no_forced_letterboxing" to
++                "Fullscreen media: no forced letterboxing.",
++            "square_safe_full_display_with" to
++                "Square-safe: full display with a 1:1 minimum-aspect hint; no bars.",
++            "n16_9_letterbox" to "16:9 letterbox",
++            "n4_3_letterbox" to "4:3 letterbox",
++            "keyboard_safe_reserves_px_for" to "Keyboard-safe: reserves %1\$spx for text entry.",
++            "mini_mode_3_2_phone" to "Mini mode (3:2 phone window)",
++            "custom_ratio_missing_no_op" to "Custom ratio missing: no-op.",
++            "custom_ratio_out_of_range" to "Custom ratio %1\$s out of range: no-op.",
++            "custom_letterbox" to "Custom %1\$s letterbox",
++            "n16_9_fill_of_the" to
++                "16:9 fill: %1\$s%% of the app canvas is cropped. Use letterbox if controls go " +
++                "missing.",
++            "x_centred_background" to "%1\$s: %2\$sx%3\$s centred, background %4\$s.",
++            "not_saved_blocked" to "Not saved: blocked. ",
++            "not_saved_acknowledge_the_warnings" to "Not saved: acknowledge the warnings first.",
++            "not_saved_the_profile_could" to
++                "Not saved: the profile could not be stored. Nothing was changed.",
++            "saved" to "Saved. ",
++            "the_package_name_is_not" to "The package name is not valid.",
++            "backend_error" to "backend error: ",
++            "enforcement_backend_closed_profiles_are" to
++                "Enforcement backend: CLOSED. Profiles are validated and stored only; nothing is " +
++                "enforced.",
++            "enforcement_backend_open_gate_set" to
++                "Enforcement backend: OPEN (gate set). Requests go to the platform; their effect " +
++                "is not verified here.",
++            "native_profile_nothing_to_enforce" to "Native profile: nothing to enforce.",
++            "stored_only_not_enforced_the" to
++                "Stored only. NOT enforced: the platform backend is closed until it is validated " +
++                "on a device.",
++            "stored_only_not_enforced" to "Stored only. NOT enforced: ",
++            "stored_the_platform_accepted_the" to "Stored. The platform accepted the request (",
++            "its_effect_on_the_app" to "); its effect on the app is not verified.",
++            "reset_failed_the_stored_profile" to
++                "Reset failed: the stored profile could not be removed.",
++            "reset_to_native_the_stored" to
++                "Reset to Native. The stored profile was removed, but the platform override " +
++                "could not be cleared: ",
++            "reset_to_native_the_app" to "Reset to Native. The app was not launched.",
++            "reset_profile_s_to_native" to "Reset %1\$s profile(s) to Native.",
++            "reset_profile_s_to_native_2" to
++                "Reset %1\$s profile(s) to Native. The platform override could not be cleared " +
++                "for ",
++            "a_stored_profile_is_no" to
++                "A stored profile is no longer allowed for this app and is ignored: %1\$s. Save " +
++                "or reset to clear it.",
++            "display_tools_are_off_on" to "Display tools are off on this build.",
++            "open_an_app_first_then" to "Open an app first, then press Alt+Shift+R.",
++            "choose_favourite_sizes_in_display" to
++                "Choose favourite sizes in Display compatibility > Display tools.",
++            "tall_canvas_is_not_available" to "Tall canvas is not available for %1\$s. %2\$s",
++            "confirm_the_warnings_for_in" to
++                "Confirm the warnings for %1\$s in Display compatibility first.",
++            "not_changed_the_profile_could" to "Not changed: the profile could not be stored.",
++            "auto_rotate" to "Auto-rotate"
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt
+index 1d874f7..f69c93e 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt
+@@ -1,11 +1,15 @@
+ package org.sableos.titan2.displaycompat.core
+ 
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
++
+ /** System-wide rotation, in Display tools. Follow apps leaves the user's own setting alone. */
+-enum class SystemRotation(val id: String, val label: String) {
+-    FollowApps("follow", "Follow apps"),
+-    Auto("auto", "Auto-rotate"),
+-    Portrait("portrait", "Portrait"),
+-    Landscape("landscape", "Landscape");
++enum class SystemRotation(val id: String, private val labelKey: String) {
++    FollowApps("follow", "follow_apps"),
++    Auto("auto", "auto_rotate"),
++    Portrait("portrait", "portrait"),
++    Landscape("landscape", "landscape");
++
++    val label: String get() = t(labelKey)
+ 
+     companion object {
+         fun fromId(id: String?): SystemRotation = entries.firstOrNull { it.id == id } ?: FollowApps
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt
+index d5bd0cc..630e45a 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.displaycompat.core
+ 
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
++
+ /** The platform side of the display tools; the Android glue reflects into WindowManager. */
+ interface DisplayPort {
+     /** Size and density of the default display before any forced value, natural orientation. */
+@@ -188,19 +190,19 @@ object PlanRunner {
+ /** Toast and status wording for the hotkey. */
+ object CycleText {
+     fun message(o: CycleOutcome, appLabel: String): String = when (o) {
+-        CycleOutcome.GateClosed -> "Display tools are off on this build."
++        CycleOutcome.GateClosed -> t("display_tools_are_off_on")
+ 
+-        CycleOutcome.NoApp -> "Open an app first, then press Alt+Shift+R."
++        CycleOutcome.NoApp -> t("open_an_app_first_then")
+ 
+         CycleOutcome.NoFavourites ->
+-            "Choose favourite sizes in Display compatibility > Display tools."
++            t("choose_favourite_sizes_in_display")
+ 
+-        is CycleOutcome.Blocked -> "Tall canvas is not available for $appLabel. ${o.reason}".trim()
++        is CycleOutcome.Blocked -> t("tall_canvas_is_not_available", appLabel, o.reason).trim()
+ 
+         CycleOutcome.NeedsConfirmation ->
+-            "Confirm the warnings for $appLabel in Display compatibility first."
++            t("confirm_the_warnings_for_in", appLabel)
+ 
+-        CycleOutcome.StorageFailed -> "Not changed: the profile could not be stored."
++        CycleOutcome.StorageFailed -> t("not_changed_the_profile_could")
+ 
+         is CycleOutcome.Changed -> o.label + " · " + appLabel
+     }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Enforcement.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Enforcement.kt
+index 94a3f20..96cb651 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Enforcement.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Enforcement.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.displaycompat.core
+ 
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
++
+ /**
+  * What can honestly be said about a profile after a save. There is deliberately no "enforced" state: this app has no
+  * way to read the platform back, so the strongest claim is that the platform accepted the request. Effect on the
+@@ -24,30 +26,30 @@ enum class EnforcementState {
+ /** Whether the enforcement backend will send requests to the platform at all. Closed is the fail-closed default. */
+ enum class BackendAvailability(val banner: String) {
+     CLOSED(
+-        "Enforcement backend: CLOSED. Profiles are validated and stored only; nothing is enforced."
++        t("enforcement_backend_closed_profiles_are")
+     ),
+     OPEN_UNVERIFIED(
+-        "Enforcement backend: OPEN (gate set). Requests go to the platform; their effect is not verified here."
++        t("enforcement_backend_open_gate_set")
+     )
+ }
+ 
+ /** User-facing wording. Nothing here may say a profile is "applied" or "enforced" without the qualifiers below. */
+ object EnforcementText {
+     fun describe(state: EnforcementState, result: ApplyResult?): String = when (state) {
+-        EnforcementState.NOT_APPLICABLE_NATIVE -> "Native profile: nothing to enforce."
++        EnforcementState.NOT_APPLICABLE_NATIVE -> t("native_profile_nothing_to_enforce")
+ 
+         EnforcementState.NOT_ENFORCED_BACKEND_CLOSED ->
+-            "Stored only. NOT enforced: the platform backend is closed until it is validated on a device."
++            t("stored_only_not_enforced_the")
+ 
+         EnforcementState.NOT_ENFORCED_UNSUPPORTED ->
+-            "Stored only. NOT enforced: " +
++            t("stored_only_not_enforced") +
+                 ((result as? ApplyResult.Unsupported)?.reason ?: "unsupported") +
+                 "."
+ 
+         EnforcementState.PLATFORM_CALL_ACCEPTED_UNVERIFIED ->
+-            "Stored. The platform accepted the request (" +
+-                ((result as? ApplyResult.Applied)?.detail ?: "no detail") +
+-                "); its effect on the app is not verified."
++            t("stored_the_platform_accepted_the") +
++                ((result as? ApplyResult.Applied)?.detail ?: t("no_detail")) +
++                t("its_effect_on_the_app")
+     }
+ }
+ 
+@@ -64,21 +66,20 @@ enum class SaveStatus { BLOCKED, NEEDS_ACK, STORAGE_FAILED, STORED }
+ /** Result of removing a profile. A platform override that could not be cleared is reported, never hidden. */
+ data class ResetOutcome(val storeCleared: Boolean, val platform: ApplyResult) {
+     fun message(): String = when {
+-        !storeCleared -> "Reset failed: the stored profile could not be removed."
++        !storeCleared -> t("reset_failed_the_stored_profile")
+ 
+         platform is ApplyResult.Unsupported ->
+-            "Reset to Native. The stored profile was removed, but the platform override " +
+-                "could not be cleared: " + platform.reason + "."
++            t("reset_to_native_the_stored") + platform.reason + "."
+ 
+-        else -> "Reset to Native. The app was not launched."
++        else -> t("reset_to_native_the_app")
+     }
+ }
+ 
+ data class ResetAllOutcome(val count: Int, val platformFailures: List<String>) {
+     fun message(): String = if (platformFailures.isEmpty()) {
+-        "Reset $count profile(s) to Native."
++        t("reset_profile_s_to_native", count)
+     } else {
+-        "Reset $count profile(s) to Native. The platform override could not be cleared for " +
++        t("reset_profile_s_to_native_2", count) +
+             platformFailures.size + " app(s): " + platformFailures.joinToString(", ") + "."
+     }
+ }
+@@ -91,7 +92,7 @@ enum class StoredState { NONE, STORED, STORED_BLOCKED_NOT_EFFECTIVE }
+  */
+ data class LoadedProfile(val profile: DisplayProfile, val state: StoredState, val reason: String?) {
+     fun message(): String? = if (state == StoredState.STORED_BLOCKED_NOT_EFFECTIVE) {
+-        "A stored profile is no longer allowed for this app and is ignored: $reason. Save or reset to clear it."
++        t("a_stored_profile_is_no", reason)
+     } else {
+         null
+     }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
+index 1733dc1..ba2d34e 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/PlatformMapping.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.displaycompat.core
+ 
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
++
+ /**
+  * Values of the hidden `PackageManager.USER_MIN_ASPECT_RATIO_*` constants, checked against LineageOS 23.2
+  * (Android 16) `frameworks/base` at f4ed08a0: UNSET 0, SPLIT_SCREEN 1, DISPLAY_SIZE 2, 4_3 3, 16_9 4, 3_2 5,
+@@ -51,13 +53,13 @@ object UserMinAspectRatio {
+     private fun Ratio.sameAs(o: Ratio): Boolean = w.toLong() * o.h == h.toLong() * o.w
+ 
+     fun label(value: Int): String = when (value) {
+-        UNSET -> "app default"
+-        DISPLAY_SIZE -> "display size"
++        UNSET -> t("app_default")
++        DISPLAY_SIZE -> t("display_size")
+         RATIO_4_3 -> "4:3"
+         RATIO_16_9 -> "16:9"
+         RATIO_3_2 -> "3:2"
+         FULLSCREEN -> "fullscreen"
+-        else -> "value $value"
++        else -> t("value", value)
+     }
+ }
+ 
+@@ -116,9 +118,9 @@ data class PlatformRequest(
+ 
+     fun describe(): String = buildString {
+         append("aspect ").append(UserMinAspectRatio.label(minAspectRatio))
+-        append(", orientation ").append(orientationLabel())
+-        if (live.isNotEmpty()) append("; while in front: ").append(live.joinToString(", "))
+-        if (notApplied.isNotEmpty()) append("; stored only: ").append(notApplied.joinToString(", "))
++        append(t("orientation_2")).append(orientationLabel())
++        if (live.isNotEmpty()) append(t("while_in_front")).append(live.joinToString(", "))
++        if (notApplied.isNotEmpty()) append(t("stored_only")).append(notApplied.joinToString(", "))
+     }
+ 
+     private fun orientationLabel(): String = when {
+@@ -130,7 +132,7 @@ data class PlatformRequest(
+             enableOrientation ->
+             "landscape"
+ 
+-        else -> "app default"
++        else -> t("app_default")
+     }
+ 
+     companion object {
+@@ -149,10 +151,10 @@ object PlatformMapping {
+         if (p.letterboxBackground !=
+             LetterboxBackground.System
+         ) {
+-            notApplied += "letterbox background"
++            notApplied += t("letterbox_background_2")
+         }
+-        if (p.keyboardSafeArea != Tri.Default) notApplied += "keyboard-safe area"
+-        if (p.statusNav != BarsPref.Default) notApplied += "status/nav bars"
++        if (p.keyboardSafeArea != Tri.Default) notApplied += t("keyboard_safe_area_2")
++        if (p.statusNav != BarsPref.Default) notApplied += t("status_nav_bars_2")
+         if (p.stretch) notApplied += "stretch"
+         return PlatformRequest(
+             aspect ?: UserMinAspectRatio.UNSET,
+@@ -163,10 +165,10 @@ object PlatformMapping {
+     }
+ 
+     private fun live(p: DisplayProfile): List<String> = buildList {
+-        if (p.canvas != TallCanvas.Native) add("tall canvas " + p.canvas.shape)
++        if (p.canvas != TallCanvas.Native) add(t("tall_canvas_2") + p.canvas.shape)
+         when (p.orientation) {
+-            OrientationPref.Portrait -> add("rotation portrait")
+-            OrientationPref.Landscape -> add("rotation landscape")
++            OrientationPref.Portrait -> add(t("rotation_portrait"))
++            OrientationPref.Landscape -> add(t("rotation_landscape"))
+             OrientationPref.Auto -> add("auto-rotate")
+             OrientationPref.Default -> Unit
+         }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileStore.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileStore.kt
+index 2a556d5..510ce22 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileStore.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileStore.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.displaycompat.core
+ 
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
++
+ /** Per-user per-package storage. Native profiles are never stored: absence means "do nothing". */
+ interface ProfileStore {
+     fun get(pkg: String): DisplayProfile
+@@ -65,14 +67,14 @@ class ProfileController(private val store: ProfileStore, private val backend: Di
+             validation.issues.firstOrNull { it.severity == Severity.Blocked }?.message.orEmpty()
+ 
+         fun message(): String = when (status) {
+-            SaveStatus.BLOCKED -> "Not saved: blocked. " + firstBlockedMessage()
++            SaveStatus.BLOCKED -> t("not_saved_blocked") + firstBlockedMessage()
+ 
+-            SaveStatus.NEEDS_ACK -> "Not saved: acknowledge the warnings first."
++            SaveStatus.NEEDS_ACK -> t("not_saved_acknowledge_the_warnings")
+ 
+             SaveStatus.STORAGE_FAILED ->
+-                "Not saved: the profile could not be stored. Nothing was changed."
++                t("not_saved_the_profile_could")
+ 
+-            SaveStatus.STORED -> "Saved. " + EnforcementText.describe(enforcement, result)
++            SaveStatus.STORED -> t("saved") + EnforcementText.describe(enforcement, result)
+         }
+     }
+ 
+@@ -108,7 +110,7 @@ class ProfileController(private val store: ProfileStore, private val backend: Di
+             ProfileValidator.validate(traits, p, advanced)
+         } else {
+             Validation(
+-                listOf(Issue(Severity.Blocked, "PACKAGE_INVALID", "The package name is not valid."))
++                listOf(Issue(Severity.Blocked, "PACKAGE_INVALID", t("the_package_name_is_not")))
+             )
+         }
+ 
+@@ -181,6 +183,6 @@ class ProfileController(private val store: ProfileStore, private val backend: Di
+     }.getOrDefault(false)
+ 
+     private fun guarded(call: () -> ApplyResult): ApplyResult = runCatching(call).getOrElse {
+-        ApplyResult.Unsupported("backend error: " + (it.message ?: it.javaClass.simpleName))
++        ApplyResult.Unsupported(t("backend_error") + (it.message ?: it.javaClass.simpleName))
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt
+index e0babd1..b23e7f7 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileValidator.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.titan2.displaycompat.core
+ 
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
++
+ enum class Severity { Info, Warning, Blocked }
+ 
+ data class Issue(
+@@ -36,7 +38,7 @@ object ProfileValidator {
+                 Issue(
+                     Severity.Info,
+                     "MINI_WINDOW",
+-                    "Mini mode opens the app in a 3:2 phone-shaped window (480x720 on a 720x720 screen)."
++                    t("mini_mode_opens_the_app")
+                 )
+             )
+         }
+@@ -51,31 +53,30 @@ object ProfileValidator {
+         if (traits.isDialer) {
+             out.block(
+                 "DIALER_CANVAS",
+-                "The phone app must keep the native display so calls stay easy to read and answer."
++                t("the_phone_app_must_keep")
+             )
+         }
+         if (traits.isAuthenticatorOrPayment) {
+             out.warn(
+                 "AUTH_PAYMENT_CANVAS",
+-                "Check codes and prompts stay readable on the smaller tall canvas.",
++                t("check_codes_and_prompts_stay"),
+                 ack = true
+             )
+         }
+         if (traits.isCamera) {
+-            out.warn("CAMERA_CANVAS", "The camera preview is shown smaller on a tall canvas.")
++            out.warn("CAMERA_CANVAS", t("the_camera_preview_is_shown"))
+         }
+         if (p.profile != AspectProfile.Native) {
+             out.warn(
+                 "CANVAS_WITH_ASPECT",
+-                "Tall canvas already gives a phone shape; an aspect profile narrows it again."
++                t("tall_canvas_already_gives_a")
+             )
+         }
+         out.add(
+             Issue(
+                 Severity.Info,
+                 "CANVAS_LIVE",
+-                "Tall canvas: while this app is in front the screen gets a taller size, drawn " +
+-                    "smaller. Leaving the app, locking or a crash puts the native size back."
++                t("tall_canvas_while_this_app")
+             )
+         )
+     }
+@@ -84,13 +85,13 @@ object ProfileValidator {
+         if (p.orientation.locksOrientation() && traits.isCamera) {
+             out.warn(
+                 "CAMERA_ORIENTATION",
+-                "Locking orientation can rotate the camera preview unexpectedly."
++                t("locking_orientation_can_rotate_the")
+             )
+         }
+         if (p.orientation == OrientationPref.Landscape) {
+             out.warn(
+                 "LANDSCAPE_SIDEWAYS",
+-                "Landscape turns the app sideways (reverse landscape) above the keyboard. Typing still works.",
++                t("landscape_turns_the_app_sideways"),
+                 ack = true
+             )
+         }
+@@ -99,16 +100,14 @@ object ProfileValidator {
+                 Issue(
+                     Severity.Info,
+                     "AUTO_LIVE",
+-                    "Auto turns auto-rotate on while this app is in front; an app that fixes " +
+-                        "its own orientation keeps it."
++                    t("auto_turns_auto_rotate_on")
+                 )
+             )
+         }
+         if (p.orientation == OrientationPref.Landscape && DisplayPolicy.usesAspectRatio(p)) {
+             out.warn(
+                 "ASPECT_KEEPS_PORTRAIT",
+-                "With an aspect ratio Android keeps the app portrait unless the app itself asks " +
+-                    "for landscape."
++                t("with_an_aspect_ratio_android")
+             )
+         }
+     }
+@@ -143,25 +142,25 @@ object ProfileValidator {
+         if (traits.isProtectedApp()) {
+             out.block(
+                 "PROTECTED_APP",
+-                "System UI, Settings, keyboards, accessibility services and the launcher cannot use display profiles."
++                t("system_ui_settings_keyboards_accessibility")
+             )
+         }
+         if (traits.isDialer && reshaping) {
+             out.block(
+                 "DIALER_RESHAPE",
+-                "The phone app must keep the full display so calls and emergency dialling stay reachable."
++                t("the_phone_app_must_keep_2")
+             )
+         }
+         if (traits.isAuthenticatorOrPayment && distorting) {
+             out.block(
+                 "AUTH_PAYMENT_DISTORT",
+-                "Authenticator and payment apps cannot be cropped, stretched or given a custom ratio."
++                t("authenticator_and_payment_apps_cannot")
+             )
+         }
+         if (traits.isAuthenticatorOrPayment && reshaping && !distorting) {
+             out.warn(
+                 "AUTH_PAYMENT_RESHAPE",
+-                "Check codes and prompts stay fully visible after applying this profile.",
++                t("check_codes_and_prompts_stay_2"),
+                 ack = true
+             )
+         }
+@@ -175,13 +174,13 @@ object ProfileValidator {
+         out: MutableList<Issue>
+     ) {
+         if (traits.isCamera && (p.profile == AspectProfile.Ratio16x9Fill || p.stretch)) {
+-            out.block("CAMERA_DISTORT", "Camera preview must not be cropped or stretched.")
++            out.block("CAMERA_DISTORT", t("camera_preview_must_not_be"))
+         }
+         // reshaping already excludes Fullscreen media, which is the profile the hint recommends.
+         if (traits.isMedia && reshaping && p.fullscreenMediaException) {
+             out.warn(
+                 "MEDIA_HINT",
+-                "Media apps usually look best with Fullscreen media instead of bars."
++                t("media_apps_usually_look_best")
+             )
+         }
+     }
+@@ -190,14 +189,14 @@ object ProfileValidator {
+         if (p.profile == AspectProfile.Ratio16x9Fill) {
+             out.warn(
+                 "FILL_CROP",
+-                "Fill can crop edges. Use letterbox if buttons or text are missing.",
++                t("fill_can_crop_edges_use"),
+                 ack = true
+             )
+         }
+         if (p.stretch) {
+             out.warn(
+                 "STRETCH",
+-                "Stretch distorts text, maps, camera previews and games. It is off by default.",
++                t("stretch_distorts_text_maps_camera"),
+                 ack = true
+             )
+         }
+@@ -213,18 +212,18 @@ object ProfileValidator {
+             when {
+                 !advancedEnabled -> out.block(
+                     "CUSTOM_GATED",
+-                    "Custom ratios are an advanced setting. Enable advanced profiles first."
++                    t("custom_ratios_are_an_advanced")
+                 )
+ 
+-                r == null -> out.block("CUSTOM_MISSING", "Choose a custom ratio.")
++                r == null -> out.block("CUSTOM_MISSING", t("choose_a_custom_ratio"))
+ 
+                 r.value < Ratio.MIN || r.value > Ratio.MAX -> out.block(
+                     "CUSTOM_RANGE",
+-                    "Custom ratio must be between ${Ratio.MIN} and ${Ratio.MAX}."
++                    t("custom_ratio_must_be_between", Ratio.MIN, Ratio.MAX)
+                 )
+             }
+         } else if (p.customRatio != null) {
+-            out.warn("CUSTOM_IGNORED", "A custom ratio is stored but not used by this profile.")
++            out.warn("CUSTOM_IGNORED", t("a_custom_ratio_is_stored"))
+         }
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/TallCanvas.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/TallCanvas.kt
+index 7933a9b..c37f28e 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/TallCanvas.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/TallCanvas.kt
+@@ -2,6 +2,7 @@ package org.sableos.titan2.displaycompat.core
+ 
+ import kotlin.math.min
+ import kotlin.math.roundToInt
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+ 
+ /**
+  * Tall canvas sizes: the display keeps its width and gets a taller logical height, so an app laid
+@@ -32,8 +33,8 @@ enum class TallCanvas(
+     fun label(native: SizePx): String {
+         val s = size(native)
+         return when {
+-            this == Native -> "Native ${native.w}x${native.h}"
+-            s == null -> "$shape (not taller here)"
++            this == Native -> t("native_x", native.w, native.h)
++            s == null -> t("not_taller_here", shape)
+             else -> "${s.w}x${s.h} ($shape)"
+         }
+     }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
+index 6ab92f9..04f05a3 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
+@@ -49,6 +49,7 @@ import org.sableos.titan2.displaycompat.core.AppStylePolicy
+ import org.sableos.titan2.displaycompat.core.AppStyleState
+ import org.sableos.titan2.displaycompat.core.AspectProfile
+ import org.sableos.titan2.displaycompat.core.BackendAvailability
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+ import org.sableos.titan2.displaycompat.core.DisplayProfile
+ import org.sableos.titan2.displaycompat.core.TallCanvas
+ 
+@@ -270,7 +271,7 @@ fun AppListScreen(
+ 
+ @Composable
+ private fun ListTitle(app: DisplayCompatApp) {
+-    Text("App display compatibility", color = C.text, fontSize = 18.sp)
++    Text(t("app_display_compatibility"), color = C.text, fontSize = 18.sp)
+     val availability = app.controller.backendAvailability
+     Text(
+         availability.banner,
+@@ -280,9 +281,9 @@ private fun ListTitle(app: DisplayCompatApp) {
+ }
+ 
+ private fun emptyListMessage(noAppsAtAll: Boolean, query: String): String = if (noAppsAtAll) {
+-    "No launchable apps were found for this user."
++    t("no_launchable_apps_were_found")
+ } else {
+-    "No apps match \"$query\"."
++    t("no_apps_match", query)
+ }
+ 
+ private fun messageTint(msg: String): androidx.compose.ui.graphics.Color =
+@@ -305,7 +306,7 @@ private fun FilterField(query: String, onQueryChange: (String) -> Unit, fr: Focu
+             decorationBox = { inner ->
+                 if (query.isEmpty()) {
+                     Text(
+-                        "Type to filter apps",
++                        t("type_to_filter_apps"),
+                         color = C.muted,
+                         fontSize = 14.sp
+                     )
+@@ -339,16 +340,16 @@ private fun AppRow(label: String, p: DisplayProfile, selected: Boolean, onClick:
+     }
+ }
+ 
+-private const val STORED = " · stored"
++private val STORED: String get() = t("stored")
+ 
+ private fun badge(p: DisplayProfile): String = when {
+-    p.isNative -> "Native"
++    p.isNative -> t("native_label_2")
+ 
+     p.canvas != TallCanvas.Native && p.profile == AspectProfile.Native ->
+         "tall " + p.canvas.shape + STORED
+ 
+     p.canvas != TallCanvas.Native ->
+-        p.profile.id.replace('_', ' ') + " + tall " + p.canvas.shape + STORED
++        p.profile.id.replace('_', ' ') + t("tall") + p.canvas.shape + STORED
+ 
+     else -> p.profile.id.replace('_', ' ') + STORED
+ }
+@@ -369,9 +370,9 @@ private fun ToolsEntry(app: DisplayCompatApp, focused: Boolean, onOpen: () -> Un
+             .padding(10.dp),
+         horizontalArrangement = Arrangement.SpaceBetween
+     ) {
+-        Text("Display tools", color = C.text, fontSize = 14.sp)
++        Text(t("display_tools"), color = C.text, fontSize = 14.sp)
+         Text(
+-            "Rotation " + settings.systemRotation.label + " · Alt+Shift+R",
++            t("rotation") + settings.systemRotation.label + t("alt_shift_r"),
+             color = C.accent,
+             fontSize = 12.sp
+         )
+@@ -386,18 +387,18 @@ private fun ListFooter(confirmReset: Boolean, styleFocused: Boolean, onReset: ()
+     ) {
+         Text(
+             if (styleFocused) {
+-                "←→ choose · Enter switch/open · ↑↓ move"
++                t("choose_enter_switch_open_move")
+             } else {
+-                "↑↓ select · Enter edit · Back"
++                t("select_enter_edit_back")
+             },
+             color = C.muted,
+             fontSize = 11.sp
+         )
+         Text(
+             if (confirmReset) {
+-                "Press Ctrl+R again to reset ALL profiles"
++                t("press_ctrl_r_again_to")
+             } else {
+-                "Ctrl+R: reset all profiles"
++                t("ctrl_r_reset_all_profiles")
+             },
+             color = C.warn,
+             fontSize = 11.sp,
+@@ -432,7 +433,7 @@ private fun AppStyleSection(
+             horizontalArrangement = Arrangement.SpaceBetween,
+             verticalAlignment = Alignment.CenterVertically
+         ) {
+-            Text("Sable app style", color = C.text, fontSize = 14.sp)
++            Text(t("sable_app_style"), color = C.text, fontSize = 14.sp)
+             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                 AppCornerStyle.entries.forEach { option ->
+                     StyleOption(option, option == s.style, s.enabled) { onPick(option) }
+@@ -441,7 +442,7 @@ private fun AppStyleSection(
+         }
+         Text(
+             if (s.enabled) {
+-                "Corners for all Sable apps. ${s.style.summary}"
++                t("corners_for_all_sable_apps", s.style.summary)
+             } else {
+                 AppStylePolicy.UNAVAILABLE_TEXT
+             },
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
+index 6f281d6..60543b0 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/EditorScreen.kt
+@@ -47,6 +47,7 @@ import org.sableos.titan2.displaycompat.core.AspectProfile
+ import org.sableos.titan2.displaycompat.core.BarsPref
+ import org.sableos.titan2.displaycompat.core.CanvasPlan
+ import org.sableos.titan2.displaycompat.core.CanvasPlanner
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+ import org.sableos.titan2.displaycompat.core.DisplayProfile
+ import org.sableos.titan2.displaycompat.core.Issue
+ import org.sableos.titan2.displaycompat.core.LetterboxBackground
+@@ -78,21 +79,23 @@ private val customChoices =
+ 
+ private val defaultLetterboxBackdrop = Color(0xFF1B2F40)
+ 
+-private enum class EditorRow(val title: String) {
+-    Profile("Profile"),
+-    Canvas("Tall canvas"),
+-    Orientation("Orientation"),
+-    Scaling("Scaling"),
+-    Background("Letterbox background"),
+-    KeyboardSafe("Keyboard-safe area"),
+-    Bars("Status / nav bars"),
+-    Stretch("Stretch (distorts)"),
+-    Custom("Custom ratio"),
+-    Advanced("Advanced profiles"),
+-    Ack("Acknowledge warnings"),
+-    Save("Save profile"),
+-    Reset("Reset this app to Native"),
+-    Back("Back")
++private enum class EditorRow(private val titleKey: String) {
++    Profile("profile"),
++    Canvas("tall_canvas"),
++    Orientation("orientation"),
++    Scaling("scaling"),
++    Background("letterbox_background"),
++    KeyboardSafe("keyboard_safe_area"),
++    Bars("status_nav_bars"),
++    Stretch("stretch_distorts"),
++    Custom("custom_ratio"),
++    Advanced("advanced_profiles"),
++    Ack("acknowledge_warnings"),
++    Save("save_profile"),
++    Reset("reset_this_app_to_native"),
++    Back("back");
++
++    val title: String get() = t(titleKey)
+ }
+ 
+ /** Observable editor state; every property is Compose snapshot state so reads recompose as before. */
+@@ -121,7 +124,7 @@ private class EditorState(initial: DisplayProfile, private val display: SizePx)
+         EditorRow.Stretch -> onOff(p.stretch)
+         EditorRow.Custom -> p.customRatio?.toString() ?: "choose"
+         EditorRow.Advanced -> onOff(advanced)
+-        EditorRow.Ack -> if (ack) "Yes" else "No"
++        EditorRow.Ack -> if (ack) t("yes") else t("no")
+         else -> ""
+     }
+ 
+@@ -169,7 +172,7 @@ private class EditorState(initial: DisplayProfile, private val display: SizePx)
+         }
+     }
+ 
+-    private fun onOff(b: Boolean): String = if (b) "On" else "Off"
++    private fun onOff(b: Boolean): String = if (b) t("on") else t("off")
+ }
+ 
+ /** Row actions of the editor; created per composition so it always sees the latest parameters. */
+@@ -256,7 +259,14 @@ private class EditorActions(
+ /** Messages that say something was not done, or was done only partly, are not shown in the success colour. */
+ private fun messageColor(msg: String): Color {
+     val caution =
+-        listOf("Not saved", "failed", "NOT enforced", "could not", "ignored", "not verified")
++        listOf(
++            t("not_saved"),
++            "failed",
++            t("not_enforced"),
++            t("could_not"),
++            "ignored",
++            t("not_verified")
++        )
+     return if (caution.any { msg.contains(it) }) C.warn else C.ok
+ }
+ 
+@@ -298,9 +308,9 @@ fun EditorScreen(
+         // Compatibility card (connectivity artifact state 4): what the platform is asked for, and that
+         // keyboards stay out of reach of every profile.
+         Text(
+-            "Platform: " + PlatformMapping.request(
++            t("platform") + PlatformMapping.request(
+                 st.p
+-            ).describe() + " · Keyboard input: protected",
++            ).describe() + t("keyboard_input_protected"),
+             color = C.muted,
+             fontSize = 11.sp
+         )
+@@ -326,7 +336,7 @@ fun EditorScreen(
+                 )
+             }
+         }
+-        Text("↑↓ row · ←→ change · Enter change/act · Back", color = C.muted, fontSize = 11.sp)
++        Text(t("row_change_enter_change_act"), color = C.muted, fontSize = 11.sp)
+     }
+ }
+ 
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt
+index 3f602b0..4e68c43 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/ToolsScreen.kt
+@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
+ import org.sableos.titan2.displaycompat.android.DisplayCompatApp
+ import org.sableos.titan2.displaycompat.android.GatedPlatformBackend
+ import org.sableos.titan2.displaycompat.core.CanvasCycle
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+ import org.sableos.titan2.displaycompat.core.SizePx
+ import org.sableos.titan2.displaycompat.core.SystemRotation
+ import org.sableos.titan2.displaycompat.core.TallCanvas
+@@ -78,16 +79,16 @@ fun ToolsScreen(app: DisplayCompatApp, display: SizePx, onDone: () -> Unit) {
+         Modifier.fillMaxSize().padding(12.dp).focusRequester(fr).focusable()
+             .onPreviewKeyEvent { e -> actions.onKey(e, rows) }
+     ) {
+-        Text("Display tools", color = C.text, fontSize = 18.sp)
++        Text(t("display_tools"), color = C.text, fontSize = 18.sp)
+         if (!GatedPlatformBackend.isOpen()) {
+             Text(
+-                "Enforcement backend: CLOSED. These settings are stored but not applied.",
++                t("enforcement_backend_closed_these_settings"),
+                 color = C.warn,
+                 fontSize = 11.sp
+             )
+         }
+         Text(
+-            "Alt+Shift+R (Sym+Shift+R) cycles the app in front: " +
++            t("alt_shift_r_sym_shift") +
+                 cycleSummary(st.favourites, display),
+             color = C.muted,
+             fontSize = 11.sp,
+@@ -101,10 +102,7 @@ fun ToolsScreen(app: DisplayCompatApp, display: SizePx, onDone: () -> Unit) {
+                 }
+             }
+             Text(
+-                "Portrait and Landscape lock the screen and make apps that ask for another " +
+-                    "orientation fit instead of turning it. While any app has an aspect ratio " +
+-                    "profile, apps' orientation requests are fitted the same way (Android needs " +
+-                    "that for aspect ratios). A per-app orientation wins while its app is in front.",
++                t("portrait_and_landscape_lock_the"),
+                 color = C.muted,
+                 fontSize = 11.sp,
+                 modifier = Modifier.padding(top = 6.dp)
+@@ -118,7 +116,7 @@ fun ToolsScreen(app: DisplayCompatApp, display: SizePx, onDone: () -> Unit) {
+                 )
+             }
+         }
+-        Text("↑↓ row · ←→ change · Enter change/act · Back", color = C.muted, fontSize = 11.sp)
++        Text(t("row_change_enter_change_act"), color = C.muted, fontSize = 11.sp)
+     }
+ }
+ 
+@@ -164,7 +162,7 @@ private class ToolsActions(
+                 st.rotation = all[(all.indexOf(st.rotation) + dir + all.size) % all.size]
+                 settings.systemRotation = st.rotation
+                 app.refreshDisplay()
+-                st.msg = "System rotation: ${st.rotation.label}."
++                st.msg = t("system_rotation", st.rotation.label)
+             }
+ 
+             is ToolRow.Favourite -> {
+@@ -180,9 +178,9 @@ private class ToolsActions(
+             ToolRow.Restore -> {
+                 val failed = app.tools.restoreAll()
+                 st.msg = if (failed.isEmpty()) {
+-                    "Display restored. Profiles apply again when their app comes to the front."
++                    t("display_restored_profiles_apply_again")
+                 } else {
+-                    "Could not restore: $failed. Try again or reboot."
++                    t("could_not_restore_try_again", failed)
+                 }
+             }
+ 
+@@ -194,22 +192,22 @@ private class ToolsActions(
+ private fun cycleSummary(favourites: Set<TallCanvas>, display: SizePx): String {
+     val order = CanvasCycle.order(favourites, display)
+     return if (order.size < 2) {
+-        "no favourite sizes yet."
++        t("no_favourite_sizes_yet")
+     } else {
+-        order.joinToString(" → ") { it.label(display) } + " → Native."
++        order.joinToString(" → ") { it.label(display) } + t("native_label")
+     }
+ }
+ 
+ private fun title(r: ToolRow, display: SizePx): String = when (r) {
+-    ToolRow.Rotation -> "System rotation"
+-    is ToolRow.Favourite -> "Favourite " + r.canvas.label(display)
+-    ToolRow.Restore -> "Restore the native display now"
+-    ToolRow.Back -> "Back"
++    ToolRow.Rotation -> t("system_rotation_2")
++    is ToolRow.Favourite -> t("favourite") + r.canvas.label(display)
++    ToolRow.Restore -> t("restore_the_native_display_now")
++    ToolRow.Back -> t("back")
+ }
+ 
+ private fun value(r: ToolRow, st: ToolsState): String = when (r) {
+     ToolRow.Rotation -> st.rotation.label
+-    is ToolRow.Favourite -> if (r.canvas in st.favourites) "On" else "Off"
++    is ToolRow.Favourite -> if (r.canvas in st.favourites) t("on") else t("off")
+     ToolRow.Restore, ToolRow.Back -> ""
+ }
+ 
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml
+index c711e55..e74323e 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml
+@@ -1,3 +1,154 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to DisplayCompatText.EN (DisplayCompatTextTest checks); translations go in values-<lang>/. -->
+ <resources>
+-    <string name="app_name">App display compatibility</string>
++    <string name="display_tools">Display tools</string>
++    <string name="enforcement_backend_closed_these_settings">Enforcement backend: CLOSED. These settings are stored but not applied.</string>
++    <string name="alt_shift_r_sym_shift">"Alt+Shift+R (Sym+Shift+R) cycles the app in front: "</string>
++    <string name="portrait_and_landscape_lock_the">Portrait and Landscape lock the screen and make apps that ask for another orientation fit instead of turning it. While any app has an aspect ratio profile, apps\' orientation requests are fitted the same way (Android needs that for aspect ratios). A per-app orientation wins while its app is in front.</string>
++    <string name="row_change_enter_change_act">↑↓ row · ←→ change · Enter change/act · Back</string>
++    <string name="system_rotation">System rotation: %1$s.</string>
++    <string name="display_restored_profiles_apply_again">Display restored. Profiles apply again when their app comes to the front.</string>
++    <string name="could_not_restore_try_again">Could not restore: %1$s. Try again or reboot.</string>
++    <string name="no_favourite_sizes_yet">no favourite sizes yet.</string>
++    <string name="native_label">" → Native."</string>
++    <string name="system_rotation_2">System rotation</string>
++    <string name="favourite">"Favourite "</string>
++    <string name="restore_the_native_display_now">Restore the native display now</string>
++    <string name="back">Back</string>
++    <string name="on">On</string>
++    <string name="off">Off</string>
++    <string name="profile">Profile</string>
++    <string name="tall_canvas">Tall canvas</string>
++    <string name="orientation">Orientation</string>
++    <string name="scaling">Scaling</string>
++    <string name="letterbox_background">Letterbox background</string>
++    <string name="keyboard_safe_area">Keyboard-safe area</string>
++    <string name="status_nav_bars">Status / nav bars</string>
++    <string name="stretch_distorts">Stretch (distorts)</string>
++    <string name="custom_ratio">Custom ratio</string>
++    <string name="advanced_profiles">Advanced profiles</string>
++    <string name="acknowledge_warnings">Acknowledge warnings</string>
++    <string name="save_profile">Save profile</string>
++    <string name="reset_this_app_to_native">Reset this app to Native</string>
++    <string name="yes">Yes</string>
++    <string name="no">No</string>
++    <string name="not_saved">Not saved</string>
++    <string name="not_enforced">NOT enforced</string>
++    <string name="could_not">could not</string>
++    <string name="not_verified">not verified</string>
++    <string name="platform">"Platform: "</string>
++    <string name="keyboard_input_protected">" · Keyboard input: protected"</string>
++    <string name="app_display_compatibility">App display compatibility</string>
++    <string name="no_launchable_apps_were_found">No launchable apps were found for this user.</string>
++    <string name="no_apps_match">No apps match \"%1$s\".</string>
++    <string name="type_to_filter_apps">Type to filter apps</string>
++    <string name="stored">" · stored"</string>
++    <string name="native_label_2">Native</string>
++    <string name="tall">" + tall "</string>
++    <string name="rotation">"Rotation "</string>
++    <string name="alt_shift_r">" · Alt+Shift+R"</string>
++    <string name="choose_enter_switch_open_move">←→ choose · Enter switch/open · ↑↓ move</string>
++    <string name="select_enter_edit_back">↑↓ select · Enter edit · Back</string>
++    <string name="press_ctrl_r_again_to">Press Ctrl+R again to reset ALL profiles</string>
++    <string name="ctrl_r_reset_all_profiles">Ctrl+R: reset all profiles</string>
++    <string name="sable_app_style">Sable app style</string>
++    <string name="corners_for_all_sable_apps">Corners for all Sable apps. %1$s</string>
++    <string name="window_manager_unavailable">window manager unavailable</string>
++    <string name="this_app">this app</string>
++    <string name="no_platform_equivalent_for">"no platform equivalent for "</string>
++    <string name="stored_only_platform_settings_cleared">; stored only, platform settings cleared</string>
++    <string name="platform_settings_cleared">platform settings cleared%1$s</string>
++    <string name="platform_reports_aspect">; platform reports aspect %1$s</string>
++    <string name="no_detail">no detail</string>
++    <string name="package_manager_unavailable">package manager unavailable</string>
++    <string name="platform_compat_interface_unavailable">platform_compat interface unavailable</string>
++    <string name="no_packageoverride">no PackageOverride</string>
++    <string name="takes_effect_the_next_time">; takes effect the next time the app starts</string>
++    <string name="the_display_tools_service_holds">; the display tools service holds it while the app is in front</string>
++    <string name="compact">Compact</string>
++    <string name="tight_2_6dp_corners_the">Tight 2-6dp corners, the original Sable app look.</string>
++    <string name="rounded">Rounded</string>
++    <string name="n8dp_controls_12dp_cards_and">8dp controls, 12dp cards and sheets, like Quick Settings.</string>
++    <string name="sable_apps_now_use_corners">Sable apps now use %1$s corners.</string>
++    <string name="sable_app_style_could_not">Sable app style could not be saved; Sable apps keep their current corners.</string>
++    <string name="sable_app_style_needs_the">Sable app style needs the SableOS appearance service in Settings; not on this build.</string>
++    <string name="mini_mode_opens_the_app">Mini mode opens the app in a 3:2 phone-shaped window (480x720 on a 720x720 screen).</string>
++    <string name="the_phone_app_must_keep">The phone app must keep the native display so calls stay easy to read and answer.</string>
++    <string name="check_codes_and_prompts_stay">Check codes and prompts stay readable on the smaller tall canvas.</string>
++    <string name="the_camera_preview_is_shown">The camera preview is shown smaller on a tall canvas.</string>
++    <string name="tall_canvas_already_gives_a">Tall canvas already gives a phone shape; an aspect profile narrows it again.</string>
++    <string name="tall_canvas_while_this_app">Tall canvas: while this app is in front the screen gets a taller size, drawn smaller. Leaving the app, locking or a crash puts the native size back.</string>
++    <string name="locking_orientation_can_rotate_the">Locking orientation can rotate the camera preview unexpectedly.</string>
++    <string name="landscape_turns_the_app_sideways">Landscape turns the app sideways (reverse landscape) above the keyboard. Typing still works.</string>
++    <string name="auto_turns_auto_rotate_on">Auto turns auto-rotate on while this app is in front; an app that fixes its own orientation keeps it.</string>
++    <string name="with_an_aspect_ratio_android">With an aspect ratio Android keeps the app portrait unless the app itself asks for landscape.</string>
++    <string name="system_ui_settings_keyboards_accessibility">System UI, Settings, keyboards, accessibility services and the launcher cannot use display profiles.</string>
++    <string name="the_phone_app_must_keep_2">The phone app must keep the full display so calls and emergency dialling stay reachable.</string>
++    <string name="authenticator_and_payment_apps_cannot">Authenticator and payment apps cannot be cropped, stretched or given a custom ratio.</string>
++    <string name="check_codes_and_prompts_stay_2">Check codes and prompts stay fully visible after applying this profile.</string>
++    <string name="camera_preview_must_not_be">Camera preview must not be cropped or stretched.</string>
++    <string name="media_apps_usually_look_best">Media apps usually look best with Fullscreen media instead of bars.</string>
++    <string name="fill_can_crop_edges_use">Fill can crop edges. Use letterbox if buttons or text are missing.</string>
++    <string name="stretch_distorts_text_maps_camera">Stretch distorts text, maps, camera previews and games. It is off by default.</string>
++    <string name="custom_ratios_are_an_advanced">Custom ratios are an advanced setting. Enable advanced profiles first.</string>
++    <string name="choose_a_custom_ratio">Choose a custom ratio.</string>
++    <string name="custom_ratio_must_be_between">Custom ratio must be between %1$s and %2$s.</string>
++    <string name="a_custom_ratio_is_stored">A custom ratio is stored but not used by this profile.</string>
++    <string name="follow_apps">Follow apps</string>
++    <string name="portrait">Portrait</string>
++    <string name="landscape">Landscape</string>
++    <string name="native_x">Native %1$sx%2$s</string>
++    <string name="not_taller_here">%1$s (not taller here)</string>
++    <string name="app_default">app default</string>
++    <string name="display_size">display size</string>
++    <string name="value">value %1$s</string>
++    <string name="orientation_2">", orientation "</string>
++    <string name="while_in_front">"; while in front: "</string>
++    <string name="stored_only">"; stored only: "</string>
++    <string name="letterbox_background_2">letterbox background</string>
++    <string name="keyboard_safe_area_2">keyboard-safe area</string>
++    <string name="status_nav_bars_2">status/nav bars</string>
++    <string name="tall_canvas_2">"tall canvas "</string>
++    <string name="rotation_portrait">rotation portrait</string>
++    <string name="rotation_landscape">rotation landscape</string>
++    <string name="native_app_and_platform_defaults">Native: app and platform defaults.</string>
++    <string name="fullscreen_media_no_forced_letterboxing">Fullscreen media: no forced letterboxing.</string>
++    <string name="square_safe_full_display_with">Square-safe: full display with a 1:1 minimum-aspect hint; no bars.</string>
++    <string name="n16_9_letterbox">16:9 letterbox</string>
++    <string name="n4_3_letterbox">4:3 letterbox</string>
++    <string name="keyboard_safe_reserves_px_for">Keyboard-safe: reserves %1$spx for text entry.</string>
++    <string name="mini_mode_3_2_phone">Mini mode (3:2 phone window)</string>
++    <string name="custom_ratio_missing_no_op">Custom ratio missing: no-op.</string>
++    <string name="custom_ratio_out_of_range">Custom ratio %1$s out of range: no-op.</string>
++    <string name="custom_letterbox">Custom %1$s letterbox</string>
++    <string name="n16_9_fill_of_the">16:9 fill: %1$s%% of the app canvas is cropped. Use letterbox if controls go missing.</string>
++    <string name="x_centred_background">%1$s: %2$sx%3$s centred, background %4$s.</string>
++    <string name="not_saved_blocked">"Not saved: blocked. "</string>
++    <string name="not_saved_acknowledge_the_warnings">Not saved: acknowledge the warnings first.</string>
++    <string name="not_saved_the_profile_could">Not saved: the profile could not be stored. Nothing was changed.</string>
++    <string name="saved">"Saved. "</string>
++    <string name="the_package_name_is_not">The package name is not valid.</string>
++    <string name="backend_error">"backend error: "</string>
++    <string name="enforcement_backend_closed_profiles_are">Enforcement backend: CLOSED. Profiles are validated and stored only; nothing is enforced.</string>
++    <string name="enforcement_backend_open_gate_set">Enforcement backend: OPEN (gate set). Requests go to the platform; their effect is not verified here.</string>
++    <string name="native_profile_nothing_to_enforce">Native profile: nothing to enforce.</string>
++    <string name="stored_only_not_enforced_the">Stored only. NOT enforced: the platform backend is closed until it is validated on a device.</string>
++    <string name="stored_only_not_enforced">"Stored only. NOT enforced: "</string>
++    <string name="stored_the_platform_accepted_the">Stored. The platform accepted the request (</string>
++    <string name="its_effect_on_the_app">); its effect on the app is not verified.</string>
++    <string name="reset_failed_the_stored_profile">Reset failed: the stored profile could not be removed.</string>
++    <string name="reset_to_native_the_stored">"Reset to Native. The stored profile was removed, but the platform override could not be cleared: "</string>
++    <string name="reset_to_native_the_app">Reset to Native. The app was not launched.</string>
++    <string name="reset_profile_s_to_native">Reset %1$s profile(s) to Native.</string>
++    <string name="reset_profile_s_to_native_2">"Reset %1$s profile(s) to Native. The platform override could not be cleared for "</string>
++    <string name="a_stored_profile_is_no">A stored profile is no longer allowed for this app and is ignored: %1$s. Save or reset to clear it.</string>
++    <string name="display_tools_are_off_on">Display tools are off on this build.</string>
++    <string name="open_an_app_first_then">Open an app first, then press Alt+Shift+R.</string>
++    <string name="choose_favourite_sizes_in_display">Choose favourite sizes in Display compatibility &gt; Display tools.</string>
++    <string name="tall_canvas_is_not_available">Tall canvas is not available for %1$s. %2$s</string>
++    <string name="confirm_the_warnings_for_in">Confirm the warnings for %1$s in Display compatibility first.</string>
++    <string name="not_changed_the_profile_could">Not changed: the profile could not be stored.</string>
++    <string name="auto_rotate">Auto-rotate</string>
++    <string name="app_name" translatable="false">App display compatibility</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/DisplayCompatTextTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/DisplayCompatTextTest.kt
+new file mode 100644
+index 0000000..2b37499
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/DisplayCompatTextTest.kt
+@@ -0,0 +1,66 @@
++package org.sableos.titan2.displaycompat
++
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.titan2.displaycompat.core.DisplayCompatText
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class DisplayCompatTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map {
++        it.value
++    }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        DisplayCompatText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f ->
++            f.name.startsWith("values-") && File(f, "strings.xml").isFile
++        }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(
++                dir.name,
++                DisplayCompatText.EN.keys,
++                tr.keys.intersect(DisplayCompatText.EN.keys)
++            )
++            DisplayCompatText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
 diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml
 index 0bfea45..c663fec 100644
 --- a/sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml

@@ -2,6 +2,7 @@ package org.sableos.titan2.displaycompat.core
 
 import kotlin.math.min
 import kotlin.math.roundToInt
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
 
 /**
  * Tall canvas sizes: the display keeps its width and gets a taller logical height, so an app laid
@@ -32,8 +33,8 @@ enum class TallCanvas(
     fun label(native: SizePx): String {
         val s = size(native)
         return when {
-            this == Native -> "Native ${native.w}x${native.h}"
-            s == null -> "$shape (not taller here)"
+            this == Native -> t("native_x", native.w, native.h)
+            s == null -> t("not_taller_here", shape)
             else -> "${s.w}x${s.h} ($shape)"
         }
     }

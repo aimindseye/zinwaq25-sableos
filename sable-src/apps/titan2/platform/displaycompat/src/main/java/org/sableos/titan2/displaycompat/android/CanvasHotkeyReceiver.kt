@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.widget.Toast
 import org.sableos.titan2.displaycompat.core.CycleText
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
 
 /**
  * The resolution hotkey (Alt+Shift+R, or Sym+Shift+R). PhoneWindowManager (frameworks/base 0313)
@@ -22,7 +23,8 @@ class CanvasHotkeyReceiver : BroadcastReceiver() {
         val moment = DeviceMoment.read(context)
         val outcome = app.tools.cycle(moment)
         app.refreshDisplay()
-        val label = moment.frontPackage?.let { labelOf(context.packageManager, it) } ?: "this app"
+        val label =
+            moment.frontPackage?.let { labelOf(context.packageManager, it) } ?: t("this_app")
         Toast.makeText(context, CycleText.message(outcome, label), Toast.LENGTH_SHORT).show()
     }
 

@@ -2,6 +2,7 @@ package org.sableos.titan2.displaycompat.core
 
 import kotlin.math.min
 import kotlin.math.roundToInt
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
 
 /**
  * Result of planning a profile on a physical display.
@@ -30,18 +31,18 @@ object CanvasPlanner {
      */
     fun plan(display: SizePx, p: DisplayProfile, softKeyboardFraction: Float = 0.40f): CanvasPlan =
         when (p.profile) {
-            AspectProfile.Native -> plain(display, p, "Native: app and platform defaults.")
+            AspectProfile.Native -> plain(display, p, t("native_app_and_platform_defaults"))
 
             AspectProfile.FullscreenMedia -> plain(
                 display,
                 p,
-                "Fullscreen media: no forced letterboxing."
+                t("fullscreen_media_no_forced_letterboxing")
             )
 
             AspectProfile.SquareSafe -> plain(
                 display,
                 p,
-                "Square-safe: full display with a 1:1 minimum-aspect hint; no bars."
+                t("square_safe_full_display_with")
             )
 
             AspectProfile.KeyboardSafe -> keyboardSafe(display, p, softKeyboardFraction)
@@ -52,14 +53,14 @@ object CanvasPlanner {
                 display,
                 Ratio.R16_9.value,
                 p,
-                "16:9 letterbox"
+                t("n16_9_letterbox")
             )
 
             AspectProfile.Ratio4x3Letterbox -> letterbox(
                 display,
                 Ratio.R4_3.value,
                 p,
-                "4:3 letterbox"
+                t("n4_3_letterbox")
             )
 
             AspectProfile.Custom -> custom(display, p)
@@ -91,29 +92,29 @@ object CanvasPlanner {
         } else {
             (display.h * softKeyboardFraction).roundToInt()
         }
-        return plain(display, p, "Keyboard-safe: reserves ${reserve}px for text entry.", reserve)
+        return plain(display, p, t("keyboard_safe_reserves_px_for", reserve), reserve)
     }
 
     /** A phone-shaped window: portrait unless the profile asks for landscape (the platform's own behaviour). */
     private fun miniMode(display: SizePx, p: DisplayProfile): CanvasPlan {
         val phone = if (p.orientation == OrientationPref.Landscape) MINI_RATIO else 1f / MINI_RATIO
         val unturned = p.copy(orientation = OrientationPref.Default)
-        return letterbox(display, phone, unturned, "Mini mode (3:2 phone window)")
+        return letterbox(display, phone, unturned, t("mini_mode_3_2_phone"))
             .copy(lockedOrientation = orientationLock(p))
     }
 
     private fun custom(display: SizePx, p: DisplayProfile): CanvasPlan {
         val r = p.customRatio
         return when {
-            r == null -> plain(display, p, "Custom ratio missing: no-op.")
+            r == null -> plain(display, p, t("custom_ratio_missing_no_op"))
 
             r.value < Ratio.MIN || r.value > Ratio.MAX -> plain(
                 display,
                 p,
-                "Custom ratio $r out of range: no-op."
+                t("custom_ratio_out_of_range", r)
             )
 
-            else -> letterbox(display, r.value, p, "Custom $r letterbox")
+            else -> letterbox(display, r.value, p, t("custom_letterbox", r))
         }
     }
 
@@ -129,8 +130,7 @@ object CanvasPlanner {
             1f - visible,
             orientationLock(p),
             0,
-            "16:9 fill: ${((1f - visible) * PERCENT).roundToInt()}% of the app canvas " +
-                "is cropped. Use letterbox if controls go missing."
+            t("n16_9_fill_of_the", ((1f - visible) * PERCENT).roundToInt())
         )
     }
 
@@ -166,7 +166,13 @@ object CanvasPlanner {
             0f,
             orientationLock(p),
             0,
-            "$label: ${canvas.w}x${canvas.h} centred, background ${p.letterboxBackground.name.lowercase()}."
+            t(
+                "x_centred_background",
+                label,
+                canvas.w,
+                canvas.h,
+                p.letterboxBackground.name.lowercase()
+            )
         )
     }
 

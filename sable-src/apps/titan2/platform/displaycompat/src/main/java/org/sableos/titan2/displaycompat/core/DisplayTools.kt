@@ -1,5 +1,7 @@
 package org.sableos.titan2.displaycompat.core
 
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+
 /** The platform side of the display tools; the Android glue reflects into WindowManager. */
 interface DisplayPort {
     /** Size and density of the default display before any forced value, natural orientation. */
@@ -188,19 +190,19 @@ object PlanRunner {
 /** Toast and status wording for the hotkey. */
 object CycleText {
     fun message(o: CycleOutcome, appLabel: String): String = when (o) {
-        CycleOutcome.GateClosed -> "Display tools are off on this build."
+        CycleOutcome.GateClosed -> t("display_tools_are_off_on")
 
-        CycleOutcome.NoApp -> "Open an app first, then press Alt+Shift+R."
+        CycleOutcome.NoApp -> t("open_an_app_first_then")
 
         CycleOutcome.NoFavourites ->
-            "Choose favourite sizes in Display compatibility > Display tools."
+            t("choose_favourite_sizes_in_display")
 
-        is CycleOutcome.Blocked -> "Tall canvas is not available for $appLabel. ${o.reason}".trim()
+        is CycleOutcome.Blocked -> t("tall_canvas_is_not_available", appLabel, o.reason).trim()
 
         CycleOutcome.NeedsConfirmation ->
-            "Confirm the warnings for $appLabel in Display compatibility first."
+            t("confirm_the_warnings_for_in", appLabel)
 
-        CycleOutcome.StorageFailed -> "Not changed: the profile could not be stored."
+        CycleOutcome.StorageFailed -> t("not_changed_the_profile_could")
 
         is CycleOutcome.Changed -> o.label + " · " + appLabel
     }

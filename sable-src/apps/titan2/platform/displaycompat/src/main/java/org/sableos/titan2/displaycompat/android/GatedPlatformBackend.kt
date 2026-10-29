@@ -6,6 +6,7 @@ import org.sableos.titan2.displaycompat.core.ApplyResult
 import org.sableos.titan2.displaycompat.core.BackendAvailability
 import org.sableos.titan2.displaycompat.core.CanvasPlan
 import org.sableos.titan2.displaycompat.core.DisplayBackend
+import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
 import org.sableos.titan2.displaycompat.core.DisplayProfile
 import org.sableos.titan2.displaycompat.core.PlatformMapping
 import org.sableos.titan2.displaycompat.core.PlatformRequest
@@ -42,8 +43,8 @@ class GatedPlatformBackend : DisplayBackend {
             sent != null -> sent
 
             !request.hasEffect && request.live.isEmpty() -> ApplyResult.Unsupported(
-                "no platform equivalent for " + request.notApplied.joinToString(", ") +
-                    "; stored only, platform settings cleared"
+                t("no_platform_equivalent_for") + request.notApplied.joinToString(", ") +
+                    t("stored_only_platform_settings_cleared")
             )
 
             !request.hasEffect -> ApplyResult.Applied(request.describe() + LIVE)
@@ -55,7 +56,7 @@ class GatedPlatformBackend : DisplayBackend {
     override fun clear(pkg: String): ApplyResult {
         if (!open()) return ApplyResult.NoOp
         return send(pkg, PlatformRequest.CLEAR)
-            ?: ApplyResult.Applied("platform settings cleared$NEXT_LAUNCH")
+            ?: ApplyResult.Applied(t("platform_settings_cleared", NEXT_LAUNCH))
     }
 
     /** Sends [request]; null on success, else the failure. */
@@ -93,7 +94,7 @@ class GatedPlatformBackend : DisplayBackend {
             String::class.java,
             Int::class.javaPrimitiveType
         ).invoke(packageManagerService(), pkg, myUserId()) as Int
-        "; platform reports aspect $v"
+        t("platform_reports_aspect", v)
     }.getOrDefault("")
 
     private fun guarded(call: () -> Unit): ApplyResult? = try {
@@ -110,13 +111,13 @@ class GatedPlatformBackend : DisplayBackend {
     }
 
     private fun unsupported(t: Throwable): ApplyResult = ApplyResult.Unsupported(
-        (t.cause ?: t).javaClass.simpleName + ": " + ((t.cause ?: t).message ?: "no detail")
+        (t.cause ?: t).javaClass.simpleName + ": " + ((t.cause ?: t).message ?: t("no_detail"))
     )
 
     private fun packageManagerService(): Any = requireNotNull(
         Class.forName("android.app.ActivityThread").getMethod("getPackageManager").invoke(null)
     ) {
-        "package manager unavailable"
+        t("package_manager_unavailable")
     }
 
     private fun platformCompat(): Any {
@@ -128,7 +129,7 @@ class GatedPlatformBackend : DisplayBackend {
             Class.forName("com.android.internal.compat.IPlatformCompat\$Stub")
                 .getMethod("asInterface", IBinder::class.java)
                 .invoke(null, binder)
-        ) { "platform_compat interface unavailable" }
+        ) { t("platform_compat_interface_unavailable") }
     }
 
     private fun enabledOverride(): Any {
@@ -136,7 +137,7 @@ class GatedPlatformBackend : DisplayBackend {
         val builder = builderClass.getConstructor().newInstance()
         builderClass.getMethod("setEnabled", Boolean::class.javaPrimitiveType).invoke(builder, true)
         return requireNotNull(builderClass.getMethod("build").invoke(builder)) {
-            "no PackageOverride"
+            t("no_packageoverride")
         }
     }
 
@@ -150,8 +151,8 @@ class GatedPlatformBackend : DisplayBackend {
         fun isOpen(): Boolean = SysProps.get(GATE_PROPERTY) == GATE_OPEN
         private const val PLATFORM_COMPAT_SERVICE = "platform_compat"
         private const val PER_USER_RANGE = 100_000
-        private const val NEXT_LAUNCH = "; takes effect the next time the app starts"
-        private const val LIVE = "; the display tools service holds it while the app is in front"
+        private val NEXT_LAUNCH: String get() = t("takes_effect_the_next_time")
+        private val LIVE: String get() = t("the_display_tools_service_holds")
         private val PM_INTERFACE: Class<*> by lazy {
             Class.forName("android.content.pm.IPackageManager")
         }

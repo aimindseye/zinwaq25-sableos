@@ -6,9 +6,11 @@ import android.content.Intent
 import android.os.UserManager
 import android.util.Log
 import org.sableos.titan2.displaycompat.core.AppStyleController
+import org.sableos.titan2.displaycompat.core.DisplayCompatText
 import org.sableos.titan2.displaycompat.core.DisplayTools
 import org.sableos.titan2.displaycompat.core.ProfileController
 import org.sableos.titan2.displaycompat.core.ProfileStore
+import org.sableos.titan2.theme.bindTo
 
 /**
  * Everything is created on first use: the boot receiver runs before the first unlock, when
@@ -28,6 +30,7 @@ class DisplayCompatApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        DisplayCompatText.t.bindTo(this)
         // SAFE_MODE_RESET_ALL_DISPLAY_PROFILES: booting to safe mode clears every per-app profile
         // so a bad profile cannot trap the user. Before the first unlock the boot receiver does it.
         if (packageManager.isSafeMode && unlocked()) {
