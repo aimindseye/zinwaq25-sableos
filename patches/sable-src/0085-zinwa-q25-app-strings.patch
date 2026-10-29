@@ -1,3 +1,1476 @@
+diff --git a/sable-src/apps/r8/android/calculator/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/calculator/src/main/AndroidManifest.xml
+index 900ca00..1c26466 100644
+--- a/sable-src/apps/r8/android/calculator/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/calculator/src/main/AndroidManifest.xml
+@@ -5,11 +5,12 @@
+     </queries>
+ 
+     <application
++        android:name="org.sableos.calculator.CalculatorApplication"
+         android:allowBackup="false"
+         android:usesCleartextTraffic="false"
+         android:icon="@mipmap/ic_sable_calculator"
+         android:roundIcon="@mipmap/ic_sable_calculator_round"
+-        android:label="Sable Calculator"
++        android:label="@string/app_name"
+         android:theme="@android:style/Theme.Material.NoActionBar">
+         <activity android:name=".MainActivity" android:exported="true">
+             <intent-filter>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorApplication.kt b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorApplication.kt
+new file mode 100644
+index 0000000..f833184
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorApplication.kt
+@@ -0,0 +1,13 @@
++package org.sableos.calculator
++
++import android.app.Application
++import org.sableos.convert.ConvertText
++
++/** Binds [CalculatorText] and [ConvertText] to the app's string resources once per process, so the phone's language is used. */
++class CalculatorApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        CalculatorText.t.bindTo(this)
++        ConvertText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorText.kt b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorText.kt
+new file mode 100644
+index 0000000..5ef5e6c
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorText.kt
+@@ -0,0 +1,32 @@
++package org.sableos.calculator
++
++import org.sableos.design.SableTexts
++
++/**
++ * Every line Sable Calculator shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (CalculatorTextTest keeps the two equal) and res/values-<lang>/strings.xml
++ * translates them.
++ */
++object CalculatorText {
++    val EN: Map<String, String> =
++        mapOf(
++            "basic" to "Basic",
++            "scientific" to "Scientific",
++            "convert" to "Convert",
++            "basic_scientific_and_conversion_tools" to
++                "Basic, scientific and conversion tools in one app.",
++            "exact_result" to "Exact result",
++            "choose_an_operation_first" to "Choose an operation first.",
++            "degrees_for_trigonometry" to "%1\$s · degrees for trigonometry",
++            "scientific_operations_and_the_core" to
++                "Scientific operations and the core arithmetic path execute through the native " +
++                "calculator domain.",
++            "results_are_not_silently_rounded" to
++                "Results are not silently rounded into floating-point values.",
++            "scientific_functions_use_degrees" to "Scientific functions use degrees.",
++            "exact_decimal_results_never_rounded" to "Exact decimal results, never rounded.",
++            "native_bridge_failure" to "Native bridge failure",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt
+index 6ad7918..bff6a46 100644
+--- a/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt
++++ b/sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/MainActivity.kt
+@@ -9,15 +9,15 @@ import androidx.compose.foundation.BorderStroke
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.ColumnScope
++import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.fillMaxHeight
+ import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.safeDrawingPadding
+ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.verticalScroll
+-import androidx.compose.foundation.layout.Row
+-import androidx.compose.foundation.layout.fillMaxWidth
+-import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.unit.dp
++import org.sableos.calculator.CalculatorText.t
+ import org.sableos.convert.ConverterScreen
+ import org.sableos.design.SableActionButton
+ import org.sableos.design.SableGlobalTheme
+@@ -45,9 +46,9 @@ import org.sableos.design.sableScreenPadding
+ private enum class CalculatorMode(
+     val label: String,
+ ) {
+-    Regular("Basic"),
+-    Scientific("Scientific"),
+-    Converter("Convert"),
++    Regular(t("basic")),
++    Scientific(t("scientific")),
++    Converter(t("convert")),
+ }
+ 
+ private data class ScientificChoice(
+@@ -121,7 +122,7 @@ private fun CalculatorApp() {
+         SableHeroHeader(
+             eyebrow = "Sable",
+             title = "calculator",
+-            subtitle = "Basic, scientific and conversion tools in one app.",
++            subtitle = t("basic_scientific_and_conversion_tools"),
+         )
+ 
+         Row(
+@@ -186,15 +187,22 @@ private fun ShortCalculator(
+                 }
+             }
+             when (mode) {
+-                CalculatorMode.Regular -> CalculatorPad(scientific = false, short = true)
+-                CalculatorMode.Scientific -> CalculatorPad(scientific = true, short = true)
+-                CalculatorMode.Converter ->
++                CalculatorMode.Regular -> {
++                    CalculatorPad(scientific = false, short = true)
++                }
++
++                CalculatorMode.Scientific -> {
++                    CalculatorPad(scientific = true, short = true)
++                }
++
++                CalculatorMode.Converter -> {
+                     Column(
+                         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                         verticalArrangement = Arrangement.spacedBy(sableScreenGap()),
+                     ) {
+                         ConverterScreen()
+                     }
++                }
+             }
+         }
+     }
+@@ -275,7 +283,7 @@ private fun CalculatorPad(
+                 ),
+             )
+         return if (response.error == null) {
+-            status = "Exact result"
++            status = t("exact_result")
+             response.value
+         } else {
+             status = response.error
+@@ -315,7 +323,7 @@ private fun CalculatorPad(
+         val op = operation
+ 
+         if (left == null || op == null) {
+-            status = "Choose an operation first."
++            status = t("choose_an_operation_first")
+             return
+         }
+ 
+@@ -347,7 +355,7 @@ private fun CalculatorPad(
+             leftOperand = null
+             operation = null
+             replaceInput = true
+-            status = "${choice.label} · degrees for trigonometry"
++            status = t("degrees_for_trigonometry", choice.label)
+         } else {
+             status = response.error
+         }
+@@ -431,9 +439,9 @@ private fun CalculatorPad(
+         Text(
+             text =
+                 if (scientific) {
+-                    "Scientific operations and the core arithmetic path execute through the native calculator domain."
++                    t("scientific_operations_and_the_core")
+                 } else {
+-                    "Results are not silently rounded into floating-point values."
++                    t("results_are_not_silently_rounded")
+                 },
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+@@ -443,9 +451,9 @@ private fun CalculatorPad(
+ 
+ private fun initialStatus(scientific: Boolean): String =
+     if (scientific) {
+-        "Scientific functions use degrees."
++        t("scientific_functions_use_degrees")
+     } else {
+-        "Exact decimal results, never rounded."
++        t("exact_decimal_results_never_rounded")
+     }
+ 
+ private fun withDigit(
+@@ -642,7 +650,7 @@ private fun renderResult(protocol: String): RenderedResult =
+         else -> {
+             RenderedResult(
+                 value = "0",
+-                error = "Native bridge failure",
++                error = t("native_bridge_failure"),
+             )
+         }
+     }
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/r8/android/calculator/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/values/strings.xml b/sable-src/apps/r8/android/calculator/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..93f44bd
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/main/res/values/strings.xml
+@@ -0,0 +1,18 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to CalculatorText.EN (CalculatorTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sable Calculator</string>
++    <string name="basic">Basic</string>
++    <string name="scientific">Scientific</string>
++    <string name="convert">Convert</string>
++    <string name="basic_scientific_and_conversion_tools">Basic, scientific and conversion tools in one app.</string>
++    <string name="exact_result">Exact result</string>
++    <string name="choose_an_operation_first">Choose an operation first.</string>
++    <string name="degrees_for_trigonometry">%1$s · degrees for trigonometry</string>
++    <string name="scientific_operations_and_the_core">Scientific operations and the core arithmetic path execute through the native calculator domain.</string>
++    <string name="results_are_not_silently_rounded">Results are not silently rounded into floating-point values.</string>
++    <string name="scientific_functions_use_degrees">Scientific functions use degrees.</string>
++    <string name="exact_decimal_results_never_rounded">Exact decimal results, never rounded.</string>
++    <string name="native_bridge_failure">Native bridge failure</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/CalculatorTextTest.kt b/sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/CalculatorTextTest.kt
+new file mode 100644
+index 0000000..a579f2a
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/CalculatorTextTest.kt
+@@ -0,0 +1,58 @@
++package org.sableos.calculator
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.calculator.CalculatorText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class CalculatorTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        CalculatorText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, CalculatorText.EN.keys, tr.keys.intersect(CalculatorText.EN.keys))
++            CalculatorText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/ConvertTextTest.kt b/sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/ConvertTextTest.kt
+new file mode 100644
+index 0000000..4265aec
+--- /dev/null
++++ b/sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/ConvertTextTest.kt
+@@ -0,0 +1,58 @@
++package org.sableos.calculator
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.convert.ConvertText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** Sable Calculator carries the converter library: its English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class ConvertTextTest {
++    private val res = File("../convert/src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        ConvertText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, ConvertText.EN.keys, tr.keys.intersect(ConvertText.EN.keys))
++            ConvertText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
+index e37e99d..6cbe30c 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
+@@ -8,11 +8,12 @@
+         <package android:name="org.sableos.launcher" />
+     </queries>
+     <application
++        android:name="org.sableos.calendar.CalendarApplication"
+         android:allowBackup="false"
+         android:usesCleartextTraffic="false"
+         android:icon="@mipmap/ic_sable_calendar"
+         android:roundIcon="@mipmap/ic_sable_calendar_round"
+-        android:label="Sable Calendar"
++        android:label="@string/app_name"
+         android:supportsRtl="true"
+         android:theme="@android:style/Theme.Material.NoActionBar">
+         <activity android:name=".MainActivity" android:exported="true">
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarApplication.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarApplication.kt
+new file mode 100644
+index 0000000..e3bd05d
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarApplication.kt
+@@ -0,0 +1,11 @@
++package org.sableos.calendar
++
++import android.app.Application
++
++/** Binds [CalendarText] to the app's string resources once per process, so the phone's language is used. */
++class CalendarApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        CalendarText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarEventPolicy.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarEventPolicy.kt
+index a7acfad..0a35067 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarEventPolicy.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarEventPolicy.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.calendar
+ 
+ import android.view.KeyEvent
++import org.sableos.calendar.CalendarText.t
+ import java.time.LocalDate
+ 
+ /** The editable fields of one event, as the editor holds them. */
+@@ -44,8 +45,8 @@ object EventEditPolicy {
+     /** Why [draft] cannot be saved, or null when it can. */
+     fun validate(draft: EventDraft): String? =
+         when {
+-            draft.title.isBlank() -> "Add a title."
+-            draft.endMillis <= draft.startMillis -> "The event must end after it starts."
++            draft.title.isBlank() -> t("add_a_title")
++            draft.endMillis <= draft.startMillis -> t("the_event_must_end_after")
+             else -> null
+         }
+ 
+@@ -79,9 +80,9 @@ object EventEditPolicy {
+         recurring: Boolean,
+     ): String =
+         if (recurring) {
+-            "Delete every occurrence of “$title”? This cannot be undone."
++            t("delete_every_occurrence_of_this", title)
+         } else {
+-            "Delete “$title”? This cannot be undone."
++            t("delete_this_cannot_be_undone", title)
+         }
+ }
+ 
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarRepository.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarRepository.kt
+index 644fc9e..4aec586 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarRepository.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarRepository.kt
+@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
+ import android.database.Cursor
+ import android.net.Uri
+ import android.provider.CalendarContract
++import org.sableos.calendar.CalendarText.t
+ import java.time.Instant
+ import java.time.LocalDate
+ import java.time.ZoneId
+@@ -136,7 +137,7 @@ class CalendarRepository(
+                                             .getString(title)
+                                             ?.trim()
+                                             .orEmpty()
+-                                            .ifEmpty { "Calendar event" },
++                                            .ifEmpty { t("calendar_event") },
+                                     startMillis = cursor.getLong(start),
+                                     endMillis = cursor.getLong(finish),
+                                     allDay = cursor.getInt(allDay) != 0,
+@@ -145,7 +146,7 @@ class CalendarRepository(
+                                             .getString(calendar)
+                                             ?.trim()
+                                             .orEmpty()
+-                                            .ifEmpty { "Calendar" },
++                                            .ifEmpty { t("calendar") },
+                                     recurring = !cursor.getString(rrule).isNullOrBlank(),
+                                     canModify =
+                                         cursor.getInt(access) >= CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR,
+@@ -221,11 +222,11 @@ class CalendarRepository(
+         fun number(column: String): Int = cursor.getInt(cursor.getColumnIndexOrThrow(column))
+         return CalendarEventDetail(
+             id = occurrence.id,
+-            title = text(CalendarContract.Events.TITLE).ifEmpty { "Calendar event" },
++            title = text(CalendarContract.Events.TITLE).ifEmpty { t("calendar_event") },
+             startMillis = occurrence.startMillis,
+             endMillis = occurrence.endMillis,
+             allDay = number(CalendarContract.Events.ALL_DAY) != 0,
+-            calendarName = text(CalendarContract.Events.CALENDAR_DISPLAY_NAME).ifEmpty { "Calendar" },
++            calendarName = text(CalendarContract.Events.CALENDAR_DISPLAY_NAME).ifEmpty { t("calendar") },
+             location = text(CalendarContract.Events.EVENT_LOCATION),
+             description = text(CalendarContract.Events.DESCRIPTION),
+             organizer = text(CalendarContract.Events.ORGANIZER),
+@@ -308,8 +309,8 @@ class CalendarRepository(
+     fun snapshot(nowMillis: Long = System.currentTimeMillis()): CalendarSnapshot {
+         if (!canRead()) {
+             return CalendarSnapshot(
+-                title = "Calendar",
+-                detail = "permission required",
++                title = t("calendar"),
++                detail = t("permission_required"),
+                 availability = "PERMISSION_REQUIRED",
+                 observedAt = nowMillis,
+             )
+@@ -324,22 +325,22 @@ class CalendarRepository(
+ 
+         return if (next == null) {
+             CalendarSnapshot(
+-                title = "Calendar",
+-                detail = "nothing else today",
++                title = t("calendar"),
++                detail = t("nothing_else_today"),
+                 availability = "EMPTY",
+                 observedAt = nowMillis,
+             )
+         } else {
+             val time =
+                 if (next.allDay) {
+-                    "all day"
++                    t("all_day")
+                 } else {
+                     android.text.format.DateFormat
+                         .getTimeFormat(context)
+                         .format(java.util.Date(next.startMillis))
+                 }
+             CalendarSnapshot(
+-                title = "Calendar",
++                title = t("calendar"),
+                 detail = time + " · " + next.title,
+                 availability = "LIVE",
+                 observedAt = nowMillis,
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+new file mode 100644
+index 0000000..77c8ab9
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+@@ -0,0 +1,78 @@
++package org.sableos.calendar
++
++import org.sableos.design.SableTexts
++
++/**
++ * Every line Sable Calendar shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (CalendarTextTest keeps the two equal) and res/values-<lang>/strings.xml translates
++ * them.
++ */
++object CalendarText {
++    val EN: Map<String, String> =
++        mapOf(
++            "add_a_title" to "Add a title.",
++            "the_event_must_end_after" to "The event must end after it starts.",
++            "delete_every_occurrence_of_this" to
++                "Delete every occurrence of “%1\$s”? This cannot be undone.",
++            "delete_this_cannot_be_undone" to "Delete “%1\$s”? This cannot be undone.",
++            "calendar_event" to "Calendar event",
++            "calendar" to "Calendar",
++            "permission_required" to "permission required",
++            "nothing_else_today" to "nothing else today",
++            "all_day" to "all day",
++            "c_create_t_today_v" to "C create · T today · V view · J/K event · R refresh",
++            "wk" to "%1\$s %2\$s · Wk %3\$s",
++            "this_event_is_no_longer" to "This event is no longer in the calendar.",
++            "is_in_a_read_only" to "“%1\$s” is in a read-only calendar.",
++            "refreshed" to "Refreshed.",
++            "nothing_scheduled" to "Nothing scheduled.",
++            "deleted" to "Deleted “%1\$s”.",
++            "unable_to_delete" to "Unable to delete “%1\$s”.",
++            "saved" to "Saved.",
++            "local_calendarprovider_ui_account_sync" to
++                "Local CalendarProvider UI · account sync remains separate.",
++            "save_event" to "Save event",
++            "event" to "‹  event",
++            "save_changes" to "Save changes",
++            "agenda" to "‹  agenda",
++            "loading" to "Loading…",
++            "nothing_scheduled_2" to "nothing scheduled",
++            "new_event_c" to "+  new event  (C)",
++            "repeats" to " · repeats",
++            "where" to "Where",
++            "organizer" to "Organizer",
++            "guests" to "Guests",
++            "notes" to "Notes",
++            "edit_e" to "Edit  (E)",
++            "delete_del" to "Delete  (Del)",
++            "this_calendar_is_read_only" to "This calendar is read-only here.",
++            "back" to "Back",
++            "all_day_2" to "%1\$s · all day",
++            "delete_event" to "Delete event?",
++            "delete" to "Delete",
++            "cancel" to "Cancel",
++            "event_title" to "Event title",
++            "starts" to "Starts ",
++            "ends" to "Ends ",
++            "times_of_repeating_and_all" to
++                "Times of repeating and all-day events are kept; change them in the account's " +
++                "calendar.",
++            "location" to "Location",
++            "unable_to_save_event" to "Unable to save event.",
++            "calendar_access" to "Calendar access",
++            "sable_calendar_uses_android_calendarprovider" to
++                "Sable Calendar uses Android CalendarProvider. Grant calendar access to read and " +
++                "create local events.",
++            "review_access" to "Review access",
++            "no_event_selected_j_k" to "No event selected. J/K move through the day.",
++            "guests_accepted" to "%1\$s guests · %2\$s accepted",
++            "enter_open_e_edit_del" to "Enter open · E edit · Del delete",
++            "read_only_calendar" to "Read-only calendar",
++            "all_day_3" to "All day · ",
++            "no_event_this_week_c" to "No event this week. C creates one.",
++            "selected" to "Selected: %1\$s",
++            "enter_open_e_edit_del_2" to "[Enter] open  [E] edit  [Del] delete  [T] today",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
+index faf8304..1f4551e 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.calendar
+ 
+ import android.view.KeyEvent
++import org.sableos.calendar.CalendarText.t
+ import java.time.DayOfWeek
+ import java.time.Instant
+ import java.time.LocalDate
+@@ -42,7 +43,7 @@ object CalendarScreenKeys {
+         }
+ 
+     /** The hint dock under the agenda and week views; every key named here is mapped above. */
+-    const val DOCK = "C create · T today · V view · J/K event · R refresh"
++    val DOCK: String get() = t("c_create_t_today_v")
+ }
+ 
+ /** The browsing views V cycles through: agenda (list with detail), week (5 columns), month. */
+@@ -183,7 +184,7 @@ object WeekLayout {
+         val first = days.first()
+         val month = abbreviation(first.month.name)
+         val week = first.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+-        return "$month ${first.year} · Wk $week"
++        return t("wk", month, first.year, week)
+     }
+ 
+     /** "Mon 28" for a column header. */
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+index e8ca2a8..df7712a 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+@@ -74,6 +74,7 @@ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.delay
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
++import org.sableos.calendar.CalendarText.t
+ import org.sableos.design.SableActionButton
+ import org.sableos.design.SableGlobalTheme
+ import org.sableos.design.SableRefreshableSurface
+@@ -205,7 +206,7 @@ private class CalendarAppState {
+         detail = loaded
+         if (loaded == null && (mode == CalendarMode.Detail || mode == CalendarMode.Edit)) {
+             // Deleted or moved elsewhere (sync): there is nothing left to show.
+-            status = "This event is no longer in the calendar."
++            status = t("this_event_is_no_longer")
+             mode = CalendarMode.Agenda
+         }
+     }
+@@ -220,7 +221,7 @@ private class CalendarAppState {
+     fun openEditor(event: CalendarEvent) {
+         status = null
+         if (!event.canModify) {
+-            status = "“${event.title}” is in a read-only calendar."
++            status = t("is_in_a_read_only", event.title)
+         } else {
+             if (openEvent != event) detail = null
+             openEvent = event
+@@ -239,7 +240,7 @@ private class CalendarAppState {
+         if (canModify) {
+             pendingDelete = PendingDelete(id, title, recurring)
+         } else {
+-            status = "“$title” is in a read-only calendar."
++            status = t("is_in_a_read_only", title)
+         }
+     }
+ 
+@@ -302,7 +303,7 @@ private class CalendarAppState {
+ 
+             CalendarScreenKey.Refresh -> {
+                 onRefresh()
+-                status = "Refreshed."
++                status = t("refreshed")
+             }
+         }
+         return true
+@@ -316,7 +317,7 @@ private class CalendarAppState {
+         }
+         val next = EventCursor.step(events, openEvent, forward)
+         when {
+-            next == null -> status = "Nothing scheduled."
++            next == null -> status = t("nothing_scheduled")
+             mode == CalendarMode.Detail -> openDetail(next)
+             else -> select(next)
+         }
+@@ -333,7 +334,7 @@ private class CalendarAppState {
+         if (loaded.canModify) {
+             mode = CalendarMode.Edit
+         } else {
+-            status = "“${loaded.title}” is in a read-only calendar."
++            status = t("is_in_a_read_only", loaded.title)
+         }
+     }
+ 
+@@ -341,7 +342,7 @@ private class CalendarAppState {
+         title: String,
+         deleted: Boolean,
+     ) {
+-        status = if (deleted) "Deleted “$title”." else "Unable to delete “$title”."
++        status = if (deleted) t("deleted", title) else t("unable_to_delete", title)
+         if (deleted) {
+             openEvent = null
+             detail = null
+@@ -360,7 +361,7 @@ private class CalendarAppState {
+         draft: EventDraft,
+     ) {
+         editDraft = null
+-        status = "Saved."
++        status = t("saved")
+         val times = if (loaded.timesEditable) draft else loaded.toDraft()
+         openEvent =
+             openEvent?.copy(
+@@ -463,7 +464,7 @@ private fun CalendarHeader() {
+         style = MaterialTheme.typography.displayLarge,
+     )
+     Text(
+-        text = "Local CalendarProvider UI · account sync remains separate.",
++        text = t("local_calendarprovider_ui_account_sync"),
+         style = MaterialTheme.typography.bodyLarge,
+         color = MaterialTheme.colorScheme.onSurfaceVariant,
+     )
+@@ -571,7 +572,7 @@ private fun NewEventPane(
+         draft = state.eventDraft ?: EventDraft.newAt(defaultEventStart(state.selectedDate)),
+         onDraftChange = { state.eventDraft = it },
+         timesEditable = true,
+-        saveLabel = "Save event",
++        saveLabel = t("save_event"),
+         onSave = { draft ->
+             val created = withContext(Dispatchers.IO) { repository.createEvent(draft) }
+             if (created != null) {
+@@ -608,7 +609,7 @@ private fun EditPane(
+ ) {
+     val loaded = state.detail
+     SableActionButton(
+-        text = "‹  event",
++        text = t("event"),
+         primary = false,
+         onClick = { state.leaveEditor(hasDetail = loaded != null) },
+     )
+@@ -621,7 +622,7 @@ private fun EditPane(
+         draft = state.editDraft ?: loaded.toDraft(),
+         onDraftChange = { state.editDraft = it },
+         timesEditable = loaded.timesEditable,
+-        saveLabel = "Save changes",
++        saveLabel = t("save_changes"),
+         onSave = { draft ->
+             val saved = withContext(Dispatchers.IO) { repository.updateEvent(loaded, draft) }
+             if (saved) {
+@@ -637,7 +638,7 @@ private fun EditPane(
+ @Composable
+ private fun BackToAgenda(onClick: () -> Unit) {
+     SableActionButton(
+-        text = "‹  agenda",
++        text = t("agenda"),
+         primary = false,
+         onClick = onClick,
+     )
+@@ -647,7 +648,7 @@ private fun BackToAgenda(onClick: () -> Unit) {
+ @Composable
+ private fun LoadingLine() {
+     Text(
+-        text = "Loading…",
++        text = t("loading"),
+         style = MaterialTheme.typography.bodyLarge,
+         color = MaterialTheme.colorScheme.onSurfaceVariant,
+     )
+@@ -709,7 +710,7 @@ private fun ApprovedCalendarLanding(
+     val list: @Composable () -> Unit = {
+         if (events.isEmpty()) {
+             Text(
+-                text = "nothing scheduled",
++                text = t("nothing_scheduled_2"),
+                 style = MaterialTheme.typography.titleLarge,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -729,7 +730,7 @@ private fun ApprovedCalendarLanding(
+         }
+ 
+         SableActionButton(
+-            text = "+  new event  (C)",
++            text = t("new_event_c"),
+             primary = false,
+             onClick = onNewEvent,
+         )
+@@ -850,7 +851,7 @@ private fun AgendaEventRow(
+     val context = LocalContext.current
+     val time =
+         if (event.allDay) {
+-            "all day"
++            t("all_day")
+         } else {
+             android.text.format.DateFormat
+                 .getTimeFormat(context)
+@@ -892,7 +893,7 @@ private fun AgendaEventRow(
+                 style = MaterialTheme.typography.titleMedium,
+             )
+             Text(
+-                text = if (event.recurring) event.calendarName + " · repeats" else event.calendarName,
++                text = if (event.recurring) event.calendarName + t("repeats") else event.calendarName,
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -953,12 +954,12 @@ private fun EventDetailView(
+             style = MaterialTheme.typography.titleMedium,
+             color = MaterialTheme.colorScheme.primary,
+         )
+-        DetailLine("Calendar", if (detail.recurring) detail.calendarName + " · repeats" else detail.calendarName)
+-        if (detail.location.isNotEmpty()) DetailLine("Where", detail.location)
+-        if (detail.organizer.isNotEmpty()) DetailLine("Organizer", detail.organizer)
++        DetailLine(t("calendar"), if (detail.recurring) detail.calendarName + t("repeats") else detail.calendarName)
++        if (detail.location.isNotEmpty()) DetailLine(t("where"), detail.location)
++        if (detail.organizer.isNotEmpty()) DetailLine(t("organizer"), detail.organizer)
+         if (detail.attendees.isNotEmpty()) {
+             DetailLine(
+-                "Guests",
++                t("guests"),
+                 detail.attendees.joinToString("\n") { attendee ->
+                     listOf(attendee.name.ifEmpty { attendee.email }, attendee.status)
+                         .filter(String::isNotEmpty)
+@@ -966,7 +967,7 @@ private fun EventDetailView(
+                 },
+             )
+         }
+-        if (detail.description.isNotEmpty()) DetailLine("Notes", detail.description)
++        if (detail.description.isNotEmpty()) DetailLine(t("notes"), detail.description)
+ 
+         Spacer(Modifier.height(SableSpacing.Sm))
+         if (detail.canModify) {
+@@ -975,12 +976,12 @@ private fun EventDetailView(
+                 horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+             ) {
+                 SableActionButton(
+-                    text = "Edit  (E)",
++                    text = t("edit_e"),
+                     modifier = Modifier.weight(1f).focusRequester(firstAction),
+                     onClick = onEdit,
+                 )
+                 SableActionButton(
+-                    text = "Delete  (Del)",
++                    text = t("delete_del"),
+                     modifier = Modifier.weight(1f),
+                     primary = false,
+                     onClick = onDelete,
+@@ -988,12 +989,12 @@ private fun EventDetailView(
+             }
+         } else {
+             Text(
+-                text = "This calendar is read-only here.",
++                text = t("this_calendar_is_read_only"),
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+             SableActionButton(
+-                text = "Back",
++                text = t("back"),
+                 modifier = Modifier.focusRequester(firstAction),
+                 primary = false,
+                 onClick = onBack,
+@@ -1046,7 +1047,7 @@ private fun eventWhen(
+                 flags or DateUtils.FORMAT_SHOW_TIME,
+             )
+         }
+-    return if (detail.allDay) "$range · all day" else range
++    return if (detail.allDay) t("all_day_2", range) else range
+ }
+ 
+ @Composable
+@@ -1063,12 +1064,12 @@ private fun DeleteConfirmDialog(
+     }
+     AlertDialog(
+         onDismissRequest = onDismiss,
+-        title = { Text("Delete event?") },
++        title = { Text(t("delete_event")) },
+         text = { Text(message) },
+         confirmButton = {
+             TextButton(onClick = onConfirm) {
+                 Text(
+-                    text = "Delete",
++                    text = t("delete"),
+                     color = MaterialTheme.colorScheme.error,
+                 )
+             }
+@@ -1078,7 +1079,7 @@ private fun DeleteConfirmDialog(
+                 onClick = onDismiss,
+                 modifier = Modifier.focusRequester(cancel),
+             ) {
+-                Text("Cancel")
++                Text(t("cancel"))
+             }
+         },
+     )
+@@ -1179,13 +1180,13 @@ private fun EventEditor(
+         onValueChange = { onDraftChange(draft.copy(title = it)) },
+         modifier = Modifier.fillMaxWidth(),
+         singleLine = true,
+-        label = { Text("Event title") },
++        label = { Text(t("event_title")) },
+     )
+     Spacer(Modifier.height(SableSpacing.Md))
+ 
+     if (timesEditable) {
+         SableActionButton(
+-            text = "Starts " + formatDateTime(context, draft.startMillis),
++            text = t("starts") + formatDateTime(context, draft.startMillis),
+             primary = false,
+             onClick = {
+                 pickDateTime(context, draft.startMillis) { picked -> onDraftChange(draft.withStart(picked)) }
+@@ -1193,7 +1194,7 @@ private fun EventEditor(
+         )
+         Spacer(Modifier.height(SableSpacing.Sm))
+         SableActionButton(
+-            text = "Ends " + formatDateTime(context, draft.endMillis),
++            text = t("ends") + formatDateTime(context, draft.endMillis),
+             primary = false,
+             onClick = {
+                 pickDateTime(context, draft.endMillis) { picked -> onDraftChange(draft.copy(endMillis = picked)) }
+@@ -1201,7 +1202,7 @@ private fun EventEditor(
+         )
+     } else {
+         Text(
+-            text = "Times of repeating and all-day events are kept; change them in the account's calendar.",
++            text = t("times_of_repeating_and_all"),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+@@ -1213,7 +1214,7 @@ private fun EventEditor(
+         onValueChange = { onDraftChange(draft.copy(location = it)) },
+         modifier = Modifier.fillMaxWidth(),
+         singleLine = true,
+-        label = { Text("Location") },
++        label = { Text(t("location")) },
+     )
+     Spacer(Modifier.height(SableSpacing.Sm))
+     OutlinedTextField(
+@@ -1221,7 +1222,7 @@ private fun EventEditor(
+         onValueChange = { onDraftChange(draft.copy(description = it)) },
+         modifier = Modifier.fillMaxWidth(),
+         minLines = 2,
+-        label = { Text("Notes") },
++        label = { Text(t("notes")) },
+     )
+     Spacer(Modifier.height(SableSpacing.Lg))
+ 
+@@ -1233,7 +1234,7 @@ private fun EventEditor(
+                 status = problem
+             } else {
+                 scope.launch {
+-                    status = if (onSave(draft)) null else "Unable to save event."
++                    status = if (onSave(draft)) null else t("unable_to_save_event")
+                 }
+             }
+         },
+@@ -1304,18 +1305,17 @@ private fun PermissionPanel(onRequestPermissions: () -> Unit) {
+             verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
+         ) {
+             Text(
+-                text = "Calendar access",
++                text = t("calendar_access"),
+                 style = MaterialTheme.typography.titleLarge,
+             )
+             Text(
+                 text =
+-                    "Sable Calendar uses Android CalendarProvider. " +
+-                        "Grant calendar access to read and create local events.",
++                    t("sable_calendar_uses_android_calendarprovider"),
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+             SableActionButton(
+-                text = "Review access",
++                text = t("review_access"),
+                 onClick = onRequestPermissions,
+             )
+         }
+@@ -1364,7 +1364,7 @@ private fun AgendaDetailPreview(
+             when {
+                 event == null -> {
+                     Text(
+-                        text = "No event selected. J/K move through the day.",
++                        text = t("no_event_selected_j_k"),
+                         style = MaterialTheme.typography.bodyMedium,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                     )
+@@ -1382,7 +1382,7 @@ private fun AgendaDetailPreview(
+                         color = MaterialTheme.colorScheme.primary,
+                     )
+                     Text(
+-                        text = if (detail.recurring) detail.calendarName + " · repeats" else detail.calendarName,
++                        text = if (detail.recurring) detail.calendarName + t("repeats") else detail.calendarName,
+                         style = MaterialTheme.typography.bodyMedium,
+                     )
+                     if (detail.location.isNotEmpty()) {
+@@ -1391,13 +1391,13 @@ private fun AgendaDetailPreview(
+                     if (detail.attendees.isNotEmpty()) {
+                         val accepted = detail.attendees.count { it.status == "accepted" }
+                         Text(
+-                            text = "${detail.attendees.size} guests · $accepted accepted",
++                            text = t("guests_accepted", detail.attendees.size, accepted),
+                             style = MaterialTheme.typography.bodyMedium,
+                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                         )
+                     }
+                     Text(
+-                        text = if (detail.canModify) "Enter open · E edit · Del delete" else "Read-only calendar",
++                        text = if (detail.canModify) t("enter_open_e_edit_del") else t("read_only_calendar"),
+                         style = MaterialTheme.typography.labelMedium,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                     )
+@@ -1434,7 +1434,7 @@ private fun WeekPane(state: CalendarAppState) {
+     Spacer(Modifier.height(SableSpacing.Sm))
+     state.events.filter { it.allDay }.forEach { event ->
+         Text(
+-            text = "All day · " + event.title,
++            text = t("all_day_3") + event.title,
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+             maxLines = 1,
+@@ -1589,14 +1589,14 @@ private fun WeekSelection(state: CalendarAppState) {
+         Column(Modifier.padding(SableSpacing.Md)) {
+             if (event == null) {
+                 Text(
+-                    text = "No event this week. C creates one.",
++                    text = t("no_event_this_week_c"),
+                     style = MaterialTheme.typography.bodyMedium,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 )
+             } else {
+                 val time =
+                     if (event.allDay) {
+-                        "all day"
++                        t("all_day")
+                     } else {
+                         DateUtils.formatDateRange(
+                             context,
+@@ -1607,14 +1607,14 @@ private fun WeekSelection(state: CalendarAppState) {
+                                 DateUtils.FORMAT_SHOW_TIME,
+                         )
+                     }
+-                Text(text = "Selected: $time", style = MaterialTheme.typography.titleMedium)
++                Text(text = t("selected", time), style = MaterialTheme.typography.titleMedium)
+                 Text(
+                     text = event.title + " · " + event.calendarName,
+                     style = MaterialTheme.typography.bodyMedium,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 )
+                 Text(
+-                    text = "[Enter] open  [E] edit  [Del] delete  [T] today",
++                    text = t("enter_open_e_edit_del_2"),
+                     style = MaterialTheme.typography.labelMedium,
+                     color = MaterialTheme.colorScheme.primary,
+                 )
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/r8/android/calendar/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..3b2dedb
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+@@ -0,0 +1,62 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to CalendarText.EN (CalendarTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sable Calendar</string>
++    <string name="add_a_title">Add a title.</string>
++    <string name="the_event_must_end_after">The event must end after it starts.</string>
++    <string name="delete_every_occurrence_of_this">Delete every occurrence of “%1$s”? This cannot be undone.</string>
++    <string name="delete_this_cannot_be_undone">Delete “%1$s”? This cannot be undone.</string>
++    <string name="calendar_event">Calendar event</string>
++    <string name="calendar">Calendar</string>
++    <string name="permission_required">permission required</string>
++    <string name="nothing_else_today">nothing else today</string>
++    <string name="all_day">all day</string>
++    <string name="c_create_t_today_v">C create · T today · V view · J/K event · R refresh</string>
++    <string name="wk">%1$s %2$s · Wk %3$s</string>
++    <string name="this_event_is_no_longer">This event is no longer in the calendar.</string>
++    <string name="is_in_a_read_only">“%1$s” is in a read-only calendar.</string>
++    <string name="refreshed">Refreshed.</string>
++    <string name="nothing_scheduled">Nothing scheduled.</string>
++    <string name="deleted">Deleted “%1$s”.</string>
++    <string name="unable_to_delete">Unable to delete “%1$s”.</string>
++    <string name="saved">Saved.</string>
++    <string name="local_calendarprovider_ui_account_sync">Local CalendarProvider UI · account sync remains separate.</string>
++    <string name="save_event">Save event</string>
++    <string name="event">"‹  event"</string>
++    <string name="save_changes">Save changes</string>
++    <string name="agenda">"‹  agenda"</string>
++    <string name="loading">Loading…</string>
++    <string name="nothing_scheduled_2">nothing scheduled</string>
++    <string name="new_event_c">"+  new event  (C)"</string>
++    <string name="repeats">" · repeats"</string>
++    <string name="where">Where</string>
++    <string name="organizer">Organizer</string>
++    <string name="guests">Guests</string>
++    <string name="notes">Notes</string>
++    <string name="edit_e">"Edit  (E)"</string>
++    <string name="delete_del">"Delete  (Del)"</string>
++    <string name="this_calendar_is_read_only">This calendar is read-only here.</string>
++    <string name="back">Back</string>
++    <string name="all_day_2">%1$s · all day</string>
++    <string name="delete_event">Delete event?</string>
++    <string name="delete">Delete</string>
++    <string name="cancel">Cancel</string>
++    <string name="event_title">Event title</string>
++    <string name="starts">"Starts "</string>
++    <string name="ends">"Ends "</string>
++    <string name="times_of_repeating_and_all">Times of repeating and all-day events are kept; change them in the account\'s calendar.</string>
++    <string name="location">Location</string>
++    <string name="unable_to_save_event">Unable to save event.</string>
++    <string name="calendar_access">Calendar access</string>
++    <string name="sable_calendar_uses_android_calendarprovider">Sable Calendar uses Android CalendarProvider. Grant calendar access to read and create local events.</string>
++    <string name="review_access">Review access</string>
++    <string name="no_event_selected_j_k">No event selected. J/K move through the day.</string>
++    <string name="guests_accepted">%1$s guests · %2$s accepted</string>
++    <string name="enter_open_e_edit_del">Enter open · E edit · Del delete</string>
++    <string name="read_only_calendar">Read-only calendar</string>
++    <string name="all_day_3">"All day · "</string>
++    <string name="no_event_this_week_c">No event this week. C creates one.</string>
++    <string name="selected">Selected: %1$s</string>
++    <string name="enter_open_e_edit_del_2">"[Enter] open  [E] edit  [Del] delete  [T] today"</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarTextTest.kt b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarTextTest.kt
+new file mode 100644
+index 0000000..2e27381
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarTextTest.kt
+@@ -0,0 +1,58 @@
++package org.sableos.calendar
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.calendar.CalendarText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class CalendarTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        CalendarText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, CalendarText.EN.keys, tr.keys.intersect(CalendarText.EN.keys))
++            CalendarText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/convert/src/main/java/org/sableos/convert/ConvertText.kt b/sable-src/apps/r8/android/convert/src/main/java/org/sableos/convert/ConvertText.kt
+new file mode 100644
+index 0000000..9edcb9a
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/java/org/sableos/convert/ConvertText.kt
+@@ -0,0 +1,47 @@
++package org.sableos.convert
++
++import org.sableos.design.SableTexts
++
++/**
++ * Every line Sable Calculator's converter shows, in English, by string resource name.
++ * res/values/strings.xml repeats them (ConvertTextTest keeps the two equal) and
++ * res/values-<lang>/strings.xml translates them.
++ */
++object ConvertText {
++    val EN: Map<String, String> =
++        mapOf(
++            "convert_length" to "Length",
++            "convert_mass" to "Mass",
++            "convert_temperature" to "Temperature",
++            "convert_volume" to "Volume",
++            "convert_millimeters" to "Millimeters",
++            "convert_centimeters" to "Centimeters",
++            "convert_meters" to "Meters",
++            "convert_kilometers" to "Kilometers",
++            "convert_inches" to "Inches",
++            "convert_feet" to "Feet",
++            "convert_miles" to "Miles",
++            "convert_grams" to "Grams",
++            "convert_kilograms" to "Kilograms",
++            "convert_ounces" to "Ounces",
++            "convert_pounds" to "Pounds",
++            "convert_celsius" to "Celsius",
++            "convert_fahrenheit" to "Fahrenheit",
++            "convert_kelvin" to "Kelvin",
++            "convert_milliliters" to "Milliliters",
++            "convert_liters" to "Liters",
++            "convert_cups" to "Cups",
++            "convert_gallons" to "Gallons",
++            "convert_ready" to "Ready",
++            "convert_value" to "Value",
++            "convert_from" to "From",
++            "convert_to" to "To",
++            "convert_convert" to "Convert",
++            "convert_enter_a_number_with_up" to "Enter a number with up to three decimal places",
++            "convert_length_mass_temperature_and_volume" to
++                "Length, mass, temperature and volume conversions are local and offline.",
++            "convert_native_bridge_failure" to "Native bridge failure",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/r8/android/convert/src/main/java/org/sableos/convert/ConverterScreen.kt b/sable-src/apps/r8/android/convert/src/main/java/org/sableos/convert/ConverterScreen.kt
+index 524b481..beb7c24 100644
+--- a/sable-src/apps/r8/android/convert/src/main/java/org/sableos/convert/ConverterScreen.kt
++++ b/sable-src/apps/r8/android/convert/src/main/java/org/sableos/convert/ConverterScreen.kt
+@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Modifier
++import org.sableos.convert.ConvertText.t
+ import org.sableos.design.SableActionButton
+ import org.sableos.design.SableSectionHeader
+ import org.sableos.design.SableSpacing
+@@ -24,10 +25,10 @@ import java.math.RoundingMode
+ private enum class UnitCategory(
+     val label: String,
+ ) {
+-    Length("Length"),
+-    Mass("Mass"),
+-    Temperature("Temperature"),
+-    Volume("Volume"),
++    Length(t("convert_length")),
++    Mass(t("convert_mass")),
++    Temperature(t("convert_temperature")),
++    Volume(t("convert_volume")),
+ }
+ 
+ private data class UnitChoice(
+@@ -39,24 +40,24 @@ private data class UnitChoice(
+ 
+ private val units =
+     listOf(
+-        UnitChoice(0, "Millimeters", "mm", UnitCategory.Length),
+-        UnitChoice(1, "Centimeters", "cm", UnitCategory.Length),
+-        UnitChoice(2, "Meters", "m", UnitCategory.Length),
+-        UnitChoice(3, "Kilometers", "km", UnitCategory.Length),
+-        UnitChoice(4, "Inches", "in", UnitCategory.Length),
+-        UnitChoice(5, "Feet", "ft", UnitCategory.Length),
+-        UnitChoice(6, "Miles", "mi", UnitCategory.Length),
+-        UnitChoice(7, "Grams", "g", UnitCategory.Mass),
+-        UnitChoice(8, "Kilograms", "kg", UnitCategory.Mass),
+-        UnitChoice(9, "Ounces", "oz", UnitCategory.Mass),
+-        UnitChoice(10, "Pounds", "lb", UnitCategory.Mass),
+-        UnitChoice(11, "Celsius", "°C", UnitCategory.Temperature),
+-        UnitChoice(12, "Fahrenheit", "°F", UnitCategory.Temperature),
+-        UnitChoice(13, "Kelvin", "K", UnitCategory.Temperature),
+-        UnitChoice(14, "Milliliters", "mL", UnitCategory.Volume),
+-        UnitChoice(15, "Liters", "L", UnitCategory.Volume),
+-        UnitChoice(16, "Cups", "cup", UnitCategory.Volume),
+-        UnitChoice(17, "Gallons", "gal", UnitCategory.Volume),
++        UnitChoice(0, t("convert_millimeters"), "mm", UnitCategory.Length),
++        UnitChoice(1, t("convert_centimeters"), "cm", UnitCategory.Length),
++        UnitChoice(2, t("convert_meters"), "m", UnitCategory.Length),
++        UnitChoice(3, t("convert_kilometers"), "km", UnitCategory.Length),
++        UnitChoice(4, t("convert_inches"), "in", UnitCategory.Length),
++        UnitChoice(5, t("convert_feet"), "ft", UnitCategory.Length),
++        UnitChoice(6, t("convert_miles"), "mi", UnitCategory.Length),
++        UnitChoice(7, t("convert_grams"), "g", UnitCategory.Mass),
++        UnitChoice(8, t("convert_kilograms"), "kg", UnitCategory.Mass),
++        UnitChoice(9, t("convert_ounces"), "oz", UnitCategory.Mass),
++        UnitChoice(10, t("convert_pounds"), "lb", UnitCategory.Mass),
++        UnitChoice(11, t("convert_celsius"), "°C", UnitCategory.Temperature),
++        UnitChoice(12, t("convert_fahrenheit"), "°F", UnitCategory.Temperature),
++        UnitChoice(13, t("convert_kelvin"), "K", UnitCategory.Temperature),
++        UnitChoice(14, t("convert_milliliters"), "mL", UnitCategory.Volume),
++        UnitChoice(15, t("convert_liters"), "L", UnitCategory.Volume),
++        UnitChoice(16, t("convert_cups"), "cup", UnitCategory.Volume),
++        UnitChoice(17, t("convert_gallons"), "gal", UnitCategory.Volume),
+     )
+ 
+ @Composable
+@@ -68,7 +69,7 @@ fun ConverterScreen(modifier: Modifier = Modifier) {
+     var from by remember { mutableStateOf(units.first { it.code == 2 }) }
+     var to by remember { mutableStateOf(units.first { it.code == 3 }) }
+     var input by remember { mutableStateOf("1") }
+-    var result by remember { mutableStateOf("Ready") }
++    var result by remember { mutableStateOf(t("convert_ready")) }
+ 
+     Column(
+         modifier = modifier,
+@@ -91,7 +92,7 @@ fun ConverterScreen(modifier: Modifier = Modifier) {
+                             val available = units.filter { it.category == choice }
+                             from = available.first()
+                             to = available.getOrElse(1) { available.first() }
+-                            result = "Ready"
++                            result = t("convert_ready")
+                         },
+                     )
+                 }
+@@ -103,7 +104,7 @@ fun ConverterScreen(modifier: Modifier = Modifier) {
+             onValueChange = { input = it },
+             modifier = Modifier.fillMaxWidth(),
+             singleLine = true,
+-            label = { Text("Value") },
++            label = { Text(t("convert_value")) },
+         )
+ 
+         val availableUnits = units.filter { it.category == category }
+@@ -113,34 +114,34 @@ fun ConverterScreen(modifier: Modifier = Modifier) {
+             horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+         ) {
+             SableTile(
+-                title = "From",
++                title = t("convert_from"),
+                 subtitle = "${from.label} · ${from.symbol}",
+                 modifier = Modifier.weight(1f),
+                 onClick = {
+                     from = cycleUnit(availableUnits, from)
+-                    result = "Ready"
++                    result = t("convert_ready")
+                 },
+             )
+ 
+             SableTile(
+-                title = "To",
++                title = t("convert_to"),
+                 subtitle = "${to.label} · ${to.symbol}",
+                 modifier = Modifier.weight(1f),
+                 onClick = {
+                     to = cycleUnit(availableUnits, to)
+-                    result = "Ready"
++                    result = t("convert_ready")
+                 },
+             )
+         }
+ 
+         SableActionButton(
+-            text = "Convert",
++            text = t("convert_convert"),
+             modifier = Modifier.fillMaxWidth(),
+             onClick = {
+                 val valueMilli = parseMilli(input)
+                 result =
+                     if (valueMilli == null) {
+-                        "Enter a number with up to three decimal places"
++                        t("convert_enter_a_number_with_up")
+                     } else {
+                         renderResult(
+                             NativeBridge.convertMilli(
+@@ -161,7 +162,7 @@ fun ConverterScreen(modifier: Modifier = Modifier) {
+         )
+ 
+         Text(
+-            "Length, mass, temperature and volume conversions are local and offline.",
++            t("convert_length_mass_temperature_and_volume"),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
+@@ -196,7 +197,7 @@ private fun renderResult(
+         protocol.startsWith("OK:") -> {
+             val milli = protocol.removePrefix("OK:").toLongOrNull()
+             if (milli == null) {
+-                "Native bridge failure"
++                t("convert_native_bridge_failure")
+             } else {
+                 "${formatMilli(milli)} $symbol"
+             }
+@@ -207,7 +208,7 @@ private fun renderResult(
+         }
+ 
+         else -> {
+-            "Native bridge failure"
++            t("convert_native_bridge_failure")
+         }
+     }
+ 
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/r8/android/convert/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/r8/android/convert/src/main/res/values/strings.xml b/sable-src/apps/r8/android/convert/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..5e67e1a
+--- /dev/null
++++ b/sable-src/apps/r8/android/convert/src/main/res/values/strings.xml
+@@ -0,0 +1,35 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to ConvertText.EN (ConvertTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="convert_length">Length</string>
++    <string name="convert_mass">Mass</string>
++    <string name="convert_temperature">Temperature</string>
++    <string name="convert_volume">Volume</string>
++    <string name="convert_millimeters">Millimeters</string>
++    <string name="convert_centimeters">Centimeters</string>
++    <string name="convert_meters">Meters</string>
++    <string name="convert_kilometers">Kilometers</string>
++    <string name="convert_inches">Inches</string>
++    <string name="convert_feet">Feet</string>
++    <string name="convert_miles">Miles</string>
++    <string name="convert_grams">Grams</string>
++    <string name="convert_kilograms">Kilograms</string>
++    <string name="convert_ounces">Ounces</string>
++    <string name="convert_pounds">Pounds</string>
++    <string name="convert_celsius">Celsius</string>
++    <string name="convert_fahrenheit">Fahrenheit</string>
++    <string name="convert_kelvin">Kelvin</string>
++    <string name="convert_milliliters">Milliliters</string>
++    <string name="convert_liters">Liters</string>
++    <string name="convert_cups">Cups</string>
++    <string name="convert_gallons">Gallons</string>
++    <string name="convert_ready">Ready</string>
++    <string name="convert_value">Value</string>
++    <string name="convert_from">From</string>
++    <string name="convert_to">To</string>
++    <string name="convert_convert">Convert</string>
++    <string name="convert_enter_a_number_with_up">Enter a number with up to three decimal places</string>
++    <string name="convert_length_mass_temperature_and_volume">Length, mass, temperature and volume conversions are local and offline.</string>
++    <string name="convert_native_bridge_failure">Native bridge failure</string>
++</resources>
 diff --git a/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml
 index c41ea96..ede38ca 100644
 --- a/sable-src/apps/r8/android/messages/src/main/AndroidManifest.xml
@@ -1269,6 +2742,528 @@ index 0000000..0661335
 +    fun linesFillTheirArguments() {
 +        assertEquals("3 notes", NotesText.t("note_count", 3))
 +        assertEquals("Deleted “Milk”", NotesText.t("deleted", "Milk"))
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
+index 0ce3b2e..48e0908 100644
+--- a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
+@@ -17,10 +17,11 @@
+     </queries>
+ 
+     <application
++        android:name="org.sableos.weather.WeatherApplication"
+         android:allowBackup="false"
+         android:icon="@mipmap/ic_sable_weather"
+         android:roundIcon="@mipmap/ic_sable_weather_round"
+-        android:label="Sable Weather"
++        android:label="@string/app_name"
+         android:supportsRtl="true"
+         android:theme="@android:style/Theme.Material.NoActionBar"
+         android:usesCleartextTraffic="false">
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CitiesSection.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CitiesSection.kt
+index 7a71dc9..4afc41c 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CitiesSection.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/CitiesSection.kt
+@@ -26,6 +26,7 @@ import androidx.compose.ui.focus.focusRequester
+ import androidx.compose.ui.focus.onFocusChanged
+ import androidx.compose.ui.input.key.onPreviewKeyEvent
+ import androidx.compose.ui.unit.dp
++import org.sableos.weather.WeatherText.t
+ import org.sableos.weather.cities.City
+ import org.sableos.weather.cities.CityCatalog
+ import org.sableos.weather.cities.CityEdit
+@@ -166,7 +167,7 @@ internal fun CitiesSection(
+                         runEffect(r.effect)
+                     },
+                     singleLine = true,
+-                    label = { Text("city, or Name, lat, lon, Area/Zone") },
++                    label = { Text(t("city_or_name_lat_lon")) },
+                     modifier =
+                         Modifier
+                             .fillMaxWidth()
+@@ -176,7 +177,7 @@ internal fun CitiesSection(
+                 )
+                 if (results.isEmpty() && screen.query.isNotBlank()) {
+                     Text(
+-                        text = "No match. Enter Name, latitude, longitude, Area/Zone.",
++                        text = t("no_match_enter_name_latitude"),
+                         style = MaterialTheme.typography.bodyMedium,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                     )
+@@ -203,9 +204,9 @@ internal fun CitiesSection(
+                 ConfirmBlock(
+                     question =
+                         if (screen.screen == CityScreen.ConfirmRemove) {
+-                            "Remove ${screen.pendingRemove}?"
++                            t("remove", screen.pendingRemove.orEmpty())
+                         } else {
+-                            "Reset to the built-in cities? Added cities are removed."
++                            t("reset_to_the_built_in")
+                         },
+                     focused = if (screen.focusVisible) screen.dialog else null,
+                     onCancel = { screen = screen.copy(screen = CityScreen.List, pendingRemove = null) },
+@@ -250,7 +251,7 @@ private fun CityList(
+                     color = MaterialTheme.colorScheme.onBackground,
+                 )
+                 Text(
+-                    text = if (isSelected) "current · manual city" else city.timezone,
++                    text = if (isSelected) t("current_manual_city") else city.timezone,
+                     style = MaterialTheme.typography.bodyMedium,
+                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                 )
+@@ -269,8 +270,8 @@ private fun CityList(
+         }
+         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+     }
+-    CityRow("add city", "type a name, or press any letter", "+", focusedId == CityIds.ADD, onAdd)
+-    CityRow("reset to built-in cities", null, "", focusedId == CityIds.RESET, onReset)
++    CityRow(t("add_city"), t("type_a_name_or_press"), "+", focusedId == CityIds.ADD, onAdd)
++    CityRow(t("reset_to_built_in_cities"), null, "", focusedId == CityIds.RESET, onReset)
+ }
+ 
+ @Composable
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
+index 1e5cd32..ec6e124 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
+@@ -46,6 +46,7 @@ import kotlinx.coroutines.withContext
+ import org.sableos.design.SableGlobalTheme
+ import org.sableos.design.SableRefreshableSurface
+ import org.sableos.design.SableSpacing
++import org.sableos.weather.WeatherText.t
+ 
+ class MainActivity : ComponentActivity() {
+     override fun onCreate(savedInstanceState: Bundle?) {
+@@ -91,7 +92,7 @@ private fun WeatherApp() {
+         state =
+             state.copy(
+                 availability = WeatherAvailability.Fetching,
+-                message = "Refreshing forecast…",
++                message = t("refreshing_forecast"),
+             )
+ 
+         val requested = selectedLocation
+@@ -184,9 +185,9 @@ private fun WeatherApp() {
+                 WeatherNotice(
+                     title =
+                         when (state.availability) {
+-                            WeatherAvailability.Fetching -> "loading forecast"
+-                            WeatherAvailability.Failed -> "forecast unavailable"
+-                            else -> "weather ready"
++                            WeatherAvailability.Fetching -> t("loading_forecast")
++                            WeatherAvailability.Failed -> t("forecast_unavailable")
++                            else -> t("weather_ready")
+                         },
+                     detail = state.message,
+                 )
+@@ -221,8 +222,7 @@ private fun WeatherApp() {
+             Spacer(Modifier.height(SableSpacing.Xl))
+             Text(
+                 text =
+-                    "Open-Meteo · HTTPS · cached locally · approximate location or a chosen city · " +
+-                        "precise location is never used",
++                    t("open_meteo_https_cached_locally"),
+                 style = MaterialTheme.typography.labelLarge,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -246,12 +246,12 @@ private fun CurrentLocationRow(
+     ) {
+         Column(modifier = Modifier.weight(1f)) {
+             Text(
+-                text = "Use current location",
++                text = t("use_current_location"),
+                 style = MaterialTheme.typography.titleMedium,
+                 color = MaterialTheme.colorScheme.onBackground,
+             )
+             Text(
+-                text = if (on) place ?: "Finding where you are…" else "Off: showing the chosen city",
++                text = if (on) place ?: t("finding_where_you_are") else t("off_showing_the_chosen_city"),
+                 style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+@@ -282,7 +282,7 @@ private fun CurrentConditions(snapshot: WeatherSnapshot) {
+             )
+             Text(
+                 text =
+-                    "feels like " +
++                    t("feels_like") +
+                         current.apparentTemperature.toInt().toString() +
+                         "°",
+                 style = MaterialTheme.typography.bodyMedium,
+@@ -350,7 +350,7 @@ private fun Metric(
+ 
+ @Composable
+ private fun HourlySection(hourly: List<HourWeather>) {
+-    SectionHeader("next hours")
++    SectionHeader(t("next_hours"))
+ 
+     hourly.take(8).forEach { hour ->
+         Row(
+@@ -397,7 +397,7 @@ private fun HourlySection(hourly: List<HourWeather>) {
+ 
+ @Composable
+ private fun DailySection(daily: List<DayWeather>) {
+-    SectionHeader("7 days")
++    SectionHeader(t("n7_days"))
+ 
+     daily.take(7).forEach { day ->
+         Row(
+@@ -499,24 +499,24 @@ private fun Hairline() {
+ private fun statusLine(state: WeatherUiState): String {
+     val prefix = state.location.name
+     return when (state.availability) {
+-        WeatherAvailability.Live -> prefix + " · live"
+-        WeatherAvailability.Stale -> prefix + " · cached"
+-        WeatherAvailability.Fetching -> prefix + " · fetching"
+-        WeatherAvailability.Failed -> prefix + " · unavailable"
+-        WeatherAvailability.Local -> prefix + " · local"
++        WeatherAvailability.Live -> prefix + t("live")
++        WeatherAvailability.Stale -> prefix + t("cached")
++        WeatherAvailability.Fetching -> prefix + t("fetching")
++        WeatherAvailability.Failed -> prefix + t("unavailable")
++        WeatherAvailability.Local -> prefix + t("local")
+     }
+ }
+ 
+ private fun conditionLabel(condition: WeatherCondition): String =
+     when (condition) {
+         WeatherCondition.Clear -> "clear"
+-        WeatherCondition.PartlyCloudy -> "partly cloudy"
++        WeatherCondition.PartlyCloudy -> t("partly_cloudy")
+         WeatherCondition.Cloudy -> "cloudy"
+         WeatherCondition.Fog -> "fog"
+         WeatherCondition.Rain -> "rain"
+         WeatherCondition.Snow -> "snow"
+         WeatherCondition.Storm -> "storms"
+-        WeatherCondition.Unknown -> "conditions unavailable"
++        WeatherCondition.Unknown -> t("conditions_unavailable")
+     }
+ 
+ private fun windDirection(degrees: Int): String {
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherApplication.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherApplication.kt
+new file mode 100644
+index 0000000..b0b177a
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherApplication.kt
+@@ -0,0 +1,11 @@
++package org.sableos.weather
++
++import android.app.Application
++
++/** Binds [WeatherText] to the app's string resources once per process, so the phone's language is used. */
++class WeatherApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        WeatherText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherModels.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherModels.kt
+index 90e00f0..6de9324 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherModels.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherModels.kt
+@@ -1,5 +1,6 @@
+ package org.sableos.weather
+ 
++import org.sableos.weather.WeatherText.t
+ import org.sableos.weather.cities.City
+ import org.sableos.weather.cities.DefaultCities
+ 
+@@ -69,7 +70,7 @@ internal data class WeatherUiState(
+     val location: WeatherLocation,
+     val snapshot: WeatherSnapshot? = null,
+     val availability: WeatherAvailability = WeatherAvailability.Local,
+-    val message: String = "Forecast not loaded yet.",
++    val message: String = t("forecast_not_loaded_yet"),
+ )
+ 
+ internal object WeatherProtocol {
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
+index cd3b378..3d039cb 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
+@@ -3,6 +3,7 @@ package org.sableos.weather
+ import android.content.Context
+ import android.content.SharedPreferences
+ import android.net.Uri
++import org.sableos.weather.WeatherText.t
+ import org.sableos.weather.cities.CityEdit
+ import org.sableos.weather.cities.CityRepository
+ import org.sableos.weather.cities.ForecastCache
+@@ -48,7 +49,7 @@ internal class WeatherRepository(
+             return WeatherUiState(
+                 location = location,
+                 availability = WeatherAvailability.Local,
+-                message = "Refresh to load the forecast.",
++                message = t("refresh_to_load_the_forecast"),
+             )
+         }
+ 
+@@ -74,7 +75,7 @@ internal class WeatherRepository(
+             WeatherUiState(
+                 location = location,
+                 availability = WeatherAvailability.Failed,
+-                message = "Cached forecast could not be read.",
++                message = t("cached_forecast_could_not_be"),
+             )
+         } else {
+             WeatherUiState(
+@@ -83,9 +84,9 @@ internal class WeatherRepository(
+                 availability = availability,
+                 message =
+                     when (availability) {
+-                        WeatherAvailability.Live -> "Forecast is current."
+-                        WeatherAvailability.Stale -> "Showing cached forecast."
+-                        else -> "Forecast available."
++                        WeatherAvailability.Live -> t("forecast_is_current")
++                        WeatherAvailability.Stale -> t("showing_cached_forecast")
++                        else -> t("forecast_available")
+                     },
+             )
+         }
+@@ -123,14 +124,14 @@ internal class WeatherRepository(
+                     location = location,
+                     snapshot = stale,
+                     availability = WeatherAvailability.Stale,
+-                    message = "Offline · showing last known forecast.",
++                    message = t("offline_showing_last_known_forecast"),
+                 )
+             }
+ 
+             return WeatherUiState(
+                 location = location,
+                 availability = WeatherAvailability.Failed,
+-                message = "Forecast unavailable. Check the connection and retry.",
++                message = t("forecast_unavailable_check_the_connection"),
+             )
+         }
+ 
+@@ -152,7 +153,7 @@ internal class WeatherRepository(
+                     } else {
+                         WeatherAvailability.Failed
+                     },
+-                message = "Provider response could not be normalized.",
++                message = t("provider_response_could_not_be"),
+             )
+         }
+ 
+@@ -167,7 +168,7 @@ internal class WeatherRepository(
+             location = location,
+             snapshot = parsed,
+             availability = WeatherAvailability.Live,
+-            message = "Updated from Open-Meteo.",
++            message = t("updated_from_open_meteo"),
+         )
+     }
+ 
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt
+index 7277dc2..d8d68fb 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt
+@@ -7,6 +7,7 @@ import android.database.MatrixCursor
+ import android.net.Uri
+ import android.os.Binder
+ import android.os.Bundle
++import org.sableos.weather.WeatherText.t
+ 
+ class WeatherSnapshotProvider : ContentProvider() {
+     override fun onCreate(): Boolean = true
+@@ -135,12 +136,12 @@ class WeatherSnapshotProvider : ContentProvider() {
+     private fun conditionLabel(condition: WeatherCondition): String =
+         when (condition) {
+             WeatherCondition.Clear -> "clear"
+-            WeatherCondition.PartlyCloudy -> "partly cloudy"
++            WeatherCondition.PartlyCloudy -> t("partly_cloudy")
+             WeatherCondition.Cloudy -> "cloudy"
+             WeatherCondition.Fog -> "fog"
+             WeatherCondition.Rain -> "rain"
+             WeatherCondition.Snow -> "snow"
+             WeatherCondition.Storm -> "storms"
+-            WeatherCondition.Unknown -> "conditions unavailable"
++            WeatherCondition.Unknown -> t("conditions_unavailable")
+         }
+ }
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherText.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherText.kt
+new file mode 100644
+index 0000000..8590bb7
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherText.kt
+@@ -0,0 +1,56 @@
++package org.sableos.weather
++
++import org.sableos.design.SableTexts
++
++/**
++ * Every line Sable Weather shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (WeatherTextTest keeps the two equal) and res/values-<lang>/strings.xml translates
++ * them.
++ */
++object WeatherText {
++    val EN: Map<String, String> =
++        mapOf(
++            "city_or_name_lat_lon" to "city, or Name, lat, lon, Area/Zone",
++            "no_match_enter_name_latitude" to
++                "No match. Enter Name, latitude, longitude, Area/Zone.",
++            "remove" to "Remove %1\$s?",
++            "reset_to_the_built_in" to "Reset to the built-in cities? Added cities are removed.",
++            "current_manual_city" to "current · manual city",
++            "add_city" to "add city",
++            "type_a_name_or_press" to "type a name, or press any letter",
++            "reset_to_built_in_cities" to "reset to built-in cities",
++            "refreshing_forecast" to "Refreshing forecast…",
++            "loading_forecast" to "loading forecast",
++            "forecast_unavailable" to "forecast unavailable",
++            "weather_ready" to "weather ready",
++            "open_meteo_https_cached_locally" to
++                "Open-Meteo · HTTPS · cached locally · approximate location or a chosen city · " +
++                "precise location is never used",
++            "use_current_location" to "Use current location",
++            "finding_where_you_are" to "Finding where you are…",
++            "off_showing_the_chosen_city" to "Off: showing the chosen city",
++            "feels_like" to "feels like ",
++            "next_hours" to "next hours",
++            "n7_days" to "7 days",
++            "live" to " · live",
++            "cached" to " · cached",
++            "fetching" to " · fetching",
++            "unavailable" to " · unavailable",
++            "local" to " · local",
++            "partly_cloudy" to "partly cloudy",
++            "conditions_unavailable" to "conditions unavailable",
++            "forecast_not_loaded_yet" to "Forecast not loaded yet.",
++            "refresh_to_load_the_forecast" to "Refresh to load the forecast.",
++            "cached_forecast_could_not_be" to "Cached forecast could not be read.",
++            "forecast_is_current" to "Forecast is current.",
++            "showing_cached_forecast" to "Showing cached forecast.",
++            "forecast_available" to "Forecast available.",
++            "offline_showing_last_known_forecast" to "Offline · showing last known forecast.",
++            "forecast_unavailable_check_the_connection" to
++                "Forecast unavailable. Check the connection and retry.",
++            "provider_response_could_not_be" to "Provider response could not be normalized.",
++            "updated_from_open_meteo" to "Updated from Open-Meteo.",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/r8/android/weather/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..7b8b7eb
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/res/values/strings.xml
+@@ -0,0 +1,42 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
++     English. Keep equal to WeatherText.EN (WeatherTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sable Weather</string>
++    <string name="city_or_name_lat_lon">city, or Name, lat, lon, Area/Zone</string>
++    <string name="no_match_enter_name_latitude">No match. Enter Name, latitude, longitude, Area/Zone.</string>
++    <string name="remove">Remove %1$s?</string>
++    <string name="reset_to_the_built_in">Reset to the built-in cities? Added cities are removed.</string>
++    <string name="current_manual_city">current · manual city</string>
++    <string name="add_city">add city</string>
++    <string name="type_a_name_or_press">type a name, or press any letter</string>
++    <string name="reset_to_built_in_cities">reset to built-in cities</string>
++    <string name="refreshing_forecast">Refreshing forecast…</string>
++    <string name="loading_forecast">loading forecast</string>
++    <string name="forecast_unavailable">forecast unavailable</string>
++    <string name="weather_ready">weather ready</string>
++    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · cached locally · approximate location or a chosen city · precise location is never used</string>
++    <string name="use_current_location">Use current location</string>
++    <string name="finding_where_you_are">Finding where you are…</string>
++    <string name="off_showing_the_chosen_city">Off: showing the chosen city</string>
++    <string name="feels_like">"feels like "</string>
++    <string name="next_hours">next hours</string>
++    <string name="n7_days">7 days</string>
++    <string name="live">" · live"</string>
++    <string name="cached">" · cached"</string>
++    <string name="fetching">" · fetching"</string>
++    <string name="unavailable">" · unavailable"</string>
++    <string name="local">" · local"</string>
++    <string name="partly_cloudy">partly cloudy</string>
++    <string name="conditions_unavailable">conditions unavailable</string>
++    <string name="forecast_not_loaded_yet">Forecast not loaded yet.</string>
++    <string name="refresh_to_load_the_forecast">Refresh to load the forecast.</string>
++    <string name="cached_forecast_could_not_be">Cached forecast could not be read.</string>
++    <string name="forecast_is_current">Forecast is current.</string>
++    <string name="showing_cached_forecast">Showing cached forecast.</string>
++    <string name="forecast_available">Forecast available.</string>
++    <string name="offline_showing_last_known_forecast">Offline · showing last known forecast.</string>
++    <string name="forecast_unavailable_check_the_connection">Forecast unavailable. Check the connection and retry.</string>
++    <string name="provider_response_could_not_be">Provider response could not be normalized.</string>
++    <string name="updated_from_open_meteo">Updated from Open-Meteo.</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherTextTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherTextTest.kt
+new file mode 100644
+index 0000000..3802cc6
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherTextTest.kt
+@@ -0,0 +1,58 @@
++package org.sableos.weather
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.weather.WeatherText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class WeatherTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        WeatherText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, WeatherText.EN.keys, tr.keys.intersect(WeatherText.EN.keys))
++            WeatherText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
 +    }
 +}
 diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTexts.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTexts.kt

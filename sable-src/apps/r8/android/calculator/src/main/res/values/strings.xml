@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
+     English. Keep equal to CalculatorText.EN (CalculatorTextTest checks); translations go in values-<lang>/. -->
+<resources>
+    <string name="app_name" translatable="false">Sable Calculator</string>
+    <string name="basic">Basic</string>
+    <string name="scientific">Scientific</string>
+    <string name="convert">Convert</string>
+    <string name="basic_scientific_and_conversion_tools">Basic, scientific and conversion tools in one app.</string>
+    <string name="exact_result">Exact result</string>
+    <string name="choose_an_operation_first">Choose an operation first.</string>
+    <string name="degrees_for_trigonometry">%1$s · degrees for trigonometry</string>
+    <string name="scientific_operations_and_the_core">Scientific operations and the core arithmetic path execute through the native calculator domain.</string>
+    <string name="results_are_not_silently_rounded">Results are not silently rounded into floating-point values.</string>
+    <string name="scientific_functions_use_degrees">Scientific functions use degrees.</string>
+    <string name="exact_decimal_results_never_rounded">Exact decimal results, never rounded.</string>
+    <string name="native_bridge_failure">Native bridge failure</string>
+</resources>

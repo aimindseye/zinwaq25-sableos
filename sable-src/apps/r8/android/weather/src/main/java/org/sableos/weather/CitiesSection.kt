@@ -26,6 +26,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
+import org.sableos.weather.WeatherText.t
 import org.sableos.weather.cities.City
 import org.sableos.weather.cities.CityCatalog
 import org.sableos.weather.cities.CityEdit
@@ -166,7 +167,7 @@ internal fun CitiesSection(
                         runEffect(r.effect)
                     },
                     singleLine = true,
-                    label = { Text("city, or Name, lat, lon, Area/Zone") },
+                    label = { Text(t("city_or_name_lat_lon")) },
                     modifier =
                         Modifier
                             .fillMaxWidth()
@@ -176,7 +177,7 @@ internal fun CitiesSection(
                 )
                 if (results.isEmpty() && screen.query.isNotBlank()) {
                     Text(
-                        text = "No match. Enter Name, latitude, longitude, Area/Zone.",
+                        text = t("no_match_enter_name_latitude"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -203,9 +204,9 @@ internal fun CitiesSection(
                 ConfirmBlock(
                     question =
                         if (screen.screen == CityScreen.ConfirmRemove) {
-                            "Remove ${screen.pendingRemove}?"
+                            t("remove", screen.pendingRemove.orEmpty())
                         } else {
-                            "Reset to the built-in cities? Added cities are removed."
+                            t("reset_to_the_built_in")
                         },
                     focused = if (screen.focusVisible) screen.dialog else null,
                     onCancel = { screen = screen.copy(screen = CityScreen.List, pendingRemove = null) },
@@ -250,7 +251,7 @@ private fun CityList(
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
-                    text = if (isSelected) "current · manual city" else city.timezone,
+                    text = if (isSelected) t("current_manual_city") else city.timezone,
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -269,8 +270,8 @@ private fun CityList(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
-    CityRow("add city", "type a name, or press any letter", "+", focusedId == CityIds.ADD, onAdd)
-    CityRow("reset to built-in cities", null, "", focusedId == CityIds.RESET, onReset)
+    CityRow(t("add_city"), t("type_a_name_or_press"), "+", focusedId == CityIds.ADD, onAdd)
+    CityRow(t("reset_to_built_in_cities"), null, "", focusedId == CityIds.RESET, onReset)
 }
 
 @Composable

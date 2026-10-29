@@ -74,6 +74,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.sableos.calendar.CalendarText.t
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableGlobalTheme
 import org.sableos.design.SableRefreshableSurface
@@ -205,7 +206,7 @@ private class CalendarAppState {
         detail = loaded
         if (loaded == null && (mode == CalendarMode.Detail || mode == CalendarMode.Edit)) {
             // Deleted or moved elsewhere (sync): there is nothing left to show.
-            status = "This event is no longer in the calendar."
+            status = t("this_event_is_no_longer")
             mode = CalendarMode.Agenda
         }
     }
@@ -220,7 +221,7 @@ private class CalendarAppState {
     fun openEditor(event: CalendarEvent) {
         status = null
         if (!event.canModify) {
-            status = "“${event.title}” is in a read-only calendar."
+            status = t("is_in_a_read_only", event.title)
         } else {
             if (openEvent != event) detail = null
             openEvent = event
@@ -239,7 +240,7 @@ private class CalendarAppState {
         if (canModify) {
             pendingDelete = PendingDelete(id, title, recurring)
         } else {
-            status = "“$title” is in a read-only calendar."
+            status = t("is_in_a_read_only", title)
         }
     }
 
@@ -302,7 +303,7 @@ private class CalendarAppState {
 
             CalendarScreenKey.Refresh -> {
                 onRefresh()
-                status = "Refreshed."
+                status = t("refreshed")
             }
         }
         return true
@@ -316,7 +317,7 @@ private class CalendarAppState {
         }
         val next = EventCursor.step(events, openEvent, forward)
         when {
-            next == null -> status = "Nothing scheduled."
+            next == null -> status = t("nothing_scheduled")
             mode == CalendarMode.Detail -> openDetail(next)
             else -> select(next)
         }
@@ -333,7 +334,7 @@ private class CalendarAppState {
         if (loaded.canModify) {
             mode = CalendarMode.Edit
         } else {
-            status = "“${loaded.title}” is in a read-only calendar."
+            status = t("is_in_a_read_only", loaded.title)
         }
     }
 
@@ -341,7 +342,7 @@ private class CalendarAppState {
         title: String,
         deleted: Boolean,
     ) {
-        status = if (deleted) "Deleted “$title”." else "Unable to delete “$title”."
+        status = if (deleted) t("deleted", title) else t("unable_to_delete", title)
         if (deleted) {
             openEvent = null
             detail = null
@@ -360,7 +361,7 @@ private class CalendarAppState {
         draft: EventDraft,
     ) {
         editDraft = null
-        status = "Saved."
+        status = t("saved")
         val times = if (loaded.timesEditable) draft else loaded.toDraft()
         openEvent =
             openEvent?.copy(
@@ -463,7 +464,7 @@ private fun CalendarHeader() {
         style = MaterialTheme.typography.displayLarge,
     )
     Text(
-        text = "Local CalendarProvider UI · account sync remains separate.",
+        text = t("local_calendarprovider_ui_account_sync"),
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -571,7 +572,7 @@ private fun NewEventPane(
         draft = state.eventDraft ?: EventDraft.newAt(defaultEventStart(state.selectedDate)),
         onDraftChange = { state.eventDraft = it },
         timesEditable = true,
-        saveLabel = "Save event",
+        saveLabel = t("save_event"),
         onSave = { draft ->
             val created = withContext(Dispatchers.IO) { repository.createEvent(draft) }
             if (created != null) {
@@ -608,7 +609,7 @@ private fun EditPane(
 ) {
     val loaded = state.detail
     SableActionButton(
-        text = "‹  event",
+        text = t("event"),
         primary = false,
         onClick = { state.leaveEditor(hasDetail = loaded != null) },
     )
@@ -621,7 +622,7 @@ private fun EditPane(
         draft = state.editDraft ?: loaded.toDraft(),
         onDraftChange = { state.editDraft = it },
         timesEditable = loaded.timesEditable,
-        saveLabel = "Save changes",
+        saveLabel = t("save_changes"),
         onSave = { draft ->
             val saved = withContext(Dispatchers.IO) { repository.updateEvent(loaded, draft) }
             if (saved) {
@@ -637,7 +638,7 @@ private fun EditPane(
 @Composable
 private fun BackToAgenda(onClick: () -> Unit) {
     SableActionButton(
-        text = "‹  agenda",
+        text = t("agenda"),
         primary = false,
         onClick = onClick,
     )
@@ -647,7 +648,7 @@ private fun BackToAgenda(onClick: () -> Unit) {
 @Composable
 private fun LoadingLine() {
     Text(
-        text = "Loading…",
+        text = t("loading"),
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -709,7 +710,7 @@ private fun ApprovedCalendarLanding(
     val list: @Composable () -> Unit = {
         if (events.isEmpty()) {
             Text(
-                text = "nothing scheduled",
+                text = t("nothing_scheduled_2"),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -729,7 +730,7 @@ private fun ApprovedCalendarLanding(
         }
 
         SableActionButton(
-            text = "+  new event  (C)",
+            text = t("new_event_c"),
             primary = false,
             onClick = onNewEvent,
         )
@@ -850,7 +851,7 @@ private fun AgendaEventRow(
     val context = LocalContext.current
     val time =
         if (event.allDay) {
-            "all day"
+            t("all_day")
         } else {
             android.text.format.DateFormat
                 .getTimeFormat(context)
@@ -892,7 +893,7 @@ private fun AgendaEventRow(
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                text = if (event.recurring) event.calendarName + " · repeats" else event.calendarName,
+                text = if (event.recurring) event.calendarName + t("repeats") else event.calendarName,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -953,12 +954,12 @@ private fun EventDetailView(
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
         )
-        DetailLine("Calendar", if (detail.recurring) detail.calendarName + " · repeats" else detail.calendarName)
-        if (detail.location.isNotEmpty()) DetailLine("Where", detail.location)
-        if (detail.organizer.isNotEmpty()) DetailLine("Organizer", detail.organizer)
+        DetailLine(t("calendar"), if (detail.recurring) detail.calendarName + t("repeats") else detail.calendarName)
+        if (detail.location.isNotEmpty()) DetailLine(t("where"), detail.location)
+        if (detail.organizer.isNotEmpty()) DetailLine(t("organizer"), detail.organizer)
         if (detail.attendees.isNotEmpty()) {
             DetailLine(
-                "Guests",
+                t("guests"),
                 detail.attendees.joinToString("\n") { attendee ->
                     listOf(attendee.name.ifEmpty { attendee.email }, attendee.status)
                         .filter(String::isNotEmpty)
@@ -966,7 +967,7 @@ private fun EventDetailView(
                 },
             )
         }
-        if (detail.description.isNotEmpty()) DetailLine("Notes", detail.description)
+        if (detail.description.isNotEmpty()) DetailLine(t("notes"), detail.description)
 
         Spacer(Modifier.height(SableSpacing.Sm))
         if (detail.canModify) {
@@ -975,12 +976,12 @@ private fun EventDetailView(
                 horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
             ) {
                 SableActionButton(
-                    text = "Edit  (E)",
+                    text = t("edit_e"),
                     modifier = Modifier.weight(1f).focusRequester(firstAction),
                     onClick = onEdit,
                 )
                 SableActionButton(
-                    text = "Delete  (Del)",
+                    text = t("delete_del"),
                     modifier = Modifier.weight(1f),
                     primary = false,
                     onClick = onDelete,
@@ -988,12 +989,12 @@ private fun EventDetailView(
             }
         } else {
             Text(
-                text = "This calendar is read-only here.",
+                text = t("this_calendar_is_read_only"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             SableActionButton(
-                text = "Back",
+                text = t("back"),
                 modifier = Modifier.focusRequester(firstAction),
                 primary = false,
                 onClick = onBack,
@@ -1046,7 +1047,7 @@ private fun eventWhen(
                 flags or DateUtils.FORMAT_SHOW_TIME,
             )
         }
-    return if (detail.allDay) "$range · all day" else range
+    return if (detail.allDay) t("all_day_2", range) else range
 }
 
 @Composable
@@ -1063,12 +1064,12 @@ private fun DeleteConfirmDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete event?") },
+        title = { Text(t("delete_event")) },
         text = { Text(message) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
                 Text(
-                    text = "Delete",
+                    text = t("delete"),
                     color = MaterialTheme.colorScheme.error,
                 )
             }
@@ -1078,7 +1079,7 @@ private fun DeleteConfirmDialog(
                 onClick = onDismiss,
                 modifier = Modifier.focusRequester(cancel),
             ) {
-                Text("Cancel")
+                Text(t("cancel"))
             }
         },
     )
@@ -1179,13 +1180,13 @@ private fun EventEditor(
         onValueChange = { onDraftChange(draft.copy(title = it)) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        label = { Text("Event title") },
+        label = { Text(t("event_title")) },
     )
     Spacer(Modifier.height(SableSpacing.Md))
 
     if (timesEditable) {
         SableActionButton(
-            text = "Starts " + formatDateTime(context, draft.startMillis),
+            text = t("starts") + formatDateTime(context, draft.startMillis),
             primary = false,
             onClick = {
                 pickDateTime(context, draft.startMillis) { picked -> onDraftChange(draft.withStart(picked)) }
@@ -1193,7 +1194,7 @@ private fun EventEditor(
         )
         Spacer(Modifier.height(SableSpacing.Sm))
         SableActionButton(
-            text = "Ends " + formatDateTime(context, draft.endMillis),
+            text = t("ends") + formatDateTime(context, draft.endMillis),
             primary = false,
             onClick = {
                 pickDateTime(context, draft.endMillis) { picked -> onDraftChange(draft.copy(endMillis = picked)) }
@@ -1201,7 +1202,7 @@ private fun EventEditor(
         )
     } else {
         Text(
-            text = "Times of repeating and all-day events are kept; change them in the account's calendar.",
+            text = t("times_of_repeating_and_all"),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -1213,7 +1214,7 @@ private fun EventEditor(
         onValueChange = { onDraftChange(draft.copy(location = it)) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        label = { Text("Location") },
+        label = { Text(t("location")) },
     )
     Spacer(Modifier.height(SableSpacing.Sm))
     OutlinedTextField(
@@ -1221,7 +1222,7 @@ private fun EventEditor(
         onValueChange = { onDraftChange(draft.copy(description = it)) },
         modifier = Modifier.fillMaxWidth(),
         minLines = 2,
-        label = { Text("Notes") },
+        label = { Text(t("notes")) },
     )
     Spacer(Modifier.height(SableSpacing.Lg))
 
@@ -1233,7 +1234,7 @@ private fun EventEditor(
                 status = problem
             } else {
                 scope.launch {
-                    status = if (onSave(draft)) null else "Unable to save event."
+                    status = if (onSave(draft)) null else t("unable_to_save_event")
                 }
             }
         },
@@ -1304,18 +1305,17 @@ private fun PermissionPanel(onRequestPermissions: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
         ) {
             Text(
-                text = "Calendar access",
+                text = t("calendar_access"),
                 style = MaterialTheme.typography.titleLarge,
             )
             Text(
                 text =
-                    "Sable Calendar uses Android CalendarProvider. " +
-                        "Grant calendar access to read and create local events.",
+                    t("sable_calendar_uses_android_calendarprovider"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             SableActionButton(
-                text = "Review access",
+                text = t("review_access"),
                 onClick = onRequestPermissions,
             )
         }
@@ -1364,7 +1364,7 @@ private fun AgendaDetailPreview(
             when {
                 event == null -> {
                     Text(
-                        text = "No event selected. J/K move through the day.",
+                        text = t("no_event_selected_j_k"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1382,7 +1382,7 @@ private fun AgendaDetailPreview(
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Text(
-                        text = if (detail.recurring) detail.calendarName + " · repeats" else detail.calendarName,
+                        text = if (detail.recurring) detail.calendarName + t("repeats") else detail.calendarName,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     if (detail.location.isNotEmpty()) {
@@ -1391,13 +1391,13 @@ private fun AgendaDetailPreview(
                     if (detail.attendees.isNotEmpty()) {
                         val accepted = detail.attendees.count { it.status == "accepted" }
                         Text(
-                            text = "${detail.attendees.size} guests · $accepted accepted",
+                            text = t("guests_accepted", detail.attendees.size, accepted),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Text(
-                        text = if (detail.canModify) "Enter open · E edit · Del delete" else "Read-only calendar",
+                        text = if (detail.canModify) t("enter_open_e_edit_del") else t("read_only_calendar"),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1434,7 +1434,7 @@ private fun WeekPane(state: CalendarAppState) {
     Spacer(Modifier.height(SableSpacing.Sm))
     state.events.filter { it.allDay }.forEach { event ->
         Text(
-            text = "All day · " + event.title,
+            text = t("all_day_3") + event.title,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -1589,14 +1589,14 @@ private fun WeekSelection(state: CalendarAppState) {
         Column(Modifier.padding(SableSpacing.Md)) {
             if (event == null) {
                 Text(
-                    text = "No event this week. C creates one.",
+                    text = t("no_event_this_week_c"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 val time =
                     if (event.allDay) {
-                        "all day"
+                        t("all_day")
                     } else {
                         DateUtils.formatDateRange(
                             context,
@@ -1607,14 +1607,14 @@ private fun WeekSelection(state: CalendarAppState) {
                                 DateUtils.FORMAT_SHOW_TIME,
                         )
                     }
-                Text(text = "Selected: $time", style = MaterialTheme.typography.titleMedium)
+                Text(text = t("selected", time), style = MaterialTheme.typography.titleMedium)
                 Text(
                     text = event.title + " · " + event.calendarName,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = "[Enter] open  [E] edit  [Del] delete  [T] today",
+                    text = t("enter_open_e_edit_del_2"),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )

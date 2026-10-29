@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Single capital letters in hints (C new, S find) name keyboard keys: keep them as the key, translate the word.
+     English. Keep equal to CalendarText.EN (CalendarTextTest checks); translations go in values-<lang>/. -->
+<resources>
+    <string name="app_name" translatable="false">Sable Calendar</string>
+    <string name="add_a_title">Add a title.</string>
+    <string name="the_event_must_end_after">The event must end after it starts.</string>
+    <string name="delete_every_occurrence_of_this">Delete every occurrence of “%1$s”? This cannot be undone.</string>
+    <string name="delete_this_cannot_be_undone">Delete “%1$s”? This cannot be undone.</string>
+    <string name="calendar_event">Calendar event</string>
+    <string name="calendar">Calendar</string>
+    <string name="permission_required">permission required</string>
+    <string name="nothing_else_today">nothing else today</string>
+    <string name="all_day">all day</string>
+    <string name="c_create_t_today_v">C create · T today · V view · J/K event · R refresh</string>
+    <string name="wk">%1$s %2$s · Wk %3$s</string>
+    <string name="this_event_is_no_longer">This event is no longer in the calendar.</string>
+    <string name="is_in_a_read_only">“%1$s” is in a read-only calendar.</string>
+    <string name="refreshed">Refreshed.</string>
+    <string name="nothing_scheduled">Nothing scheduled.</string>
+    <string name="deleted">Deleted “%1$s”.</string>
+    <string name="unable_to_delete">Unable to delete “%1$s”.</string>
+    <string name="saved">Saved.</string>
+    <string name="local_calendarprovider_ui_account_sync">Local CalendarProvider UI · account sync remains separate.</string>
+    <string name="save_event">Save event</string>
+    <string name="event">"‹  event"</string>
+    <string name="save_changes">Save changes</string>
+    <string name="agenda">"‹  agenda"</string>
+    <string name="loading">Loading…</string>
+    <string name="nothing_scheduled_2">nothing scheduled</string>
+    <string name="new_event_c">"+  new event  (C)"</string>
+    <string name="repeats">" · repeats"</string>
+    <string name="where">Where</string>
+    <string name="organizer">Organizer</string>
+    <string name="guests">Guests</string>
+    <string name="notes">Notes</string>
+    <string name="edit_e">"Edit  (E)"</string>
+    <string name="delete_del">"Delete  (Del)"</string>
+    <string name="this_calendar_is_read_only">This calendar is read-only here.</string>
+    <string name="back">Back</string>
+    <string name="all_day_2">%1$s · all day</string>
+    <string name="delete_event">Delete event?</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="event_title">Event title</string>
+    <string name="starts">"Starts "</string>
+    <string name="ends">"Ends "</string>
+    <string name="times_of_repeating_and_all">Times of repeating and all-day events are kept; change them in the account\'s calendar.</string>
+    <string name="location">Location</string>
+    <string name="unable_to_save_event">Unable to save event.</string>
+    <string name="calendar_access">Calendar access</string>
+    <string name="sable_calendar_uses_android_calendarprovider">Sable Calendar uses Android CalendarProvider. Grant calendar access to read and create local events.</string>
+    <string name="review_access">Review access</string>
+    <string name="no_event_selected_j_k">No event selected. J/K move through the day.</string>
+    <string name="guests_accepted">%1$s guests · %2$s accepted</string>
+    <string name="enter_open_e_edit_del">Enter open · E edit · Del delete</string>
+    <string name="read_only_calendar">Read-only calendar</string>
+    <string name="all_day_3">"All day · "</string>
+    <string name="no_event_this_week_c">No event this week. C creates one.</string>
+    <string name="selected">Selected: %1$s</string>
+    <string name="enter_open_e_edit_del_2">"[Enter] open  [E] edit  [Del] delete  [T] today"</string>
+</resources>

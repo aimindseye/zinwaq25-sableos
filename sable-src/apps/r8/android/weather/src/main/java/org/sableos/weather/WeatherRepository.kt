@@ -3,6 +3,7 @@ package org.sableos.weather
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
+import org.sableos.weather.WeatherText.t
 import org.sableos.weather.cities.CityEdit
 import org.sableos.weather.cities.CityRepository
 import org.sableos.weather.cities.ForecastCache
@@ -48,7 +49,7 @@ internal class WeatherRepository(
             return WeatherUiState(
                 location = location,
                 availability = WeatherAvailability.Local,
-                message = "Refresh to load the forecast.",
+                message = t("refresh_to_load_the_forecast"),
             )
         }
 
@@ -74,7 +75,7 @@ internal class WeatherRepository(
             WeatherUiState(
                 location = location,
                 availability = WeatherAvailability.Failed,
-                message = "Cached forecast could not be read.",
+                message = t("cached_forecast_could_not_be"),
             )
         } else {
             WeatherUiState(
@@ -83,9 +84,9 @@ internal class WeatherRepository(
                 availability = availability,
                 message =
                     when (availability) {
-                        WeatherAvailability.Live -> "Forecast is current."
-                        WeatherAvailability.Stale -> "Showing cached forecast."
-                        else -> "Forecast available."
+                        WeatherAvailability.Live -> t("forecast_is_current")
+                        WeatherAvailability.Stale -> t("showing_cached_forecast")
+                        else -> t("forecast_available")
                     },
             )
         }
@@ -123,14 +124,14 @@ internal class WeatherRepository(
                     location = location,
                     snapshot = stale,
                     availability = WeatherAvailability.Stale,
-                    message = "Offline · showing last known forecast.",
+                    message = t("offline_showing_last_known_forecast"),
                 )
             }
 
             return WeatherUiState(
                 location = location,
                 availability = WeatherAvailability.Failed,
-                message = "Forecast unavailable. Check the connection and retry.",
+                message = t("forecast_unavailable_check_the_connection"),
             )
         }
 
@@ -152,7 +153,7 @@ internal class WeatherRepository(
                     } else {
                         WeatherAvailability.Failed
                     },
-                message = "Provider response could not be normalized.",
+                message = t("provider_response_could_not_be"),
             )
         }
 
@@ -167,7 +168,7 @@ internal class WeatherRepository(
             location = location,
             snapshot = parsed,
             availability = WeatherAvailability.Live,
-            message = "Updated from Open-Meteo.",
+            message = t("updated_from_open_meteo"),
         )
     }
 

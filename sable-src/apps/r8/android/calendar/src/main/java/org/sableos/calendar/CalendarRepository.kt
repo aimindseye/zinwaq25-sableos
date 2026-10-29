@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
 import android.provider.CalendarContract
+import org.sableos.calendar.CalendarText.t
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -136,7 +137,7 @@ class CalendarRepository(
                                             .getString(title)
                                             ?.trim()
                                             .orEmpty()
-                                            .ifEmpty { "Calendar event" },
+                                            .ifEmpty { t("calendar_event") },
                                     startMillis = cursor.getLong(start),
                                     endMillis = cursor.getLong(finish),
                                     allDay = cursor.getInt(allDay) != 0,
@@ -145,7 +146,7 @@ class CalendarRepository(
                                             .getString(calendar)
                                             ?.trim()
                                             .orEmpty()
-                                            .ifEmpty { "Calendar" },
+                                            .ifEmpty { t("calendar") },
                                     recurring = !cursor.getString(rrule).isNullOrBlank(),
                                     canModify =
                                         cursor.getInt(access) >= CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR,
@@ -221,11 +222,11 @@ class CalendarRepository(
         fun number(column: String): Int = cursor.getInt(cursor.getColumnIndexOrThrow(column))
         return CalendarEventDetail(
             id = occurrence.id,
-            title = text(CalendarContract.Events.TITLE).ifEmpty { "Calendar event" },
+            title = text(CalendarContract.Events.TITLE).ifEmpty { t("calendar_event") },
             startMillis = occurrence.startMillis,
             endMillis = occurrence.endMillis,
             allDay = number(CalendarContract.Events.ALL_DAY) != 0,
-            calendarName = text(CalendarContract.Events.CALENDAR_DISPLAY_NAME).ifEmpty { "Calendar" },
+            calendarName = text(CalendarContract.Events.CALENDAR_DISPLAY_NAME).ifEmpty { t("calendar") },
             location = text(CalendarContract.Events.EVENT_LOCATION),
             description = text(CalendarContract.Events.DESCRIPTION),
             organizer = text(CalendarContract.Events.ORGANIZER),
@@ -308,8 +309,8 @@ class CalendarRepository(
     fun snapshot(nowMillis: Long = System.currentTimeMillis()): CalendarSnapshot {
         if (!canRead()) {
             return CalendarSnapshot(
-                title = "Calendar",
-                detail = "permission required",
+                title = t("calendar"),
+                detail = t("permission_required"),
                 availability = "PERMISSION_REQUIRED",
                 observedAt = nowMillis,
             )
@@ -324,22 +325,22 @@ class CalendarRepository(
 
         return if (next == null) {
             CalendarSnapshot(
-                title = "Calendar",
-                detail = "nothing else today",
+                title = t("calendar"),
+                detail = t("nothing_else_today"),
                 availability = "EMPTY",
                 observedAt = nowMillis,
             )
         } else {
             val time =
                 if (next.allDay) {
-                    "all day"
+                    t("all_day")
                 } else {
                     android.text.format.DateFormat
                         .getTimeFormat(context)
                         .format(java.util.Date(next.startMillis))
                 }
             CalendarSnapshot(
-                title = "Calendar",
+                title = t("calendar"),
                 detail = time + " · " + next.title,
                 availability = "LIVE",
                 observedAt = nowMillis,
