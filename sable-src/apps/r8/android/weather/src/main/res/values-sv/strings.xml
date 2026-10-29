@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
+<resources>
+    <string name="city_or_name_lat_lon">stad, eller Namn, lat, lon, Område/Zon</string>
+    <string name="no_match_enter_name_latitude">Ingen matchning. Ange Namn, latitud, longitud, Område/Zon.</string>
+    <string name="remove">Ta bort %1$s?</string>
+    <string name="reset_to_the_built_in">Återställ till inbyggda städer? Tillagda städer tas bort.</string>
+    <string name="current_manual_city">nuvarande · manuell stad</string>
+    <string name="add_city">lägg till stad</string>
+    <string name="type_a_name_or_press">skriv ett namn, eller tryck på valfri bokstav</string>
+    <string name="reset_to_built_in_cities">återställ till inbyggda städer</string>
+    <string name="refreshing_forecast">Uppdaterar prognos…</string>
+    <string name="loading_forecast">laddar prognos</string>
+    <string name="forecast_unavailable">prognos otillgänglig</string>
+    <string name="weather_ready">väder redo</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · cachas lokalt · ungefärlig plats eller en vald stad · exakt plats används aldrig</string>
+    <string name="use_current_location">Använd nuvarande plats</string>
+    <string name="finding_where_you_are">Hittar var du är…</string>
+    <string name="off_showing_the_chosen_city">Av: visar vald stad</string>
+    <string name="feels_like">"känns som "</string>
+    <string name="next_hours">kommande timmar</string>
+    <string name="n7_days">7 dagar</string>
+    <string name="live">" · live"</string>
+    <string name="cached">" · cachad"</string>
+    <string name="fetching">" · hämtar"</string>
+    <string name="unavailable">" · otillgänglig"</string>
+    <string name="local">" · lokal"</string>
+    <string name="partly_cloudy">halvklart</string>
+    <string name="conditions_unavailable">väderförhållanden otillgängliga</string>
+    <string name="forecast_not_loaded_yet">Prognos ej laddad än.</string>
+    <string name="refresh_to_load_the_forecast">Uppdatera för att ladda prognosen.</string>
+    <string name="cached_forecast_could_not_be">Cachad prognos kunde inte läsas.</string>
+    <string name="forecast_is_current">Prognosen är aktuell.</string>
+    <string name="showing_cached_forecast">Visar cachad prognos.</string>
+    <string name="forecast_available">Prognos tillgänglig.</string>
+    <string name="offline_showing_last_known_forecast">Offline · visar senast kända prognos.</string>
+    <string name="forecast_unavailable_check_the_connection">Prognos otillgänglig. Kontrollera anslutningen och försök igen.</string>
+    <string name="provider_response_could_not_be">Leverantörssvar kunde inte normaliseras.</string>
+    <string name="updated_from_open_meteo">Uppdaterat från Open-Meteo.</string>
+</resources>

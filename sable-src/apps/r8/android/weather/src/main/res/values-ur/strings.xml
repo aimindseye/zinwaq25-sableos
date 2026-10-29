@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
+<resources>
+    <string name="city_or_name_lat_lon">شہر، یا نام، عرض بلد، طول بلد، علاقہ/زون</string>
+    <string name="no_match_enter_name_latitude">کوئی مماثلت نہیں۔ نام، عرض بلد، طول بلد، علاقہ/زون درج کریں۔</string>
+    <string name="remove">کیا %1$s کو ہٹا دیں؟</string>
+    <string name="reset_to_the_built_in">کیا بلٹ ان شہروں پر ری سیٹ کریں؟ شامل کیے گئے شہر ہٹا دیے جاتے ہیں۔</string>
+    <string name="current_manual_city">موجودہ · دستی شہر</string>
+    <string name="add_city">شہر شامل کریں</string>
+    <string name="type_a_name_or_press">نام ٹائپ کریں، یا کوئی بھی حرف دبائیں</string>
+    <string name="reset_to_built_in_cities">بلٹ ان شہروں پر ری سیٹ کریں</string>
+    <string name="refreshing_forecast">پیشن گوئی تازہ کی جا رہی ہے…</string>
+    <string name="loading_forecast">پیشن گوئی لوڈ ہو رہی ہے</string>
+    <string name="forecast_unavailable">پیشن گوئی دستیاب نہیں</string>
+    <string name="weather_ready">موسم تیار</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · مقامی طور پر کیش شدہ · تخمینی مقام یا منتخب شہر · درست مقام کبھی استعمال نہیں ہوتا</string>
+    <string name="use_current_location">موجودہ مقام استعمال کریں</string>
+    <string name="finding_where_you_are">تلاش کیا جا رہا ہے کہ آپ کہاں ہیں…</string>
+    <string name="off_showing_the_chosen_city">بند: منتخب شہر دکھا رہا ہے</string>
+    <string name="feels_like">"احساس "</string>
+    <string name="next_hours">اگلے گھنٹے</string>
+    <string name="n7_days">7 دن</string>
+    <string name="live">" · لائیو"</string>
+    <string name="cached">" · کیش شدہ"</string>
+    <string name="fetching">" · لایا جا رہا ہے"</string>
+    <string name="unavailable">" · دستیاب نہیں"</string>
+    <string name="local">" · مقامی"</string>
+    <string name="partly_cloudy">جزوی طور پر ابر آلود</string>
+    <string name="conditions_unavailable">حالات دستیاب نہیں</string>
+    <string name="forecast_not_loaded_yet">پیشن گوئی ابھی لوڈ نہیں ہوئی۔</string>
+    <string name="refresh_to_load_the_forecast">پیشن گوئی لوڈ کرنے کے لیے ریفریش کریں۔</string>
+    <string name="cached_forecast_could_not_be">کیش شدہ پیشن گوئی نہیں پڑھی جا سکی۔</string>
+    <string name="forecast_is_current">پیشن گوئی تازہ ترین ہے۔</string>
+    <string name="showing_cached_forecast">کیش شدہ پیشن گوئی دکھا رہا ہے۔</string>
+    <string name="forecast_available">پیشن گوئی دستیاب ہے۔</string>
+    <string name="offline_showing_last_known_forecast">آف لائن · آخری معلوم پیشن گوئی دکھا رہا ہے۔</string>
+    <string name="forecast_unavailable_check_the_connection">پیشن گوئی دستیاب نہیں۔ کنکشن چیک کریں اور دوبارہ کوشش کریں۔</string>
+    <string name="provider_response_could_not_be">فراہم کنندہ کے ردعمل کو معمول پر نہیں لایا جا سکا۔</string>
+    <string name="updated_from_open_meteo">Open-Meteo سے اپ ڈیٹ کیا گیا۔</string>
+</resources>

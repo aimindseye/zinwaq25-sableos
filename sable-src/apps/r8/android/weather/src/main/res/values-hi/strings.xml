@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hindi. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
+<resources>
+    <string name="city_or_name_lat_lon">शहर, या नाम, अक्षांश, देशांतर, क्षेत्र/ज़ोन</string>
+    <string name="no_match_enter_name_latitude">कोई मेल नहीं। नाम, अक्षांश, देशांतर, क्षेत्र/ज़ोन दर्ज करें।</string>
+    <string name="remove">क्या %1$s निकालें?</string>
+    <string name="reset_to_the_built_in">अंतर्निहित शहरों पर रीसेट करें? जोड़े गए शहर हटा दिए जाएंगे।</string>
+    <string name="current_manual_city">वर्तमान · मैनुअल शहर</string>
+    <string name="add_city">शहर जोड़ें</string>
+    <string name="type_a_name_or_press">नाम टाइप करें, या कोई भी अक्षर दबाएं</string>
+    <string name="reset_to_built_in_cities">अंतर्निहित शहरों पर रीसेट करें</string>
+    <string name="refreshing_forecast">पूर्वानुमान ताज़ा हो रहा है…</string>
+    <string name="loading_forecast">पूर्वानुमान लोड हो रहा है</string>
+    <string name="forecast_unavailable">पूर्वानुमान अनुपलब्ध</string>
+    <string name="weather_ready">मौसम तैयार</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · स्थानीय रूप से कैश किया गया · अनुमानित स्थान या चुना हुआ शहर · सटीक स्थान कभी उपयोग नहीं किया जाता</string>
+    <string name="use_current_location">वर्तमान स्थान का उपयोग करें</string>
+    <string name="finding_where_you_are">खोज रहे हैं कि आप कहां हैं…</string>
+    <string name="off_showing_the_chosen_city">बंद: चुना हुआ शहर दिखा रहा है</string>
+    <string name="feels_like">"महसूस होता है "</string>
+    <string name="next_hours">अगले घंटे</string>
+    <string name="n7_days">7 दिन</string>
+    <string name="live">" · लाइव"</string>
+    <string name="cached">" · कैश किया गया"</string>
+    <string name="fetching">" · लाया जा रहा है"</string>
+    <string name="unavailable">" · अनुपलब्ध"</string>
+    <string name="local">" · स्थानीय"</string>
+    <string name="partly_cloudy">आंशिक रूप से बादल</string>
+    <string name="conditions_unavailable">स्थितियां अनुपलब्ध</string>
+    <string name="forecast_not_loaded_yet">पूर्वानुमान अभी लोड नहीं हुआ है।</string>
+    <string name="refresh_to_load_the_forecast">पूर्वानुमान लोड करने के लिए रीफ्रेश करें।</string>
+    <string name="cached_forecast_could_not_be">कैश किया गया पूर्वानुमान पढ़ा नहीं जा सका।</string>
+    <string name="forecast_is_current">पूर्वानुमान अद्यतन है।</string>
+    <string name="showing_cached_forecast">कैश किया गया पूर्वानुमान दिखा रहा है।</string>
+    <string name="forecast_available">पूर्वानुमान उपलब्ध है।</string>
+    <string name="offline_showing_last_known_forecast">ऑफ़लाइन · अंतिम ज्ञात पूर्वानुमान दिखा रहा है।</string>
+    <string name="forecast_unavailable_check_the_connection">पूर्वानुमान अनुपलब्ध। कनेक्शन जांचें और पुनः प्रयास करें।</string>
+    <string name="provider_response_could_not_be">प्रदाता की प्रतिक्रिया सामान्य नहीं की जा सकी।</string>
+    <string name="updated_from_open_meteo">Open-Meteo से अपडेट किया गया।</string>
+</resources>

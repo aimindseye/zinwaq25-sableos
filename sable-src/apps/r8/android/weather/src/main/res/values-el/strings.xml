@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
+<resources>
+    <string name="city_or_name_lat_lon">πόλη, ή Όνομα, γεωγραφικό πλάτος, γεωγραφικό μήκος, Περιοχή/Ζώνη</string>
+    <string name="no_match_enter_name_latitude">Καμία αντιστοιχία. Εισαγάγετε Όνομα, πλάτος, μήκος, Περιοχή/Ζώνη.</string>
+    <string name="remove">Αφαίρεση %1$s;</string>
+    <string name="reset_to_the_built_in">Επαναφορά στις ενσωματωμένες πόλεις; Οι προστιθέμενες πόλεις αφαιρούνται.</string>
+    <string name="current_manual_city">τρέχουσα · μη αυτόματη πόλη</string>
+    <string name="add_city">προσθήκη πόλης</string>
+    <string name="type_a_name_or_press">πληκτρολογήστε ένα όνομα, ή πατήστε οποιοδήποτε γράμμα</string>
+    <string name="reset_to_built_in_cities">επαναφορά στις ενσωματωμένες πόλεις</string>
+    <string name="refreshing_forecast">Ανανέωση πρόβλεψης…</string>
+    <string name="loading_forecast">φόρτωση πρόβλεψης</string>
+    <string name="forecast_unavailable">πρόβλεψη μη διαθέσιμη</string>
+    <string name="weather_ready">καιρός έτοιμος</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · τοπική προσωρινή μνήμη · κατά προσέγγιση τοποθεσία ή επιλεγμένη πόλη · η ακριβής τοποθεσία δεν χρησιμοποιείται ποτέ</string>
+    <string name="use_current_location">Χρήση τρέχουσας τοποθεσίας</string>
+    <string name="finding_where_you_are">Εύρεση τοποθεσίας…</string>
+    <string name="off_showing_the_chosen_city">Ανενεργό: εμφάνιση της επιλεγμένης πόλης</string>
+    <string name="feels_like">"αίσθηση "</string>
+    <string name="next_hours">επόμενες ώρες</string>
+    <string name="n7_days">7 ημέρες</string>
+    <string name="live">" · ζωντανά"</string>
+    <string name="cached">" · στην κρυφή μνήμη"</string>
+    <string name="fetching">" · λήψη"</string>
+    <string name="unavailable">" · μη διαθέσιμο"</string>
+    <string name="local">" · τοπικό"</string>
+    <string name="partly_cloudy">μερικώς νεφελώδης</string>
+    <string name="conditions_unavailable">συνθήκες μη διαθέσιμες</string>
+    <string name="forecast_not_loaded_yet">Η πρόβλεψη δεν έχει φορτωθεί ακόμα.</string>
+    <string name="refresh_to_load_the_forecast">Ανανεώστε για φόρτωση της πρόβλεψης.</string>
+    <string name="cached_forecast_could_not_be">Αδυναμία ανάγνωσης της αποθηκευμένης πρόβλεψης.</string>
+    <string name="forecast_is_current">Η πρόβλεψη είναι τρέχουσα.</string>
+    <string name="showing_cached_forecast">Εμφάνιση αποθηκευμένης πρόβλεψης.</string>
+    <string name="forecast_available">Πρόβλεψη διαθέσιμη.</string>
+    <string name="offline_showing_last_known_forecast">Εκτός σύνδεσης · εμφάνιση τελευταίας γνωστής πρόβλεψης.</string>
+    <string name="forecast_unavailable_check_the_connection">Πρόβλεψη μη διαθέσιμη. Ελέγξτε τη σύνδεση και δοκιμάστε ξανά.</string>
+    <string name="provider_response_could_not_be">Αδυναμία κανονικοποίησης της απόκρισης του παρόχου.</string>
+    <string name="updated_from_open_meteo">Ενημερώθηκε από Open-Meteo.</string>
+</resources>

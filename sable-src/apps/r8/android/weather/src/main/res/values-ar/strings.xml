@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
+<resources>
+    <string name="city_or_name_lat_lon">المدينة، أو الاسم، خط العرض، خط الطول، المنطقة/النطاق</string>
+    <string name="no_match_enter_name_latitude">لا يوجد تطابق. أدخل الاسم، خط العرض، خط الطول، المنطقة/النطاق.</string>
+    <string name="remove">هل تريد إزالة %1$s؟</string>
+    <string name="reset_to_the_built_in">هل تريد إعادة الضبط إلى المدن المدمجة؟ تتم إزالة المدن المضافة.</string>
+    <string name="current_manual_city">الحالي · مدينة يدوية</string>
+    <string name="add_city">إضافة مدينة</string>
+    <string name="type_a_name_or_press">اكتب اسمًا، أو اضغط على أي حرف</string>
+    <string name="reset_to_built_in_cities">إعادة الضبط إلى المدن المدمجة</string>
+    <string name="refreshing_forecast">جارٍ تحديث التوقعات…</string>
+    <string name="loading_forecast">جارٍ تحميل التوقعات</string>
+    <string name="forecast_unavailable">التوقعات غير متوفرة</string>
+    <string name="weather_ready">الطقس جاهز</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · مخزن مؤقتا محليا · موقع تقريبي أو مدينة مختارة · لا يستخدم الموقع الدقيق أبدا</string>
+    <string name="use_current_location">استخدام الموقع الحالي</string>
+    <string name="finding_where_you_are">جارٍ البحث عن موقعك…</string>
+    <string name="off_showing_the_chosen_city">متوقف: عرض المدينة المختارة</string>
+    <string name="feels_like">"المحسوسة "</string>
+    <string name="next_hours">الساعات القادمة</string>
+    <string name="n7_days">7 أيام</string>
+    <string name="live">" · مباشر"</string>
+    <string name="cached">" · مخزن مؤقتا"</string>
+    <string name="fetching">" · جلب"</string>
+    <string name="unavailable">" · غير متوفر"</string>
+    <string name="local">" · محلي"</string>
+    <string name="partly_cloudy">غائم جزئيا</string>
+    <string name="conditions_unavailable">الظروف غير متوفرة</string>
+    <string name="forecast_not_loaded_yet">لم يتم تحميل التوقعات بعد.</string>
+    <string name="refresh_to_load_the_forecast">قم بالتحديث لتحميل التوقعات.</string>
+    <string name="cached_forecast_could_not_be">لا يمكن قراءة التوقعات المخزنة مؤقتا.</string>
+    <string name="forecast_is_current">التوقعات حديثة.</string>
+    <string name="showing_cached_forecast">عرض التوقعات المخزنة مؤقتا.</string>
+    <string name="forecast_available">التوقعات متوفرة.</string>
+    <string name="offline_showing_last_known_forecast">غير متصل · عرض آخر توقعات معروفة.</string>
+    <string name="forecast_unavailable_check_the_connection">التوقعات غير متوفرة. تحقق من الاتصال وحاول مرة أخرى.</string>
+    <string name="provider_response_could_not_be">لا يمكن تسوية استجابة المزود.</string>
+    <string name="updated_from_open_meteo">تم التحديث من Open-Meteo.</string>
+</resources>

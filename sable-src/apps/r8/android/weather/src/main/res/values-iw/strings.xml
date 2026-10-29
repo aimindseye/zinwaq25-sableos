@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hebrew. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (WeatherTextTest checks). -->
+<resources>
+    <string name="city_or_name_lat_lon">עיר, או שם, קו רוחב, קו אורך, אזור/סביבה</string>
+    <string name="no_match_enter_name_latitude">אין התאמה. הזן שם, קו רוחב, קו אורך, אזור/סביבה.</string>
+    <string name="remove">האם להסיר את %1$s?</string>
+    <string name="reset_to_the_built_in">לאפס לערים המובנות? ערים שנוספו יוסרו.</string>
+    <string name="current_manual_city">נוכחי · עיר ידנית</string>
+    <string name="add_city">הוסף עיר</string>
+    <string name="type_a_name_or_press">הקלד שם, או הקש על אות כלשהי</string>
+    <string name="reset_to_built_in_cities">אפס לערים מובנות</string>
+    <string name="refreshing_forecast">מרענן תחזית…</string>
+    <string name="loading_forecast">טוען תחזית</string>
+    <string name="forecast_unavailable">תחזית לא זמינה</string>
+    <string name="weather_ready">מזג אוויר מוכן</string>
+    <string name="open_meteo_https_cached_locally">Open-Meteo · HTTPS · שמור במטמון מקומי · מיקום משוער או עיר נבחרת · מיקום מדויק אינו בשימוש לעולם</string>
+    <string name="use_current_location">השתמש במיקום הנוכחי</string>
+    <string name="finding_where_you_are">מחפש היכן אתה…</string>
+    <string name="off_showing_the_chosen_city">כבוי: מציג את העיר הנבחרת</string>
+    <string name="feels_like">"מרגיש כמו "</string>
+    <string name="next_hours">השעות הבאות</string>
+    <string name="n7_days">7 ימים</string>
+    <string name="live">" · חי"</string>
+    <string name="cached">" · במטמון"</string>
+    <string name="fetching">" · מאחזר"</string>
+    <string name="unavailable">" · לא זמין"</string>
+    <string name="local">" · מקומי"</string>
+    <string name="partly_cloudy">מעונן חלקית</string>
+    <string name="conditions_unavailable">תנאים לא זמינים</string>
+    <string name="forecast_not_loaded_yet">תחזית טרם נטענה.</string>
+    <string name="refresh_to_load_the_forecast">רענן כדי לטעון את התחזית.</string>
+    <string name="cached_forecast_could_not_be">לא ניתן לקרוא תחזית מהמטמון.</string>
+    <string name="forecast_is_current">התחזית מעודכנת.</string>
+    <string name="showing_cached_forecast">מציג תחזית מהמטמון.</string>
+    <string name="forecast_available">תחזית זמינה.</string>
+    <string name="offline_showing_last_known_forecast">לא מקוון · מציג תחזית אחרונה ידועה.</string>
+    <string name="forecast_unavailable_check_the_connection">תחזית לא זמינה. בדוק חיבור ונסה שוב.</string>
+    <string name="provider_response_could_not_be">לא ניתן היה לנרמל את תגובת הספק.</string>
+    <string name="updated_from_open_meteo">עודכן מ-Open-Meteo.</string>
+</resources>

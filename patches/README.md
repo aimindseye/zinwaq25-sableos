@@ -116,7 +116,8 @@
   Phosphor terminal-window icon and Start glyph), and 0085 every Sable app's English in
   `res/values/strings.xml` (one `<App>Text` table per app, bound to the resources in its
   `Application`, an `<App>TextTest` each, `DesignText` for the shared design lines and
-  `SableTexts` accepting nullable arguments; docs/LANGUAGES.md). Applied in order to a
+  `SableTexts` accepting nullable arguments; docs/LANGUAGES.md), and 0086 Sable Weather's drafts in
+  16 languages (`values-<lang>/strings.xml`). Applied in order to a
   fresh import they reproduce `sable-src/` exactly. Regenerate a patch with `git diff` against a
   fresh import when you change these files.
 
