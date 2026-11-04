@@ -48,7 +48,7 @@ echo "ADDON_APKS=PASS ${modules[*]}"
 # 2. The phone: one device, booted, and spoofing allowed for microG.
 command -v "$ADB" >/dev/null || sable_fail "adb not found (install Android platform-tools)"
 "$ADB" get-state >/dev/null 2>&1 || sable_fail "no phone on adb: connect the Q25 with USB debugging on"
-prop() { "$ADB" shell getprop "$1" </dev/null | tr -d '\r'; }
+prop() { local name="$1"; "$ADB" shell getprop "$name" </dev/null | tr -d '\r'; }
 [[ "$(prop sys.boot_completed)" == 1 ]] || sable_fail "the phone has not finished booting"
 spoof="$(prop ro.sable.microg.spoofing)" debuggable="$(prop ro.debuggable)"
 if [[ "$spoof" != true && "$debuggable" != 1 ]]; then
@@ -70,7 +70,7 @@ for m in "${modules[@]}"; do
 done
 
 # 4. The runtime grants a built-in microG gets at first boot (default-permissions-sable-microg.xml).
-grant() { "$ADB" shell pm grant "$1" "$2" </dev/null >/dev/null 2>&1 || echo "NOT_GRANTED $1 $2"; }
+grant() { local pkg="$1" perm="$2"; "$ADB" shell pm grant "$pkg" "$perm" </dev/null >/dev/null 2>&1 || echo "NOT_GRANTED $pkg $perm"; }
 for p in ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION GET_ACCOUNTS READ_PHONE_STATE POST_NOTIFICATIONS; do
     grant com.google.android.gms "android.permission.$p"
 done

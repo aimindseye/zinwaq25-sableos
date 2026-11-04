@@ -378,7 +378,7 @@ grep -q 'fixed="true"' "$mgp/etc/default-permissions/default-permissions-sable-m
 grep -A12 'name: "GmsCore"' "$mgp/Android.bp" | grep -q 'privileged: true' || mg_bad="$mg_bad gms-priv"
 grep -A16 'name: "GmsCore"' "$mgp/Android.bp" | grep -q 'skip_preprocessed_apk_checks: true' || mg_bad="$mg_bad gms-dex-check"
 [[ "$(grep -c 'presigned: true' "$mgp/Android.bp")" == 2 ]] || mg_bad="$mg_bad presigned"
-for m in FakeStore; do grep -A8 "name: \"$m\"" "$mgp/Android.bp" | grep -q 'privileged: false' || mg_bad="$mg_bad $m-priv"; done
+grep -A8 'name: "FakeStore"' "$mgp/Android.bp" | grep -q 'privileged: false' || mg_bad="$mg_bad FakeStore-priv"
 for f in privapp-permissions-sable-microg.xml default-permissions-sable-microg.xml sysconfig-sable-microg.xml sable-microg-settings.xml; do
     grep -q "name: \"$f\"" "$mgp/Android.bp" || mg_bad="$mg_bad bp:$f"
 done
