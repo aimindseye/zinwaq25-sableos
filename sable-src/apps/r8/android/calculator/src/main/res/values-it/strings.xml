@@ -8,9 +8,9 @@
     <string name="exact_result">Risultato esatto</string>
     <string name="choose_an_operation_first">Scegli prima un’operazione.</string>
     <string name="degrees_for_trigonometry">%1$s · gradi per la trigonometria</string>
-    <string name="scientific_operations_and_the_core">Le operazioni scientifiche e i calcoli aritmetici di base vengono eseguiti dal motore nativo della calcolatrice.</string>
+    <string name="scientific_operations_and_the_core">Le funzioni scientifiche e l’aritmetica esatta funzionano sul telefono, offline.</string>
     <string name="results_are_not_silently_rounded">I risultati non vengono arrotondati automaticamente a valori in virgola mobile.</string>
     <string name="scientific_functions_use_degrees">Le funzioni scientifiche usano i gradi.</string>
     <string name="exact_decimal_results_never_rounded">Risultati decimali esatti, senza arrotondamenti.</string>
-    <string name="native_bridge_failure">Errore dell’interfaccia nativa</string>
+    <string name="native_bridge_failure">Calcolo non riuscito</string>
 </resources>

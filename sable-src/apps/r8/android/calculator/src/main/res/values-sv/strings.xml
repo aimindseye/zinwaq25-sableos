@@ -8,9 +8,9 @@
     <string name="exact_result">Exakt resultat</string>
     <string name="choose_an_operation_first">Välj en räkneoperation först.</string>
     <string name="degrees_for_trigonometry">%1$s · grader för trigonometri</string>
-    <string name="scientific_operations_and_the_core">Vetenskapliga funktioner och grundläggande aritmetik körs i räknarens inbyggda motor.</string>
+    <string name="scientific_operations_and_the_core">Vetenskapliga funktioner och exakt aritmetik körs på telefonen, offline.</string>
     <string name="results_are_not_silently_rounded">Resultaten avrundas inte automatiskt till flyttal.</string>
     <string name="scientific_functions_use_degrees">Vetenskapliga funktioner använder grader.</string>
     <string name="exact_decimal_results_never_rounded">Exakta decimalresultat utan avrundning.</string>
-    <string name="native_bridge_failure">Fel i det inbyggda gränssnittet</string>
+    <string name="native_bridge_failure">Beräkningen misslyckades</string>
 </resources>

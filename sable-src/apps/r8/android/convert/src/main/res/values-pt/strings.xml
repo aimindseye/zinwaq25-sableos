@@ -30,5 +30,5 @@
     <string name="convert_convert">Converter</string>
     <string name="convert_enter_a_number_with_up">Digite um número com até três casas decimais</string>
     <string name="convert_length_mass_temperature_and_volume">As conversões de comprimento, massa, temperatura e volume são feitas no dispositivo, sem conexão.</string>
-    <string name="convert_native_bridge_failure">Falha na interface nativa</string>
+    <string name="convert_native_bridge_failure">Falha na conversão</string>
 </resources>

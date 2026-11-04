@@ -62,9 +62,6 @@ private val units =
 
 @Composable
 fun ConverterScreen(modifier: Modifier = Modifier) {
-    val nativeQualification = remember { NativeBridge.selfTest() }
-    check(nativeQualification.startsWith("PASS:")) { nativeQualification }
-
     var category by remember { mutableStateOf(UnitCategory.Length) }
     var from by remember { mutableStateOf(units.first { it.code == 2 }) }
     var to by remember { mutableStateOf(units.first { it.code == 3 }) }
@@ -144,7 +141,7 @@ fun ConverterScreen(modifier: Modifier = Modifier) {
                         t("convert_enter_a_number_with_up")
                     } else {
                         renderResult(
-                            NativeBridge.convertMilli(
+                            ConvertCore.convertMilli(
                                 valueMilli,
                                 from.code,
                                 to.code,

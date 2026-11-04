@@ -99,19 +99,13 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
-      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master
-        if: matrix.root == 'apps/r8/android'
-        with:
-          toolchain: '1.98.1'
-          targets: aarch64-linux-android
-      - name: Android SDK 36 (and NDK for the r8 apps)
+      - name: Android SDK 36
         run: |
           set -euo pipefail
           sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
           test -n "$sdkmanager"
           yes | "$sdkmanager" --licenses > /dev/null || true
           pkgs=('platforms;android-36' 'build-tools;36.0.0')
-          [[ '${{ matrix.root }}' != apps/r8/android ]] || pkgs+=('ndk;30.0.16248370')
           # eSpeak NG 1.52.0 pins its own NDK, CMake and build-tools (sable-src/apps/r8/espeak).
           [[ '${{ matrix.root }}' != flavor:espeak ]] ||
             pkgs+=('platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' 'cmake;3.22.1')

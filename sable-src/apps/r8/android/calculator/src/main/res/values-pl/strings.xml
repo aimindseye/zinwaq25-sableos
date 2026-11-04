@@ -8,9 +8,9 @@
     <string name="exact_result">Dokładny wynik</string>
     <string name="choose_an_operation_first">Najpierw wybierz działanie.</string>
     <string name="degrees_for_trigonometry">%1$s · stopnie w trygonometrii</string>
-    <string name="scientific_operations_and_the_core">Działania naukowe i podstawowe obliczenia arytmetyczne wykonuje natywny moduł kalkulatora.</string>
+    <string name="scientific_operations_and_the_core">Funkcje naukowe i dokładna arytmetyka działają na telefonie, offline.</string>
     <string name="results_are_not_silently_rounded">Wyniki nie są automatycznie zaokrąglane do wartości zmiennoprzecinkowych.</string>
     <string name="scientific_functions_use_degrees">Funkcje naukowe używają stopni.</string>
     <string name="exact_decimal_results_never_rounded">Dokładne wyniki dziesiętne bez zaokrąglania.</string>
-    <string name="native_bridge_failure">Błąd interfejsu natywnego</string>
+    <string name="native_bridge_failure">Obliczenie nie powiodło się</string>
 </resources>

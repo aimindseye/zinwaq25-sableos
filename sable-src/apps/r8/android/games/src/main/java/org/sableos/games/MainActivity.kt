@@ -20,9 +20,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val qualification = NativeBridge.selfTest()
-        check(qualification.startsWith("PASS:")) { qualification }
-
         setContent {
             SableGlobalTheme(window = window) {
                 CompositionLocalProvider(LocalGameKeyHost provides keyHost) {

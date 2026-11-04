@@ -240,8 +240,6 @@ first four workflows were green for PR #9, the change that added them;
   APKs are uploaded as artifacts for inspection only. Image builds still use
   APKs built on the build host. Runs when `sable-src/`, `apps.tsv`,
   `build-apps.sh` or the workflow change.
-* `Rust` (`rust.yml`): fmt, clippy, tests, `cargo audit`, `cargo deny` and line
-  coverage for `sable-src/apps/r8/rust`. Runs when that directory changes.
 * `Security` (`security.yml`): Gitleaks over the history and a MobSF source
   scan (findings recorded). Also runs weekly.
 * `SonarCloud` (`sonar.yml`): runs `scripts/sonar-compile-commands.sh` (a
@@ -268,7 +266,7 @@ The LineageOS image itself is too large for hosted runners and stays on the
 build host.
 
 A change that only touches documentation (`docs/`, any Markdown file, `LICENSE`,
-`NOTICE`) does not start `checks`, `Sable apps` or `Rust`; none of them reads
+`NOTICE`) does not start `checks` or `Sable apps`; neither reads
 those files. `Security` still runs, so Gitleaks scans documentation changes too.
 None of these checks is required on `main` yet; `SonarCloud` and the Gitleaks
 job are the recommended first required checks, since they run on every pull request. If one is made a required status

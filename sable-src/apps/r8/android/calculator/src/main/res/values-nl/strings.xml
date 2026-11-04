@@ -8,9 +8,9 @@
     <string name="exact_result">Exact resultaat</string>
     <string name="choose_an_operation_first">Kies eerst een bewerking.</string>
     <string name="degrees_for_trigonometry">%1$s · graden voor goniometrie</string>
-    <string name="scientific_operations_and_the_core">Wetenschappelijke functies en elementaire berekeningen worden uitgevoerd door de ingebouwde rekenmodule.</string>
+    <string name="scientific_operations_and_the_core">Wetenschappelijke functies en exacte rekenkunde werken offline op de telefoon.</string>
     <string name="results_are_not_silently_rounded">Resultaten worden niet ongemerkt afgerond tot drijvendekommagetallen.</string>
     <string name="scientific_functions_use_degrees">Wetenschappelijke functies gebruiken graden.</string>
     <string name="exact_decimal_results_never_rounded">Exacte decimale resultaten, zonder afronding.</string>
-    <string name="native_bridge_failure">Fout in de native interface</string>
+    <string name="native_bridge_failure">Berekening mislukt</string>
 </resources>

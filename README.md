@@ -2,7 +2,6 @@
 
 [![Sable apps](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/android.yml/badge.svg)](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/android.yml)
 [![Checks](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/checks.yml/badge.svg)](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/checks.yml)
-[![Rust](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/rust.yml/badge.svg)](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/rust.yml)
 [![Security](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/security.yml/badge.svg)](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/security.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=aimindseye_zinwaq25-sableos&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=aimindseye_zinwaq25-sableos)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
@@ -201,7 +200,7 @@ product/common/overlay/   Q4 static overlays (framework, SystemUI, SetupWizard, 
 docs/                     guides
 tests/run.sh              static checks and host unit tests
 sonar-project.properties  SonarCloud analysis scope (scripts/sonar-compile-commands.sh feeds the C shim)
-.github/workflows/        GitHub Actions: checks, Sable apps, Rust, Security, SonarCloud
+.github/workflows/        GitHub Actions: checks, Sable apps, Security, SonarCloud
 ```
 
 ## Continuous integration
@@ -212,11 +211,10 @@ GitHub Actions runs on every pull request and on `main`:
 |---|---|
 | `checks` | `tests/run.sh`: shellcheck, pins, staging dry runs, framework patch apply/revert, design and policy checks, host unit tests |
 | `Sable apps` | `scripts/build-apps.sh` for each Gradle project (platform apps, r8 apps, Reader, Mail, Text Reader) with unit tests, Android Lint, detekt, ktlint and Kover |
-| `Rust` | fmt, clippy, tests, `cargo audit`, `cargo deny`, coverage for `sable-src/apps/r8/rust` |
 | `Security` | Gitleaks history scan and MobSF source scan (also weekly) |
 | `SonarCloud` | SonarCloud scan of the whole repository (Kotlin, Java, C, Python, shell, XML), waiting on the "Sonar way" quality gate |
 
-`Sable apps` and `Rust` only run when their sources change. SonarCloud runs as
+`Sable apps` only runs when its sources change. SonarCloud runs as
 CI-based analysis, so Automatic Analysis must stay off in the SonarCloud
 project. The only open SonarCloud findings on `main` are the 25 `restrict`
 qualifiers in the camera shim, kept on purpose. The LineageOS image

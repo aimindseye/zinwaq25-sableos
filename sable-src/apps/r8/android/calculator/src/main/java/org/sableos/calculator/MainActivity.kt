@@ -98,9 +98,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val nativeQualification = NativeBridge.selfTest()
-        check(nativeQualification.startsWith("PASS:")) { nativeQualification }
-
         setContent {
             SableGlobalTheme(window = window) {
                 CalculatorApp()
@@ -276,7 +273,7 @@ private fun CalculatorPad(
     ): String? {
         val response =
             renderResult(
-                NativeBridge.applyBinary(
+                CalculatorCore.applyBinary(
                     left,
                     op,
                     right,
@@ -344,7 +341,7 @@ private fun CalculatorPad(
     fun applyScientific(choice: ScientificChoice) {
         val response =
             renderResult(
-                NativeBridge.applyScientific(
+                CalculatorCore.applyScientific(
                     display,
                     choice.code,
                 ),

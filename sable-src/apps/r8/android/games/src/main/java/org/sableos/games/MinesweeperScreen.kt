@@ -35,7 +35,7 @@ internal fun MinesweeperScreen() {
     var state by remember {
         mutableStateOf(
             requireOk(
-                NativeBridge.minesweeperStart(
+                GamesCore.minesweeperStart(
                     9,
                     9,
                     10,
@@ -45,7 +45,7 @@ internal fun MinesweeperScreen() {
         )
     }
     var view by remember {
-        mutableStateOf(requireOk(NativeBridge.minesweeperView(state)))
+        mutableStateOf(requireOk(GamesCore.minesweeperView(state)))
     }
     var flagMode by remember { mutableStateOf(false) }
     var cursorX by remember { mutableIntStateOf(MINE_FIELD_SIZE / 2) }
@@ -55,14 +55,14 @@ internal fun MinesweeperScreen() {
     fun reset() {
         state =
             requireOk(
-                NativeBridge.minesweeperStart(
+                GamesCore.minesweeperStart(
                     9,
                     9,
                     10,
                     1803L,
                 ),
             )
-        view = requireOk(NativeBridge.minesweeperView(state))
+        view = requireOk(GamesCore.minesweeperView(state))
         flagMode = false
         status = t("new_field")
     }
@@ -72,7 +72,7 @@ internal fun MinesweeperScreen() {
 
         if (fields.size >= 3 && fields[0] == "OK") {
             state = fields[1]
-            view = requireOk(NativeBridge.minesweeperView(state))
+            view = requireOk(GamesCore.minesweeperView(state))
             status = fields.drop(2).joinToString(" ")
         } else {
             status = humanize(response)
@@ -85,13 +85,13 @@ internal fun MinesweeperScreen() {
     ) {
         applyResponse(
             if (flagMode) {
-                NativeBridge.minesweeperToggleFlag(
+                GamesCore.minesweeperToggleFlag(
                     state,
                     x,
                     y,
                 )
             } else {
-                NativeBridge.minesweeperReveal(
+                GamesCore.minesweeperReveal(
                     state,
                     x,
                     y,
@@ -109,11 +109,11 @@ internal fun MinesweeperScreen() {
             }
 
             GameCommand.Primary -> {
-                applyResponse(NativeBridge.minesweeperReveal(state, cursorX, cursorY))
+                applyResponse(GamesCore.minesweeperReveal(state, cursorX, cursorY))
             }
 
             GameCommand.Flag -> {
-                applyResponse(NativeBridge.minesweeperToggleFlag(state, cursorX, cursorY))
+                applyResponse(GamesCore.minesweeperToggleFlag(state, cursorX, cursorY))
             }
 
             GameCommand.NewGame -> {

@@ -30,10 +30,9 @@ the app build needs, keeping the sableos layout so Gradle's relative paths work:
 
 ```text
 sable-src/apps/titan2/platform     Keyboard, Camera, DisplayCompat, Setup, Tools, RadioDiag
-sable-src/apps/r8/android          Calculator, Games, Media, Hub, Weather, Calendar, Messages, Notes
+sable-src/apps/r8/android          Calculator, Games, Media, Hub, Weather, Calendar, Messages, Notes, Tasks (all Kotlin)
 sable-src/apps/common/reader       Sable Reader v2 (EPUB, PDF, comics, audiobooks; Books/Comics/Audio tabs) [titan2-temp]
 sable-src/reference                Start type-to-find, Setup flow, Weather cities logic [titan2-temp]
-sable-src/apps/r8/rust             native code used by the R8 apps
 sable-src/src/android/...          Sable design tokens, Sable Start
 sable-src/config, third_party, tools   lint config, icons, pinyin data, generators
 ```

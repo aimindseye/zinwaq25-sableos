@@ -30,5 +30,5 @@
     <string name="convert_convert">Dönüştür</string>
     <string name="convert_enter_a_number_with_up">En fazla üç ondalık basamak içeren bir sayı girin</string>
     <string name="convert_length_mass_temperature_and_volume">Uzunluk, kütle, sıcaklık ve hacim dönüşümleri cihazda, çevrimdışı yapılır.</string>
-    <string name="convert_native_bridge_failure">Yerel arayüz hatası</string>
+    <string name="convert_native_bridge_failure">Dönüştürme başarısız oldu</string>
 </resources>

@@ -10,7 +10,7 @@ import androidx.compose.ui.res.painterResource
  * Production Sable Weather condition icons.
  *
  * Glyph geometry is sourced from the pinned Phosphor Icons regular set.
- * Rust maps provider weather codes to semantic conditions only; presentation
+ * [WeatherCore] maps provider weather codes to semantic conditions only; presentation
  * stays in the Android UI layer.
  */
 @Composable

@@ -30,5 +30,5 @@
     <string name="convert_convert">Перевести</string>
     <string name="convert_enter_a_number_with_up">Введите число с точностью до трёх знаков после запятой</string>
     <string name="convert_length_mass_temperature_and_volume">Перевод единиц длины, массы, температуры и объёма выполняется локально без подключения к сети.</string>
-    <string name="convert_native_bridge_failure">Сбой нативного интерфейса</string>
+    <string name="convert_native_bridge_failure">Не удалось пересчитать</string>
 </resources>

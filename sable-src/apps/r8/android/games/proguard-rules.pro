@@ -1,2 +1,1 @@
-# Rust JNI (sable-games-jni) binds Java_org_sableos_games_NativeBridge_* by name.
--keep class org.sableos.games.NativeBridge { *; }
+# No keep rules: since the Kotlin port the app has no native (JNI) code.

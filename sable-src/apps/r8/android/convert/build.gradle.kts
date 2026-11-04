@@ -7,12 +7,8 @@ plugins {
 android {
     namespace = "org.sableos.convert"
     compileSdk = 36
-    ndkVersion = "30.0.16248370"
     defaultConfig {
         minSdk = 30
-        ndk {
-            abiFilters += "arm64-v8a"
-        }
     }
     buildFeatures { compose = true }
     compileOptions {

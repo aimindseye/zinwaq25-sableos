@@ -30,5 +30,5 @@
     <string name="convert_convert">Przelicz</string>
     <string name="convert_enter_a_number_with_up">Wpisz liczbę z maksymalnie trzema miejscami po przecinku</string>
     <string name="convert_length_mass_temperature_and_volume">Przeliczanie długości, masy, temperatury i objętości odbywa się lokalnie i bez połączenia z siecią.</string>
-    <string name="convert_native_bridge_failure">Błąd interfejsu natywnego</string>
+    <string name="convert_native_bridge_failure">Przeliczenie nie powiodło się</string>
 </resources>

@@ -8,9 +8,9 @@
     <string name="exact_result">सटीक परिणाम</string>
     <string name="choose_an_operation_first">पहले कोई गणना चुनें।</string>
     <string name="degrees_for_trigonometry">%1$s · त्रिकोणमिति के लिए डिग्री</string>
-    <string name="scientific_operations_and_the_core">वैज्ञानिक गणनाएँ और मूल अंकगणितीय प्रक्रियाएँ कैलकुलेटर के मूल इंजन में चलती हैं।</string>
+    <string name="scientific_operations_and_the_core">वैज्ञानिक फ़ंक्शन और सटीक अंकगणित फ़ोन पर ऑफ़लाइन चलते हैं।</string>
     <string name="results_are_not_silently_rounded">परिणामों को चुपचाप फ़्लोटिंग-पॉइंट मानों में पूर्णांकित नहीं किया जाता।</string>
     <string name="scientific_functions_use_degrees">वैज्ञानिक फ़ंक्शन डिग्री का उपयोग करते हैं।</string>
     <string name="exact_decimal_results_never_rounded">बिना पूर्णांकन के सटीक दशमलव परिणाम।</string>
-    <string name="native_bridge_failure">मूल इंटरफ़ेस विफल हुआ</string>
+    <string name="native_bridge_failure">गणना विफल रही</string>
 </resources>

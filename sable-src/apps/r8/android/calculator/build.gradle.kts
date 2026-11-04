@@ -7,16 +7,12 @@ plugins {
 android {
     namespace = "org.sableos.calculator"
     compileSdk = 36
-    ndkVersion = "30.0.16248370"
     defaultConfig {
         applicationId = "org.sableos.calculator"
         minSdk = 30
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
-        ndk {
-            abiFilters += "arm64-v8a"
-        }
     }
     buildTypes {
         // The Q25 image ships the release variant (product/q25/apps.tsv): shrunk and signed by the
@@ -47,25 +43,3 @@ dependencies {
     testImplementation(libs.junit)
 }
 
-android {
-    sourceSets {
-        getByName("main") {
-            jniLibs.setSrcDirs(
-                listOf(
-                    layout.buildDirectory
-                        .dir("generated/rustJni")
-                        .get()
-                        .asFile,
-                ),
-            )
-        }
-    }
-}
-
-tasks
-    .matching {
-        it.name.startsWith("merge") &&
-            it.name.endsWith("JniLibFolders")
-    }.configureEach {
-        dependsOn(rootProject.tasks.named("stageCalculatorRustJni"))
-    }

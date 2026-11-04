@@ -30,5 +30,5 @@
     <string name="convert_convert">रूपांतरित करें</string>
     <string name="convert_enter_a_number_with_up">अधिकतम तीन दशमलव स्थानों वाली संख्या दर्ज करें</string>
     <string name="convert_length_mass_temperature_and_volume">लंबाई, द्रव्यमान, तापमान और आयतन का रूपांतरण डिवाइस पर ऑफ़लाइन किया जाता है।</string>
-    <string name="convert_native_bridge_failure">मूल इंटरफ़ेस विफल हुआ</string>
+    <string name="convert_native_bridge_failure">रूपांतरण विफल रहा</string>
 </resources>
