@@ -39,6 +39,23 @@ chosen on the same page.
 eSpeak NG sounds robotic next to Google's voices, but it is small and fully local.
 Source and licence: `sable-src/apps/r8/espeak` (GPL-3.0). Qualification: Q4-SPEECH.
 
+### Speak what's focused
+
+Text Reader adds a small accessibility service, Speak what's focused. Turn it on in
+Settings > Accessibility. As you move with the trackpad or keys, it speaks the button, setting
+or field that takes focus, for example "Wi-Fi, switch, on" or "Search, edit box". It is not a
+screen reader:
+
+- Touch and keys work exactly as they do without it. It does not turn on explore by touch and
+  does not intercept keys, so typing, shortcuts and the trackpad are unchanged.
+- It speaks only what takes focus. It does not read whole screens, notifications or web pages.
+  To hear a page of text, share it to Text Reader or use Text Reader's Play button.
+- It is quiet while the phone is locked, so a PIN or a lock screen notification is never read
+  aloud. It names a password field but never reads what is typed in it.
+- It stops talking when the screen turns off.
+
+Qualification: Q4-SPEAK-FOCUS.
+
 ## What is included
 
 Settings > Accessibility has Android's own options: magnification, colour correction, colour
@@ -49,8 +66,8 @@ and bounce keys.
 ## What is not included
 
 TalkBack, Select to Speak and Switch Access are part of Google's Android Accessibility Suite.
-LineageOS and SableOS do not ship it. SableOS does not bundle a full screen reader either,
-because none has been tested with the Q25's keyboard and trackpad yet.
+LineageOS and SableOS do not ship it. Apart from Speak what's focused, SableOS does not bundle
+a full screen reader, because none has been tested with the Q25's keyboard and trackpad yet.
 
 ## Adding a screen reader
 

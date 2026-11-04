@@ -1,0 +1,469 @@
+diff --git a/sable-src/apps/r8/textreader/README.md b/sable-src/apps/r8/textreader/README.md
+index 53c4b25..b0ba8d0 100644
+--- a/sable-src/apps/r8/textreader/README.md
++++ b/sable-src/apps/r8/textreader/README.md
+@@ -42,7 +42,13 @@ The standalone application provides:
+ - user-directed live camera OCR;
+ - user-directed gallery/image OCR;
+ - Latin and Devanagari OCR;
+-- Sable global Light/Dark/accent appearance.
++- Sable global Light/Dark/accent appearance;
++- "Speak what's focused", an accessibility service (off until turned on in
++  Settings > Accessibility) that speaks the item focus moves to with the
++  trackpad or keys. Sources in `speak/`, config and strings in `res/`.
++  It is quiet while the phone is locked, names password fields without
++  reading them, and never takes over touch (no explore by touch) or keys
++  (no key filtering).
+ 
+ The product API floor is Android 11 / API 30, matching the current SableOS
+ application baseline.
+diff --git a/sable-src/apps/r8/textreader/apply_sable_flavor.py b/sable-src/apps/r8/textreader/apply_sable_flavor.py
+index 4326b2a..ae74999 100644
+--- a/sable-src/apps/r8/textreader/apply_sable_flavor.py
++++ b/sable-src/apps/r8/textreader/apply_sable_flavor.py
+@@ -86,6 +86,7 @@ def main() -> None:
+     patch_tests(root)
+     copy_design_sources(root)
+     copy_launcher_icons(root)
++    copy_speak_focus(root)
+     print_summary(actual)
+ 
+ 
+@@ -185,9 +186,31 @@ def patch_manifest(manifest: pathlib.Path) -> None:
+         'android:label="Read in Sable Text Reader"',
+         1,
+     )
++    # Speak what's focused (sable-src 0094): an accessibility service, off until the user turns it on.
++    manifest_text = replace_text_once(
++        manifest_text,
++        "    </application>\n",
++        SPEAK_FOCUS_SERVICE + "    </application>\n",
++        "SABLE_TEXT_READER_SPEAK_FOCUS_ANCHOR",
++    )
+     manifest.write_text(manifest_text, encoding="utf-8")
+ 
+ 
++SPEAK_FOCUS_SERVICE = """        <service
++            android:name="org.sableos.textreader.speak.SpeakFocusService"
++            android:exported="true"
++            android:label="@string/sable_speak_focus_label"
++            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
++            <intent-filter>
++                <action android:name="android.accessibilityservice.AccessibilityService" />
++            </intent-filter>
++            <meta-data
++                android:name="android.accessibilityservice"
++                android:resource="@xml/sable_speak_focus_service" />
++        </service>
++"""
++
++
+ def patch_main_activity(main: pathlib.Path) -> None:
+     main_text = main.read_text(encoding="utf-8")
+     if "import androidx.compose.foundation.isSystemInDarkTheme\n" not in main_text:
+@@ -552,6 +575,20 @@ def copy_launcher_icons(root: pathlib.Path) -> None:
+         shutil.copyfile(source, destination)
+ 
+ 
++def copy_speak_focus(root: pathlib.Path) -> None:
++    # Speak what's focused: Kotlin sources and their unit test from speak/; the service config and
++    # strings come with res/ (copy_launcher_icons copies every XML under it).
++    speak = pathlib.Path(__file__).resolve().parent / "speak"
++    for kind, dest in (("main", "app/src/main/java"), ("test", "app/src/test/java")):
++        files = sorted((speak / kind).rglob("*.kt"))
++        if not files:
++            fail(f"SABLE_TEXT_READER_SPEAK_FOCUS=FAIL_MISSING kind={kind}")
++        for source in files:
++            destination = root / dest / source.relative_to(speak / kind)
++            destination.parent.mkdir(parents=True, exist_ok=True)
++            shutil.copyfile(source, destination)
++
++
+ def print_summary(actual: str) -> None:
+     print(f"SABLE_TEXT_READER_UPSTREAM_COMMIT=PASS value={actual}")
+     print("SABLE_TEXT_READER_APPLICATION_ID=PASS")
+@@ -568,6 +605,7 @@ def print_summary(actual: str) -> None:
+     print("SABLE_TEXT_READER_TTS=PASS")
+     print("SABLE_TEXT_READER_TTS_NETWORK_VOICES=PASS_FILTERED")
+     print("SABLE_TEXT_READER_OCR=PASS_CAMERA_GALLERY_LATIN_DEVANAGARI")
++    print("SABLE_TEXT_READER_SPEAK_FOCUS=PASS_OFF_UNTIL_ENABLED")
+     print("SABLE_TEXT_READER_FLAVOR_PATCH=PASS")
+ 
+ 
+diff --git a/sable-src/apps/r8/textreader/res/values/sable_speak_focus_strings.xml b/sable-src/apps/r8/textreader/res/values/sable_speak_focus_strings.xml
+new file mode 100644
+index 0000000..9d5b516
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/res/values/sable_speak_focus_strings.xml
+@@ -0,0 +1,15 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="sable_speak_focus_label">Speak what\'s focused</string>
++    <string name="sable_speak_focus_summary">Speaks the item the trackpad or keys move to</string>
++    <string name="sable_speak_focus_description">Speaks the button, setting or field that has focus as you move with the trackpad or keys, using the phone\'s text-to-speech engine. It does not change how touch or the keyboard work. It is quiet while the phone is locked, and it names password fields without reading them.</string>
++    <string name="sable_speak_focus_button">button</string>
++    <string name="sable_speak_focus_switch">switch</string>
++    <string name="sable_speak_focus_check_box">check box</string>
++    <string name="sable_speak_focus_edit_box">edit box</string>
++    <string name="sable_speak_focus_on">on</string>
++    <string name="sable_speak_focus_off">off</string>
++    <string name="sable_speak_focus_checked">checked</string>
++    <string name="sable_speak_focus_not_checked">not checked</string>
++    <string name="sable_speak_focus_password">Password field</string>
++</resources>
+diff --git a/sable-src/apps/r8/textreader/res/xml/sable_speak_focus_service.xml b/sable-src/apps/r8/textreader/res/xml/sable_speak_focus_service.xml
+new file mode 100644
+index 0000000..9ca7783
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/res/xml/sable_speak_focus_service.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Speak what's focused: focus and selection events only. No explore by touch and no key
++     filtering, so touch, the keyboard and the trackpad behave as they do without it. -->
++<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
++    android:accessibilityEventTypes="typeViewFocused|typeViewAccessibilityFocused|typeViewSelected"
++    android:accessibilityFeedbackType="feedbackSpoken"
++    android:canRetrieveWindowContent="true"
++    android:description="@string/sable_speak_focus_description"
++    android:isAccessibilityTool="true"
++    android:notificationTimeout="100"
++    android:summary="@string/sable_speak_focus_summary" />
+diff --git a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/speak/FocusSpeech.kt b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/speak/FocusSpeech.kt
+new file mode 100644
+index 0000000..e7cbfd9
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/speak/FocusSpeech.kt
+@@ -0,0 +1,114 @@
++package org.sableos.textreader.speak
++
++/** What "Speak what's focused" knows about the item that took focus. Pure data, no Android types. */
++data class FocusFacts(
++    val text: String? = null,
++    val description: String? = null,
++    val hint: String? = null,
++    val role: FocusRole = FocusRole.Other,
++    val password: Boolean = false,
++    val checked: Boolean? = null,
++    val state: String? = null,
++    val locked: Boolean = false,
++)
++
++enum class FocusRole { Button, Switch, CheckBox, Edit, Other }
++
++/** The words the service adds after a label, from the app's strings. */
++data class FocusWords(
++    val button: String,
++    val switch: String,
++    val checkBox: String,
++    val editBox: String,
++    val on: String,
++    val off: String,
++    val checked: String,
++    val notChecked: String,
++    val password: String,
++) {
++    companion object {
++        val EN =
++            FocusWords(
++                button = "button",
++                switch = "switch",
++                checkBox = "check box",
++                editBox = "edit box",
++                on = "on",
++                off = "off",
++                checked = "checked",
++                notChecked = "not checked",
++                password = "Password field",
++            )
++    }
++}
++
++/**
++ * Turns a focus change into one short utterance.
++ *
++ * Privacy: nothing is spoken while the phone is locked, so a PIN pad or a lock screen notification
++ * is never read aloud, and a password field is named but its characters never are.
++ */
++object FocusSpeech {
++    const val MAX_CHARS = 300
++    const val REPEAT_MILLIS = 800L
++
++    fun roleOf(
++        className: String?,
++        editable: Boolean,
++        checkable: Boolean,
++    ): FocusRole {
++        val name = className.orEmpty()
++        return when {
++            name.endsWith("Switch") || name.endsWith("SwitchCompat") || name.endsWith("SwitchMaterial") -> FocusRole.Switch
++            name.endsWith("CheckBox") -> FocusRole.CheckBox
++            editable || name.endsWith("EditText") -> FocusRole.Edit
++            name.endsWith("Button") -> FocusRole.Button
++            checkable -> FocusRole.CheckBox
++            else -> FocusRole.Other
++        }
++    }
++
++    fun utterance(
++        facts: FocusFacts,
++        words: FocusWords = FocusWords.EN,
++    ): String? {
++        if (facts.locked) return null
++        if (facts.password) {
++            val name = clean(facts.description) ?: clean(facts.hint)
++            return listOfNotNull(name, words.password).joinToString(", ")
++        }
++        val label =
++            when (facts.role) {
++                FocusRole.Edit -> clean(facts.description) ?: clean(facts.hint)
++                else -> clean(facts.description) ?: clean(facts.text) ?: clean(facts.hint)
++            }
++        val typed = if (facts.role == FocusRole.Edit) clean(facts.text) else null
++        val role =
++            when (facts.role) {
++                FocusRole.Button -> words.button
++                FocusRole.Switch -> words.switch
++                FocusRole.CheckBox -> words.checkBox
++                FocusRole.Edit -> words.editBox
++                FocusRole.Other -> null
++            }
++        val state =
++            when (facts.role) {
++                FocusRole.Switch -> facts.checked?.let { if (it) words.on else words.off }
++                FocusRole.CheckBox -> facts.checked?.let { if (it) words.checked else words.notChecked }
++                else -> null
++            } ?: clean(facts.state)
++        if (label == null && typed == null && facts.role == FocusRole.Other) return null
++        val spoken = listOfNotNull(label, role, state, typed).joinToString(", ")
++        return if (spoken.length <= MAX_CHARS) spoken else spoken.take(MAX_CHARS - 1).trimEnd() + "…"
++    }
++
++    /** The same utterance again within [REPEAT_MILLIS] is an echo (focus and selection events), not news. */
++    fun shouldSpeak(
++        last: String?,
++        lastAtMillis: Long,
++        next: String,
++        nowMillis: Long,
++    ): Boolean = next != last || nowMillis - lastAtMillis >= REPEAT_MILLIS
++
++    private fun clean(value: String?): String? = value?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotEmpty() }
++}
+diff --git a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/speak/SpeakFocusService.kt b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/speak/SpeakFocusService.kt
+new file mode 100644
+index 0000000..d4dcded
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/speak/SpeakFocusService.kt
+@@ -0,0 +1,112 @@
++package org.sableos.textreader.speak
++
++import android.accessibilityservice.AccessibilityService
++import android.app.KeyguardManager
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
++import android.content.IntentFilter
++import android.os.Build
++import android.os.SystemClock
++import android.speech.tts.TextToSpeech
++import android.view.accessibility.AccessibilityEvent
++import org.vaachak.textreader.R
++
++/**
++ * "Speak what's focused": speaks the item the trackpad or keys move focus to, with the phone's
++ * text-to-speech engine (Sable Speech, eSpeak NG). It is not a screen reader: it does not take over
++ * touch (no explore by touch) or keys (no key filtering), so the Q25 keyboard and trackpad work as
++ * they always do. It is quiet while the phone is locked and stops when the screen turns off.
++ */
++class SpeakFocusService :
++    AccessibilityService(),
++    TextToSpeech.OnInitListener {
++    private var tts: TextToSpeech? = null
++    private var ready = false
++    private var last: String? = null
++    private var lastAt = 0L
++    private lateinit var words: FocusWords
++
++    private val screenOff =
++        object : BroadcastReceiver() {
++            override fun onReceive(
++                context: Context,
++                intent: Intent,
++            ) {
++                tts?.stop()
++                last = null
++            }
++        }
++
++    override fun onServiceConnected() {
++        words =
++            FocusWords(
++                button = getString(R.string.sable_speak_focus_button),
++                switch = getString(R.string.sable_speak_focus_switch),
++                checkBox = getString(R.string.sable_speak_focus_check_box),
++                editBox = getString(R.string.sable_speak_focus_edit_box),
++                on = getString(R.string.sable_speak_focus_on),
++                off = getString(R.string.sable_speak_focus_off),
++                checked = getString(R.string.sable_speak_focus_checked),
++                notChecked = getString(R.string.sable_speak_focus_not_checked),
++                password = getString(R.string.sable_speak_focus_password),
++            )
++        tts = TextToSpeech(this, this)
++        val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
++            registerReceiver(screenOff, filter, Context.RECEIVER_NOT_EXPORTED)
++        } else {
++            registerReceiver(screenOff, filter)
++        }
++    }
++
++    override fun onInit(status: Int) {
++        ready = status == TextToSpeech.SUCCESS
++    }
++
++    override fun onAccessibilityEvent(event: AccessibilityEvent) {
++        if (!::words.isInitialized) return
++        val utterance = FocusSpeech.utterance(factsOf(event), words) ?: return
++        val now = SystemClock.uptimeMillis()
++        if (!FocusSpeech.shouldSpeak(last, lastAt, utterance, now)) return
++        last = utterance
++        lastAt = now
++        if (ready) tts?.speak(utterance, TextToSpeech.QUEUE_FLUSH, null, UTTERANCE_ID)
++    }
++
++    private fun factsOf(event: AccessibilityEvent): FocusFacts {
++        val locked = getSystemService(KeyguardManager::class.java)?.isKeyguardLocked ?: true
++        if (locked) return FocusFacts(locked = true)
++        val node = event.source
++        val text = event.text.joinToString(" ").ifBlank { node?.text?.toString().orEmpty() }
++        return FocusFacts(
++            text = text,
++            description = (event.contentDescription ?: node?.contentDescription)?.toString(),
++            hint = node?.hintText?.toString(),
++            role =
++                FocusSpeech.roleOf(
++                    className = (node?.className ?: event.className)?.toString(),
++                    editable = node?.isEditable == true,
++                    checkable = node?.isCheckable == true,
++                ),
++            password = event.isPassword || node?.isPassword == true,
++            checked = if (node?.isCheckable == true) node.isChecked else null,
++            state = node?.stateDescription?.toString(),
++        )
++    }
++
++    override fun onInterrupt() {
++        tts?.stop()
++    }
++
++    override fun onDestroy() {
++        runCatching { unregisterReceiver(screenOff) }
++        tts?.shutdown()
++        tts = null
++        super.onDestroy()
++    }
++
++    private companion object {
++        const val UTTERANCE_ID = "sable_focus"
++    }
++}
+diff --git a/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/speak/FocusSpeechTest.kt b/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/speak/FocusSpeechTest.kt
+new file mode 100644
+index 0000000..aa53867
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/speak/FocusSpeechTest.kt
+@@ -0,0 +1,58 @@
++package org.sableos.textreader.speak
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class FocusSpeechTest {
++    @Test
++    fun `button speaks its label and role`() {
++        val facts = FocusFacts(text = "Send", role = FocusSpeech.roleOf("android.widget.Button", false, false))
++        assertEquals("Send, button", FocusSpeech.utterance(facts))
++    }
++
++    @Test
++    fun `switch speaks on or off and description wins over text`() {
++        val role = FocusSpeech.roleOf("android.widget.Switch", false, true)
++        assertEquals(FocusRole.Switch, role)
++        val facts = FocusFacts(text = "ON", description = "Wi-Fi", role = role, checked = true)
++        assertEquals("Wi-Fi, switch, on", FocusSpeech.utterance(facts))
++    }
++
++    @Test
++    fun `edit box speaks its hint and what is typed`() {
++        val role = FocusSpeech.roleOf("android.widget.EditText", true, false)
++        assertEquals("Search, edit box, cafe", FocusSpeech.utterance(FocusFacts(text = "cafe", hint = "Search", role = role)))
++        assertEquals("Search, edit box", FocusSpeech.utterance(FocusFacts(hint = "Search", role = role)))
++    }
++
++    @Test
++    fun `password field is named but never read`() {
++        val facts = FocusFacts(text = "hunter2", hint = "PIN", role = FocusRole.Edit, password = true)
++        val spoken = FocusSpeech.utterance(facts)
++        assertEquals("PIN, Password field", spoken)
++        assertFalse(spoken!!.contains("hunter2"))
++    }
++
++    @Test
++    fun `nothing is spoken while locked`() {
++        assertNull(FocusSpeech.utterance(FocusFacts(text = "Mum: see you at 6", locked = true)))
++    }
++
++    @Test
++    fun `an empty item is silent and long text is capped`() {
++        assertNull(FocusSpeech.utterance(FocusFacts(text = "  ")))
++        val long = FocusSpeech.utterance(FocusFacts(text = "word ".repeat(200)))!!
++        assertEquals(FocusSpeech.MAX_CHARS, long.length)
++        assertTrue(long.endsWith("…"))
++    }
++
++    @Test
++    fun `an echo of the same item is dropped`() {
++        assertFalse(FocusSpeech.shouldSpeak("Send, button", 1_000, "Send, button", 1_200))
++        assertTrue(FocusSpeech.shouldSpeak("Send, button", 1_000, "Send, button", 2_000))
++        assertTrue(FocusSpeech.shouldSpeak("Send, button", 1_000, "Back, button", 1_100))
++    }
++}
+diff --git a/sable-src/apps/r8/textreader/verify_sable_textreader.py b/sable-src/apps/r8/textreader/verify_sable_textreader.py
+index 7f975bc..8073ab4 100644
+--- a/sable-src/apps/r8/textreader/verify_sable_textreader.py
++++ b/sable-src/apps/r8/textreader/verify_sable_textreader.py
+@@ -53,6 +53,7 @@ def main() -> None:
+     print("SABLE_TEXT_READER_GLOBAL_APPEARANCE=PASS")
+     print("SABLE_TEXT_READER_TEXT_INPUT=PASS_BOUNDED_2_MIB")
+     print("SABLE_TEXT_READER_TTS_NETWORK_VOICES=PASS_FILTERED")
++    print("SABLE_TEXT_READER_SPEAK_FOCUS=PASS_NO_TOUCH_NO_KEYS_QUIET_LOCKED")
+ 
+     if len(sys.argv) == 3:
+         verify_apk(root, pathlib.Path(sys.argv[2]).resolve())
+@@ -120,6 +121,15 @@ def verify_sources(root: pathlib.Path) -> None:
+     )
+     require(tts_settings, "fun selectLocalVoice(", "SABLE_TEXT_READER_LOCAL_TTS_SELECTOR")
+     require(design, 'AUTHORITY = "org.sableos.appearance"', "SABLE_TEXT_READER_APPEARANCE_AUTHORITY")
++    speak = root / "app/src/main/java/org/sableos/textreader/speak"
++    require(speak / "FocusSpeech.kt", "if (facts.locked) return null", "SABLE_TEXT_READER_SPEAK_FOCUS_LOCKED")
++    require(speak / "SpeakFocusService.kt", "FocusSpeech.utterance(", "SABLE_TEXT_READER_SPEAK_FOCUS_POLICY")
++    config = root / "app/src/main/res/xml/sable_speak_focus_service.xml"
++    require(config, 'android:accessibilityFeedbackType="feedbackSpoken"', "SABLE_TEXT_READER_SPEAK_FOCUS_CONFIG")
++    # A focus speaker, not a screen reader: it never takes touch exploration or filters keys.
++    forbid(config, "flagRequestTouchExplorationMode", "SABLE_TEXT_READER_SPEAK_FOCUS_TOUCH")
++    forbid(config, "flagRequestFilterKeyEvents", "SABLE_TEXT_READER_SPEAK_FOCUS_KEYS")
++    forbid(config, "canRequestFilterKeyEvents", "SABLE_TEXT_READER_SPEAK_FOCUS_KEYS")
+ 
+ 
+ def is_launcher_filter(intent_filter: ET.Element, android: str) -> bool:
+@@ -159,6 +169,8 @@ def verify_manifest(manifest_path: pathlib.Path) -> None:
+         "android.intent.action.PROCESS_TEXT",
+         'android:mimeType="text/plain"',
+         'android:authorities="org.sableos.appearance"',
++        "org.sableos.textreader.speak.SpeakFocusService",
++        "android.permission.BIND_ACCESSIBILITY_SERVICE",
+     ):
+         if token not in manifest_text:
+             fail("SABLE_TEXT_READER_MANIFEST", f"missing={token!r}")

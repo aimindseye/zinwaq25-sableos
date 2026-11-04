@@ -1081,6 +1081,17 @@ grep -q "'ndk;26.1.10909125' 'cmake;3.22.1'" .github/workflows/android.yml || sp
 grep -q 'espeak-ng/espeak-ng' THIRD_PARTY_NOTICES.md || speech_bad="$speech_bad notice"
 if [[ -z "$speech_bad" ]]; then pass "Sable Speech: pinned eSpeak NG 1.52.0 from source, no permission, no launcher, CI, GPL notice"; else fail "speech:$speech_bad"; fi
 
+# 20. Speak what's focused (sable-src 0094) in the Text Reader flavor: focus speech only, quiet locked.
+tr=sable-src/apps/r8/textreader
+focus_bad=""
+grep -q 'if (facts.locked) return null' "$tr/speak/main/org/sableos/textreader/speak/FocusSpeech.kt" || focus_bad="$focus_bad locked"
+grep -q 'words.password' "$tr/speak/main/org/sableos/textreader/speak/FocusSpeech.kt" || focus_bad="$focus_bad password"
+[[ -f "$tr/speak/test/org/sableos/textreader/speak/FocusSpeechTest.kt" ]] || focus_bad="$focus_bad test"
+grep -q 'copy_speak_focus(root)' "$tr/apply_sable_flavor.py" || focus_bad="$focus_bad applicator"
+grep -q 'BIND_ACCESSIBILITY_SERVICE' "$tr/apply_sable_flavor.py" || focus_bad="$focus_bad manifest"
+grep -Eq 'flagRequestTouchExplorationMode|FilterKeyEvents' "$tr/res/xml/sable_speak_focus_service.xml" && focus_bad="$focus_bad takes-input"
+if [[ -z "$focus_bad" ]]; then pass "Speak what's focused: focus only, no touch or key capture, quiet while locked, passwords never read"; else fail "speak focus:$focus_bad"; fi
+
 # 19. Translatable Sable apps (sable-src 0085, docs/LANGUAGES.md): every app keeps its English in one
 #     table, repeats it in values/strings.xml, binds the table to the resources and tests the two equal.
 i18n_bad=""

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Speak what's focused: focus and selection events only. No explore by touch and no key
+     filtering, so touch, the keyboard and the trackpad behave as they do without it. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeViewFocused|typeViewAccessibilityFocused|typeViewSelected"
+    android:accessibilityFeedbackType="feedbackSpoken"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/sable_speak_focus_description"
+    android:isAccessibilityTool="true"
+    android:notificationTimeout="100"
+    android:summary="@string/sable_speak_focus_summary" />

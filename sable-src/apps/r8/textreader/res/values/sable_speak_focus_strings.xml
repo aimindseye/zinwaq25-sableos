@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sable_speak_focus_label">Speak what\'s focused</string>
+    <string name="sable_speak_focus_summary">Speaks the item the trackpad or keys move to</string>
+    <string name="sable_speak_focus_description">Speaks the button, setting or field that has focus as you move with the trackpad or keys, using the phone\'s text-to-speech engine. It does not change how touch or the keyboard work. It is quiet while the phone is locked, and it names password fields without reading them.</string>
+    <string name="sable_speak_focus_button">button</string>
+    <string name="sable_speak_focus_switch">switch</string>
+    <string name="sable_speak_focus_check_box">check box</string>
+    <string name="sable_speak_focus_edit_box">edit box</string>
+    <string name="sable_speak_focus_on">on</string>
+    <string name="sable_speak_focus_off">off</string>
+    <string name="sable_speak_focus_checked">checked</string>
+    <string name="sable_speak_focus_not_checked">not checked</string>
+    <string name="sable_speak_focus_password">Password field</string>
+</resources>
