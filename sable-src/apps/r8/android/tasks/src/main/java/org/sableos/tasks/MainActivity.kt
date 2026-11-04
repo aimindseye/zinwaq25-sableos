@@ -67,13 +67,21 @@ class MainActivity : ComponentActivity() {
         intent ?: return
         when {
             intent.action == Intent.ACTION_SEND -> {
-                intent.getStringExtra(Intent.EXTRA_TEXT)?.let(TaskRecord::fromSharedText)?.let { state.openEditor(it, isNew = true) }
+                intent
+                    .getStringExtra(Intent.EXTRA_TEXT)
+                    ?.let(TaskRecord::fromSharedText)
+                    ?.let { state.openEditor(it, isNew = true) }
             }
 
-            intent.action == ACTION_FOLLOW_UP -> followUp(intent)
+            intent.action == ACTION_FOLLOW_UP -> {
+                followUp(intent)
+            }
 
             else -> {
-                intent.getStringExtra(EXTRA_TASK_ID)?.let(repository::find)?.let { state.openEditor(it, isNew = false) }
+                intent
+                    .getStringExtra(EXTRA_TASK_ID)
+                    ?.let(repository::find)
+                    ?.let { state.openEditor(it, isNew = false) }
             }
         }
     }

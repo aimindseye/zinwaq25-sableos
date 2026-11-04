@@ -49,7 +49,10 @@ class HubHomeRowsTest {
 
     @Test
     fun capsRowsAndText() {
-        val many = (1..40).map { sms.copy(threadId = it.toLong(), lastDateMillis = it.toLong(), lastBody = "x".repeat(300)) }
+        val many =
+            (1..40).map {
+                sms.copy(threadId = it.toLong(), lastDateMillis = it.toLong(), lastBody = "x".repeat(300))
+            }
         val rows = HubHomeRows.rows(many, HubPrivacyState(), 0L)
         assertEquals(HubHomeRows.MAX_ROWS, rows.size)
         assertEquals(40L, rows.first().threadId)

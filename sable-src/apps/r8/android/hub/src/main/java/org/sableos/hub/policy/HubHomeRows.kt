@@ -42,7 +42,11 @@ object HubHomeRows {
                 HubHomeRow(
                     threadId = conversation.threadId,
                     title = conversation.displayName.trim().take(MAX_TITLE),
-                    preview = conversation.lastBody.replace('\n', ' ').trim().take(MAX_PREVIEW),
+                    preview =
+                        conversation.lastBody
+                            .replace('\n', ' ')
+                            .trim()
+                            .take(MAX_PREVIEW),
                     dateMillis = conversation.lastDateMillis,
                     unread = conversation.unreadCount.coerceAtLeast(0),
                     sms = conversation.source == HubConversationSource.Sms,

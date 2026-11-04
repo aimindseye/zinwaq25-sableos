@@ -56,7 +56,7 @@ object TaskAlarms {
                 data = Uri.parse("sable-task://" + action.substringAfterLast('.').lowercase() + "/" + id)
                 putExtra(EXTRA_ID, id)
             }
-        return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        return PendingIntent.getBroadcast(context, 0, intent, PENDING_FLAGS)
     }
 
     fun cancel(
@@ -71,10 +71,11 @@ object TaskAlarms {
         context: Context,
         task: TaskRecord,
     ) {
-        val at = task.remindAtEpochMs ?: return
-        if (task.completed || at <= System.currentTimeMillis()) return
-        val alarm = context.getSystemService(AlarmManager::class.java) ?: return
-        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, broadcast(context, ACTION_DUE, task.id))
+        val at = task.remindAtEpochMs
+        if (task.completed || at == null || at <= System.currentTimeMillis()) return
+        context
+            .getSystemService(AlarmManager::class.java)
+            ?.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, broadcast(context, ACTION_DUE, task.id))
     }
 
     fun notificationsAllowed(context: Context): Boolean =
@@ -102,7 +103,7 @@ object TaskAlarms {
                     .setData(Uri.parse("sable-task://open/" + task.id))
                     .putExtra(MainActivity.EXTRA_TASK_ID, task.id)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                PENDING_FLAGS,
             )
         val public =
             Notification
@@ -115,20 +116,30 @@ object TaskAlarms {
                 .Builder(context, CHANNEL)
                 .setSmallIcon(R.drawable.ic_sable_tasks_monochrome)
                 .setContentTitle(task.title)
-                .setContentText(task.details.lineSequence().firstOrNull().orEmpty())
+                .setContentText(firstLine(task.details))
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .setVisibility(Notification.VISIBILITY_PRIVATE)
                 .setPublicVersion(public)
                 .setContentIntent(open)
                 .setAutoCancel(true)
-                .addAction(Notification.Action.Builder(icon, t("done"), broadcast(context, ACTION_DONE, task.id)).build())
-                .addAction(
-                    Notification.Action.Builder(icon, t("snooze_1_hour"), broadcast(context, ACTION_SNOOZE, task.id)).build(),
-                ).build()
+                .addAction(action(context, icon, t("done"), ACTION_DONE, task.id))
+                .addAction(action(context, icon, t("snooze_1_hour"), ACTION_SNOOZE, task.id))
+                .build()
         manager.notify(task.id, NOTIFICATION_ID, notification)
     }
 
+    private fun action(
+        context: Context,
+        icon: Icon,
+        title: String,
+        action: String,
+        id: String,
+    ): Notification.Action = Notification.Action.Builder(icon, title, broadcast(context, action, id)).build()
+
+    private fun firstLine(text: String): String = text.lineSequence().firstOrNull().orEmpty()
+
     private const val NOTIFICATION_ID = 1
+    private const val PENDING_FLAGS = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 }
 
 /** Due reminders and the notification's Done and Snooze 1 hour; not exported. */
@@ -138,14 +149,13 @@ class TaskAlarmReceiver : BroadcastReceiver() {
         intent: Intent,
     ) {
         TasksText.t.bindTo(context)
-        val id = intent.getStringExtra(TaskAlarms.EXTRA_ID) ?: return
         val repository = taskRepository(context)
-        val task = repository.find(id) ?: return
+        val task = intent.getStringExtra(TaskAlarms.EXTRA_ID)?.let(repository::find) ?: return
         when (intent.action) {
             TaskAlarms.ACTION_DUE -> {
-                val at = task.remindAtEpochMs ?: return
+                val at = task.remindAtEpochMs
                 when {
-                    task.completed -> Unit
+                    task.completed || at == null -> Unit
                     at > System.currentTimeMillis() -> TaskAlarms.schedule(context, task)
                     else -> TaskAlarms.notify(context, task)
                 }

@@ -1,5 +1,8 @@
+@file:Suppress("FunctionNaming") // Compose functions are named like types.
+
 package org.sableos.tasks.ui
 
+import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -49,6 +52,7 @@ import org.sableos.tasks.core.TasksKeys
 import org.sableos.tasks.core.TasksText.t
 import java.time.Instant
 import java.time.ZoneId
+import java.util.Date
 
 @Composable
 fun TasksApp(
@@ -91,6 +95,7 @@ fun TasksApp(
     }
 }
 
+@Suppress("LongMethod") // The screen, read top to bottom.
 @Composable
 private fun TaskList(
     state: TasksState,
@@ -105,7 +110,12 @@ private fun TaskList(
     if (!state.notificationsAllowed) {
         Text(
             text = t("reminders_off"),
-            modifier = Modifier.fillMaxWidth().sableFocusRing().clickable(onClick = onAllowNotifications).padding(vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .sableFocusRing()
+                    .clickable(onClick = onAllowNotifications)
+                    .padding(vertical = 8.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -113,13 +123,22 @@ private fun TaskList(
     Spacer(Modifier.height(SableSpacing.Md))
     val sections = TaskSchedule.sections(state.tasks, state.showDone, Instant.now(), ZoneId.systemDefault())
     if (sections.isEmpty()) {
-        Text(t("no_tasks"), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            t("no_tasks"),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
     sections.forEach { (group, tasks) ->
         Text(
             text = groupLabel(group),
             style = MaterialTheme.typography.labelLarge,
-            color = if (group == TaskGroup.Overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            color =
+                if (group == TaskGroup.Overdue) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.primary
+                },
             modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
         )
         tasks.forEach { task ->
@@ -127,14 +146,7 @@ private fun TaskList(
                 task = task,
                 onOpen = { state.openEditor(task, isNew = false) },
                 onKey = { key ->
-                    when (key) {
-                        RowKey.Done -> repository.complete(task)
-                        RowKey.Tomorrow -> {
-                            val at = TaskSchedule.preset(ReminderPreset.TomorrowMorning, Instant.now(), ZoneId.systemDefault())
-                            repository.save(task.copy(remindAtEpochMs = at, updatedAtEpochMs = System.currentTimeMillis()))
-                        }
-                        RowKey.Delete -> state.pendingDelete = task
-                    }
+                    onRowKey(key, task, state, repository)
                     onChanged()
                 },
             )
@@ -158,6 +170,29 @@ private fun TaskList(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/** Space done, Z tomorrow 9:00, D asks before deleting. */
+private fun onRowKey(
+    key: RowKey,
+    task: TaskRecord,
+    state: TasksState,
+    repository: TaskRepository,
+) {
+    when (key) {
+        RowKey.Done -> {
+            repository.complete(task)
+        }
+
+        RowKey.Tomorrow -> {
+            val at = TaskSchedule.preset(ReminderPreset.TomorrowMorning, Instant.now(), ZoneId.systemDefault())
+            repository.save(task.copy(remindAtEpochMs = at, updatedAtEpochMs = System.currentTimeMillis()))
+        }
+
+        RowKey.Delete -> {
+            state.pendingDelete = task
+        }
     }
 }
 
@@ -194,7 +229,12 @@ private fun TaskRow(
             )
             val line = taskLine(context, task)
             if (line.isNotEmpty()) {
-                Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
             }
         }
     }
@@ -267,5 +307,5 @@ internal fun formatWhen(
     context: android.content.Context,
     millis: Long,
 ): String =
-    android.text.format.DateFormat.getMediumDateFormat(context).format(java.util.Date(millis)) + " · " +
-        android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(millis))
+    DateFormat.getMediumDateFormat(context).format(Date(millis)) + " · " +
+        DateFormat.getTimeFormat(context).format(Date(millis))

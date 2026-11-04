@@ -85,6 +85,7 @@ object HubNotificationCommands {
             action.pendingIntent.send(context, 0, null)
             t("sent_to_the_app")
         } catch (e: PendingIntent.CanceledException) {
+            Log.i(TAG, "the source cancelled its action", e)
             ConnectedActionRegistry.remove(notificationKey)
             t("the_notification_is_gone")
         }
@@ -94,8 +95,12 @@ object HubNotificationCommands {
         val service = listener?.get() ?: return null
         return try {
             block(service)
-        } catch (e: RuntimeException) {
-            // SecurityException once the listener is unbound, or a key Android no longer has.
+        } catch (e: SecurityException) {
+            // The listener was unbound between the check and the call.
+            Log.w(TAG, "notification command refused", e)
+            null
+        } catch (e: IllegalArgumentException) {
+            // A key Android no longer has.
             Log.w(TAG, "notification command failed", e)
             null
         }

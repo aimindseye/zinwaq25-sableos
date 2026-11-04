@@ -1,7 +1,10 @@
+@file:Suppress("FunctionNaming") // Compose functions are named like types.
+
 package org.sableos.tasks.ui
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -33,6 +36,7 @@ import java.time.ZoneId
 import java.util.Calendar
 
 /** New and edit form: title, details, due, reminder (quick times or a picked one) and repeat. */
+@Suppress("LongMethod") // One form, read top to bottom.
 @Composable
 internal fun TaskEditor(
     task: TaskRecord,
@@ -80,7 +84,9 @@ internal fun TaskEditor(
                 Text(presetLabel(preset))
             }
         }
-        TextButton(onClick = { pickDateTime(context, remind ?: defaultTime()) { remind = it } }) { Text(t("pick_time")) }
+        TextButton(onClick = { pickDateTime(context, remind ?: defaultTime()) { remind = it } }) {
+            Text(t("pick_time"))
+        }
         TextButton(onClick = { remind = null }) { Text(t("none")) }
     }
     TextButton(onClick = { repeat = TaskRepeat.entries[(repeat.ordinal + 1) % TaskRepeat.entries.size] }) {
@@ -129,7 +135,8 @@ private fun presetLabel(preset: ReminderPreset): String =
         ReminderPreset.TomorrowMorning -> t("tomorrow_morning")
     }
 
-private fun defaultTime(): Long = TaskSchedule.preset(ReminderPreset.TomorrowMorning, Instant.now(), ZoneId.systemDefault())
+private fun defaultTime(): Long =
+    TaskSchedule.preset(ReminderPreset.TomorrowMorning, Instant.now(), ZoneId.systemDefault())
 
 /** System date picker, then time picker; [onPicked] gets the combined local time. */
 private fun pickDateTime(
@@ -154,7 +161,7 @@ private fun pickDateTime(
                 },
                 initial.get(Calendar.HOUR_OF_DAY),
                 initial.get(Calendar.MINUTE),
-                android.text.format.DateFormat.is24HourFormat(context),
+                DateFormat.is24HourFormat(context),
             ).show()
         },
         initial.get(Calendar.YEAR),

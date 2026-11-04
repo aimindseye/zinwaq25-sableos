@@ -43,7 +43,7 @@ object QuickBar {
      */
     val REQUIRED: Set<String> = emptySet()
 
-    private val ROLES = setOf(PHONE, HUB, CAMERA, ALL_APPS)
+    private val ROLES = setOf(PHONE, HUB, CAMERA, COMMAND, ALL_APPS)
 
     fun appToken(stableKey: String): String = APP_PREFIX + stableKey
 

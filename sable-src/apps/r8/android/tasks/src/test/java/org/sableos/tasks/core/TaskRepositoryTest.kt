@@ -67,7 +67,13 @@ class TaskRepositoryTest {
             val now = Instant.parse("2026-11-02T16:00:00Z").toEpochMilli()
             val repo = TaskRepository(store, Recorder(store)) { now }
             val daily =
-                TaskRecord(title = "Daily", zoneId = "UTC", repeat = TaskRepeat.Daily, dueAtEpochMs = now - 1000, remindAtEpochMs = now - 2000)
+                TaskRecord(
+                    title = "Daily",
+                    zoneId = "UTC",
+                    repeat = TaskRepeat.Daily,
+                    dueAtEpochMs = now - 1000,
+                    remindAtEpochMs = now - 2000,
+                )
             val next = repo.complete(daily)
             assertFalse(next.completed)
             assertTrue(next.dueAtEpochMs!! > now && next.remindAtEpochMs!! > now)
@@ -90,6 +96,7 @@ class TaskRepositoryTest {
             assertEquals(64, again.originToken!!.length)
             assertTrue(dir.listFiles()!!.none { it.readText().contains("private-original-key") })
             repo.complete(again)
-            assertNotEquals(again.id, repo.followUp("example.mail", "private-original-key", "Follow up in Mail", 3000L).id)
+            val later = repo.followUp("example.mail", "private-original-key", "Follow up in Mail", 3000L)
+            assertNotEquals(again.id, later.id)
         }
 }

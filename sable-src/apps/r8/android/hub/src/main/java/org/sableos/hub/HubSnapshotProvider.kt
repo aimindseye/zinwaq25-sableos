@@ -46,8 +46,14 @@ class HubSnapshotProvider : ContentProvider() {
     ): Cursor {
         val appContext = checkNotNull(context)
         enforceLauncherCaller(appContext)
-        if (uri.pathSegments.firstOrNull() == PATH_APPS) return appCounts(appContext)
-        if (uri.pathSegments.firstOrNull() == PATH_MESSAGES) return homeRows(appContext)
+        return when (uri.pathSegments.firstOrNull()) {
+            PATH_APPS -> appCounts(appContext)
+            PATH_MESSAGES -> homeRows(appContext)
+            else -> attention(appContext)
+        }
+    }
+
+    private fun attention(appContext: android.content.Context): Cursor {
         val canReadSms =
             appContext.checkSelfPermission(Manifest.permission.READ_SMS) ==
                 PackageManager.PERMISSION_GRANTED

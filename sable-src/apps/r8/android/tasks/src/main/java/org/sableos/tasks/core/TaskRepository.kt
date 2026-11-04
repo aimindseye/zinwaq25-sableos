@@ -35,10 +35,10 @@ class TaskRepository(
 
     /** Done (or not done again). A repeating dated task moves to its next occurrence instead. */
     fun complete(task: TaskRecord): TaskRecord {
+        val dated = task.dueAtEpochMs != null || task.remindAtEpochMs != null
+        val repeats = task.repeat != TaskRepeat.Never && dated
         val next =
-            if (!task.completed && task.repeat != TaskRepeat.Never &&
-                (task.dueAtEpochMs != null || task.remindAtEpochMs != null)
-            ) {
+            if (!task.completed && repeats) {
                 task.copy(
                     dueAtEpochMs = TaskSchedule.advanceAfter(task.dueAtEpochMs, task.repeat, task.zoneId, now()),
                     remindAtEpochMs = TaskSchedule.advanceAfter(task.remindAtEpochMs, task.repeat, task.zoneId, now()),

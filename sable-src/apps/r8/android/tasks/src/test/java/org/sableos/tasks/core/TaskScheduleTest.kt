@@ -10,6 +10,8 @@ class TaskScheduleTest {
     private val ny = ZoneId.of("America/New_York")
     private val utc = ZoneId.of("UTC")
 
+    private fun ms(instant: String): Long = Instant.parse(instant).toEpochMilli()
+
     @Test
     fun springForwardTomorrowMorningKeepsLocalTime() {
         val now = Instant.parse("2026-03-07T21:00:00Z")
@@ -37,12 +39,12 @@ class TaskScheduleTest {
     fun presetsHandleMidnightEveningAndMonthEnd() {
         val late = Instant.parse("2026-11-02T23:00:00Z")
         val morning = Instant.parse("2026-11-02T10:00:00Z")
-        assertEquals(Instant.parse("2026-11-03T09:00:00Z").toEpochMilli(), TaskSchedule.preset(ReminderPreset.LaterToday, late, utc))
-        assertEquals(Instant.parse("2026-11-02T12:00:00Z").toEpochMilli(), TaskSchedule.preset(ReminderPreset.LaterToday, morning, utc))
-        assertEquals(Instant.parse("2026-11-02T18:00:00Z").toEpochMilli(), TaskSchedule.preset(ReminderPreset.ThisEvening, morning, utc))
-        assertEquals(Instant.parse("2026-11-03T18:00:00Z").toEpochMilli(), TaskSchedule.preset(ReminderPreset.ThisEvening, late, utc))
+        assertEquals(ms("2026-11-03T09:00:00Z"), TaskSchedule.preset(ReminderPreset.LaterToday, late, utc))
+        assertEquals(ms("2026-11-02T12:00:00Z"), TaskSchedule.preset(ReminderPreset.LaterToday, morning, utc))
+        assertEquals(ms("2026-11-02T18:00:00Z"), TaskSchedule.preset(ReminderPreset.ThisEvening, morning, utc))
+        assertEquals(ms("2026-11-03T18:00:00Z"), TaskSchedule.preset(ReminderPreset.ThisEvening, late, utc))
         val jan = Instant.parse("2026-01-31T09:00:00Z").toEpochMilli()
-        assertEquals(Instant.parse("2026-02-28T09:00:00Z").toEpochMilli(), TaskSchedule.nextOccurrence(jan, TaskRepeat.Monthly, "UTC"))
+        assertEquals(ms("2026-02-28T09:00:00Z"), TaskSchedule.nextOccurrence(jan, TaskRepeat.Monthly, "UTC"))
         assertEquals(jan, TaskSchedule.advanceAfter(jan, TaskRepeat.Never, "UTC", late.toEpochMilli()))
         assertNull(TaskSchedule.advanceAfter(null, TaskRepeat.Daily, "UTC", late.toEpochMilli()))
     }

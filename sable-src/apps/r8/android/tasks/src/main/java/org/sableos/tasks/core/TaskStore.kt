@@ -20,7 +20,9 @@ class TaskStore(
             .listFiles { file -> file.isFile && file.name.endsWith(SUFFIX) }
             .orEmpty()
             .mapNotNull { file ->
-                runCatching { decode(file.name.removeSuffix(SUFFIX), file.inputStream().use(::loadProperties)) }.getOrNull()
+                runCatching {
+                    decode(file.name.removeSuffix(SUFFIX), file.inputStream().use(::loadProperties))
+                }.getOrNull()
             }.sortedWith(compareBy<TaskRecord> { it.completed }.thenByDescending { it.updatedAtEpochMs })
 
     @Synchronized

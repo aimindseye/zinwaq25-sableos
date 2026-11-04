@@ -123,12 +123,22 @@ class NotesController(
     }
 
     private fun tasksKey(key: TasksKey): Boolean {
-        when (key) {
-            TasksKey.History -> state.showDone = !state.showDone
-            TasksKey.OpenNote -> show(Screen.Editor(state.focusedTask?.noteId ?: return false))
-            TasksKey.Remind -> return remindInTasks(state.focusedTask ?: return false)
+        val focused = state.focusedTask
+        return when (key) {
+            TasksKey.History -> {
+                state.showDone = !state.showDone
+                true
+            }
+
+            TasksKey.OpenNote -> {
+                focused?.let { show(Screen.Editor(it.noteId)) }
+                focused != null
+            }
+
+            TasksKey.Remind -> {
+                focused != null && remindInTasks(focused)
+            }
         }
-        return true
     }
 
     /**

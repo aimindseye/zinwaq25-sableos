@@ -1,0 +1,781 @@
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt
+index f654a66..b4afcb3 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt
+@@ -46,8 +46,14 @@ class HubSnapshotProvider : ContentProvider() {
+     ): Cursor {
+         val appContext = checkNotNull(context)
+         enforceLauncherCaller(appContext)
+-        if (uri.pathSegments.firstOrNull() == PATH_APPS) return appCounts(appContext)
+-        if (uri.pathSegments.firstOrNull() == PATH_MESSAGES) return homeRows(appContext)
++        return when (uri.pathSegments.firstOrNull()) {
++            PATH_APPS -> appCounts(appContext)
++            PATH_MESSAGES -> homeRows(appContext)
++            else -> attention(appContext)
++        }
++    }
++
++    private fun attention(appContext: android.content.Context): Cursor {
+         val canReadSms =
+             appContext.checkSelfPermission(Manifest.permission.READ_SMS) ==
+                 PackageManager.PERMISSION_GRANTED
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedActionRegistry.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedActionRegistry.kt
+index 52b271c..3243cd4 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedActionRegistry.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedActionRegistry.kt
+@@ -37,7 +37,11 @@ internal object ConnectedActionRegistry {
+                 .take(MAX_ACTIONS)
+                 .mapIndexedNotNull { index, action ->
+                     val intent = action.actionIntent ?: return@mapIndexedNotNull null
+-                    val title = action.title?.toString()?.trim().orEmpty()
++                    val title =
++                        action.title
++                            ?.toString()
++                            ?.trim()
++                            .orEmpty()
+                     val asksForText = !action.remoteInputs.isNullOrEmpty()
+                     if (title.isEmpty() || action.isContextual || asksForText) {
+                         null
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/HubNotificationCommands.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/HubNotificationCommands.kt
+index 0f3b358..25a84eb 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/HubNotificationCommands.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/HubNotificationCommands.kt
+@@ -85,6 +85,7 @@ object HubNotificationCommands {
+             action.pendingIntent.send(context, 0, null)
+             t("sent_to_the_app")
+         } catch (e: PendingIntent.CanceledException) {
++            Log.i(TAG, "the source cancelled its action", e)
+             ConnectedActionRegistry.remove(notificationKey)
+             t("the_notification_is_gone")
+         }
+@@ -94,8 +95,12 @@ object HubNotificationCommands {
+         val service = listener?.get() ?: return null
+         return try {
+             block(service)
+-        } catch (e: RuntimeException) {
+-            // SecurityException once the listener is unbound, or a key Android no longer has.
++        } catch (e: SecurityException) {
++            // The listener was unbound between the check and the call.
++            Log.w(TAG, "notification command refused", e)
++            null
++        } catch (e: IllegalArgumentException) {
++            // A key Android no longer has.
+             Log.w(TAG, "notification command failed", e)
+             null
+         }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHomeRows.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHomeRows.kt
+index e5f49d4..0b0bcaf 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHomeRows.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHomeRows.kt
+@@ -42,7 +42,11 @@ object HubHomeRows {
+                 HubHomeRow(
+                     threadId = conversation.threadId,
+                     title = conversation.displayName.trim().take(MAX_TITLE),
+-                    preview = conversation.lastBody.replace('\n', ' ').trim().take(MAX_PREVIEW),
++                    preview =
++                        conversation.lastBody
++                            .replace('\n', ' ')
++                            .trim()
++                            .take(MAX_PREVIEW),
+                     dateMillis = conversation.lastDateMillis,
+                     unread = conversation.unreadCount.coerceAtLeast(0),
+                     sms = conversation.source == HubConversationSource.Sms,
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+index dacc509..98aa327 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+@@ -15,13 +15,13 @@ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.ColumnScope
+ import androidx.compose.foundation.layout.FlowRow
+ import androidx.compose.foundation.layout.Row
+-import androidx.compose.foundation.layout.fillMaxHeight
+-import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.RowScope
+ import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.fillMaxHeight
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
+@@ -32,11 +32,11 @@ import androidx.compose.foundation.lazy.items
+ import androidx.compose.foundation.lazy.itemsIndexed
+ import androidx.compose.foundation.lazy.rememberLazyListState
+ import androidx.compose.foundation.rememberScrollState
+-import androidx.compose.foundation.verticalScroll
+ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.foundation.text.KeyboardActions
+ import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.FilterChip
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedTextField
+@@ -132,15 +132,15 @@ import org.sableos.hub.policy.HubInboxRow
+ import org.sableos.hub.policy.HubInboxRowRole
+ import org.sableos.hub.policy.HubMenuEntry
+ import org.sableos.hub.policy.HubMessageMenu
+-import org.sableos.hub.policy.HubNotificationFacts
+-import org.sableos.hub.policy.HubRowKey
+ import org.sableos.hub.policy.HubNewMessagePill
++import org.sableos.hub.policy.HubNotificationFacts
+ import org.sableos.hub.policy.HubPrivacyBadge
+ import org.sableos.hub.policy.HubPrivacyState
+ import org.sableos.hub.policy.HubPrivateSummary
+ import org.sableos.hub.policy.HubRedaction
+ import org.sableos.hub.policy.HubRowAction
+ import org.sableos.hub.policy.HubRowActions
++import org.sableos.hub.policy.HubRowKey
+ import org.sableos.hub.policy.HubSearch
+ import org.sableos.hub.policy.HubSourceDock
+ import org.sableos.hub.policy.HubThreadCommand
+@@ -225,24 +225,6 @@ private class HubUiState {
+         return true
+     }
+ 
+-    /**
+-     * Sable Start's Hub page, Menu on a message row: the inbox on All with that row's menu open.
+-     * False until the snapshot is loaded; a thread Hub no longer lists just opens the inbox.
+-     */
+-    fun openRowMenu(
+-        threadId: Long?,
+-        snapshot: HubSnapshot?,
+-    ): Boolean {
+-        if (threadId == null || snapshot == null) return false
+-        route = HubRoute.Root(HubPivot.Inbox)
+-        inboxFilter = HubInboxFilter.All
+-        actionsItem =
+-            snapshot.conversations
+-                .firstOrNull { it.threadId == threadId }
+-                ?.let { HubInboxItem.Conversation(it) }
+-        return true
+-    }
+-
+     /**
+      * Start's Command "Search Hub for …" and Start's Hub tabs: open the inbox on the requested
+      * filter (else All), all sources, with the search filled in.
+@@ -318,6 +300,24 @@ private class HubUiState {
+     }
+ }
+ 
++/**
++ * Sable Start's Hub page, Menu on a message row: the inbox on All with that row's menu open.
++ * False until the snapshot is loaded; a thread Hub no longer lists just opens the inbox.
++ */
++private fun HubUiState.openRowMenu(
++    threadId: Long?,
++    snapshot: HubSnapshot?,
++): Boolean {
++    if (threadId == null || snapshot == null) return false
++    route = HubRoute.Root(HubPivot.Inbox)
++    inboxFilter = HubInboxFilter.All
++    actionsItem =
++        snapshot.conversations
++            .firstOrNull { it.threadId == threadId }
++            ?.let { HubInboxItem.Conversation(it) }
++    return true
++}
++
+ /** A dock source narrows the whole inbox (filter "All"); choosing it again clears it. */
+ private fun HubUiState.selectDockSource(source: HubDockSource) {
+     inboxFilter = HubInboxFilter.All
+@@ -1328,7 +1328,6 @@ private fun ColumnScope.InboxPivot(
+     }
+ }
+ 
+-/** Runs one row action through the activity's provider-safe handoffs. */
+ /** The row's menu: Hub actions, plus what its live notification allows (HubMessageMenu). */
+ private fun menuFor(
+     item: HubInboxItem,
+@@ -1362,6 +1361,7 @@ private fun runMenuEntry(
+ 
+ private val NOTIFICATION_COMMANDS = setOf(HubRowAction.MarkRead, HubRowAction.Snooze, HubRowAction.Dismiss)
+ 
++/** Runs one row action through the activity's provider-safe handoffs. */
+ private fun runRowAction(
+     action: HubRowAction,
+     item: HubInboxItem,
+@@ -1432,7 +1432,8 @@ private fun runConversationAction(
+             actions.onOpenConnectedApps()
+         }
+ 
+-        HubRowAction.Text -> {
++        HubRowAction.Text, HubRowAction.MarkRead, HubRowAction.Snooze, HubRowAction.Dismiss -> {
++            // Text is a call action; the three notification commands go through runMenuEntry.
+             Unit
+         }
+     }
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHomeRowsTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHomeRowsTest.kt
+index 38e7b34..b46cfa4 100644
+--- a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHomeRowsTest.kt
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHomeRowsTest.kt
+@@ -49,7 +49,10 @@ class HubHomeRowsTest {
+ 
+     @Test
+     fun capsRowsAndText() {
+-        val many = (1..40).map { sms.copy(threadId = it.toLong(), lastDateMillis = it.toLong(), lastBody = "x".repeat(300)) }
++        val many =
++            (1..40).map {
++                sms.copy(threadId = it.toLong(), lastDateMillis = it.toLong(), lastBody = "x".repeat(300))
++            }
+         val rows = HubHomeRows.rows(many, HubPrivacyState(), 0L)
+         assertEquals(HubHomeRows.MAX_ROWS, rows.size)
+         assertEquals(40L, rows.first().threadId)
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
+index fb90066..63fb5f2 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
+@@ -123,12 +123,22 @@ class NotesController(
+     }
+ 
+     private fun tasksKey(key: TasksKey): Boolean {
+-        when (key) {
+-            TasksKey.History -> state.showDone = !state.showDone
+-            TasksKey.OpenNote -> show(Screen.Editor(state.focusedTask?.noteId ?: return false))
+-            TasksKey.Remind -> return remindInTasks(state.focusedTask ?: return false)
++        val focused = state.focusedTask
++        return when (key) {
++            TasksKey.History -> {
++                state.showDone = !state.showDone
++                true
++            }
++
++            TasksKey.OpenNote -> {
++                focused?.let { show(Screen.Editor(it.noteId)) }
++                focused != null
++            }
++
++            TasksKey.Remind -> {
++                focused != null && remindInTasks(focused)
++            }
+         }
+-        return true
+     }
+ 
+     /**
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/MainActivity.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/MainActivity.kt
+index 2e7ef18..6cddc76 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/MainActivity.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/MainActivity.kt
+@@ -67,13 +67,21 @@ class MainActivity : ComponentActivity() {
+         intent ?: return
+         when {
+             intent.action == Intent.ACTION_SEND -> {
+-                intent.getStringExtra(Intent.EXTRA_TEXT)?.let(TaskRecord::fromSharedText)?.let { state.openEditor(it, isNew = true) }
++                intent
++                    .getStringExtra(Intent.EXTRA_TEXT)
++                    ?.let(TaskRecord::fromSharedText)
++                    ?.let { state.openEditor(it, isNew = true) }
+             }
+ 
+-            intent.action == ACTION_FOLLOW_UP -> followUp(intent)
++            intent.action == ACTION_FOLLOW_UP -> {
++                followUp(intent)
++            }
+ 
+             else -> {
+-                intent.getStringExtra(EXTRA_TASK_ID)?.let(repository::find)?.let { state.openEditor(it, isNew = false) }
++                intent
++                    .getStringExtra(EXTRA_TASK_ID)
++                    ?.let(repository::find)
++                    ?.let { state.openEditor(it, isNew = false) }
+             }
+         }
+     }
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRecord.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRecord.kt
+index fcc967f..b0756fa 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRecord.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRecord.kt
+@@ -48,7 +48,12 @@ data class TaskRecord(
+         fun fromSharedText(text: String): TaskRecord? {
+             val trimmed = text.trim()
+             if (trimmed.isEmpty()) return null
+-            val title = trimmed.lineSequence().first().trim().take(MAX_TITLE)
++            val title =
++                trimmed
++                    .lineSequence()
++                    .first()
++                    .trim()
++                    .take(MAX_TITLE)
+             val details = trimmed.substringAfter('\n', "").trim().take(MAX_DETAILS)
+             return TaskRecord(title = title, details = details)
+         }
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRepository.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRepository.kt
+index b31292c..bd44b0b 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRepository.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRepository.kt
+@@ -35,10 +35,10 @@ class TaskRepository(
+ 
+     /** Done (or not done again). A repeating dated task moves to its next occurrence instead. */
+     fun complete(task: TaskRecord): TaskRecord {
++        val dated = task.dueAtEpochMs != null || task.remindAtEpochMs != null
++        val repeats = task.repeat != TaskRepeat.Never && dated
+         val next =
+-            if (!task.completed && task.repeat != TaskRepeat.Never &&
+-                (task.dueAtEpochMs != null || task.remindAtEpochMs != null)
+-            ) {
++            if (!task.completed && repeats) {
+                 task.copy(
+                     dueAtEpochMs = TaskSchedule.advanceAfter(task.dueAtEpochMs, task.repeat, task.zoneId, now()),
+                     remindAtEpochMs = TaskSchedule.advanceAfter(task.remindAtEpochMs, task.repeat, task.zoneId, now()),
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskSchedule.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskSchedule.kt
+index dc7dd6d..3e3b3c9 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskSchedule.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskSchedule.kt
+@@ -2,6 +2,7 @@ package org.sableos.tasks.core
+ 
+ import java.time.Instant
+ import java.time.ZoneId
++import java.time.ZonedDateTime
+ 
+ /** The quick reminder times in the editor and on a focused row. */
+ enum class ReminderPreset { LaterToday, ThisEvening, TomorrowMorning }
+@@ -42,13 +43,13 @@ object TaskSchedule {
+         zoneName: String,
+         nowMs: Long,
+     ): Long? {
+-        val previous = epochMs ?: return null
+-        if (repeat == TaskRepeat.Never) return previous
+-        var next = nextOccurrence(previous, repeat, zoneName) ?: return null
++        if (epochMs == null || repeat == TaskRepeat.Never) return epochMs
++        var next = nextOccurrence(epochMs, repeat, zoneName)
+         // Bounded, so a corrupt years-old record cannot loop for ever.
+-        repeat(MAX_STEPS) {
+-            if (next > nowMs) return next
+-            next = nextOccurrence(next, repeat, zoneName) ?: return null
++        var steps = 0
++        while (next != null && next <= nowMs && steps < MAX_STEPS) {
++            next = nextOccurrence(next, repeat, zoneName)
++            steps++
+         }
+         return next
+     }
+@@ -64,7 +65,7 @@ object TaskSchedule {
+                 ReminderPreset.LaterToday -> {
+                     val later = local.plusHours(LATER_TODAY_HOURS)
+                     if (later.toLocalDate() != local.toLocalDate()) {
+-                        local.toLocalDate().plusDays(1).atTime(MORNING_HOUR, 0).atZone(zone)
++                        tomorrowMorning(local, zone)
+                     } else {
+                         later
+                     }
+@@ -76,23 +77,42 @@ object TaskSchedule {
+                 }
+ 
+                 ReminderPreset.TomorrowMorning -> {
+-                    local.toLocalDate().plusDays(1).atTime(MORNING_HOUR, 0).atZone(zone)
++                    tomorrowMorning(local, zone)
+                 }
+             }
+         return at.toInstant().toEpochMilli()
+     }
+ 
++    private fun tomorrowMorning(
++        local: ZonedDateTime,
++        zone: ZoneId,
++    ): ZonedDateTime =
++        local
++            .toLocalDate()
++            .plusDays(1)
++            .atTime(MORNING_HOUR, 0)
++            .atZone(zone)
++
+     fun group(
+         task: TaskRecord,
+         now: Instant,
+         zone: ZoneId,
+     ): TaskGroup {
+-        if (task.completed) return TaskGroup.Done
+-        val nowMs = now.toEpochMilli()
+-        val due = task.dueAtEpochMs
+-        val remind = task.remindAtEpochMs
+-        if ((due != null && due < nowMs) || (due == null && remind != null && remind < nowMs)) return TaskGroup.Overdue
+-        val anchor = due ?: remind ?: return TaskGroup.NoDate
++        // The due time, else the reminder, places a task; past it the task is overdue.
++        val anchor = task.dueAtEpochMs ?: task.remindAtEpochMs
++        return when {
++            task.completed -> TaskGroup.Done
++            anchor == null -> TaskGroup.NoDate
++            anchor < now.toEpochMilli() -> TaskGroup.Overdue
++            else -> dayGroup(anchor, now, zone)
++        }
++    }
++
++    private fun dayGroup(
++        anchor: Long,
++        now: Instant,
++        zone: ZoneId,
++    ): TaskGroup {
+         val date = Instant.ofEpochMilli(anchor).atZone(zone).toLocalDate()
+         val today = now.atZone(zone).toLocalDate()
+         return when {
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskStore.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskStore.kt
+index 231b032..b175830 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskStore.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskStore.kt
+@@ -20,7 +20,9 @@ class TaskStore(
+             .listFiles { file -> file.isFile && file.name.endsWith(SUFFIX) }
+             .orEmpty()
+             .mapNotNull { file ->
+-                runCatching { decode(file.name.removeSuffix(SUFFIX), file.inputStream().use(::loadProperties)) }.getOrNull()
++                runCatching {
++                    decode(file.name.removeSuffix(SUFFIX), file.inputStream().use(::loadProperties))
++                }.getOrNull()
+             }.sortedWith(compareBy<TaskRecord> { it.completed }.thenByDescending { it.updatedAtEpochMs })
+ 
+     @Synchronized
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/platform/TaskPlatform.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/platform/TaskPlatform.kt
+index 0a78930..04a7602 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/platform/TaskPlatform.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/platform/TaskPlatform.kt
+@@ -56,7 +56,7 @@ object TaskAlarms {
+                 data = Uri.parse("sable-task://" + action.substringAfterLast('.').lowercase() + "/" + id)
+                 putExtra(EXTRA_ID, id)
+             }
+-        return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
++        return PendingIntent.getBroadcast(context, 0, intent, PENDING_FLAGS)
+     }
+ 
+     fun cancel(
+@@ -71,10 +71,11 @@ object TaskAlarms {
+         context: Context,
+         task: TaskRecord,
+     ) {
+-        val at = task.remindAtEpochMs ?: return
+-        if (task.completed || at <= System.currentTimeMillis()) return
+-        val alarm = context.getSystemService(AlarmManager::class.java) ?: return
+-        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, broadcast(context, ACTION_DUE, task.id))
++        val at = task.remindAtEpochMs
++        if (task.completed || at == null || at <= System.currentTimeMillis()) return
++        context
++            .getSystemService(AlarmManager::class.java)
++            ?.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, broadcast(context, ACTION_DUE, task.id))
+     }
+ 
+     fun notificationsAllowed(context: Context): Boolean =
+@@ -102,7 +103,7 @@ object TaskAlarms {
+                     .setData(Uri.parse("sable-task://open/" + task.id))
+                     .putExtra(MainActivity.EXTRA_TASK_ID, task.id)
+                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
++                PENDING_FLAGS,
+             )
+         val public =
+             Notification
+@@ -115,20 +116,30 @@ object TaskAlarms {
+                 .Builder(context, CHANNEL)
+                 .setSmallIcon(R.drawable.ic_sable_tasks_monochrome)
+                 .setContentTitle(task.title)
+-                .setContentText(task.details.lineSequence().firstOrNull().orEmpty())
++                .setContentText(firstLine(task.details))
+                 .setCategory(Notification.CATEGORY_REMINDER)
+                 .setVisibility(Notification.VISIBILITY_PRIVATE)
+                 .setPublicVersion(public)
+                 .setContentIntent(open)
+                 .setAutoCancel(true)
+-                .addAction(Notification.Action.Builder(icon, t("done"), broadcast(context, ACTION_DONE, task.id)).build())
+-                .addAction(
+-                    Notification.Action.Builder(icon, t("snooze_1_hour"), broadcast(context, ACTION_SNOOZE, task.id)).build(),
+-                ).build()
++                .addAction(action(context, icon, t("done"), ACTION_DONE, task.id))
++                .addAction(action(context, icon, t("snooze_1_hour"), ACTION_SNOOZE, task.id))
++                .build()
+         manager.notify(task.id, NOTIFICATION_ID, notification)
+     }
+ 
++    private fun action(
++        context: Context,
++        icon: Icon,
++        title: String,
++        action: String,
++        id: String,
++    ): Notification.Action = Notification.Action.Builder(icon, title, broadcast(context, action, id)).build()
++
++    private fun firstLine(text: String): String = text.lineSequence().firstOrNull().orEmpty()
++
+     private const val NOTIFICATION_ID = 1
++    private const val PENDING_FLAGS = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+ }
+ 
+ /** Due reminders and the notification's Done and Snooze 1 hour; not exported. */
+@@ -138,14 +149,13 @@ class TaskAlarmReceiver : BroadcastReceiver() {
+         intent: Intent,
+     ) {
+         TasksText.t.bindTo(context)
+-        val id = intent.getStringExtra(TaskAlarms.EXTRA_ID) ?: return
+         val repository = taskRepository(context)
+-        val task = repository.find(id) ?: return
++        val task = intent.getStringExtra(TaskAlarms.EXTRA_ID)?.let(repository::find) ?: return
+         when (intent.action) {
+             TaskAlarms.ACTION_DUE -> {
+-                val at = task.remindAtEpochMs ?: return
++                val at = task.remindAtEpochMs
+                 when {
+-                    task.completed -> Unit
++                    task.completed || at == null -> Unit
+                     at > System.currentTimeMillis() -> TaskAlarms.schedule(context, task)
+                     else -> TaskAlarms.notify(context, task)
+                 }
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TaskEditor.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TaskEditor.kt
+index d291a17..d9d6979 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TaskEditor.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TaskEditor.kt
+@@ -1,7 +1,10 @@
++@file:Suppress("FunctionNaming") // Compose functions are named like types.
++
+ package org.sableos.tasks.ui
+ 
+ import android.app.DatePickerDialog
+ import android.app.TimePickerDialog
++import android.text.format.DateFormat
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.FlowRow
+@@ -33,6 +36,7 @@ import java.time.ZoneId
+ import java.util.Calendar
+ 
+ /** New and edit form: title, details, due, reminder (quick times or a picked one) and repeat. */
++@Suppress("LongMethod") // One form, read top to bottom.
+ @Composable
+ internal fun TaskEditor(
+     task: TaskRecord,
+@@ -80,7 +84,9 @@ internal fun TaskEditor(
+                 Text(presetLabel(preset))
+             }
+         }
+-        TextButton(onClick = { pickDateTime(context, remind ?: defaultTime()) { remind = it } }) { Text(t("pick_time")) }
++        TextButton(onClick = { pickDateTime(context, remind ?: defaultTime()) { remind = it } }) {
++            Text(t("pick_time"))
++        }
+         TextButton(onClick = { remind = null }) { Text(t("none")) }
+     }
+     TextButton(onClick = { repeat = TaskRepeat.entries[(repeat.ordinal + 1) % TaskRepeat.entries.size] }) {
+@@ -129,7 +135,8 @@ private fun presetLabel(preset: ReminderPreset): String =
+         ReminderPreset.TomorrowMorning -> t("tomorrow_morning")
+     }
+ 
+-private fun defaultTime(): Long = TaskSchedule.preset(ReminderPreset.TomorrowMorning, Instant.now(), ZoneId.systemDefault())
++private fun defaultTime(): Long =
++    TaskSchedule.preset(ReminderPreset.TomorrowMorning, Instant.now(), ZoneId.systemDefault())
+ 
+ /** System date picker, then time picker; [onPicked] gets the combined local time. */
+ private fun pickDateTime(
+@@ -154,7 +161,7 @@ private fun pickDateTime(
+                 },
+                 initial.get(Calendar.HOUR_OF_DAY),
+                 initial.get(Calendar.MINUTE),
+-                android.text.format.DateFormat.is24HourFormat(context),
++                DateFormat.is24HourFormat(context),
+             ).show()
+         },
+         initial.get(Calendar.YEAR),
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt
+index 5c8d339..39a9b84 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt
+@@ -1,5 +1,8 @@
++@file:Suppress("FunctionNaming") // Compose functions are named like types.
++
+ package org.sableos.tasks.ui
+ 
++import android.text.format.DateFormat
+ import androidx.activity.compose.BackHandler
+ import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.layout.Column
+@@ -49,6 +52,7 @@ import org.sableos.tasks.core.TasksKeys
+ import org.sableos.tasks.core.TasksText.t
+ import java.time.Instant
+ import java.time.ZoneId
++import java.util.Date
+ 
+ @Composable
+ fun TasksApp(
+@@ -91,6 +95,7 @@ fun TasksApp(
+     }
+ }
+ 
++@Suppress("LongMethod") // The screen, read top to bottom.
+ @Composable
+ private fun TaskList(
+     state: TasksState,
+@@ -105,7 +110,12 @@ private fun TaskList(
+     if (!state.notificationsAllowed) {
+         Text(
+             text = t("reminders_off"),
+-            modifier = Modifier.fillMaxWidth().sableFocusRing().clickable(onClick = onAllowNotifications).padding(vertical = 8.dp),
++            modifier =
++                Modifier
++                    .fillMaxWidth()
++                    .sableFocusRing()
++                    .clickable(onClick = onAllowNotifications)
++                    .padding(vertical = 8.dp),
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.primary,
+         )
+@@ -113,13 +123,22 @@ private fun TaskList(
+     Spacer(Modifier.height(SableSpacing.Md))
+     val sections = TaskSchedule.sections(state.tasks, state.showDone, Instant.now(), ZoneId.systemDefault())
+     if (sections.isEmpty()) {
+-        Text(t("no_tasks"), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
++        Text(
++            t("no_tasks"),
++            style = MaterialTheme.typography.titleLarge,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
+     }
+     sections.forEach { (group, tasks) ->
+         Text(
+             text = groupLabel(group),
+             style = MaterialTheme.typography.labelLarge,
+-            color = if (group == TaskGroup.Overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
++            color =
++                if (group == TaskGroup.Overdue) {
++                    MaterialTheme.colorScheme.error
++                } else {
++                    MaterialTheme.colorScheme.primary
++                },
+             modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+         )
+         tasks.forEach { task ->
+@@ -127,14 +146,7 @@ private fun TaskList(
+                 task = task,
+                 onOpen = { state.openEditor(task, isNew = false) },
+                 onKey = { key ->
+-                    when (key) {
+-                        RowKey.Done -> repository.complete(task)
+-                        RowKey.Tomorrow -> {
+-                            val at = TaskSchedule.preset(ReminderPreset.TomorrowMorning, Instant.now(), ZoneId.systemDefault())
+-                            repository.save(task.copy(remindAtEpochMs = at, updatedAtEpochMs = System.currentTimeMillis()))
+-                        }
+-                        RowKey.Delete -> state.pendingDelete = task
+-                    }
++                    onRowKey(key, task, state, repository)
+                     onChanged()
+                 },
+             )
+@@ -161,6 +173,29 @@ private fun TaskList(
+     }
+ }
+ 
++/** Space done, Z tomorrow 9:00, D asks before deleting. */
++private fun onRowKey(
++    key: RowKey,
++    task: TaskRecord,
++    state: TasksState,
++    repository: TaskRepository,
++) {
++    when (key) {
++        RowKey.Done -> {
++            repository.complete(task)
++        }
++
++        RowKey.Tomorrow -> {
++            val at = TaskSchedule.preset(ReminderPreset.TomorrowMorning, Instant.now(), ZoneId.systemDefault())
++            repository.save(task.copy(remindAtEpochMs = at, updatedAtEpochMs = System.currentTimeMillis()))
++        }
++
++        RowKey.Delete -> {
++            state.pendingDelete = task
++        }
++    }
++}
++
+ @Composable
+ private fun TaskRow(
+     task: TaskRecord,
+@@ -194,7 +229,12 @@ private fun TaskRow(
+             )
+             val line = taskLine(context, task)
+             if (line.isNotEmpty()) {
+-                Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
++                Text(
++                    line,
++                    style = MaterialTheme.typography.bodySmall,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    maxLines = 1,
++                )
+             }
+         }
+     }
+@@ -267,5 +307,5 @@ internal fun formatWhen(
+     context: android.content.Context,
+     millis: Long,
+ ): String =
+-    android.text.format.DateFormat.getMediumDateFormat(context).format(java.util.Date(millis)) + " · " +
+-        android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(millis))
++    DateFormat.getMediumDateFormat(context).format(Date(millis)) + " · " +
++        DateFormat.getTimeFormat(context).format(Date(millis))
+diff --git a/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskRepositoryTest.kt b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskRepositoryTest.kt
+index 2090f26..65e9c38 100644
+--- a/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskRepositoryTest.kt
++++ b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskRepositoryTest.kt
+@@ -67,7 +67,13 @@ class TaskRepositoryTest {
+             val now = Instant.parse("2026-11-02T16:00:00Z").toEpochMilli()
+             val repo = TaskRepository(store, Recorder(store)) { now }
+             val daily =
+-                TaskRecord(title = "Daily", zoneId = "UTC", repeat = TaskRepeat.Daily, dueAtEpochMs = now - 1000, remindAtEpochMs = now - 2000)
++                TaskRecord(
++                    title = "Daily",
++                    zoneId = "UTC",
++                    repeat = TaskRepeat.Daily,
++                    dueAtEpochMs = now - 1000,
++                    remindAtEpochMs = now - 2000,
++                )
+             val next = repo.complete(daily)
+             assertFalse(next.completed)
+             assertTrue(next.dueAtEpochMs!! > now && next.remindAtEpochMs!! > now)
+@@ -90,6 +96,7 @@ class TaskRepositoryTest {
+             assertEquals(64, again.originToken!!.length)
+             assertTrue(dir.listFiles()!!.none { it.readText().contains("private-original-key") })
+             repo.complete(again)
+-            assertNotEquals(again.id, repo.followUp("example.mail", "private-original-key", "Follow up in Mail", 3000L).id)
++            val later = repo.followUp("example.mail", "private-original-key", "Follow up in Mail", 3000L)
++            assertNotEquals(again.id, later.id)
+         }
+ }
+diff --git a/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskScheduleTest.kt b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskScheduleTest.kt
+index 6c16952..4804291 100644
+--- a/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskScheduleTest.kt
++++ b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskScheduleTest.kt
+@@ -10,6 +10,8 @@ class TaskScheduleTest {
+     private val ny = ZoneId.of("America/New_York")
+     private val utc = ZoneId.of("UTC")
+ 
++    private fun ms(instant: String): Long = Instant.parse(instant).toEpochMilli()
++
+     @Test
+     fun springForwardTomorrowMorningKeepsLocalTime() {
+         val now = Instant.parse("2026-03-07T21:00:00Z")
+@@ -37,12 +39,12 @@ class TaskScheduleTest {
+     fun presetsHandleMidnightEveningAndMonthEnd() {
+         val late = Instant.parse("2026-11-02T23:00:00Z")
+         val morning = Instant.parse("2026-11-02T10:00:00Z")
+-        assertEquals(Instant.parse("2026-11-03T09:00:00Z").toEpochMilli(), TaskSchedule.preset(ReminderPreset.LaterToday, late, utc))
+-        assertEquals(Instant.parse("2026-11-02T12:00:00Z").toEpochMilli(), TaskSchedule.preset(ReminderPreset.LaterToday, morning, utc))
+-        assertEquals(Instant.parse("2026-11-02T18:00:00Z").toEpochMilli(), TaskSchedule.preset(ReminderPreset.ThisEvening, morning, utc))
+-        assertEquals(Instant.parse("2026-11-03T18:00:00Z").toEpochMilli(), TaskSchedule.preset(ReminderPreset.ThisEvening, late, utc))
++        assertEquals(ms("2026-11-03T09:00:00Z"), TaskSchedule.preset(ReminderPreset.LaterToday, late, utc))
++        assertEquals(ms("2026-11-02T12:00:00Z"), TaskSchedule.preset(ReminderPreset.LaterToday, morning, utc))
++        assertEquals(ms("2026-11-02T18:00:00Z"), TaskSchedule.preset(ReminderPreset.ThisEvening, morning, utc))
++        assertEquals(ms("2026-11-03T18:00:00Z"), TaskSchedule.preset(ReminderPreset.ThisEvening, late, utc))
+         val jan = Instant.parse("2026-01-31T09:00:00Z").toEpochMilli()
+-        assertEquals(Instant.parse("2026-02-28T09:00:00Z").toEpochMilli(), TaskSchedule.nextOccurrence(jan, TaskRepeat.Monthly, "UTC"))
++        assertEquals(ms("2026-02-28T09:00:00Z"), TaskSchedule.nextOccurrence(jan, TaskRepeat.Monthly, "UTC"))
+         assertEquals(jan, TaskSchedule.advanceAfter(jan, TaskRepeat.Never, "UTC", late.toEpochMilli()))
+         assertNull(TaskSchedule.advanceAfter(null, TaskRepeat.Daily, "UTC", late.toEpochMilli()))
+     }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
+index 15aef0b..8976910 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
+@@ -43,7 +43,7 @@ object QuickBar {
+      */
+     val REQUIRED: Set<String> = emptySet()
+ 
+-    private val ROLES = setOf(PHONE, HUB, CAMERA, ALL_APPS)
++    private val ROLES = setOf(PHONE, HUB, CAMERA, COMMAND, ALL_APPS)
+ 
+     fun appToken(stableKey: String): String = APP_PREFIX + stableKey
+ 

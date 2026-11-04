@@ -2,6 +2,7 @@ package org.sableos.tasks.core
 
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZonedDateTime
 
 /** The quick reminder times in the editor and on a focused row. */
 enum class ReminderPreset { LaterToday, ThisEvening, TomorrowMorning }
@@ -42,13 +43,13 @@ object TaskSchedule {
         zoneName: String,
         nowMs: Long,
     ): Long? {
-        val previous = epochMs ?: return null
-        if (repeat == TaskRepeat.Never) return previous
-        var next = nextOccurrence(previous, repeat, zoneName) ?: return null
+        if (epochMs == null || repeat == TaskRepeat.Never) return epochMs
+        var next = nextOccurrence(epochMs, repeat, zoneName)
         // Bounded, so a corrupt years-old record cannot loop for ever.
-        repeat(MAX_STEPS) {
-            if (next > nowMs) return next
-            next = nextOccurrence(next, repeat, zoneName) ?: return null
+        var steps = 0
+        while (next != null && next <= nowMs && steps < MAX_STEPS) {
+            next = nextOccurrence(next, repeat, zoneName)
+            steps++
         }
         return next
     }
@@ -64,7 +65,7 @@ object TaskSchedule {
                 ReminderPreset.LaterToday -> {
                     val later = local.plusHours(LATER_TODAY_HOURS)
                     if (later.toLocalDate() != local.toLocalDate()) {
-                        local.toLocalDate().plusDays(1).atTime(MORNING_HOUR, 0).atZone(zone)
+                        tomorrowMorning(local, zone)
                     } else {
                         later
                     }
@@ -76,23 +77,42 @@ object TaskSchedule {
                 }
 
                 ReminderPreset.TomorrowMorning -> {
-                    local.toLocalDate().plusDays(1).atTime(MORNING_HOUR, 0).atZone(zone)
+                    tomorrowMorning(local, zone)
                 }
             }
         return at.toInstant().toEpochMilli()
     }
+
+    private fun tomorrowMorning(
+        local: ZonedDateTime,
+        zone: ZoneId,
+    ): ZonedDateTime =
+        local
+            .toLocalDate()
+            .plusDays(1)
+            .atTime(MORNING_HOUR, 0)
+            .atZone(zone)
 
     fun group(
         task: TaskRecord,
         now: Instant,
         zone: ZoneId,
     ): TaskGroup {
-        if (task.completed) return TaskGroup.Done
-        val nowMs = now.toEpochMilli()
-        val due = task.dueAtEpochMs
-        val remind = task.remindAtEpochMs
-        if ((due != null && due < nowMs) || (due == null && remind != null && remind < nowMs)) return TaskGroup.Overdue
-        val anchor = due ?: remind ?: return TaskGroup.NoDate
+        // The due time, else the reminder, places a task; past it the task is overdue.
+        val anchor = task.dueAtEpochMs ?: task.remindAtEpochMs
+        return when {
+            task.completed -> TaskGroup.Done
+            anchor == null -> TaskGroup.NoDate
+            anchor < now.toEpochMilli() -> TaskGroup.Overdue
+            else -> dayGroup(anchor, now, zone)
+        }
+    }
+
+    private fun dayGroup(
+        anchor: Long,
+        now: Instant,
+        zone: ZoneId,
+    ): TaskGroup {
         val date = Instant.ofEpochMilli(anchor).atZone(zone).toLocalDate()
         val today = now.atZone(zone).toLocalDate()
         return when {

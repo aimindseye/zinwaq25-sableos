@@ -37,7 +37,11 @@ internal object ConnectedActionRegistry {
                 .take(MAX_ACTIONS)
                 .mapIndexedNotNull { index, action ->
                     val intent = action.actionIntent ?: return@mapIndexedNotNull null
-                    val title = action.title?.toString()?.trim().orEmpty()
+                    val title =
+                        action.title
+                            ?.toString()
+                            ?.trim()
+                            .orEmpty()
                     val asksForText = !action.remoteInputs.isNullOrEmpty()
                     if (title.isEmpty() || action.isContextual || asksForText) {
                         null

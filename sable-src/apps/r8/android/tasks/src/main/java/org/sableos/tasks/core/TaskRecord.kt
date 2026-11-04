@@ -48,7 +48,12 @@ data class TaskRecord(
         fun fromSharedText(text: String): TaskRecord? {
             val trimmed = text.trim()
             if (trimmed.isEmpty()) return null
-            val title = trimmed.lineSequence().first().trim().take(MAX_TITLE)
+            val title =
+                trimmed
+                    .lineSequence()
+                    .first()
+                    .trim()
+                    .take(MAX_TITLE)
             val details = trimmed.substringAfter('\n', "").trim().take(MAX_DETAILS)
             return TaskRecord(title = title, details = details)
         }

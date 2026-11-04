@@ -15,13 +15,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,11 +32,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -132,15 +132,15 @@ import org.sableos.hub.policy.HubInboxRow
 import org.sableos.hub.policy.HubInboxRowRole
 import org.sableos.hub.policy.HubMenuEntry
 import org.sableos.hub.policy.HubMessageMenu
-import org.sableos.hub.policy.HubNotificationFacts
-import org.sableos.hub.policy.HubRowKey
 import org.sableos.hub.policy.HubNewMessagePill
+import org.sableos.hub.policy.HubNotificationFacts
 import org.sableos.hub.policy.HubPrivacyBadge
 import org.sableos.hub.policy.HubPrivacyState
 import org.sableos.hub.policy.HubPrivateSummary
 import org.sableos.hub.policy.HubRedaction
 import org.sableos.hub.policy.HubRowAction
 import org.sableos.hub.policy.HubRowActions
+import org.sableos.hub.policy.HubRowKey
 import org.sableos.hub.policy.HubSearch
 import org.sableos.hub.policy.HubSourceDock
 import org.sableos.hub.policy.HubThreadCommand
@@ -226,24 +226,6 @@ private class HubUiState {
     }
 
     /**
-     * Sable Start's Hub page, Menu on a message row: the inbox on All with that row's menu open.
-     * False until the snapshot is loaded; a thread Hub no longer lists just opens the inbox.
-     */
-    fun openRowMenu(
-        threadId: Long?,
-        snapshot: HubSnapshot?,
-    ): Boolean {
-        if (threadId == null || snapshot == null) return false
-        route = HubRoute.Root(HubPivot.Inbox)
-        inboxFilter = HubInboxFilter.All
-        actionsItem =
-            snapshot.conversations
-                .firstOrNull { it.threadId == threadId }
-                ?.let { HubInboxItem.Conversation(it) }
-        return true
-    }
-
-    /**
      * Start's Command "Search Hub for …" and Start's Hub tabs: open the inbox on the requested
      * filter (else All), all sources, with the search filled in.
      */
@@ -316,6 +298,24 @@ private class HubUiState {
     fun mmsHandoff(opened: Boolean) {
         statusMessage = mmsHandoffStatus(opened)
     }
+}
+
+/**
+ * Sable Start's Hub page, Menu on a message row: the inbox on All with that row's menu open.
+ * False until the snapshot is loaded; a thread Hub no longer lists just opens the inbox.
+ */
+private fun HubUiState.openRowMenu(
+    threadId: Long?,
+    snapshot: HubSnapshot?,
+): Boolean {
+    if (threadId == null || snapshot == null) return false
+    route = HubRoute.Root(HubPivot.Inbox)
+    inboxFilter = HubInboxFilter.All
+    actionsItem =
+        snapshot.conversations
+            .firstOrNull { it.threadId == threadId }
+            ?.let { HubInboxItem.Conversation(it) }
+    return true
 }
 
 /** A dock source narrows the whole inbox (filter "All"); choosing it again clears it. */
@@ -1328,7 +1328,6 @@ private fun ColumnScope.InboxPivot(
     }
 }
 
-/** Runs one row action through the activity's provider-safe handoffs. */
 /** The row's menu: Hub actions, plus what its live notification allows (HubMessageMenu). */
 private fun menuFor(
     item: HubInboxItem,
@@ -1362,6 +1361,7 @@ private fun runMenuEntry(
 
 private val NOTIFICATION_COMMANDS = setOf(HubRowAction.MarkRead, HubRowAction.Snooze, HubRowAction.Dismiss)
 
+/** Runs one row action through the activity's provider-safe handoffs. */
 private fun runRowAction(
     action: HubRowAction,
     item: HubInboxItem,
@@ -1432,7 +1432,8 @@ private fun runConversationAction(
             actions.onOpenConnectedApps()
         }
 
-        HubRowAction.Text -> {
+        HubRowAction.Text, HubRowAction.MarkRead, HubRowAction.Snooze, HubRowAction.Dismiss -> {
+            // Text is a call action; the three notification commands go through runMenuEntry.
             Unit
         }
     }
