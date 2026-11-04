@@ -159,7 +159,8 @@
     <string name="bottom_bar">Nedre fältet</string>
     <string name="search_always_stays_on_the">Sök stannar alltid kvar i fältet; det kan flyttas.</string>
     <string name="add_a_slot_2">+ lägg till en plats</string>
-    <string name="reset_bar_to_phone_search">återställ fältet till Telefon · Sök · Kamera</string>
+    <string name="reset_bar_to_phone_search">återställ fältet till Hub · Kamera</string>
+    <string name="hub_unread">oläst</string>
     <string name="frames_while_no_app_is">Frames när ingen app är öppen</string>
     <string name="move_up">flytta upp</string>
     <string name="move_down">flytta ned</string>

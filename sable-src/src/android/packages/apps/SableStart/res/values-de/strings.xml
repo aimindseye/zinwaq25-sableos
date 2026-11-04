@@ -159,7 +159,8 @@
     <string name="bottom_bar">Untere Leiste</string>
     <string name="search_always_stays_on_the">Die Suche bleibt immer auf der Leiste; sie kann verschoben werden.</string>
     <string name="add_a_slot_2">+ Platz hinzufügen</string>
-    <string name="reset_bar_to_phone_search">Leiste auf Telefon · Suche · Kamera zurücksetzen</string>
+    <string name="reset_bar_to_phone_search">Leiste auf Hub · Kamera zurücksetzen</string>
+    <string name="hub_unread">ungelesen</string>
     <string name="frames_while_no_app_is">Frames, solange keine App geöffnet ist</string>
     <string name="move_up">nach oben</string>
     <string name="move_down">nach unten</string>

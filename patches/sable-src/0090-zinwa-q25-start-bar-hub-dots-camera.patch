@@ -1,0 +1,829 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
+index 045243e..1489b97 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
+@@ -6,78 +6,79 @@ import org.junit.Assert.assertNull
+ import org.junit.Assert.assertTrue
+ import org.junit.Test
+ 
+-/** The BB10 bottom bar (Phone · Search · Camera) and the Start strip pages. */
++/** The BB10 bottom bar (Hub · page dots · Camera) and the Start strip pages. */
+ class QuickBarTest {
+     private val default = QuickBar.DEFAULT
+ 
+     @Test
+-    fun neverCustomisedShowsPhoneSearchCamera() {
+-        assertEquals(listOf("phone", "command", "camera"), QuickBar.normalize(null))
+-        // The three-page default counts as never customised.
++    fun neverCustomisedShowsHubAndCamera() {
++        assertEquals(listOf("hub", "camera"), QuickBar.normalize(null))
++        // The three-page default and the Phone · Search · Camera bar count as never customised.
+         assertEquals(default, QuickBar.normalize(listOf("phone", "hub", "command", "apps")))
++        assertEquals(default, QuickBar.normalize(listOf("phone", "command", "camera")))
+     }
+ 
+     @Test
+-    fun normalizeKeepsSearchAndCapsAtThree() {
+-        assertEquals(listOf("phone", "command"), QuickBar.normalize(listOf("phone", "bogus", "phone")))
++    fun normalizeDropsJunkAndCapsAtTwo() {
++        assertEquals(listOf("phone"), QuickBar.normalize(listOf("phone", "bogus", "phone")))
+         val tooMany = listOf("phone", "hub", "camera", "app:1", "apps")
+-        assertEquals(listOf("phone", "hub", "command"), QuickBar.normalize(tooMany))
++        assertEquals(listOf("phone", "hub"), QuickBar.normalize(tooMany))
+         assertEquals(QuickBar.MAX_SLOTS, QuickBar.normalize(tooMany).size)
++        // Search is never forced into the bar: typing and Alt+Space open it.
++        assertEquals(listOf("hub"), QuickBar.normalize(listOf("hub")))
+     }
+ 
+     @Test
+-    fun reorderMovesSlotsAndStopsAtTheEdges() {
+-        assertEquals(listOf("command", "phone", "camera"), QuickBar.move(default, 0, 1))
++    fun reorderSwapsTheEnds() {
++        assertEquals(listOf("camera", "hub"), QuickBar.move(default, 0, 1))
+         assertEquals(default, QuickBar.move(default, 0, -1))
+-        assertEquals(default, QuickBar.move(default, 2, 1))
++        assertEquals(default, QuickBar.move(default, 1, 1))
+     }
+ 
+     @Test
+-    fun phoneAndCameraAreReplaceableButSearchIsNot() {
+-        assertEquals(listOf("phone", "command", "app:7"), QuickBar.replace(default, 2, "app:7"))
+-        assertEquals(listOf("apps", "command", "camera"), QuickBar.replace(default, 0, "apps"))
+-        assertEquals(default, QuickBar.replace(default, 1, "app:7"))
++    fun everySlotIsReplaceable() {
++        assertEquals(listOf("hub", "app:7"), QuickBar.replace(default, 1, "app:7"))
++        assertEquals(listOf("command", "camera"), QuickBar.replace(default, 0, "command"))
+         assertEquals(default, QuickBar.replace(default, 0, "camera"))
+-        assertEquals(default, QuickBar.remove(default, 1))
+-        assertEquals(listOf("phone", "command"), QuickBar.remove(default, 2))
++        assertEquals(listOf("hub"), QuickBar.remove(default, 1))
+     }
+ 
+     @Test
+-    fun addGoesBeforeSearchUpToThreeSlots() {
+-        assertEquals(listOf("phone", "hub", "command"), QuickBar.add(listOf("phone", "command"), "hub"))
++    fun addGoesBeforeSearchUpToTwoSlots() {
++        assertEquals(listOf("hub", "command"), QuickBar.add(listOf("command"), "hub"))
++        assertEquals(listOf("hub", "camera"), QuickBar.add(listOf("hub"), "camera"))
+         assertEquals(default, QuickBar.add(default, "app:9"))
+     }
+ 
+     @Test
+     fun fullBarAddsThroughTheSlotPicker() {
+         assertTrue(QuickBar.needsSlotPicker(default))
+-        assertFalse(QuickBar.needsSlotPicker(listOf("phone", "command")))
+-        assertEquals("Keep", QuickBar.pickerLine("phone", focused = false, appLabel = "Browser"))
++        assertFalse(QuickBar.needsSlotPicker(listOf("hub")))
++        assertEquals("Keep", QuickBar.pickerLine("hub", focused = false, appLabel = "Browser"))
+         assertEquals("Replace with Browser", QuickBar.pickerLine("camera", focused = true, appLabel = "Browser"))
+-        assertEquals("Required path", QuickBar.pickerLine("command", focused = true, appLabel = "Browser"))
+     }
+ 
+     @Test
+     fun fnDigitsOpenSlots() {
+         val fn = QuickBar.META_FUNCTION_ON
+-        assertEquals(0, QuickBar.shortcutSlot(QuickBar.KEYCODE_1, fn, 3))
+-        assertEquals(2, QuickBar.shortcutSlot(QuickBar.KEYCODE_1 + 2, fn, 3))
+-        assertNull(QuickBar.shortcutSlot(QuickBar.KEYCODE_1 + 3, fn, 3))
+-        assertNull(QuickBar.shortcutSlot(QuickBar.KEYCODE_1, 0, 3))
++        assertEquals(0, QuickBar.shortcutSlot(QuickBar.KEYCODE_1, fn, 2))
++        assertEquals(1, QuickBar.shortcutSlot(QuickBar.KEYCODE_1 + 1, fn, 2))
++        assertNull(QuickBar.shortcutSlot(QuickBar.KEYCODE_1 + 2, fn, 2))
++        assertNull(QuickBar.shortcutSlot(QuickBar.KEYCODE_1, 0, 2))
+     }
+ 
+     @Test
+     fun q25AltLayerDigitsOpenSlots() {
+-        // The Q25 has no Fn key: Alt+W/E/R type 1..3 through the key map.
++        // The Q25 has no Fn key: Alt+W/E type 1 and 2 through the key map.
+         val alt = QuickBar.META_ALT_ON
+         val keycodeW = 51
++        val keycodeE = 33
+         val keycodeR = 46
+-        val keycodeS = 47
+-        assertEquals(0, QuickBar.shortcutSlot(keycodeW, alt, 3, unicode = '1'.code))
+-        assertEquals(2, QuickBar.shortcutSlot(keycodeR, alt, 3, unicode = '3'.code))
+-        assertNull(QuickBar.shortcutSlot(keycodeS, alt, 3, unicode = '4'.code))
+-        assertNull(QuickBar.shortcutSlot(29, alt, 3, unicode = '@'.code))
+-        assertNull(QuickBar.shortcutSlot(keycodeW, 0, 3, unicode = '1'.code))
++        assertEquals(0, QuickBar.shortcutSlot(keycodeW, alt, 2, unicode = '1'.code))
++        assertEquals(1, QuickBar.shortcutSlot(keycodeE, alt, 2, unicode = '2'.code))
++        assertNull(QuickBar.shortcutSlot(keycodeR, alt, 2, unicode = '3'.code))
++        assertNull(QuickBar.shortcutSlot(29, alt, 2, unicode = '@'.code))
++        assertNull(QuickBar.shortcutSlot(keycodeW, 0, 2, unicode = '1'.code))
+         assertEquals("Alt+1", QuickBar.shortcutLabel(0))
+     }
+ 
+@@ -148,9 +149,9 @@ class QuickBarTest {
+ 
+     @Test
+     fun toggleAppAddsBeforeSearchOrRemovesItsSlot() {
+-        val two = listOf("phone", "command")
+-        val added = QuickBar.toggleApp(two, null, "0:com.example/.Main")
+-        assertEquals(listOf("phone", "app:0:com.example/.Main", "command"), added)
+-        assertEquals(two, QuickBar.toggleApp(added, "app:0:com.example/.Main", "0:com.example/.Main"))
++        val one = listOf("command")
++        val added = QuickBar.toggleApp(one, null, "0:com.example/.Main")
++        assertEquals(listOf("app:0:com.example/.Main", "command"), added)
++        assertEquals(one, QuickBar.toggleApp(added, "app:0:com.example/.Main", "0:com.example/.Main"))
+     }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index e06a9de..7ab09e2 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">الشريط السفلي</string>
+     <string name="search_always_stays_on_the">يبقى البحث دائماً على الشريط؛ ويمكن نقله.</string>
+     <string name="add_a_slot_2">+ إضافة خانة</string>
+-    <string name="reset_bar_to_phone_search">إعادة الشريط إلى الهاتف · البحث · الكاميرا</string>
++    <string name="reset_bar_to_phone_search">إعادة الشريط إلى Hub · الكاميرا</string>
++    <string name="hub_unread">غير مقروء</string>
+     <string name="frames_while_no_app_is">الإطارات عند عدم فتح أي تطبيق</string>
+     <string name="move_up">نقل للأعلى</string>
+     <string name="move_down">نقل للأسفل</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index 1e8f53e..f938faf 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">Untere Leiste</string>
+     <string name="search_always_stays_on_the">Die Suche bleibt immer auf der Leiste; sie kann verschoben werden.</string>
+     <string name="add_a_slot_2">+ Platz hinzufügen</string>
+-    <string name="reset_bar_to_phone_search">Leiste auf Telefon · Suche · Kamera zurücksetzen</string>
++    <string name="reset_bar_to_phone_search">Leiste auf Hub · Kamera zurücksetzen</string>
++    <string name="hub_unread">ungelesen</string>
+     <string name="frames_while_no_app_is">Frames, solange keine App geöffnet ist</string>
+     <string name="move_up">nach oben</string>
+     <string name="move_down">nach unten</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index 5fe857c..6e69c02 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">Κάτω γραμμή</string>
+     <string name="search_always_stays_on_the">Η αναζήτηση μένει πάντα στη γραμμή· μπορεί να μετακινηθεί.</string>
+     <string name="add_a_slot_2">+ προσθήκη θέσης</string>
+-    <string name="reset_bar_to_phone_search">επαναφορά γραμμής σε Τηλέφωνο · Αναζήτηση · Κάμερα</string>
++    <string name="reset_bar_to_phone_search">επαναφορά γραμμής σε Hub · Κάμερα</string>
++    <string name="hub_unread">μη αναγνωσμένα</string>
+     <string name="frames_while_no_app_is">Frames όταν δεν είναι ανοιχτή καμία εφαρμογή</string>
+     <string name="move_up">μετακίνηση πάνω</string>
+     <string name="move_down">μετακίνηση κάτω</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index b9f828d..c6fe92b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">Barra inferior</string>
+     <string name="search_always_stays_on_the">La búsqueda siempre está en la barra; se puede mover.</string>
+     <string name="add_a_slot_2">+ añadir un hueco</string>
+-    <string name="reset_bar_to_phone_search">restablecer la barra a Teléfono · Búsqueda · Cámara</string>
++    <string name="reset_bar_to_phone_search">restablecer la barra a Hub · Cámara</string>
++    <string name="hub_unread">sin leer</string>
+     <string name="frames_while_no_app_is">Frames mientras no hay ninguna app abierta</string>
+     <string name="move_up">subir</string>
+     <string name="move_down">bajar</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index f5b98e4..068b28a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">Barre du bas</string>
+     <string name="search_always_stays_on_the">La recherche reste toujours sur la barre ; elle peut être déplacée.</string>
+     <string name="add_a_slot_2">+ ajouter un emplacement</string>
+-    <string name="reset_bar_to_phone_search">réinitialiser la barre sur Téléphone · Recherche · Appareil photo</string>
++    <string name="reset_bar_to_phone_search">réinitialiser la barre sur Hub · Appareil photo</string>
++    <string name="hub_unread">non lu</string>
+     <string name="frames_while_no_app_is">Frames quand aucune appli n’est ouverte</string>
+     <string name="move_up">monter</string>
+     <string name="move_down">descendre</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index 1b58c75..fd30c78 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">निचला बार</string>
+     <string name="search_always_stays_on_the">खोज हमेशा बार पर रहती है; उसे हटाया जा सकता है।</string>
+     <string name="add_a_slot_2">+ स्लॉट जोड़ें</string>
+-    <string name="reset_bar_to_phone_search">बार को फ़ोन · खोज · कैमरा पर रीसेट करें</string>
++    <string name="reset_bar_to_phone_search">बार को Hub · कैमरा पर रीसेट करें</string>
++    <string name="hub_unread">अपठित</string>
+     <string name="frames_while_no_app_is">कोई ऐप खुला न होने पर फ़्रेम</string>
+     <string name="move_up">ऊपर ले जाएँ</string>
+     <string name="move_down">नीचे ले जाएँ</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index a067da6..3ff755e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">Barra inferiore</string>
+     <string name="search_always_stays_on_the">La ricerca resta sempre sulla barra; si può spostare.</string>
+     <string name="add_a_slot_2">+ aggiungi uno slot</string>
+-    <string name="reset_bar_to_phone_search">ripristina la barra su Telefono · Ricerca · Fotocamera</string>
++    <string name="reset_bar_to_phone_search">ripristina la barra su Hub · Fotocamera</string>
++    <string name="hub_unread">non letti</string>
+     <string name="frames_while_no_app_is">Frame quando nessuna app è aperta</string>
+     <string name="move_up">sposta su</string>
+     <string name="move_down">sposta giù</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index 35ca00f..921bd0f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">סרגל תחתון</string>
+     <string name="search_always_stays_on_the">החיפוש תמיד נשאר בסרגל; אפשר להזיז אותו.</string>
+     <string name="add_a_slot_2">+ הוספת מקום</string>
+-    <string name="reset_bar_to_phone_search">איפוס הסרגל ל-טלפון · חיפוש · מצלמה</string>
++    <string name="reset_bar_to_phone_search">איפוס הסרגל ל-Hub · מצלמה</string>
++    <string name="hub_unread">לא נקרא</string>
+     <string name="frames_while_no_app_is">פריימים כשאין אפליקציה פתוחה</string>
+     <string name="move_up">הזזה למעלה</string>
+     <string name="move_down">הזזה למטה</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index 38a5554..bc22d72 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">下部バー</string>
+     <string name="search_always_stays_on_the">検索は常にバーに残ります。移動はできます。</string>
+     <string name="add_a_slot_2">+ スロットを追加</string>
+-    <string name="reset_bar_to_phone_search">バーを 電話 · 検索 · カメラ にリセット</string>
++    <string name="reset_bar_to_phone_search">バーを Hub · カメラ にリセット</string>
++    <string name="hub_unread">未読</string>
+     <string name="frames_while_no_app_is">アプリが開いていないときのフレーム</string>
+     <string name="move_up">上へ移動</string>
+     <string name="move_down">下へ移動</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index b88147f..ebd847e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">하단 바</string>
+     <string name="search_always_stays_on_the">검색은 항상 바에 남아 있으며 이동할 수 있습니다.</string>
+     <string name="add_a_slot_2">+ 슬롯 추가</string>
+-    <string name="reset_bar_to_phone_search">바를 전화 · 검색 · 카메라로 초기화</string>
++    <string name="reset_bar_to_phone_search">바를 Hub · 카메라로 초기화</string>
++    <string name="hub_unread">읽지 않음</string>
+     <string name="frames_while_no_app_is">열린 앱이 없을 때의 프레임</string>
+     <string name="move_up">위로 이동</string>
+     <string name="move_down">아래로 이동</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index a3e1ac5..b71e476 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">Onderste balk</string>
+     <string name="search_always_stays_on_the">Zoeken blijft altijd op de balk; het kan worden verplaatst.</string>
+     <string name="add_a_slot_2">+ een plek toevoegen</string>
+-    <string name="reset_bar_to_phone_search">balk terugzetten naar Telefoon · Zoeken · Camera</string>
++    <string name="reset_bar_to_phone_search">balk terugzetten naar Hub · Camera</string>
++    <string name="hub_unread">ongelezen</string>
+     <string name="frames_while_no_app_is">Frames zolang er geen app is geopend</string>
+     <string name="move_up">omhoog</string>
+     <string name="move_down">omlaag</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index 8d02eaa..e64c717 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">Dolny pasek</string>
+     <string name="search_always_stays_on_the">Wyszukiwanie zawsze zostaje na pasku; można je przesunąć.</string>
+     <string name="add_a_slot_2">+ dodaj miejsce</string>
+-    <string name="reset_bar_to_phone_search">zresetuj pasek do Telefon · Szukaj · Aparat</string>
++    <string name="reset_bar_to_phone_search">zresetuj pasek do Hub · Aparat</string>
++    <string name="hub_unread">nieprzeczytane</string>
+     <string name="frames_while_no_app_is">Ramki, gdy żadna aplikacja nie jest otwarta</string>
+     <string name="move_up">w górę</string>
+     <string name="move_down">w dół</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index 3b3b714..1e6cab0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">Barra inferior</string>
+     <string name="search_always_stays_on_the">A busca sempre fica na barra; ela pode ser movida.</string>
+     <string name="add_a_slot_2">+ adicionar um espaço</string>
+-    <string name="reset_bar_to_phone_search">redefinir a barra para Telefone · Busca · Câmera</string>
++    <string name="reset_bar_to_phone_search">redefinir a barra para Hub · Câmera</string>
++    <string name="hub_unread">não lido</string>
+     <string name="frames_while_no_app_is">Frames enquanto nenhum app está aberto</string>
+     <string name="move_up">subir</string>
+     <string name="move_down">descer</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 0f77a8c..291dbc0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">Нижняя панель</string>
+     <string name="search_always_stays_on_the">Поиск всегда остаётся на панели; его можно перемещать.</string>
+     <string name="add_a_slot_2">+ добавить место</string>
+-    <string name="reset_bar_to_phone_search">сбросить панель: Телефон · Поиск · Камера</string>
++    <string name="reset_bar_to_phone_search">сбросить панель: Hub · Камера</string>
++    <string name="hub_unread">непрочитанные</string>
+     <string name="frames_while_no_app_is">Кадры, пока нет открытых приложений</string>
+     <string name="move_up">вверх</string>
+     <string name="move_down">вниз</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index df2d579..033e5a6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">Nedre fältet</string>
+     <string name="search_always_stays_on_the">Sök stannar alltid kvar i fältet; det kan flyttas.</string>
+     <string name="add_a_slot_2">+ lägg till en plats</string>
+-    <string name="reset_bar_to_phone_search">återställ fältet till Telefon · Sök · Kamera</string>
++    <string name="reset_bar_to_phone_search">återställ fältet till Hub · Kamera</string>
++    <string name="hub_unread">oläst</string>
+     <string name="frames_while_no_app_is">Frames när ingen app är öppen</string>
+     <string name="move_up">flytta upp</string>
+     <string name="move_down">flytta ned</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 96506a3..fe1df7b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">Alt çubuk</string>
+     <string name="search_always_stays_on_the">Arama her zaman çubukta kalır; taşınabilir.</string>
+     <string name="add_a_slot_2">+ yuva ekle</string>
+-    <string name="reset_bar_to_phone_search">çubuğu Telefon · Arama · Kamera düzenine sıfırla</string>
++    <string name="reset_bar_to_phone_search">çubuğu Hub · Kamera düzenine sıfırla</string>
++    <string name="hub_unread">okunmamış</string>
+     <string name="frames_while_no_app_is">Hiçbir uygulama açık değilken çerçeveler</string>
+     <string name="move_up">yukarı taşı</string>
+     <string name="move_down">aşağı taşı</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index ee49ec0..b93c49f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">نچلا بار</string>
+     <string name="search_always_stays_on_the">تلاش ہمیشہ بار پر رہتی ہے؛ اسے منتقل کیا جا سکتا ہے۔</string>
+     <string name="add_a_slot_2">+ خانہ شامل کریں</string>
+-    <string name="reset_bar_to_phone_search">بار کو فون · تلاش · کیمرا پر ری سیٹ کریں</string>
++    <string name="reset_bar_to_phone_search">بار کو Hub · کیمرا پر ری سیٹ کریں</string>
++    <string name="hub_unread">غیر پڑھا</string>
+     <string name="frames_while_no_app_is">جب کوئی ایپ کھلی نہ ہو تو فریمز</string>
+     <string name="move_up">اوپر منتقل کریں</string>
+     <string name="move_down">نیچے منتقل کریں</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 77ab10c..8fd9e3c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -159,7 +159,8 @@
+     <string name="bottom_bar">底部栏</string>
+     <string name="search_always_stays_on_the">搜索始终保留在栏上；可以移动它。</string>
+     <string name="add_a_slot_2">+ 添加栏位</string>
+-    <string name="reset_bar_to_phone_search">将栏重置为 电话 · 搜索 · 相机</string>
++    <string name="reset_bar_to_phone_search">将栏重置为 Hub · 相机</string>
++    <string name="hub_unread">未读</string>
+     <string name="frames_while_no_app_is">没有打开的应用时的框架</string>
+     <string name="move_up">上移</string>
+     <string name="move_down">下移</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 4c71c10..17f641d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -161,7 +161,8 @@
+     <string name="bottom_bar">Bottom bar</string>
+     <string name="search_always_stays_on_the">Search always stays on the bar; it can move.</string>
+     <string name="add_a_slot_2">+ add a slot</string>
+-    <string name="reset_bar_to_phone_search">reset bar to Phone · Search · Camera</string>
++    <string name="reset_bar_to_phone_search">reset bar to Hub · Camera</string>
++    <string name="hub_unread">unread</string>
+     <string name="frames_while_no_app_is">Frames while no app is open</string>
+     <string name="move_up">move up</string>
+     <string name="move_down">move down</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+index f70afc2..95da198 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+@@ -2,7 +2,7 @@ package org.sableos.start.model
+ 
+ /**
+  * Sable Start in the BlackBerry 10 layout (owner request, after the BB10 UI
+- * Guidelines): Hub | Active Frames | app grid pages, with Phone · Search ·
++ * Guidelines): Hub | Active Frames | app grid pages, with Hub · page dots ·
+  * Camera along the bottom. Pure policy, unit tested in
+  * apps/r8/android/sablestart-presentation-check/src/test.
+  */
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
+index 334915d..15aef0b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
+@@ -3,14 +3,16 @@ package org.sableos.start.model
+ import com.sable.start.model.StartText.t
+ 
+ /**
+- * The bottom bar of Sable Start (BlackBerry 10 layout: Phone · Search ·
+- * Camera under Active Frames and the app grid; platform_sable
+- * SABLE_START_SCREEN_DESIGN.md "Base quick bar"). Pure policy, unit tested in
++ * The bottom bar of Sable Start (BlackBerry 10 layout, owner decision
++ * 2026-11-04): Hub at the left end, the page dots in the middle and Camera at
++ * the right end, under Active Frames and the app grid. The Q25 has a call
++ * key, so Phone is not in the bar by default; Search is reached by typing on
++ * any page or Alt+Space, so it needs no slot. Pure policy, unit tested in
+  * apps/r8/android/sablestart-presentation-check/src/test.
+  *
+  * A slot is stored as a token:
+  *   "phone", "hub", "camera"  role slots, resolved to the installed app
+- *   "command"                 Search/Command (always present)
++ *   "command"                 Search/Command (optional: typing and Alt+Space open it)
+  *   "apps"                    the A-Z All Apps list (optional: the app grid
+  *                             pages hold every app, Alt+Right reaches them)
+  *   "app:<stableKey>"         one app the user picked
+@@ -23,17 +25,23 @@ object QuickBar {
+     const val ALL_APPS = "apps"
+     private const val APP_PREFIX = "app:"
+ 
+-    /** Three slots, as on BlackBerry 10 (Alt+1..Alt+3). */
+-    const val MAX_SLOTS = 3
++    /** Two slots, one at each end of the bar around the page dots (Alt+1, Alt+2). */
++    const val MAX_SLOTS = 2
+ 
+-    /** Phone | Search | Camera. */
+-    val DEFAULT: List<String> = listOf(PHONE, COMMAND, CAMERA)
++    /** Hub | page dots | Camera. */
++    val DEFAULT: List<String> = listOf(HUB, CAMERA)
+ 
+     /** The bar of the Titan 2 three-page Start; a saved copy of it means "never customised". */
+     val LEGACY_DEFAULT: List<String> = listOf(PHONE, HUB, COMMAND, ALL_APPS)
+ 
+-    /** COMMAND_ACCESS_REQUIRED: Search is never removed or replaced. */
+-    val REQUIRED: Set<String> = setOf(COMMAND)
++    /** The Phone · Search · Camera bar before 2026-11-04; a saved copy of it means "never customised". */
++    val PHONE_SEARCH_CAMERA: List<String> = listOf(PHONE, COMMAND, CAMERA)
++
++    /**
++     * Slots that can never be removed or replaced. None: COMMAND_ACCESS_REQUIRED is met by
++     * typing on any Start page and by Alt+Space, which open Search without a slot.
++     */
++    val REQUIRED: Set<String> = emptySet()
+ 
+     private val ROLES = setOf(PHONE, HUB, CAMERA, ALL_APPS)
+ 
+@@ -47,17 +55,16 @@ object QuickBar {
+     fun isValid(token: String): Boolean = token in ROLES || token in REQUIRED || appKey(token) != null
+ 
+     /**
+-     * Drops unknown and duplicate tokens, puts back a missing Search slot and
+-     * caps the bar at [MAX_SLOTS]; required slots win the cap. Null (never
+-     * customised) and the old three-page default give [DEFAULT].
++     * Drops unknown and duplicate tokens, puts back any missing required slot
++     * and caps the bar at [MAX_SLOTS]; required slots win the cap. Null (never
++     * customised) and the earlier defaults give [DEFAULT].
+      */
+     fun normalize(tokens: List<String>?): List<String> {
+-        if (tokens == null || tokens == LEGACY_DEFAULT) return DEFAULT
++        if (tokens == null || tokens == LEGACY_DEFAULT || tokens == PHONE_SEARCH_CAMERA) return DEFAULT
+         val kept = tokens.filter(::isValid).distinct().toMutableList()
+         REQUIRED.filterNot { it in kept }.forEach { kept += it }
+         while (kept.size > MAX_SLOTS) {
+-            val drop = kept.indexOfLast { !isRequired(it) }
+-            kept.removeAt(drop)
++            kept.removeAt(kept.indexOfLast { !isRequired(it) })
+         }
+         return kept
+     }
+@@ -93,7 +100,7 @@ object QuickBar {
+         return tokens.filterIndexed { i, _ -> i != index }
+     }
+ 
+-    /** Adds before Command so the default order reads naturally. */
++    /** Adds before Command when the bar has it, else at the end. */
+     fun add(
+         tokens: List<String>,
+         token: String,
+@@ -142,9 +149,9 @@ object QuickBar {
+         if (slotToken != null) remove(tokens, tokens.indexOf(slotToken)) else add(tokens, appToken(stableKey))
+ 
+     /**
+-     * Slot shortcuts: Fn+1..Fn+3 on keyboards with an Fn key (Titan 2), and
+-     * Alt+1..Alt+3 on keyboards that type digits on the Alt layer (the Q25's
+-     * Alt+W/E/R). [unicode] is the character the platform key map produced
++     * Slot shortcuts: Fn+1 and Fn+2 on keyboards with an Fn key (Titan 2), and
++     * Alt+1 and Alt+2 on keyboards that type digits on the Alt layer (the Q25's
++     * Alt+W/E). [unicode] is the character the platform key map produced
+      * with the event's own meta state. Returns the slot index, or null when the
+      * key is not a quick-bar shortcut.
+      */
+@@ -178,7 +185,7 @@ object QuickBar {
+ 
+     private const val DIAL_SYMBOLS = "*#+"
+ 
+-    /** "Alt+1".."Alt+3": the shortcut as printed on the keys (Fn devices accept it too). */
++    /** "Alt+1", "Alt+2": the shortcut as printed on the keys (Fn devices accept it too). */
+     fun shortcutLabel(index: Int): String = "Alt+${index + 1}"
+ 
+     const val KEYCODE_1 = 8
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 45efa89..8843392 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -176,7 +176,8 @@ object StartText {
+             "bottom_bar" to "Bottom bar",
+             "search_always_stays_on_the" to "Search always stays on the bar; it can move.",
+             "add_a_slot_2" to "+ add a slot",
+-            "reset_bar_to_phone_search" to "reset bar to Phone · Search · Camera",
++            "reset_bar_to_phone_search" to "reset bar to Hub · Camera",
++            "hub_unread" to "unread",
+             "frames_while_no_app_is" to "Frames while no app is open",
+             "move_up" to "move up",
+             "move_down" to "move down",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index f0fa72f..07b1445 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -327,8 +327,8 @@ private val Bb10Dim: Color
+  * Production Sable Start UI in the BlackBerry 10 layout (owner request, after
+  * the BB10 UI Guidelines): a horizontal strip of Hub (left), Active Frames
+  * (Home: up to eight recent apps as live cards, or the Glance widgets while
+- * none run) and the app grid pages (right), with the BB10 page dots and the
+- * Phone · Search · Camera bar. All Apps, Command/Search, Peek, Edit Home and
++ * none run) and the app grid pages (right), above the Hub · page dots · Camera
++ * bar. All Apps, Command/Search, Peek, Edit Home and
+  * Appearance open over the pages. Recents/Overview remain owned by Android
+  * Quickstep; Active Frames read the same recent tasks.
+  */
+@@ -595,6 +595,7 @@ fun SableStartScreen(
+                                 state = startPager,
+                                 pageCount = pageCount,
+                                 quickSlots = quickSlots,
++                                hubUnread = liveSnapshot.hubApps.any { it.count > 0 },
+                                 onMovePage = ::movePage,
+                                 onShowPage = { page -> pagerScope.launch { startPager.animateScrollToPage(page) } },
+                                 onQuickSlot = ::activateSlot,
+@@ -929,11 +930,11 @@ private fun startGridHeightDp(): Int {
+ }
+ 
+ /**
+- * The horizontal strip (BB10 layout): pages, the BB10 page indicator and the
+- * Phone · Search · Camera bar.
++ * The horizontal strip (BB10 layout): pages above the bottom bar, which holds
++ * Hub, the page dots and Camera.
+  *
+  * Keys anywhere on the strip: Alt+Left/Right (Fn+Left/Right) move one page,
+- * Alt+1..Alt+3 open the bar slots, Alt+Space opens Command, digits typed on the
++ * Alt+1 and Alt+2 open the bar slots, Alt+Space opens Command, digits typed on the
+  * focused Phone slot dial, Menu that nothing took opens Edit Home, and any
+  * other printable key opens Command/Search seeded with it.
+  */
+@@ -942,6 +943,7 @@ private fun StartStrip(
+     state: PagerState,
+     pageCount: Int,
+     quickSlots: List<QuickSlot>,
++    hubUnread: Boolean,
+     onMovePage: (Int) -> Unit,
+     onShowPage: (Int) -> Unit,
+     onQuickSlot: (QuickSlot) -> Unit,
+@@ -1033,13 +1035,12 @@ private fun StartStrip(
+             beyondViewportPageCount = 0,
+             modifier = Modifier.weight(1f).fillMaxWidth(),
+         ) { index -> page(index) }
+-        Bb10PageIndicator(
++        Bb10BottomBar(
+             current = state.currentPage,
+-            count = pageCount,
+-            onShowPage = onShowPage,
+-        )
+-        Bb10ActionBar(
++            pageCount = pageCount,
+             slots = quickSlots,
++            hubUnread = hubUnread,
++            onShowPage = onShowPage,
+             onSlot = onQuickSlot,
+             onOptions = onSlotOptions,
+             onHubPeek = onHubPeek,
+@@ -1049,19 +1050,21 @@ private fun StartStrip(
+ }
+ 
+ /**
+- * BB10 page indicator: the Hub mark, the Active Frames mark and one dot per
+- * app grid page; the current page is white, the others grey.
++ * BB10 page indicator in the middle of the bottom bar: the Active Frames mark
++ * and one dot per app grid page; the current page is white, the others grey.
++ * The Hub page has a mark only when no bar slot opens Hub ([showHubMark]).
+  */
+ @Composable
+ private fun Bb10PageIndicator(
+     current: Int,
+     count: Int,
++    showHubMark: Boolean,
+     onShowPage: (Int) -> Unit,
++    modifier: Modifier = Modifier,
+ ) {
+     Row(
+         modifier =
+-            Modifier
+-                .fillMaxWidth()
++            modifier
+                 .height(INDICATOR_HEIGHT_DP.dp)
+                 .semantics {
+                     contentDescription = pageDescription(current)
+@@ -1070,6 +1073,7 @@ private fun Bb10PageIndicator(
+         verticalAlignment = Alignment.CenterVertically,
+     ) {
+         for (page in 0 until count) {
++            if (page == StartPages.HUB && !showHubMark) continue
+             val color = if (page == current) Bb10Text else Bb10Dim
+             Box(
+                 modifier =
+@@ -2481,15 +2485,22 @@ private fun SlotOptionsScreen(
+ }
+ 
+ /**
+- * The BB10 bar under Active Frames and the app grid: Phone · Search · Camera
+- * by default, icon only, white on the dark bar, the focused slot BB10 blue.
+- * Enter or a tap opens a slot; long press, Menu or Alt+Enter (Fn+Enter) opens
+- * the slot's options; Space on a Hub slot peeks at the Hub page; digits typed
+- * while Phone is focused go to the dialer (handled by [StartStrip]).
++ * The BB10 bottom bar under Active Frames and the app grid (owner decision
++ * 2026-11-04): the first slot at the left end (Hub by default, with a dot when
++ * Hub has unread items), the page dots in the middle and the second slot at
++ * the right end (Camera by default). Icon only, white on the dark bar, the
++ * focused slot BB10 blue; the Hub slot is white-outlined while the Hub page is
++ * shown. Enter or a tap opens a slot; long press, Menu or Alt+Enter (Fn+Enter)
++ * opens the slot's options; Space on a Hub slot peeks at the Hub page; digits
++ * typed while a Phone slot is focused go to the dialer (handled by [StartStrip]).
+  */
+ @Composable
+-private fun Bb10ActionBar(
++private fun Bb10BottomBar(
++    current: Int,
++    pageCount: Int,
+     slots: List<QuickSlot>,
++    hubUnread: Boolean,
++    onShowPage: (Int) -> Unit,
+     onSlot: (QuickSlot) -> Unit,
+     onOptions: (QuickSlot) -> Unit,
+     onHubPeek: () -> Unit,
+@@ -2502,45 +2513,89 @@ private fun Bb10ActionBar(
+                 .height(BAR_HEIGHT_DP.dp)
+                 .background(Brush.verticalGradient(listOf(Bb10BarTop, Bb10BarBottom)))
+                 .border(1.dp, Bb10Line)
+-                .padding(horizontal = 16.dp, vertical = 4.dp),
+-        horizontalArrangement = Arrangement.spacedBy(12.dp),
++                .padding(horizontal = 12.dp, vertical = 4.dp),
++        verticalAlignment = Alignment.CenterVertically,
+     ) {
+-        slots.forEachIndexed { index, slot ->
+-            var focused by remember { mutableStateOf(false) }
+-            Box(
+-                modifier =
+-                    Modifier
+-                        .weight(1f)
+-                        .fillMaxHeight()
+-                        .clip(RoundedCornerShape(6.dp))
+-                        .background(if (focused) Bb10Blue else Color.Transparent)
+-                        .onFocusChanged { state ->
+-                            focused = state.isFocused
+-                            if (slot.token == QuickBar.PHONE) onPhoneFocusChanged(state.isFocused)
+-                        }.onPreviewKeyEvent { event ->
+-                            val native = event.nativeKeyEvent
+-                            val alt = native.metaState and (QuickBar.META_FUNCTION_ON or QuickBar.META_ALT_ON) != 0
+-                            val action: (() -> Unit)? =
+-                                when {
+-                                    native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
+-                                        (native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && alt) -> {
+-                                        { onOptions(slot) }
+-                                    }
+-                                    native.keyCode == AllAppsKeyPolicy.KEYCODE_SPACE && !alt && slot.token == QuickBar.HUB -> onHubPeek
+-                                    else -> null
+-                                }
+-                            if (action != null && event.type == KeyEventType.KeyDown && native.repeatCount == 0) action()
+-                            action != null
+-                        }.combinedClickable(
+-                            onClick = { onSlot(slot) },
+-                            onLongClick = { onOptions(slot) },
+-                        ).semantics {
+-                            contentDescription = "${slot.label}, ${QuickBar.shortcutLabel(index)}"
+-                        },
+-                contentAlignment = Alignment.Center,
+-            ) {
+-                CompositionLocalProvider(LocalContentColor provides if (focused) Bb10OnBlue else Bb10Text) {
+-                    QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
++        val left = slots.getOrNull(0)
++        val right = slots.getOrNull(1)
++        val slot: @Composable (QuickSlot?, Int) -> Unit = { quick, index ->
++            Box(Modifier.width(BAR_SLOT_DP.dp).fillMaxHeight()) {
++                quick?.let { Bb10BarSlot(it, index, current, hubUnread, onSlot, onOptions, onHubPeek, onPhoneFocusChanged) }
++            }
++        }
++        slot(left, 0)
++        Bb10PageIndicator(
++            current = current,
++            count = pageCount,
++            showHubMark = slots.none { it.token == QuickBar.HUB },
++            onShowPage = onShowPage,
++            modifier = Modifier.weight(1f),
++        )
++        slot(right, 1)
++    }
++}
++
++/** One end slot of [Bb10BottomBar]. */
++@Composable
++private fun Bb10BarSlot(
++    slot: QuickSlot,
++    index: Int,
++    current: Int,
++    hubUnread: Boolean,
++    onSlot: (QuickSlot) -> Unit,
++    onOptions: (QuickSlot) -> Unit,
++    onHubPeek: () -> Unit,
++    onPhoneFocusChanged: (Boolean) -> Unit,
++) {
++    var focused by remember { mutableStateOf(false) }
++    val isHub = slot.token == QuickBar.HUB
++    Box(
++        modifier =
++            Modifier
++                .fillMaxSize()
++                .clip(RoundedCornerShape(6.dp))
++                .background(if (focused) Bb10Blue else Color.Transparent)
++                .then(
++                    if (isHub && current == StartPages.HUB && !focused) {
++                        Modifier.border(1.dp, Bb10Text, RoundedCornerShape(6.dp))
++                    } else {
++                        Modifier
++                    },
++                ).onFocusChanged { state ->
++                    focused = state.isFocused
++                    if (slot.token == QuickBar.PHONE) onPhoneFocusChanged(state.isFocused)
++                }.onPreviewKeyEvent { event ->
++                    val native = event.nativeKeyEvent
++                    val alt = native.metaState and (QuickBar.META_FUNCTION_ON or QuickBar.META_ALT_ON) != 0
++                    val action: (() -> Unit)? =
++                        when {
++                            native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
++                                (native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && alt) -> {
++                                { onOptions(slot) }
++                            }
++                            native.keyCode == AllAppsKeyPolicy.KEYCODE_SPACE && !alt && isHub -> onHubPeek
++                            else -> null
++                        }
++                    if (action != null && event.type == KeyEventType.KeyDown && native.repeatCount == 0) action()
++                    action != null
++                }.combinedClickable(
++                    onClick = { onSlot(slot) },
++                    onLongClick = { onOptions(slot) },
++                ).semantics {
++                    val unread = if (isHub && hubUnread) ", " + t("hub_unread") else ""
++                    contentDescription = "${slot.label}$unread, ${QuickBar.shortcutLabel(index)}"
++                },
++        contentAlignment = Alignment.Center,
++    ) {
++        CompositionLocalProvider(LocalContentColor provides if (focused) Bb10OnBlue else Bb10Text) {
++            Box {
++                QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
++                if (isHub && hubUnread) {
++                    // BB10's unread splat: a filled dot at the envelope's top right.
++                    val dot = LocalContentColor.current
++                    ComposeCanvas(Modifier.size(HUB_DOT_DP.dp).align(Alignment.TopEnd)) {
++                        drawCircle(color = dot, radius = size.minDimension / 2f)
++                    }
+                 }
+             }
+         }
+@@ -2604,12 +2659,22 @@ private fun QuickSlotMark(
+                     )
+                 }
+             }
+-            QuickBar.HUB ->
+-                // Hub: three short lines, as on the page indicator.
+-                for (line in 0..2) {
+-                    val y = unit * (0.25f + line * 0.25f)
+-                    drawLine(color, Offset(unit * 0.12f, y), Offset(unit * 0.88f, y), strokeWidth = stroke, cap = StrokeCap.Round)
++            QuickBar.HUB -> {
++                // Hub: a BB10 envelope, the body and its flap.
++                val top = unit * 0.26f
++                val bottom = unit * 0.78f
++                drawRoundRect(
++                    color = color,
++                    topLeft = Offset(unit * 0.1f, top),
++                    size = Size(unit * 0.8f, bottom - top),
++                    cornerRadius = CornerRadius(unit * 0.06f),
++                    style = Stroke(stroke),
++                )
++                val fold = Offset(unit * 0.5f, unit * 0.54f)
++                listOf(0.12f, 0.88f).forEach { x ->
++                    drawLine(color, Offset(unit * x, top + stroke), fold, strokeWidth = stroke, cap = StrokeCap.Round)
+                 }
++            }
+             QuickBar.CAMERA -> {
+                 // Camera body, viewfinder bump and lens.
+                 drawRoundRect(
+@@ -5400,10 +5465,12 @@ private const val INDICATOR_HEIGHT_DP = 16
+ private const val INDICATOR_SLOT_DP = 18
+ private const val BAR_HEIGHT_DP = 48
+ private const val BAR_GLYPH_DP = 26
++private const val BAR_SLOT_DP = 64
++private const val HUB_DOT_DP = 8
+ 
+ /** Before the window is measured: the status bar the configuration's height still includes. */
+ private const val STATUS_BAR_FALLBACK_DP = 24
+ 
+ /** Page indicator, bar and the grid's own padding: what the grid rows do not get. */
+-private const val START_CHROME_DP = INDICATOR_HEIGHT_DP + BAR_HEIGHT_DP + 2 * 4
++private const val START_CHROME_DP = BAR_HEIGHT_DP + 2 * 4
+ private const val NANOS_PER_MILLI = 1_000_000L

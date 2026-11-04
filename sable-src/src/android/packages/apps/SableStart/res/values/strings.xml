@@ -161,7 +161,8 @@
     <string name="bottom_bar">Bottom bar</string>
     <string name="search_always_stays_on_the">Search always stays on the bar; it can move.</string>
     <string name="add_a_slot_2">+ add a slot</string>
-    <string name="reset_bar_to_phone_search">reset bar to Phone · Search · Camera</string>
+    <string name="reset_bar_to_phone_search">reset bar to Hub · Camera</string>
+    <string name="hub_unread">unread</string>
     <string name="frames_while_no_app_is">Frames while no app is open</string>
     <string name="move_up">move up</string>
     <string name="move_down">move down</string>

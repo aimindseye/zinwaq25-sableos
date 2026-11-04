@@ -159,7 +159,8 @@
     <string name="bottom_bar">Κάτω γραμμή</string>
     <string name="search_always_stays_on_the">Η αναζήτηση μένει πάντα στη γραμμή· μπορεί να μετακινηθεί.</string>
     <string name="add_a_slot_2">+ προσθήκη θέσης</string>
-    <string name="reset_bar_to_phone_search">επαναφορά γραμμής σε Τηλέφωνο · Αναζήτηση · Κάμερα</string>
+    <string name="reset_bar_to_phone_search">επαναφορά γραμμής σε Hub · Κάμερα</string>
+    <string name="hub_unread">μη αναγνωσμένα</string>
     <string name="frames_while_no_app_is">Frames όταν δεν είναι ανοιχτή καμία εφαρμογή</string>
     <string name="move_up">μετακίνηση πάνω</string>
     <string name="move_down">μετακίνηση κάτω</string>

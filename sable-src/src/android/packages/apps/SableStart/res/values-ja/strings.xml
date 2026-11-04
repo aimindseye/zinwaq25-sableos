@@ -159,7 +159,8 @@
     <string name="bottom_bar">下部バー</string>
     <string name="search_always_stays_on_the">検索は常にバーに残ります。移動はできます。</string>
     <string name="add_a_slot_2">+ スロットを追加</string>
-    <string name="reset_bar_to_phone_search">バーを 電話 · 検索 · カメラ にリセット</string>
+    <string name="reset_bar_to_phone_search">バーを Hub · カメラ にリセット</string>
+    <string name="hub_unread">未読</string>
     <string name="frames_while_no_app_is">アプリが開いていないときのフレーム</string>
     <string name="move_up">上へ移動</string>
     <string name="move_down">下へ移動</string>

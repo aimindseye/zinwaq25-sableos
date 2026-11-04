@@ -159,7 +159,8 @@
     <string name="bottom_bar">하단 바</string>
     <string name="search_always_stays_on_the">검색은 항상 바에 남아 있으며 이동할 수 있습니다.</string>
     <string name="add_a_slot_2">+ 슬롯 추가</string>
-    <string name="reset_bar_to_phone_search">바를 전화 · 검색 · 카메라로 초기화</string>
+    <string name="reset_bar_to_phone_search">바를 Hub · 카메라로 초기화</string>
+    <string name="hub_unread">읽지 않음</string>
     <string name="frames_while_no_app_is">열린 앱이 없을 때의 프레임</string>
     <string name="move_up">위로 이동</string>
     <string name="move_down">아래로 이동</string>

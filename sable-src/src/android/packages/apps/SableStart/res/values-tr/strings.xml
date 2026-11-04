@@ -159,7 +159,8 @@
     <string name="bottom_bar">Alt çubuk</string>
     <string name="search_always_stays_on_the">Arama her zaman çubukta kalır; taşınabilir.</string>
     <string name="add_a_slot_2">+ yuva ekle</string>
-    <string name="reset_bar_to_phone_search">çubuğu Telefon · Arama · Kamera düzenine sıfırla</string>
+    <string name="reset_bar_to_phone_search">çubuğu Hub · Kamera düzenine sıfırla</string>
+    <string name="hub_unread">okunmamış</string>
     <string name="frames_while_no_app_is">Hiçbir uygulama açık değilken çerçeveler</string>
     <string name="move_up">yukarı taşı</string>
     <string name="move_down">aşağı taşı</string>

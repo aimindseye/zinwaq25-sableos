@@ -159,7 +159,8 @@
     <string name="bottom_bar">底部栏</string>
     <string name="search_always_stays_on_the">搜索始终保留在栏上；可以移动它。</string>
     <string name="add_a_slot_2">+ 添加栏位</string>
-    <string name="reset_bar_to_phone_search">将栏重置为 电话 · 搜索 · 相机</string>
+    <string name="reset_bar_to_phone_search">将栏重置为 Hub · 相机</string>
+    <string name="hub_unread">未读</string>
     <string name="frames_while_no_app_is">没有打开的应用时的框架</string>
     <string name="move_up">上移</string>
     <string name="move_down">下移</string>

@@ -159,7 +159,8 @@
     <string name="bottom_bar">Barre du bas</string>
     <string name="search_always_stays_on_the">La recherche reste toujours sur la barre ; elle peut être déplacée.</string>
     <string name="add_a_slot_2">+ ajouter un emplacement</string>
-    <string name="reset_bar_to_phone_search">réinitialiser la barre sur Téléphone · Recherche · Appareil photo</string>
+    <string name="reset_bar_to_phone_search">réinitialiser la barre sur Hub · Appareil photo</string>
+    <string name="hub_unread">non lu</string>
     <string name="frames_while_no_app_is">Frames quand aucune appli n’est ouverte</string>
     <string name="move_up">monter</string>
     <string name="move_down">descendre</string>

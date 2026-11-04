@@ -159,7 +159,8 @@
     <string name="bottom_bar">Нижняя панель</string>
     <string name="search_always_stays_on_the">Поиск всегда остаётся на панели; его можно перемещать.</string>
     <string name="add_a_slot_2">+ добавить место</string>
-    <string name="reset_bar_to_phone_search">сбросить панель: Телефон · Поиск · Камера</string>
+    <string name="reset_bar_to_phone_search">сбросить панель: Hub · Камера</string>
+    <string name="hub_unread">непрочитанные</string>
     <string name="frames_while_no_app_is">Кадры, пока нет открытых приложений</string>
     <string name="move_up">вверх</string>
     <string name="move_down">вниз</string>

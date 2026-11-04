@@ -2,7 +2,7 @@ package org.sableos.start.model
 
 /**
  * Sable Start in the BlackBerry 10 layout (owner request, after the BB10 UI
- * Guidelines): Hub | Active Frames | app grid pages, with Phone · Search ·
+ * Guidelines): Hub | Active Frames | app grid pages, with Hub · page dots ·
  * Camera along the bottom. Pure policy, unit tested in
  * apps/r8/android/sablestart-presentation-check/src/test.
  */

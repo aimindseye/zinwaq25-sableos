@@ -159,7 +159,8 @@
     <string name="bottom_bar">Barra inferior</string>
     <string name="search_always_stays_on_the">A busca sempre fica na barra; ela pode ser movida.</string>
     <string name="add_a_slot_2">+ adicionar um espaço</string>
-    <string name="reset_bar_to_phone_search">redefinir a barra para Telefone · Busca · Câmera</string>
+    <string name="reset_bar_to_phone_search">redefinir a barra para Hub · Câmera</string>
+    <string name="hub_unread">não lido</string>
     <string name="frames_while_no_app_is">Frames enquanto nenhum app está aberto</string>
     <string name="move_up">subir</string>
     <string name="move_down">descer</string>

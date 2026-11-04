@@ -159,7 +159,8 @@
     <string name="bottom_bar">Dolny pasek</string>
     <string name="search_always_stays_on_the">Wyszukiwanie zawsze zostaje na pasku; można je przesunąć.</string>
     <string name="add_a_slot_2">+ dodaj miejsce</string>
-    <string name="reset_bar_to_phone_search">zresetuj pasek do Telefon · Szukaj · Aparat</string>
+    <string name="reset_bar_to_phone_search">zresetuj pasek do Hub · Aparat</string>
+    <string name="hub_unread">nieprzeczytane</string>
     <string name="frames_while_no_app_is">Ramki, gdy żadna aplikacja nie jest otwarta</string>
     <string name="move_up">w górę</string>
     <string name="move_down">w dół</string>

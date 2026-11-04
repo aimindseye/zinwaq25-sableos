@@ -327,8 +327,8 @@ private val Bb10Dim: Color
  * Production Sable Start UI in the BlackBerry 10 layout (owner request, after
  * the BB10 UI Guidelines): a horizontal strip of Hub (left), Active Frames
  * (Home: up to eight recent apps as live cards, or the Glance widgets while
- * none run) and the app grid pages (right), with the BB10 page dots and the
- * Phone · Search · Camera bar. All Apps, Command/Search, Peek, Edit Home and
+ * none run) and the app grid pages (right), above the Hub · page dots · Camera
+ * bar. All Apps, Command/Search, Peek, Edit Home and
  * Appearance open over the pages. Recents/Overview remain owned by Android
  * Quickstep; Active Frames read the same recent tasks.
  */
@@ -595,6 +595,7 @@ fun SableStartScreen(
                                 state = startPager,
                                 pageCount = pageCount,
                                 quickSlots = quickSlots,
+                                hubUnread = liveSnapshot.hubApps.any { it.count > 0 },
                                 onMovePage = ::movePage,
                                 onShowPage = { page -> pagerScope.launch { startPager.animateScrollToPage(page) } },
                                 onQuickSlot = ::activateSlot,
@@ -929,11 +930,11 @@ private fun startGridHeightDp(): Int {
 }
 
 /**
- * The horizontal strip (BB10 layout): pages, the BB10 page indicator and the
- * Phone · Search · Camera bar.
+ * The horizontal strip (BB10 layout): pages above the bottom bar, which holds
+ * Hub, the page dots and Camera.
  *
  * Keys anywhere on the strip: Alt+Left/Right (Fn+Left/Right) move one page,
- * Alt+1..Alt+3 open the bar slots, Alt+Space opens Command, digits typed on the
+ * Alt+1 and Alt+2 open the bar slots, Alt+Space opens Command, digits typed on the
  * focused Phone slot dial, Menu that nothing took opens Edit Home, and any
  * other printable key opens Command/Search seeded with it.
  */
@@ -942,6 +943,7 @@ private fun StartStrip(
     state: PagerState,
     pageCount: Int,
     quickSlots: List<QuickSlot>,
+    hubUnread: Boolean,
     onMovePage: (Int) -> Unit,
     onShowPage: (Int) -> Unit,
     onQuickSlot: (QuickSlot) -> Unit,
@@ -1033,13 +1035,12 @@ private fun StartStrip(
             beyondViewportPageCount = 0,
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) { index -> page(index) }
-        Bb10PageIndicator(
+        Bb10BottomBar(
             current = state.currentPage,
-            count = pageCount,
-            onShowPage = onShowPage,
-        )
-        Bb10ActionBar(
+            pageCount = pageCount,
             slots = quickSlots,
+            hubUnread = hubUnread,
+            onShowPage = onShowPage,
             onSlot = onQuickSlot,
             onOptions = onSlotOptions,
             onHubPeek = onHubPeek,
@@ -1049,19 +1050,21 @@ private fun StartStrip(
 }
 
 /**
- * BB10 page indicator: the Hub mark, the Active Frames mark and one dot per
- * app grid page; the current page is white, the others grey.
+ * BB10 page indicator in the middle of the bottom bar: the Active Frames mark
+ * and one dot per app grid page; the current page is white, the others grey.
+ * The Hub page has a mark only when no bar slot opens Hub ([showHubMark]).
  */
 @Composable
 private fun Bb10PageIndicator(
     current: Int,
     count: Int,
+    showHubMark: Boolean,
     onShowPage: (Int) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier =
-            Modifier
-                .fillMaxWidth()
+            modifier
                 .height(INDICATOR_HEIGHT_DP.dp)
                 .semantics {
                     contentDescription = pageDescription(current)
@@ -1070,6 +1073,7 @@ private fun Bb10PageIndicator(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         for (page in 0 until count) {
+            if (page == StartPages.HUB && !showHubMark) continue
             val color = if (page == current) Bb10Text else Bb10Dim
             Box(
                 modifier =
@@ -2481,15 +2485,22 @@ private fun SlotOptionsScreen(
 }
 
 /**
- * The BB10 bar under Active Frames and the app grid: Phone · Search · Camera
- * by default, icon only, white on the dark bar, the focused slot BB10 blue.
- * Enter or a tap opens a slot; long press, Menu or Alt+Enter (Fn+Enter) opens
- * the slot's options; Space on a Hub slot peeks at the Hub page; digits typed
- * while Phone is focused go to the dialer (handled by [StartStrip]).
+ * The BB10 bottom bar under Active Frames and the app grid (owner decision
+ * 2026-11-04): the first slot at the left end (Hub by default, with a dot when
+ * Hub has unread items), the page dots in the middle and the second slot at
+ * the right end (Camera by default). Icon only, white on the dark bar, the
+ * focused slot BB10 blue; the Hub slot is white-outlined while the Hub page is
+ * shown. Enter or a tap opens a slot; long press, Menu or Alt+Enter (Fn+Enter)
+ * opens the slot's options; Space on a Hub slot peeks at the Hub page; digits
+ * typed while a Phone slot is focused go to the dialer (handled by [StartStrip]).
  */
 @Composable
-private fun Bb10ActionBar(
+private fun Bb10BottomBar(
+    current: Int,
+    pageCount: Int,
     slots: List<QuickSlot>,
+    hubUnread: Boolean,
+    onShowPage: (Int) -> Unit,
     onSlot: (QuickSlot) -> Unit,
     onOptions: (QuickSlot) -> Unit,
     onHubPeek: () -> Unit,
@@ -2502,45 +2513,89 @@ private fun Bb10ActionBar(
                 .height(BAR_HEIGHT_DP.dp)
                 .background(Brush.verticalGradient(listOf(Bb10BarTop, Bb10BarBottom)))
                 .border(1.dp, Bb10Line)
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        slots.forEachIndexed { index, slot ->
-            var focused by remember { mutableStateOf(false) }
-            Box(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (focused) Bb10Blue else Color.Transparent)
-                        .onFocusChanged { state ->
-                            focused = state.isFocused
-                            if (slot.token == QuickBar.PHONE) onPhoneFocusChanged(state.isFocused)
-                        }.onPreviewKeyEvent { event ->
-                            val native = event.nativeKeyEvent
-                            val alt = native.metaState and (QuickBar.META_FUNCTION_ON or QuickBar.META_ALT_ON) != 0
-                            val action: (() -> Unit)? =
-                                when {
-                                    native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
-                                        (native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && alt) -> {
-                                        { onOptions(slot) }
-                                    }
-                                    native.keyCode == AllAppsKeyPolicy.KEYCODE_SPACE && !alt && slot.token == QuickBar.HUB -> onHubPeek
-                                    else -> null
-                                }
-                            if (action != null && event.type == KeyEventType.KeyDown && native.repeatCount == 0) action()
-                            action != null
-                        }.combinedClickable(
-                            onClick = { onSlot(slot) },
-                            onLongClick = { onOptions(slot) },
-                        ).semantics {
-                            contentDescription = "${slot.label}, ${QuickBar.shortcutLabel(index)}"
-                        },
-                contentAlignment = Alignment.Center,
-            ) {
-                CompositionLocalProvider(LocalContentColor provides if (focused) Bb10OnBlue else Bb10Text) {
-                    QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
+        val left = slots.getOrNull(0)
+        val right = slots.getOrNull(1)
+        val slot: @Composable (QuickSlot?, Int) -> Unit = { quick, index ->
+            Box(Modifier.width(BAR_SLOT_DP.dp).fillMaxHeight()) {
+                quick?.let { Bb10BarSlot(it, index, current, hubUnread, onSlot, onOptions, onHubPeek, onPhoneFocusChanged) }
+            }
+        }
+        slot(left, 0)
+        Bb10PageIndicator(
+            current = current,
+            count = pageCount,
+            showHubMark = slots.none { it.token == QuickBar.HUB },
+            onShowPage = onShowPage,
+            modifier = Modifier.weight(1f),
+        )
+        slot(right, 1)
+    }
+}
+
+/** One end slot of [Bb10BottomBar]. */
+@Composable
+private fun Bb10BarSlot(
+    slot: QuickSlot,
+    index: Int,
+    current: Int,
+    hubUnread: Boolean,
+    onSlot: (QuickSlot) -> Unit,
+    onOptions: (QuickSlot) -> Unit,
+    onHubPeek: () -> Unit,
+    onPhoneFocusChanged: (Boolean) -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val isHub = slot.token == QuickBar.HUB
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(6.dp))
+                .background(if (focused) Bb10Blue else Color.Transparent)
+                .then(
+                    if (isHub && current == StartPages.HUB && !focused) {
+                        Modifier.border(1.dp, Bb10Text, RoundedCornerShape(6.dp))
+                    } else {
+                        Modifier
+                    },
+                ).onFocusChanged { state ->
+                    focused = state.isFocused
+                    if (slot.token == QuickBar.PHONE) onPhoneFocusChanged(state.isFocused)
+                }.onPreviewKeyEvent { event ->
+                    val native = event.nativeKeyEvent
+                    val alt = native.metaState and (QuickBar.META_FUNCTION_ON or QuickBar.META_ALT_ON) != 0
+                    val action: (() -> Unit)? =
+                        when {
+                            native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
+                                (native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && alt) -> {
+                                { onOptions(slot) }
+                            }
+                            native.keyCode == AllAppsKeyPolicy.KEYCODE_SPACE && !alt && isHub -> onHubPeek
+                            else -> null
+                        }
+                    if (action != null && event.type == KeyEventType.KeyDown && native.repeatCount == 0) action()
+                    action != null
+                }.combinedClickable(
+                    onClick = { onSlot(slot) },
+                    onLongClick = { onOptions(slot) },
+                ).semantics {
+                    val unread = if (isHub && hubUnread) ", " + t("hub_unread") else ""
+                    contentDescription = "${slot.label}$unread, ${QuickBar.shortcutLabel(index)}"
+                },
+        contentAlignment = Alignment.Center,
+    ) {
+        CompositionLocalProvider(LocalContentColor provides if (focused) Bb10OnBlue else Bb10Text) {
+            Box {
+                QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
+                if (isHub && hubUnread) {
+                    // BB10's unread splat: a filled dot at the envelope's top right.
+                    val dot = LocalContentColor.current
+                    ComposeCanvas(Modifier.size(HUB_DOT_DP.dp).align(Alignment.TopEnd)) {
+                        drawCircle(color = dot, radius = size.minDimension / 2f)
+                    }
                 }
             }
         }
@@ -2604,12 +2659,22 @@ private fun QuickSlotMark(
                     )
                 }
             }
-            QuickBar.HUB ->
-                // Hub: three short lines, as on the page indicator.
-                for (line in 0..2) {
-                    val y = unit * (0.25f + line * 0.25f)
-                    drawLine(color, Offset(unit * 0.12f, y), Offset(unit * 0.88f, y), strokeWidth = stroke, cap = StrokeCap.Round)
+            QuickBar.HUB -> {
+                // Hub: a BB10 envelope, the body and its flap.
+                val top = unit * 0.26f
+                val bottom = unit * 0.78f
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(unit * 0.1f, top),
+                    size = Size(unit * 0.8f, bottom - top),
+                    cornerRadius = CornerRadius(unit * 0.06f),
+                    style = Stroke(stroke),
+                )
+                val fold = Offset(unit * 0.5f, unit * 0.54f)
+                listOf(0.12f, 0.88f).forEach { x ->
+                    drawLine(color, Offset(unit * x, top + stroke), fold, strokeWidth = stroke, cap = StrokeCap.Round)
                 }
+            }
             QuickBar.CAMERA -> {
                 // Camera body, viewfinder bump and lens.
                 drawRoundRect(
@@ -5400,10 +5465,12 @@ private const val INDICATOR_HEIGHT_DP = 16
 private const val INDICATOR_SLOT_DP = 18
 private const val BAR_HEIGHT_DP = 48
 private const val BAR_GLYPH_DP = 26
+private const val BAR_SLOT_DP = 64
+private const val HUB_DOT_DP = 8
 
 /** Before the window is measured: the status bar the configuration's height still includes. */
 private const val STATUS_BAR_FALLBACK_DP = 24
 
 /** Page indicator, bar and the grid's own padding: what the grid rows do not get. */
-private const val START_CHROME_DP = INDICATOR_HEIGHT_DP + BAR_HEIGHT_DP + 2 * 4
+private const val START_CHROME_DP = BAR_HEIGHT_DP + 2 * 4
 private const val NANOS_PER_MILLI = 1_000_000L

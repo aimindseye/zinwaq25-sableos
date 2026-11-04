@@ -3,14 +3,16 @@ package org.sableos.start.model
 import com.sable.start.model.StartText.t
 
 /**
- * The bottom bar of Sable Start (BlackBerry 10 layout: Phone · Search ·
- * Camera under Active Frames and the app grid; platform_sable
- * SABLE_START_SCREEN_DESIGN.md "Base quick bar"). Pure policy, unit tested in
+ * The bottom bar of Sable Start (BlackBerry 10 layout, owner decision
+ * 2026-11-04): Hub at the left end, the page dots in the middle and Camera at
+ * the right end, under Active Frames and the app grid. The Q25 has a call
+ * key, so Phone is not in the bar by default; Search is reached by typing on
+ * any page or Alt+Space, so it needs no slot. Pure policy, unit tested in
  * apps/r8/android/sablestart-presentation-check/src/test.
  *
  * A slot is stored as a token:
  *   "phone", "hub", "camera"  role slots, resolved to the installed app
- *   "command"                 Search/Command (always present)
+ *   "command"                 Search/Command (optional: typing and Alt+Space open it)
  *   "apps"                    the A-Z All Apps list (optional: the app grid
  *                             pages hold every app, Alt+Right reaches them)
  *   "app:<stableKey>"         one app the user picked
@@ -23,17 +25,23 @@ object QuickBar {
     const val ALL_APPS = "apps"
     private const val APP_PREFIX = "app:"
 
-    /** Three slots, as on BlackBerry 10 (Alt+1..Alt+3). */
-    const val MAX_SLOTS = 3
+    /** Two slots, one at each end of the bar around the page dots (Alt+1, Alt+2). */
+    const val MAX_SLOTS = 2
 
-    /** Phone | Search | Camera. */
-    val DEFAULT: List<String> = listOf(PHONE, COMMAND, CAMERA)
+    /** Hub | page dots | Camera. */
+    val DEFAULT: List<String> = listOf(HUB, CAMERA)
 
     /** The bar of the Titan 2 three-page Start; a saved copy of it means "never customised". */
     val LEGACY_DEFAULT: List<String> = listOf(PHONE, HUB, COMMAND, ALL_APPS)
 
-    /** COMMAND_ACCESS_REQUIRED: Search is never removed or replaced. */
-    val REQUIRED: Set<String> = setOf(COMMAND)
+    /** The Phone · Search · Camera bar before 2026-11-04; a saved copy of it means "never customised". */
+    val PHONE_SEARCH_CAMERA: List<String> = listOf(PHONE, COMMAND, CAMERA)
+
+    /**
+     * Slots that can never be removed or replaced. None: COMMAND_ACCESS_REQUIRED is met by
+     * typing on any Start page and by Alt+Space, which open Search without a slot.
+     */
+    val REQUIRED: Set<String> = emptySet()
 
     private val ROLES = setOf(PHONE, HUB, CAMERA, ALL_APPS)
 
@@ -47,17 +55,16 @@ object QuickBar {
     fun isValid(token: String): Boolean = token in ROLES || token in REQUIRED || appKey(token) != null
 
     /**
-     * Drops unknown and duplicate tokens, puts back a missing Search slot and
-     * caps the bar at [MAX_SLOTS]; required slots win the cap. Null (never
-     * customised) and the old three-page default give [DEFAULT].
+     * Drops unknown and duplicate tokens, puts back any missing required slot
+     * and caps the bar at [MAX_SLOTS]; required slots win the cap. Null (never
+     * customised) and the earlier defaults give [DEFAULT].
      */
     fun normalize(tokens: List<String>?): List<String> {
-        if (tokens == null || tokens == LEGACY_DEFAULT) return DEFAULT
+        if (tokens == null || tokens == LEGACY_DEFAULT || tokens == PHONE_SEARCH_CAMERA) return DEFAULT
         val kept = tokens.filter(::isValid).distinct().toMutableList()
         REQUIRED.filterNot { it in kept }.forEach { kept += it }
         while (kept.size > MAX_SLOTS) {
-            val drop = kept.indexOfLast { !isRequired(it) }
-            kept.removeAt(drop)
+            kept.removeAt(kept.indexOfLast { !isRequired(it) })
         }
         return kept
     }
@@ -93,7 +100,7 @@ object QuickBar {
         return tokens.filterIndexed { i, _ -> i != index }
     }
 
-    /** Adds before Command so the default order reads naturally. */
+    /** Adds before Command when the bar has it, else at the end. */
     fun add(
         tokens: List<String>,
         token: String,
@@ -142,9 +149,9 @@ object QuickBar {
         if (slotToken != null) remove(tokens, tokens.indexOf(slotToken)) else add(tokens, appToken(stableKey))
 
     /**
-     * Slot shortcuts: Fn+1..Fn+3 on keyboards with an Fn key (Titan 2), and
-     * Alt+1..Alt+3 on keyboards that type digits on the Alt layer (the Q25's
-     * Alt+W/E/R). [unicode] is the character the platform key map produced
+     * Slot shortcuts: Fn+1 and Fn+2 on keyboards with an Fn key (Titan 2), and
+     * Alt+1 and Alt+2 on keyboards that type digits on the Alt layer (the Q25's
+     * Alt+W/E). [unicode] is the character the platform key map produced
      * with the event's own meta state. Returns the slot index, or null when the
      * key is not a quick-bar shortcut.
      */
@@ -178,7 +185,7 @@ object QuickBar {
 
     private const val DIAL_SYMBOLS = "*#+"
 
-    /** "Alt+1".."Alt+3": the shortcut as printed on the keys (Fn devices accept it too). */
+    /** "Alt+1", "Alt+2": the shortcut as printed on the keys (Fn devices accept it too). */
     fun shortcutLabel(index: Int): String = "Alt+${index + 1}"
 
     const val KEYCODE_1 = 8

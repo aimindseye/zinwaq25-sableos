@@ -159,7 +159,8 @@
     <string name="bottom_bar">Onderste balk</string>
     <string name="search_always_stays_on_the">Zoeken blijft altijd op de balk; het kan worden verplaatst.</string>
     <string name="add_a_slot_2">+ een plek toevoegen</string>
-    <string name="reset_bar_to_phone_search">balk terugzetten naar Telefoon · Zoeken · Camera</string>
+    <string name="reset_bar_to_phone_search">balk terugzetten naar Hub · Camera</string>
+    <string name="hub_unread">ongelezen</string>
     <string name="frames_while_no_app_is">Frames zolang er geen app is geopend</string>
     <string name="move_up">omhoog</string>
     <string name="move_down">omlaag</string>

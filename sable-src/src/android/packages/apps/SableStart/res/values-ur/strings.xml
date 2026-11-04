@@ -159,7 +159,8 @@
     <string name="bottom_bar">نچلا بار</string>
     <string name="search_always_stays_on_the">تلاش ہمیشہ بار پر رہتی ہے؛ اسے منتقل کیا جا سکتا ہے۔</string>
     <string name="add_a_slot_2">+ خانہ شامل کریں</string>
-    <string name="reset_bar_to_phone_search">بار کو فون · تلاش · کیمرا پر ری سیٹ کریں</string>
+    <string name="reset_bar_to_phone_search">بار کو Hub · کیمرا پر ری سیٹ کریں</string>
+    <string name="hub_unread">غیر پڑھا</string>
     <string name="frames_while_no_app_is">جب کوئی ایپ کھلی نہ ہو تو فریمز</string>
     <string name="move_up">اوپر منتقل کریں</string>
     <string name="move_down">نیچے منتقل کریں</string>

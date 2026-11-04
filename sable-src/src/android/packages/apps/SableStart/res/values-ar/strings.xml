@@ -159,7 +159,8 @@
     <string name="bottom_bar">الشريط السفلي</string>
     <string name="search_always_stays_on_the">يبقى البحث دائماً على الشريط؛ ويمكن نقله.</string>
     <string name="add_a_slot_2">+ إضافة خانة</string>
-    <string name="reset_bar_to_phone_search">إعادة الشريط إلى الهاتف · البحث · الكاميرا</string>
+    <string name="reset_bar_to_phone_search">إعادة الشريط إلى Hub · الكاميرا</string>
+    <string name="hub_unread">غير مقروء</string>
     <string name="frames_while_no_app_is">الإطارات عند عدم فتح أي تطبيق</string>
     <string name="move_up">نقل للأعلى</string>
     <string name="move_down">نقل للأسفل</string>

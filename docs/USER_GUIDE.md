@@ -60,7 +60,7 @@ The keyboard does almost everything. Typing on the home screen searches, arrows 
 | Hub (left) | All · Messages · Calls · Contacts, and an unread bar per app | T/B top and bottom, Enter opens |
 | Active Frames (home) | Your recent apps as live frames | Arrows move, Enter resumes, × closes |
 | App pages (right) | 5-column grid of every app | Arrows move, a letter jumps |
-| Bottom bar | Phone · Search · Camera | Alt+1 to Alt+3 |
+| Bottom bar | Hub (a dot shows unread items) · page dots · Camera | Alt+1, Alt+2; the call key opens Phone |
 
 Alt+Left and Alt+Right move between pages. Alt+Space opens Command, and any letter starts a search of apps, contacts and commands. Menu opens Edit Home, where you choose Home apps, the quick bar and widgets. The status dials at the top show Wi-Fi, Mobile, CPU, RAM, battery and Cell.
 

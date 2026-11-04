@@ -6,78 +6,79 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The BB10 bottom bar (Phone · Search · Camera) and the Start strip pages. */
+/** The BB10 bottom bar (Hub · page dots · Camera) and the Start strip pages. */
 class QuickBarTest {
     private val default = QuickBar.DEFAULT
 
     @Test
-    fun neverCustomisedShowsPhoneSearchCamera() {
-        assertEquals(listOf("phone", "command", "camera"), QuickBar.normalize(null))
-        // The three-page default counts as never customised.
+    fun neverCustomisedShowsHubAndCamera() {
+        assertEquals(listOf("hub", "camera"), QuickBar.normalize(null))
+        // The three-page default and the Phone · Search · Camera bar count as never customised.
         assertEquals(default, QuickBar.normalize(listOf("phone", "hub", "command", "apps")))
+        assertEquals(default, QuickBar.normalize(listOf("phone", "command", "camera")))
     }
 
     @Test
-    fun normalizeKeepsSearchAndCapsAtThree() {
-        assertEquals(listOf("phone", "command"), QuickBar.normalize(listOf("phone", "bogus", "phone")))
+    fun normalizeDropsJunkAndCapsAtTwo() {
+        assertEquals(listOf("phone"), QuickBar.normalize(listOf("phone", "bogus", "phone")))
         val tooMany = listOf("phone", "hub", "camera", "app:1", "apps")
-        assertEquals(listOf("phone", "hub", "command"), QuickBar.normalize(tooMany))
+        assertEquals(listOf("phone", "hub"), QuickBar.normalize(tooMany))
         assertEquals(QuickBar.MAX_SLOTS, QuickBar.normalize(tooMany).size)
+        // Search is never forced into the bar: typing and Alt+Space open it.
+        assertEquals(listOf("hub"), QuickBar.normalize(listOf("hub")))
     }
 
     @Test
-    fun reorderMovesSlotsAndStopsAtTheEdges() {
-        assertEquals(listOf("command", "phone", "camera"), QuickBar.move(default, 0, 1))
+    fun reorderSwapsTheEnds() {
+        assertEquals(listOf("camera", "hub"), QuickBar.move(default, 0, 1))
         assertEquals(default, QuickBar.move(default, 0, -1))
-        assertEquals(default, QuickBar.move(default, 2, 1))
+        assertEquals(default, QuickBar.move(default, 1, 1))
     }
 
     @Test
-    fun phoneAndCameraAreReplaceableButSearchIsNot() {
-        assertEquals(listOf("phone", "command", "app:7"), QuickBar.replace(default, 2, "app:7"))
-        assertEquals(listOf("apps", "command", "camera"), QuickBar.replace(default, 0, "apps"))
-        assertEquals(default, QuickBar.replace(default, 1, "app:7"))
+    fun everySlotIsReplaceable() {
+        assertEquals(listOf("hub", "app:7"), QuickBar.replace(default, 1, "app:7"))
+        assertEquals(listOf("command", "camera"), QuickBar.replace(default, 0, "command"))
         assertEquals(default, QuickBar.replace(default, 0, "camera"))
-        assertEquals(default, QuickBar.remove(default, 1))
-        assertEquals(listOf("phone", "command"), QuickBar.remove(default, 2))
+        assertEquals(listOf("hub"), QuickBar.remove(default, 1))
     }
 
     @Test
-    fun addGoesBeforeSearchUpToThreeSlots() {
-        assertEquals(listOf("phone", "hub", "command"), QuickBar.add(listOf("phone", "command"), "hub"))
+    fun addGoesBeforeSearchUpToTwoSlots() {
+        assertEquals(listOf("hub", "command"), QuickBar.add(listOf("command"), "hub"))
+        assertEquals(listOf("hub", "camera"), QuickBar.add(listOf("hub"), "camera"))
         assertEquals(default, QuickBar.add(default, "app:9"))
     }
 
     @Test
     fun fullBarAddsThroughTheSlotPicker() {
         assertTrue(QuickBar.needsSlotPicker(default))
-        assertFalse(QuickBar.needsSlotPicker(listOf("phone", "command")))
-        assertEquals("Keep", QuickBar.pickerLine("phone", focused = false, appLabel = "Browser"))
+        assertFalse(QuickBar.needsSlotPicker(listOf("hub")))
+        assertEquals("Keep", QuickBar.pickerLine("hub", focused = false, appLabel = "Browser"))
         assertEquals("Replace with Browser", QuickBar.pickerLine("camera", focused = true, appLabel = "Browser"))
-        assertEquals("Required path", QuickBar.pickerLine("command", focused = true, appLabel = "Browser"))
     }
 
     @Test
     fun fnDigitsOpenSlots() {
         val fn = QuickBar.META_FUNCTION_ON
-        assertEquals(0, QuickBar.shortcutSlot(QuickBar.KEYCODE_1, fn, 3))
-        assertEquals(2, QuickBar.shortcutSlot(QuickBar.KEYCODE_1 + 2, fn, 3))
-        assertNull(QuickBar.shortcutSlot(QuickBar.KEYCODE_1 + 3, fn, 3))
-        assertNull(QuickBar.shortcutSlot(QuickBar.KEYCODE_1, 0, 3))
+        assertEquals(0, QuickBar.shortcutSlot(QuickBar.KEYCODE_1, fn, 2))
+        assertEquals(1, QuickBar.shortcutSlot(QuickBar.KEYCODE_1 + 1, fn, 2))
+        assertNull(QuickBar.shortcutSlot(QuickBar.KEYCODE_1 + 2, fn, 2))
+        assertNull(QuickBar.shortcutSlot(QuickBar.KEYCODE_1, 0, 2))
     }
 
     @Test
     fun q25AltLayerDigitsOpenSlots() {
-        // The Q25 has no Fn key: Alt+W/E/R type 1..3 through the key map.
+        // The Q25 has no Fn key: Alt+W/E type 1 and 2 through the key map.
         val alt = QuickBar.META_ALT_ON
         val keycodeW = 51
+        val keycodeE = 33
         val keycodeR = 46
-        val keycodeS = 47
-        assertEquals(0, QuickBar.shortcutSlot(keycodeW, alt, 3, unicode = '1'.code))
-        assertEquals(2, QuickBar.shortcutSlot(keycodeR, alt, 3, unicode = '3'.code))
-        assertNull(QuickBar.shortcutSlot(keycodeS, alt, 3, unicode = '4'.code))
-        assertNull(QuickBar.shortcutSlot(29, alt, 3, unicode = '@'.code))
-        assertNull(QuickBar.shortcutSlot(keycodeW, 0, 3, unicode = '1'.code))
+        assertEquals(0, QuickBar.shortcutSlot(keycodeW, alt, 2, unicode = '1'.code))
+        assertEquals(1, QuickBar.shortcutSlot(keycodeE, alt, 2, unicode = '2'.code))
+        assertNull(QuickBar.shortcutSlot(keycodeR, alt, 2, unicode = '3'.code))
+        assertNull(QuickBar.shortcutSlot(29, alt, 2, unicode = '@'.code))
+        assertNull(QuickBar.shortcutSlot(keycodeW, 0, 2, unicode = '1'.code))
         assertEquals("Alt+1", QuickBar.shortcutLabel(0))
     }
 
@@ -148,9 +149,9 @@ class QuickBarTest {
 
     @Test
     fun toggleAppAddsBeforeSearchOrRemovesItsSlot() {
-        val two = listOf("phone", "command")
-        val added = QuickBar.toggleApp(two, null, "0:com.example/.Main")
-        assertEquals(listOf("phone", "app:0:com.example/.Main", "command"), added)
-        assertEquals(two, QuickBar.toggleApp(added, "app:0:com.example/.Main", "0:com.example/.Main"))
+        val one = listOf("command")
+        val added = QuickBar.toggleApp(one, null, "0:com.example/.Main")
+        assertEquals(listOf("app:0:com.example/.Main", "command"), added)
+        assertEquals(one, QuickBar.toggleApp(added, "app:0:com.example/.Main", "0:com.example/.Main"))
     }
 }

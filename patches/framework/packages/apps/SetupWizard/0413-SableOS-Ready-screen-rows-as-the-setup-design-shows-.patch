@@ -17,8 +17,8 @@ describe the BlackBerry 10 Sable Start the owner chose:
 
   Home is Sable Start: Active Frames shows your open apps, with Hub to
   the left and your app grid to the right (Alt+Left / Alt+Right).
-  The bar is Phone · Search · Camera (Alt+1..3); start typing anywhere
-  to search.
+  The bar is Hub · page dots · Camera (Alt+1, Alt+2); start typing
+  anywhere to search.
 
 The rows stay in a focusable scroll view; Start is still the first
 focus.
@@ -116,7 +116,7 @@ index b4ab399..8ced9da 100644
 +    <string name="sable_ready_done">Setup complete</string>
 +    <string name="sable_ready_title">Ready for Sable Start</string>
 +    <string name="sable_ready_home">Home is Sable Start: Active Frames shows your open apps, with Hub to the left and your app grid to the right (Alt+Left / Alt+Right).</string>
-+    <string name="sable_ready_bar">The bar is Phone · Search · Camera (Alt+1..3); start typing anywhere to search.</string>
++    <string name="sable_ready_bar">The bar is Hub · page dots · Camera (Alt+1, Alt+2); start typing anywhere to search.</string>
  </resources>
 -- 
 2.43.0

@@ -159,7 +159,8 @@
     <string name="bottom_bar">סרגל תחתון</string>
     <string name="search_always_stays_on_the">החיפוש תמיד נשאר בסרגל; אפשר להזיז אותו.</string>
     <string name="add_a_slot_2">+ הוספת מקום</string>
-    <string name="reset_bar_to_phone_search">איפוס הסרגל ל-טלפון · חיפוש · מצלמה</string>
+    <string name="reset_bar_to_phone_search">איפוס הסרגל ל-Hub · מצלמה</string>
+    <string name="hub_unread">לא נקרא</string>
     <string name="frames_while_no_app_is">פריימים כשאין אפליקציה פתוחה</string>
     <string name="move_up">הזזה למעלה</string>
     <string name="move_down">הזזה למטה</string>

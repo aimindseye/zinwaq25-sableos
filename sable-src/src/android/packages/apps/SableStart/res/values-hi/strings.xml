@@ -159,7 +159,8 @@
     <string name="bottom_bar">निचला बार</string>
     <string name="search_always_stays_on_the">खोज हमेशा बार पर रहती है; उसे हटाया जा सकता है।</string>
     <string name="add_a_slot_2">+ स्लॉट जोड़ें</string>
-    <string name="reset_bar_to_phone_search">बार को फ़ोन · खोज · कैमरा पर रीसेट करें</string>
+    <string name="reset_bar_to_phone_search">बार को Hub · कैमरा पर रीसेट करें</string>
+    <string name="hub_unread">अपठित</string>
     <string name="frames_while_no_app_is">कोई ऐप खुला न होने पर फ़्रेम</string>
     <string name="move_up">ऊपर ले जाएँ</string>
     <string name="move_down">नीचे ले जाएँ</string>

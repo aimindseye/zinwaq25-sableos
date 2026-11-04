@@ -525,11 +525,11 @@ report(
 ready = (
     "Home is Sable Start: Active Frames shows your open apps, with Hub to the left and your app grid"
     " to the right (Alt+Left / Alt+Right).",
-    "The bar is Phone · Search · Camera (Alt+1..3); start typing anywhere to search.",
+    "The bar is Hub · page dots · Camera (Alt+1, Alt+2); start typing anywhere to search.",
 )
 report(
     all(suw_added("0413", r) for r in ready) and not suw_added("0413", "Command, All Apps"),
-    "Ready screen describes the BB10 Sable Start (Active Frames, Hub left, grid right, Phone · Search · Camera)",
+    "Ready screen describes the BB10 Sable Start (Active Frames, Hub left, grid right, Hub · page dots · Camera)",
 )
 lock = [l for n, l in added if 'name="sable_privacy_lock_screen"' in l]
 report(
