@@ -347,11 +347,11 @@ index 0000000..c965908
 +    <string name="sable_student_disclosure">Student mode is a local control you can turn off at any time. It is not parental control and does not filter websites. Turning it off inside the window lasts until the next start. The home screen, phone, messages, keyboard and Settings always stay open.</string>
 +</resources>
 diff --git a/res/values/strings_sable_mobile_manager.xml b/res/values/strings_sable_mobile_manager.xml
-index de404d5..6d3db38 100644
+index b39e648..37b7186 100644
 --- a/res/values/strings_sable_mobile_manager.xml
 +++ b/res/values/strings_sable_mobile_manager.xml
 @@ -20,7 +20,7 @@
-     <!-- Title of the Mobile Manager page and its rows in Settings > Apps and Settings > Sable. -->
+     <!-- Title of the Mobile Manager page and its row in Settings > Apps. -->
      <string name="sable_mobile_manager_title">Mobile Manager</string>
      <!-- Summary of the Mobile Manager row. -->
 -    <string name="sable_mobile_manager_summary">Network access, background use, app lock, Focus mode, Private Space</string>

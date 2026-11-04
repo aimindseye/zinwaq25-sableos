@@ -696,7 +696,7 @@ if [[ -f "${pb[0]}" ]] &&
     grep -qF '+            loadBooleanSetting(stmt, LineageSettings.Secure.BERRY_BLACK_THEME,' "${pb[0]}"; then
     pass "pure black dark theme is the first-boot default (lineage-sdk 0150)"
     pb2=(patches/framework/frameworks/base/0103-*.patch)
-    if [[ -f "${pb2[0]}" ]] && grep -qF '+            reevaluateSystemTheme(isSableBlackThemeWanted() /* forceReload */);' "${pb2[0]}"; then
+    if [[ -f "${pb2[0]}" ]] && grep -qF '+            reevaluateSystemTheme(shouldForceReloadForVersion() || isSableBlackThemeWanted());' "${pb2[0]}"; then
         pass "pure black overlay applied at boot and after setup (frameworks/base 0103)"
     else fail "pure black overlay: frameworks/base 0103 missing or changed"; fi
 else fail "pure black default: lineage-sdk 0150 missing or changed"; fi

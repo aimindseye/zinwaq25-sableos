@@ -79,18 +79,18 @@ the new section.
  create mode 100644 packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
 
 diff --git a/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractorTest.kt b/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractorTest.kt
-index ca7af557..2caa7f4e 100644
+index a2edb0f..35be9a4 100644
 --- a/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractorTest.kt
 +++ b/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractorTest.kt
-@@ -21,6 +21,7 @@ import android.media.session.MediaSessionLegacyHelper
+@@ -22,6 +22,7 @@ import android.platform.test.annotations.EnableFlags
  import android.view.KeyEvent
  import androidx.test.ext.junit.runners.AndroidJUnit4
  import androidx.test.filters.SmallTest
 +import com.android.keyguard.sable.SableEmergencyShortcut
+ import com.android.systemui.Flags
  import com.android.systemui.SysuiTestCase
  import com.android.systemui.back.domain.interactor.BackActionInteractor
- import com.android.systemui.deviceentry.domain.interactor.DeviceEntryInteractor
-@@ -72,6 +73,7 @@ class KeyguardKeyEventInteractorTest : SysuiTestCase() {
+@@ -75,6 +76,7 @@ class KeyguardKeyEventInteractorTest : SysuiTestCase() {
      @Mock private lateinit var mediaSessionLegacyHelper: MediaSessionLegacyHelper
      @Mock private lateinit var backActionInteractor: BackActionInteractor
      @Mock private lateinit var deviceEntryInteractor: DeviceEntryInteractor
@@ -98,7 +98,7 @@ index ca7af557..2caa7f4e 100644
  
      private lateinit var underTest: KeyguardKeyEventInteractor
  
-@@ -322,4 +324,37 @@ class KeyguardKeyEventInteractorTest : SysuiTestCase() {
+@@ -337,4 +339,37 @@ class KeyguardKeyEventInteractorTest : SysuiTestCase() {
                  eq("KeyguardKeyEventInteractor#collapseShadeLockedOrShowPrimaryBouncer"),
              )
      }
@@ -137,7 +137,7 @@ index ca7af557..2caa7f4e 100644
 +    }
  }
 diff --git a/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprintTest.kt b/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprintTest.kt
-index 63770803..6aa26498 100644
+index ab4e204..452ae69 100644
 --- a/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprintTest.kt
 +++ b/packages/SystemUI/multivalentTests/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprintTest.kt
 @@ -39,6 +39,7 @@ import com.android.systemui.keyguard.ui.view.layout.sections.DefaultShortcutsSec
@@ -148,7 +148,7 @@ index 63770803..6aa26498 100644
  import com.android.systemui.keyguard.ui.view.layout.sections.SmartspaceSection
  import com.android.systemui.util.mockito.whenever
  import java.util.Optional
-@@ -73,6 +74,7 @@ class DefaultKeyguardBlueprintTest : SysuiTestCase() {
+@@ -74,6 +75,7 @@ class DefaultKeyguardBlueprintTest : SysuiTestCase() {
      @Mock private lateinit var keyguardSliceViewSection: KeyguardSliceViewSection
      @Mock
      private lateinit var udfpsAccessibilityOverlaySection: DefaultUdfpsAccessibilityOverlaySection
@@ -156,7 +156,7 @@ index 63770803..6aa26498 100644
  
      @Before
      fun setup() {
-@@ -95,6 +97,7 @@ class DefaultKeyguardBlueprintTest : SysuiTestCase() {
+@@ -97,6 +99,7 @@ class DefaultKeyguardBlueprintTest : SysuiTestCase() {
                  smartspaceSection,
                  keyguardSliceViewSection,
                  udfpsAccessibilityOverlaySection,
@@ -165,7 +165,7 @@ index 63770803..6aa26498 100644
      }
  
 diff --git a/packages/SystemUI/res-keyguard/layout/keyguard_password_view.xml b/packages/SystemUI/res-keyguard/layout/keyguard_password_view.xml
-index 93598382..8637bde2 100644
+index 9359838..8637bde 100644
 --- a/packages/SystemUI/res-keyguard/layout/keyguard_password_view.xml
 +++ b/packages/SystemUI/res-keyguard/layout/keyguard_password_view.xml
 @@ -89,6 +89,18 @@
@@ -188,7 +188,7 @@ index 93598382..8637bde2 100644
               android:id="@+id/keyguard_selector_fade_container"
               android:layout_width="match_parent"
 diff --git a/packages/SystemUI/res-keyguard/layout/keyguard_pin_view.xml b/packages/SystemUI/res-keyguard/layout/keyguard_pin_view.xml
-index 26ff3647..9fe1573a 100644
+index 26ff364..9fe1573 100644
 --- a/packages/SystemUI/res-keyguard/layout/keyguard_pin_view.xml
 +++ b/packages/SystemUI/res-keyguard/layout/keyguard_pin_view.xml
 @@ -218,6 +218,18 @@
@@ -212,7 +212,7 @@ index 26ff3647..9fe1573a 100644
          android:layout_width="match_parent"
 diff --git a/packages/SystemUI/res/drawable/sable_keyguard_card.xml b/packages/SystemUI/res/drawable/sable_keyguard_card.xml
 new file mode 100644
-index 00000000..7f9f2894
+index 0000000..7f9f289
 --- /dev/null
 +++ b/packages/SystemUI/res/drawable/sable_keyguard_card.xml
 @@ -0,0 +1,23 @@
@@ -241,7 +241,7 @@ index 00000000..7f9f2894
 +</shape>
 diff --git a/packages/SystemUI/res/drawable/sable_keyguard_focus_ring.xml b/packages/SystemUI/res/drawable/sable_keyguard_focus_ring.xml
 new file mode 100644
-index 00000000..e401b9d6
+index 0000000..e401b9d
 --- /dev/null
 +++ b/packages/SystemUI/res/drawable/sable_keyguard_focus_ring.xml
 @@ -0,0 +1,24 @@
@@ -271,7 +271,7 @@ index 00000000..e401b9d6
 +</shape>
 diff --git a/packages/SystemUI/res/layout/sable_keyguard_glance.xml b/packages/SystemUI/res/layout/sable_keyguard_glance.xml
 new file mode 100644
-index 00000000..f8e92c0a
+index 0000000..f8e92c0
 --- /dev/null
 +++ b/packages/SystemUI/res/layout/sable_keyguard_glance.xml
 @@ -0,0 +1,88 @@
@@ -365,7 +365,7 @@ index 00000000..f8e92c0a
 +</LinearLayout>
 diff --git a/packages/SystemUI/res/values/sable_keyguard_glance.xml b/packages/SystemUI/res/values/sable_keyguard_glance.xml
 new file mode 100644
-index 00000000..5066807b
+index 0000000..5066807
 --- /dev/null
 +++ b/packages/SystemUI/res/values/sable_keyguard_glance.xml
 @@ -0,0 +1,33 @@
@@ -403,7 +403,7 @@ index 00000000..5066807b
 +    <dimen name="sable_keyguard_card_gap">6dp</dimen>
 +</resources>
 diff --git a/packages/SystemUI/res/values/sable_keyguard_strings.xml b/packages/SystemUI/res/values/sable_keyguard_strings.xml
-index 69ca7e8a..77deea0b 100644
+index 69ca7e8..77deea0 100644
 --- a/packages/SystemUI/res/values/sable_keyguard_strings.xml
 +++ b/packages/SystemUI/res/values/sable_keyguard_strings.xml
 @@ -14,11 +14,48 @@
@@ -462,7 +462,7 @@ index 69ca7e8a..77deea0b 100644
 +    </plurals>
  </resources>
 diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
-index d381b378..ff3dd08b 100644
+index 85037b2..ca995a8 100644
 --- a/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
 +++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
 @@ -21,6 +21,7 @@ import static com.android.systemui.util.kotlin.JavaAdapterKt.collectFlow;
@@ -473,7 +473,7 @@ index d381b378..ff3dd08b 100644
  import android.content.res.Resources;
  import android.graphics.drawable.Drawable;
  import android.os.SystemClock;
-@@ -227,6 +228,18 @@ public class KeyguardPasswordViewController
+@@ -234,6 +235,18 @@ public class KeyguardPasswordViewController
          // If there's more than one IME, enable the IME switcher button
          updateSwitchImeButton();
  
@@ -493,10 +493,10 @@ index d381b378..ff3dd08b 100644
              collectFlow(mPasswordEntry,
                      mKeyguardKeyboardInteractor.isAnyKeyboardConnected(),
 diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
-index c72ada94..cfa08975 100644
+index f8afca4..0a08d30 100644
 --- a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
 +++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
-@@ -232,6 +232,20 @@ public abstract class KeyguardPinBasedInputViewController<T extends KeyguardPinB
+@@ -220,6 +220,20 @@ public abstract class KeyguardPinBasedInputViewController<T extends KeyguardPinB
              layoutParams.height = (int) getResources().getDimension(
                      R.dimen.keyguard_pin_field_height);
          }
@@ -519,7 +519,7 @@ index c72ada94..cfa08975 100644
      }
 diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableEmergencyShortcut.java b/packages/SystemUI/src/com/android/keyguard/sable/SableEmergencyShortcut.java
 new file mode 100644
-index 00000000..311c4e38
+index 0000000..311c4e3
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/keyguard/sable/SableEmergencyShortcut.java
 @@ -0,0 +1,127 @@
@@ -651,7 +651,7 @@ index 00000000..311c4e38
 +    }
 +}
 diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
-index 3d64f8f0..c1a271ed 100644
+index 3d64f8f..c1a271e 100644
 --- a/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
 +++ b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
 @@ -176,6 +176,21 @@ public final class SableKeyguardKeys {
@@ -678,7 +678,7 @@ index 3d64f8f0..c1a271ed 100644
          switch (credentialType) {
 diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
 new file mode 100644
-index 00000000..dbf17f99
+index 0000000..dbf17f9
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
 @@ -0,0 +1,173 @@
@@ -856,10 +856,10 @@ index 00000000..dbf17f99
 +    }
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/bouncer/domain/interactor/BouncerMessageInteractor.kt b/packages/SystemUI/src/com/android/systemui/bouncer/domain/interactor/BouncerMessageInteractor.kt
-index 96623b28..bece652b 100644
+index 3fc55a7..4f5db01 100644
 --- a/packages/SystemUI/src/com/android/systemui/bouncer/domain/interactor/BouncerMessageInteractor.kt
 +++ b/packages/SystemUI/src/com/android/systemui/bouncer/domain/interactor/BouncerMessageInteractor.kt
-@@ -428,8 +428,8 @@ constructor(
+@@ -441,8 +441,8 @@ constructor(
  
      /**
       * Sable (LOCKSCREEN_SECURE_ENTRY_UX): with a hardware keyboard the bouncer's default message
@@ -870,7 +870,7 @@ index 96623b28..bece652b 100644
       * failure, lockout and biometric messages are unchanged.
       */
      private fun sableKeyboardHint(message: BouncerMessagePair): BouncerMessagePair {
-@@ -441,8 +441,8 @@ constructor(
+@@ -454,8 +454,8 @@ constructor(
          }
          val hint =
              when (currentSecurityMode) {
@@ -882,7 +882,7 @@ index 96623b28..bece652b 100644
              }
          return if (hint == 0) message else Pair(message.first, hint)
 diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt b/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt
-index 838b437a..1ea4989c 100644
+index 95f2da0..53361db 100644
 --- a/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt
 +++ b/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt
 @@ -22,6 +22,7 @@ import android.os.SystemClock
@@ -892,8 +892,8 @@ index 838b437a..1ea4989c 100644
 +import com.android.keyguard.sable.SableEmergencyShortcut
  import com.android.keyguard.sable.SableKeyguardKeys
  import com.android.keyguard.sable.SableKeyguardTypeAhead
- import com.android.systemui.back.domain.interactor.BackActionInteractor
-@@ -37,6 +38,7 @@ import com.android.systemui.shade.ShadeController
+ import com.android.systemui.Flags
+@@ -38,6 +39,7 @@ import com.android.systemui.shade.ShadeController
  import com.android.systemui.shade.ShadeDisplayAware
  import com.android.systemui.statusbar.StatusBarState
  import com.android.systemui.statusbar.phone.StatusBarKeyguardViewManager
@@ -901,7 +901,7 @@ index 838b437a..1ea4989c 100644
  import javax.inject.Inject
  
  /** Handles key events arriving when the keyguard is showing or device is dozing. */
-@@ -53,7 +55,10 @@ constructor(
+@@ -54,7 +56,10 @@ constructor(
      private val deviceEntryInteractor: DeviceEntryInteractor,
      private val powerInteractor: PowerInteractor,
      private val keyguardMediaKeyInteractor: KeyguardMediaKeyInteractor,
@@ -912,7 +912,7 @@ index 838b437a..1ea4989c 100644
  
      fun dispatchKeyEvent(event: KeyEvent): Boolean {
          if (statusBarStateController.isDozing) {
-@@ -87,6 +92,9 @@ constructor(
+@@ -94,6 +99,9 @@ constructor(
       * exit bouncer.
       */
      fun dispatchKeyEventPreIme(event: KeyEvent): Boolean {
@@ -922,7 +922,7 @@ index 838b437a..1ea4989c 100644
          when (event.action) {
              KeyEvent.ACTION_DOWN -> {
                  val device = event.getDevice()
-@@ -119,6 +127,31 @@ constructor(
+@@ -126,6 +134,31 @@ constructor(
          }
      }
  
@@ -955,18 +955,18 @@ index 838b437a..1ea4989c 100644
       * Sable (LOCKSCREEN_SECURE_ENTRY_UX): typing on the locked glance goes straight into the PIN
       * or password field. A printable key from a physical keyboard opens the primary bouncer, as
 diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprint.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprint.kt
-index af323390..872ac1c1 100644
+index 0feca9f..e4f988b 100644
 --- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprint.kt
 +++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/blueprints/DefaultKeyguardBlueprint.kt
-@@ -34,6 +34,7 @@ import com.android.systemui.keyguard.ui.view.layout.sections.DefaultStatusBarSec
- import com.android.systemui.keyguard.ui.view.layout.sections.DefaultUdfpsAccessibilityOverlaySection
+@@ -35,6 +35,7 @@ import com.android.systemui.keyguard.ui.view.layout.sections.DefaultUdfpsAccessi
  import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardSectionsModule.Companion.KEYGUARD_AMBIENT_INDICATION_AREA_SECTION
+ import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardSectionsModule.Companion.KEYGUARD_BATTERY_CHARGING_SECTION
  import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardSliceViewSection
 +import com.android.systemui.keyguard.ui.view.layout.sections.SableLockGlanceSection
  import com.android.systemui.keyguard.ui.view.layout.sections.SmartspaceSection
  import java.util.Optional
  import javax.inject.Inject
-@@ -66,6 +67,7 @@ constructor(
+@@ -69,6 +70,7 @@ constructor(
      smartspaceSection: SmartspaceSection,
      keyguardSliceViewSection: KeyguardSliceViewSection,
      udfpsAccessibilityOverlaySection: DefaultUdfpsAccessibilityOverlaySection,
@@ -974,7 +974,7 @@ index af323390..872ac1c1 100644
  ) : KeyguardBlueprint {
      override val id: String = DEFAULT
  
-@@ -84,6 +86,8 @@ constructor(
+@@ -88,6 +90,8 @@ constructor(
              aodBurnInSection,
              clockSection,
              keyguardSliceViewSection,
@@ -985,7 +985,7 @@ index af323390..872ac1c1 100644
          )
 diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
 new file mode 100644
-index 00000000..60bf1a5f
+index 0000000..60bf1a5
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
 @@ -0,0 +1,234 @@
@@ -1224,10 +1224,10 @@ index 00000000..60bf1a5f
 +    }
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java b/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java
-index 37005f28..d786424c 100644
+index 2a90176..c3b010b 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java
-@@ -59,6 +59,7 @@ import android.content.BroadcastReceiver;
+@@ -62,6 +62,7 @@ import android.content.BroadcastReceiver;
  import android.content.Context;
  import android.content.Intent;
  import android.content.IntentFilter;
@@ -1235,7 +1235,7 @@ index 37005f28..d786424c 100644
  import android.content.pm.UserInfo;
  import android.content.res.ColorStateList;
  import android.content.res.Configuration;
-@@ -665,13 +666,16 @@ public class KeyguardIndicationController {
+@@ -677,13 +678,16 @@ public class KeyguardIndicationController {
              final int hint = SableKeyguardKeys.hintFor(
                      mLockPatternUtils.getCredentialTypeForUser(userId));
              mExecutor.execute(() -> {
@@ -1256,7 +1256,7 @@ index 37005f28..d786424c 100644
                      case SableKeyguardKeys.HINT_ENTER:
                          hintRes = R.string.sable_keyguard_hint_enter;
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/NotificationRowContentBinderImpl.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/NotificationRowContentBinderImpl.kt
-index a988467e..e8e3377f 100644
+index 3e6e38a..e192063 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/NotificationRowContentBinderImpl.kt
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/NotificationRowContentBinderImpl.kt
 @@ -41,6 +41,7 @@ import com.android.app.tracing.TraceUtils
@@ -1267,7 +1267,7 @@ index a988467e..e8e3377f 100644
  import com.android.systemui.dagger.SysUISingleton
  import com.android.systemui.dagger.qualifiers.NotifInflation
  import com.android.systemui.res.R
-@@ -814,6 +815,32 @@ constructor(
+@@ -825,6 +826,32 @@ constructor(
              return redacted
          }
  
@@ -1300,7 +1300,7 @@ index a988467e..e8e3377f 100644
          private fun createRemoteViews(
              @InflationFlag reInflateFlags: Int,
              builder: Notification.Builder,
-@@ -862,7 +889,9 @@ constructor(
+@@ -874,7 +901,9 @@ constructor(
                                  )
                                  .createContentView()
                          } else {
@@ -1312,13 +1312,13 @@ index a988467e..e8e3377f 100644
                      } else null
                  val normalGroupHeader =
 diff --git a/packages/SystemUI/tests/utils/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepositoryKosmos.kt b/packages/SystemUI/tests/utils/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepositoryKosmos.kt
-index 799f1b8f..419b495b 100644
+index bedaa32..06c392a 100644
 --- a/packages/SystemUI/tests/utils/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepositoryKosmos.kt
 +++ b/packages/SystemUI/tests/utils/src/com/android/systemui/keyguard/data/repository/KeyguardBlueprintRepositoryKosmos.kt
-@@ -84,6 +84,7 @@ val Kosmos.defaultKeyguardBlueprint by
-             keyguardSliceViewSection = mock(),
+@@ -83,6 +83,7 @@ val Kosmos.defaultKeyguardBlueprint by
              udfpsAccessibilityOverlaySection = mock(),
              accessibilityActionsSection = mock(),
+             batteryChargingPopupMenuSection = mock(),
 +            sableLockGlanceSection = mock(),
          )
      }

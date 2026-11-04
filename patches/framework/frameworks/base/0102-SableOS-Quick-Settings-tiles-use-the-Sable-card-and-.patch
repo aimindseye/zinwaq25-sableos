@@ -15,37 +15,28 @@ Constants only; no behaviour, semantics or click handling changes.
  .../systemui/qs/panels/ui/compose/infinitegrid/Tile.kt      | 6 ++++--
  2 files changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
-index 0ae39661..f01c47a2 100644
---- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
-+++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
-@@ -422,7 +422,8 @@ object CommonTileDefaults {
-     val TileEndPadding = 12.dp
-     val TileDualTargetEndPadding = 8.dp
-     val TileArrangementPadding = 6.dp
--    val InactiveCornerRadius = 50.dp
-+    // SableOS card radius (DESIGN-KF-B CARD_RADIUS=12dp) instead of the 50dp pill.
-+    val InactiveCornerRadius = 12.dp
-     val TileLabelBlurWidth = 32.dp
-     const val TILE_MARQUEE_ITERATIONS = 1
-     const val TILE_INITIAL_DELAY_MILLIS = 2000
-diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
-index 1d254bff..447878cb 100644
---- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
-+++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
-@@ -479,8 +479,10 @@ data class TileColors(
- )
+diff --git a/packages/SystemUI/res/values/shade_dimens.xml b/packages/SystemUI/res/values/shade_dimens.xml
+index 01ba1d0..64092fa 100644
+--- a/packages/SystemUI/res/values/shade_dimens.xml
++++ b/packages/SystemUI/res/values/shade_dimens.xml
+@@ -28,11 +28,14 @@
+     <dimen name="overlay_shade_panel_shape_radius">46dp</dimen>
  
- private object TileDefaults {
--    val ActiveIconCornerRadius = 16.dp
--    val ActiveTileCornerRadius = 24.dp
-+    // SableOS shape tokens (DESIGN-KF-B): small control 8dp, card 12dp. Active and inactive
-+    // tiles share one shape; state is shown by color, never by a shape change alone.
-+    val ActiveIconCornerRadius = 8.dp
-+    val ActiveTileCornerRadius = 12.dp
- 
-     /** An active tile uses the active color as background */
-     @Composable
+     <!-- QS shade overlay common tiles -->
+-    <dimen name="common_tile_default_active_icon_corner_radius">16dp</dimen>
+-    <dimen name="common_tile_default_active_tile_corner_radius">24dp</dimen>
++    <!-- SableOS shape tokens (DESIGN-KF-B): small control 8dp, card 12dp. Active and inactive
++         tiles share one shape; state is shown by color, never by a shape change alone. -->
++    <dimen name="common_tile_default_active_icon_corner_radius">8dp</dimen>
++    <dimen name="common_tile_default_active_tile_corner_radius">12dp</dimen>
+     <dimen name="common_tile_default_dual_target_end_padding">8dp</dimen>
+     <dimen name="common_tile_default_icon_size">32dp</dimen>
+-    <dimen name="common_tile_default_inactive_icon_corner_radius">50dp</dimen>
++    <!-- SableOS card radius (DESIGN-KF-B CARD_RADIUS=12dp) instead of the 50dp pill. -->
++    <dimen name="common_tile_default_inactive_icon_corner_radius">12dp</dimen>
+     <dimen name="common_tile_default_inactive_tile_corner_radius">@dimen/common_tile_default_inactive_icon_corner_radius</dimen>
+     <dimen name="common_tile_default_large_tile_icon_size">28dp</dimen>
+     <dimen name="common_tile_default_start_padding">8dp</dimen>
 -- 
 2.43.0
 

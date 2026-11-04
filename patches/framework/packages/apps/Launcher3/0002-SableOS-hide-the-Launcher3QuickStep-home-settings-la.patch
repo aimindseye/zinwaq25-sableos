@@ -31,10 +31,10 @@ Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
  3 files changed, 7 insertions(+), 14 deletions(-)
 
 diff --git a/AndroidManifest-common.xml b/AndroidManifest-common.xml
-index a83dbe9..7499dee 100644
+index 384a217..73e56e8 100644
 --- a/AndroidManifest-common.xml
 +++ b/AndroidManifest-common.xml
-@@ -135,11 +135,13 @@
+@@ -138,12 +138,14 @@
          <!--
          The settings activity. To extend point settings_fragment_name to appropriate fragment class
          -->
@@ -43,6 +43,7 @@ index a83dbe9..7499dee 100644
          <activity
              android:name="com.android.launcher3.settings.SettingsActivity"
              android:label="@string/settings_button_text"
+             android:icon="@drawable/ic_setting"
              android:theme="@style/HomeSettings.Theme"
 -            android:exported="true"
 +            android:exported="false"
@@ -50,10 +51,10 @@ index a83dbe9..7499dee 100644
              <intent-filter>
                  <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
 diff --git a/quickstep/AndroidManifest.xml b/quickstep/AndroidManifest.xml
-index 0dd735e..4f3c46a 100644
+index e8d372c..0d766f9 100644
 --- a/quickstep/AndroidManifest.xml
 +++ b/quickstep/AndroidManifest.xml
-@@ -93,17 +93,8 @@
+@@ -118,17 +118,8 @@
               android:enableOnBackInvokedCallback="false"
               android:taskAffinity=""/>
  
@@ -74,7 +75,7 @@ index 0dd735e..4f3c46a 100644
          <!-- FileProvider used for sharing images. -->
          <provider android:name="androidx.core.content.FileProvider"
 diff --git a/quickstep/res/values/strings.xml b/quickstep/res/values/strings.xml
-index ce599f6..16ede0e 100644
+index bf12eed..c9ad04e 100644
 --- a/quickstep/res/values/strings.xml
 +++ b/quickstep/res/values/strings.xml
 @@ -18,8 +18,8 @@

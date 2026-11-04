@@ -389,9 +389,10 @@ report(
 )
 patch0102 = next(SYSTEMUI_PATCHES.glob("0102-*.patch")).read_text(encoding="utf-8")
 report(
-    f"+    val ActiveTileCornerRadius = {card}.dp" in patch0102
-    and f"+    val InactiveCornerRadius = {card}.dp" in patch0102
-    and f"+    val ActiveIconCornerRadius = {small}.dp" in patch0102,
+    # LineageOS 24.0 keeps the tile radii as dimens in SystemUI res/values/shade_dimens.xml.
+    f'+    <dimen name="common_tile_default_active_tile_corner_radius">{card}dp</dimen>' in patch0102
+    and f'+    <dimen name="common_tile_default_inactive_icon_corner_radius">{card}dp</dimen>' in patch0102
+    and f'+    <dimen name="common_tile_default_active_icon_corner_radius">{small}dp</dimen>' in patch0102,
     "SystemUI patch 0102 tile radii equal the shape tokens",
 )
 security = re.findall(r"^\+\+\+ b/(\S+)", patch0101 + patch0102, re.M)

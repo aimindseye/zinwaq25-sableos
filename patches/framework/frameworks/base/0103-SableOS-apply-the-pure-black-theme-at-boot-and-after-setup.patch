@@ -16,10 +16,10 @@ Pure black and the Dark theme are both on.
  1 file changed, 13 insertions(+), 2 deletions(-)
 
 diff --git a/packages/SystemUI/src/com/android/systemui/theme/ThemeOverlayController.java b/packages/SystemUI/src/com/android/systemui/theme/ThemeOverlayController.java
-index c3ce071..c3bd547 100644
+index ea7a192..6585091 100644
 --- a/packages/SystemUI/src/com/android/systemui/theme/ThemeOverlayController.java
 +++ b/packages/SystemUI/src/com/android/systemui/theme/ThemeOverlayController.java
-@@ -193,7 +193,9 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
+@@ -197,7 +197,9 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                      if (!mDeviceProvisionedController.isCurrentUserSetup()) {
                          return;
                      }
@@ -30,18 +30,18 @@ index c3ce071..c3bd547 100644
                          return;
                      }
                      Log.i(TAG, "Applying deferred theme");
-@@ -612,7 +614,9 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
+@@ -611,7 +613,9 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
          Runnable updateColors = () -> {
              if (DEBUG) Log.d(TAG, "Boot colors: " + systemColor);
              mCurrentColors.put(mUserTracker.getUserId(), systemColor);
--            reevaluateSystemTheme(false /* forceReload */);
+-            reevaluateSystemTheme(shouldForceReloadForVersion());
 +            // SableOS: with unchanged wallpaper colors the boot pass returns early and the
 +            // black theme overlay stays as it was; reload when pure black should be on.
-+            reevaluateSystemTheme(isSableBlackThemeWanted() /* forceReload */);
++            reevaluateSystemTheme(shouldForceReloadForVersion() || isSableBlackThemeWanted());
          };
  
          // Whenever we're going directly to setup wizard, we need to process colors synchronously,
-@@ -692,6 +696,13 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
+@@ -691,6 +695,13 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
          return ColorScheme.getSeedColor(wallpaperColors);
      }
  
