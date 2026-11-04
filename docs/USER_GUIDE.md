@@ -237,6 +237,7 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Where | What you find |
 | --- | --- |
 | Display > Accent | Choose the Sable accent. Settings, Quick Settings, Start and the Sable apps all follow it. Dark theme is next to it |
+| Security > Lock screen peek | What the lock screen's Peek shows under the clock: Counts (each app and its number, the default) or Messages (each app with its newest sender, when Notifications on lock screen is set to show all content). The row opens the Lock screen page, where you change it |
 | Display > Text size | Small, Medium, Large or Larger text. Larger is the biggest size SableOS lays out for the square screen. Display size and text, next to it, has Android's Font size slider, bold text and high contrast text for anything bigger; a size set there shows as custom. Setup's Theme step has the same choice |
 | Accessibility | Android's own options: magnification, colour correction, colour inversion, extra dim, remove animations, caption preferences, mono audio, time to take action, and for the keyboard sticky, slow and bounce keys. TalkBack, Select to Speak and Switch Access are Google apps and are not included; see [ACCESSIBILITY.md](ACCESSIBILITY.md) for adding a screen reader |
 | Display > App display compatibility | A taller canvas per app, and **Sable app style**: compact corners (default) or rounded. Open Sable apps restyle at once |

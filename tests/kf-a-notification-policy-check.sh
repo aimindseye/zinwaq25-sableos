@@ -136,6 +136,20 @@ else
     fail "Lock screen clock patch 0306 missing"
 fi
 
+# Lock screen Peek (0314): counts per app; a sender (the title) only with Show all content and no
+# redaction, never the notification text.
+peek="$(compgen -G "$shade/0314-*.patch" || true)"
+if [[ -n "$peek" ]] &&
+    grep -q 'name="sable_keyguard_peek_title">Peek · Notifications' "$peek" &&
+    grep -q 'name="sable_keyguard_peek_unlock">Unlock to read message details' "$peek" &&
+    grep -q '+        if (privateMode) return null' "$peek" &&
+    grep -q 'REDACTION_TYPE_NONE' "$peek" &&
+    ! grep -E '^\+' "$peek" | grep -q -E 'EXTRA_TEXT|EXTRA_BIG_TEXT|EXTRA_MESSAGES|tickerText|verifyCredential|keyguardDone'; then
+    pass "Lock screen Peek: one row per app; the newest sender only with Show all content, never the text"
+else
+    fail "Lock screen Peek patch 0314 missing or reads notification text"
+fi
+
 glance="$(compgen -G "$shade/0307-*.patch" || true)"
 if [[ -n "$glance" ]] && grep -q 'sableLockGlanceSection,' "$glance" &&
     grep -q 'name="sable_keyguard_hint_secure">Enter unlock · Alt+Space emergency · ↑↓ notifications' "$glance" &&

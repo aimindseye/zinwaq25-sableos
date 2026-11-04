@@ -76,7 +76,9 @@ class SableLockGlanceTest {
         val counts = SableLockGlance.Counts()
         counts.add(SableLockGlance.BUCKET_MAIL)
         val glance = SableLockGlance.Glance(false, true, true, counts)
-        assertTrue(glance.privateCard)
+        // The peek shows, with its "Unlock to read message details" footer instead of the card.
+        assertTrue(glance.countRow)
+        assertFalse(glance.privateCard)
         assertTrue(glance.requiresUnlockLine)
         // No notifications: the card stays, the unlock line goes.
         val empty = SableLockGlance.Glance(false, true, true, SableLockGlance.Counts())
@@ -115,5 +117,34 @@ class SableLockGlanceTest {
         // Alt+Space: the Q25 key map gives a private-use character, not a digit.
         assertEquals(-1, SableKeyguardKeys.pinDigitFor(keySpace, 0xef01, ' '.code, altLeft))
         assertFalse(SableKeyguardKeys.isTypeAheadKey(keySpace, altLeft, 0, 0xef01, ' '.code))
+    }
+
+    @Test
+    fun peekGroupsByAppMostFirstThenNewest() {
+        val peek = SableLockGlance.Peek()
+        peek.add("org.sableos.messages", SableLockGlance.BUCKET_MESSAGES, 10L, null)
+        peek.add("org.sableos.messages", SableLockGlance.BUCKET_MESSAGES, 30L, null)
+        peek.add("com.whatsapp", SableLockGlance.BUCKET_MESSAGES, 50L, "Maya")
+        peek.add("org.thoughtcrime.securesms", SableLockGlance.BUCKET_MESSAGES, 40L, " ")
+        peek.add("com.android.calendar", SableLockGlance.BUCKET_NONE, 60L, "Lunch")
+        val rows = peek.rows()
+        assertEquals(listOf("org.sableos.messages", "com.whatsapp", "org.thoughtcrime.securesms"), rows.map { it.packageName })
+        assertEquals(2, rows[0].count)
+        assertEquals("Maya", rows[1].sender)
+        assertEquals(null, rows[2].sender)
+        assertEquals(0, peek.moreApps())
+    }
+
+    @Test
+    fun peekShowsTheNewestSenderAndCapsRows() {
+        val peek = SableLockGlance.Peek()
+        peek.add("com.whatsapp", SableLockGlance.BUCKET_MESSAGES, 5L, "Old")
+        peek.add("com.whatsapp", SableLockGlance.BUCKET_MESSAGES, 9L, "New")
+        peek.add("com.whatsapp", SableLockGlance.BUCKET_MESSAGES, 7L, "Middle")
+        assertEquals("New", peek.rows()[0].sender)
+        (1..6).forEach { peek.add("app.$it", SableLockGlance.BUCKET_MAIL, it.toLong(), null) }
+        assertEquals(SableLockGlance.Peek.MAX_ROWS, peek.rows().size)
+        assertEquals(3, peek.moreApps())
+        assertTrue(SableLockGlance.Peek().isEmpty())
     }
 }

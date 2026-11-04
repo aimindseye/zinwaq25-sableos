@@ -24,7 +24,7 @@ the Q4 gates in [QUALIFICATION.md](QUALIFICATION.md) apply unchanged.
 
 ## Status
 
-62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Two more are new on 24.0 (Settings 1601 and SetupWizard 0415, the text size choice).
+62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Four more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek).
 
 Every patch applies to the 24.0 heads in order. That is not yet a build: the ports below were
 written against the 24.0 sources without compiling them, so the first 24.0 build is the real test.
@@ -46,6 +46,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `frameworks/base/0311-SableOS-Sable-Quick-Settings-header-Hub-summary-row-.patch` | ported by hand |
 | `frameworks/base/0312-SableOS-slash-searches-the-notifications-in-the-shade.patch` | ported by hand |
 | `frameworks/base/0313-SableOS-Alt-Shift-R-cycles-the-Tall-canvas-of-the-ap.patch` | refreshed (context moved) |
+| `frameworks/base/0314-SableOS-lock-screen-Peek-one-row-per-app.patch` | new on 24.0 |
 | `frameworks/base/0501-SableOS-notification-light-for-every-alerting-channe.patch` | applies as is |
 | `frameworks/base/0550-SableOS-microG-signature-spoofing-on-user-builds-whe.patch` | ported by hand |
 | `kernel/xelex/mt6789/0201-SableOS-report-the-fuel-gauge-s-learned-battery-health.patch` | applies as is |
@@ -123,6 +124,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/Settings/1401-SableOS-Settings-homepage-row-opens-Sable-Setup-dire.patch` | applies after the earlier ports |
 | `packages/apps/Settings/1501-SableOS-Keyboard-firmware-screen-and-1122-on-the-Q25.patch` | refreshed (context moved) |
 | `packages/apps/Settings/1601-SableOS-Text-size-choice-in-Settings-Display.patch` | new on 24.0 |
+| `packages/apps/Settings/1602-SableOS-Lock-screen-peek-row-in-Settings-Security.patch` | new on 24.0 |
 | `packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | ported by hand |
 | `packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | ported by hand |
 | `packages/apps/SetupWizard/0403-SableOS-Esc-returns-to-the-previous-setup-step.patch` | ported by hand |

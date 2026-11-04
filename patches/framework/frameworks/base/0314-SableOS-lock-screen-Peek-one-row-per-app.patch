@@ -1,0 +1,447 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 4 Nov 2026 20:30:00 +0000
+Subject: [PATCH] SableOS: lock screen Peek, one row per app
+
+The locked glance's count row becomes the Peek, as BB10 and TenSeven show
+it: "Peek · Notifications", then one row per app with its icon, name,
+"N notifications" and the count (most first, at most four, then "+N more
+apps"), and "Unlock to read message details" under it. Only when the
+user's lock screen setting shows all content, and the notification needs
+no redaction, does a row name the newest sender (the notification's title,
+never its text). The private mode card now shows only for an empty peek.
+Pure model in keyguard/sable/SableLockGlance.Peek.
+---
+ .../res/layout/sable_keyguard_glance.xml      |  44 +++--
+ .../res/values/sable_keyguard_glance.xml      |   4 +
+ .../res/values/sable_keyguard_strings.xml     |  15 ++
+ .../keyguard/sable/SableLockGlance.java       |  80 ++++++++-
+ .../layout/sections/SableLockGlanceSection.kt | 157 ++++++++++++++----
+ 5 files changed, 257 insertions(+), 43 deletions(-)
+
+diff --git a/packages/SystemUI/res/layout/sable_keyguard_glance.xml b/packages/SystemUI/res/layout/sable_keyguard_glance.xml
+index f8e92c0..5851a13 100644
+--- a/packages/SystemUI/res/layout/sable_keyguard_glance.xml
++++ b/packages/SystemUI/res/layout/sable_keyguard_glance.xml
+@@ -15,7 +15,8 @@
+      limitations under the License.
+ -->
+ <!-- Sable locked glance under the lock screen clock (sable-lockscreen-titan2): "Locked", the
+-     Hub count row, the private mode card and "Open/reply requires unlock". Counts only. -->
++     Peek rows (one per app), the private mode card and the unlock line. Counts only unless the
++     user lets the lock screen show notification content. -->
+ <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+     android:id="@+id/sable_keyguard_glance"
+     android:layout_width="0dp"
+@@ -34,20 +35,41 @@
+         android:textSize="18sp"
+         android:visibility="gone" />
+ 
+-    <TextView
+-        android:id="@+id/sable_keyguard_counts"
++    <!-- Peek: one row per app (icon, name, "N notifications" or the newest sender, count).
++         Rows are added in code (SableLockGlanceSection). -->
++    <LinearLayout
++        android:id="@+id/sable_keyguard_peek"
+         android:layout_width="match_parent"
+         android:layout_height="wrap_content"
+         android:layout_marginTop="@dimen/sable_keyguard_card_gap"
+-        android:background="@drawable/sable_keyguard_focus_ring"
+-        android:ellipsize="end"
+-        android:maxLines="1"
+-        android:paddingHorizontal="@dimen/sable_keyguard_card_padding_horizontal"
+-        android:paddingVertical="@dimen/sable_keyguard_card_padding_vertical"
+-        android:textColor="@color/sable_keyguard_text_primary"
+-        android:textSize="15sp"
++        android:orientation="vertical"
+         android:accessibilityLiveRegion="polite"
+-        android:visibility="gone" />
++        android:visibility="gone">
++
++        <TextView
++            android:id="@+id/sable_keyguard_peek_title"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:text="@string/sable_keyguard_peek_title"
++            android:textColor="@color/sable_keyguard_text_primary"
++            android:textSize="16sp"
++            android:textStyle="bold" />
++
++        <LinearLayout
++            android:id="@+id/sable_keyguard_peek_rows"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:orientation="vertical" />
++
++        <TextView
++            android:id="@+id/sable_keyguard_peek_more"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:paddingStart="@dimen/sable_keyguard_peek_text_start"
++            android:textColor="@color/sable_keyguard_text_secondary"
++            android:textSize="12sp"
++            android:visibility="gone" />
++    </LinearLayout>
+ 
+     <LinearLayout
+         android:id="@+id/sable_keyguard_private"
+diff --git a/packages/SystemUI/res/values/sable_keyguard_glance.xml b/packages/SystemUI/res/values/sable_keyguard_glance.xml
+index 5066807..d28a75f 100644
+--- a/packages/SystemUI/res/values/sable_keyguard_glance.xml
++++ b/packages/SystemUI/res/values/sable_keyguard_glance.xml
+@@ -30,4 +30,8 @@
+     <dimen name="sable_keyguard_card_padding_horizontal">14dp</dimen>
+     <dimen name="sable_keyguard_card_padding_vertical">8dp</dimen>
+     <dimen name="sable_keyguard_card_gap">6dp</dimen>
++    <!-- Peek rows: app icon size, row height and where the text starts (icon + gap). -->
++    <dimen name="sable_keyguard_peek_icon">32dp</dimen>
++    <dimen name="sable_keyguard_peek_row_height">48dp</dimen>
++    <dimen name="sable_keyguard_peek_text_start">44dp</dimen>
+ </resources>
+diff --git a/packages/SystemUI/res/values/sable_keyguard_strings.xml b/packages/SystemUI/res/values/sable_keyguard_strings.xml
+index 77deea0..81ad2e5 100644
+--- a/packages/SystemUI/res/values/sable_keyguard_strings.xml
++++ b/packages/SystemUI/res/values/sable_keyguard_strings.xml
+@@ -58,4 +58,19 @@
+         <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> new · content hidden</item>
+         <item quantity="other"><xliff:g id="count" example="2">%d</xliff:g> new · content hidden</item>
+     </plurals>
++
++    <!-- Peek heading on the lock screen, above one row per app with notifications. [CHAR LIMIT=30] -->
++    <string name="sable_keyguard_peek_title">Peek · Notifications</string>
++    <!-- Peek row second line while content is hidden: how many notifications the app has. -->
++    <plurals name="sable_keyguard_peek_count">
++        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> notification</item>
++        <item quantity="other"><xliff:g id="count" example="2">%d</xliff:g> notifications</item>
++    </plurals>
++    <!-- Under the peek rows when more apps have notifications than fit. -->
++    <plurals name="sable_keyguard_peek_more">
++        <item quantity="one">+<xliff:g id="count" example="1">%d</xliff:g> more app</item>
++        <item quantity="other">+<xliff:g id="count" example="2">%d</xliff:g> more apps</item>
++    </plurals>
++    <!-- Under the peek while lock screen content is hidden. [CHAR LIMIT=40] -->
++    <string name="sable_keyguard_peek_unlock">Unlock to read message details</string>
+ </resources>
+diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+index dbf17f9..838a0b8 100644
+--- a/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
++++ b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+@@ -16,8 +16,13 @@
+ 
+ package com.android.keyguard.sable;
+ 
++import java.util.ArrayList;
+ import java.util.Arrays;
++import java.util.Collections;
+ import java.util.HashSet;
++import java.util.LinkedHashMap;
++import java.util.List;
++import java.util.Map;
+ import java.util.Set;
+ 
+ /**
+@@ -137,7 +142,77 @@ public final class SableLockGlance {
+     }
+ 
+     /**
+-     * What the glance under the clock shows. {@code locked}: the keyguard is secure and not
++     * Peek (owner decision 2026-11-04, as BB10 and TenSeven): one row per app with Hub-countable
++     * notifications on the lock screen, most notifications first, then the newest. A row carries
++     * the newest sender only when the lock screen may show that notification's content (the
++     * user's "Show all content" and no redaction); otherwise it is counts only.
++     */
++    public static final class Peek {
++        /** At most this many app rows; the rest are "+N more apps". */
++        public static final int MAX_ROWS = 4;
++
++        /** One app row of the peek. */
++        public static final class Row {
++            public final String packageName;
++            public int count;
++            public long newestWhen;
++            /** The newest notification's sender or title, or null when content is hidden. */
++            public String sender;
++
++            Row(String packageName) {
++                this.packageName = packageName;
++            }
++        }
++
++        private final Map<String, Row> rows = new LinkedHashMap<>();
++
++        /**
++         * Adds one lock screen notification. {@code sender} is null unless its content may show;
++         * a bucket of {@link #BUCKET_NONE} is not part of the peek.
++         */
++        public void add(String packageName, int bucket, long when, String sender) {
++            if (bucket == BUCKET_NONE || packageName == null || packageName.isEmpty()) {
++                return;
++            }
++            Row row = rows.get(packageName);
++            if (row == null) {
++                row = new Row(packageName);
++                rows.put(packageName, row);
++            }
++            row.count++;
++            if (when >= row.newestWhen) {
++                row.newestWhen = when;
++                row.sender = sender == null || sender.trim().isEmpty() ? null : sender.trim();
++            }
++        }
++
++        /** The rows to show, most notifications first, then the newest; at most {@link #MAX_ROWS}. */
++        public List<Row> rows() {
++            List<Row> sorted = sortedRows();
++            return sorted.size() > MAX_ROWS ? sorted.subList(0, MAX_ROWS) : sorted;
++        }
++
++        /** How many apps did not fit ("+N more apps"). */
++        public int moreApps() {
++            return Math.max(0, rows.size() - MAX_ROWS);
++        }
++
++        public boolean isEmpty() {
++            return rows.isEmpty();
++        }
++
++        private List<Row> sortedRows() {
++            List<Row> sorted = new ArrayList<>(rows.values());
++            Collections.sort(sorted, (a, b) -> a.count != b.count
++                    ? Integer.compare(b.count, a.count)
++                    : Long.compare(b.newestWhen, a.newestWhen));
++            return sorted;
++        }
++    }
++
++    /**
++     * What the glance under the clock shows: {@code countRow} is the peek. {@code locked}: the
++     * keyguard is secure and not
+      * unlocked (trust agent, biometrics). {@code privateMode}: the user is in public mode and
+      * hides notification content on the lock screen. Nothing shows while dozing.
+      */
+@@ -150,7 +225,8 @@ public final class SableLockGlance {
+         public Glance(boolean dozing, boolean locked, boolean privateMode, Counts counts) {
+             lockedLabel = !dozing && locked;
+             countRow = !dozing && !counts.isEmpty();
+-            privateCard = !dozing && privateMode;
++            // The peek's own footer says what unlocking shows; the card covers an empty peek.
++            privateCard = !dozing && privateMode && counts.isEmpty();
+             requiresUnlockLine = !dozing && privateMode && counts.total > 0;
+         }
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+index 60bf1a5..8bd9998 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+@@ -16,9 +16,15 @@
+ 
+ package com.android.systemui.keyguard.ui.view.layout.sections
+ 
++import android.app.Notification
+ import android.content.Context
++import android.graphics.drawable.Drawable
++import android.view.Gravity
+ import android.view.LayoutInflater
+ import android.view.View
++import android.view.ViewGroup
++import android.widget.ImageView
++import android.widget.LinearLayout
+ import android.widget.TextView
+ import androidx.constraintlayout.widget.ConstraintLayout
+ import androidx.constraintlayout.widget.ConstraintSet
+@@ -51,7 +57,11 @@ import javax.inject.Inject
+  * show; the "Private mode · Counts only until unlock" card when lock screen notification content
+  * is hidden; and "Open/reply requires unlock" under it while such notifications are shown.
+  *
+- * Counts only: no title, text or sender is read. Notifications the keyguard hides (secret, a user
++ * The count row is the Peek (owner decision 2026-11-04, as BB10 and TenSeven): one row per app
++ * with its icon, name, "N notifications" and the count, and "Unlock to read message details"
++ * under it. Only when the user's lock screen setting shows all content, and the notification is
++ * not redacted, does a row name the newest sender (the notification's title, never its text);
++ * the notifications below show that much already. Notifications the keyguard hides (secret, a user
+  * or profile setting, silent ones when hidden, lock screen notifications off) are not counted, so
+  * with lock screen notifications off the count row stays hidden. Hidden while dozing. The
+  * notification stack starts below the glance. Legacy (blueprint) keyguard only.
+@@ -166,63 +176,150 @@ constructor(
+     private fun refresh() {
+         val view = glanceView ?: return
+         val counts = SableLockGlance.Counts()
++        val peek = SableLockGlance.Peek()
++        val icons = HashMap<String, Notification>()
++        val userId = lockscreenUserManager.currentUserId
++        val privateMode =
++            lockscreenUserManager.isLockscreenPublicMode(userId) &&
++                lockscreenUserManager.shouldShowLockscreenNotifications() &&
++                !lockscreenUserManager.userAllowsPrivateNotificationsInPublic(userId)
+         if (keyguardStateController.isShowing) {
+             for (entry in notifPipeline.allNotifs) {
+                 if (visibilityProvider.shouldHideNotification(entry)) continue
+                 val sbn = entry.sbn
+-                counts.add(
++                val bucket =
+                     SableLockGlance.bucketFor(
+                         sbn.notification.category,
+                         sbn.packageName,
+                         sbn.notification.isGroupSummary,
+                         sbn.isOngoing,
+                     )
+-                )
++                counts.add(bucket)
++                peek.add(sbn.packageName, bucket, sbn.notification.`when`, senderOf(entry, privateMode))
++                if (bucket != SableLockGlance.BUCKET_NONE) icons.putIfAbsent(sbn.packageName, sbn.notification)
+             }
+         }
+-        val userId = lockscreenUserManager.currentUserId
+-        val privateMode =
+-            lockscreenUserManager.isLockscreenPublicMode(userId) &&
+-                lockscreenUserManager.shouldShowLockscreenNotifications() &&
+-                !lockscreenUserManager.userAllowsPrivateNotificationsInPublic(userId)
+         val locked =
+             keyguardStateController.isMethodSecure && !keyguardStateController.canDismissLockScreen()
+         val glance =
+             SableLockGlance.Glance(statusBarStateController.isDozing, locked, privateMode, counts)
+ 
+         view.findViewById<View>(R.id.sable_keyguard_locked).visibleIf(glance.lockedLabel)
+-        view.findViewById<TextView>(R.id.sable_keyguard_counts).apply {
++        view.findViewById<View>(R.id.sable_keyguard_peek).apply {
+             visibleIf(glance.countRow)
+-            if (glance.countRow) text = countText(counts)
++            if (glance.countRow) bindPeek(this, peek, icons)
+         }
+         view.findViewById<View>(R.id.sable_keyguard_private).visibleIf(glance.privateCard)
+-        view.findViewById<View>(R.id.sable_keyguard_requires_unlock)
+-            .visibleIf(glance.requiresUnlockLine)
++        view.findViewById<TextView>(R.id.sable_keyguard_requires_unlock).apply {
++            val show = glance.requiresUnlockLine || (locked && glance.countRow)
++            visibleIf(show)
++            if (show) {
++                setText(
++                    if (privateMode) {
++                        R.string.sable_keyguard_peek_unlock
++                    } else {
++                        R.string.sable_keyguard_requires_unlock
++                    }
++                )
++            }
++        }
+         view.visibleIf(glance.any())
+     }
+ 
+-    private fun countText(counts: SableLockGlance.Counts): String {
++    /**
++     * The newest sender a peek row may name: only when the lock screen shows all content and this
++     * notification needs no redaction. The title (a sender or subject), never the text.
++     */
++    private fun senderOf(entry: NotificationEntry, privateMode: Boolean): String? {
++        if (privateMode) return null
++        if (lockscreenUserManager.getRedactionType(entry) !=
++            NotificationLockscreenUserManager.REDACTION_TYPE_NONE) {
++            return null
++        }
++        val extras = entry.sbn.notification.extras ?: return null
++        return (extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
++                ?: extras.getCharSequence(Notification.EXTRA_TITLE))
++            ?.toString()
++    }
++
++    private fun bindPeek(
++        container: View,
++        peek: SableLockGlance.Peek,
++        notifications: Map<String, Notification>,
++    ) {
+         val res = context.resources
+-        val parts = buildList {
+-            if (counts.messages > 0) {
+-                add(res.getQuantityString(R.plurals.sable_keyguard_count_messages, counts.messages, counts.messages))
+-            }
+-            if (counts.mail > 0) {
+-                add(res.getQuantityString(R.plurals.sable_keyguard_count_mail, counts.mail, counts.mail))
+-            }
+-            if (counts.missedCalls > 0) {
+-                add(
+-                    res.getQuantityString(
+-                        R.plurals.sable_keyguard_count_missed_calls,
+-                        counts.missedCalls,
+-                        counts.missedCalls,
+-                    )
+-                )
+-            }
++        val rowsView = container.findViewById<LinearLayout>(R.id.sable_keyguard_peek_rows)
++        rowsView.removeAllViews()
++        val iconSize = res.getDimensionPixelSize(R.dimen.sable_keyguard_peek_icon)
++        val rowHeight = res.getDimensionPixelSize(R.dimen.sable_keyguard_peek_row_height)
++        val gap = res.getDimensionPixelSize(R.dimen.sable_keyguard_card_gap) * 2
++        val primary = context.getColor(R.color.sable_keyguard_text_primary)
++        val secondary = context.getColor(R.color.sable_keyguard_text_secondary)
++        for (row in peek.rows()) {
++            val line =
++                LinearLayout(context).apply {
++                    orientation = LinearLayout.HORIZONTAL
++                    gravity = Gravity.CENTER_VERTICAL
++                    minimumHeight = rowHeight
++                }
++            line.addView(
++                ImageView(context).apply {
++                    setImageDrawable(iconFor(row.packageName, notifications[row.packageName]))
++                },
++                LinearLayout.LayoutParams(iconSize, iconSize).apply { marginEnd = gap },
++            )
++            val texts = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
++            texts.addView(
++                TextView(context).apply {
++                    text = labelFor(row.packageName)
++                    setTextColor(primary)
++                    textSize = 15f
++                    maxLines = 1
++                    ellipsize = android.text.TextUtils.TruncateAt.END
++                }
++            )
++            texts.addView(
++                TextView(context).apply {
++                    text =
++                        row.sender
++                            ?: res.getQuantityString(R.plurals.sable_keyguard_peek_count, row.count, row.count)
++                    setTextColor(secondary)
++                    textSize = 12f
++                    maxLines = 1
++                    ellipsize = android.text.TextUtils.TruncateAt.END
++                }
++            )
++            line.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
++            line.addView(
++                TextView(context).apply {
++                    text = row.count.toString()
++                    setTextColor(primary)
++                    textSize = 15f
++                }
++            )
++            rowsView.addView(
++                line,
++                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
++            )
++        }
++        container.findViewById<TextView>(R.id.sable_keyguard_peek_more).apply {
++            val more = peek.moreApps()
++            visibleIf(more > 0)
++            if (more > 0) text = res.getQuantityString(R.plurals.sable_keyguard_peek_more, more, more)
+         }
+-        return parts.joinToString(res.getString(R.string.sable_keyguard_count_separator))
+     }
+ 
++    /** The app's icon, else the notification's small icon. */
++    private fun iconFor(packageName: String, notification: Notification?): Drawable? =
++        runCatching { context.packageManager.getApplicationIcon(packageName) }.getOrNull()
++            ?: notification?.smallIcon?.loadDrawable(context)
++
++    private fun labelFor(packageName: String): CharSequence =
++        runCatching {
++            val pm = context.packageManager
++            pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0))
++        }.getOrDefault(packageName)
++
+     private fun View.visibleIf(show: Boolean) {
+         val wanted = if (show) View.VISIBLE else View.GONE
+         if (visibility != wanted) visibility = wanted
+-- 
+2.43.0
+
