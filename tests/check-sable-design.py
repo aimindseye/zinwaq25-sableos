@@ -531,6 +531,19 @@ report(
     all(suw_added("0413", r) for r in ready) and not suw_added("0413", "Command, All Apps"),
     "Ready screen describes the BB10 Sable Start (Active Frames, Hub left, grid right, Hub · page dots · Camera)",
 )
+# Text size: setup's Theme step (SetupWizard 0415) and Settings > Display (Settings 1601) offer
+# the same four font scales, and Larger (1.3) is the biggest Sable lays out (SableResponsive).
+text_size_settings = "".join(f.read_text(encoding="utf-8") for f in SETTINGS_PATCHES.glob("1601-*.patch"))
+scales_line = "+    public static final float[] SCALES = {0.9f, 1.0f, 1.15f, 1.3f};"
+report(
+    suw_added("0415", scales_line[1:])
+    and scales_line in text_size_settings
+    and suw_added("0415", "Settings.System.FONT_SCALE")
+    and "+            android:key=\"sable_text_size\"" in text_size_settings
+    and all(f">{w}</" in suw.get("0415", "") and f"<item>{w}</item>" in text_size_settings
+            for w in ("Small", "Medium", "Large", "Larger")),
+    "Text size is Small · Medium · Large · Larger (0.9, 1.0, 1.15, 1.3) in setup and Settings > Display",
+)
 lock = [l for n, l in added if 'name="sable_privacy_lock_screen"' in l]
 report(
     len(lock) == 1 and "hidden until you unlock" in lock[0] and "shows notification content" not in lock[0],
