@@ -53,4 +53,5 @@
     <string name="will_be_deleted_from_this">“%1$s” será excluída deste telefone.</string>
     <string name="delete">Excluir</string>
     <string name="keep">Manter</string>
+    <string name="r_remind_in_tasks">" · R lembrar em Tarefas"</string>
 </resources>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">задачи</string>
+    <string name="tasks_hint">C новая · Enter изменить · Пробел готово · Z завтра · D удалить · H готовые</string>
+    <string name="no_tasks">Задач нет. C добавляет задачу.</string>
+    <string name="group_overdue">Просрочено</string>
+    <string name="group_today">Сегодня</string>
+    <string name="group_tomorrow">Завтра</string>
+    <string name="group_this_week">На этой неделе</string>
+    <string name="group_later">Позже</string>
+    <string name="group_no_date">Без даты</string>
+    <string name="group_done">Готово</string>
+    <string name="due_at">Срок %1$s</string>
+    <string name="remind_at">Напомнить %1$s</string>
+    <string name="from_app">Из %1$s</string>
+    <string name="every_day">Каждый день</string>
+    <string name="every_week">Каждую неделю</string>
+    <string name="every_month">Каждый месяц</string>
+    <string name="new_task">Новая задача</string>
+    <string name="edit_task">Изменить задачу</string>
+    <string name="title">Название</string>
+    <string name="details">Подробности</string>
+    <string name="due">Срок</string>
+    <string name="remind">Напомнить</string>
+    <string name="none">Нет</string>
+    <string name="pick_time">Выбрать время</string>
+    <string name="later_today">Позже сегодня</string>
+    <string name="this_evening">Сегодня вечером</string>
+    <string name="tomorrow_morning">Завтра утром</string>
+    <string name="repeat">Повтор: %1$s</string>
+    <string name="never">Никогда</string>
+    <string name="save">Сохранить</string>
+    <string name="cancel">Отмена</string>
+    <string name="delete">Удалить</string>
+    <string name="delete_task">Удалить «%1$s»?</string>
+    <string name="deleted">«%1$s» удалена</string>
+    <string name="add_a_title">Добавьте название.</string>
+    <string name="reminders">Напоминания</string>
+    <string name="task_reminder">Напоминание о задаче</string>
+    <string name="done">Готово</string>
+    <string name="snooze_1_hour">Отложить на 1 час</string>
+    <string name="reminders_off">Уведомления о напоминаниях выключены. Enter включает их; напоминания всё равно видны здесь.</string>
+    <string name="follow_up_in">Вернуться к %1$s</string>
+    <string name="show_done">Показать готовые (H)</string>
+    <string name="hide_done">Скрыть готовые (H)</string>
+</resources>

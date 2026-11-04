@@ -126,8 +126,23 @@ class NotesController(
         when (key) {
             TasksKey.History -> state.showDone = !state.showDone
             TasksKey.OpenNote -> show(Screen.Editor(state.focusedTask?.noteId ?: return false))
+            TasksKey.Remind -> return remindInTasks(state.focusedTask ?: return false)
         }
         return true
+    }
+
+    /**
+     * R on a checklist item hands it to Sable Tasks as a new task (its text, then the note's title), where
+     * a due date and reminder can be set. Nothing happens when Sable Tasks is not installed.
+     */
+    private fun remindInTasks(task: Tasks.Task): Boolean {
+        val text = task.text + if (task.noteTitle.isBlank()) "" else "\n" + task.noteTitle
+        val intent =
+            Intent(Intent.ACTION_SEND)
+                .setType("text/plain")
+                .setPackage(TASKS_PACKAGE)
+                .putExtra(Intent.EXTRA_TEXT, text)
+        return runCatching { activity.startActivity(intent) }.isSuccess
     }
 
     private fun show(screen: Screen) {
@@ -279,6 +294,7 @@ class NotesController(
     }
 
     private companion object {
+        const val TASKS_PACKAGE = "org.sableos.tasks"
         const val SAVE_DELAY_MS = 800L
         const val MAX_IMPORT_BYTES = 1 shl 20
         const val MAX_FILE_NAME_CHARS = 60

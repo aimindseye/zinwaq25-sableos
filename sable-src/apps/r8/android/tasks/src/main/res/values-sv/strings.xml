@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">uppgifter</string>
+    <string name="tasks_hint">C ny · Enter redigera · Mellanslag klar · Z i morgon · D ta bort · H klara</string>
+    <string name="no_tasks">Inga uppgifter. C lägger till en.</string>
+    <string name="group_overdue">Försenade</string>
+    <string name="group_today">I dag</string>
+    <string name="group_tomorrow">I morgon</string>
+    <string name="group_this_week">Den här veckan</string>
+    <string name="group_later">Senare</string>
+    <string name="group_no_date">Inget datum</string>
+    <string name="group_done">Klara</string>
+    <string name="due_at">Förfaller %1$s</string>
+    <string name="remind_at">Påminn %1$s</string>
+    <string name="from_app">Från %1$s</string>
+    <string name="every_day">Varje dag</string>
+    <string name="every_week">Varje vecka</string>
+    <string name="every_month">Varje månad</string>
+    <string name="new_task">Ny uppgift</string>
+    <string name="edit_task">Redigera uppgift</string>
+    <string name="title">Titel</string>
+    <string name="details">Detaljer</string>
+    <string name="due">Förfaller</string>
+    <string name="remind">Påminn</string>
+    <string name="none">Ingen</string>
+    <string name="pick_time">Välj tid</string>
+    <string name="later_today">Senare i dag</string>
+    <string name="this_evening">I kväll</string>
+    <string name="tomorrow_morning">I morgon bitti</string>
+    <string name="repeat">Upprepa: %1$s</string>
+    <string name="never">Aldrig</string>
+    <string name="save">Spara</string>
+    <string name="cancel">Avbryt</string>
+    <string name="delete">Ta bort</string>
+    <string name="delete_task">Ta bort ”%1$s”?</string>
+    <string name="deleted">”%1$s” borttagen</string>
+    <string name="add_a_title">Lägg till en titel.</string>
+    <string name="reminders">Påminnelser</string>
+    <string name="task_reminder">Uppgiftspåminnelse</string>
+    <string name="done">Klar</string>
+    <string name="snooze_1_hour">Snooza 1 timme</string>
+    <string name="reminders_off">Påminnelseaviseringar är av. Enter tillåter dem; påminnelser visas ändå här.</string>
+    <string name="follow_up_in">Följ upp i %1$s</string>
+    <string name="show_done">Visa klara (H)</string>
+    <string name="hide_done">Dölj klara (H)</string>
+</resources>

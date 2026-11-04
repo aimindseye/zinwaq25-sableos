@@ -13,6 +13,7 @@
 | [thunderbird/thunderbird-android](https://github.com/thunderbird/thunderbird-android) | Upstream for the Sable Mail flavor | `THUNDERBIRD_23_0` (`c733317d933c22bcd790a4790306f30ccf2026b8`) | Apache-2.0 |
 | [vaachak-platform/vaachak-textreader](https://github.com/vaachak-platform/vaachak-textreader) | Upstream for the Sable Text Reader flavor | `50fca365baae9869264716569830690fb62029a7` | see repo |
 | [connectbot/connectbot](https://github.com/connectbot/connectbot) | Upstream for the Sable Terminal flavor | `v1.10.9` (`21ce6f47cf16785bf2314b4ea931900164c179c1`) | Apache-2.0 |
+| [aimindseye/tenseven-launcher](https://github.com/aimindseye/tenseven-launcher) | Tasks/Remind domain ported into Sable Tasks (`sable-src/apps/r8/android/tasks`) | `72ee8251091c338cda9c4b7fc9a9b91de266cb3d` | Apache-2.0 |
 | [espeak-ng/espeak-ng](https://github.com/espeak-ng/espeak-ng) | Upstream for the Sable Speech flavor (text-to-speech engine) | `1.52.0` (`4870adfa25b1a32b4361592f1be8a40337c58d6c`) | GPL-3.0-or-later |
 | [bellhopsw/q25-50mp](https://github.com/bellhopsw/q25-50mp) | Optional 50 MP camera (`product/q25/camera-50mp`, off by default) | `caf855d5adc9578f3231f73947b6872b8786db8a` | MIT (library, tools); GPL-2.0 (kernel change) |
 | [microg/GmsCore](https://github.com/microg/GmsCore) releases | microG Services and Companion APKs (`product/q25/microg`, `SABLE_Q25_MICROG`, Q4+) | `v0.3.17.252432` (`32bc8954ff872d0e1a05ddfae81561b6dbecef69`); APK sha256 in `prebuilts.tsv` | Apache-2.0 |

@@ -53,4 +53,5 @@
     <string name="will_be_deleted_from_this">“%1$s” इस फ़ोन से हटा दिया जाएगा।</string>
     <string name="delete">हटाएँ</string>
     <string name="keep">रखें</string>
+    <string name="r_remind_in_tasks">" · R कार्य में याद दिलाएँ"</string>
 </resources>

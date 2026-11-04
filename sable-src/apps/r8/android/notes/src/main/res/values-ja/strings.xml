@@ -53,4 +53,5 @@
     <string name="will_be_deleted_from_this">「%1$s」はこの端末から削除されます。</string>
     <string name="delete">削除</string>
     <string name="keep">残す</string>
+    <string name="r_remind_in_tasks">" · R タスクで通知"</string>
 </resources>

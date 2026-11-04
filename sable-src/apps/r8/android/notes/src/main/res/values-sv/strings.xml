@@ -53,4 +53,5 @@
     <string name="will_be_deleted_from_this">”%1$s” raderas från den här telefonen.</string>
     <string name="delete">Radera</string>
     <string name="keep">Behåll</string>
+    <string name="r_remind_in_tasks">" · R påminn i Uppgifter"</string>
 </resources>

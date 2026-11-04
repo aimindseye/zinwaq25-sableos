@@ -53,4 +53,5 @@
     <string name="will_be_deleted_from_this">„%1$s” zostanie usunięta z tego telefonu.</string>
     <string name="delete">Usuń</string>
     <string name="keep">Zachowaj</string>
+    <string name="r_remind_in_tasks">" · R przypomnij w Zadaniach"</string>
 </resources>

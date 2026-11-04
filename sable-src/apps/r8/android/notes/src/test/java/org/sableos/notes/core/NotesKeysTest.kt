@@ -41,4 +41,12 @@ class NotesKeysTest {
         assertEquals(EditorMenu.Delete, EditorMenu.forKey(KeyEvent.KEYCODE_D))
         assertNull(EditorMenu.forKey(KeyEvent.KEYCODE_Z))
     }
+
+    @Test
+    fun tasksViewKeysIncludeRemindInTasks() {
+        assertEquals(TasksKey.OpenNote, NotesKeys.tasks(KeyEvent.KEYCODE_O, chord = false))
+        assertEquals(TasksKey.History, NotesKeys.tasks(KeyEvent.KEYCODE_H, chord = false))
+        assertEquals(TasksKey.Remind, NotesKeys.tasks(KeyEvent.KEYCODE_R, chord = false))
+        assertNull(NotesKeys.tasks(KeyEvent.KEYCODE_R, chord = true))
+    }
 }

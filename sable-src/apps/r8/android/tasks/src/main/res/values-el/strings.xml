@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">εργασίες</string>
+    <string name="tasks_hint">C νέα · Enter επεξεργασία · Κενό έγινε · Z αύριο · D διαγραφή · H ολοκληρωμένες</string>
+    <string name="no_tasks">Δεν υπάρχουν εργασίες. Το C προσθέτει μία.</string>
+    <string name="group_overdue">Εκπρόθεσμες</string>
+    <string name="group_today">Σήμερα</string>
+    <string name="group_tomorrow">Αύριο</string>
+    <string name="group_this_week">Αυτή την εβδομάδα</string>
+    <string name="group_later">Αργότερα</string>
+    <string name="group_no_date">Χωρίς ημερομηνία</string>
+    <string name="group_done">Ολοκληρωμένες</string>
+    <string name="due_at">Λήξη %1$s</string>
+    <string name="remind_at">Υπενθύμιση %1$s</string>
+    <string name="from_app">Από %1$s</string>
+    <string name="every_day">Κάθε μέρα</string>
+    <string name="every_week">Κάθε εβδομάδα</string>
+    <string name="every_month">Κάθε μήνα</string>
+    <string name="new_task">Νέα εργασία</string>
+    <string name="edit_task">Επεξεργασία εργασίας</string>
+    <string name="title">Τίτλος</string>
+    <string name="details">Λεπτομέρειες</string>
+    <string name="due">Λήξη</string>
+    <string name="remind">Υπενθύμιση</string>
+    <string name="none">Καμία</string>
+    <string name="pick_time">Επιλογή ώρας</string>
+    <string name="later_today">Αργότερα σήμερα</string>
+    <string name="this_evening">Απόψε</string>
+    <string name="tomorrow_morning">Αύριο το πρωί</string>
+    <string name="repeat">Επανάληψη: %1$s</string>
+    <string name="never">Ποτέ</string>
+    <string name="save">Αποθήκευση</string>
+    <string name="cancel">Ακύρωση</string>
+    <string name="delete">Διαγραφή</string>
+    <string name="delete_task">Διαγραφή «%1$s»;</string>
+    <string name="deleted">Διαγράφηκε «%1$s»</string>
+    <string name="add_a_title">Προσθέστε τίτλο.</string>
+    <string name="reminders">Υπενθυμίσεις</string>
+    <string name="task_reminder">Υπενθύμιση εργασίας</string>
+    <string name="done">Έγινε</string>
+    <string name="snooze_1_hour">Αναβολή 1 ώρας</string>
+    <string name="reminders_off">Οι ειδοποιήσεις υπενθυμίσεων είναι ανενεργές. Το Enter τις επιτρέπει· οι υπενθυμίσεις φαίνονται εδώ.</string>
+    <string name="follow_up_in">Συνέχεια στο %1$s</string>
+    <string name="show_done">Εμφάνιση ολοκληρωμένων (H)</string>
+    <string name="hide_done">Απόκρυψη ολοκληρωμένων (H)</string>
+</resources>

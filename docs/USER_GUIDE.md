@@ -102,6 +102,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Mail | Email; Gmail sign-in is covered in [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |
 | Calendar | The month with busy rings over the day's agenda, a week view with a NOW line, and every calendar on the phone. A ring fills with how much of 8:00 to 20:00 is booked; a thin outer ring marks an all-day event. L lists your calendars to show or hide each one | C, T, V, J, K, R, L |
 | Notes | Notes and checklists with colour labels, kept on the phone | See [Notes](#notes) below; C new, S find, K tasks |
+| Tasks | Tasks with due dates, reminders and repeats, kept on the phone. A reminder shows in Hub with Done and Snooze 1 hour | See [Tasks](#tasks) below; C new, Space done, Z tomorrow |
 | Text Reader | Reads text aloud: paste text, open a file, scan a page with the camera (OCR, English or Spanish) or pick an image from the Gallery. An upstream app with the Sable name and icon. It speaks with eSpeak NG, the offline speech engine SableOS ships (voice, rate and pitch in Settings > Accessibility > Text-to-speech output; see [Accessibility](ACCESSIBILITY.md#speech)). It also adds Speak what's focused (Settings > Accessibility), which speaks the item you move to with the trackpad or keys | Play and stop buttons on screen |
 | Terminal | SSH, Telnet and a local shell (ConnectBot) | See [Terminal](#terminal) below; Menu is Ctrl |
 | Weather | Forecast for your city, refreshed in the background | Feeds Start's header |
@@ -171,7 +172,7 @@ The first line of a note is its title. The list shows the latest-edited note fir
 | --- | --- | --- |
 | List | C (or Ctrl+N) | New note |
 | List | S or / | Find in every note; Enter opens the first match |
-| List | K | Tasks: the open checklist items from every note. Enter ticks one, O opens its note, H shows the done ones |
+| List | K | Tasks: the open checklist items from every note. Enter ticks one, O opens its note, H shows the done ones, R hands it to Sable Tasks to set a due date or reminder |
 | List | L | Change the focused note's colour |
 | List | D | Delete the focused note (asks first) |
 | List | I | Import a text file as a note |
@@ -182,6 +183,22 @@ The first line of a note is its title. The list shows the latest-edited note fir
 | Note | Back | Saves and goes back to the list. A note left empty is not kept |
 
 Notes save themselves as you type. On a keyboard with Ctrl, Ctrl+S, Ctrl+F, Ctrl+G, Ctrl+T, Ctrl+L, Ctrl+E and Ctrl+Enter do the same as the menu letters, and Esc goes back. A checklist item is a line that starts with `- [ ] `, or `- [x] ` once it's done, so an exported note reads the same in any text editor.
+
+### Tasks
+
+Sable Tasks (ported from TenSeven Tasks) keeps a to-do list with due dates, reminders and repeats. Tasks stay on the phone: there is no account and no sync. The list groups them as Overdue, Today, Tomorrow, This week, Later and No date.
+
+| Where | Key | What it does |
+| --- | --- | --- |
+| List | C | New task |
+| List | Enter | Edit the focused task |
+| List | Space | Done, or not done again. A repeating task moves to its next date instead |
+| List | Z | Remind tomorrow at 9:00 |
+| List | D or Del | Delete (asks first) |
+| List | H | Show or hide done tasks |
+| Editor | Later today, This evening, Tomorrow morning | Quick reminder times; Pick a time chooses any date and time |
+
+A reminder is a notification, so it also shows in Hub, whose menu offers Done and Snooze 1 hour. The lock screen shows only "Task reminder". Reminders are not exact alarms: in deep sleep one can come a few minutes late. Text shared to Sable Tasks becomes a new task, and in Notes' Tasks view R sends a checklist item there.
 
 ### Terminal
 

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">taken</string>
+    <string name="tasks_hint">C nieuw · Enter bewerken · Spatie klaar · Z morgen · D verwijderen · H klaar</string>
+    <string name="no_tasks">Geen taken. C voegt er een toe.</string>
+    <string name="group_overdue">Te laat</string>
+    <string name="group_today">Vandaag</string>
+    <string name="group_tomorrow">Morgen</string>
+    <string name="group_this_week">Deze week</string>
+    <string name="group_later">Later</string>
+    <string name="group_no_date">Geen datum</string>
+    <string name="group_done">Klaar</string>
+    <string name="due_at">Uiterlijk %1$s</string>
+    <string name="remind_at">Herinneren %1$s</string>
+    <string name="from_app">Uit %1$s</string>
+    <string name="every_day">Elke dag</string>
+    <string name="every_week">Elke week</string>
+    <string name="every_month">Elke maand</string>
+    <string name="new_task">Nieuwe taak</string>
+    <string name="edit_task">Taak bewerken</string>
+    <string name="title">Titel</string>
+    <string name="details">Details</string>
+    <string name="due">Uiterlijk</string>
+    <string name="remind">Herinneren</string>
+    <string name="none">Geen</string>
+    <string name="pick_time">Tijd kiezen</string>
+    <string name="later_today">Later vandaag</string>
+    <string name="this_evening">Vanavond</string>
+    <string name="tomorrow_morning">Morgenochtend</string>
+    <string name="repeat">Herhalen: %1$s</string>
+    <string name="never">Nooit</string>
+    <string name="save">Opslaan</string>
+    <string name="cancel">Annuleren</string>
+    <string name="delete">Verwijderen</string>
+    <string name="delete_task">‘%1$s’ verwijderen?</string>
+    <string name="deleted">‘%1$s’ verwijderd</string>
+    <string name="add_a_title">Voeg een titel toe.</string>
+    <string name="reminders">Herinneringen</string>
+    <string name="task_reminder">Taakherinnering</string>
+    <string name="done">Klaar</string>
+    <string name="snooze_1_hour">1 uur uitstellen</string>
+    <string name="reminders_off">Herinneringsmeldingen staan uit. Enter staat ze toe; herinneringen blijven hier zichtbaar.</string>
+    <string name="follow_up_in">Opvolgen in %1$s</string>
+    <string name="show_done">Klaar tonen (H)</string>
+    <string name="hide_done">Klaar verbergen (H)</string>
+</resources>

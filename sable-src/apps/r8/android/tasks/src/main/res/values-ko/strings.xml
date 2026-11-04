@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">할 일</string>
+    <string name="tasks_hint">C 새로 만들기 · Enter 편집 · Space 완료 · Z 내일 · D 삭제 · H 완료 목록</string>
+    <string name="no_tasks">할 일이 없습니다. C로 추가하세요.</string>
+    <string name="group_overdue">기한 지남</string>
+    <string name="group_today">오늘</string>
+    <string name="group_tomorrow">내일</string>
+    <string name="group_this_week">이번 주</string>
+    <string name="group_later">나중에</string>
+    <string name="group_no_date">날짜 없음</string>
+    <string name="group_done">완료</string>
+    <string name="due_at">마감 %1$s</string>
+    <string name="remind_at">알림 %1$s</string>
+    <string name="from_app">%1$s에서</string>
+    <string name="every_day">매일</string>
+    <string name="every_week">매주</string>
+    <string name="every_month">매월</string>
+    <string name="new_task">새 할 일</string>
+    <string name="edit_task">할 일 편집</string>
+    <string name="title">제목</string>
+    <string name="details">세부정보</string>
+    <string name="due">마감</string>
+    <string name="remind">알림</string>
+    <string name="none">없음</string>
+    <string name="pick_time">시간 선택</string>
+    <string name="later_today">오늘 나중에</string>
+    <string name="this_evening">오늘 저녁</string>
+    <string name="tomorrow_morning">내일 아침</string>
+    <string name="repeat">반복: %1$s</string>
+    <string name="never">안 함</string>
+    <string name="save">저장</string>
+    <string name="cancel">취소</string>
+    <string name="delete">삭제</string>
+    <string name="delete_task">‘%1$s’을(를) 삭제할까요?</string>
+    <string name="deleted">‘%1$s’ 삭제됨</string>
+    <string name="add_a_title">제목을 입력하세요.</string>
+    <string name="reminders">알림</string>
+    <string name="task_reminder">할 일 알림</string>
+    <string name="done">완료</string>
+    <string name="snooze_1_hour">1시간 후 다시 알림</string>
+    <string name="reminders_off">알림 표시가 꺼져 있습니다. Enter로 허용하세요. 알림은 여기에도 표시됩니다.</string>
+    <string name="follow_up_in">%1$s 후속 조치</string>
+    <string name="show_done">완료 표시 (H)</string>
+    <string name="hide_done">완료 숨기기 (H)</string>
+</resources>
