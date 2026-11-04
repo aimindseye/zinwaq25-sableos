@@ -248,4 +248,9 @@
     <string name="letter_shortcut">Skrót przez przytrzymanie</string>
     <string name="letter_shortcut_current">Skrót przez przytrzymanie: %1$s</string>
     <string name="letter_shortcut_press">Naciśnij literę, którą przytrzymasz na ekranie głównym, aby otworzyć tę aplikację. Backspace ją usuwa. Zastępuje szybkie wybieranie na tej samej literze.</string>
+    <string name="month">Miesiąc</string>
+    <string name="month_free">Nic w ciągu najbliższych 7 dni</string>
+    <string name="month_today">Dziś</string>
+    <string name="month_tomorrow">Jutro</string>
+    <string name="month_all_day">cały dzień</string>
 </resources>

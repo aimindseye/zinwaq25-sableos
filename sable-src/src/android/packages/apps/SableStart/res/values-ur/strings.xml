@@ -248,4 +248,9 @@
     <string name="letter_shortcut">دیر تک دبانے کا شارٹ کٹ</string>
     <string name="letter_shortcut_current">دیر تک دبانے کا شارٹ کٹ: %1$s</string>
     <string name="letter_shortcut_press">ہوم پر وہ حرف دبائیں جسے دبائے رکھنے سے یہ ایپ کھلے۔ Backspace اسے ہٹاتا ہے۔ یہ اسی حرف پر اسپیڈ ڈائل کی جگہ لے لیتا ہے۔</string>
+    <string name="month">مہینہ</string>
+    <string name="month_free">اگلے 7 دنوں میں کچھ نہیں</string>
+    <string name="month_today">آج</string>
+    <string name="month_tomorrow">کل</string>
+    <string name="month_all_day">پورا دن</string>
 </resources>

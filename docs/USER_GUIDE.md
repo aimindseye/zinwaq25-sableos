@@ -58,7 +58,7 @@ The keyboard does almost everything. Typing on the home screen searches, arrows 
 | Page | What it shows | Keys |
 | --- | --- | --- |
 | Hub (left) | All · Messages · Calls · Contacts, an unread bar per app, and your newest messages (sender, one line, time; unread ones have a blue edge). Locked or in private mode it shows counts only | T/B top and bottom, Enter opens the message in Hub, Menu (or Alt+Enter, or a long press) opens its BB10 menu |
-| Active Frames (home) | Your recent apps as live frames | Arrows move, Enter resumes, × closes |
+| Active Frames (home) | Your recent apps as live frames. With no apps open, widgets: Month (this month with busy rings and your next three events), Weather, Battery and Media; Edit Home adds Calendar, Hub, Mail and Photos | Arrows move, Enter resumes or opens, × closes |
 | App pages (right) | 5-column grid of every app | Arrows move, a letter jumps |
 | Bottom bar | Hub (a dot shows unread items) · page dots · Camera | Alt+1, Alt+2; the call key opens Phone |
 
@@ -100,7 +100,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Sable Messages | Default SMS app: sends SMS, receives SMS and MMS (no MMS sending yet) | T/B, N/P, Space pages |
 | Hub (in Start) | One inbox for messages, calls and notifications | H on a notification opens it in Hub |
 | Mail | Email; Gmail sign-in is covered in [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |
-| Calendar | Week view with a NOW line | C, T, V, J, K, R |
+| Calendar | The month with busy rings over the day's agenda, a week view with a NOW line, and every calendar on the phone. A ring fills with how much of 8:00 to 20:00 is booked; a thin outer ring marks an all-day event. L lists your calendars to show or hide each one | C, T, V, J, K, R, L |
 | Notes | Notes and checklists with colour labels, kept on the phone | See [Notes](#notes) below; C new, S find, K tasks |
 | Text Reader | Reads text aloud: paste text, open a file, scan a page with the camera (OCR, English or Spanish) or pick an image from the Gallery. An upstream app with the Sable name and icon. It speaks with eSpeak NG, the offline speech engine SableOS ships (voice, rate and pitch in Settings > Accessibility > Text-to-speech output; see [Accessibility](ACCESSIBILITY.md#speech)). It also adds Speak what's focused (Settings > Accessibility), which speaks the item you move to with the trackpad or keys | Play and stop buttons on screen |
 | Terminal | SSH, Telnet and a local shell (ConnectBot) | See [Terminal](#terminal) below; Menu is Ctrl |

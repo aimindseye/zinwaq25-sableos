@@ -248,4 +248,9 @@
     <string name="letter_shortcut">Ярлык по удержанию клавиши</string>
     <string name="letter_shortcut_current">Ярлык по удержанию клавиши: %1$s</string>
     <string name="letter_shortcut_press">Нажмите букву, удержание которой на главном экране откроет это приложение. Backspace удаляет её. Заменяет быстрый набор на той же букве.</string>
+    <string name="month">Месяц</string>
+    <string name="month_free">Ничего в ближайшие 7 дней</string>
+    <string name="month_today">Сегодня</string>
+    <string name="month_tomorrow">Завтра</string>
+    <string name="month_all_day">весь день</string>
 </resources>

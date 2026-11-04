@@ -248,4 +248,9 @@
     <string name="letter_shortcut">Atajo al mantener una tecla</string>
     <string name="letter_shortcut_current">Atajo al mantener una tecla: %1$s</string>
     <string name="letter_shortcut_press">Pulsa la letra que mantendrás pulsada en Inicio para abrir esta app. Retroceso la quita. Sustituye a una marcación rápida en la misma letra.</string>
+    <string name="month">Mes</string>
+    <string name="month_free">Nada en los próximos 7 días</string>
+    <string name="month_today">Hoy</string>
+    <string name="month_tomorrow">Mañana</string>
+    <string name="month_all_day">todo el día</string>
 </resources>

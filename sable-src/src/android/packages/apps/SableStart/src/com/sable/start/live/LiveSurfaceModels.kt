@@ -1,5 +1,7 @@
 package org.sableos.start.live
 
+import java.time.LocalDate
+
 enum class LiveAvailability {
     LOADING,
     LIVE,
@@ -45,6 +47,21 @@ data class HubMessageRow(
     val packageName: String?,
 )
 
+/** One busy day of this month from Sable Calendar (booked minutes between 08:00 and 20:00). */
+data class CalendarBusyDay(
+    val date: LocalDate,
+    val busyMinutes: Int,
+    val allDay: Boolean,
+    val count: Int,
+)
+
+/** One of the next events of the coming week, for Start's Month widget. */
+data class UpcomingEvent(
+    val title: String,
+    val beginMillis: Long,
+    val allDay: Boolean,
+)
+
 data class LiveSurfaceSnapshot(
     val dateText: String,
     val timeText: String,
@@ -59,6 +76,9 @@ data class LiveSurfaceSnapshot(
     val hubApps: List<AppUnreadCount> = emptyList(),
     /** The Hub page's message list, newest first; empty when Hub sends none. */
     val hubMessages: List<HubMessageRow> = emptyList(),
+    /** Start's Month widget: this month's busy days and the next events; empty without Calendar. */
+    val calendarMonth: List<CalendarBusyDay> = emptyList(),
+    val calendarNext: List<UpcomingEvent> = emptyList(),
 ) {
     init {
         require(dateText.isNotBlank())

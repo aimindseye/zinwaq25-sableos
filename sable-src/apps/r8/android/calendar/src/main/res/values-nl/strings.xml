@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">Geen afspraak deze week. C maakt er een.</string>
     <string name="selected">Geselecteerd: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] openen  [E] bewerken  [Del] verwijderen  [T] vandaag"</string>
+    <string name="calendars">Agenda\'s</string>
+    <string name="calendars_hint">Getoonde agenda\'s vullen de agenda, de drukte-ringen en de maand in Start.</string>
+    <string name="no_calendars">Nog geen agenda\'s op deze telefoon. Voeg een account toe via Instellingen > Accounts.</string>
+    <string name="l_calendars">" · L agenda\'s"</string>
+    <string name="day_events">%1$s, %2$s afspraken</string>
 </resources>

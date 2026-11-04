@@ -248,4 +248,9 @@
     <string name="letter_shortcut">Συντόμευση παρατεταμένου πλήκτρου</string>
     <string name="letter_shortcut_current">Συντόμευση παρατεταμένου πλήκτρου: %1$s</string>
     <string name="letter_shortcut_press">Πάτησε το γράμμα που θα κρατάς πατημένο στην Αρχική για να ανοίγει αυτή η εφαρμογή. Το Backspace το αφαιρεί. Αντικαθιστά τη γρήγορη κλήση στο ίδιο γράμμα.</string>
+    <string name="month">Μήνας</string>
+    <string name="month_free">Τίποτα τις επόμενες 7 ημέρες</string>
+    <string name="month_today">Σήμερα</string>
+    <string name="month_tomorrow">Αύριο</string>
+    <string name="month_all_day">ολοήμερο</string>
 </resources>

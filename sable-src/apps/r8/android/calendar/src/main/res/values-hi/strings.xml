@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">इस सप्ताह कोई इवेंट नहीं है। C एक बनाता है।</string>
     <string name="selected">चयनित: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] खोलें  [E] संपादित करें  [Del] हटाएँ  [T] आज"</string>
+    <string name="calendars">कैलेंडर</string>
+    <string name="calendars_hint">दिखाए गए कैलेंडर एजेंडा, व्यस्तता रिंग और Start के महीने को भरते हैं।</string>
+    <string name="no_calendars">इस फ़ोन पर अभी कोई कैलेंडर नहीं है। सेटिंग > खाते में खाता जोड़ें।</string>
+    <string name="l_calendars">" · L कैलेंडर"</string>
+    <string name="day_events">%1$s, %2$s इवेंट</string>
 </resources>

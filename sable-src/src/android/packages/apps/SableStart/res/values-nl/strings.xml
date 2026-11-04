@@ -248,4 +248,9 @@
     <string name="letter_shortcut">Snelkoppeling bij ingedrukt houden</string>
     <string name="letter_shortcut_current">Snelkoppeling bij ingedrukt houden: %1$s</string>
     <string name="letter_shortcut_press">Druk op de letter die je op Start ingedrukt houdt om deze app te openen. Backspace verwijdert hem. Hij vervangt een snelkeuze op dezelfde letter.</string>
+    <string name="month">Maand</string>
+    <string name="month_free">Niets in de komende 7 dagen</string>
+    <string name="month_today">Vandaag</string>
+    <string name="month_tomorrow">Morgen</string>
+    <string name="month_all_day">hele dag</string>
 </resources>

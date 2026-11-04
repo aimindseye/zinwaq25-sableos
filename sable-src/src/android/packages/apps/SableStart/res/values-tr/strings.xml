@@ -248,4 +248,9 @@
     <string name="letter_shortcut">Basılı tutma kısayolu</string>
     <string name="letter_shortcut_current">Basılı tutma kısayolu: %1$s</string>
     <string name="letter_shortcut_press">Ana ekranda basılı tutunca bu uygulamayı açacak harfe basın. Backspace kaldırır. Aynı harfteki hızlı aramanın yerini alır.</string>
+    <string name="month">Ay</string>
+    <string name="month_free">Önümüzdeki 7 günde etkinlik yok</string>
+    <string name="month_today">Bugün</string>
+    <string name="month_tomorrow">Yarın</string>
+    <string name="month_all_day">tüm gün</string>
 </resources>

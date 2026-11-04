@@ -129,6 +129,7 @@ import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableTheme
 import org.sableos.design.SableTypeToJump
 import org.sableos.design.sableFocusRing
+import org.sableos.start.live.CalendarBusyDay
 import org.sableos.start.live.HubMessageRow
 import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
@@ -155,6 +156,7 @@ import org.sableos.start.model.HubPeople
 import org.sableos.start.model.HubPerson
 import org.sableos.start.model.QuickBar
 import org.sableos.start.model.SpeedDialKeys
+import org.sableos.start.model.StartMonth
 import org.sableos.start.model.StartPages
 import org.sableos.start.model.StartTypeToSearch
 import org.sableos.start.model.inLauncherUser
@@ -170,9 +172,14 @@ import org.sableos.start.privacy.AppActionContext
 import org.sableos.start.privacy.AppActionPolicy
 import org.sableos.start.privacy.PrivacyFilter
 import org.sableos.start.privacy.PrivacySummaryPolicy
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Date
 import java.util.Locale
 import androidx.compose.foundation.Canvas as ComposeCanvas
 
@@ -1518,7 +1525,7 @@ private fun GlanceFrames(
         contentPadding = PaddingValues(FRAME_PADDING),
         verticalArrangement = Arrangement.spacedBy(FRAME_GAP),
     ) {
-        items(widgets.chunked(ActiveFrames.COLUMNS), key = { row -> row.first() }) { row ->
+        items(GlanceWidgets.rows(widgets, ActiveFrames.COLUMNS), key = { row -> row.first() }) { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(FRAME_GAP)) {
                 row.forEach { widget ->
                     val modifier =
@@ -1544,10 +1551,13 @@ private fun GlanceFrames(
                                 modifier = modifier,
                             )
                         }
+                        GlanceWidgets.MONTH -> MonthGlanceFrame(snapshot, { open(CALENDAR_PACKAGE) }, modifier)
                         else -> LiveGlanceFrame(widget, snapshot, apps, { open(it) }, onShowHub, modifier)
                     }
                 }
-                repeat(ActiveFrames.COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
+                if (row.first() !in GlanceWidgets.FULL_WIDTH) {
+                    repeat(ActiveFrames.COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
+                }
             }
         }
     }
@@ -1659,6 +1669,176 @@ private fun GlanceFrameCard(
             color = if (focused) Bb10OnBlue else Color.White,
             maxLines = 1,
         )
+    }
+}
+
+/**
+ * The Month frame (owner decision 2026-11-04): this month with Sable Calendar's busy rings on the
+ * left (the arc is how much of 08:00–20:00 is booked; a thin outer ring marks an all-day event) and
+ * the next three events of the coming week on the right. Enter opens Calendar. It reads only the
+ * calendars the user shows in Calendar (L); without Calendar access it shows the month and a hint.
+ */
+@Composable
+private fun MonthGlanceFrame(
+    snapshot: LiveSurfaceSnapshot,
+    onOpen: () -> Unit,
+    modifier: Modifier,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(4.dp)
+    Box(
+        modifier =
+            modifier
+                .onFocusChanged { focused = it.isFocused }
+                .clip(shape)
+                .background(Bb10Card)
+                .border(if (focused) 3.dp else 1.dp, if (focused) Bb10Blue else Bb10Line, shape)
+                .clickable(onClick = onOpen),
+    ) {
+        Box(Modifier.fillMaxWidth().height(4.dp).background(SableBlue))
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(start = 8.dp, end = 10.dp, top = 8.dp, bottom = FRAME_LABEL_HEIGHT + 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            MiniMonth(snapshot, Modifier.weight(1.1f))
+            UpcomingList(snapshot, Modifier.weight(1f))
+        }
+        Text(
+            text = YearMonth.now().format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault())),
+            modifier =
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(FRAME_LABEL_HEIGHT)
+                    .background(if (focused) Bb10Blue else Color(0xE6000000))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = if (focused) Bb10OnBlue else Color.White,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun MiniMonth(
+    snapshot: LiveSurfaceSnapshot,
+    modifier: Modifier,
+) {
+    val today = LocalDate.now()
+    val busy = remember(snapshot.calendarMonth) { snapshot.calendarMonth.associateBy { it.date } }
+    val initials =
+        remember {
+            val format = DateTimeFormatter.ofPattern("EEEEE", Locale.getDefault())
+            (0L until StartMonth.DAYS_PER_WEEK).map { LocalDate.of(2024, 1, 1).plusDays(it).format(format) }
+        }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            initials.forEach {
+                Text(
+                    text = it,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Bb10Muted,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+        StartMonth.cells(YearMonth.from(today)).chunked(StartMonth.DAYS_PER_WEEK).forEach { week ->
+            Row(Modifier.fillMaxWidth()) {
+                week.forEach { date ->
+                    Box(Modifier.weight(1f).height(20.dp), contentAlignment = Alignment.Center) {
+                        if (date != null) MiniDay(date, busy[date], date == today)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniDay(
+    date: LocalDate,
+    day: CalendarBusyDay?,
+    today: Boolean,
+) {
+    val arc = SableBlue
+    val track = Bb10Line
+    val sweep = StartMonth.sweepDegrees(day?.busyMinutes ?: 0)
+    Box(Modifier.size(19.dp), contentAlignment = Alignment.Center) {
+        ComposeCanvas(Modifier.size(17.dp)) {
+            val stroke = 2.dp.toPx()
+            val inset = stroke / 2
+            val arcSize = Size(size.width - stroke, size.height - stroke)
+            if (day != null) drawArc(track, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
+            if (sweep > 0f) {
+                drawArc(arc, -90f, sweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+            }
+            if (day?.allDay == true) drawCircle(arc, radius = size.minDimension / 2 + stroke, style = Stroke(stroke / 2))
+        }
+        Text(
+            text = date.dayOfMonth.toString(),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (today) FontWeight.Bold else FontWeight.Normal,
+            color = if (today) arc else Bb10Text,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun UpcomingList(
+    snapshot: LiveSurfaceSnapshot,
+    modifier: Modifier,
+) {
+    val context = LocalContext.current
+    val today = LocalDate.now()
+    val zone = ZoneId.systemDefault()
+    val weekday = DateTimeFormatter.ofPattern("EEE", Locale.getDefault())
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (snapshot.calendarNext.isEmpty()) {
+            Text(
+                text =
+                    if (snapshot.calendar.availability == LiveAvailability.PERMISSION_REQUIRED) {
+                        snapshot.calendar.detail
+                    } else {
+                        t("month_free")
+                    },
+                style = MaterialTheme.typography.bodySmall,
+                color = Bb10Muted,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        snapshot.calendarNext.forEach { event ->
+            val start = Instant.ofEpochMilli(event.beginMillis)
+            // All-day events are stored at UTC midnight.
+            val day = start.atZone(if (event.allDay) ZoneOffset.UTC else zone).toLocalDate()
+            val dayText = StartMonth.dayWord(day, today, { it.format(weekday) }, t("month_today") to t("month_tomorrow"))
+            val time =
+                if (event.allDay) {
+                    t("month_all_day")
+                } else {
+                    android.text.format.DateFormat.getTimeFormat(context).format(Date(event.beginMillis))
+                }
+            Column {
+                Text(
+                    text = "$dayText · $time",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SableBlue,
+                    maxLines = 1,
+                )
+                Text(
+                    text = event.title,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Bb10Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 

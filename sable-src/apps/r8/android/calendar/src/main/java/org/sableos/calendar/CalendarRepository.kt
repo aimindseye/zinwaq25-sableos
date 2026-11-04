@@ -11,6 +11,7 @@ import android.provider.CalendarContract
 import org.sableos.calendar.CalendarText.t
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 
 data class CalendarEvent(
@@ -57,6 +58,15 @@ data class CalendarEventDetail(
             description = description,
         )
 }
+
+/** One calendar on the phone (any account), with its show/hide switch (CalendarContract VISIBLE). */
+data class CalendarSource(
+    val id: Long,
+    val name: String,
+    val account: String,
+    val color: Int,
+    val visible: Boolean,
+)
 
 data class CalendarSnapshot(
     val title: String,
@@ -112,7 +122,8 @@ class CalendarRepository(
                     .query(
                         builder.build(),
                         projection,
-                        null,
+                        // Only calendars the user shows (Calendars, L): the agenda, rings and Start agree.
+                        CalendarContract.Instances.VISIBLE + "=1",
                         null,
                         CalendarContract.Instances.BEGIN + " ASC",
                     )?.use { cursor ->
@@ -346,6 +357,56 @@ class CalendarRepository(
                 observedAt = nowMillis,
             )
         }
+    }
+
+    /** Every calendar of every account on the phone, shown or hidden, by account then name. */
+    fun calendars(): List<CalendarSource> {
+        if (!canRead()) return emptyList()
+        val projection =
+            arrayOf(
+                CalendarContract.Calendars._ID,
+                CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                CalendarContract.Calendars.ACCOUNT_NAME,
+                CalendarContract.Calendars.CALENDAR_COLOR,
+                CalendarContract.Calendars.VISIBLE,
+            )
+        return runCatching {
+            buildList {
+                resolver
+                    .query(CalendarContract.Calendars.CONTENT_URI, projection, null, null, null)
+                    ?.use { cursor ->
+                        while (cursor.moveToNext()) {
+                            add(
+                                CalendarSource(
+                                    id = cursor.getLong(0),
+                                    name = cursor.getString(1)?.trim().orEmpty().ifEmpty { t("calendar") },
+                                    account = cursor.getString(2)?.trim().orEmpty(),
+                                    color = cursor.getInt(3),
+                                    visible = cursor.getInt(4) != 0,
+                                ),
+                            )
+                        }
+                    }
+            }.sortedWith(compareBy({ it.account.lowercase() }, { it.name.lowercase() }))
+        }.getOrDefault(emptyList())
+    }
+
+    /** Shows or hides one calendar everywhere that honours VISIBLE (this app, Start, other calendar apps). */
+    fun setVisible(
+        calendarId: Long,
+        visible: Boolean,
+    ): Boolean {
+        if (!canWrite()) return false
+        val values = ContentValues().apply { put(CalendarContract.Calendars.VISIBLE, if (visible) 1 else 0) }
+        val uri = ContentUris.withAppendedId(CalendarContract.Calendars.CONTENT_URI, calendarId)
+        return runCatching { resolver.update(uri, values, null, null) > 0 }.getOrDefault(false)
+    }
+
+    /** Busy days of [month] for the rings, from the shown calendars. */
+    fun busyMonth(month: YearMonth): Map<LocalDate, BusyDay> {
+        val first = month.atDay(1)
+        val end = month.plusMonths(1).atDay(1)
+        return CalendarBusy.days(first, end, range(first, end), ZoneId.systemDefault())
     }
 
     private fun firstWritableCalendarId(): Long? {

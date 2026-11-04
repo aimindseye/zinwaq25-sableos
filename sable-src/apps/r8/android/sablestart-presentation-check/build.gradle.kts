@@ -59,6 +59,7 @@ val canonicalPresentationSources =
         "com/sable/start/model/LetterShortcuts.kt",
         "com/sable/start/model/QuickBar.kt",
         "com/sable/start/model/SpeedDial.kt",
+        "com/sable/start/model/StartMonth.kt",
         "com/sable/start/model/StartText.kt",
         "com/sable/start/platform/DeviceStatsSampler.kt",
         "com/sable/start/platform/LetterShortcutRepository.kt",

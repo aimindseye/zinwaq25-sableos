@@ -248,4 +248,9 @@
     <string name="letter_shortcut">Raccourci par appui long</string>
     <string name="letter_shortcut_current">Raccourci par appui long : %1$s</string>
     <string name="letter_shortcut_press">Appuyez sur la lettre à maintenir sur l\'accueil pour ouvrir cette appli. Retour arrière la supprime. Elle remplace une numérotation rapide sur la même lettre.</string>
+    <string name="month">Mois</string>
+    <string name="month_free">Rien dans les 7 prochains jours</string>
+    <string name="month_today">Aujourd’hui</string>
+    <string name="month_tomorrow">Demain</string>
+    <string name="month_all_day">toute la journée</string>
 </resources>

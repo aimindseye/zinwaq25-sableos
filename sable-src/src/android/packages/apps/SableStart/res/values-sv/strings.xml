@@ -248,4 +248,9 @@
     <string name="letter_shortcut">Genväg med nedhållen tangent</string>
     <string name="letter_shortcut_current">Genväg med nedhållen tangent: %1$s</string>
     <string name="letter_shortcut_press">Tryck på bokstaven som du håller nere på startskärmen för att öppna den här appen. Backsteg tar bort den. Den ersätter en snabbuppringning på samma bokstav.</string>
+    <string name="month">Månad</string>
+    <string name="month_free">Inget de närmaste 7 dagarna</string>
+    <string name="month_today">I dag</string>
+    <string name="month_tomorrow">I morgon</string>
+    <string name="month_all_day">heldag</string>
 </resources>

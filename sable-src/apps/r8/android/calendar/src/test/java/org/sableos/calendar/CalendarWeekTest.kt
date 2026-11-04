@@ -51,7 +51,7 @@ class CalendarWeekTest {
 
     @Test
     fun dockNamesEveryScreenKey() {
-        listOf("C create", "T today", "V view", "J/K event", "R refresh").forEach {
+        listOf("C create", "T today", "V view", "J/K event", "R refresh", "L calendars").forEach {
             assertTrue(it, CalendarScreenKeys.DOCK.contains(it))
         }
     }

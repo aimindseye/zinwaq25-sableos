@@ -248,4 +248,9 @@
     <string name="letter_shortcut">長押しショートカット</string>
     <string name="letter_shortcut_current">長押しショートカット: %1$s</string>
     <string name="letter_shortcut_press">ホームで長押しするとこのアプリを開く文字キーを押してください。Backspaceで解除します。同じ文字のクイックダイヤルは置き換えられます。</string>
+    <string name="month">月</string>
+    <string name="month_free">今後7日間の予定はありません</string>
+    <string name="month_today">今日</string>
+    <string name="month_tomorrow">明日</string>
+    <string name="month_all_day">終日</string>
 </resources>

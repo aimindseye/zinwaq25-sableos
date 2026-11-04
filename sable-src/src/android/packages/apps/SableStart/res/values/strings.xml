@@ -252,4 +252,9 @@
     <string name="letter_shortcut">Hold-key shortcut</string>
     <string name="letter_shortcut_current">Hold-key shortcut: %1$s</string>
     <string name="letter_shortcut_press">Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.</string>
+    <string name="month">Month</string>
+    <string name="month_free">Nothing in the next 7 days</string>
+    <string name="month_today">Today</string>
+    <string name="month_tomorrow">Tomorrow</string>
+    <string name="month_all_day">all day</string>
 </resources>

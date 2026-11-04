@@ -248,4 +248,9 @@
     <string name="letter_shortcut">देर तक दबाने का शॉर्टकट</string>
     <string name="letter_shortcut_current">देर तक दबाने का शॉर्टकट: %1$s</string>
     <string name="letter_shortcut_press">होम पर जिस अक्षर को दबाए रखने से यह ऐप खुले, वह अक्षर दबाएँ। Backspace इसे हटाता है। यह उसी अक्षर के स्पीड डायल की जगह ले लेता है।</string>
+    <string name="month">महीना</string>
+    <string name="month_free">अगले 7 दिनों में कुछ नहीं</string>
+    <string name="month_today">आज</string>
+    <string name="month_tomorrow">कल</string>
+    <string name="month_all_day">पूरे दिन</string>
 </resources>

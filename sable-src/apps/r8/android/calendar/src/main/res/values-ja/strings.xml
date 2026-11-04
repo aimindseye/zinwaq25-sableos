@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">今週の予定はありません。C で作成します。</string>
     <string name="selected">選択中: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] 開く  [E] 編集  [Del] 削除  [T] 今日"</string>
+    <string name="calendars">カレンダー</string>
+    <string name="calendars_hint">表示中のカレンダーが予定リスト、予定リング、Start の月表示に使われます。</string>
+    <string name="no_calendars">このスマートフォンにはまだカレンダーがありません。設定 > アカウントでアカウントを追加してください。</string>
+    <string name="l_calendars">" · L カレンダー"</string>
+    <string name="day_events">%1$s、予定 %2$s 件</string>
 </resources>

@@ -248,4 +248,9 @@
     <string name="letter_shortcut">קיצור בלחיצה ארוכה</string>
     <string name="letter_shortcut_current">קיצור בלחיצה ארוכה: %1$s</string>
     <string name="letter_shortcut_press">הקש את האות שתחזיק במסך הבית כדי לפתוח את האפליקציה הזו. מקש המחיקה מסיר אותה. היא מחליפה חיוג מהיר על אותה אות.</string>
+    <string name="month">חודש</string>
+    <string name="month_free">אין כלום ב-7 הימים הבאים</string>
+    <string name="month_today">היום</string>
+    <string name="month_tomorrow">מחר</string>
+    <string name="month_all_day">כל היום</string>
 </resources>

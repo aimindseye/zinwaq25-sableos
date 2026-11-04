@@ -248,4 +248,9 @@
     <string name="letter_shortcut">长按快捷键</string>
     <string name="letter_shortcut_current">长按快捷键：%1$s</string>
     <string name="letter_shortcut_press">请按下要在主屏幕长按的字母，用来打开此应用。退格键可清除。它会取代同一字母上的快速拨号。</string>
+    <string name="month">月份</string>
+    <string name="month_free">未来 7 天没有安排</string>
+    <string name="month_today">今天</string>
+    <string name="month_tomorrow">明天</string>
+    <string name="month_all_day">全天</string>
 </resources>

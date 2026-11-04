@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">אין אירועים השבוע. C יוצר אירוע.</string>
     <string name="selected">נבחר: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] פתיחה  [E] עריכה  [Del] מחיקה  [T] היום"</string>
+    <string name="calendars">יומנים</string>
+    <string name="calendars_hint">היומנים המוצגים ממלאים את סדר היום, טבעות העומס ואת החודש ב-Start.</string>
+    <string name="no_calendars">עדיין אין יומנים בטלפון הזה. אפשר להוסיף חשבון בהגדרות > חשבונות.</string>
+    <string name="l_calendars">" · L יומנים"</string>
+    <string name="day_events">%1$s, %2$s אירועים</string>
 </resources>

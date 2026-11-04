@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">На этой неделе событий нет. C создаёт событие.</string>
     <string name="selected">Выбрано: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] открыть  [E] изменить  [Del] удалить  [T] сегодня"</string>
+    <string name="calendars">Календари</string>
+    <string name="calendars_hint">Показанные календари заполняют список дел, кольца занятости и месяц в Start.</string>
+    <string name="no_calendars">На этом телефоне пока нет календарей. Добавьте аккаунт в Настройки > Аккаунты.</string>
+    <string name="l_calendars">" · L календари"</string>
+    <string name="day_events">%1$s, событий: %2$s</string>
 </resources>

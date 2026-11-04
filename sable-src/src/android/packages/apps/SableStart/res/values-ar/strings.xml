@@ -248,4 +248,9 @@
     <string name="letter_shortcut">اختصار الضغط المطوّل</string>
     <string name="letter_shortcut_current">اختصار الضغط المطوّل: %1$s</string>
     <string name="letter_shortcut_press">اضغط الحرف الذي ستضغط عليه مطوّلًا في الشاشة الرئيسية لفتح هذا التطبيق. مفتاح الحذف يزيله. يحلّ محلّ الاتصال السريع على الحرف نفسه.</string>
+    <string name="month">الشهر</string>
+    <string name="month_free">لا شيء خلال الأيام السبعة القادمة</string>
+    <string name="month_today">اليوم</string>
+    <string name="month_tomorrow">غدًا</string>
+    <string name="month_all_day">طوال اليوم</string>
 </resources>

@@ -155,6 +155,7 @@ private enum class CalendarMode {
     NewEvent,
     Detail,
     Edit,
+    Calendars,
 }
 
 /** An agenda event awaiting an explicit delete confirmation. */
@@ -177,6 +178,10 @@ private class CalendarAppState {
     var view by mutableStateOf(CalendarView.Agenda)
     var selectedDate by mutableStateOf(LocalDate.now())
     var events by mutableStateOf<List<CalendarEvent>>(emptyList())
+
+    // Busy rings for the month holding selectedDate, and the calendars list (L).
+    var busy by mutableStateOf<Map<LocalDate, BusyDay>>(emptyMap())
+    var calendars by mutableStateOf<List<CalendarSource>>(emptyList())
     var refreshing by mutableStateOf(false)
 
     // Unsaved new event kept while the user backs out to the agenda, restored on re-entry this session.
@@ -305,6 +310,11 @@ private class CalendarAppState {
                 onRefresh()
                 status = t("refreshed")
             }
+
+            CalendarScreenKey.Calendars -> {
+                status = null
+                mode = CalendarMode.Calendars
+            }
         }
         return true
     }
@@ -403,6 +413,17 @@ private fun CalendarApp(
             state.syncSelection(System.currentTimeMillis())
         } finally {
             state.refreshing = false
+        }
+    }
+
+    val shownMonth = YearMonth.from(state.selectedDate)
+    LaunchedEffect(refreshGeneration, shownMonth) {
+        state.busy = withContext(Dispatchers.IO) { repository.busyMonth(shownMonth) }
+    }
+
+    LaunchedEffect(refreshGeneration, state.mode) {
+        if (state.mode == CalendarMode.Calendars) {
+            state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
         }
     }
 
@@ -510,6 +531,10 @@ private fun CalendarModeContent(
         CalendarMode.Edit -> {
             EditPane(state, repository, onRefresh)
         }
+
+        CalendarMode.Calendars -> {
+            CalendarsPane(state, repository, onRefresh)
+        }
     }
 }
 
@@ -522,6 +547,7 @@ private fun AgendaPane(state: CalendarAppState) {
     ApprovedCalendarLanding(
         selectedDate = state.selectedDate,
         events = state.events,
+        busy = state.busy,
         selected = state.openEvent,
         onSelectDate = { state.selectedDate = it },
         onOpenMonth = { state.view = CalendarView.Month },
@@ -548,12 +574,37 @@ private fun MonthPane(state: CalendarAppState) {
     MonthView(
         month = YearMonth.from(state.selectedDate),
         selectedDate = state.selectedDate,
+        busy = state.busy,
         onSelectDate = { date ->
             state.selectedDate = date
             state.view = CalendarView.Agenda
         },
     )
     KeyDock()
+}
+
+@Composable
+private fun CalendarsPane(
+    state: CalendarAppState,
+    repository: CalendarRepository,
+    onRefresh: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    BackToAgenda { state.mode = CalendarMode.Agenda }
+    CalendarsList(
+        calendars = state.calendars,
+        onToggle = { source, visible ->
+            scope.launch {
+                val changed = withContext(Dispatchers.IO) { repository.setVisible(source.id, visible) }
+                if (changed) {
+                    state.calendars = state.calendars.map { if (it.id == source.id) it.copy(visible = visible) else it }
+                    onRefresh()
+                } else {
+                    state.status = t("this_calendar_is_read_only")
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -658,6 +709,7 @@ private fun LoadingLine() {
 private fun ApprovedCalendarLanding(
     selectedDate: LocalDate,
     events: List<CalendarEvent>,
+    busy: Map<LocalDate, BusyDay>,
     selected: CalendarEvent?,
     onSelectDate: (LocalDate) -> Unit,
     onOpenMonth: () -> Unit,
@@ -694,12 +746,16 @@ private fun ApprovedCalendarLanding(
         }
     }
 
-    Spacer(Modifier.height(18.dp))
-    CalendarWeekStrip(
+    Spacer(Modifier.height(12.dp))
+    // The month with busy rings over the agenda (owner decision 2026-11-04).
+    BusyMonthGrid(
+        month = YearMonth.from(selectedDate),
         selectedDate = selectedDate,
+        busy = busy,
+        compact = true,
         onSelectDate = onSelectDate,
     )
-    Spacer(Modifier.height(18.dp))
+    Spacer(Modifier.height(12.dp))
     Text(
         text = CalendarLabels.dayHeading(selectedDate, LocalDate.now()),
         style = MaterialTheme.typography.labelLarge,
@@ -785,56 +841,6 @@ private fun CalendarIdentityMark() {
                     .height(3.dp)
                     .background(MaterialTheme.colorScheme.primary),
         )
-    }
-}
-
-@Composable
-private fun CalendarWeekStrip(
-    selectedDate: LocalDate,
-    onSelectDate: (LocalDate) -> Unit,
-) {
-    val monday =
-        selectedDate.minusDays((selectedDate.dayOfWeek.value - 1).toLong())
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        repeat(7) { offset ->
-            val date = monday.plusDays(offset.toLong())
-            val selected = date == selectedDate
-            Column(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(
-                            if (selected) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
-                            } else {
-                                MaterialTheme.colorScheme.surface
-                            },
-                        ).border(
-                            1.dp,
-                            if (selected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.outlineVariant
-                            },
-                            RoundedCornerShape(6.dp),
-                        ).clickable { onSelectDate(date) }
-                        .padding(vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = date.dayOfWeek.name.take(1),
-                    style = MaterialTheme.typography.labelLarge,
-                )
-                Text(
-                    text = date.dayOfMonth.toString(),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-        }
     }
 }
 
@@ -1089,6 +1095,7 @@ private fun DeleteConfirmDialog(
 private fun MonthView(
     month: YearMonth,
     selectedDate: LocalDate,
+    busy: Map<LocalDate, BusyDay>,
     onSelectDate: (LocalDate) -> Unit,
 ) {
     Text(
@@ -1101,65 +1108,13 @@ private fun MonthView(
         style = MaterialTheme.typography.headlineMedium,
     )
     Spacer(Modifier.height(SableSpacing.Md))
-
-    Row(Modifier.fillMaxWidth()) {
-        listOf("M", "T", "W", "T", "F", "S", "S").forEach { label ->
-            Text(
-                text = label,
-                modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-    Spacer(Modifier.height(6.dp))
-
-    val first = month.atDay(1)
-    val leading = first.dayOfWeek.value - 1
-    val cells =
-        List<LocalDate?>(leading) { null } +
-            (1..month.lengthOfMonth()).map(month::atDay)
-
-    cells.chunked(7).forEach { week ->
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            repeat(7) { index ->
-                val date = week.getOrNull(index)
-                val selected = date == selectedDate
-                Box(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .height(46.dp)
-                            .clickable(enabled = date != null) {
-                                date?.let(onSelectDate)
-                            }.background(
-                                if (selected) {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                } else {
-                                    MaterialTheme.colorScheme.surface
-                                },
-                                RoundedCornerShape(5.dp),
-                            ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    date?.let {
-                        Text(
-                            text = it.dayOfMonth.toString(),
-                            color =
-                                if (selected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                },
-                        )
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-    }
+    BusyMonthGrid(
+        month = month,
+        selectedDate = selectedDate,
+        busy = busy,
+        compact = false,
+        onSelectDate = onSelectDate,
+    )
 }
 
 /** New-event and edit-event form. [onSave] runs the provider write and reports success. */

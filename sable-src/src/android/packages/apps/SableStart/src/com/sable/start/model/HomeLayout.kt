@@ -123,10 +123,43 @@ object GlanceWidgets {
     const val MAIL = "mail"
     const val PHOTOS = "photos"
 
-    val ALL: List<String> = listOf(WEATHER, CALENDAR, BATTERY, MEDIA, HUB, MAIL, PHOTOS)
+    /** This month with Sable Calendar's busy rings and the next events; a full-width frame. */
+    const val MONTH = "month"
 
-    /** "Curated widgets: Weather, Calendar, Battery, Media." */
-    val DEFAULT: List<String> = listOf(WEATHER, CALENDAR, BATTERY, MEDIA)
+    val ALL: List<String> = listOf(MONTH, WEATHER, CALENDAR, BATTERY, MEDIA, HUB, MAIL, PHOTOS)
+
+    /**
+     * "Curated widgets": Month (owner decision 2026-11-04, in place of the one-line Calendar frame,
+     * which Edit Home can still add), Weather, Battery, Media.
+     */
+    val DEFAULT: List<String> = listOf(MONTH, WEATHER, BATTERY, MEDIA)
+
+    /** Widgets drawn across both columns. */
+    val FULL_WIDTH: Set<String> = setOf(MONTH)
+
+    /** Frame rows in order: a full-width widget alone, the others two to a row. */
+    fun rows(
+        shown: List<String>,
+        columns: Int,
+    ): List<List<String>> {
+        val rows = mutableListOf<List<String>>()
+        var pending = mutableListOf<String>()
+        shown.forEach { widget ->
+            if (widget in FULL_WIDTH) {
+                if (pending.isNotEmpty()) rows += pending
+                pending = mutableListOf()
+                rows += listOf(widget)
+            } else {
+                pending += widget
+                if (pending.size == columns) {
+                    rows += pending
+                    pending = mutableListOf()
+                }
+            }
+        }
+        if (pending.isNotEmpty()) rows += pending
+        return rows
+    }
 
     /** Drops unknown and duplicate names; null (never customised) gives [DEFAULT]. */
     fun normalize(saved: List<String>?): List<String> = saved?.filter { it in ALL }?.distinct() ?: DEFAULT
@@ -145,6 +178,7 @@ object GlanceWidgets {
         when (widget) {
             WEATHER -> t("weather")
             CALENDAR -> t("calendar")
+            MONTH -> t("month")
             BATTERY -> t("battery")
             MEDIA -> t("media")
             HUB -> t("hub")
