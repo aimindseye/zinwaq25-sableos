@@ -183,4 +183,11 @@
     <string name="personal">ذاتی</string>
     <string name="private_space">نجی اسپیس</string>
     <string name="profile_2">پروفائل %1$s</string>
+    <string name="mark_read">پڑھا ہوا نشان زد کریں</string>
+    <string name="snooze_1_hour">1 گھنٹے کے لیے اسنوز کریں</string>
+    <string name="dismiss_notification">اطلاع ہٹائیں</string>
+    <string name="snoozed_for_an_hour">ایک گھنٹے کے لیے اسنوز کیا گیا۔</string>
+    <string name="notification_dismissed">اطلاع ہٹا دی گئی۔</string>
+    <string name="sent_to_the_app">ایپ کو بھیج دیا گیا۔</string>
+    <string name="the_notification_is_gone">اطلاع اب موجود نہیں ہے۔</string>
 </resources>

@@ -226,6 +226,13 @@ object HubText {
             "personal" to "Personal",
             "private_space" to "Private space",
             "profile_2" to "Profile %1\$s",
+            "mark_read" to "Mark read",
+            "snooze_1_hour" to "Snooze 1 hour",
+            "dismiss_notification" to "Dismiss notification",
+            "snoozed_for_an_hour" to "Snoozed for an hour.",
+            "notification_dismissed" to "Notification dismissed.",
+            "sent_to_the_app" to "Sent to the app.",
+            "the_notification_is_gone" to "The notification is no longer there.",
         )
 
     val t = SableTexts(EN)

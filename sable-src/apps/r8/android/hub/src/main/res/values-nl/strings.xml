@@ -183,4 +183,11 @@
     <string name="personal">Persoonlijk</string>
     <string name="private_space">Privéruimte</string>
     <string name="profile_2">Profiel %1$s</string>
+    <string name="mark_read">Markeren als gelezen</string>
+    <string name="snooze_1_hour">1 uur snoozen</string>
+    <string name="dismiss_notification">Melding sluiten</string>
+    <string name="snoozed_for_an_hour">Een uur gesnoozed.</string>
+    <string name="notification_dismissed">Melding gesloten.</string>
+    <string name="sent_to_the_app">Naar de app gestuurd.</string>
+    <string name="the_notification_is_gone">De melding is er niet meer.</string>
 </resources>

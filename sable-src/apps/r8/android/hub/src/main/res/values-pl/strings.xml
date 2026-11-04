@@ -183,4 +183,11 @@
     <string name="personal">Osobiste</string>
     <string name="private_space">Przestrzeń prywatna</string>
     <string name="profile_2">Profil %1$s</string>
+    <string name="mark_read">Oznacz jako przeczytane</string>
+    <string name="snooze_1_hour">Odłóż o 1 godzinę</string>
+    <string name="dismiss_notification">Odrzuć powiadomienie</string>
+    <string name="snoozed_for_an_hour">Odłożono o godzinę.</string>
+    <string name="notification_dismissed">Powiadomienie odrzucone.</string>
+    <string name="sent_to_the_app">Wysłano do aplikacji.</string>
+    <string name="the_notification_is_gone">Powiadomienia już nie ma.</string>
 </resources>

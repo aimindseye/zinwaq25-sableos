@@ -183,4 +183,11 @@
     <string name="personal">Kişisel</string>
     <string name="private_space">Özel alan</string>
     <string name="profile_2">Profil %1$s</string>
+    <string name="mark_read">Okundu olarak işaretle</string>
+    <string name="snooze_1_hour">1 saat ertele</string>
+    <string name="dismiss_notification">Bildirimi kapat</string>
+    <string name="snoozed_for_an_hour">Bir saat ertelendi.</string>
+    <string name="notification_dismissed">Bildirim kapatıldı.</string>
+    <string name="sent_to_the_app">Uygulamaya gönderildi.</string>
+    <string name="the_notification_is_gone">Bildirim artık yok.</string>
 </resources>

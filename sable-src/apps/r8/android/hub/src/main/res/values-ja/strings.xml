@@ -183,4 +183,11 @@
     <string name="personal">個人用</string>
     <string name="private_space">プライベートスペース</string>
     <string name="profile_2">プロファイル %1$s</string>
+    <string name="mark_read">既読にする</string>
+    <string name="snooze_1_hour">1時間スヌーズ</string>
+    <string name="dismiss_notification">通知を閉じる</string>
+    <string name="snoozed_for_an_hour">1時間スヌーズしました。</string>
+    <string name="notification_dismissed">通知を閉じました。</string>
+    <string name="sent_to_the_app">アプリに送信しました。</string>
+    <string name="the_notification_is_gone">通知はもうありません。</string>
 </resources>

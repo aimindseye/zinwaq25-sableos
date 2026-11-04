@@ -183,4 +183,11 @@
     <string name="personal">Personal</string>
     <string name="private_space">Espacio privado</string>
     <string name="profile_2">Perfil %1$s</string>
+    <string name="mark_read">Marcar como leído</string>
+    <string name="snooze_1_hour">Posponer 1 hora</string>
+    <string name="dismiss_notification">Descartar notificación</string>
+    <string name="snoozed_for_an_hour">Pospuesto una hora.</string>
+    <string name="notification_dismissed">Notificación descartada.</string>
+    <string name="sent_to_the_app">Enviado a la app.</string>
+    <string name="the_notification_is_gone">La notificación ya no está.</string>
 </resources>

@@ -183,4 +183,11 @@
     <string name="personal">Personlig</string>
     <string name="private_space">Privat utrymme</string>
     <string name="profile_2">Profil %1$s</string>
+    <string name="mark_read">Markera som läst</string>
+    <string name="snooze_1_hour">Snooza 1 timme</string>
+    <string name="dismiss_notification">Stäng aviseringen</string>
+    <string name="snoozed_for_an_hour">Snoozad i en timme.</string>
+    <string name="notification_dismissed">Aviseringen stängdes.</string>
+    <string name="sent_to_the_app">Skickat till appen.</string>
+    <string name="the_notification_is_gone">Aviseringen finns inte längre.</string>
 </resources>

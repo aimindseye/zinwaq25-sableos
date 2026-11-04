@@ -183,4 +183,11 @@
     <string name="personal">Личные</string>
     <string name="private_space">Частное пространство</string>
     <string name="profile_2">Профиль %1$s</string>
+    <string name="mark_read">Отметить как прочитанное</string>
+    <string name="snooze_1_hour">Отложить на 1 час</string>
+    <string name="dismiss_notification">Закрыть уведомление</string>
+    <string name="snoozed_for_an_hour">Отложено на час.</string>
+    <string name="notification_dismissed">Уведомление закрыто.</string>
+    <string name="sent_to_the_app">Отправлено в приложение.</string>
+    <string name="the_notification_is_gone">Уведомления больше нет.</string>
 </resources>

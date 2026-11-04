@@ -183,4 +183,11 @@
     <string name="personal">אישי</string>
     <string name="private_space">מרחב פרטי</string>
     <string name="profile_2">פרופיל %1$s</string>
+    <string name="mark_read">סימון כנקרא</string>
+    <string name="snooze_1_hour">נודניק לשעה</string>
+    <string name="dismiss_notification">סגירת ההתראה</string>
+    <string name="snoozed_for_an_hour">נדחה לשעה.</string>
+    <string name="notification_dismissed">ההתראה נסגרה.</string>
+    <string name="sent_to_the_app">נשלח לאפליקציה.</string>
+    <string name="the_notification_is_gone">ההתראה כבר לא קיימת.</string>
 </resources>

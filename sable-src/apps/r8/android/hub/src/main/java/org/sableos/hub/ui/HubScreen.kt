@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,6 +32,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -79,6 +82,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.sableos.design.SableActionButton
@@ -126,6 +130,10 @@ import org.sableos.hub.policy.HubInboxFilter
 import org.sableos.hub.policy.HubInboxItem
 import org.sableos.hub.policy.HubInboxRow
 import org.sableos.hub.policy.HubInboxRowRole
+import org.sableos.hub.policy.HubMenuEntry
+import org.sableos.hub.policy.HubMessageMenu
+import org.sableos.hub.policy.HubNotificationFacts
+import org.sableos.hub.policy.HubRowKey
 import org.sableos.hub.policy.HubNewMessagePill
 import org.sableos.hub.policy.HubPrivacyBadge
 import org.sableos.hub.policy.HubPrivacyState
@@ -335,6 +343,8 @@ private class HubActions(
     val onDraftChange: (String, String) -> Unit,
     val combineConversations: Boolean,
     val loadAppIcon: suspend (String, Long) -> ImageBitmap?,
+    val notificationFacts: (String) -> HubNotificationFacts,
+    val onNotificationCommand: (String, HubMenuEntry) -> String?,
 )
 
 @Composable
@@ -361,6 +371,8 @@ fun HubScreen(
     onPendingAddressConsumed: () -> Unit = {},
     combineConversations: Boolean = true,
     loadAppIcon: suspend (String, Long) -> ImageBitmap? = { _, _ -> null },
+    notificationFacts: (String) -> HubNotificationFacts = { HubNotificationFacts() },
+    onNotificationCommand: (String, HubMenuEntry) -> String? = { _, _ -> null },
 ) {
     val state = remember { HubUiState() }
 
@@ -412,6 +424,8 @@ fun HubScreen(
             onDraftChange = onDraftChange,
             combineConversations = combineConversations,
             loadAppIcon = loadAppIcon,
+            notificationFacts = notificationFacts,
+            onNotificationCommand = onNotificationCommand,
         )
 
     SableRefreshableSurface(
@@ -1236,7 +1250,14 @@ private fun ColumnScope.InboxPivot(
                             Modifier
                                 .focusRequester(requesters.getOrPut(row.item.key) { FocusRequester() })
                                 .clusterKeys(row, rowActions)
-                                .rowActionsKey { state.actionsItem = row.item },
+                                .rowActionsKey { state.actionsItem = row.item }
+                                .rowCommandKeys { key ->
+                                    val entries = menuFor(row.item, snapshot.privacy, actions)
+                                    HubMessageMenu.forKey(key, entries)?.let { entry ->
+                                        runMenuEntry(entry, row.item, state, actions, onConversation, onTextCaller)
+                                        true
+                                    } ?: false
+                                },
                         onOpen = { focusMemory.remember(FOCUS_SURFACE_INBOX, row.item.key, index) },
                         onLongPress = { state.actionsItem = row.item },
                         onConversation = onConversation,
@@ -1274,14 +1295,47 @@ private fun ColumnScope.InboxPivot(
     state.actionsItem?.let { item ->
         HubRowActionsSheet(
             item = item,
-            privacy = snapshot.privacy,
-            onAction = { action -> runRowAction(action, item, state, actions, onConversation, onTextCaller) },
+            entries = menuFor(item, snapshot.privacy, actions),
+            onEntry = { entry -> runMenuEntry(entry, item, state, actions, onConversation, onTextCaller) },
             onDismiss = { state.actionsItem = null },
         )
     }
 }
 
 /** Runs one row action through the activity's provider-safe handoffs. */
+/** The row's menu: Hub actions, plus what its live notification allows (HubMessageMenu). */
+private fun menuFor(
+    item: HubInboxItem,
+    privacy: HubPrivacyState,
+    actions: HubActions,
+): List<HubMenuEntry> {
+    val key = (item as? HubInboxItem.Conversation)?.conversation?.sourceNotificationKey
+    val facts = key?.let(actions.notificationFacts) ?: HubNotificationFacts()
+    return HubMessageMenu.entries(item, privacy, facts)
+}
+
+private fun runMenuEntry(
+    entry: HubMenuEntry,
+    item: HubInboxItem,
+    state: HubUiState,
+    actions: HubActions,
+    onConversation: (HubConversation) -> Unit,
+    onTextCaller: (HubCall) -> Unit,
+) {
+    val notificationCommand =
+        entry is HubMenuEntry.App ||
+            (entry is HubMenuEntry.Hub && entry.action in NOTIFICATION_COMMANDS)
+    if (!notificationCommand) {
+        runRowAction((entry as HubMenuEntry.Hub).action, item, state, actions, onConversation, onTextCaller)
+        return
+    }
+    state.actionsItem = null
+    val key = (item as? HubInboxItem.Conversation)?.conversation?.sourceNotificationKey ?: return
+    actions.onNotificationCommand(key, entry)?.let { state.statusMessage = it }
+}
+
+private val NOTIFICATION_COMMANDS = setOf(HubRowAction.MarkRead, HubRowAction.Snooze, HubRowAction.Dismiss)
+
 private fun runRowAction(
     action: HubRowAction,
     item: HubInboxItem,
@@ -1359,48 +1413,113 @@ private fun runConversationAction(
 }
 
 /**
- * The row actions sheet: the row's provider-safe actions as a short focusable list, first one
- * focused. Back or Esc closes it and focus returns to the row.
+ * The row menu, BB10 style: a full-height panel on the right edge listing the row's actions, the
+ * first one focused, each with its row key (R, U, Z, Del) beside it. Up and Down move, Enter runs,
+ * Back or Esc closes it and focus returns to the row.
  */
 @Composable
 private fun HubRowActionsSheet(
     item: HubInboxItem,
-    privacy: HubPrivacyState,
-    onAction: (HubRowAction) -> Unit,
+    entries: List<HubMenuEntry>,
+    onEntry: (HubMenuEntry) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val rowActions = remember(item, privacy) { HubRowActions.forItem(item, privacy) }
     val first = remember { FocusRequester() }
     LaunchedEffect(item) {
         withFrameNanos { }
         runCatching { first.requestFocus() }
     }
-    Dialog(onDismissRequest = onDismiss) {
-        SablePanel {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
+            Surface(
+                modifier = Modifier.fillMaxHeight().widthIn(min = 200.dp, max = 260.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = SableSpacing.Sm),
+                ) {
+                    Text(
+                        text = HubRowActions.title(item),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
+                    )
+                    entries.forEachIndexed { index, entry ->
+                        HubMenuLine(
+                            entry = entry,
+                            modifier = if (index == 0) Modifier.focusRequester(first) else Modifier,
+                            onClick = { onEntry(entry) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HubMenuLine(
+    entry: HubMenuEntry,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        onClick = onClick,
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .onFocusChanged { focused = it.isFocused },
+        color = if (focused) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+        border = if (focused) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                text = HubRowActions.title(item),
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
+                text = entry.label,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
-            rowActions.forEachIndexed { index, action ->
-                SableActionButton(
-                    text = action.label,
-                    modifier =
-                        if (index ==
-                            0
-                        ) {
-                            Modifier.fillMaxWidth().focusRequester(first)
-                        } else {
-                            Modifier.fillMaxWidth()
-                        },
-                    primary = index == 0,
-                    onClick = { onAction(action) },
+            entry.shortcut?.let { key ->
+                Text(
+                    text = key,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
     }
 }
+
+/**
+ * Single keys on a focused row, as on BlackBerry: R reply, U mark read, Z snooze, Del dismiss.
+ * A key the row's menu does not have falls through to the filters. Never while typing: rows hold
+ * no text field.
+ */
+private fun Modifier.rowCommandKeys(onKey: (HubRowKey) -> Boolean): Modifier =
+    onKeyEvent { event ->
+        val plain = !event.isAltPressed && !event.isCtrlPressed && !event.isMetaPressed
+        val key =
+            when {
+                !plain || event.type != KeyEventType.KeyDown -> null
+                event.key == Key.R -> HubRowKey.R
+                event.key == Key.U -> HubRowKey.U
+                event.key == Key.Z -> HubRowKey.Z
+                event.key == Key.Delete || event.key == Key.Backspace -> HubRowKey.Delete
+                else -> null
+            }
+        key != null && onKey(key)
+    }
 
 /** Menu, or Alt+Enter (the Q25's Fn+Enter), opens the focused row's actions. */
 private fun Modifier.rowActionsKey(onActions: () -> Unit): Modifier =

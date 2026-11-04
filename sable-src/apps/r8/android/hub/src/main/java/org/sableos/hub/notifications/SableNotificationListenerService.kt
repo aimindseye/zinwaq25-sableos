@@ -31,10 +31,12 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Hub's NotificationListenerService. It only reads what Android delivers: it never cancels,
- * snoozes, re-posts or re-ranks notifications, never changes interruption filters or channels,
+ * Hub's NotificationListenerService. It reads what Android delivers and never re-posts or
+ * re-ranks notifications, never bulk-clears them, never changes interruption filters or channels,
  * and never posts a notification of its own (DESIGN-KF-A: Android owns delivery and DND; the
- * shade is the notification center). tests/kf-a-notification-policy-check.sh enforces this.
+ * shade is the notification center). The one exception is a user command on one Hub row
+ * (Snooze or Dismiss), which HubNotificationCommands runs through this listener.
+ * tests/kf-a-notification-policy-check.sh enforces this.
  */
 class SableNotificationListenerService : NotificationListenerService() {
     private val workerScope =
@@ -83,6 +85,7 @@ class SableNotificationListenerService : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        HubNotificationCommands.attach(this)
         seedUnreadCounts()
         notifyHiddenAppsChanged()
         refreshPoliciesAndReprocess()
@@ -140,6 +143,7 @@ class SableNotificationListenerService : NotificationListenerService() {
     ) {
         val envelope = eligibleEnvelope(sbn, ranking)
         if (envelope != null) {
+            ConnectedActionRegistry.register(sbn)
             val generation = generationCounter.incrementAndGet()
             notificationGenerations[sbn.key] = generation
             workerScope.launch {
@@ -189,6 +193,7 @@ class SableNotificationListenerService : NotificationListenerService() {
 
     private fun clearNotificationState(notificationKey: String) {
         ConnectedReplyRegistry.remove(notificationKey)
+        ConnectedActionRegistry.remove(notificationKey)
         ConnectedNotificationActivityRegistry.remove(notificationKey)
     }
 
@@ -482,6 +487,7 @@ class SableNotificationListenerService : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         notificationGenerations.remove(sbn.key)
         ConnectedReplyRegistry.remove(sbn.key)
+        ConnectedActionRegistry.remove(sbn.key)
         ConnectedNotificationActivityRegistry.remove(sbn.key)
         ActiveNotificationCountRegistry.remove(sbn.key)
         notifyHubDataChanged()
@@ -491,6 +497,8 @@ class SableNotificationListenerService : NotificationListenerService() {
         ConnectedNotificationActivityRegistry.clear()
         ActiveNotificationCountRegistry.clear()
         ConnectedReplyRegistry.clear()
+        ConnectedActionRegistry.clear()
+        HubNotificationCommands.detach(this)
         notifyHubDataChanged()
         notifyHiddenAppsChanged()
         super.onListenerDisconnected()
@@ -527,6 +535,7 @@ class SableNotificationListenerService : NotificationListenerService() {
             contentResolver.unregisterContentObserver(policyObserver)
         }
         workerScope.cancel()
+        HubNotificationCommands.detach(this)
         super.onDestroy()
     }
 

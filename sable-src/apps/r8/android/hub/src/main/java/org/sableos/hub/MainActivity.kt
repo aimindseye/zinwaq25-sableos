@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.sableos.design.SableGlobalTheme
 import org.sableos.hub.HubText.t
+import org.sableos.hub.notifications.HubNotificationCommands
 import org.sableos.hub.policy.HubDrafts
 import org.sableos.hub.policy.HubHandoffTarget
 import org.sableos.hub.policy.HubIntents
@@ -236,6 +237,12 @@ class MainActivity : ComponentActivity() {
                     },
                     combineConversations = combineConversations,
                     loadAppIcon = ::loadAppIcon,
+                    notificationFacts = HubNotificationCommands::facts,
+                    onNotificationCommand = { key, entry ->
+                        HubNotificationCommands.run(this@MainActivity, key, entry).also {
+                            refreshGeneration += 1
+                        }
+                    },
                 )
             }
         }

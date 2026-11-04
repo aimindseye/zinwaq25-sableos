@@ -183,4 +183,11 @@
     <string name="personal">Προσωπικά</string>
     <string name="private_space">Ιδιωτικός χώρος</string>
     <string name="profile_2">Προφίλ %1$s</string>
+    <string name="mark_read">Σήμανση ως αναγνωσμένο</string>
+    <string name="snooze_1_hour">Αναβολή 1 ώρα</string>
+    <string name="dismiss_notification">Παράβλεψη ειδοποίησης</string>
+    <string name="snoozed_for_an_hour">Αναβλήθηκε για μία ώρα.</string>
+    <string name="notification_dismissed">Η ειδοποίηση παραβλέφθηκε.</string>
+    <string name="sent_to_the_app">Στάλθηκε στην εφαρμογή.</string>
+    <string name="the_notification_is_gone">Η ειδοποίηση δεν υπάρχει πια.</string>
 </resources>

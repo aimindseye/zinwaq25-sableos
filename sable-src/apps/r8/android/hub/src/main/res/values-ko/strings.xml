@@ -183,4 +183,11 @@
     <string name="personal">개인용</string>
     <string name="private_space">비공개 공간</string>
     <string name="profile_2">프로필 %1$s</string>
+    <string name="mark_read">읽음으로 표시</string>
+    <string name="snooze_1_hour">1시간 다시 알림</string>
+    <string name="dismiss_notification">알림 닫기</string>
+    <string name="snoozed_for_an_hour">1시간 동안 다시 알림으로 설정했습니다.</string>
+    <string name="notification_dismissed">알림을 닫았습니다.</string>
+    <string name="sent_to_the_app">앱으로 보냈습니다.</string>
+    <string name="the_notification_is_gone">알림이 더 이상 없습니다.</string>
 </resources>

@@ -183,4 +183,11 @@
     <string name="personal">شخصي</string>
     <string name="private_space">مساحة خاصة</string>
     <string name="profile_2">الملف %1$s</string>
+    <string name="mark_read">تعليم كمقروء</string>
+    <string name="snooze_1_hour">تأجيل ساعة</string>
+    <string name="dismiss_notification">تجاهل الإشعار</string>
+    <string name="snoozed_for_an_hour">تم التأجيل لمدة ساعة.</string>
+    <string name="notification_dismissed">تم تجاهل الإشعار.</string>
+    <string name="sent_to_the_app">أُرسل إلى التطبيق.</string>
+    <string name="the_notification_is_gone">لم يعد الإشعار موجودًا.</string>
 </resources>

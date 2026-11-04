@@ -183,4 +183,11 @@
     <string name="personal">个人</string>
     <string name="private_space">私密空间</string>
     <string name="profile_2">配置文件 %1$s</string>
+    <string name="mark_read">标为已读</string>
+    <string name="snooze_1_hour">暂停提醒 1 小时</string>
+    <string name="dismiss_notification">关闭通知</string>
+    <string name="snoozed_for_an_hour">已暂停提醒一小时。</string>
+    <string name="notification_dismissed">通知已关闭。</string>
+    <string name="sent_to_the_app">已发送给应用。</string>
+    <string name="the_notification_is_gone">该通知已不存在。</string>
 </resources>

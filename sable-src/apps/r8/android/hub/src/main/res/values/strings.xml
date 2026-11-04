@@ -185,4 +185,11 @@
     <string name="personal">Personal</string>
     <string name="private_space">Private space</string>
     <string name="profile_2">Profile %1$s</string>
+    <string name="mark_read">Mark read</string>
+    <string name="snooze_1_hour">Snooze 1 hour</string>
+    <string name="dismiss_notification">Dismiss notification</string>
+    <string name="snoozed_for_an_hour">Snoozed for an hour.</string>
+    <string name="notification_dismissed">Notification dismissed.</string>
+    <string name="sent_to_the_app">Sent to the app.</string>
+    <string name="the_notification_is_gone">The notification is no longer there.</string>
 </resources>

@@ -183,4 +183,11 @@
     <string name="personal">Persönlich</string>
     <string name="private_space">Privater Bereich</string>
     <string name="profile_2">Profil %1$s</string>
+    <string name="mark_read">Als gelesen markieren</string>
+    <string name="snooze_1_hour">1 Stunde schlummern</string>
+    <string name="dismiss_notification">Benachrichtigung schließen</string>
+    <string name="snoozed_for_an_hour">Für eine Stunde zurückgestellt.</string>
+    <string name="notification_dismissed">Benachrichtigung geschlossen.</string>
+    <string name="sent_to_the_app">An die App gesendet.</string>
+    <string name="the_notification_is_gone">Die Benachrichtigung ist nicht mehr da.</string>
 </resources>

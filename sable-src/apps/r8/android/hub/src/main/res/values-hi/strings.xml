@@ -183,4 +183,11 @@
     <string name="personal">व्यक्तिगत</string>
     <string name="private_space">निजी स्पेस</string>
     <string name="profile_2">प्रोफ़ाइल %1$s</string>
+    <string name="mark_read">पढ़ा हुआ चिह्नित करें</string>
+    <string name="snooze_1_hour">1 घंटे के लिए स्नूज़ करें</string>
+    <string name="dismiss_notification">सूचना हटाएँ</string>
+    <string name="snoozed_for_an_hour">एक घंटे के लिए स्नूज़ किया गया।</string>
+    <string name="notification_dismissed">सूचना हटा दी गई।</string>
+    <string name="sent_to_the_app">ऐप को भेजा गया।</string>
+    <string name="the_notification_is_gone">सूचना अब मौजूद नहीं है।</string>
 </resources>
