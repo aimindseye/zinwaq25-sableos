@@ -31,6 +31,20 @@ data class AppUnreadCount(
     }
 }
 
+/**
+ * One message on the Hub page (`content://org.sableos.hub.snapshot/messages`): Hub's own inbox
+ * row after its redaction. Hub sends none while the device is locked or in Sable private mode.
+ */
+data class HubMessageRow(
+    val threadId: Long,
+    val title: String,
+    val preview: String,
+    val dateMillis: Long,
+    val unread: Int,
+    val sms: Boolean,
+    val packageName: String?,
+)
+
 data class LiveSurfaceSnapshot(
     val dateText: String,
     val timeText: String,
@@ -43,6 +57,8 @@ data class LiveSurfaceSnapshot(
     val observedAtEpochMs: Long,
     /** The Hub page's unread bar, most unread first; empty when Hub has nothing or is missing. */
     val hubApps: List<AppUnreadCount> = emptyList(),
+    /** The Hub page's message list, newest first; empty when Hub sends none. */
+    val hubMessages: List<HubMessageRow> = emptyList(),
 ) {
     init {
         require(dateText.isNotBlank())

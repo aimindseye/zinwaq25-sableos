@@ -129,6 +129,7 @@ import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableTheme
 import org.sableos.design.SableTypeToJump
 import org.sableos.design.sableFocusRing
+import org.sableos.start.live.HubMessageRow
 import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
@@ -2051,6 +2052,12 @@ private fun HubPage(
                 actions = actions,
             )
         } else {
+            hubMessageItems(
+                filter = filter,
+                rows = snapshot.hubMessages,
+                appFor = { pkg -> pkg?.let { personalApps[it] } ?: messagesApp },
+                onStartIntent = onStartIntent,
+            )
             hubSummaryItems(
                 filter = filter,
                 snapshot = snapshot,
@@ -2245,6 +2252,137 @@ private fun HubTabs(
  * The All, Messages and Calls tabs: Messages and Mail, Missed calls, and on All the notification
  * summary ([summary] is null when Sable Hub is absent, which also hides Hub settings).
  */
+/**
+ * The Hub page's message list (owner decision 2026-11-04, as BB10 and TenSeven): Hub's newest
+ * inbox rows, newest first, on All and Messages. Enter or a tap opens the thread in Hub; Menu,
+ * Alt+Enter or a long press opens Hub with that row's BB10 menu (Mark read, Snooze, Dismiss and
+ * the app's own actions run in Hub, which holds the notifications). Hub sends no rows while the
+ * phone is locked or in Sable private mode, and the cards stay.
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.hubMessageItems(
+    filter: HubFilter,
+    rows: List<HubMessageRow>,
+    appFor: (String?) -> AppEntry?,
+    onStartIntent: (Intent) -> Unit,
+) {
+    if (rows.isEmpty() || (filter != HubFilter.All && filter != HubFilter.Messages)) return
+    items(items = rows, key = { "hub-row:" + it.threadId }) { row ->
+        HubMessageRowItem(
+            row = row,
+            app = appFor(row.packageName),
+            onOpen = { onStartIntent(hubThreadIntent(row.threadId, menu = false)) },
+            onActions = { onStartIntent(hubThreadIntent(row.threadId, menu = true)) },
+        )
+    }
+}
+
+private fun hubThreadIntent(
+    threadId: Long,
+    menu: Boolean,
+): Intent =
+    Intent(HUB_ACTION_OPEN_THREAD)
+        .setPackage(HUB_PACKAGE)
+        .putExtra(HUB_EXTRA_THREAD_ID, threadId)
+        .putExtra(HUB_EXTRA_ROW_MENU, menu)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+/** One Hub message: app icon, sender or subject, a one-line preview, the time; unread has a blue edge. */
+@Composable
+private fun HubMessageRowItem(
+    row: HubMessageRow,
+    app: AppEntry?,
+    onOpen: () -> Unit,
+    onActions: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(6.dp)
+    val text = if (focused) Bb10OnBlue else Bb10Text
+    val time = remember(row.dateMillis) { hubRowTime(row.dateMillis) }
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .onFocusChanged { focused = it.isFocused }
+                .clip(shape)
+                .background(if (focused) Bb10Blue else Bb10Card)
+                .border(1.dp, Bb10Line, shape)
+                .onPreviewKeyEvent { event ->
+                    val native = event.nativeKeyEvent
+                    val alt = native.metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) != 0
+                    val menu =
+                        native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
+                            (native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && alt)
+                    if (menu && event.type == KeyEventType.KeyDown && native.repeatCount == 0) onActions()
+                    menu
+                }.combinedClickable(onClick = onOpen, onLongClick = onActions)
+                .semantics {
+                    contentDescription =
+                        listOfNotNull(row.title, row.preview.takeIf { it.isNotBlank() }, time).joinToString(", ") +
+                        if (row.unread > 0) ", " + t("hub_unread") else ""
+                },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .width(HUB_ROW_EDGE_DP.dp)
+                .height(40.dp)
+                .background(if (row.unread > 0) Bb10Blue else Color.Transparent),
+        )
+        Spacer(Modifier.width(8.dp))
+        if (app != null) AppMark(app = app, size = HUB_ROW_ICON_DP) else HubLockMark()
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f).padding(vertical = 6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = row.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = if (row.unread > 0) FontWeight.Bold else FontWeight.Medium,
+                    color = text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = time,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = text,
+                    maxLines = 1,
+                )
+            }
+            if (row.preview.isNotBlank()) {
+                Text(
+                    text = row.preview,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+    }
+}
+
+/** Today's rows show the time, older ones the short date, in the phone's own format. */
+private fun hubRowTime(epochMillis: Long): String {
+    if (epochMillis <= 0L) return ""
+    val now = java.util.Calendar.getInstance()
+    val then = java.util.Calendar.getInstance().apply { timeInMillis = epochMillis }
+    val sameDay =
+        now.get(java.util.Calendar.YEAR) == then.get(java.util.Calendar.YEAR) &&
+            now.get(java.util.Calendar.DAY_OF_YEAR) == then.get(java.util.Calendar.DAY_OF_YEAR)
+    val skeleton = if (sameDay) "jm" else "MMMd"
+    val pattern = android.text.format.DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), skeleton)
+    return android.text.format.DateFormat.format(pattern, epochMillis).toString()
+}
+
+private const val HUB_ROW_EDGE_DP = 3
+private const val HUB_ROW_ICON_DP = 28
+private const val HUB_ACTION_OPEN_THREAD = "org.sableos.hub.action.OPEN_THREAD"
+private const val HUB_EXTRA_THREAD_ID = "org.sableos.hub.extra.THREAD_ID"
+private const val HUB_EXTRA_ROW_MENU = "org.sableos.hub.extra.ROW_MENU"
+
 private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
     filter: HubFilter,
     snapshot: LiveSurfaceSnapshot,
@@ -2253,7 +2391,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
     mailApp: AppEntry?,
     actions: HubActions,
 ) {
-    val showMessages = filter != HubFilter.Calls
+    // The message list replaces the Messages and Mail cards when Hub sends rows (hubMessageItems).
+    val showMessages = filter != HubFilter.Calls && snapshot.hubMessages.isEmpty()
     val showCalls = filter != HubFilter.Messages
     if (showMessages) {
         item(key = "messages") {

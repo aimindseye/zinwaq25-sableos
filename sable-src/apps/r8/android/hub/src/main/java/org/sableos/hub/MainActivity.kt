@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private var pendingThreadId by mutableStateOf<Long?>(null)
     private var pendingQuery by mutableStateOf<HubLaunchQuery?>(null)
     private var pendingAddress by mutableStateOf<String?>(null)
+    private var pendingMenuThreadId by mutableStateOf<Long?>(null)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val providerRefresh = Runnable { refreshGeneration += 1 }
     private var providerObserversRegistered = false
@@ -84,6 +85,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             pendingQuery = launchQueryFrom(intent)
             pendingAddress = conversationAddressFrom(intent)
+            applyOpenThread(intent)
         }
         contentResolver.registerContentObserver(
             ConnectedAppsRepository.HISTORY_URI,
@@ -231,6 +233,8 @@ class MainActivity : ComponentActivity() {
                     onPendingThreadConsumed = {
                         pendingThreadId = null
                     },
+                    pendingMenuThreadId = pendingMenuThreadId,
+                    onPendingMenuConsumed = { pendingMenuThreadId = null },
                     pendingAddress = pendingAddress,
                     onPendingAddressConsumed = {
                         pendingAddress = null
@@ -272,6 +276,19 @@ class MainActivity : ComponentActivity() {
         }
         launchQueryFrom(intent)?.let { query -> pendingQuery = query }
         conversationAddressFrom(intent)?.let { address -> pendingAddress = address }
+        applyOpenThread(intent)
+    }
+
+    /** Sable Start's Hub page: open a message's thread, or its row menu in the inbox. */
+    private fun applyOpenThread(intent: Intent?) {
+        val open = intent?.takeIf { it.action == HubIntents.ACTION_OPEN_THREAD } ?: return
+        val threadId =
+            open.getLongExtra(HubIntents.EXTRA_THREAD_ID, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE } ?: return
+        if (open.getBooleanExtra(HubIntents.EXTRA_ROW_MENU, false)) {
+            pendingMenuThreadId = threadId
+        } else {
+            pendingThreadId = threadId
+        }
     }
 
     /** Command's search text and/or Start's filter (ACTION_MAIN extras); null for a plain launch. */

@@ -11,6 +11,7 @@ import com.sable.start.model.StartText.t
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.sableos.start.live.AppUnreadCount
+import org.sableos.start.live.HubMessageRow
 import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
@@ -100,6 +101,7 @@ class LiveSurfaceRepository(
                     ),
                 observedAtEpochMs = nowEpochMs,
                 hubApps = hubAppCounts(),
+                hubMessages = hubMessages(),
             )
         }
 
@@ -114,6 +116,37 @@ class LiveSurfaceRepository(
                         val name = cursor.getString(pkg)?.trim().orEmpty()
                         val value = cursor.getInt(count)
                         if (name.isNotEmpty() && value > 0) add(AppUnreadCount(name, value))
+                    }
+                }
+            }
+        }.getOrNull().orEmpty()
+
+    /** Sable Hub's newest inbox rows for the Hub page; empty while locked or when Hub cannot say. */
+    private fun hubMessages(): List<HubMessageRow> =
+        runCatching {
+            resolver.query(HUB_MESSAGES_URI, HUB_MESSAGE_COLUMNS, null, null, null)?.use { cursor ->
+                val id = cursor.getColumnIndexOrThrow("thread_id")
+                val title = cursor.getColumnIndexOrThrow("title")
+                val preview = cursor.getColumnIndexOrThrow("preview")
+                val date = cursor.getColumnIndexOrThrow("date")
+                val unread = cursor.getColumnIndexOrThrow("unread")
+                val sms = cursor.getColumnIndexOrThrow("sms")
+                val pkg = cursor.getColumnIndexOrThrow("package")
+                buildList {
+                    while (cursor.moveToNext() && size < MAX_HUB_MESSAGES) {
+                        val name = cursor.getString(title)?.trim().orEmpty()
+                        if (name.isEmpty()) continue
+                        add(
+                            HubMessageRow(
+                                threadId = cursor.getLong(id),
+                                title = name,
+                                preview = cursor.getString(preview)?.trim().orEmpty(),
+                                dateMillis = cursor.getLong(date),
+                                unread = cursor.getInt(unread).coerceAtLeast(0),
+                                sms = cursor.getInt(sms) != 0,
+                                packageName = cursor.getString(pkg)?.takeIf { it.isNotBlank() },
+                            ),
+                        )
                     }
                 }
             }
@@ -258,6 +291,13 @@ class LiveSurfaceRepository(
         val HUB_APPS_URI: Uri =
             Uri.parse("content://org.sableos.hub.snapshot/apps")
         private const val MAX_HUB_APPS = 32
+        private const val MAX_HUB_MESSAGES = 30
+
+        /** The Hub page's message rows; Hub notifies [MESSAGES_URI] when they change. */
+        val HUB_MESSAGES_URI: Uri =
+            Uri.parse("content://org.sableos.hub.snapshot/messages")
+        private val HUB_MESSAGE_COLUMNS =
+            arrayOf("thread_id", "title", "preview", "date", "unread", "sms", "package")
         val MAIL_URI: Uri =
             Uri.parse("content://org.sableos.mail.snapshot/current")
         val MEDIA_URI: Uri =

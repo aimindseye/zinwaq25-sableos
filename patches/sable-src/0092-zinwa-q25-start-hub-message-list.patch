@@ -1,0 +1,632 @@
+diff --git a/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml
+index 8b3ff31..ab56b9f 100644
+--- a/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml
+@@ -100,6 +100,11 @@
+                 <action android:name="org.sableos.hub.action.OPEN_CONVERSATION" />
+                 <category android:name="android.intent.category.DEFAULT" />
+             </intent-filter>
++            <!-- Sable Start's Hub page: a message row opens its thread, Menu its row menu. -->
++            <intent-filter>
++                <action android:name="org.sableos.hub.action.OPEN_THREAD" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
+         </activity>
+ 
+         <activity
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt
+index aab5daf..f654a66 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt
+@@ -20,6 +20,7 @@ import org.sableos.hub.notifications.SableNotificationListenerService
+ import org.sableos.hub.platform.PrivacyReader
+ import org.sableos.hub.policy.ConnectedAppsParity
+ import org.sableos.hub.policy.HubAppCounts
++import org.sableos.hub.policy.HubHomeRows
+ import org.sableos.hub.policy.HubPrivacyState
+ 
+ /**
+@@ -28,6 +29,10 @@ import org.sableos.hub.policy.HubPrivacyState
+  * - `apps`: Start's unread bar, one row per app (`package`, `count`), most unread first; no
+  *   notification text. Hidden apps are left out, and while the device is locked or Sable private
+  *   mode is on there is one row, package "*", with the total ([HubAppCounts]).
++ * - `messages`: the Hub page's message list, the newest inbox rows as Hub shows them after
++ *   redaction (`thread_id`, `title`, `preview`, `date`, `unread`, `sms`, `package`); empty while
++ *   the device is locked, in Sable private mode, without notification access for connected apps,
++ *   and for work or private profiles ([HubHomeRows]).
+  */
+ class HubSnapshotProvider : ContentProvider() {
+     override fun onCreate(): Boolean = true
+@@ -42,6 +47,7 @@ class HubSnapshotProvider : ContentProvider() {
+         val appContext = checkNotNull(context)
+         enforceLauncherCaller(appContext)
+         if (uri.pathSegments.firstOrNull() == PATH_APPS) return appCounts(appContext)
++        if (uri.pathSegments.firstOrNull() == PATH_MESSAGES) return homeRows(appContext)
+         val canReadSms =
+             appContext.checkSelfPermission(Manifest.permission.READ_SMS) ==
+                 PackageManager.PERMISSION_GRANTED
+@@ -124,6 +130,45 @@ class HubSnapshotProvider : ContentProvider() {
+         }
+     }
+ 
++    private fun homeRows(appContext: android.content.Context): Cursor {
++        val userManager = appContext.getSystemService(UserManager::class.java)
++        val personalSerial = userManager?.getSerialNumberForUser(Process.myUserHandle()) ?: -1L
++        val privacy =
++            HubPrivacyState(
++                deviceLocked = PrivacyReader(appContext).deviceLocked(),
++                privateMode = HubPreferences(appContext).privateMode(),
++            )
++        val rows =
++            if (privacy.countsOnly) {
++                emptyList()
++            } else {
++                val snapshot = runCatching { HubRepository(appContext).snapshot() }.getOrNull()
++                val accessGranted = notificationAccessGranted(appContext)
++                val conversations =
++                    snapshot
++                        ?.conversations
++                        .orEmpty()
++                        .filter { accessGranted || it.source == HubConversationSource.Sms }
++                HubHomeRows.rows(conversations, snapshot?.privacy ?: privacy, personalSerial)
++            }
++        return MatrixCursor(MESSAGE_COLUMNS).apply {
++            rows.forEach { row ->
++                addRow(
++                    arrayOf<Any?>(
++                        row.threadId,
++                        row.title,
++                        row.preview,
++                        row.dateMillis,
++                        row.unread,
++                        if (row.sms) 1 else 0,
++                        row.packageName,
++                    ),
++                )
++            }
++            setNotificationUri(appContext.contentResolver, SNAPSHOT_URI)
++        }
++    }
++
+     private fun notificationAccessGranted(context: android.content.Context): Boolean =
+         runCatching {
+             checkNotNull(context.getSystemService(NotificationManager::class.java))
+@@ -135,6 +180,8 @@ class HubSnapshotProvider : ContentProvider() {
+     override fun getType(uri: Uri): String =
+         if (uri.pathSegments.firstOrNull() == PATH_APPS) {
+             "vnd.android.cursor.dir/vnd.org.sableos.hub.app-count"
++        } else if (uri.pathSegments.firstOrNull() == PATH_MESSAGES) {
++            "vnd.android.cursor.dir/vnd.org.sableos.hub.home-row"
+         } else {
+             "vnd.android.cursor.item/vnd.org.sableos.hub.snapshot"
+         }
+@@ -177,8 +224,11 @@ class HubSnapshotProvider : ContentProvider() {
+         val SNAPSHOT_URI: Uri =
+             Uri.parse("content://org.sableos.hub.snapshot/current")
+         const val PATH_APPS = "apps"
++        const val PATH_MESSAGES = "messages"
+         private val COLUMNS =
+             arrayOf("title", "detail", "availability", "observed_at")
+         private val APP_COLUMNS = arrayOf("package", "count")
++        private val MESSAGE_COLUMNS =
++            arrayOf("thread_id", "title", "preview", "date", "unread", "sms", "package")
+     }
+ }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+index 5a524f1..d9b60d6 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
+     private var pendingThreadId by mutableStateOf<Long?>(null)
+     private var pendingQuery by mutableStateOf<HubLaunchQuery?>(null)
+     private var pendingAddress by mutableStateOf<String?>(null)
++    private var pendingMenuThreadId by mutableStateOf<Long?>(null)
+     private val mainHandler = Handler(Looper.getMainLooper())
+     private val providerRefresh = Runnable { refreshGeneration += 1 }
+     private var providerObserversRegistered = false
+@@ -84,6 +85,7 @@ class MainActivity : ComponentActivity() {
+         if (savedInstanceState == null) {
+             pendingQuery = launchQueryFrom(intent)
+             pendingAddress = conversationAddressFrom(intent)
++            applyOpenThread(intent)
+         }
+         contentResolver.registerContentObserver(
+             ConnectedAppsRepository.HISTORY_URI,
+@@ -231,6 +233,8 @@ class MainActivity : ComponentActivity() {
+                     onPendingThreadConsumed = {
+                         pendingThreadId = null
+                     },
++                    pendingMenuThreadId = pendingMenuThreadId,
++                    onPendingMenuConsumed = { pendingMenuThreadId = null },
+                     pendingAddress = pendingAddress,
+                     onPendingAddressConsumed = {
+                         pendingAddress = null
+@@ -272,6 +276,19 @@ class MainActivity : ComponentActivity() {
+         }
+         launchQueryFrom(intent)?.let { query -> pendingQuery = query }
+         conversationAddressFrom(intent)?.let { address -> pendingAddress = address }
++        applyOpenThread(intent)
++    }
++
++    /** Sable Start's Hub page: open a message's thread, or its row menu in the inbox. */
++    private fun applyOpenThread(intent: Intent?) {
++        val open = intent?.takeIf { it.action == HubIntents.ACTION_OPEN_THREAD } ?: return
++        val threadId =
++            open.getLongExtra(HubIntents.EXTRA_THREAD_ID, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE } ?: return
++        if (open.getBooleanExtra(HubIntents.EXTRA_ROW_MENU, false)) {
++            pendingMenuThreadId = threadId
++        } else {
++            pendingThreadId = threadId
++        }
+     }
+ 
+     /** Command's search text and/or Start's filter (ACTION_MAIN extras); null for a plain launch. */
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHomeRows.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHomeRows.kt
+new file mode 100644
+index 0000000..e5f49d4
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHomeRows.kt
+@@ -0,0 +1,53 @@
++package org.sableos.hub.policy
++
++import org.sableos.hub.HubConversation
++import org.sableos.hub.HubConversationSource
++
++/** One message row on Sable Start's Hub page: what the Hub inbox row shows, already redacted. */
++data class HubHomeRow(
++    val threadId: Long,
++    val title: String,
++    val preview: String,
++    val dateMillis: Long,
++    val unread: Int,
++    val sms: Boolean,
++    val packageName: String?,
++)
++
++/**
++ * The newest Hub rows for Sable Start's Hub page (owner decision 2026-11-04: the home Hub page
++ * lists each message, as BB10 and TenSeven do). Rows are the inbox's own conversations after
++ * HubRedaction, so a source whose content Hub hides stays hidden here. Nothing while the device
++ * is locked or Sable private mode is on, and nothing from a work or private profile: the home
++ * screen shows the personal profile only.
++ */
++object HubHomeRows {
++    const val MAX_ROWS = 30
++    const val MAX_PREVIEW = 140
++    const val MAX_TITLE = 80
++
++    fun rows(
++        conversations: List<HubConversation>,
++        privacy: HubPrivacyState,
++        personalSerial: Long,
++    ): List<HubHomeRow> {
++        if (privacy.countsOnly || personalSerial < 0L) return emptyList()
++        return conversations
++            .asSequence()
++            .filter { it.sourceUserSerial == null || it.sourceUserSerial == personalSerial }
++            .filter { it.displayName.isNotBlank() }
++            .sortedByDescending { it.lastDateMillis }
++            .take(MAX_ROWS)
++            .map { conversation ->
++                HubHomeRow(
++                    threadId = conversation.threadId,
++                    title = conversation.displayName.trim().take(MAX_TITLE),
++                    preview = conversation.lastBody.replace('\n', ' ').trim().take(MAX_PREVIEW),
++                    dateMillis = conversation.lastDateMillis,
++                    unread = conversation.unreadCount.coerceAtLeast(0),
++                    sms = conversation.source == HubConversationSource.Sms,
++                    packageName = conversation.sourcePackage,
++                )
++            }.toList()
++    }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt
+index c4979d4..712d02a 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt
+@@ -53,6 +53,15 @@ object HubIntents {
+     /** A phone number or SMS address (Contacts' default number for the person). */
+     const val EXTRA_ADDRESS = "org.sableos.hub.extra.ADDRESS"
+ 
++    /**
++     * Sable Start's Hub page: open the Hub thread [EXTRA_THREAD_ID] (a `thread_id` from the
++     * snapshot provider's `messages`), or with [EXTRA_ROW_MENU] show that row's menu in the inbox.
++     * It only navigates; an unknown thread opens the inbox.
++     */
++    const val ACTION_OPEN_THREAD = "org.sableos.hub.action.OPEN_THREAD"
++    const val EXTRA_THREAD_ID = "org.sableos.hub.extra.THREAD_ID"
++    const val EXTRA_ROW_MENU = "org.sableos.hub.extra.ROW_MENU"
++
+     const val MAX_QUERY_LENGTH = 120
+     const val MAX_ADDRESS_LENGTH = 64
+ 
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+index b90e22c..dacc509 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+@@ -225,6 +225,24 @@ private class HubUiState {
+         return true
+     }
+ 
++    /**
++     * Sable Start's Hub page, Menu on a message row: the inbox on All with that row's menu open.
++     * False until the snapshot is loaded; a thread Hub no longer lists just opens the inbox.
++     */
++    fun openRowMenu(
++        threadId: Long?,
++        snapshot: HubSnapshot?,
++    ): Boolean {
++        if (threadId == null || snapshot == null) return false
++        route = HubRoute.Root(HubPivot.Inbox)
++        inboxFilter = HubInboxFilter.All
++        actionsItem =
++            snapshot.conversations
++                .firstOrNull { it.threadId == threadId }
++                ?.let { HubInboxItem.Conversation(it) }
++        return true
++    }
++
+     /**
+      * Start's Command "Search Hub for …" and Start's Hub tabs: open the inbox on the requested
+      * filter (else All), all sources, with the search filled in.
+@@ -373,9 +391,17 @@ fun HubScreen(
+     loadAppIcon: suspend (String, Long) -> ImageBitmap? = { _, _ -> null },
+     notificationFacts: (String) -> HubNotificationFacts = { HubNotificationFacts() },
+     onNotificationCommand: (String, HubMenuEntry) -> String? = { _, _ -> null },
++    pendingMenuThreadId: Long? = null,
++    onPendingMenuConsumed: () -> Unit = {},
+ ) {
+     val state = remember { HubUiState() }
+ 
++    LaunchedEffect(pendingMenuThreadId, snapshot != null) {
++        if (state.openRowMenu(pendingMenuThreadId, snapshot)) {
++            onPendingMenuConsumed()
++        }
++    }
++
+     LaunchedEffect(pendingThreadId, snapshot != null) {
+         if (state.openPendingThread(pendingThreadId, snapshot != null)) {
+             onPendingThreadConsumed()
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHomeRowsTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHomeRowsTest.kt
+new file mode 100644
+index 0000000..38e7b34
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHomeRowsTest.kt
+@@ -0,0 +1,58 @@
++package org.sableos.hub.policy
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.sableos.hub.HubConversation
++import org.sableos.hub.HubConversationSource
++
++class HubHomeRowsTest {
++    private val sms =
++        HubConversation(
++            threadId = 3L,
++            address = "+15550100100",
++            displayName = "Maya",
++            lastBody = "Train\narrives 7:18",
++            lastDateMillis = 2_000L,
++            unreadCount = 2,
++        )
++    private val gmail =
++        HubConversation(
++            threadId = -7L,
++            address = "demo",
++            displayName = "Demo project",
++            lastBody = "The latest launcher preview is ready.",
++            lastDateMillis = 3_000L,
++            unreadCount = 1,
++            source = HubConversationSource.ConnectedApp,
++            sourcePackage = "com.google.android.gm",
++            sourceUserSerial = 0L,
++        )
++    private val work = gmail.copy(threadId = -8L, sourceUserSerial = 10L, lastDateMillis = 4_000L)
++
++    @Test
++    fun newestPersonalRowsFirstWithOneLinePreviews() {
++        val rows = HubHomeRows.rows(listOf(sms, gmail, work), HubPrivacyState(), personalSerial = 0L)
++        assertEquals(listOf(-7L, 3L), rows.map { it.threadId })
++        assertEquals("Train arrives 7:18", rows[1].preview)
++        assertTrue(rows[1].sms)
++        assertEquals("com.google.android.gm", rows[0].packageName)
++    }
++
++    @Test
++    fun lockedPrivateModeOrUnknownProfileShowNothing() {
++        val all = listOf(sms, gmail)
++        assertTrue(HubHomeRows.rows(all, HubPrivacyState(deviceLocked = true), 0L).isEmpty())
++        assertTrue(HubHomeRows.rows(all, HubPrivacyState(privateMode = true), 0L).isEmpty())
++        assertTrue(HubHomeRows.rows(all, HubPrivacyState(), -1L).isEmpty())
++    }
++
++    @Test
++    fun capsRowsAndText() {
++        val many = (1..40).map { sms.copy(threadId = it.toLong(), lastDateMillis = it.toLong(), lastBody = "x".repeat(300)) }
++        val rows = HubHomeRows.rows(many, HubPrivacyState(), 0L)
++        assertEquals(HubHomeRows.MAX_ROWS, rows.size)
++        assertEquals(40L, rows.first().threadId)
++        assertEquals(HubHomeRows.MAX_PREVIEW, rows.first().preview.length)
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/live/LiveSurfaceModels.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/live/LiveSurfaceModels.kt
+index 9ded468..ac3b836 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/live/LiveSurfaceModels.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/live/LiveSurfaceModels.kt
+@@ -31,6 +31,20 @@ data class AppUnreadCount(
+     }
+ }
+ 
++/**
++ * One message on the Hub page (`content://org.sableos.hub.snapshot/messages`): Hub's own inbox
++ * row after its redaction. Hub sends none while the device is locked or in Sable private mode.
++ */
++data class HubMessageRow(
++    val threadId: Long,
++    val title: String,
++    val preview: String,
++    val dateMillis: Long,
++    val unread: Int,
++    val sms: Boolean,
++    val packageName: String?,
++)
++
+ data class LiveSurfaceSnapshot(
+     val dateText: String,
+     val timeText: String,
+@@ -43,6 +57,8 @@ data class LiveSurfaceSnapshot(
+     val observedAtEpochMs: Long,
+     /** The Hub page's unread bar, most unread first; empty when Hub has nothing or is missing. */
+     val hubApps: List<AppUnreadCount> = emptyList(),
++    /** The Hub page's message list, newest first; empty when Hub sends none. */
++    val hubMessages: List<HubMessageRow> = emptyList(),
+ ) {
+     init {
+         require(dateText.isNotBlank())
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LiveSurfaceRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LiveSurfaceRepository.kt
+index 0c62c50..037add3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LiveSurfaceRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LiveSurfaceRepository.kt
+@@ -11,6 +11,7 @@ import com.sable.start.model.StartText.t
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+ import org.sableos.start.live.AppUnreadCount
++import org.sableos.start.live.HubMessageRow
+ import org.sableos.start.live.LiveAvailability
+ import org.sableos.start.live.LiveDatum
+ import org.sableos.start.live.LiveSurfaceSnapshot
+@@ -100,6 +101,7 @@ class LiveSurfaceRepository(
+                     ),
+                 observedAtEpochMs = nowEpochMs,
+                 hubApps = hubAppCounts(),
++                hubMessages = hubMessages(),
+             )
+         }
+ 
+@@ -119,6 +121,37 @@ class LiveSurfaceRepository(
+             }
+         }.getOrNull().orEmpty()
+ 
++    /** Sable Hub's newest inbox rows for the Hub page; empty while locked or when Hub cannot say. */
++    private fun hubMessages(): List<HubMessageRow> =
++        runCatching {
++            resolver.query(HUB_MESSAGES_URI, HUB_MESSAGE_COLUMNS, null, null, null)?.use { cursor ->
++                val id = cursor.getColumnIndexOrThrow("thread_id")
++                val title = cursor.getColumnIndexOrThrow("title")
++                val preview = cursor.getColumnIndexOrThrow("preview")
++                val date = cursor.getColumnIndexOrThrow("date")
++                val unread = cursor.getColumnIndexOrThrow("unread")
++                val sms = cursor.getColumnIndexOrThrow("sms")
++                val pkg = cursor.getColumnIndexOrThrow("package")
++                buildList {
++                    while (cursor.moveToNext() && size < MAX_HUB_MESSAGES) {
++                        val name = cursor.getString(title)?.trim().orEmpty()
++                        if (name.isEmpty()) continue
++                        add(
++                            HubMessageRow(
++                                threadId = cursor.getLong(id),
++                                title = name,
++                                preview = cursor.getString(preview)?.trim().orEmpty(),
++                                dateMillis = cursor.getLong(date),
++                                unread = cursor.getInt(unread).coerceAtLeast(0),
++                                sms = cursor.getInt(sms) != 0,
++                                packageName = cursor.getString(pkg)?.takeIf { it.isNotBlank() },
++                            ),
++                        )
++                    }
++                }
++            }
++        }.getOrNull().orEmpty()
++
+     private fun providerSnapshot(
+         uri: Uri,
+         fallbackTitle: String,
+@@ -258,6 +291,13 @@ class LiveSurfaceRepository(
+         val HUB_APPS_URI: Uri =
+             Uri.parse("content://org.sableos.hub.snapshot/apps")
+         private const val MAX_HUB_APPS = 32
++        private const val MAX_HUB_MESSAGES = 30
++
++        /** The Hub page's message rows; Hub notifies [MESSAGES_URI] when they change. */
++        val HUB_MESSAGES_URI: Uri =
++            Uri.parse("content://org.sableos.hub.snapshot/messages")
++        private val HUB_MESSAGE_COLUMNS =
++            arrayOf("thread_id", "title", "preview", "date", "unread", "sms", "package")
+         val MAIL_URI: Uri =
+             Uri.parse("content://org.sableos.mail.snapshot/current")
+         val MEDIA_URI: Uri =
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 07b1445..9de5aa4 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -129,6 +129,7 @@ import org.sableos.design.SableRefreshableSurface
+ import org.sableos.design.SableTheme
+ import org.sableos.design.SableTypeToJump
+ import org.sableos.design.sableFocusRing
++import org.sableos.start.live.HubMessageRow
+ import org.sableos.start.live.LiveAvailability
+ import org.sableos.start.live.LiveDatum
+ import org.sableos.start.live.LiveSurfaceSnapshot
+@@ -2051,6 +2052,12 @@ private fun HubPage(
+                 actions = actions,
+             )
+         } else {
++            hubMessageItems(
++                filter = filter,
++                rows = snapshot.hubMessages,
++                appFor = { pkg -> pkg?.let { personalApps[it] } ?: messagesApp },
++                onStartIntent = onStartIntent,
++            )
+             hubSummaryItems(
+                 filter = filter,
+                 snapshot = snapshot,
+@@ -2245,6 +2252,137 @@ private fun HubTabs(
+  * The All, Messages and Calls tabs: Messages and Mail, Missed calls, and on All the notification
+  * summary ([summary] is null when Sable Hub is absent, which also hides Hub settings).
+  */
++/**
++ * The Hub page's message list (owner decision 2026-11-04, as BB10 and TenSeven): Hub's newest
++ * inbox rows, newest first, on All and Messages. Enter or a tap opens the thread in Hub; Menu,
++ * Alt+Enter or a long press opens Hub with that row's BB10 menu (Mark read, Snooze, Dismiss and
++ * the app's own actions run in Hub, which holds the notifications). Hub sends no rows while the
++ * phone is locked or in Sable private mode, and the cards stay.
++ */
++private fun androidx.compose.foundation.lazy.LazyListScope.hubMessageItems(
++    filter: HubFilter,
++    rows: List<HubMessageRow>,
++    appFor: (String?) -> AppEntry?,
++    onStartIntent: (Intent) -> Unit,
++) {
++    if (rows.isEmpty() || (filter != HubFilter.All && filter != HubFilter.Messages)) return
++    items(items = rows, key = { "hub-row:" + it.threadId }) { row ->
++        HubMessageRowItem(
++            row = row,
++            app = appFor(row.packageName),
++            onOpen = { onStartIntent(hubThreadIntent(row.threadId, menu = false)) },
++            onActions = { onStartIntent(hubThreadIntent(row.threadId, menu = true)) },
++        )
++    }
++}
++
++private fun hubThreadIntent(
++    threadId: Long,
++    menu: Boolean,
++): Intent =
++    Intent(HUB_ACTION_OPEN_THREAD)
++        .setPackage(HUB_PACKAGE)
++        .putExtra(HUB_EXTRA_THREAD_ID, threadId)
++        .putExtra(HUB_EXTRA_ROW_MENU, menu)
++        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
++
++/** One Hub message: app icon, sender or subject, a one-line preview, the time; unread has a blue edge. */
++@Composable
++private fun HubMessageRowItem(
++    row: HubMessageRow,
++    app: AppEntry?,
++    onOpen: () -> Unit,
++    onActions: () -> Unit,
++) {
++    var focused by remember { mutableStateOf(false) }
++    val shape = RoundedCornerShape(6.dp)
++    val text = if (focused) Bb10OnBlue else Bb10Text
++    val time = remember(row.dateMillis) { hubRowTime(row.dateMillis) }
++    Row(
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .heightIn(min = 56.dp)
++                .onFocusChanged { focused = it.isFocused }
++                .clip(shape)
++                .background(if (focused) Bb10Blue else Bb10Card)
++                .border(1.dp, Bb10Line, shape)
++                .onPreviewKeyEvent { event ->
++                    val native = event.nativeKeyEvent
++                    val alt = native.metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) != 0
++                    val menu =
++                        native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
++                            (native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && alt)
++                    if (menu && event.type == KeyEventType.KeyDown && native.repeatCount == 0) onActions()
++                    menu
++                }.combinedClickable(onClick = onOpen, onLongClick = onActions)
++                .semantics {
++                    contentDescription =
++                        listOfNotNull(row.title, row.preview.takeIf { it.isNotBlank() }, time).joinToString(", ") +
++                        if (row.unread > 0) ", " + t("hub_unread") else ""
++                },
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        Box(
++            Modifier
++                .width(HUB_ROW_EDGE_DP.dp)
++                .height(40.dp)
++                .background(if (row.unread > 0) Bb10Blue else Color.Transparent),
++        )
++        Spacer(Modifier.width(8.dp))
++        if (app != null) AppMark(app = app, size = HUB_ROW_ICON_DP) else HubLockMark()
++        Spacer(Modifier.width(10.dp))
++        Column(modifier = Modifier.weight(1f).padding(vertical = 6.dp)) {
++            Row(verticalAlignment = Alignment.CenterVertically) {
++                Text(
++                    text = row.title,
++                    style = MaterialTheme.typography.titleSmall,
++                    fontWeight = if (row.unread > 0) FontWeight.Bold else FontWeight.Medium,
++                    color = text,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                    modifier = Modifier.weight(1f),
++                )
++                Text(
++                    text = time,
++                    style = MaterialTheme.typography.labelSmall,
++                    color = text,
++                    maxLines = 1,
++                )
++            }
++            if (row.preview.isNotBlank()) {
++                Text(
++                    text = row.preview,
++                    style = MaterialTheme.typography.bodySmall,
++                    color = text,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                )
++            }
++        }
++        Spacer(Modifier.width(8.dp))
++    }
++}
++
++/** Today's rows show the time, older ones the short date, in the phone's own format. */
++private fun hubRowTime(epochMillis: Long): String {
++    if (epochMillis <= 0L) return ""
++    val now = java.util.Calendar.getInstance()
++    val then = java.util.Calendar.getInstance().apply { timeInMillis = epochMillis }
++    val sameDay =
++        now.get(java.util.Calendar.YEAR) == then.get(java.util.Calendar.YEAR) &&
++            now.get(java.util.Calendar.DAY_OF_YEAR) == then.get(java.util.Calendar.DAY_OF_YEAR)
++    val skeleton = if (sameDay) "jm" else "MMMd"
++    val pattern = android.text.format.DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), skeleton)
++    return android.text.format.DateFormat.format(pattern, epochMillis).toString()
++}
++
++private const val HUB_ROW_EDGE_DP = 3
++private const val HUB_ROW_ICON_DP = 28
++private const val HUB_ACTION_OPEN_THREAD = "org.sableos.hub.action.OPEN_THREAD"
++private const val HUB_EXTRA_THREAD_ID = "org.sableos.hub.extra.THREAD_ID"
++private const val HUB_EXTRA_ROW_MENU = "org.sableos.hub.extra.ROW_MENU"
++
+ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+     filter: HubFilter,
+     snapshot: LiveSurfaceSnapshot,
+@@ -2253,7 +2391,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+     mailApp: AppEntry?,
+     actions: HubActions,
+ ) {
+-    val showMessages = filter != HubFilter.Calls
++    // The message list replaces the Messages and Mail cards when Hub sends rows (hubMessageItems).
++    val showMessages = filter != HubFilter.Calls && snapshot.hubMessages.isEmpty()
+     val showCalls = filter != HubFilter.Messages
+     if (showMessages) {
+         item(key = "messages") {

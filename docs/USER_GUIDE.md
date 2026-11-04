@@ -57,7 +57,7 @@ The keyboard does almost everything. Typing on the home screen searches, arrows 
 
 | Page | What it shows | Keys |
 | --- | --- | --- |
-| Hub (left) | All · Messages · Calls · Contacts, and an unread bar per app | T/B top and bottom, Enter opens |
+| Hub (left) | All · Messages · Calls · Contacts, an unread bar per app, and your newest messages (sender, one line, time; unread ones have a blue edge). Locked or in private mode it shows counts only | T/B top and bottom, Enter opens the message in Hub, Menu (or Alt+Enter, or a long press) opens its BB10 menu |
 | Active Frames (home) | Your recent apps as live frames | Arrows move, Enter resumes, × closes |
 | App pages (right) | 5-column grid of every app | Arrows move, a letter jumps |
 | Bottom bar | Hub (a dot shows unread items) · page dots · Camera | Alt+1, Alt+2; the call key opens Phone |

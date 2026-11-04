@@ -226,6 +226,24 @@ private class HubUiState {
     }
 
     /**
+     * Sable Start's Hub page, Menu on a message row: the inbox on All with that row's menu open.
+     * False until the snapshot is loaded; a thread Hub no longer lists just opens the inbox.
+     */
+    fun openRowMenu(
+        threadId: Long?,
+        snapshot: HubSnapshot?,
+    ): Boolean {
+        if (threadId == null || snapshot == null) return false
+        route = HubRoute.Root(HubPivot.Inbox)
+        inboxFilter = HubInboxFilter.All
+        actionsItem =
+            snapshot.conversations
+                .firstOrNull { it.threadId == threadId }
+                ?.let { HubInboxItem.Conversation(it) }
+        return true
+    }
+
+    /**
      * Start's Command "Search Hub for …" and Start's Hub tabs: open the inbox on the requested
      * filter (else All), all sources, with the search filled in.
      */
@@ -373,8 +391,16 @@ fun HubScreen(
     loadAppIcon: suspend (String, Long) -> ImageBitmap? = { _, _ -> null },
     notificationFacts: (String) -> HubNotificationFacts = { HubNotificationFacts() },
     onNotificationCommand: (String, HubMenuEntry) -> String? = { _, _ -> null },
+    pendingMenuThreadId: Long? = null,
+    onPendingMenuConsumed: () -> Unit = {},
 ) {
     val state = remember { HubUiState() }
+
+    LaunchedEffect(pendingMenuThreadId, snapshot != null) {
+        if (state.openRowMenu(pendingMenuThreadId, snapshot)) {
+            onPendingMenuConsumed()
+        }
+    }
 
     LaunchedEffect(pendingThreadId, snapshot != null) {
         if (state.openPendingThread(pendingThreadId, snapshot != null)) {
