@@ -26,27 +26,27 @@ focus.
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
 ---
- res/layout/finish_activity.xml | 35 ++++++++++++++++++----------------
- res/values/sable_strings.xml   | 14 +++++++-------
+ app/src/main/res/layout/finish_activity.xml | 35 +++++++++++++++++++----------------
+ app/src/main/res/values/sable_strings.xml   | 14 +++++++-------
  2 files changed, 26 insertions(+), 23 deletions(-)
 
-diff --git a/res/layout/finish_activity.xml b/res/layout/finish_activity.xml
-index 2446f16..4552f6c 100644
---- a/res/layout/finish_activity.xml
-+++ b/res/layout/finish_activity.xml
-@@ -39,8 +39,9 @@
-             android:gravity="center"
-             android:padding="@dimen/content_margin_left"/>
+diff --git a/app/src/main/res/layout/finish_activity.xml b/app/src/main/res/layout/finish_activity.xml
+index 8cbd6f3..fae09e2 100644
+--- a/app/src/main/res/layout/finish_activity.xml
++++ b/app/src/main/res/layout/finish_activity.xml
+@@ -34,8 +34,9 @@
+             android:scaleType="fitCenter"
+             android:src="@drawable/logo" />
  
 -        <!-- SableOS Ready screen: how the phone works after setup. The text scrolls with the
 -             arrow keys when focused; Start stays the first focus. -->
 +        <!-- SableOS Ready screen (setup design "Ready to Start"): Home and the bar of the
-+             BB10 Sable Start, one card each, then Start. The rows scroll with the arrow keys
-+             when focused; Start stays the first focus. -->
++             BB10 Sable Start, one card each, above the go-home hint. The rows scroll with the
++             arrow keys when focused; Enter finishes setup. -->
          <ScrollView
              android:id="@+id/sable_ready"
              android:layout_width="match_parent"
-@@ -54,6 +55,20 @@
+@@ -49,6 +50,20 @@
                  android:layout_width="match_parent"
                  android:layout_height="wrap_content">
  
@@ -67,7 +67,7 @@ index 2446f16..4552f6c 100644
                  <TextView
                      style="@style/SableSetupItem"
                      android:text="@string/sable_ready_title"
-@@ -61,25 +76,13 @@
+@@ -56,25 +71,13 @@
                      android:accessibilityHeading="true" />
  
                  <TextView
@@ -95,10 +95,10 @@ index 2446f16..4552f6c 100644
              </LinearLayout>
          </ScrollView>
  
-diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
 index b4ab399..8ced9da 100644
---- a/res/values/sable_strings.xml
-+++ b/res/values/sable_strings.xml
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
 @@ -84,11 +84,11 @@
          <item>Slate</item>
      </string-array>

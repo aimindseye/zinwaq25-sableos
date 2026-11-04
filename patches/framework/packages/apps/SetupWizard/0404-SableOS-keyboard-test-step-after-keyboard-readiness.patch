@@ -26,26 +26,21 @@ The checks live in the pure SableKeyTest class (IR-014).
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01FqvfFQhAvko2gkqcxM25Aa
 ---
- AndroidManifest.xml                           |  14 ++
- res/layout/sable_keyboard_test_page.xml       | 107 ++++++++++
- res/raw/lineage_wizard_script.xml             |   7 +
- res/values/sable_strings.xml                  |  26 ++-
- .../SableKeyboardTestActivity.java            | 178 ++++++++++++++++
- src/org/lineageos/setupwizard/SableLinks.java |  49 +++++
- .../setupwizard/sable/SableKeyTest.java       | 196 ++++++++++++++++++
- .../setupwizard/widget/SableKeyTestField.java |  52 +++++
- 8 files changed, 628 insertions(+), 1 deletion(-)
- create mode 100644 res/layout/sable_keyboard_test_page.xml
- create mode 100644 src/org/lineageos/setupwizard/SableKeyboardTestActivity.java
- create mode 100644 src/org/lineageos/setupwizard/SableLinks.java
- create mode 100644 src/org/lineageos/setupwizard/sable/SableKeyTest.java
- create mode 100644 src/org/lineageos/setupwizard/widget/SableKeyTestField.java
+ app/src/main/AndroidManifest.xml                                |  14 ++
+ .../org/lineageos/setupwizard/SableKeyboardTestActivity.java    | 184 ++++++++++++++++++++++++++
+ app/src/main/java/org/lineageos/setupwizard/SableLinks.java     |  49 +++++++
+ .../main/java/org/lineageos/setupwizard/sable/SableKeyTest.java | 196 ++++++++++++++++++++++++++++
+ .../org/lineageos/setupwizard/widget/SableKeyTestField.java     |  52 ++++++++
+ app/src/main/res/layout/sable_keyboard_test_page.xml            | 100 ++++++++++++++
+ app/src/main/res/raw/lineage_wizard_script.xml                  |   7 +
+ app/src/main/res/values/sable_strings.xml                       |  26 +++-
+ 8 files changed, 627 insertions(+), 1 deletion(-)
 
-diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index 2b65ac44..feacac0b 100644
---- a/AndroidManifest.xml
-+++ b/AndroidManifest.xml
-@@ -159,6 +159,20 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 92b72f3..f16f562 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -160,6 +160,20 @@
              </intent-filter>
          </activity>
  
@@ -64,187 +59,14 @@ index 2b65ac44..feacac0b 100644
 +        </activity>
 +
          <activity
-             android:name=".SimMissingActivity"
+             android:name=".time.DateTimeActivity"
              android:label="@string/activity_label_empty"
-diff --git a/res/layout/sable_keyboard_test_page.xml b/res/layout/sable_keyboard_test_page.xml
+diff --git a/app/src/main/java/org/lineageos/setupwizard/SableKeyboardTestActivity.java b/app/src/main/java/org/lineageos/setupwizard/SableKeyboardTestActivity.java
 new file mode 100644
-index 00000000..0e870a7b
+index 0000000..346df82
 --- /dev/null
-+++ b/res/layout/sable_keyboard_test_page.xml
-@@ -0,0 +1,107 @@
-+<?xml version="1.0" encoding="utf-8"?>
-+<!--
-+     SPDX-FileCopyrightText: The SableOS Project
-+     SPDX-License-Identifier: Apache-2.0
-+-->
-+<com.google.android.setupdesign.GlifLayout
-+    xmlns:android="http://schemas.android.com/apk/res/android"
-+    xmlns:app="http://schemas.android.com/apk/res-auto"
-+    android:id="@+id/setup_wizard_layout"
-+    android:layout_width="match_parent"
-+    android:layout_height="match_parent">
-+
-+    <LinearLayout
-+        android:orientation="vertical"
-+        android:layout_width="match_parent"
-+        android:layout_height="match_parent"
-+        style="@style/SudContentFrame">
-+
-+        <ScrollView
-+            android:id="@+id/page"
-+            android:layout_width="match_parent"
-+            android:layout_height="0dp"
-+            android:layout_weight="1">
-+
-+            <LinearLayout
-+                android:orientation="vertical"
-+                android:layout_width="match_parent"
-+                android:layout_height="wrap_content">
-+
-+                <!-- Typed text is never saved, autofilled, suggested or learned. -->
-+                <org.lineageos.setupwizard.widget.SableKeyTestField
-+                    android:id="@+id/sable_key_test_field"
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content"
-+                    android:minHeight="48dp"
-+                    android:hint="@string/sable_key_test_hint"
-+                    android:inputType="text|textNoSuggestions"
-+                    android:imeOptions="actionNext|flagNoExtractUi|flagNoPersonalizedLearning"
-+                    android:importantForAutofill="no"
-+                    android:saveEnabled="false" />
-+
-+                <!-- One row per check, filled in by SableKeyboardTestActivity. -->
-+                <GridLayout
-+                    android:id="@+id/sable_key_test_checks"
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content"
-+                    android:paddingVertical="4dp"
-+                    android:columnCount="2" />
-+
-+                <TextView
-+                    android:id="@+id/sable_key_test_progress"
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content"
-+                    android:paddingVertical="4dp"
-+                    android:accessibilityLiveRegion="polite"
-+                    android:textColor="?android:attr/textColorPrimary" />
-+
-+                <TextView
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content"
-+                    android:paddingVertical="4dp"
-+                    android:text="@string/sable_key_test_layers"
-+                    android:textColor="?android:attr/textColorSecondary" />
-+
-+                <TextView
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content"
-+                    android:paddingTop="4dp"
-+                    android:text="@string/sable_key_test_trouble"
-+                    android:textColor="?android:attr/textColorSecondary" />
-+
-+                <LinearLayout
-+                    android:orientation="horizontal"
-+                    android:layout_width="match_parent"
-+                    android:layout_height="wrap_content">
-+
-+                    <Button
-+                        android:id="@+id/sable_key_test_soft"
-+                        android:layout_width="wrap_content"
-+                        android:layout_height="wrap_content"
-+                        android:minHeight="48dp"
-+                        android:text="@string/sable_key_test_soft"
-+                        android:visibility="gone"
-+                        style="@style/SudGlifButton.Secondary" />
-+
-+                    <Button
-+                        android:id="@+id/sable_key_test_accessibility"
-+                        android:layout_width="wrap_content"
-+                        android:layout_height="wrap_content"
-+                        android:minHeight="48dp"
-+                        android:text="@string/sable_key_test_accessibility"
-+                        android:visibility="gone"
-+                        style="@style/SudGlifButton.Secondary" />
-+
-+                </LinearLayout>
-+
-+            </LinearLayout>
-+        </ScrollView>
-+
-+        <org.lineageos.setupwizard.NavigationLayout
-+            android:id="@+id/navigation_bar"
-+            android:layout_width="match_parent"
-+            android:layout_height="wrap_content"
-+            app:showSkipButton="true" />
-+
-+    </LinearLayout>
-+</com.google.android.setupdesign.GlifLayout>
-diff --git a/res/raw/lineage_wizard_script.xml b/res/raw/lineage_wizard_script.xml
-index 8dc45c93..0be0d260 100644
---- a/res/raw/lineage_wizard_script.xml
-+++ b/res/raw/lineage_wizard_script.xml
-@@ -30,6 +30,13 @@
-     <WizardAction
-         wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_KEYBOARD;end"
-         id="sable_keyboard">
-+        <result wizard:action="sable_keyboard_test" />
-+    </WizardAction>
-+
-+    <!-- SableOS: type a sentence and see each key register; Skip and Next always work (IR-014). -->
-+    <WizardAction
-+        wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_KEYBOARD_TEST;end"
-+        id="sable_keyboard_test">
-         <result wizard:action="sim_missing" />
-     </WizardAction>
- 
-diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
-index f36d1a1a..d3be6716 100644
---- a/res/values/sable_strings.xml
-+++ b/res/values/sable_strings.xml
-@@ -3,7 +3,7 @@
-      SPDX-FileCopyrightText: The SableOS Project
-      SPDX-License-Identifier: Apache-2.0
- -->
--<resources>
-+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-     <!-- SableOS keyboard readiness step (IR-014). -->
-     <string name="setup_sable_keyboard">Keyboard</string>
-     <string name="sable_keyboard_summary">Sable Keyboard types with the physical keys, including Wi‑Fi passwords and PINs in the next steps.</string>
-@@ -16,4 +16,28 @@
-     <string name="sable_keyboard_offer_settings">Keyboard settings</string>
-     <string name="sable_keyboard_offer_pick">Choose keyboard</string>
-     <string name="sable_keyboard_offer_enable">Turn on keyboard</string>
-+
-+    <!-- SableOS keyboard test step (IR-014). The Q25 has no Fn key: Shift, Alt and Sym only. -->
-+    <string name="setup_sable_keyboard_test">Keyboard test</string>
-+    <string name="sable_key_test_summary">Type a sentence, for example: Meet at 7:30 &amp; bring 2 maps! Each kind of key is ticked below when it registers.</string>
-+    <string name="sable_key_test_hint">Type here</string>
-+    <string name="sable_key_test_letters">Letters</string>
-+    <string name="sable_key_test_capitals">Shift capitals</string>
-+    <string name="sable_key_test_numbers">Numbers</string>
-+    <string name="sable_key_test_alt">Alt characters</string>
-+    <string name="sable_key_test_sym">Sym symbols</string>
-+    <string name="sable_key_test_space">Space</string>
-+    <string name="sable_key_test_backspace">Backspace</string>
-+    <string name="sable_key_test_row_waiting">○ <xliff:g id="check" example="Letters">%1$s</xliff:g></string>
-+    <string name="sable_key_test_row_pressed">◐ <xliff:g id="check" example="Alt characters">%1$s</xliff:g></string>
-+    <string name="sable_key_test_row_pass">✓ <xliff:g id="check" example="Letters">%1$s</xliff:g></string>
-+    <string name="sable_key_test_row_waiting_spoken"><xliff:g id="check" example="Letters">%1$s</xliff:g>: not yet</string>
-+    <string name="sable_key_test_row_pressed_spoken"><xliff:g id="check" example="Alt characters">%1$s</xliff:g>: key pressed, now type a character with it</string>
-+    <string name="sable_key_test_row_pass_spoken"><xliff:g id="check" example="Letters">%1$s</xliff:g>: works</string>
-+    <string name="sable_key_test_progress"><xliff:g id="passed" example="3">%1$d</xliff:g> of <xliff:g id="total" example="7">%2$d</xliff:g> work</string>
-+    <string name="sable_key_test_all">All keys work. Press Enter to continue.</string>
-+    <string name="sable_key_test_layers">Shift types capitals. Alt types the second character printed on a key, such as numbers. Sym opens symbols that are not printed on the keys. Enter continues; Skip if you would rather test later in Sable Tools. Nothing you type here is kept.</string>
-+    <string name="sable_key_test_trouble">Keys not working? Use the on-screen keyboard or accessibility options.</string>
-+    <string name="sable_key_test_soft">On-screen keyboard</string>
-+    <string name="sable_key_test_accessibility">Accessibility</string>
- </resources>
-diff --git a/src/org/lineageos/setupwizard/SableKeyboardTestActivity.java b/src/org/lineageos/setupwizard/SableKeyboardTestActivity.java
-new file mode 100644
-index 00000000..91bbfa64
---- /dev/null
-+++ b/src/org/lineageos/setupwizard/SableKeyboardTestActivity.java
-@@ -0,0 +1,178 @@
++++ b/app/src/main/java/org/lineageos/setupwizard/SableKeyboardTestActivity.java
+@@ -0,0 +1,184 @@
 +/*
 + * SPDX-FileCopyrightText: The SableOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -267,6 +89,7 @@ index 00000000..91bbfa64
 +
 +import com.android.settingslib.Utils;
 +
++import org.lineageos.setupwizard.base.BaseSetupWizardActivity;
 +import org.lineageos.setupwizard.sable.SableKeyTest;
 +import org.lineageos.setupwizard.sable.SableKeyTest.Check;
 +import org.lineageos.setupwizard.sable.SableKeyTest.State;
@@ -325,7 +148,7 @@ index 00000000..91bbfa64
 +        // The IME's Next/Done action continues, the same as Enter on the physical keys.
 +        mField.setOnEditorActionListener((v, actionId, event) -> {
 +            if (actionId == EditorInfo.IME_ACTION_NEXT || actionId == EditorInfo.IME_ACTION_DONE) {
-+                onNavigateNext();
++                onNextPressed();
 +                return true;
 +            }
 +            return false;
@@ -414,6 +237,11 @@ index 00000000..91bbfa64
 +    }
 +
 +    @Override
++    protected boolean getShowSkipButton() {
++        return true;
++    }
++
++    @Override
 +    protected int getTitleResId() {
 +        return R.string.setup_sable_keyboard_test;
 +    }
@@ -423,11 +251,11 @@ index 00000000..91bbfa64
 +        return R.drawable.ic_sable_keyboard_setup;
 +    }
 +}
-diff --git a/src/org/lineageos/setupwizard/SableLinks.java b/src/org/lineageos/setupwizard/SableLinks.java
+diff --git a/app/src/main/java/org/lineageos/setupwizard/SableLinks.java b/app/src/main/java/org/lineageos/setupwizard/SableLinks.java
 new file mode 100644
-index 00000000..10088141
+index 0000000..1008814
 --- /dev/null
-+++ b/src/org/lineageos/setupwizard/SableLinks.java
++++ b/app/src/main/java/org/lineageos/setupwizard/SableLinks.java
 @@ -0,0 +1,49 @@
 +/*
 + * SPDX-FileCopyrightText: The SableOS Project
@@ -478,11 +306,11 @@ index 00000000..10088141
 +        return false;
 +    }
 +}
-diff --git a/src/org/lineageos/setupwizard/sable/SableKeyTest.java b/src/org/lineageos/setupwizard/sable/SableKeyTest.java
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyTest.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyTest.java
 new file mode 100644
-index 00000000..a26bfcf0
+index 0000000..a26bfcf
 --- /dev/null
-+++ b/src/org/lineageos/setupwizard/sable/SableKeyTest.java
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyTest.java
 @@ -0,0 +1,196 @@
 +/*
 + * SPDX-FileCopyrightText: The SableOS Project
@@ -680,11 +508,11 @@ index 00000000..a26bfcf0
 +        return true;
 +    }
 +}
-diff --git a/src/org/lineageos/setupwizard/widget/SableKeyTestField.java b/src/org/lineageos/setupwizard/widget/SableKeyTestField.java
+diff --git a/app/src/main/java/org/lineageos/setupwizard/widget/SableKeyTestField.java b/app/src/main/java/org/lineageos/setupwizard/widget/SableKeyTestField.java
 new file mode 100644
-index 00000000..289c75bb
+index 0000000..289c75b
 --- /dev/null
-+++ b/src/org/lineageos/setupwizard/widget/SableKeyTestField.java
++++ b/app/src/main/java/org/lineageos/setupwizard/widget/SableKeyTestField.java
 @@ -0,0 +1,52 @@
 +/*
 + * SPDX-FileCopyrightText: The SableOS Project
@@ -738,6 +566,172 @@ index 00000000..289c75bb
 +        return super.onKeyPreIme(keyCode, event);
 +    }
 +}
+diff --git a/app/src/main/res/layout/sable_keyboard_test_page.xml b/app/src/main/res/layout/sable_keyboard_test_page.xml
+new file mode 100644
+index 0000000..c8e2869
+--- /dev/null
++++ b/app/src/main/res/layout/sable_keyboard_test_page.xml
+@@ -0,0 +1,100 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<com.google.android.setupdesign.GlifLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/setup_wizard_layout"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent">
++
++    <LinearLayout
++        android:orientation="vertical"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        style="@style/SudContentFrame">
++
++        <ScrollView
++            android:id="@+id/page"
++            android:layout_width="match_parent"
++            android:layout_height="0dp"
++            android:layout_weight="1">
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content">
++
++                <!-- Typed text is never saved, autofilled, suggested or learned. -->
++                <org.lineageos.setupwizard.widget.SableKeyTestField
++                    android:id="@+id/sable_key_test_field"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:minHeight="48dp"
++                    android:hint="@string/sable_key_test_hint"
++                    android:inputType="text|textNoSuggestions"
++                    android:imeOptions="actionNext|flagNoExtractUi|flagNoPersonalizedLearning"
++                    android:importantForAutofill="no"
++                    android:saveEnabled="false" />
++
++                <!-- One row per check, filled in by SableKeyboardTestActivity. -->
++                <GridLayout
++                    android:id="@+id/sable_key_test_checks"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:paddingVertical="4dp"
++                    android:columnCount="2" />
++
++                <TextView
++                    android:id="@+id/sable_key_test_progress"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:paddingVertical="4dp"
++                    android:accessibilityLiveRegion="polite"
++                    android:textColor="?android:attr/textColorPrimary" />
++
++                <TextView
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:paddingVertical="4dp"
++                    android:text="@string/sable_key_test_layers"
++                    android:textColor="?android:attr/textColorSecondary" />
++
++                <TextView
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:paddingTop="4dp"
++                    android:text="@string/sable_key_test_trouble"
++                    android:textColor="?android:attr/textColorSecondary" />
++
++                <LinearLayout
++                    android:orientation="horizontal"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content">
++
++                    <Button
++                        android:id="@+id/sable_key_test_soft"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:minHeight="48dp"
++                        android:text="@string/sable_key_test_soft"
++                        android:visibility="gone"
++                        style="@style/SudGlifButton.Secondary" />
++
++                    <Button
++                        android:id="@+id/sable_key_test_accessibility"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:minHeight="48dp"
++                        android:text="@string/sable_key_test_accessibility"
++                        android:visibility="gone"
++                        style="@style/SudGlifButton.Secondary" />
++
++                </LinearLayout>
++
++            </LinearLayout>
++        </ScrollView>
++
++    </LinearLayout>
++</com.google.android.setupdesign.GlifLayout>
+diff --git a/app/src/main/res/raw/lineage_wizard_script.xml b/app/src/main/res/raw/lineage_wizard_script.xml
+index b685fca..ce7cc79 100644
+--- a/app/src/main/res/raw/lineage_wizard_script.xml
++++ b/app/src/main/res/raw/lineage_wizard_script.xml
+@@ -32,6 +32,13 @@
+     <WizardAction
+         id="sable_keyboard"
+         wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_KEYBOARD;end">
++        <result wizard:action="sable_keyboard_test" />
++    </WizardAction>
++
++    <!-- SableOS: type a sentence and see each key register; Skip and Next always work (IR-014). -->
++    <WizardAction
++        id="sable_keyboard_test"
++        wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_KEYBOARD_TEST;end">
+         <result wizard:action="network_setup" />
+     </WizardAction>
+ 
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
+index f36d1a1..d3be671 100644
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
+@@ -3,7 +3,7 @@
+      SPDX-FileCopyrightText: The SableOS Project
+      SPDX-License-Identifier: Apache-2.0
+ -->
+-<resources>
++<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+     <!-- SableOS keyboard readiness step (IR-014). -->
+     <string name="setup_sable_keyboard">Keyboard</string>
+     <string name="sable_keyboard_summary">Sable Keyboard types with the physical keys, including Wi‑Fi passwords and PINs in the next steps.</string>
+@@ -16,4 +16,28 @@
+     <string name="sable_keyboard_offer_settings">Keyboard settings</string>
+     <string name="sable_keyboard_offer_pick">Choose keyboard</string>
+     <string name="sable_keyboard_offer_enable">Turn on keyboard</string>
++
++    <!-- SableOS keyboard test step (IR-014). The Q25 has no Fn key: Shift, Alt and Sym only. -->
++    <string name="setup_sable_keyboard_test">Keyboard test</string>
++    <string name="sable_key_test_summary">Type a sentence, for example: Meet at 7:30 &amp; bring 2 maps! Each kind of key is ticked below when it registers.</string>
++    <string name="sable_key_test_hint">Type here</string>
++    <string name="sable_key_test_letters">Letters</string>
++    <string name="sable_key_test_capitals">Shift capitals</string>
++    <string name="sable_key_test_numbers">Numbers</string>
++    <string name="sable_key_test_alt">Alt characters</string>
++    <string name="sable_key_test_sym">Sym symbols</string>
++    <string name="sable_key_test_space">Space</string>
++    <string name="sable_key_test_backspace">Backspace</string>
++    <string name="sable_key_test_row_waiting">○ <xliff:g id="check" example="Letters">%1$s</xliff:g></string>
++    <string name="sable_key_test_row_pressed">◐ <xliff:g id="check" example="Alt characters">%1$s</xliff:g></string>
++    <string name="sable_key_test_row_pass">✓ <xliff:g id="check" example="Letters">%1$s</xliff:g></string>
++    <string name="sable_key_test_row_waiting_spoken"><xliff:g id="check" example="Letters">%1$s</xliff:g>: not yet</string>
++    <string name="sable_key_test_row_pressed_spoken"><xliff:g id="check" example="Alt characters">%1$s</xliff:g>: key pressed, now type a character with it</string>
++    <string name="sable_key_test_row_pass_spoken"><xliff:g id="check" example="Letters">%1$s</xliff:g>: works</string>
++    <string name="sable_key_test_progress"><xliff:g id="passed" example="3">%1$d</xliff:g> of <xliff:g id="total" example="7">%2$d</xliff:g> work</string>
++    <string name="sable_key_test_all">All keys work. Press Enter to continue.</string>
++    <string name="sable_key_test_layers">Shift types capitals. Alt types the second character printed on a key, such as numbers. Sym opens symbols that are not printed on the keys. Enter continues; Skip if you would rather test later in Sable Tools. Nothing you type here is kept.</string>
++    <string name="sable_key_test_trouble">Keys not working? Use the on-screen keyboard or accessibility options.</string>
++    <string name="sable_key_test_soft">On-screen keyboard</string>
++    <string name="sable_key_test_accessibility">Accessibility</string>
+ </resources>
 -- 
 2.43.0
 

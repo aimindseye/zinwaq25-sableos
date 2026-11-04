@@ -477,7 +477,7 @@ report(
 suw = {f.name[:4]: f.read_text(encoding="utf-8") for f in SETUPWIZARD_PATCHES.glob("04*.patch")}
 p0408 = suw.get("0408", "")
 report(
-    '-        id="lineage_settings">' in p0408
+    '-        id="lineage_settings"' in p0408
     and '-        <result wizard:action="lineage_settings" />' in p0408
     and '<result wizard:action="biometric_settings" />' in p0408
     and "lineage_settings" not in "".join(l for l in p0408.splitlines(True) if l.startswith("+")),

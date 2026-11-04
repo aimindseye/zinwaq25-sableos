@@ -24,10 +24,10 @@ the Q4 gates in [QUALIFICATION.md](QUALIFICATION.md) apply unchanged.
 
 ## Status
 
-62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 17 ported by hand, 14 still to port (SetupWizard).
+62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port.
 
-Until the last group is ported, `stage Q4` (and so the full release) stops at the first patch that
-does not apply; Q1 to Q3 (no framework patches) are unaffected.
+Every patch applies to the 24.0 heads in order. That is not yet a build: the ports below were
+written against the 24.0 sources without compiling them, so the first 24.0 build is the real test.
 
 | Patch | 24.0 status |
 |---|---|
@@ -122,29 +122,44 @@ does not apply; Q1 to Q3 (no framework patches) are unaffected.
 | `packages/apps/Settings/1301-SableOS-battery-voltage-row-and-the-Q25-s-learned-hea.patch` | applies as is |
 | `packages/apps/Settings/1401-SableOS-Settings-homepage-row-opens-Sable-Setup-dire.patch` | applies after the earlier ports |
 | `packages/apps/Settings/1501-SableOS-Keyboard-firmware-screen-and-1122-on-the-Q25.patch` | refreshed (context moved) |
-| `packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | to port |
-| `packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | to port |
-| `packages/apps/SetupWizard/0403-SableOS-Esc-returns-to-the-previous-setup-step.patch` | to port |
-| `packages/apps/SetupWizard/0404-SableOS-keyboard-test-step-after-keyboard-readiness.patch` | to port |
-| `packages/apps/SetupWizard/0405-SableOS-privacy-summary-step-after-Wi-Fi.patch` | to port |
-| `packages/apps/SetupWizard/0406-SableOS-Sable-accent-on-the-Theme-step-Theme-after-P.patch` | to port |
-| `packages/apps/SetupWizard/0407-SableOS-Ready-to-start-text-on-the-final-setup-page.patch` | to port |
-| `packages/apps/SetupWizard/0408-SableOS-drop-the-LineageOS-features-step.patch` | to port |
-| `packages/apps/SetupWizard/0409-SableOS-navy-cards-and-a-cyan-focus-ring-in-setup.patch` | to port |
-| `packages/apps/SetupWizard/0410-SableOS-Step-n-of-N-on-every-owner-setup-step.patch` | to port |
-| `packages/apps/SetupWizard/0411-SableOS-keyboard-check-on-Welcome-keyboard-steps-onl.patch` | to port |
-| `packages/apps/SetupWizard/0412-SableOS-Restore-hidden-until-validated-fail-closed.patch` | to port |
-| `packages/apps/SetupWizard/0413-SableOS-Ready-screen-rows-as-the-setup-design-shows-.patch` | to port |
-| `packages/apps/SetupWizard/0414-SableOS-keep-Next-on-screen-in-short-windows.patch` | to port |
+| `packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | ported by hand |
+| `packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | ported by hand |
+| `packages/apps/SetupWizard/0403-SableOS-Esc-returns-to-the-previous-setup-step.patch` | ported by hand |
+| `packages/apps/SetupWizard/0404-SableOS-keyboard-test-step-after-keyboard-readiness.patch` | ported by hand |
+| `packages/apps/SetupWizard/0405-SableOS-privacy-summary-step-after-Wi-Fi.patch` | ported by hand |
+| `packages/apps/SetupWizard/0406-SableOS-Sable-accent-on-the-Theme-step-Theme-after-P.patch` | ported by hand |
+| `packages/apps/SetupWizard/0407-SableOS-Ready-to-start-text-on-the-final-setup-page.patch` | ported by hand |
+| `packages/apps/SetupWizard/0408-SableOS-drop-the-LineageOS-features-step.patch` | ported by hand |
+| `packages/apps/SetupWizard/0409-SableOS-navy-cards-and-a-cyan-focus-ring-in-setup.patch` | ported by hand |
+| `packages/apps/SetupWizard/0410-SableOS-Step-n-of-N-on-every-owner-setup-step.patch` | ported by hand |
+| `packages/apps/SetupWizard/0411-SableOS-keyboard-check-on-Welcome-keyboard-steps-onl.patch` | ported by hand |
+| `packages/apps/SetupWizard/0412-SableOS-Restore-hidden-until-validated-fail-closed.patch` | ported by hand |
+| `packages/apps/SetupWizard/0413-SableOS-Ready-screen-rows-as-the-setup-design-shows-.patch` | ported by hand |
+| `packages/apps/SetupWizard/0414-SableOS-keep-Next-on-screen-in-short-windows.patch` | ported by hand |
 | `device/xelex/mt6789-common/1502-SableOS-let-Settings-drive-the-Q25-keyboard-firmware.patch` | ported by hand |
 
-## Why the rest need porting
+## What the hand ports changed
 
-* **SetupWizard (14):** LineageOS 24.0 rewrote SetupWizard in Kotlin under `app/src/main/`;
-  every Sable step is re-done against the new activities. SableOS 2.0 also moves the
-  Full Sable / Essentials / Stock Android choice into setup, so these are re-planned, not copied.
-* **Done:** SystemUI Quick Settings, lock screen and theme (frameworks/base 0101-0103, 0303, 0304,
-  0307, 0310-0312), Launcher3 0002, LineageParts 0601 and Settings 1002, 1201, 1202, 1205 were
+* **SetupWizard (0401-0414):** LineageOS 24.0 rewrote SetupWizard in Kotlin under `app/src/main/`
+  and replaced the old navigation bar with the setupcompat footer bar. The Sable steps keep their
+  Java classes (moved to `app/src/main/java`, and `app/Android.bp` now builds Java too); the hooks
+  in upstream classes (`BaseSetupWizardActivity`, `SubBaseActivity`, `WelcomeActivity`,
+  `ThemeSettingsActivity`, `NetworkSetupActivity`, `RestoreIntroActivity`) are rewritten in
+  Kotlin. Notes:
+  * The Sable pages drop their `NavigationLayout`; Next and Skip come from the footer bar.
+  * 24.0 runs Wi-Fi before the SIM screen, so the order is Welcome, Language, Sable Keyboard,
+    keyboard test, Wi-Fi, SIM, Privacy, Theme, then date and the rest. As on 23.2, Privacy and
+    Theme follow the network steps and the LineageOS features step is gone.
+  * The 24.0 Ready screen has no Start button; Enter (or Home) finishes setup, and the Sable
+    Ready rows sit between the logo and the go-home hint.
+  * In a short window only Welcome's own button bar needs moving; the footer bar already sits
+    under the scroll view.
+  * The Java classes were compile-checked against stubs of the 24.0 base API. The Kotlin was
+    not compiled (no Kotlin toolchain here).
+  * The Full Sable / Essentials / Stock Android choice is not in setup yet; it is a separate
+    change on top of these ports.
+* **SystemUI Quick Settings, lock screen and theme (frameworks/base 0101-0103, 0303, 0304,
+  0307, 0310-0312), Launcher3 0002, LineageParts 0601 and Settings 1002, 1201, 1202, 1205:**
   ported by hand on 2026-11-04. Notes:
   * 0101 keeps the 24.0 split-internet-tile branch; only the default set reads the overlay array.
   * 0102 sets the tile radii in `res/values/shade_dimens.xml`, where 24.0 moved them.

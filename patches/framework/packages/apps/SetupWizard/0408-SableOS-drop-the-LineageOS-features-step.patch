@@ -25,33 +25,33 @@ scripts are unchanged); only the owner flow skips it.
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
 ---
- res/raw/lineage_wizard_script.xml | 8 ++------
- res/values/sable_strings.xml      | 2 +-
+ app/src/main/res/raw/lineage_wizard_script.xml | 8 ++------
+ app/src/main/res/values/sable_strings.xml      | 2 +-
  2 files changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/res/raw/lineage_wizard_script.xml b/res/raw/lineage_wizard_script.xml
-index 3d6ed36..7c6367b 100644
---- a/res/raw/lineage_wizard_script.xml
-+++ b/res/raw/lineage_wizard_script.xml
-@@ -93,12 +93,8 @@
+diff --git a/app/src/main/res/raw/lineage_wizard_script.xml b/app/src/main/res/raw/lineage_wizard_script.xml
+index 6800366..63ce269 100644
+--- a/app/src/main/res/raw/lineage_wizard_script.xml
++++ b/app/src/main/res/raw/lineage_wizard_script.xml
+@@ -95,12 +95,8 @@
      <WizardAction
-         wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.LINEAGE_RECOVERY_UPDATE;end"
-         id="recovery_update">
+         id="recovery_update"
+         wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.LINEAGE_RECOVERY_UPDATE;end">
 -        <result wizard:action="lineage_settings" />
 -    </WizardAction>
 -
 -    <WizardAction
--        wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.LINEAGE_SETTINGS;end"
--        id="lineage_settings">
+-        id="lineage_settings"
+-        wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.LINEAGE_SETTINGS;end">
 +        <!-- SableOS: no LineageOS features step (its metrics opt-in sends
 +             data to LineageOS); recovery update goes straight to biometrics. -->
          <result wizard:action="biometric_settings" />
      </WizardAction>
  
-diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
 index 44a150b..95442eb 100644
---- a/res/values/sable_strings.xml
-+++ b/res/values/sable_strings.xml
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
 @@ -44,7 +44,7 @@
      <!-- SableOS privacy step (SETUP_WIZARD_FIRST_BOOT_UX "Privacy posture"). Read-only. -->
      <string name="setup_sable_privacy">Privacy</string>
