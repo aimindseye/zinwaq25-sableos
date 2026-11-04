@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Fetch and verify the microG and Aurora Store APKs pinned in
-# product/q25/microg/prebuilts.tsv (no APK is tracked in git).
+# Fetch and verify the microG APKs pinned in product/q25/microg/prebuilts.tsv
+# (built-in microG) or, with SABLE_MICROG_PREBUILTS=product/q25/microg/addon.tsv,
+# the add-on extras (no APK is tracked in git).
 #
 #   bash scripts/fetch-microg.sh             download what is missing, verify all
 #   bash scripts/fetch-microg.sh --check     verify only, never download

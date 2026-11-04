@@ -147,14 +147,17 @@ printf 'home=vendor\n' > "$proj/config.txt"
 if fwrun apply >/dev/null || [[ -e "$stamp" ]]; then fail "framework patch conflict not refused"; else pass "framework patch conflict refused"; fi
 git -C "$proj" checkout -q -- config.txt
 
-# microG (SABLE_Q25_MICROG, default YES at Q4): fake APKs pinned in a test prebuilts.tsv.
+# microG (SABLE_Q25_MICROG, default NO from 2.0): fake APKs pinned in test prebuilts.tsv
+# (built in) and addon.tsv (add-on extras).
 mg="$tmp/microg"; mkdir -p "$mg/cache"
 printf 'module\tpackage\tversion\tsha256\turl\n' > "$mg/prebuilts.tsv"
-for m in GmsCore FakeStore AuroraStore; do
+printf 'module\tpackage\tversion\tsha256\turl\n' > "$mg/addon.tsv"
+for m in GmsCore FakeStore GsfProxy AuroraStore; do
     printf 'fake %s' "$m" > "$mg/cache/$m.apk"
-    printf '%s\tpkg.%s\t1\t%s\thttps://example.invalid/%s.apk\n' "$m" "$m" "$(sha256sum "$mg/cache/$m.apk" | awk '{print $1}')" "$m" >> "$mg/prebuilts.tsv"
+    t=prebuilts; [[ "$m" == GsfProxy || "$m" == AuroraStore ]] && t=addon
+    printf '%s\tpkg.%s\t1\t%s\thttps://example.invalid/%s.apk\n' "$m" "$m" "$(sha256sum "$mg/cache/$m.apk" | awk '{print $1}')" "$m" >> "$mg/$t.tsv"
 done
-export SABLE_MICROG_CACHE="$mg/cache" SABLE_MICROG_PREBUILTS="$mg/prebuilts.tsv"
+export SABLE_MICROG_CACHE="$mg/cache" SABLE_MICROG_PREBUILTS="$mg/prebuilts.tsv" SABLE_MICROG_ADDON="$mg/addon.tsv"
 stagerun() { SABLE_ANDROID_ROOT="$tmp/android" SABLE_FRAMEWORK_PATCHES="$fw" bash scripts/stage-product.sh "$@" 2>"$tmp/err"; }
 if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     v="$tmp/android/vendor/sable/q25"
@@ -267,56 +270,98 @@ if grep -q 'user-type="android.os.usertype.profile.PRIVATE"' product/q25/sysconf
 else
     fail "Secure Vault manifest or window policy"
 fi
-# 6b1b. microG and Aurora Store (SABLE_Q25_MICROG, docs/MICROG.md): on by default at Q4, off with NO,
-# never before Q4, refused when an APK does not match its pin; the fetcher never keeps a bad file.
+# 6b1b. microG (SABLE_Q25_MICROG, docs/MICROG.md): off by default at Q4 but spoofing allowed for the
+# add-on, built in with YES, never before Q4, refused when an APK does not match its pin; the fetcher
+# never keeps a bad file.
 v="$tmp/android/vendor/sable/q25"
-if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")" && grep -q '^MICROG=YES' <<<"$out" &&
-    grep -qx -- '-include vendor/sable/q25/microg/microg.mk' "$v/sable-q25-framework.mk" &&
-    (for m in GmsCore FakeStore AuroraStore; do cmp -s "$mg/cache/$m.apk" "$v/microg/prebuilt/$m.apk" || exit 1; done) &&
-    grep -q 'ro.sable.microg.spoofing=true' "$v/microg/microg.mk" &&
-    [[ -f "$v/microg/etc/com.google.android.gms/settings.xml" && -f "$v/microg/Android.bp" ]]; then
-    pass "stage Q4 adds microG and Aurora Store by default"
-else
-    fail "stage Q4 microG: $(cat "$tmp/err")"
-fi
-if out="$(SABLE_Q25_MICROG=NO stagerun Q4 --apps-dir "$tmp/apps/run")" && grep -q '^MICROG=NO' <<<"$out" &&
-    [[ ! -e "$v/microg" ]] && ! grep -q microg "$v/sable-q25-framework.mk"; then
-    pass "SABLE_Q25_MICROG=NO leaves microG out"
+if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")" && grep -q '^MICROG=NO' <<<"$out" &&
+    [[ ! -e "$v/microg" ]] && ! grep -q 'microg/microg.mk' "$v/sable-q25-framework.mk" &&
+    grep -q 'ro.sable.microg.spoofing=true' "$v/sable-q25-framework.mk"; then
+    pass "stage Q4 leaves microG out by default and allows its spoofing for the add-on"
 else
     fail "stage Q4 without microG: $(cat "$tmp/err")"
 fi
-if out="$(stagerun Q2 --apps-dir "$tmp/apps/run")" && grep -q '^MICROG=NO' <<<"$out" && [[ ! -e "$v/microg" ]]; then
-    pass "microG is not staged before Q4"
+if out="$(SABLE_Q25_MICROG=YES stagerun Q4 --apps-dir "$tmp/apps/run")" && grep -q '^MICROG=YES' <<<"$out" &&
+    grep -qx -- '-include vendor/sable/q25/microg/microg.mk' "$v/sable-q25-framework.mk" &&
+    (for m in GmsCore FakeStore; do cmp -s "$mg/cache/$m.apk" "$v/microg/prebuilt/$m.apk" || exit 1; done) &&
+    [[ ! -e "$v/microg/prebuilt/AuroraStore.apk" ]] &&
+    grep -q 'ro.sable.microg=true' "$v/microg/microg.mk" &&
+    [[ -f "$v/microg/etc/com.google.android.gms/settings.xml" && -f "$v/microg/Android.bp" ]]; then
+    pass "SABLE_Q25_MICROG=YES builds microG in, without Aurora Store"
+else
+    fail "stage Q4 with microG: $(cat "$tmp/err")"
+fi
+if out="$(stagerun Q2 --apps-dir "$tmp/apps/run")" && grep -q '^MICROG=NO' <<<"$out" && [[ ! -e "$v/microg" ]] &&
+    ! grep -q 'ro.sable.microg' "$v/sable-q25-framework.mk"; then
+    pass "microG and its spoofing are not staged before Q4"
 else
     fail "stage Q2 microG: $(cat "$tmp/err")"
 fi
-cp "$mg/cache/AuroraStore.apk" "$mg/aurora.bak"; printf 'tampered' > "$mg/cache/AuroraStore.apk"
-if stagerun Q4 --apps-dir "$tmp/apps/run" >/dev/null; then
+cp "$mg/cache/FakeStore.apk" "$mg/fakestore.bak"; printf 'tampered' > "$mg/cache/FakeStore.apk"
+if SABLE_Q25_MICROG=YES stagerun Q4 --apps-dir "$tmp/apps/run" >/dev/null; then
     fail "stage Q4 accepted a microG APK that does not match its pin"
-elif grep -q 'AuroraStore' "$tmp/err"; then
+elif grep -q 'FakeStore' "$tmp/err"; then
     pass "stage refuses a microG APK that does not match its pin"
 else
     fail "microG pin check: $(cat "$tmp/err")"
 fi
-mkdir -p "$mg/from"; printf 'wrong' > "$mg/from/AuroraStore.apk"
-if bash scripts/fetch-microg.sh --from "$mg/from" >/dev/null 2>&1 || [[ -e "$mg/cache/AuroraStore.apk" ]]; then
+mkdir -p "$mg/from"; printf 'wrong' > "$mg/from/FakeStore.apk"
+if bash scripts/fetch-microg.sh --from "$mg/from" >/dev/null 2>&1 || [[ -e "$mg/cache/FakeStore.apk" ]]; then
     fail "fetch-microg kept a file that does not match its pin"
 else
-    cp "$mg/aurora.bak" "$mg/from/AuroraStore.apk"
+    cp "$mg/fakestore.bak" "$mg/from/FakeStore.apk"
     if bash scripts/fetch-microg.sh --from "$mg/from" 2>"$tmp/err" | grep -q '^MICROG_PREBUILTS=PASS' &&
-        bash scripts/fetch-microg.sh --check | grep -q '^MICROG_APK_COUNT=3'; then
+        bash scripts/fetch-microg.sh --check | grep -q '^MICROG_APK_COUNT=2'; then
         pass "fetch-microg takes only files that match their pins"
     else
         fail "fetch-microg --from: $(cat "$tmp/err")"
     fi
 fi
+# The add-on installer against a fake adb: refuses an image without spoofing, installs in order
+# (GsfProxy with the low-target-SDK flag) and grants microG's runtime permissions.
+fa="$tmp/fakeadb"; mkdir -p "$fa"
+cat > "$fa/adb" <<'ADB'
+#!/usr/bin/env bash
+echo "$*" >> "$FAKE_ADB_LOG"
+case "$*" in
+    get-state) echo device ;;
+    "shell getprop sys.boot_completed") echo 1 ;;
+    "shell getprop ro.sable.microg.spoofing") echo "$FAKE_SPOOF" ;;
+    "shell getprop ro.debuggable") echo 0 ;;
+    "shell getprop ro.sable.microg") echo ;;
+    install*) echo Success ;;
+esac
+ADB
+chmod +x "$fa/adb"
+export FAKE_ADB_LOG="$tmp/addon-adb.log"
+: > "$FAKE_ADB_LOG"
+if FAKE_SPOOF=false ADB="$fa/adb" bash scripts/install-microg-addon.sh >/dev/null 2>"$tmp/err" ||
+    grep -q '^install' "$FAKE_ADB_LOG"; then
+    fail "microG add-on installed on an image without spoofing"
+else
+    : > "$FAKE_ADB_LOG"
+    if FAKE_SPOOF=true ADB="$fa/adb" bash scripts/install-microg-addon.sh --with-gsf --with-aurora 2>"$tmp/err" |
+        grep -q '^ADDON_INSTALL=PASS GmsCore FakeStore GsfProxy AuroraStore' &&
+        [[ "$(grep '^install' "$FAKE_ADB_LOG" | grep -o '[A-Za-z]*\.apk' | tr '\n' ' ')" == 'GmsCore.apk FakeStore.apk GsfProxy.apk AuroraStore.apk ' ]] &&
+        grep -q '^install -r --bypass-low-target-sdk-block .*GsfProxy.apk' "$FAKE_ADB_LOG" &&
+        grep -q 'pm grant com.google.android.gms android.permission.ACCESS_FINE_LOCATION' "$FAKE_ADB_LOG" &&
+        ! grep -q 'ACCESS_BACKGROUND_LOCATION' "$FAKE_ADB_LOG"; then
+        pass "microG add-on installs the pinned APKs in order on an image that allows spoofing"
+    else
+        fail "microG add-on install: $(cat "$tmp/err")"
+    fi
+fi
+unset FAKE_ADB_LOG
 stagerun Q1 >/dev/null || fail "stage Q1 after the microG checks: $(cat "$tmp/err")"
-unset SABLE_MICROG_CACHE SABLE_MICROG_PREBUILTS
+unset SABLE_MICROG_CACHE SABLE_MICROG_PREBUILTS SABLE_MICROG_ADDON
 
 # 6b1c. microG product files (static): pins, battery and location defaults, permissions, spoofing gate.
 mgp=product/q25/microg; mg_bad=""
 awk -F'\t' '!/^#/ && NF && $1 != "module" { n++; if (NF != 5 || $4 !~ /^[0-9a-f]{64}$/ || $5 !~ /^https:\/\//) bad = 1 }
-    END { exit (bad || n != 3) }' "$mgp/prebuilts.tsv" || mg_bad="$mg_bad pins"
+    END { exit (bad || n != 2) }' "$mgp/prebuilts.tsv" || mg_bad="$mg_bad pins"
+awk -F'\t' '!/^#/ && NF && $1 != "module" { n++; if (NF != 5 || $4 !~ /^[0-9a-f]{64}$/ || $5 !~ /^https:\/\//) bad = 1 }
+    END { exit (bad || n != 2) }' "$mgp/addon.tsv" || mg_bad="$mg_bad addon-pins"
+grep -q 'AuroraStore' "$mgp/prebuilts.tsv" "$mgp/Android.bp" "$mgp/microg.mk" && mg_bad="$mg_bad aurora-built-in"
 for f in "$mgp"/etc/*/*.xml; do
     python3 -I -c 'import sys,xml.dom.minidom as m; m.parse(sys.argv[1])' "$f" 2>/dev/null || mg_bad="$mg_bad xml:$f"
 done
@@ -332,8 +377,8 @@ grep -q 'fixed="true"' "$mgp/etc/default-permissions/default-permissions-sable-m
 [[ "$(grep -o '<privapp-permissions package="[^"]*"' "$mgp/etc/permissions/privapp-permissions-sable-microg.xml")" == '<privapp-permissions package="com.google.android.gms"' ]] || mg_bad="$mg_bad privapp-scope"
 grep -A12 'name: "GmsCore"' "$mgp/Android.bp" | grep -q 'privileged: true' || mg_bad="$mg_bad gms-priv"
 grep -A16 'name: "GmsCore"' "$mgp/Android.bp" | grep -q 'skip_preprocessed_apk_checks: true' || mg_bad="$mg_bad gms-dex-check"
-[[ "$(grep -c 'presigned: true' "$mgp/Android.bp")" == 3 ]] || mg_bad="$mg_bad presigned"
-for m in FakeStore AuroraStore; do grep -A8 "name: \"$m\"" "$mgp/Android.bp" | grep -q 'privileged: false' || mg_bad="$mg_bad $m-priv"; done
+[[ "$(grep -c 'presigned: true' "$mgp/Android.bp")" == 2 ]] || mg_bad="$mg_bad presigned"
+grep -A8 'name: "FakeStore"' "$mgp/Android.bp" | grep -q 'privileged: false' || mg_bad="$mg_bad FakeStore-priv"
 for f in privapp-permissions-sable-microg.xml default-permissions-sable-microg.xml sysconfig-sable-microg.xml sable-microg-settings.xml; do
     grep -q "name: \"$f\"" "$mgp/Android.bp" || mg_bad="$mg_bad bp:$f"
 done

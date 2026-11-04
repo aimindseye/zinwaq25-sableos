@@ -1,22 +1,53 @@
-# Play Store apps: microG and Aurora Store
+# Google apps without Google: the microG add-on
 
-From Q4, the SableOS Q25 image can carry:
-
-| App | Package | What it does |
-|---|---|---|
-| microG Services (GmsCore) 0.3.17 | `com.google.android.gms` | Open-source stand-in for Google Play services: Google sign-in, Cloud Messaging (push), the location API used by maps, and SafetyNet (off) |
-| microG Companion ("FakeStore") 0.3.17 | `com.android.vending` | Stands in for the Play Store package so apps that look for it start |
-| Aurora Store 4.8.4 | `com.aurora.store` | Installs and updates Play Store apps such as LinkedIn |
-
-It is on by default (owner decision, 2026-10-21) and controlled by one build flag,
-`SABLE_Q25_MICROG` (`build/config/q25.env`). There is no Google Play Store and no Google
-Play services on the image, so there is nothing that wakes the phone to poll location the
-way Play services does.
+From SableOS 2.0 the Q25 image carries **no Google software and no app store** (owner
+decision, 2026-11-04). Apps that need Google Play services get it from the **microG
+add-on**, installed after setup from a computer in one command. 1.0 built microG in but
+left out the Services Framework Proxy, so some owners had to find and install it by hand;
+the add-on names and pins every APK.
 
 Files: `product/q25/microg/` (pins, Soong modules, permission and default files),
-`scripts/fetch-microg.sh`, and frameworks/base patch 0550.
+`scripts/fetch-microg.sh`, `scripts/install-microg-addon.sh`, and frameworks/base patch 0550.
 
-## Building with it
+## The APKs
+
+| APK | Package | Needed? | What it does |
+|---|---|---|---|
+| microG Services (GmsCore) 0.3.17 | `com.google.android.gms` | Yes | Open-source stand-in for Google Play services: Google sign-in, Cloud Messaging (push), the location API used by maps, and SafetyNet (off) |
+| microG Companion ("FakeStore") 0.3.17 | `com.android.vending` | Yes | Stands in for the Play Store package so apps that look for it start |
+| microG Services Framework Proxy (GsfProxy) 0.1.0 | `com.google.android.gsf` | Only for old apps | Old Google Cloud to Device Messaging (C2DM) apps; GmsCore serves Google Services Framework for everything newer |
+| Aurora Store 4.8.4 | `com.aurora.store` | Optional | Installs and updates Play Store apps such as LinkedIn |
+
+Each is the developer's official file, pinned by sha256: GmsCore and FakeStore in
+`product/q25/microg/prebuilts.tsv`, GsfProxy and Aurora Store in
+`product/q25/microg/addon.tsv`. Download them from those URLs, never from mirrors.
+
+## Installing the add-on
+
+On a computer with adb and this repository:
+
+```bash
+NETWORK_FETCH_AUTHORIZED=YES bash scripts/fetch-microg.sh
+SABLE_MICROG_PREBUILTS=product/q25/microg/addon.tsv NETWORK_FETCH_AUTHORIZED=YES bash scripts/fetch-microg.sh
+bash scripts/install-microg-addon.sh --check          # APKs and phone only
+bash scripts/install-microg-addon.sh --with-aurora    # add --with-gsf for old C2DM apps
+```
+
+With the phone set up, USB debugging on and the phone connected, the installer checks
+each APK against its pin and checks that the image allows microG's signature spoofing
+(`ro.sable.microg.spoofing=true`, every SableOS 2.0 image). It then installs Services,
+Companion and the extras in that order and grants the runtime permissions listed under
+"Battery, location and privacy defaults" below. Then open **microG Settings >
+Self-Check** and follow it. To do the same by hand, `adb install` the APKs in the table's
+order; GsfProxy needs `adb install --bypass-low-target-sdk-block` because it targets an
+old Android version.
+
+Installed this way they are normal apps. They get no privileged permissions, so there is
+no system network location provider, and the Doze exemption is granted only when microG
+asks and you allow it. Owners who want microG built in can build their own image with
+`SABLE_Q25_MICROG=YES` (below).
+
+## Building microG into the image (SABLE_Q25_MICROG=YES)
 
 The APKs are not in git. Fetch them once per version; each is checked against the sha256
 pinned in `product/q25/microg/prebuilts.tsv` and deleted if it doesn't match:
@@ -24,25 +55,25 @@ pinned in `product/q25/microg/prebuilts.tsv` and deleted if it doesn't match:
 ```bash
 NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q4 microg   # downloads to ~/sable-q25/microg-cache
 bash build/sable.sh q25 Q4 microg --check                       # verify only
-bash build/sable.sh q25 Q4 stage                                # stages them (MICROG=YES)
+SABLE_Q25_MICROG=YES bash build/sable.sh q25 Q4 stage           # stages them (MICROG=YES)
 bash build/sable.sh q25 Q4 build
 ```
 
-If the build host can't reach GitHub or GitLab, download the three files from the URLs in
+If the build host can't reach GitHub or GitLab, download the files from the URLs in
 `prebuilts.tsv` on another machine, copy them to the host, and run
 `bash scripts/fetch-microg.sh --from DIR`. The files are taken only if their sha256
 matches the pin.
 
-To build without microG and Aurora Store: `SABLE_Q25_MICROG=NO bash build/sable.sh q25 Q4 stage`.
-They are never staged before Q4 (Q2 and Q3 have no privileged apps).
+Built in, the image carries GmsCore (privileged) and Companion. Aurora Store and GsfProxy
+are never built in; install them with the add-on. Nothing is staged before Q4 (Q2 and Q3
+have no privileged apps).
 
-**Partition space.** The three APKs add about 117 MB to the product partition (GmsCore
+**Partition space.** In 1.0 the three APKs (with Aurora Store) added about 117 MB to the product partition (GmsCore
 alone is 103 MB). The first Q4 build with microG (2026-10-22) overflowed the dynamic
 partition group by 905,216 bytes; Sable Calculator now ships as a shrunk release build,
 which freed about 25 MB, and the image fits. If a later change overflows again, move another
 debug-built Sable app to release ([`BUILD.md`](BUILD.md#troubleshooting)) or build with
-`SABLE_Q25_MICROG=NO` and install microG and Aurora Store afterwards as normal apps
-(see "Without the build flag" below).
+`SABLE_Q25_MICROG=NO` (the default) and use the add-on.
 
 GmsCore is privileged and its release APK keeps its dex compressed, which Soong's
 presigned-APK check rejects. Repacking it would break the microG signature, so
@@ -70,9 +101,8 @@ Companion/Services"). It spoofs only when all of these hold:
 * the signature it asks for is Google's own one signature, and nothing else.
 
 Upstream allows this on debuggable (userdebug) builds only. Patch 0550 keeps every check
-above and also allows it when `ro.sable.microg.spoofing=true`, a read-only property set
-only by `product/q25/microg/microg.mk`. So spoofing also works on a future user build, and
-only when the image carries microG. No other app can get a spoofed signature, and there is
+above and also allows it when `ro.sable.microg.spoofing=true`, a read-only property that
+`scripts/stage-product.sh` sets on every Q4+ image so the add-on works on user builds. No other app can get a spoofed signature, and there is
 no permission a user could grant to another app to get one. The APKs are installed exactly
 as microG signed them (`presigned`).
 
@@ -151,26 +181,25 @@ ticked by the image's power allowlist.
 
 ## Removing it
 
-* **From one phone, without rebuilding**: Settings > Apps > Aurora Store / microG
-  Services / microG Companion > Disable. System apps can be disabled but not uninstalled.
-  Remove the Google account first (Settings > Passwords & accounts).
-* **From the image**: `SABLE_Q25_MICROG=NO bash build/sable.sh q25 Q4 stage`, then
-  build. The packages, their permission files and `ro.sable.microg*` are gone; frameworks/base
-  0550 stays applied but does nothing without the property.
-* **Without the build flag**: on a userdebug build (the default variant) microG's
-  official APKs also work installed as normal apps, because the LineageOS spoofing check
-  doesn't require a system app: `adb install` GmsCore, then Companion, then Aurora Store.
-  They then have no privileged permissions (no system network location provider, no Doze
-  exemption unless you allow it when microG asks).
+* **The add-on**: remove the Google account first (Settings > Passwords & accounts), then
+  uninstall Aurora Store, GsfProxy, microG Companion and microG Services in Settings > Apps,
+  or `adb uninstall` each of `com.aurora.store`, `com.google.android.gsf`,
+  `com.android.vending` and `com.google.android.gms`.
+* **Built in**: Settings > Apps > microG Services / microG Companion > Disable (system apps
+  can be disabled, not uninstalled), or rebuild with `SABLE_Q25_MICROG=NO` (the default).
+  Patch 0550 and `ro.sable.microg.spoofing` stay, and do nothing without microG's own
+  signed APKs.
 
 ## Checks on the phone
 
-Gate `Q4-MICROG` in [`QUALIFICATION.md`](QUALIFICATION.md):
+Gate `Q4-MICROG` in [`QUALIFICATION.md`](QUALIFICATION.md) for a built-in microG image
+(with the add-on, `ro.sable.microg` is unset, the packages are not in `pm list packages -s`,
+and `pm path` shows `/data/app`):
 
 ```bash
 adb shell getprop ro.sable.microg                       # true
 adb shell getprop ro.sable.microg.spoofing              # true
-adb shell pm list packages -s | grep -E 'com.google.android.gms|com.android.vending|com.aurora.store'
+adb shell pm list packages -s | grep -E 'com.google.android.gms|com.android.vending'
 adb shell dumpsys package com.google.android.gms | grep -E 'signatures|apkSigningVersion'
 #   one entry: the microG release key (dumpsys shows the real signer; only the
 #   PackageInfo that apps receive carries Google's signature, see the self-check)

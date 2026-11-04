@@ -130,7 +130,7 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Build](docs/BUILD.md) | Host setup, source sync, blobs, building the image, GitHub Actions |
 | [Install](docs/INSTALL.md) | Unlock, flash, sideload (tested for Q1 and Q2) |
 | [Flash a release](docs/FLASHING_RELEASE.md) | For a downloaded alpha release: back up, flash, and go back to stock |
-| [Play Store apps](docs/MICROG.md) | microG and Aurora Store (Q4, on by default): installing LinkedIn and other apps, battery and location defaults, removing it |
+| [Play Store apps](docs/MICROG.md) | The microG add-on (no Google by default from 2.0): every APK it needs, installing it with one command, Aurora Store, battery and location defaults, removing it |
 | [SableOS gaps](docs/SABLEOS_GAP_REVIEW.md) | What is still open: build, device checks, owner decisions, known limits |
 | [Return to stock](docs/RETURN_TO_STOCK.md) | Backup first, rehearse the restore, recovery ladder back to Zinwa firmware |
 | [Hardening plan](docs/HARDENING_PLAN.md) | GrapheneOS-style protections: what SableOS has, what can be ported, and what blocks it |

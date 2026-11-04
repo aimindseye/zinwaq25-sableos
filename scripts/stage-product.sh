@@ -17,8 +17,8 @@
 # optional 50 MP camera change (product/q25/camera-50mp, scripts/camera-50mp.py)
 # for any release with the Sable layer. Every run reverts it first.
 #
-# SABLE_Q25_MICROG=YES (default YES, build/config/q25.env) also stages microG
-# and Aurora Store (product/q25/microg) for Q4 and later. The APKs come from
+# SABLE_Q25_MICROG=YES (default NO from 2.0, build/config/q25.env) also stages
+# microG (product/q25/microg) as privileged apps for Q4 and later. The APKs come from
 # scripts/fetch-microg.sh and are sha256-checked again here; staging fails if
 # they are missing. NO leaves them out.
 set -euo pipefail
@@ -48,7 +48,7 @@ sable_release_has_framework_layer "$RELEASE" && FRAMEWORK=YES
 EXTRA="$SABLE_ANDROID_ROOT/vendor/extra/product.mk"
 CAMERA_50MP="${SABLE_Q25_CAMERA_50MP:-NO}"
 [[ "$CAMERA_50MP" == YES || "$CAMERA_50MP" == NO ]] || sable_fail "SABLE_Q25_CAMERA_50MP must be YES or NO"
-MICROG="${SABLE_Q25_MICROG:-YES}"
+MICROG="${SABLE_Q25_MICROG:-NO}"
 [[ "$MICROG" == YES || "$MICROG" == NO ]] || sable_fail "SABLE_Q25_MICROG must be YES or NO"
 
 # Undo the optional 50 MP change from an earlier stage; re-applied below when on.
@@ -236,7 +236,15 @@ PRODUCT_COPY_FILES += \
     vendor/sable/q25/etc/init/sable-power.rc:$(TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc \
     vendor/sable/q25/media/sable_default_wallpaper.png:$(TARGET_COPY_OUT_PRODUCT)/media/wallpaper/sable_default_wallpaper.png
 MK
-    # microG and Aurora Store (Play Store apps), only with hash-checked APKs.
+    # microG's restricted signature spoofing (frameworks/base 0550) on every Q4+ image,
+    # so the microG add-on (scripts/install-microg-addon.sh) works on user builds too.
+    # It still applies only to com.google.android.gms and com.android.vending signed
+    # with the microG release key.
+    cat >> "$fw_mk" <<'MK'
+PRODUCT_PRODUCT_PROPERTIES += \
+    ro.sable.microg.spoofing=true
+MK
+    # microG built in (SABLE_Q25_MICROG=YES), only with hash-checked APKs.
     if [[ "$MICROG" == YES ]]; then
         bash "$SABLE_REPO_ROOT/scripts/fetch-microg.sh" --check >/dev/null
         mkdir -p "$VENDOR_SABLE/microg/prebuilt"
