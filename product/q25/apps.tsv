@@ -67,6 +67,9 @@ SableCalendar	common	apps/r8/android	:calendar:assembleDebug	calendar/build/outp
 SableNotes	common	apps/r8/android	:notes:assembleRelease	notes/build/outputs/apk/release/*.apk	org.sableos.notes	unsigned	-	yes
 SableMessages	common	apps/r8/android	:messages:assembleRelease	messages/build/outputs/apk/release/*.apk	org.sableos.messages	unsigned	messaging	yes
 SableReader	common	apps/common/reader	:leisure:assembleSableDebug	leisure/build/outputs/apk/sable/debug/*.apk	org.sableos.reader	presigned	-	yes
-SableMail	common	flavor:mail	:app-thunderbird:assembleFossRelease -Pci=true	app-thunderbird/build/outputs/apk/foss/release/*.apk	org.sableos.mail	unsigned	-	yes
+# Sable Mail (Thunderbird flavor) is off from 2.0 (owner decision 2026-11-04: account setup was
+# never clean). Its source and row stay so `apps --all` still builds it; Hub reads any mail app's
+# notifications (HubMailSources), so K-9, FairEmail or Gmail fill the Mail filter instead.
+SableMail	common	flavor:mail	:app-thunderbird:assembleFossRelease -Pci=true	app-thunderbird/build/outputs/apk/foss/release/*.apk	org.sableos.mail	unsigned	-	no
 SableTextReader	common	flavor:textreader	:app:assembleDebug	app/build/outputs/apk/debug/SableTextReader-*.apk	org.sableos.textreader	presigned	-	yes
 SableTerminal	common	flavor:connectbot	:app:assembleOssRelease	app/build/outputs/apk/oss/release/*.apk	org.sableos.terminal	unsigned	-	yes

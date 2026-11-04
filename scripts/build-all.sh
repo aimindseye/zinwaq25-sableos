@@ -71,10 +71,10 @@ else
     run "building the apps" bash "$SABLE" q25 "$RELEASE" apps
 fi
 
-step "fetch microG and Aurora Store"
+step "fetch microG (only when built in)"
 if [[ "$RELEASE" == full && "$SABLE_Q25_MICROG" == YES ]]; then
     if bash "$SABLE" q25 "$RELEASE" microg --check >/dev/null 2>&1; then
-        echo "microG and Aurora Store already downloaded and verified; not downloading again"
+        echo "microG already downloaded and verified; not downloading again"
     else
         run "fetching microG" bash "$SABLE" q25 "$RELEASE" microg
     fi

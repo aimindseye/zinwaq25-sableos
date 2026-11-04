@@ -8,9 +8,9 @@ LineageOS 23.2 already allows restricted signature spoofing for microG
 (ComputerEngine.isMicrogSigned): only com.google.android.gms and
 com.android.vending, only when signed with the microG release key, and only
 to Google's one signature. It does so on debuggable builds only. A read-only
-property, ro.sable.microg.spoofing, set by the SableOS product layer when it
-ships microG (SABLE_Q25_MICROG=YES), lets the same checks pass on user
-builds. Nothing else changes.
+property, ro.sable.microg.spoofing, set by the SableOS product layer on
+every Q4+ image (built-in microG or the microG add-on), lets the same
+checks pass on user builds. Nothing else changes.
 ---
  .../java/com/android/server/pm/ComputerEngine.java  | 13 ++++++++++++-
  1 file changed, 12 insertions(+), 1 deletion(-)
@@ -31,8 +31,8 @@ index 3300f3481792..384c75f662c3 100644
  
      public static native boolean isDebuggable();
  
-+    // SableOS: a read-only build property, set only by the SableOS product layer when it
-+    // ships microG (SABLE_Q25_MICROG=YES), lets the spoofing below work on user builds as
++    // SableOS: a read-only build property, set only by the SableOS product layer (every
++    // Q4+ image, for built-in microG or the add-on), lets the spoofing below work on user builds as
 +    // well as debuggable ones. Every other check (package name, microG release key, the
 +    // one Google signature) is unchanged.
 +    private static final String SABLE_MICROG_SPOOFING_PROP = "ro.sable.microg.spoofing";
