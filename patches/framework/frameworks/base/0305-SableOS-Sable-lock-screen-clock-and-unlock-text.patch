@@ -25,7 +25,7 @@ overlay, not here.
 
 diff --git a/packages/SystemUI/res/values/sable_keyguard_lockscreen.xml b/packages/SystemUI/res/values/sable_keyguard_lockscreen.xml
 new file mode 100644
-index 000000000000..12976bb46d6a
+index 0000000..12976bb
 --- /dev/null
 +++ b/packages/SystemUI/res/values/sable_keyguard_lockscreen.xml
 @@ -0,0 +1,24 @@
@@ -54,10 +54,10 @@ index 000000000000..12976bb46d6a
 +    <dimen name="sable_keyguard_clock_margin_start">28dp</dimen>
 +</resources>
 diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/ClockSection.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/ClockSection.kt
-index 7baddb8700a6..619e59875f64 100644
+index e40bd7a..37405cf 100644
 --- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/ClockSection.kt
 +++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/ClockSection.kt
-@@ -197,8 +197,23 @@ constructor(
+@@ -195,8 +195,23 @@ constructor(
              if (keyguardClockViewModel.clockShouldBeCentered.value) PARENT_ID
              else R.id.split_shade_guideline
          constraints.apply {
@@ -80,9 +80,9 @@ index 7baddb8700a6..619e59875f64 100644
 +                connect(ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE, START, PARENT_ID, START)
 +                connect(ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE, END, guideline, END)
 +            }
-             if (
-                 com.android.systemui.shared.Flags.clockReactiveSmartspaceLayout() &&
-                     !com.android.systemui.shared.Flags.clockReactiveVariants()
+             connect(
+                 ClockViewIds.LOCKSCREEN_CLOCK_VIEW_LARGE,
+                 BOTTOM,
 -- 
 2.43.0
 

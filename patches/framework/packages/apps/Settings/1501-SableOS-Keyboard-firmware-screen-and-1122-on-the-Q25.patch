@@ -35,10 +35,10 @@ Needs the device sepolicy that lets system_app write the node.
  create mode 100644 src/com/android/settings/sable/SableKeyboardFirmwarePreferenceController.java
 
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index fb3e5af..dea37ac 100644
+index 807c672..a8093f2 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
-@@ -3875,6 +3875,23 @@
+@@ -3918,6 +3918,23 @@
                  android:value="com.android.settings.TestingSettings" />
          </activity>
  
@@ -106,13 +106,13 @@ index 0000000..f42a120
 +    <string name="keywords_sable_keyboard_firmware">keyboard firmware, uf2, 1122, firmware upgrade, PaBaLF</string>
 +</resources>
 diff --git a/res/xml/keyboard_settings.xml b/res/xml/keyboard_settings.xml
-index d2463f7..2b22602 100644
+index 1190779..73f581e 100644
 --- a/res/xml/keyboard_settings.xml
 +++ b/res/xml/keyboard_settings.xml
 @@ -66,6 +66,20 @@
-         settings:keywords="@string/keywords_sable_keyboard_backlight"
-         settings:controller="com.android.settings.sable.SableKeyboardBacklightPreferenceController" />
- 
+         android:key="sable_keyboard_backlight"
+         android:title="@string/sable_keyboard_backlight_title"
+         android:summary="@string/sable_keyboard_backlight_summary"
 +    <!-- SableOS: Keyboard firmware (also *#*#1122#*#*), where the keyboard driver has the
 +         stock firmware-upgrade switch. -->
 +    <Preference
@@ -127,9 +127,9 @@ index d2463f7..2b22602 100644
 +            android:targetClass="com.android.settings.sable.SableKeyboardFirmwareActivity" />
 +    </Preference>
 +
-     <!-- SableOS: Sable Tools links (Keyboard & input, approved design). Each row is hidden, and
-          left out of search, when Sable Tools is not installed (SableLinkPreferenceController). -->
-     <PreferenceCategory
+         android:persistent="false"
+         android:selectable="false"
+         settings:keywords="@string/keywords_sable_keyboard_backlight"
 diff --git a/src/com/android/settings/sable/SableKeyboardFirmware.java b/src/com/android/settings/sable/SableKeyboardFirmware.java
 new file mode 100644
 index 0000000..757c608

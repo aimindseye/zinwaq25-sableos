@@ -37,10 +37,10 @@ draws on list and grid items.
  6 files changed, 163 insertions(+), 2 deletions(-)
 
 diff --git a/src/com/android/documentsui/FocusManager.java b/src/com/android/documentsui/FocusManager.java
-index 9d9f4c75b..7f76d5969 100644
+index d353321..dadd6a5 100644
 --- a/src/com/android/documentsui/FocusManager.java
 +++ b/src/com/android/documentsui/FocusManager.java
-@@ -231,6 +231,13 @@ public final class FocusManager extends FocusDelegate<String> implements FocusHa
+@@ -246,6 +246,13 @@ public final class FocusManager extends FocusDelegate<String> implements FocusHa
          return mScope.lastFocusPosition != RecyclerView.NO_POSITION;
      }
  
@@ -53,12 +53,12 @@ index 9d9f4c75b..7f76d5969 100644
 +
      @Override
      public @Nullable String getFocusModelId() {
-         if (mScope.lastFocusPosition != RecyclerView.NO_POSITION) {
+         if (isUseMaterial3FlagEnabled() && !mScope.mHasFocus) {
 diff --git a/src/com/android/documentsui/SharedInputHandler.java b/src/com/android/documentsui/SharedInputHandler.java
-index a70a805dd..0416325e9 100644
+index 7b1d8b2..96306da 100644
 --- a/src/com/android/documentsui/SharedInputHandler.java
 +++ b/src/com/android/documentsui/SharedInputHandler.java
-@@ -146,6 +146,9 @@ public class SharedInputHandler {
+@@ -179,6 +179,9 @@ public class SharedInputHandler {
              return true;
          }
  
@@ -69,18 +69,18 @@ index a70a805dd..0416325e9 100644
      }
  }
 diff --git a/src/com/android/documentsui/dirlist/DirectoryFragment.java b/src/com/android/documentsui/dirlist/DirectoryFragment.java
-index 85344a106..05a44e2bc 100644
+index 689cb9e..e346693 100644
 --- a/src/com/android/documentsui/dirlist/DirectoryFragment.java
 +++ b/src/com/android/documentsui/dirlist/DirectoryFragment.java
-@@ -55,6 +55,7 @@ import android.util.Log;
- import android.util.SparseArray;
+@@ -75,6 +75,7 @@ import android.util.SparseArray;
  import android.view.ContextMenu;
+ import android.view.InputDevice;
  import android.view.LayoutInflater;
 +import android.view.Menu;
  import android.view.MenuInflater;
  import android.view.MenuItem;
  import android.view.MotionEvent;
-@@ -62,9 +63,11 @@ import android.view.View;
+@@ -83,9 +84,11 @@ import android.view.ViewConfiguration;
  import android.view.ViewGroup;
  import android.view.ViewTreeObserver;
  import android.widget.ImageView;
@@ -90,9 +90,9 @@ index 85344a106..05a44e2bc 100644
  import androidx.annotation.FractionRes;
 +import androidx.annotation.IdRes;
  import androidx.annotation.IntDef;
+ import androidx.annotation.NonNull;
  import androidx.annotation.Nullable;
- import androidx.fragment.app.Fragment;
-@@ -1474,6 +1477,54 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
+@@ -1888,6 +1891,54 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
          return mModel;
      }
  
@@ -148,19 +148,19 @@ index 85344a106..05a44e2bc 100644
       * Paste selection files from the primary clip into the current window.
       */
 diff --git a/src/com/android/documentsui/files/FilesActivity.java b/src/com/android/documentsui/files/FilesActivity.java
-index 5abafa4b4..5e0646702 100644
+index 07cc206..5c053ba 100644
 --- a/src/com/android/documentsui/files/FilesActivity.java
 +++ b/src/com/android/documentsui/files/FilesActivity.java
-@@ -76,6 +76,7 @@ import com.android.documentsui.dirlist.AppsRowManager;
- import com.android.documentsui.dirlist.DirectoryFragment;
- import com.android.documentsui.peek.PeekViewManager;
- import com.android.documentsui.peek.PeekViewModel;
+@@ -76,6 +76,7 @@ import com.android.documentsui.base.DocumentInfo;
+ import com.android.documentsui.base.Features;
+ import com.android.documentsui.base.RootInfo;
+ import com.android.documentsui.base.State;
 +import com.android.documentsui.sable.SableFilesKeys;
- import com.android.documentsui.services.FileOperationService;
- import com.android.documentsui.sidebar.RootsFragment;
- import com.android.documentsui.ui.DialogController;
-@@ -497,6 +498,79 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
-         return getCurrentDirectory() != null && mInjector.getModel().doc != null;
+ import com.android.documentsui.base.UserId;
+ import com.android.documentsui.clipping.DocumentClipper;
+ import com.android.documentsui.dirlist.AnimationView.AnimationType;
+@@ -519,6 +520,79 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
+         mInjector.focusManager.focusDocument(idToFocus);
      }
  
 +    @Override
@@ -240,13 +240,13 @@ index 5abafa4b4..5e0646702 100644
      @Override
      public boolean onKeyDown(int keyCode, KeyEvent event) {
 diff --git a/src/com/android/documentsui/files/MenuManager.java b/src/com/android/documentsui/files/MenuManager.java
-index 1ed749bdf..8597b291f 100644
+index 2615110..844ea4c 100644
 --- a/src/com/android/documentsui/files/MenuManager.java
 +++ b/src/com/android/documentsui/files/MenuManager.java
-@@ -123,9 +123,34 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
-                         stringSupplier.apply(getRes(R.string.menu_new_window)),
-                         KeyEvent.KEYCODE_N,
-                         KeyEvent.META_CTRL_ON));
+@@ -151,9 +151,34 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
+                             KeyEvent.KEYCODE_ENTER,
+                             KeyEvent.META_CTRL_ON));
+         }
 +        // SableOS: the Alt commands of sable/SableFilesKeys, for keyboards without Ctrl.
 +        addSableShortcut(group, stringSupplier, R.string.menu_copy, KeyEvent.KEYCODE_C);
 +        addSableShortcut(group, stringSupplier, R.string.menu_move, KeyEvent.KEYCODE_M);
@@ -276,13 +276,13 @@ index 1ed749bdf..8597b291f 100644
 +    }
 +
      @Override
-     public void showContextMenu(Fragment f, View v, float x, float y) {
-         // Register context menu here so long-press doesn't trigger this context floating menu.
+     public void instantiateJobProgress(Menu menu) {
+         if (mJobPanelController == null) {
 diff --git a/tests/unit/com/android/documentsui/SharedInputHandlerTest.java b/tests/unit/com/android/documentsui/SharedInputHandlerTest.java
-index 6546117eb..3e4b93973 100644
+index b4aeef5..c66f1da 100644
 --- a/tests/unit/com/android/documentsui/SharedInputHandlerTest.java
 +++ b/tests/unit/com/android/documentsui/SharedInputHandlerTest.java
-@@ -178,14 +178,15 @@ public class SharedInputHandlerTest {
+@@ -184,14 +184,15 @@ public class SharedInputHandlerTest {
      }
  
      @Test

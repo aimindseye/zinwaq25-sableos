@@ -634,7 +634,7 @@ index 0000000..2047acb
 +        settings:searchable="false" />
 +</PreferenceScreen>
 diff --git a/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoFragment.java b/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoFragment.java
-index 882901d..627dcf7 100644
+index cd49cb5..915560d 100644
 --- a/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoFragment.java
 +++ b/src/com/android/settings/deviceinfo/batteryinfo/BatteryInfoFragment.java
 @@ -22,6 +22,7 @@ import android.os.Bundle;
@@ -645,7 +645,7 @@ index 882901d..627dcf7 100644
  import com.android.settings.overlay.FeatureFactory;
  import com.android.settings.search.BaseSearchIndexProvider;
  import com.android.settingslib.search.SearchIndexable;
-@@ -68,9 +69,11 @@ public class BatteryInfoFragment extends DashboardFragment {
+@@ -69,9 +70,11 @@ public class BatteryInfoFragment extends DashboardFragment {
              new BaseSearchIndexProvider(R.xml.battery_info) {
                  @Override
                  protected boolean isPageSearchEnabled(Context context) {
@@ -704,10 +704,10 @@ index 982cf40..c7aadb9 100644
          PeriodicJobManager.getInstance(context).refreshJob(/* fromBoot= */ false);
          DatabaseUtils.clearExpiredDataIfNeeded(context);
 diff --git a/src/com/android/settings/fuelgauge/batteryusage/PowerUsageAdvanced.java b/src/com/android/settings/fuelgauge/batteryusage/PowerUsageAdvanced.java
-index 9beff7a..492acc4 100644
+index eb260c6..54f530f 100644
 --- a/src/com/android/settings/fuelgauge/batteryusage/PowerUsageAdvanced.java
 +++ b/src/com/android/settings/fuelgauge/batteryusage/PowerUsageAdvanced.java
-@@ -28,6 +28,7 @@ import android.os.Looper;
+@@ -31,6 +31,7 @@ import android.os.UserHandle;
  import android.provider.SearchIndexableResource;
  import android.util.Log;
  import android.util.Pair;
@@ -715,7 +715,7 @@ index 9beff7a..492acc4 100644
  
  import androidx.annotation.NonNull;
  import androidx.annotation.Nullable;
-@@ -41,6 +42,7 @@ import com.android.settings.R;
+@@ -45,6 +46,7 @@ import com.android.settings.R;
  import com.android.settings.SettingsActivity;
  import com.android.settings.fuelgauge.BatteryBroadcastReceiver;
  import com.android.settings.fuelgauge.PowerUsageFeatureProvider;
@@ -723,7 +723,7 @@ index 9beff7a..492acc4 100644
  import com.android.settings.overlay.FeatureFactory;
  import com.android.settings.search.BaseSearchIndexProvider;
  import com.android.settingslib.core.AbstractPreferenceController;
-@@ -75,6 +77,7 @@ public class PowerUsageAdvanced extends PowerUsageBase {
+@@ -79,6 +81,7 @@ public class PowerUsageAdvanced extends PowerUsageBase {
  
      private boolean mIsChartDataLoaded = false;
      private long mStartTimestamp;
@@ -731,7 +731,7 @@ index 9beff7a..492acc4 100644
      private Map<Integer, Map<Integer, BatteryDiffData>> mBatteryUsageMap;
  
      private final ExecutorService mExecutor = Executors.newSingleThreadExecutor();
-@@ -160,6 +163,23 @@ public class PowerUsageAdvanced extends PowerUsageBase {
+@@ -176,6 +179,23 @@ public class PowerUsageAdvanced extends PowerUsageBase {
          }
      }
  
@@ -756,10 +756,10 @@ index 9beff7a..492acc4 100644
      protected RecyclerView.Adapter onCreateAdapter(PreferenceScreen preferenceScreen) {
          final RecyclerView.Adapter adapter = super.onCreateAdapter(preferenceScreen);
 diff --git a/src/com/android/settings/fuelgauge/batteryusage/PowerUsageSummary.java b/src/com/android/settings/fuelgauge/batteryusage/PowerUsageSummary.java
-index 60062da..94afc04 100644
+index c74cba6..6305175 100644
 --- a/src/com/android/settings/fuelgauge/batteryusage/PowerUsageSummary.java
 +++ b/src/com/android/settings/fuelgauge/batteryusage/PowerUsageSummary.java
-@@ -26,6 +26,7 @@ import android.net.Uri;
+@@ -27,6 +27,7 @@ import android.net.Uri;
  import android.os.Bundle;
  import android.os.Handler;
  import android.provider.Settings.Global;
@@ -767,7 +767,7 @@ index 60062da..94afc04 100644
  
  import androidx.annotation.NonNull;
  import androidx.annotation.Nullable;
-@@ -45,6 +46,10 @@ import com.android.settings.fuelgauge.PowerUsageFeatureProvider;
+@@ -46,6 +47,10 @@ import com.android.settings.fuelgauge.PowerUsageFeatureProvider;
  import com.android.settings.fuelgauge.batterytip.BatteryTipLoader;
  import com.android.settings.fuelgauge.batterytip.BatteryTipPreferenceController;
  import com.android.settings.fuelgauge.batterytip.tips.BatteryTip;
@@ -778,7 +778,7 @@ index 60062da..94afc04 100644
  import com.android.settings.overlay.FeatureFactory;
  import com.android.settings.search.BaseSearchIndexProvider;
  import com.android.settingslib.search.SearchIndexable;
-@@ -73,6 +78,7 @@ public class PowerUsageSummary extends PowerUsageBase
+@@ -75,6 +80,7 @@ public class PowerUsageSummary extends PowerUsageBase
      @VisibleForTesting boolean mNeedUpdateBatteryTip;
      @VisibleForTesting Preference mHelpPreference;
      @VisibleForTesting Preference mBatteryUsagePreference;
@@ -786,7 +786,7 @@ index 60062da..94afc04 100644
  
      @VisibleForTesting
      final ContentObserver mSettingsObserver =
-@@ -160,6 +166,9 @@ public class PowerUsageSummary extends PowerUsageBase
+@@ -139,6 +145,9 @@ public class PowerUsageSummary extends PowerUsageBase
  
      @Override
      public void onResume() {
@@ -796,8 +796,8 @@ index 60062da..94afc04 100644
          super.onResume();
          getContentResolver()
                  .registerContentObserver(
-@@ -168,6 +177,22 @@ public class PowerUsageSummary extends PowerUsageBase
-                         mSettingsObserver);
+@@ -157,6 +166,22 @@ public class PowerUsageSummary extends PowerUsageBase
+         }
      }
  
 +    @Override
@@ -819,7 +819,7 @@ index 60062da..94afc04 100644
      @Override
      public void onPause() {
          getContentResolver().unregisterContentObserver(mSettingsObserver);
-@@ -212,6 +237,18 @@ public class PowerUsageSummary extends PowerUsageBase
+@@ -201,6 +226,18 @@ public class PowerUsageSummary extends PowerUsageBase
          }
          // reload BatteryInfo and updateUI
          restartBatteryInfoLoader();

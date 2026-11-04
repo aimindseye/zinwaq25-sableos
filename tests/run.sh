@@ -45,6 +45,8 @@ check_pin kernel/xelex/mt6789 "$SABLE_Q25_KERNEL_REV"
 check_pin hardware/mediatek "$SABLE_Q25_HARDWARE_MEDIATEK_REV"
 check_pin device/mediatek/sepolicy_vndr "$SABLE_Q25_SEPOLICY_VNDR_REV"
 check_pin vendor/xelex/Q25 "$SABLE_Q25_VENDOR_BLOBS_REV"
+check_pin device/xelex/mt6789-common "$SABLE_Q25_DEVICE_COMMON_REV"
+check_pin vendor/xelex/mt6789-common "$SABLE_Q25_VENDOR_COMMON_BLOBS_REV"
 
 # 4. apps.tsv: 9 columns, unique module names, known enums.
 if awk -F'\t' '
@@ -385,7 +387,12 @@ done
 sp=(patches/framework/frameworks/base/0550-*.patch)
 grep -qF '+    private static final String SABLE_MICROG_SPOOFING_PROP = "ro.sable.microg.spoofing";' "${sp[0]}" || mg_bad="$mg_bad 0550:prop"
 grep -qF '+        return isDebuggable() || SystemProperties.getBoolean(SABLE_MICROG_SPOOFING_PROP, false);' "${sp[0]}" || mg_bad="$mg_bad 0550:gate"
-grep -E '^[-+]' "${sp[0]}" | grep -v '^+++\|^---' | grep -q 'MICROG_REAL_SIGNATURE\|MICROG_FAKE_SIGNATURE\|getPackageName' && mg_bad="$mg_bad 0550:touches-checks"
+# 24.0 (MicrogUtils): the one changed check line swaps isDebuggable() for the gate and keeps the rest.
+grep -qxF -- '-        return isDebuggable() && isMicrogPackageName(pkg.getPackageName())' "${sp[0]}" &&
+    grep -qxF -- '+        return isMicrogSpoofingAllowedOnBuild() && isMicrogPackageName(pkg.getPackageName())' "${sp[0]}" ||
+    mg_bad="$mg_bad 0550:gate-line"
+grep -E '^[-+]' "${sp[0]}" | grep -v '^+++\|^---' | grep -v 'isMicrogPackageName(pkg.getPackageName())' |
+    grep -q 'REAL_SIGNATURE\|FAKE_SIGNATURE\|getPackageName\|areExactMatch' && mg_bad="$mg_bad 0550:touches-checks"
 if [[ -z "$mg_bad" ]]; then pass "microG pins, battery and location defaults, permissions and spoofing gate"; else fail "microG product files:$mg_bad"; fi
 
 # 6b1. Q4 device review fixes: Sable apps replace their LineageOS twins, Start hides AudioFX, Weather
@@ -800,7 +807,7 @@ fi
 all_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_BUILD_ROOT=/nonexistent/sable bash build/sable.sh q25 all 2>&1 || true)"
 [[ "$all_out" == *"add --yes"* ]] && pass "all explains --yes" || fail "all without --yes"
 tree_t="$(mktemp -d)"
-mkdir -p "$tree_t/.repo" "$tree_t/build" "$tree_t/device/xelex/Q25" "$tree_t/kernel/xelex/mt6789" "$tree_t/hardware/mediatek" "$tree_t/device/mediatek/sepolicy_vndr" "$tree_t/vendor/xelex/Q25"
+mkdir -p "$tree_t/.repo" "$tree_t/build" "$tree_t/device/xelex/Q25" "$tree_t/device/xelex/mt6789-common" "$tree_t/vendor/xelex/mt6789-common" "$tree_t/kernel/xelex/mt6789" "$tree_t/hardware/mediatek" "$tree_t/device/mediatek/sepolicy_vndr" "$tree_t/vendor/xelex/Q25"
 touch "$tree_t/build/envsetup.sh"
 boot_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_ANDROID_ROOT="$tree_t" bash build/sable.sh q25 bootstrap 2>&1 || true)"
 [[ "$boot_out" == *"not downloading again"* ]] && pass "bootstrap skips a finished download" || fail "bootstrap re-downloads"

@@ -251,7 +251,7 @@ index 4acce3e..49d2187 100644
          android:key="manage_target_app_function_access_settings"
          android:title="@string/manage_target_app_function_access_settings_title"
 diff --git a/res/xml/display_settings.xml b/res/xml/display_settings.xml
-index e4fa926..a100bad 100644
+index ca4d3e3..50d2e54 100644
 --- a/res/xml/display_settings.xml
 +++ b/res/xml/display_settings.xml
 @@ -234,6 +234,14 @@
@@ -344,7 +344,7 @@ index 0000000..9d2109a
 +        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
 +</PreferenceScreen>
 diff --git a/res/xml/top_level_settings.xml b/res/xml/top_level_settings.xml
-index 7939c76..d2327ff 100644
+index 661913a..1bd6e47 100644
 --- a/res/xml/top_level_settings.xml
 +++ b/res/xml/top_level_settings.xml
 @@ -156,6 +156,17 @@
@@ -366,7 +366,7 @@ index 7939c76..d2327ff 100644
              android:fragment="com.android.settings.deviceinfo.aboutphone.MyDeviceInfoFragment"
              android:icon="@drawable/ic_settings_about_device_filled"
 diff --git a/res/xml/top_level_settings_expressive.xml b/res/xml/top_level_settings_expressive.xml
-index cf407ec..019d14b 100644
+index e03c598..81d14e9 100644
 --- a/res/xml/top_level_settings_expressive.xml
 +++ b/res/xml/top_level_settings_expressive.xml
 @@ -148,6 +148,17 @@
@@ -388,18 +388,18 @@ index cf407ec..019d14b 100644
              android:fragment="com.android.settings.deviceinfo.aboutphone.MyDeviceInfoFragment"
              android:icon="@drawable/ic_homepage_about"
 diff --git a/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java b/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
-index 17f7cb2..0f17bbc 100644
+index 0b5d01a..42e3899 100644
 --- a/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
 +++ b/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
-@@ -62,6 +62,7 @@ import com.android.settings.applications.specialaccess.pictureinpicture.PictureI
+@@ -62,6 +62,7 @@ import com.android.settings.applications.manageapplications.ManageApplications;
+ import com.android.settings.applications.specialaccess.interactacrossprofiles.InteractAcrossProfilesDetailsPreferenceController;
+ import com.android.settings.applications.specialaccess.pictureinpicture.PictureInPictureDetailPreferenceController;
  import com.android.settings.applications.sable.SableAppSecurityPreferenceController;
++import com.android.settings.sable.SableDisplayCompatAppPreferenceController;
  import com.android.settings.core.SubSettingLauncher;
  import com.android.settings.dashboard.DashboardFragment;
-+import com.android.settings.sable.SableDisplayCompatAppPreferenceController;
- import com.android.settingslib.RestrictedLockUtilsInternal;
- import com.android.settingslib.applications.AppUtils;
- import com.android.settingslib.applications.ApplicationsState;
-@@ -174,6 +175,7 @@ public class AppInfoDashboardFragment extends DashboardFragment
+ import com.android.settings.utils.HsuUtils;
+@@ -179,6 +180,7 @@ public class AppInfoDashboardFragment extends DashboardFragment
          use(AppPermissionPreferenceController.class).setParentFragment(this);
          use(AppPermissionPreferenceController.class).setPackageName(packageName);
          use(SableAppSecurityPreferenceController.class).setParentFragment(this);

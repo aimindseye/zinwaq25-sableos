@@ -1,11 +1,13 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: SableOS <noreply@sableos.invalid>
-Date: Wed, 28 Oct 2026 18:41:00 +0000
+Date: Wed, 4 Nov 2026 18:30:00 +0000
 Subject: [PATCH] SableOS: let Settings drive the Q25 keyboard firmware switch
 
 /proc/firmware_upgrade (bbqX0kbd) had the generic proc label, so only
 root could use it. Label it proc_sable_kbd_fw and let system_app read
 and write it, for Settings > Keyboard firmware and *#*#1122#*#*.
+
+LineageOS 24.0 moved the Q25's sepolicy into device/xelex/mt6789-common.
 ---
  sepolicy/vendor/genfs_contexts             | 3 +++
  sepolicy/vendor/sable_keyboard_firmware.te | 5 +++++

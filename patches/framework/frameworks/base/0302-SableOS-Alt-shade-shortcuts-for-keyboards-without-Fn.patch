@@ -32,7 +32,7 @@ LineageOS keeps the Menu key for its own key actions, so:
  create mode 100644 services/core/java/com/android/server/policy/sable/SableShadeKeys.java
 
 diff --git a/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt b/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt
-index fae3e1288e02..1479341974fb 100644
+index fae3e12..1479341 100644
 --- a/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt
 +++ b/packages/SystemUI/multivalentTests/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouterTest.kt
 @@ -145,5 +145,43 @@ class SableNotificationKeyRouterTest : SysuiTestCase() {
@@ -80,7 +80,7 @@ index fae3e1288e02..1479341974fb 100644
      private fun route(key: SableNotificationKey) = SableNotificationKeyRouter.route(key, focused)
  }
 diff --git a/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt b/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt
-index bc65ad476c37..25ae6a502408 100644
+index bc65ad4..25ae6a5 100644
 --- a/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt
 +++ b/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt
 @@ -56,6 +56,16 @@ constructor(
@@ -101,7 +101,7 @@ index bc65ad476c37..25ae6a502408 100644
      }
  
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
-index d3209cc814b5..6761927bd4f1 100644
+index d3209cc..6761927 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
 @@ -42,6 +42,12 @@ object SableNotificationKeyCommands {
@@ -162,7 +162,7 @@ index d3209cc814b5..6761927bd4f1 100644
              SableNotificationCommand.OpenInHub -> sbnOf(row)?.let { openInHub(row, it) }
              SableNotificationCommand.PassThrough,
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
-index 2562afa7b735..0360cf6f87ab 100644
+index 2562afa..0360cf6 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyRouter.kt
 @@ -50,6 +50,11 @@ data class SableNotificationKeyContext(
@@ -205,18 +205,18 @@ index 2562afa7b735..0360cf6f87ab 100644
          }
          return when (key) {
 diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
-index 69fefe33bfa9..e5b1da344551 100644
+index e17c6ae..f27f93d 100644
 --- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
 +++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
-@@ -265,6 +265,7 @@ import com.android.server.pm.UserManagerInternal;
+@@ -265,6 +265,7 @@ import com.android.server.inputmethod.InputMethodManagerInternal;
+ import com.android.server.pm.UserManagerInternal;
  import com.android.server.policy.keyguard.KeyguardServiceDelegate;
- import com.android.server.policy.keyguard.KeyguardServiceDelegate.DrawnListener;
- import com.android.server.policy.keyguard.KeyguardStateMonitor.StateCallback;
-+import com.android.server.policy.sable.SableShadeKeys;
  import com.android.server.statusbar.StatusBarManagerInternal;
++import com.android.server.policy.sable.SableShadeKeys;
  import com.android.server.vr.VrManagerInternal;
  import com.android.server.wallpaper.WallpaperManagerInternal;
-@@ -3987,6 +3988,25 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+ import com.android.server.wm.ActivityTaskManagerInternal;
+@@ -4036,6 +4037,25 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                      sendSystemKeyToStatusBarAsync(event);
                      return true;
                  }
@@ -244,7 +244,7 @@ index 69fefe33bfa9..e5b1da344551 100644
                  && mGlobalKeyManager.handleGlobalKey(mContext, keyCode, event)) {
 diff --git a/services/core/java/com/android/server/policy/sable/SableShadeKeys.java b/services/core/java/com/android/server/policy/sable/SableShadeKeys.java
 new file mode 100644
-index 000000000000..d64424ee4df9
+index 0000000..d64424e
 --- /dev/null
 +++ b/services/core/java/com/android/server/policy/sable/SableShadeKeys.java
 @@ -0,0 +1,65 @@

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Initialise and sync the LineageOS 23.2 tree with the Q25 local manifest.
+# Initialise and sync the LineageOS 24.0 tree with the Q25 local manifest.
 #
 # Adapted from the SableOS Panther bootstrap: network access must be explicitly
 # authorised, and the exact synced revisions are written to the evidence
@@ -15,7 +15,7 @@ UPDATE=NO
 tree_complete() {
     [[ -d "$SABLE_ANDROID_ROOT/.repo" && -f "$SABLE_ANDROID_ROOT/build/envsetup.sh" ]] || return 1
     local path
-    for path in device/xelex/Q25 kernel/xelex/mt6789 hardware/mediatek device/mediatek/sepolicy_vndr vendor/xelex/Q25; do
+    for path in device/xelex/Q25 device/xelex/mt6789-common kernel/xelex/mt6789 hardware/mediatek device/mediatek/sepolicy_vndr vendor/xelex/Q25 vendor/xelex/mt6789-common; do
         [[ -d "$SABLE_ANDROID_ROOT/$path" ]] || return 1
     done
 }
@@ -60,7 +60,7 @@ pinned="$SABLE_EVIDENCE_ROOT/manifest-$SABLE_Q25_LINEAGE_BRANCH-$stamp.xml"
 "$SABLE_REPO_TOOL" manifest -r -o "$pinned"
 sha256sum "$pinned"
 
-for path in device/xelex/Q25 kernel/xelex/mt6789 hardware/mediatek device/mediatek/sepolicy_vndr vendor/xelex/Q25; do
+for path in device/xelex/Q25 device/xelex/mt6789-common kernel/xelex/mt6789 hardware/mediatek device/mediatek/sepolicy_vndr vendor/xelex/Q25 vendor/xelex/mt6789-common; do
     [[ -d "$path" ]] || sable_fail "expected project missing after sync: $path"
 done
 

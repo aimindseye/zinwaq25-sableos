@@ -40,11 +40,11 @@ index 88de67f..44946fc 100644
                  android:name="com.android.launcher3.grid.control"
                  android:value="${packageName}.grid_control" />
 diff --git a/quickstep/src/com/android/quickstep/OverviewComponentObserver.java b/quickstep/src/com/android/quickstep/OverviewComponentObserver.java
-index 68a056d..652e336 100644
+index de98fe6..60c324d 100644
 --- a/quickstep/src/com/android/quickstep/OverviewComponentObserver.java
 +++ b/quickstep/src/com/android/quickstep/OverviewComponentObserver.java
-@@ -113,14 +113,19 @@ public final class OverviewComponentObserver {
-         mRecentsWindowManagerRepository = recentsWindowManagerRepository;
+@@ -122,14 +122,19 @@ public final class OverviewComponentObserver {
+         mFallbackActivityInterface = fallbackActivityInterface;
          // Set up primary intents
          mCurrentPrimaryHomeIntent = createHomeIntent();
 -        mMyPrimaryHomeIntent = new Intent(mCurrentPrimaryHomeIntent).setPackage(

@@ -91,7 +91,7 @@ for candidate in "$TAG" "$SABLE_VERSION"; do
 done
 # The LineageOS version the image is built on: from the build's own props, else the release branch.
 lineage_version="$(sed -n 's/^ro\.lineage\.version=//p' "$ARTIFACTS/props/system/build.prop" 2>/dev/null | head -n1)"
-lineage_base="LineageOS 23.2 (Android 16 QPR2)"
+lineage_base="LineageOS 24.0 (Android 17)"
 [[ -n "$lineage_version" ]] && lineage_base="$lineage_base, build $lineage_version"
 previous="$(git -C "$SABLE_REPO_ROOT" describe --tags --abbrev=0 "$commit^" 2>/dev/null || true)"
 {
