@@ -102,7 +102,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Mail | Email; Gmail sign-in is covered in [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |
 | Calendar | Week view with a NOW line | C, T, V, J, K, R |
 | Notes | Notes and checklists with colour labels, kept on the phone | See [Notes](#notes) below; C new, S find, K tasks |
-| Text Reader | Reads text aloud: paste text, open a file, scan a page with the camera (OCR, English or Spanish) or pick an image from the Gallery. An upstream app with the Sable name and icon | Play and stop buttons on screen |
+| Text Reader | Reads text aloud: paste text, open a file, scan a page with the camera (OCR, English or Spanish) or pick an image from the Gallery. An upstream app with the Sable name and icon. It speaks with eSpeak NG, the offline speech engine SableOS ships (voice, rate and pitch in Settings > Accessibility > Text-to-speech output; see [Accessibility](ACCESSIBILITY.md#speech)) | Play and stop buttons on screen |
 | Terminal | SSH, Telnet and a local shell (ConnectBot) | See [Terminal](#terminal) below; Menu is Ctrl |
 | Weather | Forecast for your city, refreshed in the background | Feeds Start's header |
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |

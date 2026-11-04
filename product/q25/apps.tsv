@@ -73,3 +73,6 @@ SableReader	common	apps/common/reader	:leisure:assembleSableDebug	leisure/build/
 SableMail	common	flavor:mail	:app-thunderbird:assembleFossRelease -Pci=true	app-thunderbird/build/outputs/apk/foss/release/*.apk	org.sableos.mail	unsigned	-	no
 SableTextReader	common	flavor:textreader	:app:assembleDebug	app/build/outputs/apk/debug/SableTextReader-*.apk	org.sableos.textreader	presigned	-	yes
 SableTerminal	common	flavor:connectbot	:app:assembleOssRelease	app/build/outputs/apk/oss/release/*.apk	org.sableos.terminal	unsigned	-	yes
+# Sable Speech: the eSpeak NG 1.52.0 text-to-speech engine, built from source (sable-src/apps/r8/espeak,
+# GPL-3.0). The only engine on the phone, so Android uses it by default; no launcher entry.
+SableSpeech	common	flavor:espeak	:assembleRelease	build/outputs/apk/release/*-unsigned.apk	org.sableos.speech	unsigned	-	yes

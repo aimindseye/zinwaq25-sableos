@@ -83,6 +83,10 @@ jobs:
             root: flavor:connectbot
             java: '21'
             extra: ":app:testOssDebugUnitTest --tests org.connectbot.sable.* :app:lintOssRelease"
+          - name: speech engine
+            root: flavor:espeak
+            java: '17'
+            extra: lintRelease
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -108,6 +112,9 @@ jobs:
           yes | "$sdkmanager" --licenses > /dev/null || true
           pkgs=('platforms;android-36' 'build-tools;36.0.0')
           [[ '${{ matrix.root }}' != apps/r8/android ]] || pkgs+=('ndk;30.0.16248370')
+          # eSpeak NG 1.52.0 pins its own NDK, CMake and build-tools (sable-src/apps/r8/espeak).
+          [[ '${{ matrix.root }}' != flavor:espeak ]] ||
+            pkgs+=('platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' 'cmake;3.22.1')
           "$sdkmanager" "${pkgs[@]}"
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
       - name: Build, test and check

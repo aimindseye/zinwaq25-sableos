@@ -1065,6 +1065,22 @@ grep -q '"org.sableos.terminal" to AppGlyph.TERMINAL' sable-src/src/android/pack
 grep -q 'root: flavor:connectbot' .github/workflows/android.yml || term_bad="$term_bad ci"
 if [[ -z "$term_bad" ]]; then pass "Sable Terminal: pinned ConnectBot 1.10.9 flavor, Menu is Ctrl, Start glyph, CI"; else fail "terminal:$term_bad"; fi
 
+# 19. Sable Speech (sable-src 0093): eSpeak NG 1.52.0 built from source, no permission, no launcher, CI.
+es=sable-src/apps/r8/espeak
+speech_bad=""
+grep -qP '^SableSpeech\tcommon\tflavor:espeak\t:assembleRelease\tbuild/outputs/apk/release/\*-unsigned\.apk\torg\.sableos\.speech\tunsigned\t-\tyes$' product/q25/apps.tsv || speech_bad="$speech_bad apps.tsv"
+grep -qx 'ESPEAK_NG_COMMIT=4870adfa25b1a32b4361592f1be8a40337c58d6c' "$es/upstream.env" || speech_bad="$speech_bad pin"
+grep -qx 'ESPEAK_NG_GRADLE_DIR=android' "$es/upstream.env" || speech_bad="$speech_bad gradle-dir"
+for f in "$es/apply_sable_flavor.py" "$es/verify_sable_speech.py"; do
+    grep -q 'EXPECTED_COMMIT = "4870adfa25b1a32b4361592f1be8a40337c58d6c"' "$f" || speech_bad="$speech_bad script-pin"
+done
+grep -q '"uses-permission" in manifest' "$es/verify_sable_speech.py" || speech_bad="$speech_bad permission-check"
+grep -q '_GRADLE_DIR=' scripts/build-apps.sh || speech_bad="$speech_bad build-apps"
+grep -q 'root: flavor:espeak' .github/workflows/android.yml || speech_bad="$speech_bad ci"
+grep -q "'ndk;26.1.10909125' 'cmake;3.22.1'" .github/workflows/android.yml || speech_bad="$speech_bad ci-ndk"
+grep -q 'espeak-ng/espeak-ng' THIRD_PARTY_NOTICES.md || speech_bad="$speech_bad notice"
+if [[ -z "$speech_bad" ]]; then pass "Sable Speech: pinned eSpeak NG 1.52.0 from source, no permission, no launcher, CI, GPL notice"; else fail "speech:$speech_bad"; fi
+
 # 19. Translatable Sable apps (sable-src 0085, docs/LANGUAGES.md): every app keeps its English in one
 #     table, repeats it in values/strings.xml, binds the table to the resources and tests the two equal.
 i18n_bad=""

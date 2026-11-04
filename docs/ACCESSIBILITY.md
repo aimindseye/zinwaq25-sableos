@@ -27,6 +27,18 @@ See [DISPLAY](../device-profile/DISPLAY.md).
 
 Patches: Settings 1601, SetupWizard 0415. Qualification: Q4-TEXT-SIZE.
 
+## Speech
+
+SableOS ships one text-to-speech engine, eSpeak NG 1.52.0 (Sable Speech), built from source
+and working offline in about 100 languages. It is the only engine on the phone, so Android
+uses it by default: Text Reader, Maps and any app that speaks use it with no setup. Change its
+voice, rate and pitch in Settings > Accessibility > Text-to-speech output. It has no app grid
+icon and requests no permission. An engine installed later (for example from F-Droid) can be
+chosen on the same page.
+
+eSpeak NG sounds robotic next to Google's voices, but it is small and fully local.
+Source and licence: `sable-src/apps/r8/espeak` (GPL-3.0). Qualification: Q4-SPEECH.
+
 ## What is included
 
 Settings > Accessibility has Android's own options: magnification, colour correction, colour
@@ -37,8 +49,8 @@ and bounce keys.
 ## What is not included
 
 TalkBack, Select to Speak and Switch Access are part of Google's Android Accessibility Suite.
-LineageOS and SableOS do not ship it. SableOS does not bundle a replacement either, because
-none has been tested with the Q25's keyboard and trackpad yet.
+LineageOS and SableOS do not ship it. SableOS does not bundle a full screen reader either,
+because none has been tested with the Q25's keyboard and trackpad yet.
 
 ## Adding a screen reader
 

@@ -39,6 +39,9 @@ PLACEHOLDER = re.compile(r"(^@mipmap/ic_launcher(_round)?$)|sym_def_app_icon|(^@
 # reported, since a diagnostic in the app drawer is a product defect. SableHub: Sable Start's Hub page
 # is the one Hub; the app keeps its providers, notification listener and settings screens only.
 HEADLESS: set[str] = {"SableHub"}
+# Upstream services with no launcher entry that keep their upstream icon: it shows only in App info,
+# never in the app grid. SableSpeech: the eSpeak NG text-to-speech engine.
+UPSTREAM_SERVICES: set[str] = {"SableSpeech"}
 REPO = Path(__file__).resolve().parent.parent
 # A drawable/mipmap reference (resource names are ASCII).
 RES_REF = r"@(?:drawable|mipmap)/\w+"
@@ -262,6 +265,12 @@ def audit_flavor(src: Path, row: dict[str, str]) -> dict[str, object]:
     name = row["gradle_root"].split(":", 1)[1]
     spec = within(src, src / "apps" / "r8" / name / "apply_sable_flavor.py")
     res: dict[str, object] = {"module": row["module"], "package": row["package"], "notes": ["flavor: upstream manifest not in tree"]}
+    if row["module"] in UPSTREAM_SERVICES:
+        res["notes"].append("service without launcher entry; upstream icon kept")
+        for check in ALL_CHECKS:
+            res[check] = True
+            res[check + "_detail"] = "headless" if check == "launcher" else "upstream"
+        return res
     text = spec.read_text(encoding="utf-8") if spec.is_file() else ""
     icon = re.findall(r'android:icon="(%s)"' % RES_REF, text, re.ASCII)
     rnd = re.findall(r'android:roundIcon="(%s)"' % RES_REF, text, re.ASCII)

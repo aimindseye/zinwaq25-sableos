@@ -45,7 +45,7 @@ aapt2="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt2 -type f 2>/dev
 # NETWORK_FETCH_AUTHORIZED=YES) and copied to a fresh SABLE_FLAVOR_WORK tree.
 declare -A flavor_dir=()
 prepare_flavor() {
-    local name="$1" spec="$SRC/apps/r8/$1" url commit cache work verify
+    local name="$1" spec="$SRC/apps/r8/$1" url commit cache work verify gradle_dir
     [[ -f "$spec/upstream.env" && -f "$spec/apply_sable_flavor.py" ]] || sable_fail "no Sable flavor at $spec"
     url="$(sed -n 's/^[A-Z_]*_REPOSITORY=//p' "$spec/upstream.env" | head -n1)"
     commit="$(sed -n 's/^[A-Z_]*_COMMIT=//p' "$spec/upstream.env" | head -n1)"
@@ -65,6 +65,10 @@ prepare_flavor() {
     for verify in "$spec"/verify_sable_*.py; do
         [[ -f "$verify" ]] && python3 "$verify" "$work"
     done
+    # An upstream whose Gradle project is not at its root names it with *_GRADLE_DIR.
+    gradle_dir="$(sed -n 's/^[A-Z_]*_GRADLE_DIR=//p' "$spec/upstream.env" | head -n1)"
+    [[ -z "$gradle_dir" || "$gradle_dir" =~ ^[A-Za-z0-9_][A-Za-z0-9_/-]*$ ]] || sable_fail "$spec/upstream.env: bad *_GRADLE_DIR $gradle_dir"
+    work="$work${gradle_dir:+/$gradle_dir}"
     chmod +x "$work/gradlew"
     flavor_dir[$name]="$work"
 }

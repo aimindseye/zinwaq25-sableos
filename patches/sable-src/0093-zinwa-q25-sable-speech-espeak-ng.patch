@@ -1,0 +1,188 @@
+diff --git a/sable-src/apps/r8/espeak/README.md b/sable-src/apps/r8/espeak/README.md
+new file mode 100644
+index 0000000..22aff1f
+--- /dev/null
++++ b/sable-src/apps/r8/espeak/README.md
+@@ -0,0 +1,50 @@
++# Sable Speech (eSpeak NG)
++
++Sable Speech is the text-to-speech engine SableOS ships, so Text Reader, the
++"Speak what's focused" service, Maps and any app that speaks have a voice
++without Google's engine. It is eSpeak NG, built from source.
++
++## Product identity
++
++```text
++name     eSpeak NG (upstream label kept)
++package  org.sableos.speech
++module   SableSpeech
++```
++
++## Upstream pin
++
++```text
++repository  https://github.com/espeak-ng/espeak-ng.git
++tag         1.52.0
++commit      4870adfa25b1a32b4361592f1be8a40337c58d6c
++gradle dir  android/   (ESPEAK_NG_GRADLE_DIR in upstream.env)
++```
++
++The checkout is ephemeral build input. `apply_sable_flavor.py` changes three
++things and `verify_sable_speech.py` checks them:
++
++- application id `org.sableos.speech`, so an eSpeak NG installed from F-Droid
++  never clashes with the system copy;
++- `arm64-v8a` only, the Q25's one ABI;
++- no launcher entry. The engine is chosen and set up in Settings >
++  Accessibility > Text-to-speech output; with no other engine installed,
++  Android uses it by default.
++
++The engine and its voice data stay as upstream builds them (about 100
++languages, all on the phone). It requests no permission, so it never goes
++online.
++
++## Build
++
++`scripts/build-apps.sh --root flavor:espeak` (row SableSpeech in
++`product/q25/apps.tsv`). It needs NDK 26.1.10909125, CMake 3.22.1, Android
++platform 34 and build-tools 34.0.0, plus a host C compiler: the voice data is
++compiled on the build machine and packed into the APK. The release APK is
++unsigned and the platform build signs it.
++
++## Licence
++
++eSpeak NG is GPL-3.0-or-later (its `COPYING`). SableOS ships it unmodified
++apart from the three build changes above, and the source is the pinned upstream
++commit plus the scripts in this folder.
+diff --git a/sable-src/apps/r8/espeak/apply_sable_flavor.py b/sable-src/apps/r8/espeak/apply_sable_flavor.py
+new file mode 100755
+index 0000000..445143c
+--- /dev/null
++++ b/sable-src/apps/r8/espeak/apply_sable_flavor.py
+@@ -0,0 +1,66 @@
++#!/usr/bin/env python3
++"""Compose Sable Speech from the pinned eSpeak NG 1.52.0 Android engine.
++
++The upstream checkout is ephemeral build input. Sable keeps the engine as it is
++(an offline text-to-speech service with its bundled voice data) and changes only
++what the product needs:
++
++* application id org.sableos.speech, so a user-installed eSpeak NG never clashes
++  with the system copy;
++* arm64-v8a only (the Q25 has no other ABI), which keeps the system image small;
++* no launcher entry: the engine is reached from Settings > Accessibility >
++  Text-to-speech output, and its settings from the gear there.
++"""
++
++from __future__ import annotations
++
++import pathlib
++import subprocess
++import sys
++
++EXPECTED_COMMIT = "4870adfa25b1a32b4361592f1be8a40337c58d6c"
++
++
++def fail(message: str) -> None:
++    raise SystemExit(message)
++
++
++def replace_once(path: pathlib.Path, old: str, new: str, marker: str) -> None:
++    text = path.read_text(encoding="utf-8")
++    count = text.count(old)
++    if count != 1:
++        fail(f"{marker}=FAIL path={path} count={count}")
++    path.write_text(text.replace(old, new, 1), encoding="utf-8")
++
++
++def main() -> None:
++    if len(sys.argv) != 2:
++        fail("usage: apply_sable_flavor.py <espeak-ng-checkout>")
++    root = pathlib.Path(sys.argv[1]).resolve()
++    actual = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
++    if actual != EXPECTED_COMMIT:
++        fail(f"SABLE_SPEECH_UPSTREAM_COMMIT=FAIL expected={EXPECTED_COMMIT} actual={actual}")
++
++    android = root / "android"
++    replace_once(
++        android / "build.gradle",
++        '        minSdk 21\n',
++        '        applicationId "org.sableos.speech"\n'
++        '        minSdk 21\n'
++        "        ndk {\n"
++        "            abiFilters 'arm64-v8a'\n"
++        "        }\n",
++        "SABLE_SPEECH_APPLICATION_ID",
++    )
++    replace_once(
++        android / "AndroidManifest.xml",
++        "                <action android:name=\"android.intent.action.MAIN\" />\n\n"
++        "                <category android:name=\"android.intent.category.LAUNCHER\" />\n",
++        "                <action android:name=\"android.intent.action.MAIN\" />\n",
++        "SABLE_SPEECH_NO_LAUNCHER",
++    )
++    print("SABLE_SPEECH_FLAVOR=PASS")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/sable-src/apps/r8/espeak/upstream.env b/sable-src/apps/r8/espeak/upstream.env
+new file mode 100644
+index 0000000..76e14fa
+--- /dev/null
++++ b/sable-src/apps/r8/espeak/upstream.env
+@@ -0,0 +1,3 @@
++ESPEAK_NG_REPOSITORY=https://github.com/espeak-ng/espeak-ng.git
++ESPEAK_NG_COMMIT=4870adfa25b1a32b4361592f1be8a40337c58d6c
++ESPEAK_NG_GRADLE_DIR=android
+diff --git a/sable-src/apps/r8/espeak/verify_sable_speech.py b/sable-src/apps/r8/espeak/verify_sable_speech.py
+new file mode 100755
+index 0000000..0bb72e3
+--- /dev/null
++++ b/sable-src/apps/r8/espeak/verify_sable_speech.py
+@@ -0,0 +1,45 @@
++#!/usr/bin/env python3
++"""Check the composed Sable Speech tree before it is built."""
++
++from __future__ import annotations
++
++import pathlib
++import subprocess
++import sys
++
++EXPECTED_COMMIT = "4870adfa25b1a32b4361592f1be8a40337c58d6c"
++
++
++def fail(marker: str, detail: str = "") -> None:
++    raise SystemExit(f"{marker}=FAIL{' ' + detail if detail else ''}")
++
++
++def main() -> None:
++    if len(sys.argv) != 2:
++        fail("SABLE_SPEECH_VERIFY_USAGE", "verify_sable_speech.py <root>")
++    root = pathlib.Path(sys.argv[1]).resolve()
++    actual = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
++    if actual != EXPECTED_COMMIT:
++        fail("SABLE_SPEECH_UPSTREAM_COMMIT", f"actual={actual}")
++
++    build = (root / "android/build.gradle").read_text(encoding="utf-8")
++    manifest = (root / "android/AndroidManifest.xml").read_text(encoding="utf-8")
++    if 'applicationId "org.sableos.speech"' not in build:
++        fail("SABLE_SPEECH_APPLICATION_ID")
++    if 'namespace "com.reecedunn.espeak"' not in build:
++        fail("SABLE_SPEECH_NAMESPACE")
++    if "abiFilters 'arm64-v8a'" not in build:
++        fail("SABLE_SPEECH_ABI")
++    if "uses-permission" in manifest:
++        fail("SABLE_SPEECH_PERMISSIONS", "the engine must request no permission")
++    if "android.intent.category.LAUNCHER" in manifest:
++        fail("SABLE_SPEECH_LAUNCHER")
++    if 'android.intent.action.TTS_SERVICE' not in manifest:
++        fail("SABLE_SPEECH_TTS_SERVICE")
++    print("SABLE_SPEECH_UPSTREAM=PASS_1.52.0")
++    print("SABLE_SPEECH_PERMISSIONS=PASS_NONE")
++    print("SABLE_SPEECH_TTS_SERVICE=PASS")
++
++
++if __name__ == "__main__":
++    main()
