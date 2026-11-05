@@ -20,5 +20,17 @@
     <string name="remove_confirm">تمام کام کی ایپس اور ان کے ڈیٹا کے ساتھ کام کی جگہ ہٹائیں؟ Y ہٹاتا ہے، N رکھتا ہے۔</string>
     <string name="yes">ہاں</string>
     <string name="no">نہیں</string>
-    <string name="hint">اوپر اور نیچے ایپ منتخب کرتے ہیں · Enter شامل کرتا ہے · R کام کی جگہ ہٹاتا ہے · Back باہر جاتا ہے</string>
+    <string name="hint">اوپر اور نیچے ایپ منتخب کرتے ہیں · Enter شامل کرتا ہے · O اختیارات · R کام کی جگہ ہٹاتا ہے · Back باہر جاتا ہے</string>
+    <string name="options">کام کی جگہ کے اختیارات</string>
+    <string name="options_intro">یہ صرف کام کی جگہ کے اندر لاگو ہوتے ہیں۔ ہر ایک شروع میں اجازت یافتہ ہے۔</string>
+    <string name="option_copy">ورک ایپس سے ذاتی ایپس میں کاپی کرنا</string>
+    <string name="option_share">ذاتی ایپس سے ورک ایپس میں شیئر کرنا</string>
+    <string name="option_screenshots">ورک ایپس کے اسکرین شاٹس</string>
+    <string name="allowed">اجازت ہے</string>
+    <string name="blocked">بلاک ہے</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">ورک لاک</string>
+    <string name="work_lock_about">ورک ایپس کے لیے الگ PIN، پیٹرن یا پاس ورڈ، جو فون لاک ہونے کے بعد انہیں کھولنے پر پوچھا جاتا ہے۔</string>
+    <string name="options_hint">اوپر اور نیچے منتخب کرتے ہیں · Enter بدلتا ہے · L ورک لاک سیٹ کرتا ہے · Back باہر جاتا ہے</string>
+    <string name="options_failed">Android نے یہ تبدیلی قبول نہیں کی۔</string>
 </resources>

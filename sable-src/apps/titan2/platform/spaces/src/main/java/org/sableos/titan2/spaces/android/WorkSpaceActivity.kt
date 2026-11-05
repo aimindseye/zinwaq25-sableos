@@ -112,6 +112,8 @@ class WorkSpaceActivity : Activity() {
 
             KeyEvent.KEYCODE_R -> if (state == SpaceState.On || state == SpaceState.Paused) remove()
 
+            KeyEvent.KEYCODE_O -> if (state == SpaceState.On) options()
+
             KeyEvent.KEYCODE_ESCAPE -> finish()
 
             else -> return super.onKeyDown(keyCode, event)
@@ -163,6 +165,8 @@ class WorkSpaceActivity : Activity() {
 
     private fun remove() = forward(Intent(WorkSpace.ACTION_REMOVE))
 
+    private fun options() = forward(Intent(WorkSpace.ACTION_OPTIONS))
+
     /** Into the Work space through the forwarding it set up; it has no package, so Android picks the forwarder. */
     private fun forward(intent: Intent) {
         try {
@@ -194,6 +198,7 @@ class WorkSpaceActivity : Activity() {
             SpaceState.On -> {
                 if (apps.isEmpty()) body.addView(views.text(t("no_apps"), BODY_SP, palette.muted))
                 apps.forEachIndexed { i, app -> body.addView(row(i, app)) }
+                body.addView(views.button(t("options")) { options() })
                 body.addView(views.button(t("remove")) { remove() })
                 body.addView(views.text(t("hint"), SMALL_SP, palette.muted))
             }

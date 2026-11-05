@@ -20,5 +20,17 @@
     <string name="remove_confirm">Κατάργηση του χώρου εργασίας με όλες τις εφαρμογές εργασίας και τα δεδομένα τους; Το Y τον καταργεί, το N τον κρατά.</string>
     <string name="yes">Ναι</string>
     <string name="no">Όχι</string>
-    <string name="hint">Πάνω και Κάτω επιλέγουν εφαρμογή · Enter την προσθέτει · R καταργεί τον χώρο εργασίας · Πίσω έξοδος</string>
+    <string name="hint">Πάνω και Κάτω επιλέγουν εφαρμογή · Enter την προσθέτει · O επιλογές · R καταργεί τον χώρο εργασίας · Πίσω έξοδος</string>
+    <string name="options">Επιλογές χώρου εργασίας</string>
+    <string name="options_intro">Ισχύουν μόνο μέσα στον χώρο εργασίας. Όλες ξεκινούν ως Επιτρέπεται.</string>
+    <string name="option_copy">Αντιγραφή από εφαρμογές εργασίας σε προσωπικές</string>
+    <string name="option_share">Κοινοποίηση από προσωπικές εφαρμογές σε εφαρμογές εργασίας</string>
+    <string name="option_screenshots">Στιγμιότυπα οθόνης εφαρμογών εργασίας</string>
+    <string name="allowed">Επιτρέπεται</string>
+    <string name="blocked">Αποκλείεται</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">Κλείδωμα εργασίας</string>
+    <string name="work_lock_about">Ξεχωριστό PIN, μοτίβο ή κωδικός για τις εφαρμογές εργασίας, που ζητείται όταν τις ανοίγετε αφού κλειδώθηκε το τηλέφωνο.</string>
+    <string name="options_hint">Πάνω και Κάτω επιλέγουν · Το Enter αλλάζει · Το L ορίζει το κλείδωμα εργασίας · Το Πίσω βγαίνει</string>
+    <string name="options_failed">Το Android δεν δέχτηκε αυτή την αλλαγή.</string>
 </resources>

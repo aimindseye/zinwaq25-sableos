@@ -3,6 +3,21 @@ package org.sableos.titan2.spaces.core
 /** Where the Work space stands, seen from the main user. */
 enum class SpaceState { NotAllowed, None, On, Paused }
 
+/**
+ * The Work space's own options, set by Sable Spaces inside it as the profile owner. Each starts as Allowed
+ * and only the user changes it, on the options screen inside the Work space.
+ */
+enum class WorkOption(val key: String) {
+    /** Copying text from a work app and pasting it in a personal app (Android's cross-profile copy). */
+    COPY_OUT("option_copy"),
+
+    /** Sharing from a personal app into a work app (the Work tab in the share sheet). */
+    SHARE_IN("option_share"),
+
+    /** Screenshots and screen recordings of work apps. */
+    SCREENSHOTS("option_screenshots")
+}
+
 /** An app the user can add to the Work space. */
 data class AppChoice(val packageName: String, val label: String)
 
@@ -14,6 +29,9 @@ object WorkSpace {
     /** Forwarded from the main user into the Work space; both are confirmed there first. */
     const val ACTION_ADD_APP = "org.sableos.spaces.action.ADD_APP"
     const val ACTION_REMOVE = "org.sableos.spaces.action.REMOVE"
+
+    /** Forwarded into the Work space: its options screen, where every change is made by the user there. */
+    const val ACTION_OPTIONS = "org.sableos.spaces.action.OPTIONS"
     const val EXTRA_PACKAGE = "org.sableos.spaces.extra.PACKAGE"
     const val EXTRA_LABEL = "org.sableos.spaces.extra.LABEL"
 
@@ -50,6 +68,9 @@ object WorkSpace {
             .filter { it.packageName != ownPackage && it.packageName !in inWork }
             .distinctBy { it.packageName }
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
+
+    /** The options screen's line for [option]: its name and Allowed or Blocked. */
+    fun optionValueKey(blocked: Boolean): String = if (blocked) "blocked" else "allowed"
 
     /** The selection after Up or Down, kept on the list. */
     fun move(selected: Int, delta: Int, size: Int): Int =

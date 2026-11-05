@@ -20,5 +20,17 @@
     <string name="remove_confirm">Arbeitsbereich mit allen Arbeits-Apps und ihren Daten entfernen? Y entfernt ihn, N behält ihn.</string>
     <string name="yes">Ja</string>
     <string name="no">Nein</string>
-    <string name="hint">Auf und Ab wählen eine App · Enter fügt sie hinzu · R entfernt den Arbeitsbereich · Zurück verlässt</string>
+    <string name="hint">Auf und Ab wählen eine App · Enter fügt sie hinzu · O Optionen · R entfernt den Arbeitsbereich · Zurück verlässt</string>
+    <string name="options">Optionen für den Arbeitsbereich</string>
+    <string name="options_intro">Diese gelten nur im Arbeitsbereich. Jede ist anfangs erlaubt.</string>
+    <string name="option_copy">Aus Arbeits-Apps in private Apps kopieren</string>
+    <string name="option_share">Aus privaten Apps in Arbeits-Apps teilen</string>
+    <string name="option_screenshots">Bildschirmfotos von Arbeits-Apps</string>
+    <string name="allowed">Erlaubt</string>
+    <string name="blocked">Gesperrt</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">Arbeitssperre</string>
+    <string name="work_lock_about">Eine eigene PIN, ein Muster oder Passwort für Arbeits-Apps, abgefragt beim Öffnen, nachdem das Telefon gesperrt war.</string>
+    <string name="options_hint">Auf und Ab wählen · Enter ändert · L legt die Arbeitssperre fest · Zurück verlässt</string>
+    <string name="options_failed">Android hat diese Änderung nicht angenommen.</string>
 </resources>

@@ -20,5 +20,17 @@
     <string name="remove_confirm">Rimuovere lo spazio di lavoro con tutte le app di lavoro e i loro dati? Y lo rimuove, N lo mantiene.</string>
     <string name="yes">Sì</string>
     <string name="no">No</string>
-    <string name="hint">Su e Giù scelgono un\'app · Invio la aggiunge · R rimuove lo spazio di lavoro · Indietro esce</string>
+    <string name="hint">Su e Giù scelgono un\'app · Invio la aggiunge · O opzioni · R rimuove lo spazio di lavoro · Indietro esce</string>
+    <string name="options">Opzioni dello spazio di lavoro</string>
+    <string name="options_intro">Valgono solo nello spazio di lavoro. Ognuna parte come Consentito.</string>
+    <string name="option_copy">Copiare da app di lavoro ad app personali</string>
+    <string name="option_share">Condividere da app personali ad app di lavoro</string>
+    <string name="option_screenshots">Screenshot delle app di lavoro</string>
+    <string name="allowed">Consentito</string>
+    <string name="blocked">Bloccato</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">Blocco di lavoro</string>
+    <string name="work_lock_about">Un PIN, una sequenza o una password separati per le app di lavoro, richiesti quando le apri dopo che il telefono è stato bloccato.</string>
+    <string name="options_hint">Su e Giù scelgono · Invio cambia · L imposta il blocco di lavoro · Indietro esce</string>
+    <string name="options_failed">Android non ha accettato la modifica.</string>
 </resources>

@@ -20,5 +20,17 @@
     <string name="remove_confirm">De werkruimte met alle werk-apps en hun gegevens verwijderen? Y verwijdert, N behoudt.</string>
     <string name="yes">Ja</string>
     <string name="no">Nee</string>
-    <string name="hint">Omhoog en Omlaag kiezen een app · Enter voegt toe · R verwijdert de werkruimte · Terug sluit</string>
+    <string name="hint">Omhoog en Omlaag kiezen een app · Enter voegt toe · O opties · R verwijdert de werkruimte · Terug sluit</string>
+    <string name="options">Opties voor de werkruimte</string>
+    <string name="options_intro">Deze gelden alleen in de werkruimte. Elk begint als Toegestaan.</string>
+    <string name="option_copy">Kopiëren van werk-apps naar persoonlijke apps</string>
+    <string name="option_share">Delen van persoonlijke apps naar werk-apps</string>
+    <string name="option_screenshots">Schermafbeeldingen van werk-apps</string>
+    <string name="allowed">Toegestaan</string>
+    <string name="blocked">Geblokkeerd</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">Werkvergrendeling</string>
+    <string name="work_lock_about">Een aparte pincode, patroon of wachtwoord voor werk-apps, gevraagd als je ze opent nadat de telefoon vergrendeld was.</string>
+    <string name="options_hint">Omhoog en Omlaag kiezen · Enter wijzigt · L stelt de werkvergrendeling in · Terug sluit</string>
+    <string name="options_failed">Android heeft die wijziging niet geaccepteerd.</string>
 </resources>

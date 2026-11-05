@@ -20,5 +20,17 @@
     <string name="remove_confirm">모든 업무 앱과 데이터를 포함해 업무 공간을 삭제할까요? Y는 삭제, N은 유지.</string>
     <string name="yes">예</string>
     <string name="no">아니요</string>
-    <string name="hint">위아래로 앱 선택 · Enter로 추가 · R로 업무 공간 삭제 · 뒤로로 나가기</string>
+    <string name="hint">위아래로 앱 선택 · Enter로 추가 · O 옵션 · R로 업무 공간 삭제 · 뒤로로 나가기</string>
+    <string name="options">업무 공간 옵션</string>
+    <string name="options_intro">업무 공간 안에서만 적용됩니다. 모두 처음에는 허용입니다.</string>
+    <string name="option_copy">업무 앱에서 개인 앱으로 복사</string>
+    <string name="option_share">개인 앱에서 업무 앱으로 공유</string>
+    <string name="option_screenshots">업무 앱 스크린샷</string>
+    <string name="allowed">허용</string>
+    <string name="blocked">차단</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">업무용 잠금</string>
+    <string name="work_lock_about">업무 앱 전용 PIN, 패턴 또는 비밀번호로, 휴대전화가 잠긴 뒤 열 때 요청됩니다.</string>
+    <string name="options_hint">위아래로 선택 · Enter로 변경 · L로 업무용 잠금 설정 · Back 나가기</string>
+    <string name="options_failed">Android가 이 변경을 받아들이지 않았습니다.</string>
 </resources>

@@ -20,5 +20,17 @@
     <string name="remove_confirm">Usunąć przestrzeń służbową ze wszystkimi aplikacjami służbowymi i ich danymi? Y usuwa, N zachowuje.</string>
     <string name="yes">Tak</string>
     <string name="no">Nie</string>
-    <string name="hint">Góra i Dół wybierają aplikację · Enter dodaje · R usuwa przestrzeń służbową · Wstecz wychodzi</string>
+    <string name="hint">Góra i Dół wybierają aplikację · Enter dodaje · O opcje · R usuwa przestrzeń służbową · Wstecz wychodzi</string>
+    <string name="options">Opcje przestrzeni służbowej</string>
+    <string name="options_intro">Dotyczą tylko przestrzeni służbowej. Każda na początku jest dozwolona.</string>
+    <string name="option_copy">Kopiowanie z aplikacji służbowych do prywatnych</string>
+    <string name="option_share">Udostępnianie z aplikacji prywatnych do służbowych</string>
+    <string name="option_screenshots">Zrzuty ekranu aplikacji służbowych</string>
+    <string name="allowed">Dozwolone</string>
+    <string name="blocked">Zablokowane</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">Blokada służbowa</string>
+    <string name="work_lock_about">Osobny PIN, wzór lub hasło do aplikacji służbowych, wymagane przy ich otwieraniu po zablokowaniu telefonu.</string>
+    <string name="options_hint">Góra i Dół wybierają · Enter zmienia · L ustawia blokadę służbową · Wstecz zamyka</string>
+    <string name="options_failed">Android nie przyjął tej zmiany.</string>
 </resources>

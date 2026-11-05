@@ -35,9 +35,23 @@ object SpacesText {
             "remove_confirm" to
                 "Remove the Work space with every work app and its data? Y removes it, N keeps it.",
             "yes" to "Yes",
+            "options" to "Work space options",
+            "options_intro" to "These apply inside the Work space only. Each starts as Allowed.",
+            "option_copy" to "Copy from work apps into personal apps",
+            "option_share" to "Share from personal apps into work apps",
+            "option_screenshots" to "Screenshots of work apps",
+            "allowed" to "Allowed",
+            "blocked" to "Blocked",
+            "option_line" to "%1\$s: %2\$s",
+            "work_lock" to "Work lock",
+            "work_lock_about" to
+                "A separate PIN, pattern or password for work apps, asked when you open them after the phone was locked.",
+            "options_hint" to
+                "Up and Down choose · Enter changes it · L sets the Work lock · Back leaves",
+            "options_failed" to "Android did not accept that change.",
             "no" to "No",
             "hint" to
-                "Up and Down choose an app · Enter adds it · R removes the Work space · Back leaves"
+                "Up and Down choose an app · Enter adds it · O options · R removes the Work space · Back leaves"
         )
 
     val t = SableTexts(EN)

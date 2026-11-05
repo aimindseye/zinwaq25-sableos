@@ -20,5 +20,17 @@
     <string name="remove_confirm">仕事用スペースをすべての仕事用アプリとそのデータごと削除しますか？Y で削除、N で残します。</string>
     <string name="yes">はい</string>
     <string name="no">いいえ</string>
-    <string name="hint">上下でアプリを選択 · Enter で追加 · R で仕事用スペースを削除 · 戻るで終了</string>
+    <string name="hint">上下でアプリを選択 · Enter で追加 · O オプション · R で仕事用スペースを削除 · 戻るで終了</string>
+    <string name="options">仕事用スペースのオプション</string>
+    <string name="options_intro">これらは仕事用スペースの中だけに適用されます。最初はすべて許可です。</string>
+    <string name="option_copy">仕事用アプリから個人用アプリへのコピー</string>
+    <string name="option_share">個人用アプリから仕事用アプリへの共有</string>
+    <string name="option_screenshots">仕事用アプリのスクリーンショット</string>
+    <string name="allowed">許可</string>
+    <string name="blocked">ブロック</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">仕事用ロック</string>
+    <string name="work_lock_about">仕事用アプリ専用の PIN、パターン、パスワード。電話がロックされた後に開くと求められます。</string>
+    <string name="options_hint">上下で選択 · Enter で切り替え · L で仕事用ロックを設定 · Back で終了</string>
+    <string name="options_failed">Android はこの変更を受け付けませんでした。</string>
 </resources>

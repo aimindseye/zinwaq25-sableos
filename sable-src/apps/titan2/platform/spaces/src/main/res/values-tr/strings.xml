@@ -20,5 +20,17 @@
     <string name="remove_confirm">İş alanı tüm iş uygulamaları ve verileriyle kaldırılsın mı? Y kaldırır, N tutar.</string>
     <string name="yes">Evet</string>
     <string name="no">Hayır</string>
-    <string name="hint">Yukarı ve Aşağı uygulama seçer · Enter ekler · R iş alanını kaldırır · Geri çıkar</string>
+    <string name="hint">Yukarı ve Aşağı uygulama seçer · Enter ekler · O seçenekler · R iş alanını kaldırır · Geri çıkar</string>
+    <string name="options">İş alanı seçenekleri</string>
+    <string name="options_intro">Bunlar yalnızca iş alanında geçerlidir. Hepsi başta İzinli\'dir.</string>
+    <string name="option_copy">İş uygulamalarından kişisel uygulamalara kopyalama</string>
+    <string name="option_share">Kişisel uygulamalardan iş uygulamalarına paylaşma</string>
+    <string name="option_screenshots">İş uygulamalarının ekran görüntüleri</string>
+    <string name="allowed">İzinli</string>
+    <string name="blocked">Engelli</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">İş kilidi</string>
+    <string name="work_lock_about">İş uygulamaları için ayrı bir PIN, desen veya şifre; telefon kilitlendikten sonra açarken sorulur.</string>
+    <string name="options_hint">Yukarı ve Aşağı seçer · Enter değiştirir · L iş kilidini ayarlar · Geri çıkar</string>
+    <string name="options_failed">Android bu değişikliği kabul etmedi.</string>
 </resources>

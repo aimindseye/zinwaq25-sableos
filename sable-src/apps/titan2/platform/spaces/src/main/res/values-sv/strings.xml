@@ -20,5 +20,17 @@
     <string name="remove_confirm">Ta bort arbetsytan med alla jobbappar och deras data? Y tar bort, N behåller.</string>
     <string name="yes">Ja</string>
     <string name="no">Nej</string>
-    <string name="hint">Upp och Ned väljer en app · Enter lägger till · R tar bort arbetsytan · Tillbaka lämnar</string>
+    <string name="hint">Upp och Ned väljer en app · Enter lägger till · O alternativ · R tar bort arbetsytan · Tillbaka lämnar</string>
+    <string name="options">Alternativ för arbetsytan</string>
+    <string name="options_intro">De gäller bara i arbetsytan. Alla börjar som Tillåtet.</string>
+    <string name="option_copy">Kopiera från arbetsappar till privata appar</string>
+    <string name="option_share">Dela från privata appar till arbetsappar</string>
+    <string name="option_screenshots">Skärmbilder av arbetsappar</string>
+    <string name="allowed">Tillåtet</string>
+    <string name="blocked">Blockerat</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">Arbetslås</string>
+    <string name="work_lock_about">En separat pinkod, ett mönster eller lösenord för arbetsappar, som efterfrågas när du öppnar dem efter att telefonen låsts.</string>
+    <string name="options_hint">Upp och Ned väljer · Enter ändrar · L ställer in arbetslåset · Bakåt lämnar</string>
+    <string name="options_failed">Android godtog inte ändringen.</string>
 </resources>

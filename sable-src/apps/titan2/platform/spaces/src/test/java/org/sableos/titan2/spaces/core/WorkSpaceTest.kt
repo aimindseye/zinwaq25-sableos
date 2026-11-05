@@ -67,4 +67,13 @@ class WorkSpaceTest {
         assertEquals(1, WorkSpace.move(0, 1, 3))
         assertEquals(0, WorkSpace.move(5, 1, 0))
     }
+
+    @Test
+    fun everyOptionHasItsLineAndStartsAllowed() {
+        WorkOption.entries.forEach { assertTrue(it.key, it.key in SpacesText.EN) }
+        assertEquals("allowed", WorkSpace.optionValueKey(blocked = false))
+        assertEquals("blocked", WorkSpace.optionValueKey(blocked = true))
+        assertTrue("allowed" in SpacesText.EN && "blocked" in SpacesText.EN)
+        assertEquals(3, WorkOption.entries.size)
+    }
 }

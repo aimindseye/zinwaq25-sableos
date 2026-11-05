@@ -20,5 +20,17 @@
     <string name="remove_confirm">Supprimer l\'espace professionnel avec toutes les applis professionnelles et leurs données ? Y le supprime, N le garde.</string>
     <string name="yes">Oui</string>
     <string name="no">Non</string>
-    <string name="hint">Haut et Bas choisissent une appli · Entrée l\'ajoute · R supprime l\'espace professionnel · Retour quitte</string>
+    <string name="hint">Haut et Bas choisissent une appli · Entrée l\'ajoute · O options · R supprime l\'espace professionnel · Retour quitte</string>
+    <string name="options">Options de l\'espace professionnel</string>
+    <string name="options_intro">Elles ne s\'appliquent que dans l\'espace professionnel. Chacune est d\'abord autorisée.</string>
+    <string name="option_copy">Copier des applis professionnelles vers les applis personnelles</string>
+    <string name="option_share">Partager des applis personnelles vers les applis professionnelles</string>
+    <string name="option_screenshots">Captures d\'écran des applis professionnelles</string>
+    <string name="allowed">Autorisé</string>
+    <string name="blocked">Bloqué</string>
+    <string name="option_line">%1$s : %2$s</string>
+    <string name="work_lock">Verrouillage professionnel</string>
+    <string name="work_lock_about">Un code, schéma ou mot de passe distinct pour les applis professionnelles, demandé à leur ouverture après le verrouillage du téléphone.</string>
+    <string name="options_hint">Haut et Bas choisissent · Entrée change · L règle le verrouillage professionnel · Retour quitte</string>
+    <string name="options_failed">Android n\'a pas accepté ce changement.</string>
 </resources>

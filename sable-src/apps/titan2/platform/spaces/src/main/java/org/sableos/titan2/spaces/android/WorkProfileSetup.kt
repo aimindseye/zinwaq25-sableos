@@ -12,7 +12,8 @@ import org.sableos.titan2.spaces.core.WorkSpace
 
 /**
  * Finishes a new Work space from inside it: names it Work, lets the main user's Sable Spaces reach
- * this copy for adding apps and removing the space, and turns the profile on. Nothing else is set.
+ * this copy for adding apps, its options and removing the space, and turns the profile on. Nothing else
+ * is set: every option starts as Allowed.
  * Safe to run twice (the setup broadcast and the policy compliance screen both call it).
  */
 object WorkProfileSetup {
@@ -27,7 +28,11 @@ object WorkProfileSetup {
         val admin = SpacesAdminReceiver.component(context)
         try {
             dpm.setProfileName(admin, t("work"))
-            listOf(WorkSpace.ACTION_ADD_APP, WorkSpace.ACTION_REMOVE).forEach { action ->
+            listOf(
+                WorkSpace.ACTION_ADD_APP,
+                WorkSpace.ACTION_REMOVE,
+                WorkSpace.ACTION_OPTIONS
+            ).forEach { action ->
                 val filter = IntentFilter(action).apply { addCategory(Intent.CATEGORY_DEFAULT) }
                 dpm.addCrossProfileIntentFilter(
                     admin,
@@ -35,11 +40,13 @@ object WorkProfileSetup {
                     DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED
                 )
             }
-            context.packageManager.setComponentEnabledSetting(
-                ComponentName(context, InWorkActivity::class.java),
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                PackageManager.DONT_KILL_APP
-            )
+            listOf(InWorkActivity::class.java, WorkOptionsActivity::class.java).forEach { screen ->
+                context.packageManager.setComponentEnabledSetting(
+                    ComponentName(context, screen),
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
+                )
+            }
             dpm.setProfileEnabled(admin)
         } catch (e: SecurityException) {
             Log.w(TAG, "Android refused part of the Work space setup", e)

@@ -20,5 +20,17 @@
     <string name="remove_confirm">移除工作空间及其所有工作应用和数据？Y 移除，N 保留。</string>
     <string name="yes">是</string>
     <string name="no">否</string>
-    <string name="hint">上下选择应用 · Enter 添加 · R 移除工作空间 · 返回退出</string>
+    <string name="hint">上下选择应用 · Enter 添加 · O 选项 · R 移除工作空间 · 返回退出</string>
+    <string name="options">工作空间选项</string>
+    <string name="options_intro">这些设置只在工作空间内生效。每项一开始都是允许。</string>
+    <string name="option_copy">从工作应用复制到个人应用</string>
+    <string name="option_share">从个人应用分享到工作应用</string>
+    <string name="option_screenshots">工作应用的屏幕截图</string>
+    <string name="allowed">允许</string>
+    <string name="blocked">阻止</string>
+    <string name="option_line">%1$s：%2$s</string>
+    <string name="work_lock">工作锁</string>
+    <string name="work_lock_about">工作应用单独的 PIN、图案或密码，手机锁定后打开它们时需要输入。</string>
+    <string name="options_hint">上下键选择 · Enter 切换 · L 设置工作锁 · Back 退出</string>
+    <string name="options_failed">Android 未接受此更改。</string>
 </resources>

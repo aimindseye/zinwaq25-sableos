@@ -273,8 +273,10 @@ else
     fail "Secure Vault manifest or window policy"
 fi
 # Sable Spaces (Balance): main user and work profiles only, no network, no backup; it sets no policy beyond
-# naming the profile, forwarding its own two actions, adding apps and removing the Work space; the
-# in-profile screen is off in the main user and every request is confirmed there.
+# naming the profile, forwarding its own three actions, adding apps, removing the Work space and the three
+# options the user switches on its in-Work options screen (block copy out of Work, block sharing into
+# Work, block screenshots in Work; all Allowed until then); the in-profile screens are off in the main
+# user, every add or remove request is confirmed there, and only the options screen sets restrictions.
 sm=sable-src/apps/titan2/platform/spaces/src/main
 sx=product/q25/sysconfig/preinstalled-packages-sable-spaces.xml
 if grep -q 'user-type="android.os.usertype.profile.MANAGED"' "$sx" && grep -q 'user-type="FULL"' "$sx" &&
@@ -282,10 +284,13 @@ if grep -q 'user-type="android.os.usertype.profile.MANAGED"' "$sx" && grep -q 'u
     ! grep -q '<uses-permission' "$sm/AndroidManifest.xml" &&
     grep -q 'android:allowBackup="false"' "$sm/AndroidManifest.xml" &&
     grep -A1 'name=".android.InWorkActivity"' "$sm/AndroidManifest.xml" | grep -q 'android:enabled="false"' &&
-    ! grep -rqE 'setPasswordQuality|setKeyguardDisabled|setGlobalProxy|setAlwaysOnVpn|setNetworkLogging|setSecurityLogging|setPermissionGrantState|addUserRestriction' "$sm/java" &&
+    grep -A1 'name=".android.WorkOptionsActivity"' "$sm/AndroidManifest.xml" | grep -q 'android:enabled="false"' &&
+    ! grep -rqE 'setPasswordQuality|setKeyguardDisabled|setGlobalProxy|setAlwaysOnVpn|setNetworkLogging|setSecurityLogging|setPermissionGrantState' "$sm/java" &&
+    ! grep -rlE 'addUserRestriction|clearUserRestriction|setScreenCaptureDisabled' "$sm/java" | grep -qv '/WorkOptionsActivity.kt$' &&
+    [ "$(grep -oE 'UserManager\.DISALLOW_[A-Z_]+' "$sm/java/org/sableos/titan2/spaces/android/WorkOptionsActivity.kt" | sort -u | tr '\n' ' ')" = "UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE UserManager.DISALLOW_SHARE_INTO_MANAGED_PROFILE " ] &&
     grep -q 'KEYCODE_Y -> confirm()' "$sm/java/org/sableos/titan2/spaces/android/InWorkActivity.kt" &&
     grep -q 'WorkSpace.isPackageName(pkg)' "$sm/java/org/sableos/titan2/spaces/android/InWorkActivity.kt"; then
-    pass "Sable Spaces: main user and work profiles only, no permissions or policies, requests confirmed in Work"
+    pass "Sable Spaces: main user and work profiles only, no permissions, only the user's three Work options, requests confirmed in Work"
 else
     fail "Sable Spaces install scope or policy"
 fi

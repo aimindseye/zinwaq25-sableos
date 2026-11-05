@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- English. Single capital letters in hints (R remove, Y yes, N no) name keyboard keys: keep them as the key, translate the word.
+<!-- English. Single capital letters in hints (O options, R remove, Y yes, N no, L Work lock) name keyboard keys: keep them as the key, translate the word.
      Keep equal to SpacesText.EN (SpacesTextTest checks); translations go in values-<lang>/. -->
 <resources>
     <string name="app_name" translatable="false">Sable Spaces</string>
@@ -22,5 +22,17 @@
     <string name="remove_confirm">Remove the Work space with every work app and its data? Y removes it, N keeps it.</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
-    <string name="hint">Up and Down choose an app · Enter adds it · R removes the Work space · Back leaves</string>
+    <string name="hint">Up and Down choose an app · Enter adds it · O options · R removes the Work space · Back leaves</string>
+    <string name="options">Work space options</string>
+    <string name="options_intro">These apply inside the Work space only. Each starts as Allowed.</string>
+    <string name="option_copy">Copy from work apps into personal apps</string>
+    <string name="option_share">Share from personal apps into work apps</string>
+    <string name="option_screenshots">Screenshots of work apps</string>
+    <string name="allowed">Allowed</string>
+    <string name="blocked">Blocked</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">Work lock</string>
+    <string name="work_lock_about">A separate PIN, pattern or password for work apps, asked when you open them after the phone was locked.</string>
+    <string name="options_hint">Up and Down choose · Enter changes it · L sets the Work lock · Back leaves</string>
+    <string name="options_failed">Android did not accept that change.</string>
 </resources>

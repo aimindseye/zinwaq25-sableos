@@ -20,5 +20,17 @@
     <string name="remove_confirm">¿Quitar el espacio de trabajo con todas las apps de trabajo y sus datos? Y lo quita, N lo conserva.</string>
     <string name="yes">Sí</string>
     <string name="no">No</string>
-    <string name="hint">Arriba y Abajo eligen una app · Enter la añade · R quita el espacio de trabajo · Atrás sale</string>
+    <string name="hint">Arriba y Abajo eligen una app · Enter la añade · O opciones · R quita el espacio de trabajo · Atrás sale</string>
+    <string name="options">Opciones del espacio de trabajo</string>
+    <string name="options_intro">Se aplican solo dentro del espacio de trabajo. Todas empiezan como Permitido.</string>
+    <string name="option_copy">Copiar de apps de trabajo a apps personales</string>
+    <string name="option_share">Compartir de apps personales a apps de trabajo</string>
+    <string name="option_screenshots">Capturas de pantalla de apps de trabajo</string>
+    <string name="allowed">Permitido</string>
+    <string name="blocked">Bloqueado</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">Bloqueo del trabajo</string>
+    <string name="work_lock_about">Un PIN, patrón o contraseña aparte para las apps de trabajo, que se pide al abrirlas después de bloquear el teléfono.</string>
+    <string name="options_hint">Arriba y Abajo eligen · Intro lo cambia · L configura el bloqueo del trabajo · Atrás sale</string>
+    <string name="options_failed">Android no aceptó ese cambio.</string>
 </resources>

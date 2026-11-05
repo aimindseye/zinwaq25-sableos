@@ -3,7 +3,8 @@
      user and in work profiles only (product/q25/sysconfig/preinstalled-packages-sable-spaces.xml).
      The main user's copy makes the Work space with Android's own managed-profile setup and lists apps
      to add; the copy inside the Work space is its profile owner and does the adding and removing, each
-     after the user confirms on its own screen. No network, no backup, no launcher entry: Sable Setup
+     after the user confirms on its own screen, and holds the Work space's options (all Allowed until the
+     user changes them there). No network, no backup, no launcher entry: Sable Setup
      opens it. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
@@ -52,6 +53,20 @@
             <intent-filter>
                 <action android:name="org.sableos.spaces.action.ADD_APP" />
                 <action android:name="org.sableos.spaces.action.REMOVE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Inside the Work space only, like InWorkActivity: its options (copy out, share in, screenshots,
+             the Work lock). Opening it changes nothing; only the user's keys or taps there do. -->
+        <activity
+            android:name=".android.WorkOptionsActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
+            <intent-filter>
+                <action android:name="org.sableos.spaces.action.OPTIONS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
