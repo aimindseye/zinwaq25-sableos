@@ -1,7 +1,7 @@
 # Accessibility on SableOS
 
-SableOS keeps every accessibility option that LineageOS ships and adds one Sable control: a
-text size choice. It does not include Google's accessibility apps, so a screen reader is an
+SableOS keeps every accessibility option that LineageOS ships and adds three Sable size
+controls: Display size, Text size and Lock screen size, each a row of "A" tiles. It does not include Google's accessibility apps, so a screen reader is an
 add-on, like [microG](MICROG.md).
 
 ## Text size
@@ -21,11 +21,32 @@ there, with its Font size slider (up to 2×), bold text and high contrast text. 
 Larger work, but stock Android screens may clip on the square display. A size set there shows
 as "custom" in Text size.
 
-Display size (density) is a different setting: SableOS ships 280 for the Q25's panel, and a
-larger Display size shrinks the screen to fewer dp, which clips far more than text size does.
-See [DISPLAY](../device-profile/DISPLAY.md).
+In Settings the four sizes are a row of "A" tiles, small to large: move along them with the
+trackpad or arrow keys and press Enter or Space (or tap) to choose. TalkBack reads the chosen
+one as "Large, selected".
 
-Patches: Settings 1601, SetupWizard 0415. Qualification: Q4-TEXT-SIZE.
+## Display size
+
+Settings > Display > Display size has five tiles around the panel's density: Smaller, Small,
+Default, Large and Larger (0.86 to 1.14 times; on the Q25 241, 260, 280, 300 and 319 dpi, so
+the screen is 478 to 361 dp wide). Default clears any forced density. Display size makes
+everything bigger, not only text, and leaves fewer dp: Default is what SableOS lays out and
+tests, and Large and Larger may clip stock Android screens on the square display. Android's
+Display size and text page sets the same density; a value set there selects no tile. See
+[DISPLAY](../device-profile/DISPLAY.md).
+
+## Lock screen size
+
+Settings > Display > Lock screen size has four tiles: Small, Default, Large and Larger
+(0.85 to 1.3 times). It sizes the PIN pad's keys and digits and the locked glance's text and
+peek icons. On the Q25 the PIN pad is compact at every size: wide, short keys (44 dp high at
+Default) so the message, PIN row, all four rows of keys and the emergency button fit the
+411 dp screen. Keys stop growing where the screen is full, so Large and Larger mainly enlarge
+the digits; Small gives smaller keys with more space around them. The lock screen clock keeps
+its size.
+
+Patches: Settings 1601 and 1603, SetupWizard 0415, frameworks/base 0315. Qualification:
+Q4-TEXT-SIZE, Q4-SIZE-TILES, Q4-LOCK-PIN-COMPACT.
 
 ## Speech
 

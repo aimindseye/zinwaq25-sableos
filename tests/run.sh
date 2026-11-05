@@ -566,6 +566,25 @@ else
     printf 'SKIP  javac not installed (Settings policy test)\n'
 fi
 
+# 6e2. Settings size tiles (1601 SableTextSize, 1603 SableSizes), compiled on the host.
+if command -v javac >/dev/null 2>&1; then
+    sz="$tmp/settings-sizes"
+    mkdir -p "$sz"
+    for p in patches/framework/packages/apps/Settings/1601-*.patch patches/framework/packages/apps/Settings/1603-*.patch; do
+        (cd "$sz" && git apply --include='src/com/android/settings/sable/SableTextSize.java' \
+            --include='src/com/android/settings/sable/SableSizes.java' "$ROOT/$p")
+    done
+    if javac -d "$sz/out" "$sz"/src/com/android/settings/sable/*.java \
+        tests/java/settings/com/android/settings/sable/SableSizesTest.java tests/java/junit-shim/org/junit/*.java 2>"$tmp/err" &&
+        java -cp "$sz/out" org.junit.Run com.android.settings.sable.SableSizesTest >"$tmp/out" 2>&1; then
+        pass "Settings size tiles ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+    else
+        fail "Settings size tiles test: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (Settings size tiles test)\n'
+fi
+
 # 6f. Sable Applications model (Settings patches 0601, 1101 and 12xx) host tests, and the Sable
 # Tools Settings actions the Settings patches must export (settings-ui5).
 if command -v javac >/dev/null 2>&1; then
