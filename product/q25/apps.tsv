@@ -69,6 +69,10 @@ SableNotes	common	apps/r8/android	:notes:assembleRelease	notes/build/outputs/apk
 # reminders and repeats, kept on the phone; a reminder is a notification, so it shows in Hub with Done
 # and Snooze 1 hour. Shrunk release build like Notes. One of the optional apps for the setup choice.
 SableTasks	common	apps/r8/android	:tasks:assembleRelease	tasks/build/outputs/apk/release/*.apk	org.sableos.tasks	unsigned	-	yes
+# Sable Browser (owner request 2026-11-05, after the BB10 browser): Android's WebView with a trackpad
+# pointer that speeds up on long strokes, slows over links and scrolls at the edges, and BB10 keys.
+# Shrunk release build like Notes. Jelly stays installed; the user picks the default browser.
+SableBrowser	common	apps/r8/android	:browser:assembleRelease	browser/build/outputs/apk/release/*.apk	org.sableos.browser	unsigned	-	yes
 SableMessages	common	apps/r8/android	:messages:assembleRelease	messages/build/outputs/apk/release/*.apk	org.sableos.messages	unsigned	messaging	yes
 SableReader	common	apps/common/reader	:leisure:assembleSableDebug	leisure/build/outputs/apk/sable/debug/*.apk	org.sableos.reader	presigned	-	yes
 # Sable Mail (Thunderbird flavor) is off from 2.0 (owner decision 2026-11-04: account setup was

@@ -200,6 +200,26 @@ Sable Tasks (ported from TenSeven Tasks) keeps a to-do list with due dates, remi
 
 A reminder is a notification, so it also shows in Hub, whose menu offers Done and Snooze 1 hour. The lock screen shows only "Task reminder". Reminders are not exact alarms: in deep sleep one can come a few minutes late. Text shared to Sable Tasks becomes a new task, and in Notes' Tasks view R sends a checklist item there.
 
+### Browser
+
+Sable Browser opens web pages with Android's own web engine, the one Chrome uses, and adds a
+trackpad pointer. Stroke the trackpad and the pointer appears. Slow strokes move it a little for
+careful aiming, and a quick run of strokes sends it across the screen. Over a link or button it
+slows down and a ring shows around it. Push it past an edge and the page scrolls. Click the
+trackpad to press where it points; hold the click for a link's menu, or hold it and move to
+select text. When you click into a search box or form field, the keyboard types into it until
+you press Esc or Back.
+
+Keys: **L** address bar, **Space** next page (**Shift+Space** back up), **T** top, **B** bottom,
+**R** reload, **Backspace** back (**Shift+Backspace** forward), **I** and **O** zoom, **S**
+share, **M** pointer on or off (with it off, the trackpad scrolls the page). The address bar opens
+web addresses and searches anything else with DuckDuckGo.
+
+The browser asks for nothing but the internet: pages can't use your location, camera or
+microphone, and other sites can't follow you with third-party cookies. Downloads go to Downloads.
+Jelly, LineageOS's browser, is still installed; pick your default in Settings > Apps > Default
+apps > Browser app.
+
 ### Terminal
 
 Sable Terminal is ConnectBot 1.10.9 with the Sable name and icon. It connects over SSH or Telnet, or opens a shell on the phone itself (choose Local when adding a host). Hosts and SSH keys stay on the phone, and backup is off.

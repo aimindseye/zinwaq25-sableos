@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">חפשו או הקלידו כתובת אינטרנט</string>
+    <string name="keys_hint">L כתובת · Space עמוד · T למעלה · B למטה · R רענון · M סמן</string>
+    <string name="pointer_on">סמן משטח המגע פועל</string>
+    <string name="pointer_off">הסמן כבוי · משטח המגע גולל את הדף</string>
+    <string name="page_failed">לא ניתן לטעון את הדף. R מנסה שוב.</string>
+    <string name="no_app_for_link">אין אפליקציה שיכולה לפתוח את הקישור.</string>
+    <string name="share_page">שיתוף הדף</string>
+    <string name="downloading">מוריד את %1$s</string>
+    <string name="download_failed">לא ניתן להתחיל את ההורדה.</string>
+    <string name="choose_file">בחירת קובץ</string>
+</resources>

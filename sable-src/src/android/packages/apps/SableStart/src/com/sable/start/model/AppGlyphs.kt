@@ -80,6 +80,7 @@ object AppGlyphs {
             "org.sableos.textreader" to AppGlyph.TEXT_READER,
             "org.sableos.notes" to AppGlyph.NOTES,
             "org.sableos.tasks" to AppGlyph.TASKS,
+            "org.sableos.browser" to AppGlyph.BROWSER,
             "org.sableos.terminal" to AppGlyph.TERMINAL,
             "org.sableos.sudoku" to AppGlyph.SUDOKU,
             "org.sableos.minesweeper" to AppGlyph.MINESWEEPER,

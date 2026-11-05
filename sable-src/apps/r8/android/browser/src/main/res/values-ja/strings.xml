@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">検索またはウェブアドレスを入力</string>
+    <string name="keys_hint">L アドレス · Space ページ · T 先頭 · B 末尾 · R 再読込 · M ポインタ</string>
+    <string name="pointer_on">トラックパッドのポインタ オン</string>
+    <string name="pointer_off">ポインタ オフ · トラックパッドでページをスクロール</string>
+    <string name="page_failed">ページを読み込めませんでした。R で再試行します。</string>
+    <string name="no_app_for_link">このリンクを開けるアプリがありません。</string>
+    <string name="share_page">ページを共有</string>
+    <string name="downloading">%1$s をダウンロード中</string>
+    <string name="download_failed">ダウンロードを開始できませんでした。</string>
+    <string name="choose_file">ファイルを選択</string>
+</resources>

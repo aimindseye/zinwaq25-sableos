@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">खोजें या वेब पता लिखें</string>
+    <string name="keys_hint">L पता · Space पेज · T ऊपर · B नीचे · R रीलोड · M पॉइंटर</string>
+    <string name="pointer_on">ट्रैकपैड पॉइंटर चालू</string>
+    <string name="pointer_off">पॉइंटर बंद · ट्रैकपैड पेज स्क्रॉल करता है</string>
+    <string name="page_failed">यह पेज लोड नहीं हुआ। R फिर से कोशिश करता है।</string>
+    <string name="no_app_for_link">कोई ऐप यह लिंक नहीं खोल सकता।</string>
+    <string name="share_page">पेज शेयर करें</string>
+    <string name="downloading">%1$s डाउनलोड हो रहा है</string>
+    <string name="download_failed">यह डाउनलोड शुरू नहीं हो सका।</string>
+    <string name="choose_file">फ़ाइल चुनें</string>
+</resources>

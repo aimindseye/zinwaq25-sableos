@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">Поиск или веб-адрес</string>
+    <string name="keys_hint">L адрес · Space страница · T вверх · B вниз · R обновить · M указатель</string>
+    <string name="pointer_on">Указатель трекпада включён</string>
+    <string name="pointer_off">Указатель выключен · трекпад прокручивает страницу</string>
+    <string name="page_failed">Не удалось загрузить страницу. R — ещё раз.</string>
+    <string name="no_app_for_link">Нет приложения для этой ссылки.</string>
+    <string name="share_page">Поделиться страницей</string>
+    <string name="downloading">Загрузка %1$s</string>
+    <string name="download_failed">Не удалось начать загрузку.</string>
+    <string name="choose_file">Выберите файл</string>
+</resources>

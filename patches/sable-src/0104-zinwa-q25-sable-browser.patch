@@ -1,0 +1,1977 @@
+diff --git a/sable-src/apps/r8/android/browser/build.gradle.kts b/sable-src/apps/r8/android/browser/build.gradle.kts
+new file mode 100644
+index 0000000..d456947
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/build.gradle.kts
+@@ -0,0 +1,75 @@
++plugins {
++    id("com.android.application")
++    id("org.jetbrains.kotlin.android")
++    id("org.jetbrains.kotlin.plugin.compose")
++}
++
++android {
++    namespace = "org.sableos.browser"
++    compileSdk = 36
++
++    defaultConfig {
++        applicationId = "org.sableos.browser"
++        minSdk = 30
++        targetSdk = 36
++        versionCode = 1
++        versionName = "0.1.0"
++    }
++
++    buildTypes {
++        // The Q25 image ships the release variant (product/q25/apps.tsv): R8-shrunk and signed by
++        // the platform build, so it fits the dynamic partitions (a debug APK is about 30 MB).
++        release {
++            isMinifyEnabled = true
++            isShrinkResources = true
++            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
++        }
++    }
++
++    buildFeatures {
++        compose = true
++    }
++
++    compileOptions {
++        sourceCompatibility = JavaVersion.VERSION_17
++        targetCompatibility = JavaVersion.VERSION_17
++    }
++
++    kotlin {
++        compilerOptions {
++            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
++            allWarningsAsErrors.set(true)
++        }
++    }
++
++    lint {
++        checkTestSources = false
++    }
++}
++
++androidComponents {
++    beforeVariants(selector().all()) { variantBuilder ->
++        variantBuilder.enableAndroidTest = false
++    }
++}
++
++dependencies {
++    implementation(project(":design"))
++    implementation(platform(libs.androidx.compose.bom))
++    implementation(libs.androidx.activity.compose)
++    implementation("androidx.compose.material3:material3")
++    implementation("androidx.compose.foundation:foundation")
++    implementation("androidx.compose.ui:ui")
++    debugImplementation("androidx.compose.ui:ui-tooling")
++
++    testImplementation(libs.junit)
++}
++
++extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
++    config.setFrom(rootProject.file("config/detekt.yml"))
++    ignoreFailures = false
++}
++
++extensions.configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
++    ignoreFailures.set(false)
++}
+diff --git a/sable-src/apps/r8/android/browser/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/browser/src/main/AndroidManifest.xml
+new file mode 100644
+index 0000000..7295fa8
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/AndroidManifest.xml
+@@ -0,0 +1,49 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
++    <!-- Web pages. Nothing else: no location, camera, microphone or contacts, so a page can never
++         ask for them. Downloads go through Android's download manager, which needs no permission. -->
++    <uses-permission android:name="android.permission.INTERNET" />
++    <queries>
++        <provider android:authorities="org.sableos.appearance" />
++        <!-- tel:, mailto: and intent: links open in the app that handles them. -->
++        <intent>
++            <action android:name="android.intent.action.VIEW" />
++            <category android:name="android.intent.category.BROWSABLE" />
++        </intent>
++    </queries>
++
++    <!-- A browser must open plain http pages too; every https page stays https. -->
++    <application
++        android:name=".BrowserApplication"
++        android:allowBackup="false"
++        android:usesCleartextTraffic="true"
++        android:icon="@mipmap/ic_sable_browser"
++        android:roundIcon="@mipmap/ic_sable_browser_round"
++        android:label="@string/app_name"
++        android:supportsRtl="true"
++        android:theme="@android:style/Theme.Material.NoActionBar">
++        <activity
++            android:name=".MainActivity"
++            android:exported="true"
++            android:launchMode="singleTask"
++            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode"
++            android:windowSoftInputMode="adjustResize">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++                <category android:name="android.intent.category.LAUNCHER" />
++                <category android:name="android.intent.category.APP_BROWSER" />
++            </intent-filter>
++            <intent-filter>
++                <action android:name="android.intent.action.VIEW" />
++                <category android:name="android.intent.category.DEFAULT" />
++                <category android:name="android.intent.category.BROWSABLE" />
++                <data android:scheme="http" />
++                <data android:scheme="https" />
++            </intent-filter>
++            <intent-filter>
++                <action android:name="android.intent.action.WEB_SEARCH" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++    </application>
++</manifest>
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/BrowserApplication.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/BrowserApplication.kt
+new file mode 100644
+index 0000000..0fbb8cc
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/BrowserApplication.kt
+@@ -0,0 +1,14 @@
++package org.sableos.browser
++
++import android.app.Application
++import org.sableos.browser.core.BrowserText
++import org.sableos.design.DesignText
++
++/** Binds this app's text and the design library's to the string resources, so the phone's language is used. */
++class BrowserApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        DesignText.t.bindTo(this)
++        BrowserText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt
+new file mode 100644
+index 0000000..f9d45ab
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt
+@@ -0,0 +1,178 @@
++package org.sableos.browser
++
++import android.app.SearchManager
++import android.content.ActivityNotFoundException
++import android.content.Intent
++import android.net.Uri
++import android.os.Bundle
++import android.util.Log
++import android.view.InputDevice
++import android.view.KeyEvent
++import android.view.MotionEvent
++import android.webkit.ValueCallback
++import android.webkit.WebChromeClient
++import android.webkit.WebView
++import androidx.activity.ComponentActivity
++import androidx.activity.OnBackPressedCallback
++import androidx.activity.compose.setContent
++import androidx.activity.enableEdgeToEdge
++import androidx.activity.result.contract.ActivityResultContracts
++import org.sableos.browser.core.BrowserText.t
++import org.sableos.browser.core.UrlInput
++import org.sableos.browser.ui.BrowserController
++import org.sableos.browser.ui.BrowserScreen
++import org.sableos.browser.ui.BrowserState
++import org.sableos.browser.ui.createBrowserWebView
++import org.sableos.design.SableGlobalTheme
++
++/**
++ * Sable Browser: Android's WebView with a BB10-style trackpad pointer and keys. Opens web links
++ * and web searches from other apps; Command's Search the web lands here when it is the default.
++ */
++class MainActivity : ComponentActivity() {
++    private val state = BrowserState()
++    private lateinit var webView: WebView
++    private lateinit var controller: BrowserController
++    private var pendingFiles: ValueCallback<Array<Uri>>? = null
++
++    private val pickFiles =
++        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
++            pendingFiles?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
++            pendingFiles = null
++        }
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        enableEdgeToEdge()
++        webView =
++            createBrowserWebView(this, state, onScale = { controller.pageScale = it }) { intent, callback ->
++                chooseFiles(intent, callback)
++            }
++        controller = BrowserController(webView, state, Actions())
++        onBackPressedDispatcher.addCallback(this, BackCallback())
++        setContent {
++            SableGlobalTheme(window = window) {
++                BrowserScreen(state, webView, onGo = ::go, onLeaveAddress = ::leaveAddress)
++            }
++        }
++        val restored = savedInstanceState?.let { webView.restoreState(it) } != null
++        if (!restored) open(intent)
++    }
++
++    override fun onNewIntent(intent: Intent) {
++        super.onNewIntent(intent)
++        setIntent(intent)
++        open(intent)
++    }
++
++    override fun onSaveInstanceState(outState: Bundle) {
++        super.onSaveInstanceState(outState)
++        webView.saveState(outState)
++    }
++
++    override fun onDestroy() {
++        webView.destroy()
++        super.onDestroy()
++    }
++
++    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
++        (!state.addressFocused && controller.onKey(event)) || super.dispatchKeyEvent(event)
++
++    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
++        if (event.actionMasked == MotionEvent.ACTION_DOWN) controller.hidePointer()
++        return super.dispatchTouchEvent(event)
++    }
++
++    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
++        // The trackpad in mouse mode draws Android's own pointer; ours steps aside.
++        if (event.isFromSource(InputDevice.SOURCE_MOUSE)) controller.hidePointer()
++        return super.dispatchGenericMotionEvent(event)
++    }
++
++    /** A web link, a web search, or nothing (the address bar takes focus). */
++    private fun open(intent: Intent?) {
++        val url =
++            when (intent?.action) {
++                Intent.ACTION_VIEW -> intent.dataString?.takeIf(UrlInput::isWeb)
++                Intent.ACTION_WEB_SEARCH -> intent.getStringExtra(SearchManager.QUERY)?.let(UrlInput::resolve)
++                else -> null
++            }
++        if (url != null) {
++            webView.loadUrl(url)
++        } else if (webView.url == null) {
++            webView.loadUrl(BLANK)
++            state.addressRequest++
++        }
++    }
++
++    private fun go(text: String) {
++        val url = UrlInput.resolve(text) ?: return
++        leaveAddress()
++        if (UrlInput.isWeb(url)) {
++            webView.loadUrl(url)
++        } else {
++            startOutside(url)
++        }
++    }
++
++    private fun startOutside(url: String) {
++        try {
++            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
++        } catch (e: ActivityNotFoundException) {
++            Log.i(TAG, "no app for typed address", e)
++            state.status = t("no_app_for_link")
++        }
++    }
++
++    private fun leaveAddress() {
++        state.addressFocused = false
++        webView.requestFocus()
++    }
++
++    private fun chooseFiles(
++        intent: Intent,
++        callback: ValueCallback<Array<Uri>>,
++    ): Boolean {
++        pendingFiles?.onReceiveValue(null)
++        pendingFiles = callback
++        return try {
++            pickFiles.launch(Intent.createChooser(intent, t("choose_file")))
++            true
++        } catch (e: ActivityNotFoundException) {
++            Log.i(TAG, "no file picker", e)
++            pendingFiles = null
++            false
++        }
++    }
++
++    private inner class Actions : BrowserController.Actions {
++        override fun share(url: String) {
++            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, url)
++            startActivity(Intent.createChooser(send, t("share_page")))
++        }
++
++        override fun focusAddress() {
++            state.addressRequest++
++        }
++    }
++
++    /** Back leaves the address bar, then a page field, then goes back a page, then closes. */
++    private inner class BackCallback : OnBackPressedCallback(true) {
++        override fun handleOnBackPressed() {
++            when {
++                state.addressFocused -> leaveAddress()
++                controller.back() -> Unit
++                else -> {
++                    isEnabled = false
++                    onBackPressedDispatcher.onBackPressed()
++                    isEnabled = true
++                }
++            }
++        }
++    }
++
++    private companion object {
++        const val TAG = "SableBrowser"
++        const val BLANK = "about:blank"
++    }
++}
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/BrowserKeys.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/BrowserKeys.kt
+new file mode 100644
+index 0000000..02c36bb
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/BrowserKeys.kt
+@@ -0,0 +1,84 @@
++package org.sableos.browser.core
++
++/** What a key does on the page while you are not typing in a field or the address bar. */
++enum class BrowserCommand {
++    Address,
++    PageDown,
++    PageUp,
++    Top,
++    Bottom,
++    Reload,
++    Back,
++    Forward,
++    ZoomIn,
++    ZoomOut,
++    TogglePointer,
++    Share,
++}
++
++/**
++ * BB10-style browser keys: L address, Space page down (Shift+Space up), T top, B bottom, R reload,
++ * Backspace back (Shift+Backspace forward), I and O zoom, M pointer on or off, S share. Alt,
++ * Ctrl or Meta held means the key is not a browser key. Pure.
++ */
++object BrowserKeys {
++    private const val KEYCODE_B = 30
++    private const val KEYCODE_I = 37
++    private const val KEYCODE_L = 40
++    private const val KEYCODE_M = 41
++    private const val KEYCODE_O = 43
++    private const val KEYCODE_R = 46
++    private const val KEYCODE_S = 47
++    private const val KEYCODE_T = 48
++    private const val KEYCODE_SPACE = 62
++    private const val KEYCODE_DEL = 67
++
++    private val PLAIN =
++        mapOf(
++            KEYCODE_L to BrowserCommand.Address,
++            KEYCODE_SPACE to BrowserCommand.PageDown,
++            KEYCODE_T to BrowserCommand.Top,
++            KEYCODE_B to BrowserCommand.Bottom,
++            KEYCODE_R to BrowserCommand.Reload,
++            KEYCODE_DEL to BrowserCommand.Back,
++            KEYCODE_I to BrowserCommand.ZoomIn,
++            KEYCODE_O to BrowserCommand.ZoomOut,
++            KEYCODE_M to BrowserCommand.TogglePointer,
++            KEYCODE_S to BrowserCommand.Share,
++        )
++    private val SHIFTED =
++        mapOf(
++            KEYCODE_SPACE to BrowserCommand.PageUp,
++            KEYCODE_DEL to BrowserCommand.Forward,
++        )
++
++    fun command(
++        keyCode: Int,
++        shift: Boolean,
++        otherModifier: Boolean,
++    ): BrowserCommand? =
++        when {
++            otherModifier -> null
++            shift -> SHIFTED[keyCode]
++            else -> PLAIN[keyCode]
++        }
++
++    /** A trackpad stroke or arrow key: the pointer's direction as (dx, dy), each -1, 0 or 1. */
++    fun arrow(keyCode: Int): Pair<Int, Int>? =
++        when (keyCode) {
++            KEYCODE_DPAD_UP -> 0 to -1
++            KEYCODE_DPAD_DOWN -> 0 to 1
++            KEYCODE_DPAD_LEFT -> -1 to 0
++            KEYCODE_DPAD_RIGHT -> 1 to 0
++            else -> null
++        }
++
++    /** The trackpad's click, the D-pad centre or Enter: presses at the pointer. */
++    fun isClick(keyCode: Int): Boolean = keyCode in CLICK_KEYS
++
++    private const val KEYCODE_DPAD_UP = 19
++    private const val KEYCODE_DPAD_DOWN = 20
++    private const val KEYCODE_DPAD_LEFT = 21
++    private const val KEYCODE_DPAD_RIGHT = 22
++    private val CLICK_KEYS = setOf(23, 66, 160)
++}
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/BrowserText.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/BrowserText.kt
+new file mode 100644
+index 0000000..50dd0db
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/BrowserText.kt
+@@ -0,0 +1,25 @@
++package org.sableos.browser.core
++
++import org.sableos.design.SableTexts
++
++/**
++ * Every line Sable Browser shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (BrowserTextTest keeps the two equal) and res/values-<lang>/strings.xml translates them.
++ */
++object BrowserText {
++    val EN: Map<String, String> =
++        mapOf(
++            "address_hint" to "Search or type a web address",
++            "keys_hint" to "L address · Space page · T top · B bottom · R reload · M pointer",
++            "pointer_on" to "Trackpad pointer on",
++            "pointer_off" to "Pointer off · the trackpad scrolls the page",
++            "page_failed" to "This page couldn’t load. R tries again.",
++            "no_app_for_link" to "No app can open this link.",
++            "share_page" to "Share page",
++            "downloading" to "Downloading %1\$s",
++            "download_failed" to "This download couldn’t start.",
++            "choose_file" to "Choose a file",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/PointerPhysics.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/PointerPhysics.kt
+new file mode 100644
+index 0000000..34a1c77
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/PointerPhysics.kt
+@@ -0,0 +1,80 @@
++package org.sableos.browser.core
++
++import kotlin.math.max
++import kotlin.math.min
++
++/**
++ * The trackpad pointer. The Q25's trackpad sends an arrow key for each stroke, so the pointer
++ * moves a step per key: short when keys come slowly (fine aiming), up to [MAX_STEP_DP] when they
++ * come fast (crossing the page). Over a link or button the step is cut ([LINK_FRICTION]) so the
++ * pointer settles on it. Pushing past an edge scrolls the page instead. Pure.
++ */
++object PointerPhysics {
++    const val BASE_STEP_DP = 6f
++    const val MAX_STEP_DP = 48f
++    const val LINK_FRICTION = 0.4f
++
++    /** Keys closer together than this are one fast stroke; further apart start slow again. */
++    const val STREAK_GAP_MS = 140L
++
++    /** Each key of a fast stroke grows the step by this factor, up to [MAX_STEP_DP]. */
++    const val GROWTH = 1.35f
++
++    /** How far past an edge the page scrolls for a step that hits it, as a multiple of the step. */
++    const val EDGE_SCROLL = 4f
++
++    /** A run of arrow keys. */
++    data class Streak(
++        val count: Int,
++        val lastMillis: Long,
++    )
++
++    /** The streak after a key at [nowMillis]: one more when it follows within [STREAK_GAP_MS]. */
++    fun nextStreak(
++        streak: Streak?,
++        nowMillis: Long,
++    ): Streak =
++        if (streak != null && nowMillis - streak.lastMillis <= STREAK_GAP_MS) {
++            Streak(streak.count + 1, nowMillis)
++        } else {
++            Streak(1, nowMillis)
++        }
++
++    /** The step in dp for the [streak]'s latest key. */
++    fun stepDp(
++        streak: Streak,
++        overLink: Boolean,
++    ): Float {
++        var step = BASE_STEP_DP
++        repeat(streak.count - 1) { step = min(MAX_STEP_DP, step * GROWTH) }
++        return if (overLink) max(BASE_STEP_DP * LINK_FRICTION, step * LINK_FRICTION) else step
++    }
++
++    /** Where a move lands: the pointer, kept inside the page, and how far the page scrolls. */
++    data class Move(
++        val x: Float,
++        val y: Float,
++        val scrollX: Int,
++        val scrollY: Int,
++    )
++
++    fun move(
++        x: Float,
++        y: Float,
++        dx: Float,
++        dy: Float,
++        width: Float,
++        height: Float,
++    ): Move {
++        val nx = x + dx
++        val ny = y + dy
++        val cx = nx.coerceIn(0f, max(0f, width - 1f))
++        val cy = ny.coerceIn(0f, max(0f, height - 1f))
++        return Move(cx, cy, edgeScroll(nx - cx, dx), edgeScroll(ny - cy, dy))
++    }
++
++    private fun edgeScroll(
++        overflow: Float,
++        step: Float,
++    ): Int = if (overflow == 0f) 0 else (step * EDGE_SCROLL).toInt()
++}
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/UrlInput.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/UrlInput.kt
+new file mode 100644
+index 0000000..aedc77c
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/UrlInput.kt
+@@ -0,0 +1,46 @@
++package org.sableos.browser.core
++
++import java.net.URLEncoder
++
++/**
++ * What the address bar does with typed text: a web address opens (https unless it is a bare local
++ * address, which routers often serve over http), anything else searches. Pure.
++ */
++object UrlInput {
++    const val SEARCH_PREFIX = "https://duckduckgo.com/?q="
++
++    private val SCHEME = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*:")
++    private val APP_SCHEME = Regex("^(mailto|tel|sms|geo|market):", RegexOption.IGNORE_CASE)
++    private val HOST = Regex("^[^\\s/]+\\.[a-zA-Z]{2,}(:\\d+)?([/?#].*)?$")
++    private val LOCAL = Regex("^(localhost|\\d{1,3}(\\.\\d{1,3}){3})(:\\d+)?([/?#].*)?$")
++
++    /** The address to load for [text], or null for blank text. */
++    fun resolve(text: String): String? {
++        val typed = text.trim()
++        return when {
++            typed.isEmpty() -> null
++            typed.contains(' ') -> search(typed)
++            SCHEME.containsMatchIn(typed) && typed.contains("//") -> typed
++            APP_SCHEME.containsMatchIn(typed) -> typed
++            LOCAL.matches(typed) -> "http://$typed"
++            HOST.matches(typed) -> "https://$typed"
++            else -> search(typed)
++        }
++    }
++
++    fun search(query: String): String = SEARCH_PREFIX + URLEncoder.encode(query.trim(), "UTF-8")
++
++    /** The address as the bar shows it while you are not typing: no scheme, no "www.", no last "/". */
++    fun display(url: String?): String =
++        url.orEmpty()
++            .removePrefix("https://")
++            .removePrefix("http://")
++            .removePrefix("www.")
++            .removeSuffix("/")
++
++    /** Whether the page itself loads [url]; any other scheme (tel:, mailto:, intent:) goes to an app. */
++    fun isWeb(url: String): Boolean {
++        val lower = url.lowercase()
++        return lower.startsWith("https://") || lower.startsWith("http://") || lower == "about:blank"
++    }
++}
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserController.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserController.kt
+new file mode 100644
+index 0000000..b9cbc5d
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserController.kt
+@@ -0,0 +1,213 @@
++package org.sableos.browser.ui
++
++import android.os.SystemClock
++import android.view.InputDevice
++import android.view.KeyEvent
++import android.view.MotionEvent
++import android.webkit.WebView
++import org.sableos.browser.core.BrowserCommand
++import org.sableos.browser.core.BrowserKeys
++import org.sableos.browser.core.BrowserText.t
++import org.sableos.browser.core.PointerPhysics
++
++/**
++ * Keys on the page: the trackpad pointer and the browser keys. With the pointer on, each trackpad
++ * stroke (an arrow key) moves it by [PointerPhysics]; pushing past an edge scrolls; the click
++ * presses where it points as a touch would, so holding it long-presses and moving while holding
++ * drags. While a field on the page has focus, every key types into it until Esc or Back.
++ */
++class BrowserController(
++    private val webView: WebView,
++    private val state: BrowserState,
++    private val actions: Actions,
++) {
++    /** What leaves the page: sharing, and asking the address bar for focus. */
++    interface Actions {
++        fun share(url: String)
++
++        fun focusAddress()
++    }
++
++    private var streak: PointerPhysics.Streak? = null
++    private var touchDownAt = 0L
++    private var pressing = false
++
++    /** CSS pixels per view pixel times the page zoom, from WebViewClient.onScaleChanged. */
++    var pageScale = webView.resources.displayMetrics.density
++
++    /** True while this class sends a touch, so the activity can tell it from the user's own. */
++    var synthesizing = false
++        private set
++
++    /** Handles a key the address bar did not take; false lets the page have it. */
++    fun onKey(event: KeyEvent): Boolean {
++        val arrow = BrowserKeys.arrow(event.keyCode)
++        return when {
++            state.editing -> editingKey(event)
++            arrow != null -> arrowKey(event, arrow)
++            BrowserKeys.isClick(event.keyCode) && state.pointerOn && state.pointerShown -> clickKey(event)
++            else -> commandKey(event)
++        }
++    }
++
++    private fun arrowKey(
++        event: KeyEvent,
++        arrow: Pair<Int, Int>,
++    ): Boolean {
++        // With the pointer off, arrows go to the page, which scrolls.
++        if (state.pointerOn && event.action == KeyEvent.ACTION_DOWN) move(arrow.first, arrow.second)
++        return state.pointerOn
++    }
++
++    private fun clickKey(event: KeyEvent): Boolean {
++        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
++            press()
++        } else if (event.action == KeyEvent.ACTION_UP) {
++            release()
++        }
++        return true
++    }
++
++    private fun commandKey(event: KeyEvent): Boolean {
++        val other = event.metaState and OTHER_MODIFIERS != 0
++        val command = BrowserKeys.command(event.keyCode, event.isShiftPressed, other) ?: return false
++        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) run(command)
++        return true
++    }
++
++    /** Back: leave a page field, else go back a page; false when there is nowhere to go. */
++    fun back(): Boolean =
++        when {
++            state.editing -> {
++                leaveField()
++                true
++            }
++
++            webView.canGoBack() -> {
++                webView.goBack()
++                true
++            }
++
++            else -> false
++        }
++
++    /** A real touch or mouse: the pointer hides until the next trackpad stroke. */
++    fun hidePointer() {
++        state.pointerShown = false
++    }
++
++    private fun editingKey(event: KeyEvent): Boolean {
++        if (event.keyCode != KeyEvent.KEYCODE_ESCAPE) return false
++        if (event.action == KeyEvent.ACTION_UP) leaveField()
++        return true
++    }
++
++    private fun leaveField() {
++        webView.evaluateJavascript(BLUR_JS, null)
++        state.editing = false
++    }
++
++    private fun move(
++        dx: Int,
++        dy: Int,
++    ) {
++        if (!state.pointerShown) {
++            // The first stroke shows the pointer in the middle of the page.
++            state.pointerX = webView.width / 2f
++            state.pointerY = webView.height / 2f
++            state.pointerShown = true
++            return
++        }
++        val next = PointerPhysics.nextStreak(streak, SystemClock.uptimeMillis())
++        streak = next
++        val step = PointerPhysics.stepDp(next, state.overLink) * webView.resources.displayMetrics.density
++        val moved =
++            PointerPhysics.move(
++                state.pointerX,
++                state.pointerY,
++                dx * step,
++                dy * step,
++                webView.width.toFloat(),
++                webView.height.toFloat(),
++            )
++        state.pointerX = moved.x
++        state.pointerY = moved.y
++        if (moved.scrollX != 0 || moved.scrollY != 0) webView.scrollBy(moved.scrollX, moved.scrollY)
++        if (pressing) touch(MotionEvent.ACTION_MOVE)
++        probeLink()
++    }
++
++    /** Asks the page whether a link, button or field is under the pointer (friction and the ring). */
++    private fun probeLink() {
++        val x = state.pointerX / pageScale
++        val y = state.pointerY / pageScale
++        webView.evaluateJavascript("($LINK_JS)($x,$y)") { state.overLink = it == "true" }
++    }
++
++    private fun press() {
++        touchDownAt = SystemClock.uptimeMillis()
++        pressing = true
++        touch(MotionEvent.ACTION_DOWN)
++    }
++
++    private fun release() {
++        if (!pressing) return
++        pressing = false
++        touch(MotionEvent.ACTION_UP)
++        // A click on a field focuses it: then keys type into it.
++        webView.postDelayed({ checkEditing() }, FIELD_CHECK_MS)
++    }
++
++    private fun checkEditing() {
++        webView.evaluateJavascript(EDITING_JS) { state.editing = it == "true" }
++    }
++
++    private fun touch(action: Int) {
++        val now = SystemClock.uptimeMillis()
++        val event = MotionEvent.obtain(touchDownAt, now, action, state.pointerX, state.pointerY, 0)
++        event.source = InputDevice.SOURCE_TOUCHSCREEN
++        synthesizing = true
++        try {
++            webView.dispatchTouchEvent(event)
++        } finally {
++            synthesizing = false
++            event.recycle()
++        }
++    }
++
++    private fun run(command: BrowserCommand) {
++        when (command) {
++            BrowserCommand.Address -> actions.focusAddress()
++            BrowserCommand.PageDown -> webView.pageDown(false)
++            BrowserCommand.PageUp -> webView.pageUp(false)
++            BrowserCommand.Top -> webView.pageUp(true)
++            BrowserCommand.Bottom -> webView.pageDown(true)
++            BrowserCommand.Reload -> webView.reload()
++            BrowserCommand.Back -> back()
++            BrowserCommand.Forward -> if (webView.canGoForward()) webView.goForward()
++            BrowserCommand.ZoomIn -> webView.zoomIn()
++            BrowserCommand.ZoomOut -> webView.zoomOut()
++            BrowserCommand.TogglePointer -> togglePointer()
++            BrowserCommand.Share -> state.url?.let(actions::share)
++        }
++    }
++
++    private fun togglePointer() {
++        state.pointerOn = !state.pointerOn
++        if (!state.pointerOn) state.pointerShown = false
++        state.status = t(if (state.pointerOn) "pointer_on" else "pointer_off")
++    }
++
++    private companion object {
++        const val FIELD_CHECK_MS = 200L
++        const val OTHER_MODIFIERS = KeyEvent.META_ALT_ON or KeyEvent.META_CTRL_ON or KeyEvent.META_META_ON
++
++        const val LINK_JS =
++            "function(x,y){var e=document.elementFromPoint(x,y);return !!(e&&e.closest(" +
++                "'a[href],button,input,select,textarea,label,summary,[role=button],[role=link],[onclick]'))}"
++        const val EDITING_JS =
++            "(function(){var a=document.activeElement;return !!a&&(a.isContentEditable||" +
++                "/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))})()"
++        const val BLUR_JS = "document.activeElement&&document.activeElement.blur()"
++    }
++}
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserScreen.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserScreen.kt
+new file mode 100644
+index 0000000..ed96994
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserScreen.kt
+@@ -0,0 +1,195 @@
++package org.sableos.browser.ui
++
++import android.webkit.WebView
++import androidx.compose.foundation.Canvas
++import androidx.compose.foundation.background
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.offset
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.text.BasicTextField
++import androidx.compose.foundation.text.KeyboardActions
++import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.material3.LinearProgressIndicator
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.focus.FocusRequester
++import androidx.compose.ui.focus.focusRequester
++import androidx.compose.ui.focus.onFocusChanged
++import androidx.compose.ui.geometry.Offset
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.graphics.Path
++import androidx.compose.ui.graphics.SolidColor
++import androidx.compose.ui.graphics.drawscope.Stroke
++import androidx.compose.ui.input.key.Key
++import androidx.compose.ui.input.key.key
++import androidx.compose.ui.input.key.onPreviewKeyEvent
++import androidx.compose.ui.semantics.contentDescription
++import androidx.compose.ui.semantics.semantics
++import androidx.compose.ui.text.TextRange
++import androidx.compose.ui.text.input.ImeAction
++import androidx.compose.ui.text.input.KeyboardType
++import androidx.compose.ui.text.input.TextFieldValue
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.IntOffset
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.viewinterop.AndroidView
++import kotlinx.coroutines.delay
++import org.sableos.browser.core.BrowserText.t
++import org.sableos.browser.core.UrlInput
++import kotlin.math.roundToInt
++
++/**
++ * Sable Browser on the Q25's square screen: the address bar, a thin progress line, the page with
++ * the trackpad pointer over it, and one line of keys at the bottom.
++ */
++@Composable
++fun BrowserScreen(
++    state: BrowserState,
++    webView: WebView,
++    onGo: (String) -> Unit,
++    onLeaveAddress: () -> Unit,
++) {
++    val colors = MaterialTheme.colorScheme
++    Column(Modifier.fillMaxSize().background(colors.background)) {
++        AddressBar(state, onGo, onLeaveAddress)
++        if (state.progress < BrowserState.FULL) {
++            LinearProgressIndicator(
++                progress = { state.progress / BrowserState.FULL.toFloat() },
++                modifier = Modifier.fillMaxWidth().height(2.dp),
++            )
++        }
++        Box(Modifier.weight(1f).fillMaxWidth()) {
++            AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
++            if (state.pointerShown) Pointer(state)
++            if (state.failed) {
++                Text(
++                    text = t("page_failed"),
++                    color = colors.onSurface,
++                    modifier = Modifier.align(Alignment.Center).background(colors.surface).padding(16.dp),
++                )
++            }
++        }
++        KeyLine(state)
++    }
++}
++
++@Composable
++private fun AddressBar(
++    state: BrowserState,
++    onGo: (String) -> Unit,
++    onLeaveAddress: () -> Unit,
++) {
++    val colors = MaterialTheme.colorScheme
++    val focus = remember { FocusRequester() }
++    var value by remember { mutableStateOf(TextFieldValue()) }
++    LaunchedEffect(state.url, state.addressFocused) {
++        if (!state.addressFocused) value = TextFieldValue(UrlInput.display(state.url))
++    }
++    LaunchedEffect(state.addressRequest) {
++        if (state.addressRequest == 0) return@LaunchedEffect
++        // L selects the whole address, so typing replaces it.
++        val text = state.url?.takeIf { it != BLANK }.orEmpty()
++        value = TextFieldValue(text, TextRange(0, text.length))
++        runCatching { focus.requestFocus() }
++    }
++    Box(
++        Modifier
++            .fillMaxWidth()
++            .background(colors.surfaceVariant)
++            .padding(horizontal = 12.dp, vertical = 8.dp),
++    ) {
++        if (value.text.isEmpty()) {
++            Text(t("address_hint"), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
++        }
++        BasicTextField(
++            value = value,
++            onValueChange = { value = it },
++            singleLine = true,
++            textStyle = MaterialTheme.typography.bodyMedium.copy(color = colors.onSurface),
++            cursorBrush = SolidColor(colors.primary),
++            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
++            keyboardActions = KeyboardActions(onGo = { onGo(value.text) }),
++            modifier =
++                Modifier
++                    .fillMaxWidth()
++                    .focusRequester(focus)
++                    .onFocusChanged { state.addressFocused = it.isFocused }
++                    .onPreviewKeyEvent { event ->
++                        val escape = event.key == Key.Escape
++                        if (escape) onLeaveAddress()
++                        escape
++                    }.semantics { contentDescription = t("address_hint") },
++        )
++    }
++}
++
++/** An arrow at the pointer; over a link it gets the accent ring, so you see what a click opens. */
++@Composable
++private fun Pointer(state: BrowserState) {
++    val accent = MaterialTheme.colorScheme.primary
++    Canvas(
++        Modifier
++            .offset { IntOffset(state.pointerX.roundToInt(), state.pointerY.roundToInt()) }
++            .size(POINTER_SIZE),
++    ) {
++        val w = size.width
++        val arrow =
++            Path().apply {
++                moveTo(0f, 0f)
++                lineTo(0f, w * ARROW_LENGTH)
++                lineTo(w * ARROW_NOTCH_X, w * ARROW_NOTCH_Y)
++                lineTo(w * ARROW_TIP, w * ARROW_TIP)
++                close()
++            }
++        if (state.overLink) drawCircle(accent, radius = w / 2, center = Offset.Zero, style = Stroke(w * RING))
++        drawPath(arrow, Color.White)
++        drawPath(arrow, Color.Black, style = Stroke(w * OUTLINE))
++    }
++}
++
++/** The keys, or for a moment a status (pointer on or off, a download, a link no app opens). */
++@Composable
++private fun KeyLine(state: BrowserState) {
++    val status = state.status
++    LaunchedEffect(status) {
++        if (status != null) {
++            delay(STATUS_MS)
++            state.status = null
++        }
++    }
++    Text(
++        text = status ?: t("keys_hint"),
++        style = MaterialTheme.typography.labelSmall,
++        color = MaterialTheme.colorScheme.onSurfaceVariant,
++        maxLines = 1,
++        overflow = TextOverflow.Ellipsis,
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .background(MaterialTheme.colorScheme.surfaceVariant)
++                .padding(horizontal = 12.dp, vertical = 4.dp),
++    )
++}
++
++private const val BLANK = "about:blank"
++private const val STATUS_MS = 2_500L
++private val POINTER_SIZE = 18.dp
++private const val ARROW_LENGTH = 1f
++private const val ARROW_NOTCH_X = 0.3f
++private const val ARROW_NOTCH_Y = 0.72f
++private const val ARROW_TIP = 0.7f
++private const val RING = 0.12f
++private const val OUTLINE = 0.08f
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserState.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserState.kt
+new file mode 100644
+index 0000000..f34f332
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserState.kt
+@@ -0,0 +1,35 @@
++package org.sableos.browser.ui
++
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableFloatStateOf
++import androidx.compose.runtime.mutableIntStateOf
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.setValue
++
++/** What the browser screen shows; the controller writes it, the screen reads it. */
++class BrowserState {
++    var url by mutableStateOf<String?>(null)
++    var progress by mutableIntStateOf(FULL)
++    var failed by mutableStateOf(false)
++
++    /** The trackpad pointer: on (M turns it off), shown (hidden after a touch), where, over a link. */
++    var pointerOn by mutableStateOf(true)
++    var pointerShown by mutableStateOf(false)
++    var pointerX by mutableFloatStateOf(0f)
++    var pointerY by mutableFloatStateOf(0f)
++    var overLink by mutableStateOf(false)
++
++    /** A text field on the page has focus: keys type into it until Esc or Back. */
++    var editing by mutableStateOf(false)
++
++    /** The address bar has focus; [addressRequest] changes when L asks for it. */
++    var addressFocused by mutableStateOf(false)
++    var addressRequest by mutableIntStateOf(0)
++
++    /** A short line in place of the key hint (pointer on/off, a download, an error). */
++    var status by mutableStateOf<String?>(null)
++
++    companion object {
++        const val FULL = 100
++    }
++}
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt
+new file mode 100644
+index 0000000..4e72227
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt
+@@ -0,0 +1,198 @@
++package org.sableos.browser.ui
++
++import android.annotation.SuppressLint
++import android.app.DownloadManager
++import android.content.ActivityNotFoundException
++import android.content.Context
++import android.content.Intent
++import android.graphics.Bitmap
++import android.net.Uri
++import android.os.Environment
++import android.util.Log
++import android.webkit.CookieManager
++import android.webkit.URLUtil
++import android.webkit.ValueCallback
++import android.webkit.WebChromeClient
++import android.webkit.WebResourceError
++import android.webkit.WebResourceRequest
++import android.webkit.WebSettings
++import android.webkit.WebView
++import android.webkit.WebViewClient
++import org.sableos.browser.core.BrowserText.t
++import org.sableos.browser.core.UrlInput
++import java.net.URISyntaxException
++
++/** Opens a page's file picker; the activity owns the result. */
++fun interface FileChooser {
++    fun choose(
++        intent: Intent,
++        callback: ValueCallback<Array<Uri>>,
++    ): Boolean
++}
++
++/**
++ * The page: Android's WebView (the same Chromium engine as Chrome, updated by the system), set up
++ * for privacy. No file or content access, no third-party cookies, no mixed content, Safe Browsing
++ * on, one window, media starts only on a tap, location never shared. Links to other schemes (tel:,
++ * mailto:, intent:) go to the app that handles them; downloads go to Android's download manager.
++ */
++@SuppressLint("SetJavaScriptEnabled")
++fun createBrowserWebView(
++    context: Context,
++    state: BrowserState,
++    onScale: (Float) -> Unit,
++    fileChooser: FileChooser,
++): WebView =
++    WebView(context).apply {
++        settings.apply {
++            javaScriptEnabled = true
++            domStorageEnabled = true
++            allowFileAccess = false
++            allowContentAccess = false
++            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
++            safeBrowsingEnabled = true
++            setSupportMultipleWindows(false)
++            mediaPlaybackRequiresUserGesture = true
++            builtInZoomControls = true
++            displayZoomControls = false
++            useWideViewPort = true
++            loadWithOverviewMode = true
++            setGeolocationEnabled(false)
++        }
++        CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
++        webViewClient = BrowserClient(state, onScale)
++        webChromeClient = BrowserChrome(state, fileChooser)
++        setDownloadListener { url, userAgent, disposition, mimeType, _ ->
++            download(context, state, url, userAgent, disposition, mimeType)
++        }
++    }
++
++private class BrowserClient(
++    private val state: BrowserState,
++    private val onScale: (Float) -> Unit,
++) : WebViewClient() {
++    override fun shouldOverrideUrlLoading(
++        view: WebView,
++        request: WebResourceRequest,
++    ): Boolean {
++        val url = request.url.toString()
++        if (UrlInput.isWeb(url)) return false
++        openOutside(view, state, url)
++        return true
++    }
++
++    override fun onPageStarted(
++        view: WebView,
++        url: String?,
++        favicon: Bitmap?,
++    ) {
++        state.url = url
++        state.failed = false
++        state.editing = false
++    }
++
++    override fun onPageFinished(
++        view: WebView,
++        url: String?,
++    ) {
++        state.url = url
++    }
++
++    override fun onReceivedError(
++        view: WebView,
++        request: WebResourceRequest,
++        error: WebResourceError,
++    ) {
++        if (request.isForMainFrame) state.failed = true
++    }
++
++    override fun onScaleChanged(
++        view: WebView,
++        oldScale: Float,
++        newScale: Float,
++    ) {
++        onScale(newScale)
++    }
++}
++
++private class BrowserChrome(
++    private val state: BrowserState,
++    private val fileChooser: FileChooser,
++) : WebChromeClient() {
++    override fun onProgressChanged(
++        view: WebView,
++        newProgress: Int,
++    ) {
++        state.progress = newProgress
++    }
++
++    override fun onShowFileChooser(
++        webView: WebView,
++        filePathCallback: ValueCallback<Array<Uri>>,
++        fileChooserParams: FileChooserParams,
++    ): Boolean = fileChooser.choose(fileChooserParams.createIntent(), filePathCallback)
++}
++
++/** A link the page cannot open itself: the app for its scheme, or an intent: link's own fallback page. */
++private fun openOutside(
++    view: WebView,
++    state: BrowserState,
++    url: String,
++) {
++    val intent =
++        try {
++            if (url.startsWith("intent:")) {
++                Intent.parseUri(url, Intent.URI_INTENT_SCHEME).apply {
++                    // A web page may only start what a browsable link could.
++                    addCategory(Intent.CATEGORY_BROWSABLE)
++                    component = null
++                    selector = null
++                }
++            } else {
++                Intent(Intent.ACTION_VIEW, Uri.parse(url))
++            }
++        } catch (e: URISyntaxException) {
++            Log.i(TAG, "bad intent link", e)
++            null
++        }
++    try {
++        intent?.let { view.context.startActivity(it) } ?: run { state.status = t("no_app_for_link") }
++    } catch (e: ActivityNotFoundException) {
++        Log.i(TAG, "no app for link", e)
++        val fallback = intent?.getStringExtra(FALLBACK_URL)?.takeIf(UrlInput::isWeb)
++        if (fallback != null) view.loadUrl(fallback) else state.status = t("no_app_for_link")
++    }
++}
++
++private fun download(
++    context: Context,
++    state: BrowserState,
++    url: String,
++    userAgent: String,
++    disposition: String?,
++    mimeType: String?,
++) {
++    val name = URLUtil.guessFileName(url, disposition, mimeType)
++    state.status =
++        try {
++            val request =
++                DownloadManager
++                    .Request(Uri.parse(url))
++                    .setMimeType(mimeType)
++                    .addRequestHeader("User-Agent", userAgent)
++                    .addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url).orEmpty())
++                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
++                    .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
++            context.getSystemService(DownloadManager::class.java).enqueue(request)
++            t("downloading", name)
++        } catch (e: IllegalArgumentException) {
++            Log.w(TAG, "download refused", e)
++            t("download_failed")
++        } catch (e: IllegalStateException) {
++            Log.w(TAG, "no downloads folder", e)
++            t("download_failed")
++        }
++}
++
++private const val TAG = "SableBrowser"
++private const val FALLBACK_URL = "browser_fallback_url"
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser.xml b/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser.xml
+new file mode 100644
+index 0000000..d9b44ff
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser.xml
+@@ -0,0 +1,21 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="48dp"
++    android:height="48dp"
++    android:viewportWidth="256"
++    android:viewportHeight="256">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M32,16h192c8.8,0 16,7.2 16,16v192c0,8.8 -7.2,16 -16,16H32c-8.8,0 -16,-7.2 -16,-16V32c0,-8.8 7.2,-16 16,-16z" />
++    <group
++        android:scaleX="0.70"
++        android:scaleY="0.70"
++        android:translateX="38.4"
++        android:translateY="34">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm88,104a87.61,87.61,0,0,1-3.33,24H174.16a157.44,157.44,0,0,0,0-48h38.51A87.61,87.61,0,0,1,216,128ZM102,168H154a115.11,115.11,0,0,1-26,45A115.27,115.27,0,0,1,102,168Zm-3.9-16a140.84,140.84,0,0,1,0-48h59.88a140.84,140.84,0,0,1,0,48ZM40,128a87.61,87.61,0,0,1,3.33-24H81.84a157.44,157.44,0,0,0,0,48H43.33A87.61,87.61,0,0,1,40,128ZM154,88H102a115.11,115.11,0,0,1,26-45A115.27,115.27,0,0,1,154,88Zm52.33,0H170.71a135.28,135.28,0,0,0-22.3-45.6A88.29,88.29,0,0,1,206.37,88ZM107.59,42.4A135.28,135.28,0,0,0,85.29,88H49.63A88.29,88.29,0,0,1,107.59,42.4ZM49.63,168H85.29a135.28,135.28,0,0,0,22.3,45.6A88.29,88.29,0,0,1,49.63,168Zm98.78,45.6a135.28,135.28,0,0,0,22.3-45.6h35.66A88.29,88.29,0,0,1,148.41,213.6Z" />
++    </group>
++    <path
++        android:fillColor="#4D9CFF"
++        android:pathData="M28,226h200v6H28z" />
++</vector>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_background.xml b/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_background.xml
+new file mode 100644
+index 0000000..811854a
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_background.xml
+@@ -0,0 +1,10 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M0,0h108v108H0z" />
++</vector>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_foreground.xml b/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_foreground.xml
+new file mode 100644
+index 0000000..a3e15db
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_foreground.xml
+@@ -0,0 +1,19 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm88,104a87.61,87.61,0,0,1-3.33,24H174.16a157.44,157.44,0,0,0,0-48h38.51A87.61,87.61,0,0,1,216,128ZM102,168H154a115.11,115.11,0,0,1-26,45A115.27,115.27,0,0,1,102,168Zm-3.9-16a140.84,140.84,0,0,1,0-48h59.88a140.84,140.84,0,0,1,0,48ZM40,128a87.61,87.61,0,0,1,3.33-24H81.84a157.44,157.44,0,0,0,0,48H43.33A87.61,87.61,0,0,1,40,128ZM154,88H102a115.11,115.11,0,0,1,26-45A115.27,115.27,0,0,1,154,88Zm52.33,0H170.71a135.28,135.28,0,0,0-22.3-45.6A88.29,88.29,0,0,1,206.37,88ZM107.59,42.4A135.28,135.28,0,0,0,85.29,88H49.63A88.29,88.29,0,0,1,107.59,42.4ZM49.63,168H85.29a135.28,135.28,0,0,0,22.3,45.6A88.29,88.29,0,0,1,49.63,168Zm98.78,45.6a135.28,135.28,0,0,0,22.3-45.6h35.66A88.29,88.29,0,0,1,148.41,213.6Z" />
++    </group>
++    <path
++        android:fillColor="#4D9CFF"
++        android:pathData="M38,76.5h32v1.5H38z" />
++</vector>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_monochrome.xml b/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_monochrome.xml
+new file mode 100644
+index 0000000..d598a2b
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_monochrome.xml
+@@ -0,0 +1,16 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#FFFFFFFF"
++            android:pathData="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm88,104a87.61,87.61,0,0,1-3.33,24H174.16a157.44,157.44,0,0,0,0-48h38.51A87.61,87.61,0,0,1,216,128ZM102,168H154a115.11,115.11,0,0,1-26,45A115.27,115.27,0,0,1,102,168Zm-3.9-16a140.84,140.84,0,0,1,0-48h59.88a140.84,140.84,0,0,1,0,48ZM40,128a87.61,87.61,0,0,1,3.33-24H81.84a157.44,157.44,0,0,0,0,48H43.33A87.61,87.61,0,0,1,40,128ZM154,88H102a115.11,115.11,0,0,1,26-45A115.27,115.27,0,0,1,154,88Zm52.33,0H170.71a135.28,135.28,0,0,0-22.3-45.6A88.29,88.29,0,0,1,206.37,88ZM107.59,42.4A135.28,135.28,0,0,0,85.29,88H49.63A88.29,88.29,0,0,1,107.59,42.4ZM49.63,168H85.29a135.28,135.28,0,0,0,22.3,45.6A88.29,88.29,0,0,1,49.63,168Zm98.78,45.6a135.28,135.28,0,0,0,22.3-45.6h35.66A88.29,88.29,0,0,1,148.41,213.6Z" />
++    </group>
++</vector>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/mipmap-anydpi-v26/ic_sable_browser.xml b/sable-src/apps/r8/android/browser/src/main/res/mipmap-anydpi-v26/ic_sable_browser.xml
+new file mode 100644
+index 0000000..3b43a5a
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/mipmap-anydpi-v26/ic_sable_browser.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_browser_background" />
++    <foreground android:drawable="@drawable/ic_sable_browser_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_browser_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/mipmap-anydpi-v26/ic_sable_browser_round.xml b/sable-src/apps/r8/android/browser/src/main/res/mipmap-anydpi-v26/ic_sable_browser_round.xml
+new file mode 100644
+index 0000000..3b43a5a
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/mipmap-anydpi-v26/ic_sable_browser_round.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_browser_background" />
++    <foreground android:drawable="@drawable/ic_sable_browser_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_browser_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/r8/android/browser/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-ar/strings.xml
+new file mode 100644
+index 0000000..a15e6bc
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-ar/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">ابحث أو اكتب عنوان ويب</string>
++    <string name="keys_hint">L العنوان · Space صفحة · T الأعلى · B الأسفل · R إعادة تحميل · M المؤشر</string>
++    <string name="pointer_on">مؤشر لوحة التتبع مفعّل</string>
++    <string name="pointer_off">المؤشر متوقف · لوحة التتبع تمرّر الصفحة</string>
++    <string name="page_failed">تعذّر تحميل هذه الصفحة. اضغط R للمحاولة مجددًا.</string>
++    <string name="no_app_for_link">لا يوجد تطبيق يفتح هذا الرابط.</string>
++    <string name="share_page">مشاركة الصفحة</string>
++    <string name="downloading">جارٍ تنزيل %1$s</string>
++    <string name="download_failed">تعذّر بدء هذا التنزيل.</string>
++    <string name="choose_file">اختر ملفًا</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-de/strings.xml
+new file mode 100644
+index 0000000..6ec8e5c
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-de/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">Suchen oder Webadresse eingeben</string>
++    <string name="keys_hint">L Adresse · Space Seite · T oben · B unten · R neu laden · M Zeiger</string>
++    <string name="pointer_on">Trackpad-Zeiger an</string>
++    <string name="pointer_off">Zeiger aus · das Trackpad scrollt die Seite</string>
++    <string name="page_failed">Diese Seite konnte nicht geladen werden. R versucht es erneut.</string>
++    <string name="no_app_for_link">Keine App kann diesen Link öffnen.</string>
++    <string name="share_page">Seite teilen</string>
++    <string name="downloading">%1$s wird heruntergeladen</string>
++    <string name="download_failed">Dieser Download konnte nicht starten.</string>
++    <string name="choose_file">Datei auswählen</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-el/strings.xml
+new file mode 100644
+index 0000000..b646be4
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-el/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">Αναζήτηση ή διεύθυνση ιστού</string>
++    <string name="keys_hint">L διεύθυνση · Space σελίδα · T αρχή · B τέλος · R ανανέωση · M δείκτης</string>
++    <string name="pointer_on">Δείκτης trackpad ενεργός</string>
++    <string name="pointer_off">Δείκτης ανενεργός · το trackpad κυλά τη σελίδα</string>
++    <string name="page_failed">Η σελίδα δεν φόρτωσε. Το R δοκιμάζει ξανά.</string>
++    <string name="no_app_for_link">Καμία εφαρμογή δεν ανοίγει αυτόν τον σύνδεσμο.</string>
++    <string name="share_page">Κοινοποίηση σελίδας</string>
++    <string name="downloading">Λήψη %1$s</string>
++    <string name="download_failed">Αυτή η λήψη δεν ξεκίνησε.</string>
++    <string name="choose_file">Επιλέξτε αρχείο</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-es/strings.xml
+new file mode 100644
+index 0000000..7eb57a5
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-es/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">Busca o escribe una dirección web</string>
++    <string name="keys_hint">L dirección · Space página · T arriba · B abajo · R recargar · M puntero</string>
++    <string name="pointer_on">Puntero del trackpad activado</string>
++    <string name="pointer_off">Puntero desactivado · el trackpad desplaza la página</string>
++    <string name="page_failed">No se pudo cargar esta página. R lo vuelve a intentar.</string>
++    <string name="no_app_for_link">Ninguna app puede abrir este enlace.</string>
++    <string name="share_page">Compartir página</string>
++    <string name="downloading">Descargando %1$s</string>
++    <string name="download_failed">No se pudo iniciar esta descarga.</string>
++    <string name="choose_file">Elegir un archivo</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-fr/strings.xml
+new file mode 100644
+index 0000000..ff71ee5
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-fr/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">Rechercher ou saisir une adresse web</string>
++    <string name="keys_hint">L adresse · Space page · T haut · B bas · R recharger · M pointeur</string>
++    <string name="pointer_on">Pointeur du trackpad activé</string>
++    <string name="pointer_off">Pointeur désactivé · le trackpad fait défiler la page</string>
++    <string name="page_failed">Impossible de charger cette page. R réessaie.</string>
++    <string name="no_app_for_link">Aucune appli ne peut ouvrir ce lien.</string>
++    <string name="share_page">Partager la page</string>
++    <string name="downloading">Téléchargement de %1$s</string>
++    <string name="download_failed">Ce téléchargement n’a pas pu démarrer.</string>
++    <string name="choose_file">Choisir un fichier</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-hi/strings.xml
+new file mode 100644
+index 0000000..abcfab3
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-hi/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">खोजें या वेब पता लिखें</string>
++    <string name="keys_hint">L पता · Space पेज · T ऊपर · B नीचे · R रीलोड · M पॉइंटर</string>
++    <string name="pointer_on">ट्रैकपैड पॉइंटर चालू</string>
++    <string name="pointer_off">पॉइंटर बंद · ट्रैकपैड पेज स्क्रॉल करता है</string>
++    <string name="page_failed">यह पेज लोड नहीं हुआ। R फिर से कोशिश करता है।</string>
++    <string name="no_app_for_link">कोई ऐप यह लिंक नहीं खोल सकता।</string>
++    <string name="share_page">पेज शेयर करें</string>
++    <string name="downloading">%1$s डाउनलोड हो रहा है</string>
++    <string name="download_failed">यह डाउनलोड शुरू नहीं हो सका।</string>
++    <string name="choose_file">फ़ाइल चुनें</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-it/strings.xml
+new file mode 100644
+index 0000000..772ad04
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-it/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">Cerca o digita un indirizzo web</string>
++    <string name="keys_hint">L indirizzo · Space pagina · T inizio · B fine · R ricarica · M puntatore</string>
++    <string name="pointer_on">Puntatore del trackpad attivo</string>
++    <string name="pointer_off">Puntatore disattivato · il trackpad scorre la pagina</string>
++    <string name="page_failed">Impossibile caricare la pagina. R riprova.</string>
++    <string name="no_app_for_link">Nessuna app può aprire questo link.</string>
++    <string name="share_page">Condividi pagina</string>
++    <string name="downloading">Download di %1$s</string>
++    <string name="download_failed">Impossibile avviare il download.</string>
++    <string name="choose_file">Scegli un file</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-iw/strings.xml
+new file mode 100644
+index 0000000..9d23be3
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-iw/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">חפשו או הקלידו כתובת אינטרנט</string>
++    <string name="keys_hint">L כתובת · Space עמוד · T למעלה · B למטה · R רענון · M סמן</string>
++    <string name="pointer_on">סמן משטח המגע פועל</string>
++    <string name="pointer_off">הסמן כבוי · משטח המגע גולל את הדף</string>
++    <string name="page_failed">לא ניתן לטעון את הדף. R מנסה שוב.</string>
++    <string name="no_app_for_link">אין אפליקציה שיכולה לפתוח את הקישור.</string>
++    <string name="share_page">שיתוף הדף</string>
++    <string name="downloading">מוריד את %1$s</string>
++    <string name="download_failed">לא ניתן להתחיל את ההורדה.</string>
++    <string name="choose_file">בחירת קובץ</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-ja/strings.xml
+new file mode 100644
+index 0000000..0415852
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-ja/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">検索またはウェブアドレスを入力</string>
++    <string name="keys_hint">L アドレス · Space ページ · T 先頭 · B 末尾 · R 再読込 · M ポインタ</string>
++    <string name="pointer_on">トラックパッドのポインタ オン</string>
++    <string name="pointer_off">ポインタ オフ · トラックパッドでページをスクロール</string>
++    <string name="page_failed">ページを読み込めませんでした。R で再試行します。</string>
++    <string name="no_app_for_link">このリンクを開けるアプリがありません。</string>
++    <string name="share_page">ページを共有</string>
++    <string name="downloading">%1$s をダウンロード中</string>
++    <string name="download_failed">ダウンロードを開始できませんでした。</string>
++    <string name="choose_file">ファイルを選択</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-ko/strings.xml
+new file mode 100644
+index 0000000..a8cbecb
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-ko/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">검색하거나 웹 주소 입력</string>
++    <string name="keys_hint">L 주소 · Space 페이지 · T 맨 위 · B 맨 아래 · R 새로고침 · M 포인터</string>
++    <string name="pointer_on">트랙패드 포인터 켜짐</string>
++    <string name="pointer_off">포인터 꺼짐 · 트랙패드로 페이지 스크롤</string>
++    <string name="page_failed">페이지를 불러올 수 없습니다. R로 다시 시도합니다.</string>
++    <string name="no_app_for_link">이 링크를 열 수 있는 앱이 없습니다.</string>
++    <string name="share_page">페이지 공유</string>
++    <string name="downloading">%1$s 다운로드 중</string>
++    <string name="download_failed">다운로드를 시작할 수 없습니다.</string>
++    <string name="choose_file">파일 선택</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-nl/strings.xml
+new file mode 100644
+index 0000000..9c8345b
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-nl/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">Zoek of typ een webadres</string>
++    <string name="keys_hint">L adres · Space pagina · T boven · B onder · R vernieuwen · M aanwijzer</string>
++    <string name="pointer_on">Trackpad-aanwijzer aan</string>
++    <string name="pointer_off">Aanwijzer uit · het trackpad scrolt de pagina</string>
++    <string name="page_failed">Deze pagina kon niet laden. R probeert het opnieuw.</string>
++    <string name="no_app_for_link">Geen app kan deze link openen.</string>
++    <string name="share_page">Pagina delen</string>
++    <string name="downloading">%1$s downloaden</string>
++    <string name="download_failed">Deze download kon niet starten.</string>
++    <string name="choose_file">Kies een bestand</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-pl/strings.xml
+new file mode 100644
+index 0000000..e04e2d4
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-pl/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">Szukaj lub wpisz adres</string>
++    <string name="keys_hint">L adres · Space strona · T góra · B dół · R odśwież · M wskaźnik</string>
++    <string name="pointer_on">Wskaźnik trackpada włączony</string>
++    <string name="pointer_off">Wskaźnik wyłączony · trackpad przewija stronę</string>
++    <string name="page_failed">Nie udało się wczytać strony. R próbuje ponownie.</string>
++    <string name="no_app_for_link">Żadna aplikacja nie otworzy tego linku.</string>
++    <string name="share_page">Udostępnij stronę</string>
++    <string name="downloading">Pobieranie %1$s</string>
++    <string name="download_failed">Nie udało się rozpocząć pobierania.</string>
++    <string name="choose_file">Wybierz plik</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-pt/strings.xml
+new file mode 100644
+index 0000000..0f3140c
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-pt/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">Pesquise ou escreva um endereço web</string>
++    <string name="keys_hint">L endereço · Space página · T topo · B fim · R recarregar · M ponteiro</string>
++    <string name="pointer_on">Ponteiro do trackpad ligado</string>
++    <string name="pointer_off">Ponteiro desligado · o trackpad desloca a página</string>
++    <string name="page_failed">Não foi possível carregar a página. R tenta de novo.</string>
++    <string name="no_app_for_link">Nenhuma app consegue abrir este link.</string>
++    <string name="share_page">Partilhar página</string>
++    <string name="downloading">A transferir %1$s</string>
++    <string name="download_failed">Não foi possível iniciar a transferência.</string>
++    <string name="choose_file">Escolher um ficheiro</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-ru/strings.xml
+new file mode 100644
+index 0000000..7f57773
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-ru/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">Поиск или веб-адрес</string>
++    <string name="keys_hint">L адрес · Space страница · T вверх · B вниз · R обновить · M указатель</string>
++    <string name="pointer_on">Указатель трекпада включён</string>
++    <string name="pointer_off">Указатель выключен · трекпад прокручивает страницу</string>
++    <string name="page_failed">Не удалось загрузить страницу. R — ещё раз.</string>
++    <string name="no_app_for_link">Нет приложения для этой ссылки.</string>
++    <string name="share_page">Поделиться страницей</string>
++    <string name="downloading">Загрузка %1$s</string>
++    <string name="download_failed">Не удалось начать загрузку.</string>
++    <string name="choose_file">Выберите файл</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-sv/strings.xml
+new file mode 100644
+index 0000000..426b74a
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-sv/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">Sök eller skriv en webbadress</string>
++    <string name="keys_hint">L adress · Space sida · T överst · B nederst · R ladda om · M pekare</string>
++    <string name="pointer_on">Styrplattans pekare på</string>
++    <string name="pointer_off">Pekaren av · styrplattan rullar sidan</string>
++    <string name="page_failed">Sidan kunde inte laddas. R försöker igen.</string>
++    <string name="no_app_for_link">Ingen app kan öppna länken.</string>
++    <string name="share_page">Dela sida</string>
++    <string name="downloading">Laddar ned %1$s</string>
++    <string name="download_failed">Nedladdningen kunde inte starta.</string>
++    <string name="choose_file">Välj en fil</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-tr/strings.xml
+new file mode 100644
+index 0000000..a8e0e9b
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-tr/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">Arayın veya web adresi yazın</string>
++    <string name="keys_hint">L adres · Space sayfa · T üst · B alt · R yenile · M işaretçi</string>
++    <string name="pointer_on">Dokunmatik yüzey işaretçisi açık</string>
++    <string name="pointer_off">İşaretçi kapalı · dokunmatik yüzey sayfayı kaydırır</string>
++    <string name="page_failed">Sayfa yüklenemedi. R yeniden dener.</string>
++    <string name="no_app_for_link">Bu bağlantıyı açabilecek uygulama yok.</string>
++    <string name="share_page">Sayfayı paylaş</string>
++    <string name="downloading">%1$s indiriliyor</string>
++    <string name="download_failed">İndirme başlatılamadı.</string>
++    <string name="choose_file">Dosya seçin</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-ur/strings.xml
+new file mode 100644
+index 0000000..9411ddf
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-ur/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">تلاش کریں یا ویب پتہ لکھیں</string>
++    <string name="keys_hint">L پتہ · Space صفحہ · T اوپر · B نیچے · R دوبارہ لوڈ · M پوائنٹر</string>
++    <string name="pointer_on">ٹریک پیڈ پوائنٹر آن</string>
++    <string name="pointer_off">پوائنٹر بند · ٹریک پیڈ صفحہ اسکرول کرتا ہے</string>
++    <string name="page_failed">یہ صفحہ لوڈ نہیں ہو سکا۔ R دوبارہ کوشش کرتا ہے۔</string>
++    <string name="no_app_for_link">کوئی ایپ یہ لنک نہیں کھول سکتی۔</string>
++    <string name="share_page">صفحہ شیئر کریں</string>
++    <string name="downloading">%1$s ڈاؤن لوڈ ہو رہا ہے</string>
++    <string name="download_failed">یہ ڈاؤن لوڈ شروع نہیں ہو سکا۔</string>
++    <string name="choose_file">فائل منتخب کریں</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values-zh-rCN/strings.xml
+new file mode 100644
+index 0000000..371f50d
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values-zh-rCN/strings.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="address_hint">搜索或输入网址</string>
++    <string name="keys_hint">L 地址 · Space 翻页 · T 顶部 · B 底部 · R 刷新 · M 指针</string>
++    <string name="pointer_on">触控板指针已开启</string>
++    <string name="pointer_off">指针已关闭 · 触控板滚动页面</string>
++    <string name="page_failed">无法加载此页面。按 R 重试。</string>
++    <string name="no_app_for_link">没有应用可以打开此链接。</string>
++    <string name="share_page">分享页面</string>
++    <string name="downloading">正在下载 %1$s</string>
++    <string name="download_failed">无法开始此下载。</string>
++    <string name="choose_file">选择文件</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/values/strings.xml b/sable-src/apps/r8/android/browser/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..99ac836
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/res/values/strings.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="app_name" translatable="false">Sable Browser</string>
++    <string name="address_hint">Search or type a web address</string>
++    <string name="keys_hint">L address · Space page · T top · B bottom · R reload · M pointer</string>
++    <string name="pointer_on">Trackpad pointer on</string>
++    <string name="pointer_off">Pointer off · the trackpad scrolls the page</string>
++    <string name="page_failed">This page couldn’t load. R tries again.</string>
++    <string name="no_app_for_link">No app can open this link.</string>
++    <string name="share_page">Share page</string>
++    <string name="downloading">Downloading %1$s</string>
++    <string name="download_failed">This download couldn’t start.</string>
++    <string name="choose_file">Choose a file</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/BrowserTextTest.kt b/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/BrowserTextTest.kt
+new file mode 100644
+index 0000000..181fcb9
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/BrowserTextTest.kt
+@@ -0,0 +1,63 @@
++package org.sableos.browser
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.browser.core.BrowserText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class BrowserTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        BrowserText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, BrowserText.EN.keys, tr.keys.intersect(BrowserText.EN.keys))
++            BrowserText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++
++    @Test
++    fun linesFillTheirArguments() {
++        assertEquals("Downloading report.pdf", BrowserText.t("downloading", "report.pdf"))
++    }
++}
+diff --git a/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/BrowserKeysTest.kt b/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/BrowserKeysTest.kt
+new file mode 100644
+index 0000000..fc42327
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/BrowserKeysTest.kt
+@@ -0,0 +1,34 @@
++package org.sableos.browser.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class BrowserKeysTest {
++    @Test
++    fun bb10Keys() {
++        assertEquals(BrowserCommand.Address, BrowserKeys.command(40, shift = false, otherModifier = false))
++        assertEquals(BrowserCommand.PageDown, BrowserKeys.command(62, shift = false, otherModifier = false))
++        assertEquals(BrowserCommand.PageUp, BrowserKeys.command(62, shift = true, otherModifier = false))
++        assertEquals(BrowserCommand.Top, BrowserKeys.command(48, shift = false, otherModifier = false))
++        assertEquals(BrowserCommand.Bottom, BrowserKeys.command(30, shift = false, otherModifier = false))
++        assertEquals(BrowserCommand.Back, BrowserKeys.command(67, shift = false, otherModifier = false))
++        assertEquals(BrowserCommand.Forward, BrowserKeys.command(67, shift = true, otherModifier = false))
++        assertEquals(BrowserCommand.TogglePointer, BrowserKeys.command(41, shift = false, otherModifier = false))
++        // Alt+letter types a symbol on the Q25: never a browser key.
++        assertNull(BrowserKeys.command(40, shift = false, otherModifier = true))
++        assertNull(BrowserKeys.command(29, shift = false, otherModifier = false))
++    }
++
++    @Test
++    fun trackpadStrokesAndClicks() {
++        assertEquals(0 to -1, BrowserKeys.arrow(19))
++        assertEquals(1 to 0, BrowserKeys.arrow(22))
++        assertNull(BrowserKeys.arrow(40))
++        assertTrue(BrowserKeys.isClick(23))
++        assertTrue(BrowserKeys.isClick(66))
++        assertFalse(BrowserKeys.isClick(62))
++    }
++}
+diff --git a/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/PointerPhysicsTest.kt b/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/PointerPhysicsTest.kt
+new file mode 100644
+index 0000000..2368dd4
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/PointerPhysicsTest.kt
+@@ -0,0 +1,37 @@
++package org.sableos.browser.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class PointerPhysicsTest {
++    @Test
++    fun slowStrokesAimFastStrokesCross() {
++        var streak = PointerPhysics.nextStreak(null, 0)
++        assertEquals(PointerPhysics.BASE_STEP_DP, PointerPhysics.stepDp(streak, false), 0.01f)
++        repeat(20) { streak = PointerPhysics.nextStreak(streak, streak.lastMillis + 30) }
++        assertEquals(PointerPhysics.MAX_STEP_DP, PointerPhysics.stepDp(streak, false), 0.01f)
++        // A pause starts slow again.
++        val after = PointerPhysics.nextStreak(streak, streak.lastMillis + 500)
++        assertEquals(1, after.count)
++    }
++
++    @Test
++    fun linksSlowThePointerDown() {
++        val fast = PointerPhysics.Streak(10, 0)
++        assertTrue(PointerPhysics.stepDp(fast, true) < PointerPhysics.stepDp(fast, false))
++        assertTrue(PointerPhysics.stepDp(PointerPhysics.Streak(1, 0), true) > 0f)
++    }
++
++    @Test
++    fun theEdgeScrollsThePage() {
++        val inside = PointerPhysics.move(100f, 100f, 10f, 0f, 400f, 400f)
++        assertEquals(PointerPhysics.Move(110f, 100f, 0, 0), inside)
++        val bottom = PointerPhysics.move(100f, 395f, 0f, 20f, 400f, 400f)
++        assertEquals(399f, bottom.y, 0.01f)
++        assertEquals((20f * PointerPhysics.EDGE_SCROLL).toInt(), bottom.scrollY)
++        val left = PointerPhysics.move(2f, 50f, -10f, 0f, 400f, 400f)
++        assertEquals(0f, left.x, 0.01f)
++        assertTrue(left.scrollX < 0)
++    }
++}
+diff --git a/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/UrlInputTest.kt b/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/UrlInputTest.kt
+new file mode 100644
+index 0000000..ceef41f
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/UrlInputTest.kt
+@@ -0,0 +1,38 @@
++package org.sableos.browser.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class UrlInputTest {
++    @Test
++    fun addressesOpenAndEverythingElseSearches() {
++        assertEquals("https://example.org", UrlInput.resolve(" example.org "))
++        assertEquals("https://news.example.org/a?b=1", UrlInput.resolve("news.example.org/a?b=1"))
++        assertEquals("http://example.org/x", UrlInput.resolve("http://example.org/x"))
++        assertEquals("http://192.168.1.1", UrlInput.resolve("192.168.1.1"))
++        assertEquals("http://localhost:8080/", UrlInput.resolve("localhost:8080/"))
++        assertEquals("mailto:maya@example.org", UrlInput.resolve("mailto:maya@example.org"))
++        assertEquals(UrlInput.SEARCH_PREFIX + "zinwa+q25+battery", UrlInput.resolve("zinwa q25 battery"))
++        assertEquals(UrlInput.SEARCH_PREFIX + "q25", UrlInput.resolve("q25"))
++        assertEquals(UrlInput.SEARCH_PREFIX + "c%2B%2B", UrlInput.resolve("c++"))
++        assertNull(UrlInput.resolve("   "))
++    }
++
++    @Test
++    fun theBarShowsAShortAddress() {
++        assertEquals("example.org/page", UrlInput.display("https://www.example.org/page/"))
++        assertEquals("", UrlInput.display(null))
++    }
++
++    @Test
++    fun onlyWebLinksStayInThePage() {
++        assertTrue(UrlInput.isWeb("HTTPS://example.org"))
++        assertTrue(UrlInput.isWeb("about:blank"))
++        assertFalse(UrlInput.isWeb("tel:5550100"))
++        assertFalse(UrlInput.isWeb("intent://scan/#Intent;scheme=zxing;end"))
++        assertFalse(UrlInput.isWeb("file:///sdcard/secret.txt"))
++    }
++}
+diff --git a/sable-src/apps/r8/android/settings.gradle.kts b/sable-src/apps/r8/android/settings.gradle.kts
+index d09e258..7403832 100644
+--- a/sable-src/apps/r8/android/settings.gradle.kts
++++ b/sable-src/apps/r8/android/settings.gradle.kts
+@@ -28,3 +28,4 @@ include(":weather")
+ include(":calendar")
+ include(":notes")
+ include(":tasks")
++include(":browser")
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
+index 6484868..113138c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
+@@ -80,6 +80,7 @@ object AppGlyphs {
+             "org.sableos.textreader" to AppGlyph.TEXT_READER,
+             "org.sableos.notes" to AppGlyph.NOTES,
+             "org.sableos.tasks" to AppGlyph.TASKS,
++            "org.sableos.browser" to AppGlyph.BROWSER,
+             "org.sableos.terminal" to AppGlyph.TERMINAL,
+             "org.sableos.sudoku" to AppGlyph.SUDOKU,
+             "org.sableos.minesweeper" to AppGlyph.MINESWEEPER,
+diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+index 4bc25b8..bd447c7 100644
+--- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
++++ b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+@@ -29,3 +29,4 @@ words	ic_sable_game	text-aa	e964560ce335191f6bfc660ee8be894d6459561516152f9fcead
+ notes	ic_sable_notes	notepad	65f069445f9cbf08b9dbbcab5069512095d25c4b0a17113cf98ca9fdc380cf82	#F5C542	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/notes/src/main/res	none
+ terminal	ic_sable_terminal	terminal-window	5ee2be45ae5f7ff95d51e142baad1103cd8b473f89e69f983f3f5b40c884327d	#3FA37A	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/connectbot/res	none
+ tasks	ic_sable_tasks	check-square	69fc9a39cab4af71874d4cc56eaa6d8943962f2619f5c9a7e2e38d01e232c928	#2BB5A0	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/tasks/src/main/res	none
++browser	ic_sable_browser	globe	3b53d207c09fc72de699c8b2149892e065b570b3ae144412ae53244b0a0f7977	#4D9CFF	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/browser/src/main/res	none
