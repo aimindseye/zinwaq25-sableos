@@ -1,0 +1,366 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 5 Nov 2026 15:00:00 +0000
+Subject: [PATCH] SableOS: Look step, BlackBerry 10 or 7 style, or Plain
+
+Plan phase C, optional look: a step before Theme (part of step 5, so the
+count stays at 8; also in the secondary-user flow) offers BlackBerry 10
+style, BlackBerry 7 style or Plain. Next:
+
+* asks Sable Start for the home style and its status dials with
+  org.sableos.start.action.SET_LOOK (extra look: bb10, bb7 or plain),
+  which Start accepts only from a sender holding WRITE_SECURE_SETTINGS;
+* sets pure black (on for both BlackBerry styles, off for Plain), which
+  the Theme step after it shows and can still change;
+* remembers the choice in Settings.Secure sable_look.
+
+Plain is Start's BlackBerry 10 layout without the status dials. Nothing
+restarts, and each part stays its own setting afterwards. Display
+density and the notification light are build settings and stay as they
+are. Pure policy: sable/SableLook.java.
+---
+ app/src/main/AndroidManifest.xml                                | 14 +++++
+ .../main/java/org/lineageos/setupwizard/SableLookActivity.java  | 79 +++++++++++++++++++++++++++++
+ .../main/java/org/lineageos/setupwizard/sable/SableLook.java    | 50 ++++++++++++++++++
+ .../main/java/org/lineageos/setupwizard/sable/SableSteps.java   |  1 +
+ app/src/main/res/drawable/ic_sable_look.xml                     | 15 ++++++
+ app/src/main/res/layout/sable_look_page.xml                     | 70 +++++++++++++++++++++++++
+ app/src/main/res/raw/lineage_wizard_script.xml                  |  7 +++
+ app/src/main/res/raw/lineage_wizard_script_user.xml             |  7 +++
+ app/src/main/res/values/sable_strings.xml                       |  9 ++++
+ 9 files changed, 252 insertions(+)
+
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 49f3e78..36712cc 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -176,6 +176,20 @@
+             </intent-filter>
+         </activity>
+ 
++        <!-- SableOS: BlackBerry 10 style, BlackBerry 7 style or Plain, before Theme. -->
++        <activity
++            android:name=".SableLookActivity"
++            android:label="@string/activity_label_empty"
++            android:configChanges="mcc|mnc|keyboard|keyboardHidden"
++            android:immersive="true"
++            android:exported="false"
++            android:windowSoftInputMode="stateAlwaysHidden">
++            <intent-filter>
++                <action android:name="org.sableos.setupwizard.SABLE_LOOK" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
+         <!-- SableOS: Full Sable, Essentials or Stock Android, after Theme. -->
+         <activity
+             android:name=".SableAppsActivity"
+diff --git a/app/src/main/java/org/lineageos/setupwizard/SableLookActivity.java b/app/src/main/java/org/lineageos/setupwizard/SableLookActivity.java
+new file mode 100644
+index 0000000..765c908
+--- /dev/null
++++ b/app/src/main/java/org/lineageos/setupwizard/SableLookActivity.java
+@@ -0,0 +1,79 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard;
++
++import android.annotation.Nullable;
++import android.content.Intent;
++import android.os.Bundle;
++import android.os.Process;
++import android.provider.Settings;
++import android.widget.RadioGroup;
++
++import lineageos.providers.LineageSettings;
++
++import org.lineageos.setupwizard.base.BaseSetupWizardActivity;
++import org.lineageos.setupwizard.sable.SableLook;
++
++/**
++ * SableOS Look step, before Theme: BlackBerry 10 style, BlackBerry 7 style or Plain
++ * ({@link SableLook}). Next asks Sable Start for the home style and its status dials and sets
++ * pure black, which the Theme step then shows. Nothing restarts; Start shows the look when setup
++ * ends, and each part stays its own setting afterwards.
++ */
++public class SableLookActivity extends BaseSetupWizardActivity {
++    private static final int[] IDS = {
++        R.id.sable_look_bb10, R.id.sable_look_bb7, R.id.sable_look_plain,
++    };
++
++    private RadioGroup group;
++
++    @Override
++    protected void onCreate(@Nullable Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        getGlifLayout().setDescriptionText(getString(R.string.sable_look_summary));
++        group = findViewById(R.id.sable_look_group);
++        group.check(IDS[SableLook.lookOf(
++                Settings.Secure.getString(getContentResolver(), SableLook.SETTING))]);
++        setNextAllowed(true);
++    }
++
++    @Override
++    protected void onNextPressed() {
++        final int look = lookChecked();
++        Settings.Secure.putString(getContentResolver(), SableLook.SETTING, SableLook.valueOf(look));
++        LineageSettings.Secure.putInt(getContentResolver(),
++                LineageSettings.Secure.BERRY_BLACK_THEME, SableLook.pureBlack(look) ? 1 : 0);
++        sendBroadcastAsUser(new Intent(SableLook.ACTION_SET_LOOK)
++                .setPackage(SableLook.START_PACKAGE)
++                .putExtra(SableLook.EXTRA_LOOK, SableLook.valueOf(look))
++                .addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES | Intent.FLAG_RECEIVER_FOREGROUND),
++                Process.myUserHandle());
++        super.onNextPressed();
++    }
++
++    private int lookChecked() {
++        final int checked = group.getCheckedRadioButtonId();
++        for (int i = 0; i < IDS.length; i++) {
++            if (IDS[i] == checked) return i;
++        }
++        return SableLook.BB10;
++    }
++
++    @Override
++    protected int getLayoutResId() {
++        return R.layout.sable_look_page;
++    }
++
++    @Override
++    protected int getTitleResId() {
++        return R.string.setup_sable_look;
++    }
++
++    @Override
++    protected int getIconResId() {
++        return R.drawable.ic_sable_look;
++    }
++}
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableLook.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableLook.java
+new file mode 100644
+index 0000000..7208caf
+--- /dev/null
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableLook.java
+@@ -0,0 +1,50 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard.sable;
++
++/**
++ * The Look step: BlackBerry 10 style, BlackBerry 7 style or Plain. Pure Java.
++ *
++ * <p>Sable Start takes the home style and its status dials (org.sableos.start.action.SET_LOOK,
++ * StartLook in Start); setup itself sets pure black, which the Theme step after it shows and can
++ * still change. Plain is Start's BlackBerry 10 layout without the status dials and without pure
++ * black. Display density and the notification light are build settings and do not change here.
++ */
++public final class SableLook {
++    public static final int BB10 = 0;
++    public static final int BB7 = 1;
++    public static final int PLAIN = 2;
++
++    /** Sable Start's request and its receiver's package. */
++    public static final String ACTION_SET_LOOK = "org.sableos.start.action.SET_LOOK";
++    public static final String EXTRA_LOOK = "look";
++    public static final String START_PACKAGE = "org.sableos.launcher";
++
++    /** Settings.Secure key that remembers the choice, so the step shows it when revisited. */
++    public static final String SETTING = "sable_look";
++
++    private static final String[] VALUES = {"bb10", "bb7", "plain"};
++
++    private SableLook() {}
++
++    /** The value sent to Start and stored. */
++    public static String valueOf(int look) {
++        return look >= 0 && look < VALUES.length ? VALUES[look] : VALUES[BB10];
++    }
++
++    /** A remembered value, or BlackBerry 10 style (the default home) for a missing or unknown one. */
++    public static int lookOf(String stored) {
++        for (int i = 0; i < VALUES.length; i++) {
++            if (VALUES[i].equals(stored)) return i;
++        }
++        return BB10;
++    }
++
++    /** Whether the look turns pure black on (both BlackBerry styles) or off (Plain). */
++    public static boolean pureBlack(int look) {
++        return look != PLAIN;
++    }
++}
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableSteps.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableSteps.java
+index d2a20a9..7c66a67 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/sable/SableSteps.java
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableSteps.java
+@@ -42,6 +42,7 @@ public final class SableSteps {
+         m.put("SimMissingActivity", WIFI);
+         m.put("NetworkSetupActivity", WIFI);
+         m.put("SablePrivacyActivity", PRIVACY);
++        m.put("SableLookActivity", THEME);
+         m.put("ThemeSettingsActivity", THEME);
+         m.put("SableAppsActivity", THEME);
+         m.put("DateTimeActivity", DEVICE);
+diff --git a/app/src/main/res/drawable/ic_sable_look.xml b/app/src/main/res/drawable/ic_sable_look.xml
+new file mode 100644
+index 0000000..241a134
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_sable_look.xml
+@@ -0,0 +1,15 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <!-- A phone screen with a status row and a home layout. -->
++    <path
++        android:fillColor="#FFFFFFFF"
++        android:pathData="M6,2h12a2,2 0,0 1,2 2v16a2,2 0,0 1,-2 2H6a2,2 0,0 1,-2 -2V4a2,2 0,0 1,2 -2zM6,4v16h12V4H6zM8,6h8v2H8zM8,10h3v3H8zM13,10h3v3h-3zM8,15h3v3H8zM13,15h3v3h-3z" />
++</vector>
+diff --git a/app/src/main/res/layout/sable_look_page.xml b/app/src/main/res/layout/sable_look_page.xml
+new file mode 100644
+index 0000000..ee82e98
+--- /dev/null
++++ b/app/src/main/res/layout/sable_look_page.xml
+@@ -0,0 +1,70 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<com.google.android.setupdesign.GlifLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/setup_wizard_layout"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent">
++
++    <LinearLayout
++        android:orientation="vertical"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        style="@style/SudContentFrame">
++
++        <ScrollView
++            android:id="@+id/page"
++            android:layout_width="match_parent"
++            android:layout_height="0dp"
++            android:layout_weight="1">
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content">
++
++                <!-- Each choice says what it keeps, so arrow keys read the choice and its
++                     effect together. -->
++                <RadioGroup
++                    android:id="@+id/sable_look_group"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:orientation="vertical">
++
++                    <RadioButton
++                        android:id="@+id/sable_look_bb10"
++                        android:layout_width="match_parent"
++                        android:layout_height="wrap_content"
++                        android:minHeight="48dp"
++                        android:paddingVertical="8dp"
++                        android:text="@string/sable_look_bb10" />
++
++                    <RadioButton
++                        android:id="@+id/sable_look_bb7"
++                        android:layout_width="match_parent"
++                        android:layout_height="wrap_content"
++                        android:minHeight="48dp"
++                        android:paddingVertical="8dp"
++                        android:text="@string/sable_look_bb7" />
++
++                    <RadioButton
++                        android:id="@+id/sable_look_plain"
++                        android:layout_width="match_parent"
++                        android:layout_height="wrap_content"
++                        android:minHeight="48dp"
++                        android:paddingVertical="8dp"
++                        android:text="@string/sable_look_plain" />
++
++                </RadioGroup>
++
++                <TextView
++                    style="@style/SableSetupCard"
++                    android:text="@string/sable_look_note" />
++
++            </LinearLayout>
++        </ScrollView>
++    </LinearLayout>
++</com.google.android.setupdesign.GlifLayout>
+diff --git a/app/src/main/res/raw/lineage_wizard_script.xml b/app/src/main/res/raw/lineage_wizard_script.xml
+index e8ad6e3..bee247f 100644
+--- a/app/src/main/res/raw/lineage_wizard_script.xml
++++ b/app/src/main/res/raw/lineage_wizard_script.xml
+@@ -58,6 +58,13 @@
+     <WizardAction
+         id="sable_privacy"
+         wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_PRIVACY;end">
++        <result wizard:action="sable_look" />
++    </WizardAction>
++
++    <!-- SableOS: BlackBerry 10 style, BlackBerry 7 style or Plain (home, dials, pure black). -->
++    <WizardAction
++        id="sable_look"
++        wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_LOOK;end">
+         <result wizard:action="theme_settings" />
+     </WizardAction>
+ 
+diff --git a/app/src/main/res/raw/lineage_wizard_script_user.xml b/app/src/main/res/raw/lineage_wizard_script_user.xml
+index e7dca8a..2d9c5bf 100644
+--- a/app/src/main/res/raw/lineage_wizard_script_user.xml
++++ b/app/src/main/res/raw/lineage_wizard_script_user.xml
+@@ -37,6 +37,13 @@
+     <WizardAction
+         id="lockscreen_settings"
+         wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.LINEAGE_LOCKSCREEN_SETTINGS;end">
++        <result wizard:action="sable_look" />
++    </WizardAction>
++
++    <!-- SableOS: BlackBerry 10 style, BlackBerry 7 style or Plain (home, dials, pure black). -->
++    <WizardAction
++        id="sable_look"
++        wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_LOOK;end">
+         <result wizard:action="theme_settings" />
+     </WizardAction>
+ 
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
+index bee5a53..e51919b 100644
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
+@@ -84,6 +84,15 @@
+         <item>Slate</item>
+     </string-array>
+ 
++    <!-- SableOS Look step (plan phase C), before Theme. "Style" because SableOS is not
++         BlackBerry: it only follows the look. -->
++    <string name="setup_sable_look">Look</string>
++    <string name="sable_look_summary">Choose how the home screen looks. Each part stays its own setting.</string>
++    <string name="sable_look_bb10"><b>BlackBerry 10 style</b>\nHub on the left, your open apps as Active Frames, the app grid on the right, status dials on top and pure black.</string>
++    <string name="sable_look_bb7"><b>BlackBerry 7 style</b>\nA banner with the clock and status over a tray of app icons, with pure black.</string>
++    <string name="sable_look_plain"><b>Plain</b>\nThe same home as BlackBerry 10 style without the status dials, in the standard dark or light theme.</string>
++    <string name="sable_look_note">Change the home later from Sable Setup or the home screen's menu, the dials in Edit Home, and pure black on the next step or in Settings, Display.</string>
++
+     <!-- SableOS Sable apps step (plan phase C), after Theme. Apps left out are disabled, never
+          uninstalled. -->
+     <string name="setup_sable_apps">Sable apps</string>
+-- 
+2.43.0
+
