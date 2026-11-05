@@ -296,4 +296,10 @@
     <string name="letter_press_for">%1$s: press a letter, Backspace removes</string>
     <string name="instant_event">New event</string>
     <string name="instant_open_address">Open address</string>
+    <string name="folder_add">Add to folder</string>
+    <string name="new_folder">New folder</string>
+    <string name="folder_name">Folder name: %1$s</string>
+    <string name="rename_folder">Rename folder</string>
+    <string name="ungroup_folder">Ungroup folder</string>
+    <string name="folder_of">%1$s folder</string>
 </resources>

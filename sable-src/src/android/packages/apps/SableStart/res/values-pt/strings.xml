@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s: pressione uma letra, Backspace remove</string>
     <string name="instant_event">Novo evento</string>
     <string name="instant_open_address">Abrir endereço</string>
+    <string name="folder_add">Adicionar à pasta</string>
+    <string name="new_folder">Nova pasta</string>
+    <string name="folder_name">Nome da pasta: %1$s</string>
+    <string name="rename_folder">Renomear pasta</string>
+    <string name="ungroup_folder">Desagrupar pasta</string>
+    <string name="folder_of">Pasta %1$s</string>
 </resources>

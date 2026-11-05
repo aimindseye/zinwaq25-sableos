@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s: एक अक्षर दबाएँ, Backspace हटाता है</string>
     <string name="instant_event">नया इवेंट</string>
     <string name="instant_open_address">पता खोलें</string>
+    <string name="folder_add">फ़ोल्डर में जोड़ें</string>
+    <string name="new_folder">नया फ़ोल्डर</string>
+    <string name="folder_name">फ़ोल्डर का नाम: %1$s</string>
+    <string name="rename_folder">फ़ोल्डर का नाम बदलें</string>
+    <string name="ungroup_folder">फ़ोल्डर अलग करें</string>
+    <string name="folder_of">%1$s फ़ोल्डर</string>
 </resources>

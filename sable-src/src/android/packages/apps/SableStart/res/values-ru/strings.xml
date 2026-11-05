@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s: нажмите букву, Backspace удаляет</string>
     <string name="instant_event">Новое событие</string>
     <string name="instant_open_address">Открыть адрес</string>
+    <string name="folder_add">Добавить в папку</string>
+    <string name="new_folder">Новая папка</string>
+    <string name="folder_name">Имя папки: %1$s</string>
+    <string name="rename_folder">Переименовать папку</string>
+    <string name="ungroup_folder">Разгруппировать папку</string>
+    <string name="folder_of">Папка %1$s</string>
 </resources>

@@ -340,6 +340,8 @@ class SableStartActivity : ComponentActivity() {
                     initialHomeApps = startStateRepository.loadHomeApps(),
                     initialGridOrder = startStateRepository.loadGridOrder(),
                     onGridOrderChanged = startStateRepository::saveGridOrder,
+                    initialGridFolders = startStateRepository.loadGridFolders(),
+                    onGridFoldersChanged = startStateRepository::saveGridFolders,
                     initialQuickBar = startStateRepository.loadQuickBar(),
                     onQuickBarChanged = startStateRepository::saveQuickBar,
                     initialGlanceWidgets = startStateRepository.loadGlanceWidgets(),

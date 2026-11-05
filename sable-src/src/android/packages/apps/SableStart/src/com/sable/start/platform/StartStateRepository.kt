@@ -5,6 +5,8 @@ import org.sableos.start.model.Bb7Home
 import org.sableos.start.model.Bb7Layout
 import org.sableos.start.model.Bb7Tab
 import org.sableos.start.model.Bb7Tabs
+import org.sableos.start.model.GridFolder
+import org.sableos.start.model.GridFolders
 import org.sableos.start.model.HomeStyle
 
 /**
@@ -140,6 +142,13 @@ class StartStateRepository(
 
     fun saveGridOrder(keys: List<String>?) = saveOrdered(KEY_GRID_ORDER, keys)
 
+    /** The folders on the BB10 app grid (see GridFolders). */
+    fun loadGridFolders(): List<GridFolder> = GridFolders.decode(preferences.getString(KEY_GRID_FOLDERS, null))
+
+    fun saveGridFolders(folders: List<GridFolder>) {
+        preferences.edit().putString(KEY_GRID_FOLDERS, GridFolders.encode(folders)).apply()
+    }
+
     /** Ordered Glance widgets, shown as Active Frames while no app is running (see GlanceWidgets); null means never customised. */
     fun loadGlanceWidgets(): List<String>? = loadOrdered(KEY_GLANCE_WIDGETS)
 
@@ -218,5 +227,6 @@ class StartStateRepository(
         const val KEY_HOME_MODE = "home_mode"
         const val KEY_HOME_STYLE = "home_style"
         const val KEY_GRID_ORDER = "grid_order"
+        const val KEY_GRID_FOLDERS = "grid_folders"
     }
 }

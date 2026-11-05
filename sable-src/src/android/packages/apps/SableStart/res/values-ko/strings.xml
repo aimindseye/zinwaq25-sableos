@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s: 글자를 누르세요, Backspace는 해제</string>
     <string name="instant_event">새 일정</string>
     <string name="instant_open_address">주소 열기</string>
+    <string name="folder_add">폴더에 추가</string>
+    <string name="new_folder">새 폴더</string>
+    <string name="folder_name">폴더 이름: %1$s</string>
+    <string name="rename_folder">폴더 이름 변경</string>
+    <string name="ungroup_folder">폴더 해제</string>
+    <string name="folder_of">%1$s 폴더</string>
 </resources>

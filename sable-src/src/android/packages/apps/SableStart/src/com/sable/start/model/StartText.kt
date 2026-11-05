@@ -308,6 +308,12 @@ object StartText {
             "instant_event" to "New event",
             "instant_open_address" to "Open address",
             "icon_large" to "Large",
+            "folder_add" to "Add to folder",
+            "new_folder" to "New folder",
+            "folder_name" to "Folder name: %1\$s",
+            "rename_folder" to "Rename folder",
+            "ungroup_folder" to "Ungroup folder",
+            "folder_of" to "%1\$s folder",
             "letter_shortcut_press" to
                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",
         )

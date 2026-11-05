@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s: druk op een letter, Backspace verwijdert</string>
     <string name="instant_event">Nieuwe afspraak</string>
     <string name="instant_open_address">Adres openen</string>
+    <string name="folder_add">Toevoegen aan map</string>
+    <string name="new_folder">Nieuwe map</string>
+    <string name="folder_name">Mapnaam: %1$s</string>
+    <string name="rename_folder">Map hernoemen</string>
+    <string name="ungroup_folder">Map opheffen</string>
+    <string name="folder_of">Map %1$s</string>
 </resources>

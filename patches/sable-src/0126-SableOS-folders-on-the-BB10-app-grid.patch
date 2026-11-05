@@ -1,0 +1,1214 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/GridFoldersTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/GridFoldersTest.kt
+new file mode 100644
+index 0000000..5ffb0f3
+--- /dev/null
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/GridFoldersTest.kt
+@@ -0,0 +1,81 @@
++package org.sableos.start.model
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++/** Folders on the BB10 app grid. */
++class GridFoldersTest {
++    private val installed = listOf("a", "b", "c", "d", "e")
++
++    @Test
++    fun aNewFolderTakesTheAppsPlaceAndTheAppLeavesTheGrid() {
++        val (folders, order) = GridFolders.create(emptyList(), installed, "b", "Games") ?: error("not created")
++        assertEquals(listOf("a", "folder:1", "c", "d", "e"), order)
++        val items = GridFolders.layout(order, emptyList(), installed, folders)
++        assertEquals(GridItem.Folder(folders.single(), listOf("b")), items[1])
++        assertEquals(5, items.size)
++    }
++
++    @Test
++    fun addingMovesAnAppIntoTheFolderAndOutOfAnyOther() {
++        val (one, order) = GridFolders.create(emptyList(), installed, "a", "One") ?: error("not created")
++        val (two, order2) = GridFolders.create(one, order, "c", "Two") ?: error("not created")
++        val moved = GridFolders.add(two, id = 1, key = "c")
++        assertEquals(listOf("a", "c"), moved.single().keys)
++        // Folder Two has no app left, so it goes.
++        val items = GridFolders.layout(order2, emptyList(), installed, moved)
++        assertEquals(listOf("folder:1", "b", "d", "e"), GridFolders.order(items))
++    }
++
++    @Test
++    fun removingPutsTheAppAfterTheFolderAndAnEmptyFolderGoes() {
++        val (folders, order) = GridFolders.create(emptyList(), installed, "b", "Games") ?: error("not created")
++        val both = GridFolders.add(folders, 1, "d")
++        val (left, order2) = GridFolders.remove(both, order.filterNot { it == "d" }, "d")
++        assertEquals(listOf("a", "folder:1", "d", "c", "e"), order2)
++        val (none, order3) = GridFolders.remove(left, order2, "b")
++        assertTrue(none.isEmpty())
++        assertEquals(listOf("a", "b", "d", "c", "e"), order3)
++    }
++
++    @Test
++    fun ungroupPutsTheAppsBackWhereTheFolderWas() {
++        val (folders, order) = GridFolders.create(emptyList(), installed, "b", "Games") ?: error("not created")
++        val both = GridFolders.add(folders, 1, "e")
++        val (none, order2) = GridFolders.ungroup(both, order.filterNot { it == "e" }, 1)
++        assertTrue(none.isEmpty())
++        assertEquals(listOf("a", "b", "e", "c", "d"), order2)
++    }
++
++    @Test
++    fun namesAreCleanAndUnique() {
++        assertNull(GridFolders.create(emptyList(), installed, "a", "  "))
++        val (folders, order) = GridFolders.create(emptyList(), installed, "a", "Games") ?: error("not created")
++        assertNull(GridFolders.create(folders, order, "b", "games"))
++        val (two, _) = GridFolders.create(folders, order, "b", "Tools") ?: error("not created")
++        assertEquals("Tools", GridFolders.rename(two, 2, "Games").first { it.id == 2 }.name)
++        assertEquals("Work", GridFolders.rename(two, 2, " Work ").first { it.id == 2 }.name)
++    }
++
++    @Test
++    fun uninstalledAppsAndNewAppsAreHandled() {
++        val folders = listOf(GridFolder(4, "Old", listOf("gone")), GridFolder(5, "Kept", listOf("gone", "c")))
++        val items = GridFolders.layout(listOf("folder:4", "a", "folder:5"), emptyList(), installed, folders)
++        assertEquals(listOf("a", "folder:5", "b", "d", "e"), GridFolders.order(items))
++        assertEquals(GridItem.Folder(folders[1], listOf("c")), items[1])
++    }
++
++    @Test
++    fun encodeAndDecodeRoundTripAndDropDamage() {
++        val folders = listOf(GridFolder(1, "Games", listOf("0:x/y", "0:z/w")), GridFolder(3, "Tools"))
++        assertEquals(folders, GridFolders.decode(GridFolders.encode(folders)))
++        val damaged = "1\tGames\ta,b\nbad line\n2\tgames\tc\n0\tZero\td\n3\tMore\tb,e"
++        assertEquals(
++            listOf(GridFolder(1, "Games", listOf("a", "b")), GridFolder(3, "More", listOf("e"))),
++            GridFolders.decode(damaged),
++        )
++        assertTrue(GridFolders.decode(null).isEmpty())
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index 16569b6..b0e96d5 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: اضغط حرفًا، ومسافة للخلف تزيله</string>
+     <string name="instant_event">حدث جديد</string>
+     <string name="instant_open_address">فتح العنوان</string>
++    <string name="folder_add">إضافة إلى مجلد</string>
++    <string name="new_folder">مجلد جديد</string>
++    <string name="folder_name">اسم المجلد: %1$s</string>
++    <string name="rename_folder">إعادة تسمية المجلد</string>
++    <string name="ungroup_folder">فك تجميع المجلد</string>
++    <string name="folder_of">مجلد %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index 3c91e3b..2c946f5 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: Buchstaben drücken, Rücktaste entfernt</string>
+     <string name="instant_event">Neuer Termin</string>
+     <string name="instant_open_address">Adresse öffnen</string>
++    <string name="folder_add">Zu Ordner hinzufügen</string>
++    <string name="new_folder">Neuer Ordner</string>
++    <string name="folder_name">Ordnername: %1$s</string>
++    <string name="rename_folder">Ordner umbenennen</string>
++    <string name="ungroup_folder">Ordner auflösen</string>
++    <string name="folder_of">Ordner %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index 3684df0..0ece6a7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: πατήστε ένα γράμμα, το Backspace αφαιρεί</string>
+     <string name="instant_event">Νέο συμβάν</string>
+     <string name="instant_open_address">Άνοιγμα διεύθυνσης</string>
++    <string name="folder_add">Προσθήκη σε φάκελο</string>
++    <string name="new_folder">Νέος φάκελος</string>
++    <string name="folder_name">Όνομα φακέλου: %1$s</string>
++    <string name="rename_folder">Μετονομασία φακέλου</string>
++    <string name="ungroup_folder">Κατάργηση ομαδοποίησης</string>
++    <string name="folder_of">Φάκελος %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index d3f415d..cd4f655 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: pulsa una letra, Retroceso la quita</string>
+     <string name="instant_event">Nuevo evento</string>
+     <string name="instant_open_address">Abrir dirección</string>
++    <string name="folder_add">Añadir a carpeta</string>
++    <string name="new_folder">Carpeta nueva</string>
++    <string name="folder_name">Nombre de la carpeta: %1$s</string>
++    <string name="rename_folder">Cambiar nombre de la carpeta</string>
++    <string name="ungroup_folder">Desagrupar carpeta</string>
++    <string name="folder_of">Carpeta %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index f18f1f3..fb91336 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s : appuyez sur une lettre, Retour arrière l\'enlève</string>
+     <string name="instant_event">Nouvel événement</string>
+     <string name="instant_open_address">Ouvrir l\'adresse</string>
++    <string name="folder_add">Ajouter au dossier</string>
++    <string name="new_folder">Nouveau dossier</string>
++    <string name="folder_name">Nom du dossier : %1$s</string>
++    <string name="rename_folder">Renommer le dossier</string>
++    <string name="ungroup_folder">Dégrouper le dossier</string>
++    <string name="folder_of">Dossier %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index b80700c..6fd2abe 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: एक अक्षर दबाएँ, Backspace हटाता है</string>
+     <string name="instant_event">नया इवेंट</string>
+     <string name="instant_open_address">पता खोलें</string>
++    <string name="folder_add">फ़ोल्डर में जोड़ें</string>
++    <string name="new_folder">नया फ़ोल्डर</string>
++    <string name="folder_name">फ़ोल्डर का नाम: %1$s</string>
++    <string name="rename_folder">फ़ोल्डर का नाम बदलें</string>
++    <string name="ungroup_folder">फ़ोल्डर अलग करें</string>
++    <string name="folder_of">%1$s फ़ोल्डर</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index 52497e9..afae5eb 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: premi una lettera, Backspace la toglie</string>
+     <string name="instant_event">Nuovo evento</string>
+     <string name="instant_open_address">Apri indirizzo</string>
++    <string name="folder_add">Aggiungi a cartella</string>
++    <string name="new_folder">Nuova cartella</string>
++    <string name="folder_name">Nome cartella: %1$s</string>
++    <string name="rename_folder">Rinomina cartella</string>
++    <string name="ungroup_folder">Separa cartella</string>
++    <string name="folder_of">Cartella %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index 3417219..f22ae2a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: הקישו על אות, Backspace מסיר</string>
+     <string name="instant_event">אירוע חדש</string>
+     <string name="instant_open_address">פתיחת הכתובת</string>
++    <string name="folder_add">הוספה לתיקייה</string>
++    <string name="new_folder">תיקייה חדשה</string>
++    <string name="folder_name">שם התיקייה: %1$s</string>
++    <string name="rename_folder">שינוי שם התיקייה</string>
++    <string name="ungroup_folder">פירוק התיקייה</string>
++    <string name="folder_of">תיקייה %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index 7f05c12..09690bd 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: 文字キーを押す（Backspace で解除）</string>
+     <string name="instant_event">新しい予定</string>
+     <string name="instant_open_address">アドレスを開く</string>
++    <string name="folder_add">フォルダに追加</string>
++    <string name="new_folder">新しいフォルダ</string>
++    <string name="folder_name">フォルダ名: %1$s</string>
++    <string name="rename_folder">フォルダ名を変更</string>
++    <string name="ungroup_folder">フォルダを解除</string>
++    <string name="folder_of">%1$s フォルダ</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 0c700c0..d06b571 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: 글자를 누르세요, Backspace는 해제</string>
+     <string name="instant_event">새 일정</string>
+     <string name="instant_open_address">주소 열기</string>
++    <string name="folder_add">폴더에 추가</string>
++    <string name="new_folder">새 폴더</string>
++    <string name="folder_name">폴더 이름: %1$s</string>
++    <string name="rename_folder">폴더 이름 변경</string>
++    <string name="ungroup_folder">폴더 해제</string>
++    <string name="folder_of">%1$s 폴더</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 56f70bc..28afc24 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: druk op een letter, Backspace verwijdert</string>
+     <string name="instant_event">Nieuwe afspraak</string>
+     <string name="instant_open_address">Adres openen</string>
++    <string name="folder_add">Toevoegen aan map</string>
++    <string name="new_folder">Nieuwe map</string>
++    <string name="folder_name">Mapnaam: %1$s</string>
++    <string name="rename_folder">Map hernoemen</string>
++    <string name="ungroup_folder">Map opheffen</string>
++    <string name="folder_of">Map %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index 8608172..e803cd9 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: naciśnij literę, Backspace usuwa</string>
+     <string name="instant_event">Nowe wydarzenie</string>
+     <string name="instant_open_address">Otwórz adres</string>
++    <string name="folder_add">Dodaj do folderu</string>
++    <string name="new_folder">Nowy folder</string>
++    <string name="folder_name">Nazwa folderu: %1$s</string>
++    <string name="rename_folder">Zmień nazwę folderu</string>
++    <string name="ungroup_folder">Rozgrupuj folder</string>
++    <string name="folder_of">Folder %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index 6ea279f..fc21599 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: pressione uma letra, Backspace remove</string>
+     <string name="instant_event">Novo evento</string>
+     <string name="instant_open_address">Abrir endereço</string>
++    <string name="folder_add">Adicionar à pasta</string>
++    <string name="new_folder">Nova pasta</string>
++    <string name="folder_name">Nome da pasta: %1$s</string>
++    <string name="rename_folder">Renomear pasta</string>
++    <string name="ungroup_folder">Desagrupar pasta</string>
++    <string name="folder_of">Pasta %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 7aec926..7206356 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: нажмите букву, Backspace удаляет</string>
+     <string name="instant_event">Новое событие</string>
+     <string name="instant_open_address">Открыть адрес</string>
++    <string name="folder_add">Добавить в папку</string>
++    <string name="new_folder">Новая папка</string>
++    <string name="folder_name">Имя папки: %1$s</string>
++    <string name="rename_folder">Переименовать папку</string>
++    <string name="ungroup_folder">Разгруппировать папку</string>
++    <string name="folder_of">Папка %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 354698d..d249405 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: tryck på en bokstav, Backsteg tar bort</string>
+     <string name="instant_event">Ny händelse</string>
+     <string name="instant_open_address">Öppna adress</string>
++    <string name="folder_add">Lägg till i mapp</string>
++    <string name="new_folder">Ny mapp</string>
++    <string name="folder_name">Mappnamn: %1$s</string>
++    <string name="rename_folder">Byt namn på mappen</string>
++    <string name="ungroup_folder">Dela upp mappen</string>
++    <string name="folder_of">Mappen %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 1ca7c0b..3ff449e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: bir harfe basın, Geri silme kaldırır</string>
+     <string name="instant_event">Yeni etkinlik</string>
+     <string name="instant_open_address">Adresi aç</string>
++    <string name="folder_add">Klasöre ekle</string>
++    <string name="new_folder">Yeni klasör</string>
++    <string name="folder_name">Klasör adı: %1$s</string>
++    <string name="rename_folder">Klasörü yeniden adlandır</string>
++    <string name="ungroup_folder">Klasörü dağıt</string>
++    <string name="folder_of">%1$s klasörü</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index 9d461ec..96b4c21 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s: کوئی حرف دبائیں، Backspace ہٹاتا ہے</string>
+     <string name="instant_event">نیا ایونٹ</string>
+     <string name="instant_open_address">پتہ کھولیں</string>
++    <string name="folder_add">فولڈر میں شامل کریں</string>
++    <string name="new_folder">نیا فولڈر</string>
++    <string name="folder_name">فولڈر کا نام: %1$s</string>
++    <string name="rename_folder">فولڈر کا نام بدلیں</string>
++    <string name="ungroup_folder">فولڈر الگ کریں</string>
++    <string name="folder_of">%1$s فولڈر</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 267ceed..7eb21d6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -292,4 +292,10 @@
+     <string name="letter_press_for">%1$s：按一个字母，退格键移除</string>
+     <string name="instant_event">新建日程</string>
+     <string name="instant_open_address">打开网址</string>
++    <string name="folder_add">添加到文件夹</string>
++    <string name="new_folder">新建文件夹</string>
++    <string name="folder_name">文件夹名称：%1$s</string>
++    <string name="rename_folder">重命名文件夹</string>
++    <string name="ungroup_folder">解散文件夹</string>
++    <string name="folder_of">%1$s 文件夹</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 3582e29..196b023 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -296,4 +296,10 @@
+     <string name="letter_press_for">%1$s: press a letter, Backspace removes</string>
+     <string name="instant_event">New event</string>
+     <string name="instant_open_address">Open address</string>
++    <string name="folder_add">Add to folder</string>
++    <string name="new_folder">New folder</string>
++    <string name="folder_name">Folder name: %1$s</string>
++    <string name="rename_folder">Rename folder</string>
++    <string name="ungroup_folder">Ungroup folder</string>
++    <string name="folder_of">%1$s folder</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index 1e0d6f4..6a22d96 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -340,6 +340,8 @@ class SableStartActivity : ComponentActivity() {
+                     initialHomeApps = startStateRepository.loadHomeApps(),
+                     initialGridOrder = startStateRepository.loadGridOrder(),
+                     onGridOrderChanged = startStateRepository::saveGridOrder,
++                    initialGridFolders = startStateRepository.loadGridFolders(),
++                    onGridFoldersChanged = startStateRepository::saveGridFolders,
+                     initialQuickBar = startStateRepository.loadQuickBar(),
+                     onQuickBarChanged = startStateRepository::saveQuickBar,
+                     initialGlanceWidgets = startStateRepository.loadGlanceWidgets(),
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+index 87317c0..5052d08 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+@@ -263,3 +263,202 @@ object Balance {
+     fun next(space: BalanceSpace): BalanceSpace =
+         if (space == BalanceSpace.Personal) BalanceSpace.Work else BalanceSpace.Personal
+ }
++
++/** A folder on the BB10 app grid (owner request 2026-11-05): a name and its apps (stable keys), in order. */
++data class GridFolder(
++    val id: Int,
++    val name: String,
++    val keys: List<String> = emptyList(),
++) {
++    /** The folder's place in the grid order. */
++    val token: String get() = GridFolders.TOKEN_PREFIX + id
++}
++
++/** One place on the app grid: an app, or a folder with the apps of it that are installed. */
++sealed interface GridItem {
++    data class App(
++        val key: String,
++    ) : GridItem
++
++    data class Folder(
++        val folder: GridFolder,
++        val keys: List<String>,
++    ) : GridItem
++}
++
++/**
++ * Folders on the BlackBerry 10 app grid. A folder sits in the grid order as its token
++ * ("folder:3"); the apps in it leave the grid and show when it opens. An app is in at
++ * most one folder. A folder with no installed app left is not shown. Saved as one line
++ * per folder (id, name and keys separated by tabs and commas); a damaged line is dropped.
++ */
++object GridFolders {
++    const val TOKEN_PREFIX = "folder:"
++    const val MAX = 12
++    const val MAX_APPS = 25
++
++    private const val LINE_SEPARATOR = "\n"
++    private const val FIELD_SEPARATOR = "\t"
++    private const val KEY_SEPARATOR = ","
++
++    /** The folder [key] is in, or null. */
++    fun folderOf(
++        folders: List<GridFolder>,
++        key: String,
++    ): GridFolder? = folders.firstOrNull { key in it.keys }
++
++    /**
++     * The grid's places: [AppGrid.resolve] over the apps outside folders, with each folder
++     * that still holds an installed app at its saved place (a new folder goes last).
++     */
++    fun layout(
++        saved: List<String>?,
++        preferredFirst: List<String>,
++        installed: List<String>,
++        folders: List<GridFolder>,
++    ): List<GridItem> {
++        val present = installed.toSet()
++        val shown = folders.associateBy { it.token }.mapValues { (_, f) -> f.keys.filter { it in present }.distinct() }
++        val live = shown.filterValues { it.isNotEmpty() }
++        val inFolders = live.values.flatten().toSet()
++        val order = (saved ?: preferredFirst).filter { it in live || (it in present && it !in inFolders) }.distinct()
++        val taken = order.toSet()
++        val full = order + live.keys.filterNot { it in taken } + installed.filterNot { it in taken || it in inFolders }
++        val byToken = folders.associateBy { it.token }
++        return full.distinct().map { key ->
++            val folder = byToken[key]
++            if (folder == null) GridItem.App(key) else GridItem.Folder(folder, live.getValue(key))
++        }
++    }
++
++    /** The grid order (keys and folder tokens) of [items], as Edit Home saves it. */
++    fun order(items: List<GridItem>): List<String> =
++        items.map {
++            when (it) {
++                is GridItem.App -> it.key
++                is GridItem.Folder -> it.folder.token
++            }
++        }
++
++    /**
++     * A new folder called [name] holding [key], at the app's place in [order] (an app taken
++     * from another folder leaves it, and a folder left empty goes). Unchanged (null) when
++     * there are [MAX] folders, the name is empty or already used.
++     */
++    fun create(
++        folders: List<GridFolder>,
++        order: List<String>,
++        key: String,
++        name: String,
++    ): Pair<List<GridFolder>, List<String>>? {
++        val clean = Bb7Tabs.cleanName(name) ?: return null
++        if (folders.size >= MAX || folders.any { it.name.equals(clean, ignoreCase = true) }) return null
++        val folder = GridFolder(id = (folders.maxOfOrNull { it.id } ?: 0) + 1, name = clean, keys = listOf(key))
++        val left = folders.map { it.copy(keys = it.keys - key) }.filter { it.keys.isNotEmpty() }
++        val at = order.indexOf(key)
++        val nextOrder =
++            if (at < 0) {
++                order + folder.token
++            } else {
++                order.toMutableList().also { it[at] = folder.token }
++            }
++        return (left + folder) to nextOrder
++    }
++
++    /**
++     * Moves [key] into the folder [id] (out of any other, which goes when left empty);
++     * unchanged when that folder is full or missing.
++     */
++    fun add(
++        folders: List<GridFolder>,
++        id: Int,
++        key: String,
++    ): List<GridFolder> {
++        val target = folders.firstOrNull { it.id == id } ?: return folders
++        if (key in target.keys || target.keys.size >= MAX_APPS) return folders
++        return folders
++            .map { if (it.id == id) it.copy(keys = it.keys + key) else it.copy(keys = it.keys - key) }
++            .filter { it.keys.isNotEmpty() }
++    }
++
++    /**
++     * Takes [key] out of its folder and puts it on the grid right after the folder. A folder
++     * left empty goes, and so does its place in the order.
++     */
++    fun remove(
++        folders: List<GridFolder>,
++        order: List<String>,
++        key: String,
++    ): Pair<List<GridFolder>, List<String>> {
++        val folder = folderOf(folders, key) ?: return folders to order
++        val left = folders.map { if (it.id == folder.id) it.copy(keys = it.keys - key) else it }
++        val emptied = left.first { it.id == folder.id }.keys.isEmpty()
++        val at = order.indexOf(folder.token)
++        val withApp =
++            when {
++                key in order -> order
++                at < 0 -> order + key
++                else -> order.toMutableList().also { it.add(at + 1, key) }
++            }
++        return if (emptied) {
++            left.filterNot { it.id == folder.id } to withApp.filterNot { it == folder.token }
++        } else {
++            left to withApp
++        }
++    }
++
++    /** Renames the folder [id]; unchanged when the name is empty or another folder has it. */
++    fun rename(
++        folders: List<GridFolder>,
++        id: Int,
++        name: String,
++    ): List<GridFolder> {
++        val clean = Bb7Tabs.cleanName(name) ?: return folders
++        if (folders.any { it.id != id && it.name.equals(clean, ignoreCase = true) }) return folders
++        return folders.map { if (it.id == id) it.copy(name = clean) else it }
++    }
++
++    /** Removes the folder [id]; its apps go back on the grid where the folder was, in its order. */
++    fun ungroup(
++        folders: List<GridFolder>,
++        order: List<String>,
++        id: Int,
++    ): Pair<List<GridFolder>, List<String>> {
++        val folder = folders.firstOrNull { it.id == id } ?: return folders to order
++        val at = order.indexOf(folder.token)
++        val apps = folder.keys.filterNot { it in order }
++        val nextOrder =
++            if (at < 0) {
++                order + apps
++            } else {
++                order.take(at) + apps + order.drop(at + 1)
++            }
++        return folders.filterNot { it.id == id } to nextOrder
++    }
++
++    fun encode(folders: List<GridFolder>): String =
++        folders.joinToString(LINE_SEPARATOR) {
++            listOf(it.id.toString(), it.name, it.keys.joinToString(KEY_SEPARATOR)).joinToString(FIELD_SEPARATOR)
++        }
++
++    fun decode(text: String?): List<GridFolder> {
++        val folders = mutableListOf<GridFolder>()
++        text.orEmpty().split(LINE_SEPARATOR).forEach { line ->
++            val folder = parse(line)
++            val clash = folder != null && folders.any { it.id == folder.id || it.name.equals(folder.name, ignoreCase = true) }
++            if (folder != null && !clash && folders.size < MAX) {
++                val claimed = folders.flatMap { it.keys }.toSet()
++                folders += folder.copy(keys = folder.keys.filterNot { it in claimed }.take(MAX_APPS))
++            }
++        }
++        return folders
++    }
++
++    private fun parse(line: String): GridFolder? {
++        val fields = line.split(FIELD_SEPARATOR)
++        if (fields.size != 3) return null
++        val id = fields[0].toIntOrNull()?.takeIf { it > 0 } ?: return null
++        val name = Bb7Tabs.cleanName(fields[1]) ?: return null
++        return GridFolder(id, name, fields[2].split(KEY_SEPARATOR).filter { it.isNotBlank() }.distinct())
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 967f889..7d41a8a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -308,6 +308,12 @@ object StartText {
+             "instant_event" to "New event",
+             "instant_open_address" to "Open address",
+             "icon_large" to "Large",
++            "folder_add" to "Add to folder",
++            "new_folder" to "New folder",
++            "folder_name" to "Folder name: %1\$s",
++            "rename_folder" to "Rename folder",
++            "ungroup_folder" to "Ungroup folder",
++            "folder_of" to "%1\$s folder",
+             "letter_shortcut_press" to
+                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",
+         )
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
+index f462b19..4a8031f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
+@@ -5,6 +5,8 @@ import org.sableos.start.model.Bb7Home
+ import org.sableos.start.model.Bb7Layout
+ import org.sableos.start.model.Bb7Tab
+ import org.sableos.start.model.Bb7Tabs
++import org.sableos.start.model.GridFolder
++import org.sableos.start.model.GridFolders
+ import org.sableos.start.model.HomeStyle
+ 
+ /**
+@@ -140,6 +142,13 @@ class StartStateRepository(
+ 
+     fun saveGridOrder(keys: List<String>?) = saveOrdered(KEY_GRID_ORDER, keys)
+ 
++    /** The folders on the BB10 app grid (see GridFolders). */
++    fun loadGridFolders(): List<GridFolder> = GridFolders.decode(preferences.getString(KEY_GRID_FOLDERS, null))
++
++    fun saveGridFolders(folders: List<GridFolder>) {
++        preferences.edit().putString(KEY_GRID_FOLDERS, GridFolders.encode(folders)).apply()
++    }
++
+     /** Ordered Glance widgets, shown as Active Frames while no app is running (see GlanceWidgets); null means never customised. */
+     fun loadGlanceWidgets(): List<String>? = loadOrdered(KEY_GLANCE_WIDGETS)
+ 
+@@ -218,5 +227,6 @@ class StartStateRepository(
+         const val KEY_HOME_MODE = "home_mode"
+         const val KEY_HOME_STYLE = "home_style"
+         const val KEY_GRID_ORDER = "grid_order"
++        const val KEY_GRID_FOLDERS = "grid_folders"
+     }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 19c7564..7873c6a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -156,7 +156,11 @@ import org.sableos.start.model.CommandScope
+ import org.sableos.start.model.CoreAppIdentity
+ import org.sableos.start.model.FrameMedia
+ import org.sableos.start.model.FrameMediaCommand
++import org.sableos.start.model.Bb7Naming
+ import org.sableos.start.model.GlanceWidgets
++import org.sableos.start.model.GridFolder
++import org.sableos.start.model.GridFolders
++import org.sableos.start.model.GridItem
+ import org.sableos.start.model.HomeApps
+ import org.sableos.start.model.HomeHeader
+ import org.sableos.start.model.HomeLayout
+@@ -208,6 +212,9 @@ private enum class SableStartDestination {
+     EditHome,
+     SlotOptions,
+ 
++    /** One app grid folder, opened from the grid. */
++    Folder,
++
+     /** All Apps "Choose base bar slot" for an app when the bar is full. */
+     SlotPicker,
+ }
+@@ -220,6 +227,18 @@ private data class QuickSlot(
+     val app: AppEntry?,
+ )
+ 
++/** One place on an app grid page: an app, or a folder with its installed apps. */
++private sealed interface GridTile {
++    data class AppTile(
++        val app: AppEntry,
++    ) : GridTile
++
++    data class FolderTile(
++        val folder: GridFolder,
++        val apps: List<AppEntry>,
++    ) : GridTile
++}
++
+ private data class AppRailRow(
+     val app: AppEntry,
+     val section: String,
+@@ -371,6 +390,9 @@ fun SableStartScreen(
+     initialHomeApps: List<String>? = null,
+     initialGridOrder: List<String>? = null,
+     onGridOrderChanged: (List<String>?) -> Unit = {},
++    /** The app grid's folders ([GridFolders]). */
++    initialGridFolders: List<GridFolder> = emptyList(),
++    onGridFoldersChanged: (List<GridFolder>) -> Unit = {},
+     initialQuickBar: List<String>? = null,
+     onQuickBarChanged: (List<String>?) -> Unit = {},
+     initialGlanceWidgets: List<String>? = null,
+@@ -431,6 +453,8 @@ fun SableStartScreen(
+     var selectedApp by remember { mutableStateOf<AppEntry?>(null) }
+     var selectedSlot by remember { mutableStateOf<QuickSlot?>(null) }
+     var savedGridOrder by remember(initialGridOrder) { mutableStateOf(initialGridOrder) }
++    var gridFolders by remember(initialGridFolders) { mutableStateOf(initialGridFolders) }
++    var openFolderId by remember { mutableStateOf<Int?>(null) }
+     var recentKeys by remember { mutableStateOf<List<String>>(emptyList()) }
+     // Text typed on Start before Command/Search opened (type-to-launch).
+     var searchSeed by remember { mutableStateOf("") }
+@@ -464,21 +488,24 @@ fun SableStartScreen(
+     // The grid holds every app except Private Space ones, which stay in All Apps behind its lock.
+     val gridCandidates = apps.filterNot { it.profileLabel == PROFILE_PRIVATE_LABEL }
+     val defaultHomeKeys = defaultHomeApps(apps).map { it.stableKey() }
+-    val gridKeys =
+-        AppGrid.resolve(
++    val gridItems =
++        GridFolders.layout(
+             saved = savedGridOrder,
+             preferredFirst = HomeApps.resolve(initialHomeApps, initialStartTileKeys, defaultHomeKeys),
+             installed = gridCandidates.map { it.stableKey() },
++            folders = gridFolders,
+         )
+-    val gridApps = gridKeys.mapNotNull(appByKey::get)
+-    val gridLabels = gridApps.mapTo(HashSet()) { it.label }
++    // App keys and folder tokens, in grid order (what Edit Home reorders).
++    val gridKeys = GridFolders.order(gridItems)
++    val gridTiles = gridTilesOf(gridItems, appByKey)
++    val gridLabels = gridCandidates.mapTo(HashSet()) { it.label }
+     val quickSlots =
+         quickBarTokens.mapNotNull { token ->
+             resolveQuickSlot(token, apps, appByKey)
+         }
+     val gridRows = AppGrid.rowsFor(startGridHeightDp(), GRID_CELL_MIN_DP)
+     val gridPerPage = AppGrid.perPage(gridRows)
+-    val gridPages = AppGrid.pageCount(gridApps.size, gridPerPage)
++    val gridPages = AppGrid.pageCount(gridTiles.size, gridPerPage)
+     val pageCount = StartPages.count(gridPages)
+ 
+     val startPager =
+@@ -520,6 +547,18 @@ fun SableStartScreen(
+         onGridOrderChanged(next)
+     }
+ 
++    fun setGridFolders(change: Pair<List<GridFolder>, List<String>>?) {
++        val (folders, order) = change ?: return
++        gridFolders = folders
++        onGridFoldersChanged(folders)
++        setGridOrder(order)
++    }
++
++    fun openFolder(folder: GridFolder) {
++        openFolderId = folder.id
++        destination = SableStartDestination.Folder
++    }
++
+     fun openPeek(
+         entry: AppEntry,
+         from: SableStartDestination,
+@@ -701,13 +740,14 @@ fun SableStartScreen(
+                                     else -> {
+                                         val index = page - StartPages.FIRST_GRID
+                                         AppGridPage(
+-                                            apps = AppGrid.page(gridApps, index, gridPerPage),
++                                            tiles = AppGrid.page(gridTiles, index, gridPerPage),
+                                             rows = gridRows,
+                                             gridLabels = gridLabels,
+                                             active = startPager.settledPage == page,
+                                             onLaunchApp = ::launchApp,
+                                             onLaunchSecond = ::launchSecond,
+                                             onOpenPeek = { app -> openPeek(app, SableStartDestination.Start) },
++                                            onOpenFolder = ::openFolder,
+                                             onEditHome = { destination = SableStartDestination.EditHome },
+                                         )
+                                     }
+@@ -773,6 +813,7 @@ fun SableStartScreen(
+                     SableStartDestination.EditHome ->
+                         EditHomeScreen(
+                             apps = apps,
++                            folderNames = gridFolders.associate { it.token to it.name },
+                             initial =
+                                 HomeEdit(
+                                     gridOrder = gridKeys,
+@@ -870,6 +911,32 @@ fun SableStartScreen(
+                             onReset = onResetAppearance,
+                         )
+ 
++                    SableStartDestination.Folder -> {
++                        val tile =
++                            gridTiles.firstNotNullOfOrNull { tile ->
++                                (tile as? GridTile.FolderTile)?.takeIf { it.folder.id == openFolderId }
++                            }
++                        if (tile == null) {
++                            destination = SableStartDestination.Start
++                        } else {
++                            val id = tile.folder.id
++                            GridFolderScreen(
++                                folder = tile.folder,
++                                apps = tile.apps,
++                                gridLabels = gridLabels,
++                                onBack = ::navigateBack,
++                                onLaunchApp = ::launchApp,
++                                onLaunchSecond = ::launchSecond,
++                                onOpenPeek = { app -> openPeek(app, SableStartDestination.Folder) },
++                                onRename = { name -> setGridFolders(GridFolders.rename(gridFolders, id, name) to gridKeys) },
++                                onUngroup = {
++                                    setGridFolders(GridFolders.ungroup(gridFolders, gridKeys, id))
++                                    destination = SableStartDestination.Start
++                                },
++                            )
++                        }
++                    }
++
+                     SableStartDestination.Peek -> {
+                         val app = selectedApp
+                         if (app == null) {
+@@ -904,6 +971,15 @@ fun SableStartScreen(
+                                         letterShortcuts?.load()?.letterOf(app.component.flattenToString())
+                                     },
+                                 shortcutsAvailable = letterShortcuts != null && app.inLauncherUser,
++                                folders = gridFolders,
++                                folder = GridFolders.folderOf(gridFolders, key),
++                                // Private Space apps stay in All Apps, never on the grid.
++                                foldersAvailable = app.profileLabel != PROFILE_PRIVATE_LABEL,
++                                onAddToFolder = { id ->
++                                    setGridFolders(GridFolders.add(gridFolders, id, key) to gridKeys.filterNot { it == key })
++                                },
++                                onNewFolder = { name -> setGridFolders(GridFolders.create(gridFolders, gridKeys, key, name)) },
++                                onRemoveFromFolder = { setGridFolders(GridFolders.remove(gridFolders, gridKeys, key)) },
+                                 onSetLetterShortcut = { letter ->
+                                     if (letter == null) {
+                                         letterShortcuts?.remove(app.component)
+@@ -2032,7 +2108,7 @@ private fun weatherLines(datum: LiveDatum): Pair<String, String> {
+  */
+ @Composable
+ private fun AppGridPage(
+-    apps: List<AppEntry>,
++    tiles: List<GridTile>,
+     rows: Int,
+     /** Every grid app's name, so a shortened name never repeats another ([AppGrid.gridLabel]). */
+     gridLabels: Set<String>,
+@@ -2040,11 +2116,12 @@ private fun AppGridPage(
+     onLaunchApp: (AppEntry) -> Unit,
+     onLaunchSecond: (AppEntry) -> Unit,
+     onOpenPeek: (AppEntry) -> Unit,
++    onOpenFolder: (GridFolder) -> Unit,
+     onEditHome: () -> Unit,
+ ) {
+     val firstFocus = remember { FocusRequester() }
+-    LaunchedEffect(active, apps.firstOrNull()?.stableKey()) {
+-        if (active && apps.isNotEmpty()) {
++    LaunchedEffect(active, tiles.firstOrNull()?.let(::tileKey)) {
++        if (active && tiles.isNotEmpty()) {
+             withFrameNanos { }
+             runCatching { firstFocus.requestFocus() }
+         }
+@@ -2066,23 +2143,37 @@ private fun AppGridPage(
+             for (row in 0 until rows) {
+                 Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                     for (column in 0 until AppGrid.COLUMNS) {
+-                        val app = apps.getOrNull(row * AppGrid.COLUMNS + column)
+-                        if (app == null) {
+-                            Spacer(Modifier.weight(1f))
+-                        } else {
+-                            GridCell(
+-                                app = app,
+-                                label = AppGrid.gridLabel(app.label, gridLabels),
+-                                iconDp = iconDp,
+-                                onOpen = { onLaunchApp(app) },
+-                                onOpenSecond = { onLaunchSecond(app) },
+-                                onActions = { onOpenPeek(app) },
+-                                modifier =
+-                                    Modifier
+-                                        .weight(1f)
+-                                        .fillMaxHeight()
+-                                        .then(if (row == 0 && column == 0) Modifier.focusRequester(firstFocus) else Modifier),
+-                            )
++                        val tile = tiles.getOrNull(row * AppGrid.COLUMNS + column)
++                        val cellModifier =
++                            Modifier
++                                .weight(1f)
++                                .fillMaxHeight()
++                                .then(if (row == 0 && column == 0) Modifier.focusRequester(firstFocus) else Modifier)
++                        when (tile) {
++                            null -> {
++                                Spacer(Modifier.weight(1f))
++                            }
++
++                            is GridTile.AppTile -> {
++                                GridCell(
++                                    app = tile.app,
++                                    label = AppGrid.gridLabel(tile.app.label, gridLabels),
++                                    iconDp = iconDp,
++                                    onOpen = { onLaunchApp(tile.app) },
++                                    onOpenSecond = { onLaunchSecond(tile.app) },
++                                    onActions = { onOpenPeek(tile.app) },
++                                    modifier = cellModifier,
++                                )
++                            }
++
++                            is GridTile.FolderTile -> {
++                                FolderCell(
++                                    tile = tile,
++                                    iconDp = iconDp,
++                                    onOpen = { onOpenFolder(tile.folder) },
++                                    modifier = cellModifier,
++                                )
++                            }
+                         }
+                     }
+                 }
+@@ -2091,6 +2182,160 @@ private fun AppGridPage(
+     }
+ }
+ 
++private fun tileKey(tile: GridTile): String =
++    when (tile) {
++        is GridTile.AppTile -> tile.app.stableKey()
++        is GridTile.FolderTile -> tile.folder.token
++    }
++
++/** The grid's places as tiles: apps that are installed, folders with at least one installed app. */
++private fun gridTilesOf(
++    items: List<GridItem>,
++    appByKey: Map<String, AppEntry>,
++): List<GridTile> =
++    items.mapNotNull { item ->
++        when (item) {
++            is GridItem.App -> {
++                appByKey[item.key]?.let(GridTile::AppTile)
++            }
++
++            is GridItem.Folder -> {
++                item.keys
++                    .mapNotNull(appByKey::get)
++                    .takeIf { it.isNotEmpty() }
++                    ?.let { GridTile.FolderTile(item.folder, it) }
++            }
++        }
++    }
++
++/**
++ * A grid folder, after BB10's: a rounded box holding up to four of its apps' glyphs, with
++ * the folder's name under it. Enter or a tap opens it; focus fills the cell like an app's.
++ */
++@Composable
++private fun FolderCell(
++    tile: GridTile.FolderTile,
++    iconDp: Int,
++    onOpen: () -> Unit,
++    modifier: Modifier = Modifier,
++) {
++    var focused by remember { mutableStateOf(false) }
++    val shape = RoundedCornerShape(6.dp)
++    val folderName = t("folder_of", tile.folder.name)
++    Column(
++        modifier =
++            modifier
++                .padding(GRID_CELL_GAP)
++                .onFocusChanged { focused = it.isFocused }
++                .clip(shape)
++                .background(if (focused) Bb10Blue.copy(alpha = 0.32f) else Color.Transparent)
++                .border(2.dp, if (focused) Bb10Blue else Color.Transparent, shape)
++                .combinedClickable(onClick = onOpen, onLongClick = onOpen)
++                .semantics { contentDescription = folderName }
++                .padding(vertical = GRID_CELL_INNER_PADDING, horizontal = 1.dp),
++        horizontalAlignment = Alignment.CenterHorizontally,
++        verticalArrangement = Arrangement.Center,
++    ) {
++        val inner = (iconDp - FOLDER_PADDING_DP * 2 - FOLDER_GAP_DP) / 2
++        Column(
++            modifier =
++                Modifier
++                    .size(iconDp.dp)
++                    .clip(RoundedCornerShape(10.dp))
++                    .background(Bb10Muted.copy(alpha = 0.35f))
++                    .border(1.dp, Bb10Muted, RoundedCornerShape(10.dp))
++                    .padding(FOLDER_PADDING_DP.dp),
++            verticalArrangement = Arrangement.spacedBy(FOLDER_GAP_DP.dp),
++        ) {
++            tile.apps.take(FOLDER_PREVIEW).chunked(2).forEach { pair ->
++                Row(horizontalArrangement = Arrangement.spacedBy(FOLDER_GAP_DP.dp)) {
++                    pair.forEach { app -> AppMark(app = app, size = inner.coerceAtLeast(1)) }
++                }
++            }
++        }
++        Spacer(Modifier.height(GRID_ICON_LABEL_GAP))
++        Text(
++            text = tile.folder.name,
++            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
++            color = Bb10Text,
++            textAlign = TextAlign.Center,
++            maxLines = 1,
++            overflow = TextOverflow.Ellipsis,
++        )
++    }
++}
++
++/**
++ * An open grid folder: its name, its apps on a grid page (Enter opens, Menu shows the
++ * app's actions, where Remove from takes it out), then Rename folder and Ungroup folder.
++ * Rename takes the new name from the keyboard: Enter saves, Esc cancels.
++ */
++@Composable
++private fun GridFolderScreen(
++    folder: GridFolder,
++    apps: List<AppEntry>,
++    gridLabels: Set<String>,
++    onBack: () -> Unit,
++    onLaunchApp: (AppEntry) -> Unit,
++    onLaunchSecond: (AppEntry) -> Unit,
++    onOpenPeek: (AppEntry) -> Unit,
++    onRename: (String) -> Unit,
++    onUngroup: () -> Unit,
++) {
++    var naming by remember(folder.id) { mutableStateOf<String?>(null) }
++    val rows = ((apps.size + AppGrid.COLUMNS - 1) / AppGrid.COLUMNS).coerceIn(1, AppGrid.MAX_ROWS)
++    Column(
++        modifier =
++            Modifier
++                .fillMaxSize()
++                .background(MaterialTheme.colorScheme.background)
++                .onPreviewKeyEvent { event -> nameKey(event, naming, { naming = it }, onRename) }
++                .padding(horizontal = 16.dp, vertical = 12.dp),
++    ) {
++        MetroHeader(title = folder.name, onBack = onBack)
++        Box(modifier = Modifier.fillMaxWidth().height((rows * FOLDER_ROW_DP).dp)) {
++            AppGridPage(
++                tiles = apps.map(GridTile::AppTile),
++                rows = rows,
++                gridLabels = gridLabels,
++                active = naming == null,
++                onLaunchApp = onLaunchApp,
++                onLaunchSecond = onLaunchSecond,
++                onOpenPeek = onOpenPeek,
++                onOpenFolder = {},
++                onEditHome = {},
++            )
++        }
++        Spacer(Modifier.height(8.dp))
++        ContextAction(
++            mark = "✎",
++            label = naming?.let { t("folder_name", "${it}_") } ?: t("rename_folder"),
++            onClick = { naming = if (naming == null) folder.name else null },
++        )
++        ContextAction(mark = "▦", label = t("ungroup_folder"), onClick = onUngroup)
++    }
++}
++
++/**
++ * Typing a folder name ([Bb7Naming]): while [naming] is not null every key goes to it, Enter
++ * passes the name to [onDone] and Esc or Back drops it. Returns whether the key was taken.
++ */
++private fun nameKey(
++    event: KeyEvent,
++    naming: String?,
++    setNaming: (String?) -> Unit,
++    onDone: (String) -> Unit,
++): Boolean {
++    if (naming == null) return false
++    if (event.type == KeyEventType.KeyDown) {
++        val native = event.nativeKeyEvent
++        val next = Bb7Naming.onKey(native.keyCode, native.unicodeChar, naming)
++        setNaming(next)
++        if (next == null && native.keyCode == android.view.KeyEvent.KEYCODE_ENTER) onDone(naming)
++    }
++    return true
++}
++
+ /**
+  * A grid icon: the app's glyph (no tile) with its short name on one line
+  * under it ([AppGrid.gridLabel]); focus fills the cell BB10 blue.
+@@ -3404,6 +3649,8 @@ private fun HomeEdit.moved(
+ @Composable
+ private fun EditHomeScreen(
+     apps: List<AppEntry>,
++    /** Folder names by grid token, so a folder's place reads as the folder. */
++    folderNames: Map<String, String>,
+     initial: HomeEdit,
+     defaults: HomeEdit,
+     backGeneration: Int,
+@@ -3574,6 +3821,7 @@ private fun EditHomeScreen(
+                     val app = appByKey[key]
+                     EditGridCell(
+                         app = app,
++                        folderName = folderNames[key],
+                         picked = moving?.let { it.section == EditSection.Grid && it.key == key } == true,
+                         onKey = { event -> itemKeys(EditSection.Grid, key, event) },
+                         onClick = { optionsFor = if (optionsFor == "Grid:$key") null else "Grid:$key" },
+@@ -3710,6 +3958,8 @@ private fun EditHomeScreen(
+ @Composable
+ private fun EditGridCell(
+     app: AppEntry?,
++    /** Set for a folder's place on the grid. */
++    folderName: String?,
+     picked: Boolean,
+     onKey: (KeyEvent) -> Boolean,
+     onClick: () -> Unit,
+@@ -3718,7 +3968,7 @@ private fun EditGridCell(
+ ) {
+     val step = with(LocalDensity.current) { EditRowStep.toPx() }
+     val currentStep by rememberUpdatedState(onDragStep)
+-    val label = app?.label ?: t("app_not_installed")
++    val label = app?.label ?: folderName?.let { t("folder_of", it) } ?: t("app_not_installed")
+     Column(
+         modifier =
+             modifier
+@@ -5471,9 +5721,19 @@ private fun SablePeekScreen(
+     letterShortcut: Char?,
+     shortcutsAvailable: Boolean,
+     onSetLetterShortcut: (Char?) -> Unit,
++    /** The app grid's folders, and the one this app is in. */
++    folders: List<GridFolder>,
++    folder: GridFolder?,
++    foldersAvailable: Boolean,
++    onAddToFolder: (Int) -> Unit,
++    onNewFolder: (String) -> Unit,
++    onRemoveFromFolder: () -> Unit,
+ ) {
+     // Waiting for the letter to hold: a letter assigns, Backspace clears, "cancel" or Back leaves it.
+     var capturing by remember(app) { mutableStateOf(false) }
++    // Add to folder: the folder list is open; a new folder's name is being typed.
++    var pickingFolder by remember(app) { mutableStateOf(false) }
++    var naming by remember(app) { mutableStateOf<String?>(null) }
+     val actions =
+         remember(app, inBaseBar, hasSecondInstance) {
+             AppActionPolicy.actions(
+@@ -5504,6 +5764,11 @@ private fun SablePeekScreen(
+                 .background(MaterialTheme.colorScheme.background)
+                 .onPreviewKeyEvent { event ->
+                     val native = event.nativeKeyEvent
++                    val named = { name: String ->
++                        pickingFolder = false
++                        onNewFolder(name)
++                    }
++                    if (nameKey(event, naming, { naming = it }, named)) return@onPreviewKeyEvent true
+                     if (!capturing || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                     val letter = SpeedDialKeys.letterFor(native.keyCode)
+                     val chord =
+@@ -5685,6 +5950,25 @@ private fun SablePeekScreen(
+                 }
+             }
+ 
++            if (foldersAvailable) {
++                FolderActions(
++                    folders = folders,
++                    folder = folder,
++                    picking = pickingFolder,
++                    naming = naming,
++                    onTogglePicking = {
++                        pickingFolder = !pickingFolder
++                        naming = null
++                    },
++                    onAddToFolder = { id ->
++                        pickingFolder = false
++                        onAddToFolder(id)
++                    },
++                    onStartNaming = { naming = "" },
++                    onRemoveFromFolder = onRemoveFromFolder,
++                )
++            }
++
+             Text(
+                 text = t("shortcuts_and_notification_content_stay"),
+                 style = MaterialTheme.typography.bodySmall,
+@@ -5695,6 +5979,38 @@ private fun SablePeekScreen(
+     }
+ }
+ 
++/**
++ * Peek's folder rows: Remove from the app's folder, then Add to folder, which lists the
++ * other folders and New folder (typed from the keyboard, Enter saves, Esc cancels).
++ */
++@Composable
++private fun FolderActions(
++    folders: List<GridFolder>,
++    folder: GridFolder?,
++    picking: Boolean,
++    naming: String?,
++    onTogglePicking: () -> Unit,
++    onAddToFolder: (Int) -> Unit,
++    onStartNaming: () -> Unit,
++    onRemoveFromFolder: () -> Unit,
++) {
++    if (folder != null) {
++        ContextAction(mark = "−", label = t("remove_from_tab", folder.name), onClick = onRemoveFromFolder)
++    }
++    ContextAction(mark = "▢", label = t("folder_add"), onClick = onTogglePicking)
++    if (!picking) return
++    folders.filter { it.id != folder?.id && it.keys.size < GridFolders.MAX_APPS }.forEach { other ->
++        ContextAction(mark = "+", label = t("add_to_tab", other.name), onClick = { onAddToFolder(other.id) })
++    }
++    if (folders.size < GridFolders.MAX) {
++        ContextAction(
++            mark = "+",
++            label = naming?.let { t("folder_name", "${it}_") } ?: t("new_folder"),
++            onClick = onStartNaming,
++        )
++    }
++}
++
+ @Composable
+ private fun AppearanceScreen(
+     appearance: SableAppearance,
+@@ -6155,6 +6471,12 @@ private val STATUS_RING_SIZE = 34.dp
+ private const val GRID_CELL_MIN_DP = 74
+ private val GRID_PADDING = 4.dp
+ private val GRID_CELL_GAP = 2.dp
++
++// A folder icon: up to four glyphs in a 2 x 2 box; an open folder's grid rows.
++private const val FOLDER_PADDING_DP = 4
++private const val FOLDER_GAP_DP = 2
++private const val FOLDER_PREVIEW = 4
++private const val FOLDER_ROW_DP = 88
+ private val GRID_CELL_INNER_PADDING = 4.dp
+ private val GRID_ICON_LABEL_GAP = 3.dp
+ 

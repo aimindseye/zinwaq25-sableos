@@ -263,3 +263,202 @@ object Balance {
     fun next(space: BalanceSpace): BalanceSpace =
         if (space == BalanceSpace.Personal) BalanceSpace.Work else BalanceSpace.Personal
 }
+
+/** A folder on the BB10 app grid (owner request 2026-11-05): a name and its apps (stable keys), in order. */
+data class GridFolder(
+    val id: Int,
+    val name: String,
+    val keys: List<String> = emptyList(),
+) {
+    /** The folder's place in the grid order. */
+    val token: String get() = GridFolders.TOKEN_PREFIX + id
+}
+
+/** One place on the app grid: an app, or a folder with the apps of it that are installed. */
+sealed interface GridItem {
+    data class App(
+        val key: String,
+    ) : GridItem
+
+    data class Folder(
+        val folder: GridFolder,
+        val keys: List<String>,
+    ) : GridItem
+}
+
+/**
+ * Folders on the BlackBerry 10 app grid. A folder sits in the grid order as its token
+ * ("folder:3"); the apps in it leave the grid and show when it opens. An app is in at
+ * most one folder. A folder with no installed app left is not shown. Saved as one line
+ * per folder (id, name and keys separated by tabs and commas); a damaged line is dropped.
+ */
+object GridFolders {
+    const val TOKEN_PREFIX = "folder:"
+    const val MAX = 12
+    const val MAX_APPS = 25
+
+    private const val LINE_SEPARATOR = "\n"
+    private const val FIELD_SEPARATOR = "\t"
+    private const val KEY_SEPARATOR = ","
+
+    /** The folder [key] is in, or null. */
+    fun folderOf(
+        folders: List<GridFolder>,
+        key: String,
+    ): GridFolder? = folders.firstOrNull { key in it.keys }
+
+    /**
+     * The grid's places: [AppGrid.resolve] over the apps outside folders, with each folder
+     * that still holds an installed app at its saved place (a new folder goes last).
+     */
+    fun layout(
+        saved: List<String>?,
+        preferredFirst: List<String>,
+        installed: List<String>,
+        folders: List<GridFolder>,
+    ): List<GridItem> {
+        val present = installed.toSet()
+        val shown = folders.associateBy { it.token }.mapValues { (_, f) -> f.keys.filter { it in present }.distinct() }
+        val live = shown.filterValues { it.isNotEmpty() }
+        val inFolders = live.values.flatten().toSet()
+        val order = (saved ?: preferredFirst).filter { it in live || (it in present && it !in inFolders) }.distinct()
+        val taken = order.toSet()
+        val full = order + live.keys.filterNot { it in taken } + installed.filterNot { it in taken || it in inFolders }
+        val byToken = folders.associateBy { it.token }
+        return full.distinct().map { key ->
+            val folder = byToken[key]
+            if (folder == null) GridItem.App(key) else GridItem.Folder(folder, live.getValue(key))
+        }
+    }
+
+    /** The grid order (keys and folder tokens) of [items], as Edit Home saves it. */
+    fun order(items: List<GridItem>): List<String> =
+        items.map {
+            when (it) {
+                is GridItem.App -> it.key
+                is GridItem.Folder -> it.folder.token
+            }
+        }
+
+    /**
+     * A new folder called [name] holding [key], at the app's place in [order] (an app taken
+     * from another folder leaves it, and a folder left empty goes). Unchanged (null) when
+     * there are [MAX] folders, the name is empty or already used.
+     */
+    fun create(
+        folders: List<GridFolder>,
+        order: List<String>,
+        key: String,
+        name: String,
+    ): Pair<List<GridFolder>, List<String>>? {
+        val clean = Bb7Tabs.cleanName(name) ?: return null
+        if (folders.size >= MAX || folders.any { it.name.equals(clean, ignoreCase = true) }) return null
+        val folder = GridFolder(id = (folders.maxOfOrNull { it.id } ?: 0) + 1, name = clean, keys = listOf(key))
+        val left = folders.map { it.copy(keys = it.keys - key) }.filter { it.keys.isNotEmpty() }
+        val at = order.indexOf(key)
+        val nextOrder =
+            if (at < 0) {
+                order + folder.token
+            } else {
+                order.toMutableList().also { it[at] = folder.token }
+            }
+        return (left + folder) to nextOrder
+    }
+
+    /**
+     * Moves [key] into the folder [id] (out of any other, which goes when left empty);
+     * unchanged when that folder is full or missing.
+     */
+    fun add(
+        folders: List<GridFolder>,
+        id: Int,
+        key: String,
+    ): List<GridFolder> {
+        val target = folders.firstOrNull { it.id == id } ?: return folders
+        if (key in target.keys || target.keys.size >= MAX_APPS) return folders
+        return folders
+            .map { if (it.id == id) it.copy(keys = it.keys + key) else it.copy(keys = it.keys - key) }
+            .filter { it.keys.isNotEmpty() }
+    }
+
+    /**
+     * Takes [key] out of its folder and puts it on the grid right after the folder. A folder
+     * left empty goes, and so does its place in the order.
+     */
+    fun remove(
+        folders: List<GridFolder>,
+        order: List<String>,
+        key: String,
+    ): Pair<List<GridFolder>, List<String>> {
+        val folder = folderOf(folders, key) ?: return folders to order
+        val left = folders.map { if (it.id == folder.id) it.copy(keys = it.keys - key) else it }
+        val emptied = left.first { it.id == folder.id }.keys.isEmpty()
+        val at = order.indexOf(folder.token)
+        val withApp =
+            when {
+                key in order -> order
+                at < 0 -> order + key
+                else -> order.toMutableList().also { it.add(at + 1, key) }
+            }
+        return if (emptied) {
+            left.filterNot { it.id == folder.id } to withApp.filterNot { it == folder.token }
+        } else {
+            left to withApp
+        }
+    }
+
+    /** Renames the folder [id]; unchanged when the name is empty or another folder has it. */
+    fun rename(
+        folders: List<GridFolder>,
+        id: Int,
+        name: String,
+    ): List<GridFolder> {
+        val clean = Bb7Tabs.cleanName(name) ?: return folders
+        if (folders.any { it.id != id && it.name.equals(clean, ignoreCase = true) }) return folders
+        return folders.map { if (it.id == id) it.copy(name = clean) else it }
+    }
+
+    /** Removes the folder [id]; its apps go back on the grid where the folder was, in its order. */
+    fun ungroup(
+        folders: List<GridFolder>,
+        order: List<String>,
+        id: Int,
+    ): Pair<List<GridFolder>, List<String>> {
+        val folder = folders.firstOrNull { it.id == id } ?: return folders to order
+        val at = order.indexOf(folder.token)
+        val apps = folder.keys.filterNot { it in order }
+        val nextOrder =
+            if (at < 0) {
+                order + apps
+            } else {
+                order.take(at) + apps + order.drop(at + 1)
+            }
+        return folders.filterNot { it.id == id } to nextOrder
+    }
+
+    fun encode(folders: List<GridFolder>): String =
+        folders.joinToString(LINE_SEPARATOR) {
+            listOf(it.id.toString(), it.name, it.keys.joinToString(KEY_SEPARATOR)).joinToString(FIELD_SEPARATOR)
+        }
+
+    fun decode(text: String?): List<GridFolder> {
+        val folders = mutableListOf<GridFolder>()
+        text.orEmpty().split(LINE_SEPARATOR).forEach { line ->
+            val folder = parse(line)
+            val clash = folder != null && folders.any { it.id == folder.id || it.name.equals(folder.name, ignoreCase = true) }
+            if (folder != null && !clash && folders.size < MAX) {
+                val claimed = folders.flatMap { it.keys }.toSet()
+                folders += folder.copy(keys = folder.keys.filterNot { it in claimed }.take(MAX_APPS))
+            }
+        }
+        return folders
+    }
+
+    private fun parse(line: String): GridFolder? {
+        val fields = line.split(FIELD_SEPARATOR)
+        if (fields.size != 3) return null
+        val id = fields[0].toIntOrNull()?.takeIf { it > 0 } ?: return null
+        val name = Bb7Tabs.cleanName(fields[1]) ?: return null
+        return GridFolder(id, name, fields[2].split(KEY_SEPARATOR).filter { it.isNotBlank() }.distinct())
+    }
+}

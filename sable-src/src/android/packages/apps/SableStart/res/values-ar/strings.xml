@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s: اضغط حرفًا، ومسافة للخلف تزيله</string>
     <string name="instant_event">حدث جديد</string>
     <string name="instant_open_address">فتح العنوان</string>
+    <string name="folder_add">إضافة إلى مجلد</string>
+    <string name="new_folder">مجلد جديد</string>
+    <string name="folder_name">اسم المجلد: %1$s</string>
+    <string name="rename_folder">إعادة تسمية المجلد</string>
+    <string name="ungroup_folder">فك تجميع المجلد</string>
+    <string name="folder_of">مجلد %1$s</string>
 </resources>

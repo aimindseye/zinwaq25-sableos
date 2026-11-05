@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s : appuyez sur une lettre, Retour arrière l\'enlève</string>
     <string name="instant_event">Nouvel événement</string>
     <string name="instant_open_address">Ouvrir l\'adresse</string>
+    <string name="folder_add">Ajouter au dossier</string>
+    <string name="new_folder">Nouveau dossier</string>
+    <string name="folder_name">Nom du dossier : %1$s</string>
+    <string name="rename_folder">Renommer le dossier</string>
+    <string name="ungroup_folder">Dégrouper le dossier</string>
+    <string name="folder_of">Dossier %1$s</string>
 </resources>

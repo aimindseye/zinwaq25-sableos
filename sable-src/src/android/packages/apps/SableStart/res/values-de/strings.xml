@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s: Buchstaben drücken, Rücktaste entfernt</string>
     <string name="instant_event">Neuer Termin</string>
     <string name="instant_open_address">Adresse öffnen</string>
+    <string name="folder_add">Zu Ordner hinzufügen</string>
+    <string name="new_folder">Neuer Ordner</string>
+    <string name="folder_name">Ordnername: %1$s</string>
+    <string name="rename_folder">Ordner umbenennen</string>
+    <string name="ungroup_folder">Ordner auflösen</string>
+    <string name="folder_of">Ordner %1$s</string>
 </resources>

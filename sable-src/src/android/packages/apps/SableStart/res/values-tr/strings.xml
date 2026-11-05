@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s: bir harfe basın, Geri silme kaldırır</string>
     <string name="instant_event">Yeni etkinlik</string>
     <string name="instant_open_address">Adresi aç</string>
+    <string name="folder_add">Klasöre ekle</string>
+    <string name="new_folder">Yeni klasör</string>
+    <string name="folder_name">Klasör adı: %1$s</string>
+    <string name="rename_folder">Klasörü yeniden adlandır</string>
+    <string name="ungroup_folder">Klasörü dağıt</string>
+    <string name="folder_of">%1$s klasörü</string>
 </resources>

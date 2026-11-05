@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s: premi una lettera, Backspace la toglie</string>
     <string name="instant_event">Nuovo evento</string>
     <string name="instant_open_address">Apri indirizzo</string>
+    <string name="folder_add">Aggiungi a cartella</string>
+    <string name="new_folder">Nuova cartella</string>
+    <string name="folder_name">Nome cartella: %1$s</string>
+    <string name="rename_folder">Rinomina cartella</string>
+    <string name="ungroup_folder">Separa cartella</string>
+    <string name="folder_of">Cartella %1$s</string>
 </resources>

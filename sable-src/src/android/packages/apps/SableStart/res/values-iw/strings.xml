@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s: הקישו על אות, Backspace מסיר</string>
     <string name="instant_event">אירוע חדש</string>
     <string name="instant_open_address">פתיחת הכתובת</string>
+    <string name="folder_add">הוספה לתיקייה</string>
+    <string name="new_folder">תיקייה חדשה</string>
+    <string name="folder_name">שם התיקייה: %1$s</string>
+    <string name="rename_folder">שינוי שם התיקייה</string>
+    <string name="ungroup_folder">פירוק התיקייה</string>
+    <string name="folder_of">תיקייה %1$s</string>
 </resources>

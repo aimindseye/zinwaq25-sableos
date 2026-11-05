@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s: pulsa una letra, Retroceso la quita</string>
     <string name="instant_event">Nuevo evento</string>
     <string name="instant_open_address">Abrir dirección</string>
+    <string name="folder_add">Añadir a carpeta</string>
+    <string name="new_folder">Carpeta nueva</string>
+    <string name="folder_name">Nombre de la carpeta: %1$s</string>
+    <string name="rename_folder">Cambiar nombre de la carpeta</string>
+    <string name="ungroup_folder">Desagrupar carpeta</string>
+    <string name="folder_of">Carpeta %1$s</string>
 </resources>

@@ -59,12 +59,14 @@ The keyboard does almost everything. Typing on the home screen searches, arrows 
 | --- | --- | --- |
 | Hub (left) | All · Messages · Calls · Contacts, an unread bar per app, and your newest messages (sender, one line, time; unread ones have a blue edge). Locked or in private mode it shows counts only | T/B top and bottom, Enter opens the message in Hub, Menu (or Alt+Enter, or a long press) opens its BB10 menu |
 | Active Frames (home) | Your recent apps as live frames. With no apps open, widgets: Month (this month with busy rings and your next three events), Weather, Battery and Media; Edit Home adds Calendar, Hub, Mail and Photos | Arrows move, Enter resumes or opens, × closes |
-| App pages (right) | 5-column grid of every app | Arrows move, a letter jumps |
+| App pages (right) | 5-column grid of every app, and your folders | Arrows move, a letter jumps, Enter on a folder opens it |
 | Bottom row | Page dots only; Edit Home can add up to two slots around them, such as Hub (a dot shows unread items) and Camera | Alt+1, Alt+2 open the slots; the call key opens Phone, typing or Alt+Space opens Search |
 
 In the Hub app (H or Enter from Start), Menu, Alt+Enter or a long press on a message opens its menu on the right edge, as on BB10: Open, Reply, Mark read (when the app offers it), Dismiss notification, then the app's own actions such as Archive or Delete. On a focused message R replies, U marks read and Del dismisses without opening the menu. They need the phone unlocked; an SMS can be opened, replied to or called back.
 
 Two more entries are off until you turn them on in Hub > Connected apps (Sable Setup's Hub row menu line opens that page): **Snooze in the row menu** adds Snooze 1 hour and the Z key, and Android brings the notification back after an hour; **Remind me in the row menu** adds Remind me, which opens Sable Tasks with a follow-up for tomorrow morning named after the app ("Follow up in Gmail"). Only the app is saved, never the message, and asking again for the same message moves that task instead of adding another.
+
+**Folders on the app pages.** Menu on an app (or a long press) shows Add to folder, which lists your folders and New folder: type the name and press Enter (Esc cancels). The folder takes the app's place on the grid and shows up to four of its apps. Enter opens a folder; Menu on an app in it shows Remove from (the app goes back on the grid next to the folder), and at the bottom Rename folder and Ungroup folder (all its apps go back on the grid). A folder left with no apps goes away. Edit Home moves folders like apps. You can have up to 12 folders of up to 25 apps each.
 
 Alt+Left and Alt+Right move between pages. Alt+Space opens Command, from any app as well as from Start (Back returns to the app you were in; on the lock screen Alt+Space is still Emergency), and any letter starts a search of apps, contacts and commands. Menu opens Edit Home, where you choose Home apps, the quick bar and widgets. The status dials at the top show Wi-Fi, Mobile, CPU, RAM, battery and Cell.
 

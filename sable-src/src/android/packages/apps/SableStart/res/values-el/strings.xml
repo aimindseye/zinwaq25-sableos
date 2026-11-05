@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s: πατήστε ένα γράμμα, το Backspace αφαιρεί</string>
     <string name="instant_event">Νέο συμβάν</string>
     <string name="instant_open_address">Άνοιγμα διεύθυνσης</string>
+    <string name="folder_add">Προσθήκη σε φάκελο</string>
+    <string name="new_folder">Νέος φάκελος</string>
+    <string name="folder_name">Όνομα φακέλου: %1$s</string>
+    <string name="rename_folder">Μετονομασία φακέλου</string>
+    <string name="ungroup_folder">Κατάργηση ομαδοποίησης</string>
+    <string name="folder_of">Φάκελος %1$s</string>
 </resources>

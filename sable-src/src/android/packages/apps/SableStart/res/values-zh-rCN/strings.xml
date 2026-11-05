@@ -292,4 +292,10 @@
     <string name="letter_press_for">%1$s：按一个字母，退格键移除</string>
     <string name="instant_event">新建日程</string>
     <string name="instant_open_address">打开网址</string>
+    <string name="folder_add">添加到文件夹</string>
+    <string name="new_folder">新建文件夹</string>
+    <string name="folder_name">文件夹名称：%1$s</string>
+    <string name="rename_folder">重命名文件夹</string>
+    <string name="ungroup_folder">解散文件夹</string>
+    <string name="folder_of">%1$s 文件夹</string>
 </resources>
