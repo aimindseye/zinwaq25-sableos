@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">Stampa dal computer su questo telefono. Mentre Print To Go è attivo, il telefono è una stampante sulla tua rete Wi-Fi e ogni stampa viene salvata come PDF in Documents/Print To Go.</string>
+    <string name="start">Avvia ricezione</string>
+    <string name="stop">Interrompi</string>
+    <string name="off">Disattivato. Nulla può stampare su questo telefono.</string>
+    <string name="ready">Pronto come %1$s. Sceglilo nella finestra di stampa del computer. Si spegne dopo 10 minuti senza stampe.</string>
+    <string name="no_wifi">Connettiti prima al Wi-Fi. Print To Go ascolta solo sul Wi-Fi, mai sui dati mobili.</string>
+    <string name="start_failed">Impossibile avviare Print To Go. Riprova.</string>
+    <string name="saved">Salvato: %1$s</string>
+    <string name="save_failed">Impossibile salvare %1$s.</string>
+    <string name="open_folder">Apri stampe salvate</string>
+    <string name="running">Print To Go è attivo</string>
+    <string name="channel_running">Print To Go in esecuzione</string>
+    <string name="channel_saved">Stampe salvate</string>
+    <string name="idle_off">Print To Go si è spento dopo 10 minuti senza stampe.</string>
+    <string name="hint">Invio avvia o interrompe · O apre le stampe salvate · Indietro esce</string>
+</resources>

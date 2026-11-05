@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hindi. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">अपने कंप्यूटर से इस फ़ोन पर प्रिंट करें। जब तक Print To Go चालू है, फ़ोन आपके Wi-Fi पर एक प्रिंटर है और हर प्रिंट Documents/Print To Go में PDF के रूप में सहेजा जाता है।</string>
+    <string name="start">प्राप्त करना शुरू करें</string>
+    <string name="stop">रोकें</string>
+    <string name="off">बंद। कुछ भी इस फ़ोन पर प्रिंट नहीं कर सकता।</string>
+    <string name="ready">%1$s के रूप में तैयार। इसे कंप्यूटर के प्रिंट डायलॉग में चुनें। 10 मिनट तक कोई प्रिंट न आने पर यह बंद हो जाता है।</string>
+    <string name="no_wifi">पहले Wi-Fi से जुड़ें। Print To Go केवल Wi-Fi पर सुनता है, मोबाइल डेटा पर कभी नहीं।</string>
+    <string name="start_failed">Print To Go शुरू नहीं हो सका। फिर से कोशिश करें।</string>
+    <string name="saved">सहेजा गया: %1$s</string>
+    <string name="save_failed">%1$s सहेजा नहीं जा सका।</string>
+    <string name="open_folder">सहेजे गए प्रिंट खोलें</string>
+    <string name="running">Print To Go चालू है</string>
+    <string name="channel_running">Print To Go चल रहा है</string>
+    <string name="channel_saved">सहेजे गए प्रिंट</string>
+    <string name="idle_off">10 मिनट तक कोई प्रिंट न आने पर Print To Go बंद हो गया।</string>
+    <string name="hint">Enter शुरू या बंद करता है · O सहेजे गए प्रिंट खोलता है · Back बाहर जाता है</string>
+</resources>

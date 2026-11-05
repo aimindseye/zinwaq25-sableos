@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">Drukuj z komputera na ten telefon. Gdy Print To Go jest włączone, telefon jest drukarką w Twojej sieci Wi-Fi, a każdy wydruk jest zapisywany jako PDF w Documents/Print To Go.</string>
+    <string name="start">Zacznij odbierać</string>
+    <string name="stop">Zatrzymaj</string>
+    <string name="off">Wyłączone. Nic nie może drukować na tym telefonie.</string>
+    <string name="ready">Gotowe jako %1$s. Wybierz je w oknie drukowania komputera. Wyłącza się po 10 minutach bez wydruku.</string>
+    <string name="no_wifi">Najpierw połącz się z Wi-Fi. Print To Go nasłuchuje tylko przez Wi-Fi, nigdy przez dane komórkowe.</string>
+    <string name="start_failed">Nie udało się uruchomić Print To Go. Spróbuj ponownie.</string>
+    <string name="saved">Zapisano: %1$s</string>
+    <string name="save_failed">Nie udało się zapisać %1$s.</string>
+    <string name="open_folder">Otwórz zapisane wydruki</string>
+    <string name="running">Print To Go jest włączone</string>
+    <string name="channel_running">Print To Go działa</string>
+    <string name="channel_saved">Zapisane wydruki</string>
+    <string name="idle_off">Print To Go wyłączyło się po 10 minutach bez wydruku.</string>
+    <string name="hint">Enter uruchamia lub zatrzymuje · O otwiera zapisane wydruki · Wstecz zamyka</string>
+</resources>

@@ -289,6 +289,21 @@ if grep -q 'user-type="android.os.usertype.profile.MANAGED"' "$sx" && grep -q 'u
 else
     fail "Sable Spaces install scope or policy"
 fi
+# Sable Print To Go (BB10 Print To Go): a printer on the Wi-Fi only while the user turns it on. It binds the
+# Wi-Fi address, never all interfaces; runs as a visible foreground service with Stop; turns itself off when
+# idle; saves through MediaStore without storage permissions; no backup.
+pm=sable-src/apps/titan2/platform/printtogo/src/main
+if grep -q 'ServerSocket(PrintToGo.PORT, BACKLOG, address)' "$pm/java/org/sableos/titan2/printtogo/android/PrintServer.kt" &&
+    grep -q 'TRANSPORT_WIFI' "$pm/java/org/sableos/titan2/printtogo/android/PrintToGoService.kt" &&
+    grep -q 'shutDown(Phase.IdleOff)' "$pm/java/org/sableos/titan2/printtogo/android/PrintToGoService.kt" &&
+    grep -q 'IDLE_MS = 10 \* 60 \* 1000L' "$pm/java/org/sableos/titan2/printtogo/core/PrintToGo.kt" &&
+    grep -q 'android:foregroundServiceType="dataSync"' "$pm/AndroidManifest.xml" &&
+    grep -q 'android:allowBackup="false"' "$pm/AndroidManifest.xml" &&
+    ! grep -qE 'STORAGE|MANAGE_EXTERNAL|RECEIVE_BOOT_COMPLETED' "$pm/AndroidManifest.xml"; then
+    pass "Sable Print To Go: Wi-Fi address only, visible while on, turns itself off, no storage permission"
+else
+    fail "Sable Print To Go listening or permission policy"
+fi
 # 6b1b. microG (SABLE_Q25_MICROG, docs/MICROG.md): off by default at Q4 but spoofing allowed for the
 # add-on, built in with YES, never before Q4, refused when an APK does not match its pin; the fetcher
 # never keeps a bad file.
@@ -1166,6 +1181,7 @@ sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/di
 sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyboardText.kt sable-src/apps/titan2/platform/keyboard/src/main/res/values/strings.xml sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/KeyboardApplication.kt sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/KeyboardTextTest.kt
 sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/ProfilesApplication.kt sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/ProfilesTextTest.kt
 sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/SpacesApplication.kt sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/SpacesTextTest.kt
+sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/PrintToGoText.kt sable-src/apps/titan2/platform/printtogo/src/main/res/values/strings.xml sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/PrintToGoApplication.kt sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/PrintToGoTextTest.kt
 sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupTextTest.kt
 sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ToolsApplication.kt sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/ToolsTextTest.kt
 sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultLines.kt sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/VaultApplication.kt sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/VaultLinesTest.kt

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">Печатайте с компьютера на этот телефон. Пока Print To Go включён, телефон — принтер в вашей сети Wi-Fi, а каждая печать сохраняется как PDF в Documents/Print To Go.</string>
+    <string name="start">Начать приём</string>
+    <string name="stop">Остановить</string>
+    <string name="off">Выключено. Ничто не может печатать на этот телефон.</string>
+    <string name="ready">Готов как %1$s. Выберите его в окне печати компьютера. Отключается через 10 минут без печати.</string>
+    <string name="no_wifi">Сначала подключитесь к Wi-Fi. Print To Go слушает только Wi-Fi, никогда мобильные данные.</string>
+    <string name="start_failed">Не удалось запустить Print To Go. Повторите попытку.</string>
+    <string name="saved">Сохранено: %1$s</string>
+    <string name="save_failed">Не удалось сохранить %1$s.</string>
+    <string name="open_folder">Открыть сохранённые распечатки</string>
+    <string name="running">Print To Go включён</string>
+    <string name="channel_running">Print To Go работает</string>
+    <string name="channel_saved">Сохранённые распечатки</string>
+    <string name="idle_off">Print To Go отключился после 10 минут без печати.</string>
+    <string name="hint">Enter запускает или останавливает · O открывает сохранённые распечатки · Назад — выход</string>
+</resources>

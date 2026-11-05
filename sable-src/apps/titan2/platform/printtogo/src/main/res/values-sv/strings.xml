@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Swedish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">Skriv ut från datorn till den här telefonen. Medan Print To Go är på är telefonen en skrivare på ditt wifi, och varje utskrift sparas som PDF i Documents/Print To Go.</string>
+    <string name="start">Börja ta emot</string>
+    <string name="stop">Stoppa</string>
+    <string name="off">Av. Inget kan skriva ut till den här telefonen.</string>
+    <string name="ready">Redo som %1$s. Välj den i datorns utskriftsdialog. Den stängs av efter 10 minuter utan utskrift.</string>
+    <string name="no_wifi">Anslut till wifi först. Print To Go lyssnar bara på wifi, aldrig på mobildata.</string>
+    <string name="start_failed">Print To Go kunde inte starta. Försök igen.</string>
+    <string name="saved">Sparad: %1$s</string>
+    <string name="save_failed">%1$s kunde inte sparas.</string>
+    <string name="open_folder">Öppna sparade utskrifter</string>
+    <string name="running">Print To Go är på</string>
+    <string name="channel_running">Print To Go körs</string>
+    <string name="channel_saved">Sparade utskrifter</string>
+    <string name="idle_off">Print To Go stängdes av efter 10 minuter utan utskrift.</string>
+    <string name="hint">Enter startar eller stoppar · O öppnar sparade utskrifter · Bakåt lämnar</string>
+</resources>

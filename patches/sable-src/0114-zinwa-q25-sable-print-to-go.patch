@@ -1,0 +1,3210 @@
+diff --git a/sable-src/apps/titan2/platform/printtogo/build.gradle.kts b/sable-src/apps/titan2/platform/printtogo/build.gradle.kts
+new file mode 100644
+index 0000000..de7d926
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/build.gradle.kts
+@@ -0,0 +1,40 @@
++plugins {
++    alias(libs.plugins.android.application)
++    alias(libs.plugins.kotlin.android)
++}
++
++// Sable Print To Go, after BlackBerry 10's Print To Go: while the user has it on, the phone is a driverless
++// network printer on the Wi-Fi (IPP Everywhere and AirPrint) and saves every print as a PDF in
++// Documents/Print To Go. Nothing is printed on paper and nothing leaves the phone.
++android {
++    // The Sable theme palette shared by the platform apps (one copy, see sable-theme/).
++    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
++    namespace = "org.sableos.titan2.printtogo"
++    compileSdk = 36
++    defaultConfig {
++        applicationId = "org.sableos.titan2.printtogo"
++        // Platform apps ship only on Android 16+ images.
++        minSdk = 36
++        targetSdk = 36
++        versionCode = 1
++        versionName = "0.1.0"
++    }
++    buildTypes {
++        release {
++            // R8 shrinks and obfuscates the shipped release APK.
++            isMinifyEnabled = true
++            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
++        }
++    }
++    compileOptions {
++        sourceCompatibility = JavaVersion.VERSION_17
++        targetCompatibility = JavaVersion.VERSION_17
++    }
++    kotlinOptions { jvmTarget = "17" }
++}
++
++dependencies {
++    implementation(libs.androidx.core.ktx)
++
++    testImplementation(libs.junit)
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/printtogo/src/main/AndroidManifest.xml
+new file mode 100644
+index 0000000..4fd2504
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/AndroidManifest.xml
+@@ -0,0 +1,60 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Sable Print To Go (BlackBerry 10's Print To Go): while the user turns it on, the phone is a network
++     printer on the Wi-Fi, found by computers over DNS-SD (IPP Everywhere, AirPrint), and saves every print
++     as a PDF in Documents/Print To Go through MediaStore. It listens on the Wi-Fi address only, never on
++     mobile data, shows a notification with Stop while on, and turns itself off after 10 minutes without a
++     print. No storage permission, no backup, no cleartext traffic of its own: the IPP connection is the
++     computer's, on the local network. -->
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
++    <uses-feature android:name="android.hardware.wifi" android:required="false" />
++
++    <!-- The IPP server socket on the Wi-Fi address, and DNS-SD to announce it. -->
++    <uses-permission android:name="android.permission.INTERNET" />
++    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
++    <!-- Running while on, with a notification that says so and has Stop. -->
++    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
++    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
++    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
++
++    <queries>
++        <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
++        <provider android:authorities="org.sableos.appearance" />
++        <!-- Opening a saved print, and the Files app on its folder. -->
++        <intent>
++            <action android:name="android.intent.action.VIEW" />
++            <data android:mimeType="application/pdf" />
++        </intent>
++        <intent>
++            <action android:name="android.intent.action.VIEW" />
++            <data android:mimeType="vnd.android.document/directory" />
++        </intent>
++    </queries>
++
++    <application
++        android:name="org.sableos.titan2.printtogo.PrintToGoApplication"
++        android:allowBackup="false"
++        android:icon="@mipmap/ic_sable_printtogo"
++        android:roundIcon="@mipmap/ic_sable_printtogo_round"
++        android:label="@string/app_name"
++        android:supportsRtl="true"
++        android:theme="@android:style/Theme.Material.NoActionBar">
++
++        <activity
++            android:name=".android.PrintToGoActivity"
++            android:exported="true"
++            android:launchMode="singleTask"
++            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++                <category android:name="android.intent.category.LAUNCHER" />
++            </intent-filter>
++        </activity>
++
++        <service
++            android:name=".android.PrintToGoService"
++            android:exported="false"
++            android:foregroundServiceType="dataSync" />
++    </application>
++</manifest>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/PrintToGoApplication.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/PrintToGoApplication.kt
+new file mode 100644
+index 0000000..6fe0851
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/PrintToGoApplication.kt
+@@ -0,0 +1,13 @@
++package org.sableos.titan2.printtogo
++
++import android.app.Application
++import org.sableos.titan2.printtogo.core.PrintToGoText
++import org.sableos.titan2.theme.bindTo
++
++/** Binds [PrintToGoText] to the app's string resources once per process, so the phone's language is used. */
++class PrintToGoApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        PrintToGoText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/DocumentSaver.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/DocumentSaver.kt
+new file mode 100644
+index 0000000..8b90c8c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/DocumentSaver.kt
+@@ -0,0 +1,103 @@
++package org.sableos.titan2.printtogo.android
++
++import android.content.ContentValues
++import android.content.Context
++import android.graphics.Bitmap
++import android.graphics.Paint
++import android.graphics.RectF
++import android.graphics.pdf.PdfDocument
++import android.net.Uri
++import android.provider.MediaStore
++import java.io.BufferedInputStream
++import java.io.InputStream
++import java.io.OutputStream
++import java.time.ZoneId
++import org.sableos.titan2.printtogo.core.IppPrinter
++import org.sableos.titan2.printtogo.core.PrintJob
++import org.sableos.titan2.printtogo.core.PrintToGo
++import org.sableos.titan2.printtogo.core.RasterReader
++
++/**
++ * Saves one received document in Documents/Print To Go through MediaStore (no storage permission): a PDF as
++ * it came, a PWG or Apple raster job redrawn page by page into a PDF at the size it was printed.
++ */
++class DocumentSaver(private val context: Context) {
++    data class Saved(val name: String, val uri: Uri)
++
++    fun save(job: PrintJob, declared: String, body: InputStream): Saved? {
++        val input = BufferedInputStream(body)
++        input.mark(SNIFF)
++        val head = ByteArray(SNIFF)
++        val read = input.readNBytes(head, 0, SNIFF)
++        input.reset()
++        val format = PrintToGo.sniff(head.copyOf(read), declared) ?: return null
++        val name = PrintToGo.fileName(job.name, System.currentTimeMillis(), ZoneId.systemDefault())
++        val resolver = context.contentResolver
++        val values =
++            ContentValues().apply {
++                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
++                put(MediaStore.MediaColumns.MIME_TYPE, IppPrinter.PDF)
++                put(MediaStore.MediaColumns.RELATIVE_PATH, PrintToGo.FOLDER + "/")
++                put(MediaStore.MediaColumns.IS_PENDING, 1)
++            }
++        val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
++        val uri = runCatching { resolver.insert(collection, values) }.getOrNull() ?: return null
++        val ok =
++            runCatching {
++                resolver.openOutputStream(uri)?.use { out ->
++                    if (format == IppPrinter.PDF) input.copyTo(out) else rasterToPdf(input, out)
++                } ?: error("no output")
++            }.isSuccess
++        if (!ok) {
++            runCatching { resolver.delete(uri, null, null) }
++            return null
++        }
++        resolver.update(
++            uri,
++            ContentValues().apply {
++                put(MediaStore.MediaColumns.IS_PENDING, 0)
++            },
++            null,
++            null
++        )
++        return Saved(name, uri)
++    }
++
++    private fun rasterToPdf(input: InputStream, out: OutputStream) {
++        val reader = RasterReader(input)
++        val pdf = PdfDocument()
++        val paint = Paint(Paint.FILTER_BITMAP_FLAG)
++        try {
++            var number = 1
++            while (true) {
++                val page = reader.nextPage() ?: break
++                val bitmap = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
++                reader.readRows { y, argb ->
++                    bitmap.setPixels(argb, 0, page.width, 0, y, page.width, 1)
++                }
++                val widthPt = page.width * POINTS_PER_INCH / page.dpi
++                val heightPt = page.height * POINTS_PER_INCH / page.dpi
++                val pdfPage = pdf.startPage(
++                    PdfDocument.PageInfo.Builder(widthPt, heightPt, number++).create()
++                )
++                pdfPage.canvas.drawBitmap(
++                    bitmap,
++                    null,
++                    RectF(0f, 0f, widthPt.toFloat(), heightPt.toFloat()),
++                    paint
++                )
++                pdf.finishPage(pdfPage)
++                bitmap.recycle()
++            }
++            check(number > 1) { "no pages" }
++            pdf.writeTo(out)
++        } finally {
++            pdf.close()
++        }
++    }
++
++    private companion object {
++        const val SNIFF = 8
++        const val POINTS_PER_INCH = 72
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintServer.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintServer.kt
+new file mode 100644
+index 0000000..41fcfe6
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintServer.kt
+@@ -0,0 +1,129 @@
++package org.sableos.titan2.printtogo.android
++
++import java.io.BufferedInputStream
++import java.io.BufferedOutputStream
++import java.io.IOException
++import java.net.InetAddress
++import java.net.ServerSocket
++import java.net.Socket
++import java.util.concurrent.Executors
++import org.sableos.titan2.printtogo.core.Http
++import org.sableos.titan2.printtogo.core.HttpRequest
++import org.sableos.titan2.printtogo.core.Ipp
++import org.sableos.titan2.printtogo.core.IppPrinter
++import org.sableos.titan2.printtogo.core.PrintJob
++import org.sableos.titan2.printtogo.core.PrintToGo
++
++/**
++ * The IPP server, bound to the phone's Wi-Fi address only, so nothing reaches it over mobile data. Each
++ * connection is served on its own thread, a few at a time; requests to the one printer take turns.
++ */
++class PrintServer(
++    private val address: InetAddress,
++    private val printer: IppPrinter,
++    private val receive: (PrintJob, String, java.io.InputStream) -> String?
++) {
++    private var socket: ServerSocket? = null
++    private val clients = Executors.newFixedThreadPool(MAX_CLIENTS)
++
++    /** Starts listening; throws when the port cannot be opened. */
++    fun start() {
++        val server = ServerSocket(PrintToGo.PORT, BACKLOG, address)
++        socket = server
++        Thread({ accept(server) }, "print-to-go").apply { isDaemon = true }.start()
++    }
++
++    fun stop() {
++        runCatching { socket?.close() }
++        clients.shutdownNow()
++    }
++
++    private fun accept(server: ServerSocket) {
++        while (!server.isClosed) {
++            val client =
++                try {
++                    server.accept()
++                } catch (_: IOException) {
++                    break
++                }
++            client.soTimeout = READ_TIMEOUT_MS
++            runCatching {
++                clients.execute { serve(client) }
++            }.onFailure { runCatching { client.close() } }
++        }
++    }
++
++    private fun serve(client: Socket) {
++        runCatching {
++            client.use {
++                val input = BufferedInputStream(it.getInputStream())
++                val output = BufferedOutputStream(it.getOutputStream())
++                while (true) {
++                    val request = Http.read(input) ?: break
++                    answer(request, output)
++                    if (!request.keepAlive) break
++                }
++            }
++        }
++    }
++
++    private fun answer(request: HttpRequest, output: BufferedOutputStream) {
++        val path = request.path.substringBefore('?')
++        when {
++            request.method == "POST" && (path == PrintToGo.PATH || path == "/") -> ipp(
++                request,
++                output
++            )
++
++            request.method == "GET" || request.method == "HEAD" -> {
++                Http.drain(request.body)
++                Http.respond(output, OK, "OK", "text/plain", PAGE, request.keepAlive)
++            }
++
++            else -> {
++                Http.drain(request.body)
++                Http.respond(
++                    output,
++                    NOT_ALLOWED,
++                    "Method Not Allowed",
++                    "text/plain",
++                    ByteArray(0),
++                    request.keepAlive
++                )
++            }
++        }
++    }
++
++    private fun ipp(request: HttpRequest, output: BufferedOutputStream) {
++        if (request.header("content-type")?.startsWith("application/ipp") != true) {
++            Http.drain(request.body)
++            Http.respond(
++                output,
++                BAD_REQUEST,
++                "Bad Request",
++                "text/plain",
++                ByteArray(0),
++                request.keepAlive
++            )
++            return
++        }
++        if (request.expectsContinue) Http.writeContinue(output)
++        val message = Ipp.decode(request.body)
++        val response =
++            synchronized(printer) {
++                printer.handle(message) { job, format -> receive(job, format, request.body) }
++            }
++        Http.drain(request.body)
++        Http.respond(output, OK, "OK", "application/ipp", Ipp.encode(response), request.keepAlive)
++    }
++
++    private companion object {
++        const val MAX_CLIENTS = 4
++        const val BACKLOG = 8
++        const val READ_TIMEOUT_MS = 60_000
++        const val OK = 200
++        const val BAD_REQUEST = 400
++        const val NOT_ALLOWED = 405
++        val PAGE = "Sable Print To Go\n".toByteArray(Charsets.UTF_8)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoActivity.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoActivity.kt
+new file mode 100644
+index 0000000..e420f74
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoActivity.kt
+@@ -0,0 +1,162 @@
++package org.sableos.titan2.printtogo.android
++
++import android.Manifest
++import android.app.Activity
++import android.content.Intent
++import android.content.pm.PackageManager
++import android.graphics.Typeface
++import android.os.Bundle
++import android.provider.DocumentsContract
++import android.view.KeyEvent
++import android.widget.Button
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import android.widget.TextView
++import android.window.OnBackInvokedDispatcher
++import org.sableos.titan2.printtogo.android.PrintToGoState.Phase
++import org.sableos.titan2.printtogo.core.PrintToGo
++import org.sableos.titan2.printtogo.core.PrintToGoText.t
++import org.sableos.titan2.theme.SablePalette
++
++/**
++ * Sable Print To Go's one screen: what it does, whether it is on, Start or Stop, and the folder prints are
++ * saved in. Enter starts or stops, O opens the folder, Back leaves (Print To Go keeps running).
++ */
++class PrintToGoActivity : Activity() {
++    private lateinit var palette: SablePalette
++    private lateinit var status: TextView
++    private lateinit var last: TextView
++    private lateinit var toggle: Button
++    private val listener: (PrintToGoState.Snapshot) -> Unit = ::show
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        palette = SablePalette.read(this).also { it.applyTo(this) }
++        val dp = resources.displayMetrics.density
++        val pad = (PAD * dp).toInt()
++        val body =
++            LinearLayout(this).apply {
++                orientation = LinearLayout.VERTICAL
++                setPadding(pad, pad, pad, pad)
++            }
++        body.addView(
++            text(
++                getString(org.sableos.titan2.printtogo.R.string.app_name),
++                TITLE_SP,
++                palette.text,
++                bold = true
++            )
++        )
++        body.addView(text(t("intro"), BODY_SP, palette.muted))
++        status = text("", BODY_SP, palette.text, bold = true).also(body::addView)
++        last = text("", BODY_SP, palette.muted).also(body::addView)
++        toggle = button("") { toggle() }.also(body::addView)
++        body.addView(button(t("open_folder")) { openFolder() })
++        body.addView(text(t("hint"), SMALL_SP, palette.muted))
++        setContentView(
++            ScrollView(this).apply {
++                setBackgroundColor(palette.window)
++                addView(body)
++            }
++        )
++        onBackInvokedDispatcher.registerOnBackInvokedCallback(
++            OnBackInvokedDispatcher.PRIORITY_DEFAULT
++        ) {
++            finish()
++        }
++    }
++
++    override fun onStart() {
++        super.onStart()
++        PrintToGoState.listen(listener)
++    }
++
++    override fun onStop() {
++        PrintToGoState.forget(listener)
++        super.onStop()
++    }
++
++    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
++        when (keyCode) {
++            KeyEvent.KEYCODE_ENTER,
++            KeyEvent.KEYCODE_NUMPAD_ENTER,
++            KeyEvent.KEYCODE_DPAD_CENTER
++            -> toggle()
++
++            KeyEvent.KEYCODE_O -> openFolder()
++
++            KeyEvent.KEYCODE_ESCAPE -> finish()
++
++            else -> return super.onKeyDown(keyCode, event)
++        }
++        return true
++    }
++
++    private fun show(state: PrintToGoState.Snapshot) {
++        val on = state.phase == Phase.Ready
++        status.text =
++            when (state.phase) {
++                Phase.Ready -> t("ready", state.printerName)
++                Phase.NoWifi -> t("no_wifi")
++                Phase.Failed -> t("start_failed")
++                Phase.IdleOff -> t("idle_off")
++                Phase.Off -> t("off")
++            }
++        status.setTextColor(if (on) palette.ok else palette.text)
++        last.text = state.last.orEmpty()
++        toggle.text = if (on) t("stop") else t("start")
++    }
++
++    private fun toggle() {
++        if (PrintToGoState.snapshot.phase == Phase.Ready) {
++            startService(
++                Intent(this, PrintToGoService::class.java).setAction(PrintToGoService.ACTION_STOP)
++            )
++        } else {
++            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
++                PackageManager.PERMISSION_GRANTED
++            ) {
++                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
++            }
++            startForegroundService(Intent(this, PrintToGoService::class.java))
++        }
++    }
++
++    /** The Files app on Documents/Print To Go. */
++    private fun openFolder() {
++        val folder =
++            DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE, "primary:" + PrintToGo.FOLDER)
++        runCatching {
++            startActivity(
++                Intent(Intent.ACTION_VIEW)
++                    .setDataAndType(folder, DocumentsContract.Document.MIME_TYPE_DIR)
++                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
++            )
++        }
++    }
++
++    private fun text(s: String, sp: Float, color: Int, bold: Boolean = false) =
++        TextView(this).apply {
++            text = s
++            textSize = sp
++            setTextColor(color)
++            if (bold) typeface = Typeface.DEFAULT_BOLD
++            setPadding(0, (GAP * resources.displayMetrics.density).toInt(), 0, 0)
++        }
++
++    private fun button(label: String, onClick: () -> Unit) = Button(this).apply {
++        text = label
++        isAllCaps = false
++        isFocusable = false
++        setOnClickListener { onClick() }
++    }
++
++    private companion object {
++        const val EXTERNAL_STORAGE = "com.android.externalstorage.documents"
++        const val PAD = 12
++        const val GAP = 8
++        const val TITLE_SP = 18f
++        const val BODY_SP = 14f
++        const val SMALL_SP = 11f
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoService.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoService.kt
+new file mode 100644
+index 0000000..c086376
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoService.kt
+@@ -0,0 +1,263 @@
++package org.sableos.titan2.printtogo.android
++
++import android.app.Notification
++import android.app.NotificationChannel
++import android.app.NotificationManager
++import android.app.PendingIntent
++import android.app.Service
++import android.content.Context
++import android.content.Intent
++import android.content.pm.ServiceInfo
++import android.net.ConnectivityManager
++import android.net.Network
++import android.net.NetworkCapabilities
++import android.net.nsd.NsdManager
++import android.net.nsd.NsdServiceInfo
++import android.os.Build
++import android.os.Handler
++import android.os.IBinder
++import android.os.Looper
++import android.os.SystemClock
++import java.net.Inet4Address
++import java.net.InetAddress
++import java.util.UUID
++import org.sableos.titan2.printtogo.R
++import org.sableos.titan2.printtogo.android.PrintToGoState.Phase
++import org.sableos.titan2.printtogo.core.IppPrinter
++import org.sableos.titan2.printtogo.core.PrintToGo
++import org.sableos.titan2.printtogo.core.PrintToGoText.t
++import org.sableos.titan2.printtogo.core.PrinterInfo
++
++/**
++ * Print To Go while it is on: a foreground service (its notification says so and has Stop) that runs the IPP
++ * server on the Wi-Fi address, announces it over DNS-SD, saves each print and turns itself off after
++ * [PrintToGo.IDLE_MS] without one.
++ */
++class PrintToGoService : Service() {
++    private var server: PrintServer? = null
++    private var announcement: NsdManager.RegistrationListener? = null
++    private val main = Handler(Looper.getMainLooper())
++    private var lastActivity = 0L
++    private val started = SystemClock.elapsedRealtime()
++
++    private val idleCheck =
++        object : Runnable {
++            override fun run() {
++                if (PrintToGo.remaining(lastActivity, SystemClock.elapsedRealtime()) == 0L) {
++                    shutDown(Phase.IdleOff)
++                } else {
++                    main.postDelayed(this, IDLE_CHECK_MS)
++                }
++            }
++        }
++
++    override fun onBind(intent: Intent?): IBinder? = null
++
++    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
++        if (intent?.action == ACTION_STOP) {
++            shutDown(Phase.Off)
++        } else if (server == null) {
++            begin()
++        }
++        return START_NOT_STICKY
++    }
++
++    override fun onDestroy() {
++        if (server != null) shutDown(Phase.Off)
++        super.onDestroy()
++    }
++
++    private fun begin() {
++        channels()
++        val wifi = wifi()
++        val name = "Sable Print To Go (${Build.MODEL})"
++        startForeground(RUNNING_ID, running(name), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
++        if (wifi == null) {
++            PrintToGoState.update { it.copy(phase = Phase.NoWifi) }
++            stopNow()
++            return
++        }
++        val (network, address) = wifi
++        val uri = "ipp://${address.hostAddress}:${PrintToGo.PORT}${PrintToGo.PATH}"
++        val printer =
++            IppPrinter(PrinterInfo(name, uri, uuid())) {
++                ((SystemClock.elapsedRealtime() - started) / MS_PER_SECOND).toInt().coerceAtLeast(1)
++            }
++        val saver = DocumentSaver(this)
++        val next =
++            PrintServer(address, printer) { job, format, body ->
++                main.post { lastActivity = SystemClock.elapsedRealtime() }
++                val saved = saver.save(job, format, body)
++                main.post { lastActivity = SystemClock.elapsedRealtime() }
++                if (saved != null) {
++                    notifySaved(saved)
++                    PrintToGoState.update { it.copy(last = t("saved", saved.name)) }
++                } else {
++                    PrintToGoState.update { it.copy(last = t("save_failed", job.name)) }
++                }
++                saved?.name
++            }
++        try {
++            next.start()
++        } catch (_: Exception) {
++            PrintToGoState.update { it.copy(phase = Phase.Failed) }
++            stopNow()
++            return
++        }
++        server = next
++        announce(name, network)
++        lastActivity = SystemClock.elapsedRealtime()
++        main.postDelayed(idleCheck, IDLE_CHECK_MS)
++        PrintToGoState.update { PrintToGoState.Snapshot(Phase.Ready, name, it.last) }
++    }
++
++    private fun shutDown(phase: Phase) {
++        main.removeCallbacks(idleCheck)
++        announcement?.let {
++            runCatching { getSystemService(NsdManager::class.java).unregisterService(it) }
++        }
++        announcement = null
++        server?.stop()
++        server = null
++        PrintToGoState.update { it.copy(phase = phase) }
++        stopNow()
++    }
++
++    private fun stopNow() {
++        stopForeground(STOP_FOREGROUND_REMOVE)
++        stopSelf()
++    }
++
++    /** The Wi-Fi network and its IPv4 address; null when the phone is not on Wi-Fi. */
++    private fun wifi(): Pair<Network, InetAddress>? {
++        val cm = getSystemService(ConnectivityManager::class.java) ?: return null
++        val network = cm.activeNetwork ?: return null
++        val caps = cm.getNetworkCapabilities(network) ?: return null
++        if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return null
++        val address =
++            cm.getLinkProperties(network)?.linkAddresses?.map {
++                it.address
++            }?.firstOrNull { it is Inet4Address }
++                ?: return null
++        return network to address
++    }
++
++    private fun announce(name: String, network: Network) {
++        val info =
++            NsdServiceInfo().apply {
++                serviceName = name
++                serviceType = PrintToGo.SERVICE_TYPE
++                port = PrintToGo.PORT
++                setNetwork(network)
++                subtypes = setOf(PrintToGo.AIRPRINT_SUBTYPE)
++                PrintToGo.txtRecord(name, uuid()).forEach { (key, value) ->
++                    setAttribute(key, value)
++                }
++            }
++        val listener =
++            object : NsdManager.RegistrationListener {
++                override fun onServiceRegistered(info: NsdServiceInfo) = Unit
++
++                override fun onRegistrationFailed(info: NsdServiceInfo, error: Int) = Unit
++
++                override fun onServiceUnregistered(info: NsdServiceInfo) = Unit
++
++                override fun onUnregistrationFailed(info: NsdServiceInfo, error: Int) = Unit
++            }
++        runCatching {
++            getSystemService(
++                NsdManager::class.java
++            ).registerService(info, NsdManager.PROTOCOL_DNS_SD, listener)
++            announcement = listener
++        }
++    }
++
++    /** One id per phone, so computers keep recognising the printer between sessions. */
++    private fun uuid(): String {
++        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
++        val saved = prefs.getString(KEY_UUID, null)
++        if (saved != null) return saved
++        val made = "urn:uuid:${UUID.randomUUID()}"
++        prefs.edit().putString(KEY_UUID, made).apply()
++        return made
++    }
++
++    private fun channels() {
++        val nm = getSystemService(NotificationManager::class.java)
++        nm.createNotificationChannel(
++            NotificationChannel(
++                CHANNEL_RUNNING,
++                t("channel_running"),
++                NotificationManager.IMPORTANCE_LOW
++            )
++        )
++        nm.createNotificationChannel(
++            NotificationChannel(
++                CHANNEL_SAVED,
++                t("channel_saved"),
++                NotificationManager.IMPORTANCE_DEFAULT
++            )
++        )
++    }
++
++    private fun running(name: String): Notification {
++        val open =
++            PendingIntent.getActivity(
++                this,
++                0,
++                Intent(this, PrintToGoActivity::class.java),
++                PendingIntent.FLAG_IMMUTABLE
++            )
++        val stop =
++            PendingIntent.getService(
++                this,
++                1,
++                Intent(this, PrintToGoService::class.java).setAction(ACTION_STOP),
++                PendingIntent.FLAG_IMMUTABLE
++            )
++        return Notification.Builder(this, CHANNEL_RUNNING)
++            .setSmallIcon(R.drawable.ic_sable_printtogo_monochrome)
++            .setContentTitle(t("running"))
++            .setContentText(name)
++            .setContentIntent(open)
++            .setOngoing(true)
++            .addAction(Notification.Action.Builder(null, t("stop"), stop).build())
++            .build()
++    }
++
++    private fun notifySaved(saved: DocumentSaver.Saved) {
++        val view =
++            Intent(Intent.ACTION_VIEW)
++                .setDataAndType(saved.uri, IppPrinter.PDF)
++                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
++        val open = PendingIntent.getActivity(
++            this,
++            saved.uri.hashCode(),
++            view,
++            PendingIntent.FLAG_IMMUTABLE
++        )
++        val notification =
++            Notification.Builder(this, CHANNEL_SAVED)
++                .setSmallIcon(R.drawable.ic_sable_printtogo_monochrome)
++                .setContentTitle(t("saved", saved.name))
++                .setContentIntent(open)
++                .setAutoCancel(true)
++                .build()
++        runCatching {
++            getSystemService(
++                NotificationManager::class.java
++            ).notify(saved.uri.hashCode(), notification)
++        }
++    }
++
++    companion object {
++        const val ACTION_STOP = "org.sableos.printtogo.action.STOP"
++        private const val CHANNEL_RUNNING = "running"
++        private const val CHANNEL_SAVED = "saved"
++        private const val RUNNING_ID = 1
++        private const val IDLE_CHECK_MS = 30_000L
++        private const val MS_PER_SECOND = 1000
++        private const val PREFS = "print_to_go"
++        private const val KEY_UUID = "uuid"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoState.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoState.kt
+new file mode 100644
+index 0000000..08180d3
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoState.kt
+@@ -0,0 +1,38 @@
++package org.sableos.titan2.printtogo.android
++
++import android.os.Handler
++import android.os.Looper
++
++/** What the screen shows, shared between the service and the screen in one process. */
++object PrintToGoState {
++    enum class Phase { Off, Ready, NoWifi, Failed, IdleOff }
++
++    data class Snapshot(
++        val phase: Phase = Phase.Off,
++        val printerName: String = "",
++        /** The last print saved or failed, already worded for the screen. */
++        val last: String? = null
++    )
++
++    @Volatile
++    var snapshot = Snapshot()
++        private set
++
++    private val listeners = mutableSetOf<(Snapshot) -> Unit>()
++    private val main = Handler(Looper.getMainLooper())
++
++    fun update(change: (Snapshot) -> Snapshot) {
++        synchronized(this) { snapshot = change(snapshot) }
++        val now = snapshot
++        main.post { listeners.toList().forEach { it(now) } }
++    }
++
++    fun listen(listener: (Snapshot) -> Unit) {
++        listeners += listener
++        listener(snapshot)
++    }
++
++    fun forget(listener: (Snapshot) -> Unit) {
++        listeners -= listener
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/Http.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/Http.kt
+new file mode 100644
+index 0000000..935011c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/Http.kt
+@@ -0,0 +1,169 @@
++package org.sableos.titan2.printtogo.core
++
++import java.io.EOFException
++import java.io.FilterInputStream
++import java.io.IOException
++import java.io.InputStream
++import java.io.OutputStream
++
++/** One HTTP/1.1 request head; the body is read from [HttpRequest.body]. */
++class HttpRequest(
++    val method: String,
++    val path: String,
++    val headers: Map<String, String>,
++    val body: InputStream
++) {
++    fun header(name: String): String? = headers[name.lowercase()]
++
++    val keepAlive: Boolean get() = header("connection")?.lowercase() != "close"
++
++    val expectsContinue: Boolean get() = header("expect")?.lowercase() == "100-continue"
++}
++
++/**
++ * The little HTTP/1.1 that IPP rides on: request heads, Content-Length and chunked bodies (CUPS and macOS send
++ * chunked jobs), "Expect: 100-continue", and plain responses. Nothing else is served.
++ */
++object Http {
++    private const val MAX_LINE = 8192
++    private const val MAX_HEADERS = 100
++    private const val CR = '\r'.code
++    private const val LF = '\n'.code
++    private const val HEX = 16
++
++    /** Reads the next request head from [input], or null when the client closed the connection first. */
++    fun read(input: InputStream): HttpRequest? {
++        var requestLine = line(input) ?: return null
++        while (requestLine.isEmpty()) requestLine = line(input) ?: return null
++        val parts = requestLine.split(' ')
++        if (parts.size < 3) throw IOException("bad request line")
++        val headers = mutableMapOf<String, String>()
++        while (true) {
++            val header = line(input) ?: throw EOFException()
++            if (header.isEmpty()) break
++            if (headers.size >= MAX_HEADERS) throw IOException("too many headers")
++            val colon = header.indexOf(':')
++            if (colon >
++                0
++            ) {
++                headers[header.substring(0, colon).trim().lowercase()] =
++                    header.substring(colon + 1).trim()
++            }
++        }
++        val body =
++            when {
++                headers["transfer-encoding"]?.lowercase()?.contains(
++                    "chunked"
++                ) == true -> ChunkedInput(input)
++
++                else -> LimitedInput(input, headers["content-length"]?.toLongOrNull() ?: 0L)
++            }
++        return HttpRequest(parts[0], parts[1], headers, body)
++    }
++
++    fun writeContinue(output: OutputStream) {
++        output.write("HTTP/1.1 100 Continue\r\n\r\n".toByteArray(Charsets.US_ASCII))
++        output.flush()
++    }
++
++    fun respond(
++        output: OutputStream,
++        status: Int,
++        reason: String,
++        type: String,
++        body: ByteArray,
++        keepAlive: Boolean
++    ) {
++        val head =
++            "HTTP/1.1 $status $reason\r\n" +
++                "Content-Type: $type\r\n" +
++                "Content-Length: ${body.size}\r\n" +
++                "Connection: ${if (keepAlive) "keep-alive" else "close"}\r\n" +
++                "Server: Sable Print To Go\r\n\r\n"
++        output.write(head.toByteArray(Charsets.US_ASCII))
++        output.write(body)
++        output.flush()
++    }
++
++    /** Reads what is left of a request body so the next request on the connection starts in the right place. */
++    fun drain(body: InputStream) {
++        val buffer = ByteArray(MAX_LINE)
++        while (body.read(buffer) >= 0) Unit
++    }
++
++    internal fun line(input: InputStream): String? {
++        val bytes = StringBuilder()
++        while (true) {
++            val b = input.read()
++            if (b < 0) return if (bytes.isEmpty()) null else throw EOFException()
++            if (b == LF) break
++            if (b != CR) bytes.append(b.toChar())
++            if (bytes.length > MAX_LINE) throw IOException("line too long")
++        }
++        return bytes.toString()
++    }
++
++    private class LimitedInput(input: InputStream, private var left: Long) :
++        FilterInputStream(input) {
++        override fun read(): Int {
++            if (left <= 0) return -1
++            val b = super.read()
++            if (b < 0) throw EOFException()
++            left--
++            return b
++        }
++
++        override fun read(b: ByteArray, off: Int, len: Int): Int {
++            if (left <= 0) return -1
++            val n = super.read(b, off, minOf(len.toLong(), left).toInt())
++            if (n < 0) throw EOFException()
++            left -= n
++            return n
++        }
++
++        override fun available(): Int = minOf(super.available().toLong(), left).toInt()
++
++        override fun close() = Unit
++    }
++
++    private class ChunkedInput(input: InputStream) : FilterInputStream(input) {
++        private var left = 0L
++        private var done = false
++
++        private fun nextChunk(): Boolean {
++            if (done) return false
++            if (left == 0L) {
++                val size = line(`in`) ?: throw EOFException()
++                left =
++                    size.substringBefore(';').trim().toLongOrNull(HEX)
++                        ?: throw IOException("bad chunk")
++                if (left == 0L) {
++                    // Trailers, then the blank line that ends the body.
++                    while ((line(`in`) ?: "").isNotEmpty()) Unit
++                    done = true
++                    return false
++                }
++            }
++            return true
++        }
++
++        override fun read(): Int {
++            val one = ByteArray(1)
++            return if (read(one, 0, 1) < 0) -1 else one[0].toInt() and 0xFF
++        }
++
++        override fun read(b: ByteArray, off: Int, len: Int): Int {
++            if (len == 0) return 0
++            if (!nextChunk()) return -1
++            val n = `in`.read(b, off, minOf(len.toLong(), left).toInt())
++            if (n < 0) throw EOFException()
++            left -= n
++            if (left == 0L) line(`in`)
++            return n
++        }
++
++        override fun available(): Int = 0
++
++        override fun close() = Unit
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/Ipp.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/Ipp.kt
+new file mode 100644
+index 0000000..3b8bf0e
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/Ipp.kt
+@@ -0,0 +1,259 @@
++package org.sableos.titan2.printtogo.core
++
++import java.io.ByteArrayOutputStream
++import java.io.DataInputStream
++import java.io.InputStream
++
++/** One IPP attribute value (RFC 8010 section 3.5). */
++sealed interface IppValue {
++    data class Integer(val value: Int, val tag: Int = Ipp.TAG_INTEGER) : IppValue
++
++    data class Bool(val value: Boolean) : IppValue
++
++    /** Text-like values: keyword, uri, name, text, charset, language, MIME type. */
++    data class Text(val value: String, val tag: Int) : IppValue
++
++    data class Resolution(val x: Int, val y: Int, val units: Int = Ipp.DPI) : IppValue
++
++    data class Range(val low: Int, val high: Int) : IppValue
++
++    /** A collection: its members in order (a member may hold several values). */
++    data class Collection(val members: List<Pair<String, List<IppValue>>>) : IppValue
++
++    /** Anything else, kept as received. */
++    data class Raw(val tag: Int, val bytes: ByteArray) : IppValue {
++        override fun equals(other: Any?): Boolean =
++            other is Raw && other.tag == tag && other.bytes.contentEquals(bytes)
++
++        override fun hashCode(): Int = 31 * tag + bytes.contentHashCode()
++    }
++}
++
++data class IppAttribute(val name: String, val values: List<IppValue>)
++
++data class IppGroup(val tag: Int, val attributes: List<IppAttribute>) {
++    fun find(name: String): IppAttribute? = attributes.firstOrNull { it.name == name }
++}
++
++/** A request (code = operation) or response (code = status). */
++data class IppMessage(
++    val code: Int,
++    val requestId: Int,
++    val groups: List<IppGroup>,
++    val version: Int = Ipp.VERSION_2_0
++) {
++    fun group(tag: Int): IppGroup? = groups.firstOrNull { it.tag == tag }
++
++    fun text(groupTag: Int, name: String): String? =
++        (group(groupTag)?.find(name)?.values?.firstOrNull() as? IppValue.Text)?.value
++
++    fun int(groupTag: Int, name: String): Int? =
++        (group(groupTag)?.find(name)?.values?.firstOrNull() as? IppValue.Integer)?.value
++}
++
++/** IPP/1.1 and 2.0 encoding and decoding, the subset a driverless printer needs. */
++object Ipp {
++    const val VERSION_1_1 = 0x0101
++    const val VERSION_2_0 = 0x0200
++
++    const val GROUP_OPERATION = 0x01
++    const val GROUP_JOB = 0x02
++    const val GROUP_END = 0x03
++    const val GROUP_PRINTER = 0x04
++    const val GROUP_UNSUPPORTED = 0x05
++
++    // RFC 8010 3.5.2 out-of-band: the attribute has no value yet.
++    const val TAG_NO_VALUE = 0x13
++    const val TAG_INTEGER = 0x21
++    const val TAG_BOOLEAN = 0x22
++    const val TAG_ENUM = 0x23
++    const val TAG_OCTET_STRING = 0x30
++    const val TAG_RESOLUTION = 0x32
++    const val TAG_RANGE = 0x33
++    const val TAG_BEGIN_COLLECTION = 0x34
++    const val TAG_END_COLLECTION = 0x37
++    const val TAG_TEXT = 0x41
++    const val TAG_NAME = 0x42
++    const val TAG_KEYWORD = 0x44
++    const val TAG_URI = 0x45
++    const val TAG_CHARSET = 0x47
++    const val TAG_LANGUAGE = 0x48
++    const val TAG_MIME = 0x49
++    const val TAG_MEMBER_NAME = 0x4A
++
++    const val DPI = 3
++
++    private const val TEXT_TAGS_FIRST = 0x40
++    private const val TEXT_TAGS_LAST = 0x5F
++    private const val RESOLUTION_BYTES = 9
++    private const val RANGE_BYTES = 8
++    private const val INT_BYTES = 4
++
++    /**
++     * Reads one IPP message from [input] and stops at the end-of-attributes tag, so the document data that
++     * follows a Print-Job or Send-Document is left unread in [input].
++     */
++    fun decode(input: InputStream): IppMessage {
++        val data = DataInputStream(input)
++        val version = data.readUnsignedShort()
++        val code = data.readUnsignedShort()
++        val requestId = data.readInt()
++        val groups = mutableListOf<IppGroup>()
++        var tag = data.readUnsignedByte()
++        while (tag != GROUP_END) {
++            require(tag in GROUP_OPERATION..0x0F) { "bad group tag $tag" }
++            val group = tag
++            val entries = mutableListOf<Entry>()
++            tag = data.readUnsignedByte()
++            while (tag > 0x0F) {
++                entries += readEntry(data, tag)
++                tag = data.readUnsignedByte()
++            }
++            groups += IppGroup(group, fold(entries))
++        }
++        return IppMessage(code, requestId, groups, version)
++    }
++
++    fun encode(message: IppMessage): ByteArray {
++        val out = ByteArrayOutputStream()
++        out.short(message.version)
++        out.short(message.code)
++        out.int(message.requestId)
++        message.groups.forEach { group ->
++            out.write(group.tag)
++            group.attributes.forEach { attribute ->
++                attribute.values.forEachIndexed { i, value ->
++                    writeValue(out, if (i == 0) attribute.name else "", value)
++                }
++            }
++        }
++        out.write(GROUP_END)
++        return out.toByteArray()
++    }
++
++    private class Entry(val tag: Int, val name: String, val bytes: ByteArray)
++
++    private fun readEntry(data: DataInputStream, tag: Int): Entry {
++        val name = ByteArray(data.readUnsignedShort()).also(data::readFully)
++        val value = ByteArray(data.readUnsignedShort()).also(data::readFully)
++        return Entry(tag, String(name, Charsets.UTF_8), value)
++    }
++
++    /** Turns the flat entries of one group into attributes, rebuilding collections. */
++    private fun fold(entries: List<Entry>): List<IppAttribute> {
++        val result = mutableListOf<IppAttribute>()
++        var i = 0
++        while (i < entries.size) {
++            val entry = entries[i]
++            val (value, next) = valueAt(entries, i)
++            i = next
++            if (entry.name.isEmpty() && result.isNotEmpty()) {
++                val last = result.removeAt(result.lastIndex)
++                result += last.copy(values = last.values + value)
++            } else {
++                result += IppAttribute(entry.name, listOf(value))
++            }
++        }
++        return result
++    }
++
++    /** The value starting at [index] and the index after it (a collection spans many entries). */
++    private fun valueAt(entries: List<Entry>, index: Int): Pair<IppValue, Int> {
++        val entry = entries[index]
++        if (entry.tag != TAG_BEGIN_COLLECTION) return parse(entry.tag, entry.bytes) to index + 1
++        val members = mutableListOf<Pair<String, List<IppValue>>>()
++        var i = index + 1
++        while (i < entries.size && entries[i].tag != TAG_END_COLLECTION) {
++            val member = entries[i]
++            if (member.tag == TAG_MEMBER_NAME) {
++                members += String(member.bytes, Charsets.UTF_8) to emptyList()
++                i++
++            } else {
++                val (value, next) = valueAt(entries, i)
++                if (members.isNotEmpty()) {
++                    val (name, values) = members.removeAt(members.lastIndex)
++                    members += name to values + value
++                }
++                i = next
++            }
++        }
++        return IppValue.Collection(members) to minOf(i + 1, entries.size)
++    }
++
++    private fun parse(tag: Int, bytes: ByteArray): IppValue = when {
++        (tag == TAG_INTEGER || tag == TAG_ENUM) && bytes.size == INT_BYTES ->
++            IppValue.Integer(bytes.int(0), tag)
++
++        tag == TAG_BOOLEAN && bytes.size == 1 -> IppValue.Bool(bytes[0].toInt() != 0)
++
++        tag == TAG_RESOLUTION && bytes.size == RESOLUTION_BYTES ->
++            IppValue.Resolution(bytes.int(0), bytes.int(INT_BYTES), bytes[RANGE_BYTES].toInt())
++
++        tag == TAG_RANGE && bytes.size == RANGE_BYTES ->
++            IppValue.Range(bytes.int(0), bytes.int(INT_BYTES))
++
++        tag in TEXT_TAGS_FIRST..TEXT_TAGS_LAST -> IppValue.Text(
++            String(bytes, Charsets.UTF_8),
++            tag
++        )
++
++        else -> IppValue.Raw(tag, bytes)
++    }
++
++    private fun writeValue(out: ByteArrayOutputStream, name: String, value: IppValue) {
++        when (value) {
++            is IppValue.Integer -> out.entry(value.tag, name, intBytes(value.value))
++
++            is IppValue.Bool -> out.entry(TAG_BOOLEAN, name, byteArrayOf(if (value.value) 1 else 0))
++
++            is IppValue.Text -> out.entry(value.tag, name, value.value.toByteArray(Charsets.UTF_8))
++
++            is IppValue.Resolution ->
++                out.entry(
++                    TAG_RESOLUTION,
++                    name,
++                    intBytes(value.x) + intBytes(value.y) + value.units.toByte()
++                )
++
++            is IppValue.Range -> out.entry(
++                TAG_RANGE,
++                name,
++                intBytes(value.low) + intBytes(value.high)
++            )
++
++            is IppValue.Raw -> out.entry(value.tag, name, value.bytes)
++
++            is IppValue.Collection -> {
++                out.entry(TAG_BEGIN_COLLECTION, name, ByteArray(0))
++                value.members.forEach { (member, values) ->
++                    out.entry(TAG_MEMBER_NAME, "", member.toByteArray(Charsets.UTF_8))
++                    values.forEach { writeValue(out, "", it) }
++                }
++                out.entry(TAG_END_COLLECTION, "", ByteArray(0))
++            }
++        }
++    }
++
++    private fun ByteArrayOutputStream.entry(tag: Int, name: String, value: ByteArray) {
++        val nameBytes = name.toByteArray(Charsets.UTF_8)
++        write(tag)
++        short(nameBytes.size)
++        write(nameBytes)
++        short(value.size)
++        write(value)
++    }
++
++    private fun ByteArrayOutputStream.short(v: Int) {
++        write(v shr 8 and 0xFF)
++        write(v and 0xFF)
++    }
++
++    private fun ByteArrayOutputStream.int(v: Int) = write(intBytes(v))
++
++    private fun intBytes(v: Int) =
++        byteArrayOf((v shr 24).toByte(), (v shr 16).toByte(), (v shr 8).toByte(), v.toByte())
++
++    private fun ByteArray.int(at: Int): Int =
++        (this[at].toInt() and 0xFF shl 24) or (this[at + 1].toInt() and 0xFF shl 16) or
++            (this[at + 2].toInt() and 0xFF shl 8) or (this[at + 3].toInt() and 0xFF)
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/IppPrinter.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/IppPrinter.kt
+new file mode 100644
+index 0000000..b35243b
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/IppPrinter.kt
+@@ -0,0 +1,493 @@
++package org.sableos.titan2.printtogo.core
++
++import org.sableos.titan2.printtogo.core.Ipp.GROUP_JOB
++import org.sableos.titan2.printtogo.core.Ipp.GROUP_OPERATION
++import org.sableos.titan2.printtogo.core.Ipp.GROUP_PRINTER
++import org.sableos.titan2.printtogo.core.Ipp.TAG_CHARSET
++import org.sableos.titan2.printtogo.core.Ipp.TAG_ENUM
++import org.sableos.titan2.printtogo.core.Ipp.TAG_KEYWORD
++import org.sableos.titan2.printtogo.core.Ipp.TAG_LANGUAGE
++import org.sableos.titan2.printtogo.core.Ipp.TAG_MIME
++import org.sableos.titan2.printtogo.core.Ipp.TAG_NAME
++import org.sableos.titan2.printtogo.core.Ipp.TAG_NO_VALUE
++import org.sableos.titan2.printtogo.core.Ipp.TAG_TEXT
++import org.sableos.titan2.printtogo.core.Ipp.TAG_URI
++
++/** The printer as computers see it on the Wi-Fi. */
++data class PrinterInfo(
++    val name: String,
++    /** ipp://address:port/ipp/print */
++    val uri: String,
++    /** urn:uuid:... */
++    val uuid: String
++)
++
++data class PrintJob(
++    val id: Int,
++    val name: String,
++    val format: String,
++    val state: Int,
++    /** The file name it was saved as, once saved. */
++    val savedAs: String? = null,
++    /** requesting-user-name, as the computer sent it. */
++    val user: String = "anonymous",
++    /** printer-up-time when it was made, and when it ended (0 while it runs). */
++    val createdAt: Int = 0,
++    val endedAt: Int = 0
++)
++
++/**
++ * A print-to-file printer: the IPP Everywhere subset that macOS, Windows 10/11 and Linux (CUPS) use to print
++ * without a driver. It never prints on paper: each document goes to [IppPrinter.handle]'s `receive`, which saves
++ * it on the phone. Jobs are kept in memory only, the last [KEEP_JOBS].
++ */
++class IppPrinter(private val info: PrinterInfo, private val upTimeSeconds: () -> Int) {
++    private val jobs = linkedMapOf<Int, PrintJob>()
++    private var nextId = 1
++
++    /** Jobs received since the printer started, oldest first. */
++    val received: List<PrintJob> get() = jobs.values.toList()
++
++    /**
++     * Answers [request]. For Print-Job and Send-Document, `receive(job, format)` reads the document data that
++     * follows the request and returns the name it was saved as, or null when it could not be saved.
++     */
++    fun handle(request: IppMessage, receive: (PrintJob, String) -> String?): IppMessage {
++        if (request.version shr 8 !in 1..2) return reply(request, Status.VERSION_NOT_SUPPORTED)
++        if (request.requestId <= 0 ||
++            !wellFormed(request)
++        ) {
++            return reply(request, Status.BAD_REQUEST)
++        }
++        return when (request.code) {
++            Operation.GET_PRINTER_ATTRIBUTES -> reply(
++                request,
++                Status.OK,
++                IppGroup(GROUP_PRINTER, requested(request, printerAttributes()))
++            )
++
++            Operation.VALIDATE_JOB -> format(request)?.let { reply(request, Status.OK) }
++                ?: badFormat(request)
++
++            Operation.PRINT_JOB -> {
++                val format = format(request) ?: return badFormat(request)
++                finish(request, receive(create(request, format), format), create = true)
++            }
++
++            Operation.CREATE_JOB -> reply(
++                request,
++                Status.OK,
++                jobGroup(create(request, DEFAULT_FORMAT))
++            )
++
++            Operation.SEND_DOCUMENT -> {
++                val job = job(request) ?: return reply(request, Status.NOT_FOUND)
++                // RFC 8011 4.3.1: last-document is required. Each job here holds one document.
++                if (request.group(GROUP_OPERATION)?.find("last-document") == null) {
++                    return reply(request, Status.BAD_REQUEST)
++                }
++                val format = format(request) ?: return badFormat(request)
++                val updated = job.copy(format = format)
++                jobs[job.id] = updated
++                finish(request, receive(updated, format), create = false, job = updated)
++            }
++
++            Operation.CANCEL_JOB, Operation.CLOSE_JOB -> {
++                val job = job(request) ?: return reply(request, Status.NOT_FOUND)
++                when {
++                    request.code == Operation.CLOSE_JOB -> reply(request, Status.OK)
++
++                    // A finished job cannot be cancelled (RFC 8011 4.3.3).
++                    job.state >= JobState.CANCELED -> reply(request, Status.NOT_POSSIBLE)
++
++                    else -> {
++                        jobs[job.id] = job.copy(state = JobState.CANCELED)
++                        reply(request, Status.OK)
++                    }
++                }
++            }
++
++            Operation.GET_JOB_ATTRIBUTES ->
++                job(request)?.let { reply(request, Status.OK, jobGroup(it)) }
++                    ?: reply(request, Status.NOT_FOUND)
++
++            Operation.GET_JOBS -> reply(request, Status.OK, *listJobs(request).toTypedArray())
++
++            Operation.IDENTIFY_PRINTER -> reply(request, Status.OK)
++
++            else -> reply(request, Status.OPERATION_NOT_SUPPORTED)
++        }
++    }
++
++    /**
++     * RFC 8011 4.2.6: the jobs which-jobs names (not-completed unless asked), newest first, with job-id and
++     * job-uri unless requested-attributes asks for more.
++     */
++    private fun listJobs(request: IppMessage): List<IppGroup> {
++        val completed = request.text(GROUP_OPERATION, "which-jobs") == "completed"
++        val asked =
++            request.group(GROUP_OPERATION)?.find("requested-attributes")?.values
++                ?.mapNotNull { (it as? IppValue.Text)?.value }
++                ?.toSet()
++                ?: setOf("job-id", "job-uri")
++        return jobs.values
++            .filter { (it.state >= JobState.CANCELED) == completed }
++            .reversed()
++            .map { job ->
++                val group = jobGroup(job)
++                if ("all" in asked || "job-description" in asked) {
++                    group
++                } else {
++                    group.copy(attributes = group.attributes.filter { it.name in asked })
++                }
++            }
++    }
++
++    /**
++     * RFC 8011 4.2.5: only the attributes asked for in requested-attributes; "all", a group name or no list
++     * gives every one (this printer's attributes are all printer-description or job-template ones).
++     */
++    private fun requested(request: IppMessage, all: List<IppAttribute>): List<IppAttribute> {
++        val asked =
++            request.group(GROUP_OPERATION)?.find("requested-attributes")?.values
++                ?.mapNotNull { (it as? IppValue.Text)?.value }
++                ?.toSet()
++                .orEmpty()
++        if (asked.isEmpty() || asked.any { it in GROUP_NAMES }) return all
++        return all.filter { it.name in asked }
++    }
++
++    /**
++     * RFC 8011 4.1.4 and 4.2: the operation group starts with the charset, then the natural language, and
++     * names its target (printer-uri, or job-uri for a job).
++     */
++    private fun wellFormed(request: IppMessage): Boolean {
++        val first = request.groups.firstOrNull() ?: return false
++        val names = first.attributes.take(2).map { it.name }
++        val target = first.find("printer-uri") ?: first.find("job-uri")
++        return first.tag == GROUP_OPERATION &&
++            names == listOf("attributes-charset", "attributes-natural-language") &&
++            target != null
++    }
++
++    private fun finish(
++        request: IppMessage,
++        saved: String?,
++        create: Boolean,
++        job: PrintJob? = null
++    ): IppMessage {
++        val current = job ?: jobs.values.last()
++        val state = if (saved != null) JobState.COMPLETED else JobState.ABORTED
++        val done = current.copy(state = state, savedAs = saved, endedAt = upTimeSeconds())
++        jobs[done.id] = done
++        val status = if (saved != null) Status.OK else Status.INTERNAL_ERROR
++        return if (create ||
++            saved != null
++        ) {
++            reply(request, status, jobGroup(done))
++        } else {
++            reply(request, status)
++        }
++    }
++
++    private fun create(request: IppMessage, format: String): PrintJob {
++        val name =
++            request.text(GROUP_OPERATION, "job-name")
++                ?: request.text(GROUP_OPERATION, "document-name")
++                ?: request.text(GROUP_JOB, "job-name")
++                ?: "Print"
++        val user = request.text(GROUP_OPERATION, "requesting-user-name") ?: "anonymous"
++        val job =
++            PrintJob(
++                nextId++,
++                name,
++                format,
++                JobState.PROCESSING,
++                user = user,
++                createdAt = upTimeSeconds()
++            )
++        jobs[job.id] = job
++        while (jobs.size > KEEP_JOBS) jobs.remove(jobs.keys.first())
++        return job
++    }
++
++    private fun job(request: IppMessage): PrintJob? =
++        request.int(GROUP_OPERATION, "job-id")?.let { jobs[it] }
++            ?: request.text(
++                GROUP_OPERATION,
++                "job-uri"
++            )?.substringAfterLast('/')?.toIntOrNull()?.let {
++                jobs[it]
++            }
++
++    /** The request's document format if this printer takes it; no format means PDF. */
++    private fun format(request: IppMessage): String? {
++        val format = request.text(GROUP_OPERATION, "document-format") ?: return DEFAULT_FORMAT
++        return format.takeIf { it in FORMATS }
++    }
++
++    private fun badFormat(request: IppMessage) =
++        reply(request, Status.DOCUMENT_FORMAT_NOT_SUPPORTED)
++
++    private fun reply(request: IppMessage, status: Int, vararg groups: IppGroup): IppMessage {
++        val operation =
++            IppGroup(
++                GROUP_OPERATION,
++                listOf(
++                    text("attributes-charset", "utf-8", TAG_CHARSET),
++                    text("attributes-natural-language", "en", TAG_LANGUAGE)
++                )
++            )
++        return IppMessage(status, request.requestId, listOf(operation) + groups, request.version)
++    }
++
++    private fun jobGroup(job: PrintJob) = IppGroup(
++        GROUP_JOB,
++        listOf(
++            int("job-id", job.id),
++            text("job-uri", "${info.uri}/${job.id}", TAG_URI),
++            text("job-printer-uri", info.uri, TAG_URI),
++            text("job-name", job.name, TAG_NAME),
++            int("job-state", job.state, TAG_ENUM),
++            text("job-state-reasons", reasonFor(job.state), TAG_KEYWORD),
++            text("job-originating-user-name", job.user, TAG_NAME),
++            int("time-at-creation", job.createdAt),
++            int("time-at-processing", job.createdAt),
++            ended(job),
++            int("job-printer-up-time", upTimeSeconds())
++        )
++    )
++
++    /** RFC 8011 5.3.14.7: time-at-completed is no-value until the job ends. */
++    private fun ended(job: PrintJob) = if (job.endedAt > 0) {
++        int("time-at-completed", job.endedAt)
++    } else {
++        IppAttribute("time-at-completed", listOf(IppValue.Raw(TAG_NO_VALUE, ByteArray(0))))
++    }
++
++    private fun reasonFor(state: Int) = when (state) {
++        JobState.COMPLETED -> "job-completed-successfully"
++        JobState.ABORTED -> "aborted-by-system"
++        JobState.CANCELED -> "job-canceled-by-user"
++        else -> "none"
++    }
++
++    private fun printerAttributes(): List<IppAttribute> = identity() + paper()
++
++    /** Who the printer is, what it speaks and takes. */
++    private fun identity(): List<IppAttribute> = listOf(
++        text("printer-uri-supported", info.uri, TAG_URI),
++        text("uri-security-supported", "none", TAG_KEYWORD),
++        text("uri-authentication-supported", "none", TAG_KEYWORD),
++        text("printer-name", info.name, TAG_NAME),
++        text("printer-info", info.name, TAG_TEXT),
++        text("printer-location", "", TAG_TEXT),
++        text(
++            "printer-more-info",
++            info.uri.replace("ipp://", "http://").substringBefore("/ipp"),
++            TAG_URI
++        ),
++        text("printer-make-and-model", MAKE_AND_MODEL, TAG_TEXT),
++        text("printer-device-id", DEVICE_ID, TAG_TEXT),
++        text("printer-uuid", info.uuid, TAG_URI),
++        int("printer-state", PRINTER_IDLE, TAG_ENUM),
++        text("printer-state-reasons", "none", TAG_KEYWORD),
++        bool("printer-is-accepting-jobs", true),
++        int("printer-up-time", upTimeSeconds()),
++        int("queued-job-count", 0),
++        int("pages-per-minute", PAGES_PER_MINUTE),
++        int("pages-per-minute-color", PAGES_PER_MINUTE),
++        texts("ipp-versions-supported", listOf("1.1", "2.0"), TAG_KEYWORD),
++        IppAttribute(
++            "operations-supported",
++            Operation.ALL.map {
++                IppValue.Integer(it, TAG_ENUM)
++            }
++        ),
++        text("charset-configured", "utf-8", TAG_CHARSET),
++        text("charset-supported", "utf-8", TAG_CHARSET),
++        text("natural-language-configured", "en", TAG_LANGUAGE),
++        text("generated-natural-language-supported", "en", TAG_LANGUAGE),
++        text("document-format-default", DEFAULT_FORMAT, TAG_MIME),
++        texts("document-format-supported", FORMATS.toList(), TAG_MIME),
++        text("pdl-override-supported", "attempted", TAG_KEYWORD),
++        text("compression-supported", "none", TAG_KEYWORD),
++        bool("color-supported", true),
++        texts("print-color-mode-supported", listOf("color", "monochrome"), TAG_KEYWORD),
++        text("print-color-mode-default", "color", TAG_KEYWORD),
++        text("sides-supported", "one-sided", TAG_KEYWORD),
++        text("sides-default", "one-sided", TAG_KEYWORD),
++        IppAttribute("copies-supported", listOf(IppValue.Range(1, 1))),
++        int("copies-default", 1)
++    )
++
++    /** Paper, margins, resolution and the rest of what a print dialog offers. */
++    private fun paper(): List<IppAttribute> = listOf(
++        texts("media-supported", MEDIA.map { it.keyword }, TAG_KEYWORD),
++        text("media-default", MEDIA.first().keyword, TAG_KEYWORD),
++        texts("media-ready", MEDIA.map { it.keyword }, TAG_KEYWORD),
++        IppAttribute("media-col-default", listOf(MEDIA.first().collection())),
++        IppAttribute("media-size-supported", MEDIA.map { it.size() }),
++        IppAttribute("media-col-database", MEDIA.map { it.collection() }),
++        IppAttribute("media-col-ready", MEDIA.map { it.collection() }),
++        texts(
++            "media-col-supported",
++            listOf(
++                "media-size",
++                "media-top-margin",
++                "media-bottom-margin",
++                "media-left-margin",
++                "media-right-margin"
++            ),
++            TAG_KEYWORD
++        ),
++        int("media-top-margin-supported", 0),
++        int("media-bottom-margin-supported", 0),
++        int("media-left-margin-supported", 0),
++        int("media-right-margin-supported", 0),
++        text("media-source-supported", "auto", TAG_KEYWORD),
++        text("media-type-supported", "stationery", TAG_KEYWORD),
++        text("output-bin-supported", "face-up", TAG_KEYWORD),
++        text("output-bin-default", "face-up", TAG_KEYWORD),
++        IppAttribute(
++            "orientation-requested-supported",
++            (PORTRAIT..LANDSCAPE).map {
++                IppValue.Integer(it, TAG_ENUM)
++            }
++        ),
++        int("orientation-requested-default", PORTRAIT, TAG_ENUM),
++        IppAttribute(
++            "print-quality-supported",
++            listOf(IppValue.Integer(QUALITY_NORMAL, TAG_ENUM))
++        ),
++        int("print-quality-default", QUALITY_NORMAL, TAG_ENUM),
++        IppAttribute("printer-resolution-supported", listOf(IppValue.Resolution(DPI, DPI))),
++        IppAttribute("printer-resolution-default", listOf(IppValue.Resolution(DPI, DPI))),
++        IppAttribute(
++            "pwg-raster-document-resolution-supported",
++            listOf(IppValue.Resolution(DPI, DPI))
++        ),
++        texts("pwg-raster-document-type-supported", listOf("sgray_8", "srgb_8"), TAG_KEYWORD),
++        text("pwg-raster-document-sheet-back", "normal", TAG_KEYWORD),
++        texts("urf-supported", URF, TAG_KEYWORD),
++        int("finishings-supported", FINISHINGS_NONE, TAG_ENUM),
++        int("finishings-default", FINISHINGS_NONE, TAG_ENUM),
++        text("job-hold-until-supported", "no-hold", TAG_KEYWORD),
++        text("job-hold-until-default", "no-hold", TAG_KEYWORD),
++        text("job-sheets-supported", "none", TAG_NAME),
++        text("job-sheets-default", "none", TAG_NAME),
++        texts("which-jobs-supported", listOf("completed", "not-completed"), TAG_KEYWORD),
++        text("identify-actions-supported", "display", TAG_KEYWORD),
++        text("printer-kind", "document", TAG_KEYWORD),
++        text(
++            "multiple-document-handling-supported",
++            "separate-documents-uncollated-copies",
++            TAG_KEYWORD
++        ),
++        bool("page-ranges-supported", false)
++    )
++
++    /** A paper size, in hundredths of a millimetre. */
++    data class Media(val keyword: String, val width: Int, val height: Int) {
++        fun size(): IppValue.Collection = IppValue.Collection(
++            listOf(
++                "x-dimension" to listOf(IppValue.Integer(width)),
++                "y-dimension" to listOf(IppValue.Integer(height))
++            )
++        )
++
++        fun collection(): IppValue.Collection = IppValue.Collection(
++            listOf(
++                "media-size" to listOf(size()),
++                "media-top-margin" to listOf(IppValue.Integer(0)),
++                "media-bottom-margin" to listOf(IppValue.Integer(0)),
++                "media-left-margin" to listOf(IppValue.Integer(0)),
++                "media-right-margin" to listOf(IppValue.Integer(0))
++            )
++        )
++    }
++
++    object Operation {
++        const val PRINT_JOB = 0x0002
++        const val VALIDATE_JOB = 0x0004
++        const val CREATE_JOB = 0x0005
++        const val SEND_DOCUMENT = 0x0006
++        const val CANCEL_JOB = 0x0008
++        const val GET_JOB_ATTRIBUTES = 0x0009
++        const val GET_JOBS = 0x000A
++        const val GET_PRINTER_ATTRIBUTES = 0x000B
++        const val CLOSE_JOB = 0x003B
++        const val IDENTIFY_PRINTER = 0x003C
++        val ALL =
++            listOf(
++                PRINT_JOB, VALIDATE_JOB, CREATE_JOB, SEND_DOCUMENT, CANCEL_JOB,
++                GET_JOB_ATTRIBUTES, GET_JOBS, GET_PRINTER_ATTRIBUTES, CLOSE_JOB, IDENTIFY_PRINTER
++            )
++    }
++
++    object Status {
++        const val OK = 0x0000
++        const val BAD_REQUEST = 0x0400
++        const val NOT_POSSIBLE = 0x0404
++        const val NOT_FOUND = 0x0406
++        const val DOCUMENT_FORMAT_NOT_SUPPORTED = 0x040A
++        const val INTERNAL_ERROR = 0x0500
++        const val OPERATION_NOT_SUPPORTED = 0x0501
++        const val VERSION_NOT_SUPPORTED = 0x0503
++    }
++
++    object JobState {
++        const val PROCESSING = 5
++        const val CANCELED = 7
++        const val ABORTED = 8
++        const val COMPLETED = 9
++    }
++
++    companion object {
++        const val PDF = "application/pdf"
++        const val PWG_RASTER = "image/pwg-raster"
++        const val URF_RASTER = "image/urf"
++        const val OCTET_STREAM = "application/octet-stream"
++        const val DEFAULT_FORMAT = PDF
++        val FORMATS = linkedSetOf(PDF, PWG_RASTER, URF_RASTER, OCTET_STREAM)
++
++        /** Raster pages come at this resolution; PDF keeps its own. */
++        const val DPI = 300
++        const val KEEP_JOBS = 20
++
++        private val GROUP_NAMES =
++            setOf("all", "printer-description", "job-template", "media-col-database")
++
++        const val MAKE_AND_MODEL = "SableOS Print To Go"
++        const val DEVICE_ID = "MFG:SableOS;MDL:Print To Go;CMD:PDF,PWGRaster,URF;CLS:PRINTER;"
++        val URF = listOf("V1.4", "CP1", "PQ4", "RS300", "SRGB24", "W8")
++
++        val MEDIA =
++            listOf(
++                Media("iso_a4_210x297mm", 21000, 29700),
++                Media("na_letter_8.5x11in", 21590, 27940),
++                Media("na_legal_8.5x14in", 21590, 35560)
++            )
++
++        private const val PRINTER_IDLE = 3
++
++        /** Saving a page takes well under a second. */
++        private const val PAGES_PER_MINUTE = 60
++        private const val PORTRAIT = 3
++        private const val LANDSCAPE = 4
++        private const val QUALITY_NORMAL = 4
++        private const val FINISHINGS_NONE = 3
++
++        private fun text(name: String, value: String, tag: Int) =
++            IppAttribute(name, listOf(IppValue.Text(value, tag)))
++
++        private fun texts(name: String, values: List<String>, tag: Int) =
++            IppAttribute(name, values.map { IppValue.Text(it, tag) })
++
++        private fun int(name: String, value: Int, tag: Int = Ipp.TAG_INTEGER) =
++            IppAttribute(name, listOf(IppValue.Integer(value, tag)))
++
++        private fun bool(name: String, value: Boolean) =
++            IppAttribute(name, listOf(IppValue.Bool(value)))
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/PrintToGo.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/PrintToGo.kt
+new file mode 100644
+index 0000000..c4586ff
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/PrintToGo.kt
+@@ -0,0 +1,83 @@
++package org.sableos.titan2.printtogo.core
++
++import java.time.Instant
++import java.time.ZoneId
++import java.time.format.DateTimeFormatter
++
++/**
++ * Print To Go policy, after BlackBerry 10's Print To Go: the phone shows up as a printer on the Wi-Fi only while
++ * the user has it on, everything printed to it is saved as a PDF in Documents/Print To Go, and it turns itself
++ * off after [IDLE_MS] with no print. Pure, unit tested.
++ */
++object PrintToGo {
++    /** Above 1024, so no special rights; announced over DNS-SD, so clients never need to know it. */
++    const val PORT = 8631
++    const val PATH = "/ipp/print"
++    const val SERVICE_TYPE = "_ipp._tcp"
++
++    /** AirPrint looks for this subtype. */
++    const val AIRPRINT_SUBTYPE = "_universal"
++    const val FOLDER = "Documents/Print To Go"
++    const val IDLE_MS = 10 * 60 * 1000L
++
++    private const val MAX_NAME = 60
++    private val UNSAFE = Regex("[\\\\/:*?\"<>|\\p{Cntrl}]+")
++    private val EXTENSION =
++        Regex("\\.(pdf|docx?|xlsx?|pptx?|txt|html?|png|jpe?g|rtf|odt)$", RegexOption.IGNORE_CASE)
++    private val STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmm")
++    private const val SNIFF_BYTES = 8
++
++    /** The saved file's name: the job's name made safe, then the time, so prints never overwrite each other. */
++    fun fileName(jobName: String, atMillis: Long, zone: ZoneId): String {
++        val base =
++            jobName
++                .substringAfterLast('/')
++                .substringAfterLast('\\')
++                .replace(EXTENSION, "")
++                .replace(UNSAFE, " ")
++                .trim()
++                .take(MAX_NAME)
++                .trim()
++                .ifEmpty { "Print" }
++        return "$base ${STAMP.format(Instant.ofEpochMilli(atMillis).atZone(zone))}.pdf"
++    }
++
++    /** The document's real format from its first bytes; the declared one when they say nothing. */
++    fun sniff(head: ByteArray, declared: String): String? {
++        fun starts(magic: ByteArray) =
++            head.size >= magic.size && head.copyOf(magic.size).contentEquals(magic)
++        return when {
++            starts("%PDF".toByteArray(Charsets.US_ASCII)) -> IppPrinter.PDF
++            starts(RasterReader.PWG_SYNC) -> IppPrinter.PWG_RASTER
++            starts(RasterReader.URF_SYNC.copyOf(SNIFF_BYTES)) -> IppPrinter.URF_RASTER
++            declared == IppPrinter.OCTET_STREAM -> null
++            else -> declared
++        }
++    }
++
++    /** The DNS-SD TXT record IPP Everywhere and AirPrint clients read before they print. */
++    fun txtRecord(name: String, uuid: String): Map<String, String> = linkedMapOf(
++        "txtvers" to "1",
++        "qtotal" to "1",
++        "rp" to PATH.removePrefix("/"),
++        "ty" to name,
++        "product" to "(${IppPrinter.MAKE_AND_MODEL})",
++        "pdl" to
++            listOf(
++                IppPrinter.PDF,
++                IppPrinter.PWG_RASTER,
++                IppPrinter.URF_RASTER
++            ).joinToString(","),
++        "URF" to IppPrinter.URF.joinToString(","),
++        "Color" to "T",
++        "Duplex" to "F",
++        "kind" to "document",
++        "PaperMax" to "legal-A4",
++        "UUID" to uuid.removePrefix("urn:uuid:"),
++        "priority" to "50"
++    )
++
++    /** Milliseconds before Print To Go turns itself off, counted from the last print (or from turning it on). */
++    fun remaining(lastActivityMs: Long, nowMs: Long): Long =
++        (lastActivityMs + IDLE_MS - nowMs).coerceAtLeast(0)
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/PrintToGoText.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/PrintToGoText.kt
+new file mode 100644
+index 0000000..39cc3ba
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/PrintToGoText.kt
+@@ -0,0 +1,37 @@
++package org.sableos.titan2.printtogo.core
++
++import org.sableos.titan2.theme.SableTexts
++
++/**
++ * Every line Sable Print To Go shows, in English, by string resource name. res/values/strings.xml repeats
++ * them (PrintToGoTextTest keeps the two equal) and res/values-<lang>/strings.xml translates them.
++ */
++object PrintToGoText {
++    val EN: Map<String, String> =
++        mapOf(
++            "intro" to
++                "Print from your computer to this phone. While Print To Go is on, the " +
++                "phone is a printer on your Wi-Fi, and each print is saved as a PDF in " +
++                "Documents/Print To Go.",
++            "start" to "Start receiving",
++            "stop" to "Stop",
++            "off" to "Off. Nothing can print to this phone.",
++            "ready" to
++                "Ready as %1\$s. Choose it in your computer's print dialog. It turns off " +
++                "after 10 minutes without a print.",
++            "no_wifi" to
++                "Connect to Wi-Fi first. Print To Go only listens on Wi-Fi, never on " +
++                "mobile data.",
++            "start_failed" to "Print To Go could not start. Try again.",
++            "saved" to "Saved: %1\$s",
++            "save_failed" to "%1\$s could not be saved.",
++            "open_folder" to "Open saved prints",
++            "running" to "Print To Go is on",
++            "channel_running" to "Print To Go running",
++            "channel_saved" to "Saved prints",
++            "idle_off" to "Print To Go turned off after 10 minutes without a print.",
++            "hint" to "Enter starts or stops · O opens saved prints · Back leaves"
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/Raster.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/Raster.kt
+new file mode 100644
+index 0000000..c1e3482
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/Raster.kt
+@@ -0,0 +1,192 @@
++package org.sableos.titan2.printtogo.core
++
++import java.io.DataInputStream
++import java.io.EOFException
++import java.io.InputStream
++
++/** One raster page's size and pixel layout. */
++data class RasterPage(
++    val width: Int,
++    val height: Int,
++    val dpi: Int,
++    /** 1 (8-bit grey) or 3 (8-bit sRGB). */
++    val bytesPerPixel: Int
++)
++
++/**
++ * Reads PWG Raster (image/pwg-raster, IPP Everywhere) and Apple Raster (image/urf, AirPrint), the two raster
++ * formats driverless clients send, page by page. Both compress each line the same way: a line-repeat count,
++ * then runs of one repeated pixel or of literal pixels. Only 8-bit grey and 8-bit sRGB are taken, which is what
++ * the printer advertises; anything else is refused with [UnsupportedRaster].
++ */
++class RasterReader(input: InputStream) {
++    private val data = DataInputStream(input.buffered())
++    private val kind: Kind
++    private var current: RasterPage? = null
++    private var pagesLeft = Int.MAX_VALUE
++
++    class UnsupportedRaster(message: String) : Exception(message)
++
++    private enum class Kind { Pwg, Urf }
++
++    init {
++        val sync = ByteArray(SYNC_BYTES).also(data::readFully)
++        kind =
++            when {
++                sync.contentEquals(PWG_SYNC) -> Kind.Pwg
++
++                sync.contentEquals(URF_SYNC.copyOf(SYNC_BYTES)) -> {
++                    data.readFully(ByteArray(URF_SYNC.size - SYNC_BYTES))
++                    pagesLeft = data.readInt().takeIf { it > 0 } ?: Int.MAX_VALUE
++                    Kind.Urf
++                }
++
++                else -> throw UnsupportedRaster("not PWG or Apple raster")
++            }
++    }
++
++    /** The next page's header, or null after the last page. Call [readRows] before asking again. */
++    fun nextPage(): RasterPage? {
++        if (pagesLeft <= 0) return null
++        val page =
++            try {
++                if (kind == Kind.Pwg) pwgHeader() else urfHeader()
++            } catch (_: EOFException) {
++                return null
++            }
++        pagesLeft--
++        current = page
++        return page
++    }
++
++    /** Decodes the current page, giving each row as ARGB pixels (the same array, reused). */
++    fun readRows(row: (index: Int, argb: IntArray) -> Unit) {
++        val page = checkNotNull(current) { "no page" }
++        val bpp = page.bytesPerPixel
++        val line = ByteArray(page.width * bpp)
++        val pixels = IntArray(page.width)
++        var y = 0
++        while (y < page.height) {
++            val repeat = data.readUnsignedByte() + 1
++            readLine(line, bpp)
++            toArgb(line, bpp, pixels)
++            repeat(minOf(repeat, page.height - y)) { row(y++, pixels) }
++        }
++        current = null
++    }
++
++    private fun readLine(line: ByteArray, bpp: Int) {
++        var x = 0
++        val end = line.size
++        while (x < end) {
++            val n = data.readUnsignedByte()
++            when {
++                n == FILL_WHITE -> {
++                    line.fill(WHITE, x, end)
++                    x = end
++                }
++
++                n < FILL_WHITE -> {
++                    val pixel = ByteArray(bpp).also(data::readFully)
++                    repeat(n + 1) {
++                        if (x < end) pixel.copyInto(line, x)
++                        x += bpp
++                    }
++                }
++
++                else -> {
++                    val bytes = minOf((LITERAL_BASE - n) * bpp, end - x)
++                    data.readFully(line, x, bytes)
++                    x += bytes
++                }
++            }
++        }
++    }
++
++    private fun pwgHeader(): RasterPage {
++        val header = ByteArray(PWG_HEADER).also(data::readFully)
++        val dpi = header.int(PWG_RESOLUTION)
++        val width = header.int(PWG_WIDTH)
++        val height = header.int(PWG_HEIGHT)
++        val bitsPerColor = header.int(PWG_BITS_PER_COLOR)
++        val bitsPerPixel = header.int(PWG_BITS_PER_PIXEL)
++        if (bitsPerColor != BITS || (bitsPerPixel != BITS && bitsPerPixel != BITS * RGB)) {
++            throw UnsupportedRaster("PWG $bitsPerColor/$bitsPerPixel bits")
++        }
++        return page(width, height, dpi, bitsPerPixel / BITS)
++    }
++
++    private fun urfHeader(): RasterPage {
++        val header = ByteArray(URF_HEADER).also(data::readFully)
++        val bitsPerPixel = header[0].toInt() and BYTE
++        if (bitsPerPixel != BITS &&
++            bitsPerPixel != BITS * RGB
++        ) {
++            throw UnsupportedRaster("URF $bitsPerPixel bits")
++        }
++        return page(
++            header.int(URF_WIDTH),
++            header.int(URF_HEIGHT),
++            header.int(URF_DPI),
++            bitsPerPixel / BITS
++        )
++    }
++
++    private fun page(width: Int, height: Int, dpi: Int, bpp: Int): RasterPage {
++        if (width !in 1..MAX_SIDE ||
++            height !in 1..MAX_SIDE
++        ) {
++            throw UnsupportedRaster("page $width x $height")
++        }
++        return RasterPage(width, height, dpi.coerceIn(MIN_DPI, MAX_DPI), bpp)
++    }
++
++    private fun toArgb(line: ByteArray, bpp: Int, out: IntArray) {
++        for (x in out.indices) {
++            val i = x * bpp
++            out[x] =
++                if (bpp == 1) {
++                    val g = line[i].toInt() and BYTE
++                    OPAQUE or (g shl 16) or (g shl 8) or g
++                } else {
++                    OPAQUE or (line[i].toInt() and BYTE shl 16) or
++                        (line[i + 1].toInt() and BYTE shl 8) or
++                        (line[i + 2].toInt() and BYTE)
++                }
++        }
++    }
++
++    private fun ByteArray.int(at: Int): Int =
++        (this[at].toInt() and BYTE shl 24) or (this[at + 1].toInt() and BYTE shl 16) or
++            (this[at + 2].toInt() and BYTE shl 8) or (this[at + 3].toInt() and BYTE)
++
++    companion object {
++        val PWG_SYNC = "RaS2".toByteArray(Charsets.US_ASCII)
++        val URF_SYNC = "UNIRAST\u0000".toByteArray(Charsets.US_ASCII)
++        private const val SYNC_BYTES = 4
++
++        /** The CUPS/PWG page header after the sync word, with the byte offsets of the fields read. */
++        const val PWG_HEADER = 1796
++        const val PWG_RESOLUTION = 276
++        const val PWG_WIDTH = 372
++        const val PWG_HEIGHT = 376
++        const val PWG_BITS_PER_COLOR = 384
++        const val PWG_BITS_PER_PIXEL = 388
++
++        const val URF_HEADER = 32
++        const val URF_WIDTH = 12
++        const val URF_HEIGHT = 16
++        const val URF_DPI = 20
++
++        private const val FILL_WHITE = 0x80
++        private const val LITERAL_BASE = 257
++        private const val WHITE = 0xFF.toByte()
++        private const val BITS = 8
++        private const val RGB = 3
++        private const val BYTE = 0xFF
++        private const val OPAQUE = -0x1000000
++        private const val MAX_SIDE = 20_000
++        private const val MIN_DPI = 72
++        private const val MAX_DPI = 1200
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/drawable/ic_sable_printtogo.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/drawable/ic_sable_printtogo.xml
+new file mode 100644
+index 0000000..25551a3
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/drawable/ic_sable_printtogo.xml
+@@ -0,0 +1,21 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="48dp"
++    android:height="48dp"
++    android:viewportWidth="256"
++    android:viewportHeight="256">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M32,16h192c8.8,0 16,7.2 16,16v192c0,8.8 -7.2,16 -16,16H32c-8.8,0 -16,-7.2 -16,-16V32c0,-8.8 7.2,-16 16,-16z" />
++    <group
++        android:scaleX="0.70"
++        android:scaleY="0.70"
++        android:translateX="38.4"
++        android:translateY="34">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M214.67,72H200V40a8,8,0,0,0-8-8H64a8,8,0,0,0-8,8V72H41.33C27.36,72,16,82.77,16,96v80a8,8,0,0,0,8,8H56v32a8,8,0,0,0,8,8H192a8,8,0,0,0,8-8V184h32a8,8,0,0,0,8-8V96C240,82.77,228.64,72,214.67,72ZM72,48H184V72H72ZM184,208H72V160H184Zm40-40H200V152a8,8,0,0,0-8-8H64a8,8,0,0,0-8,8v16H32V96c0-4.41,4.19-8,9.33-8H214.67c5.14,0,9.33,3.59,9.33,8Zm-24-52a12,12,0,1,1-12-12A12,12,0,0,1,200,116Z" />
++    </group>
++    <path
++        android:fillColor="#C77DDB"
++        android:pathData="M28,226h200v6H28z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/drawable/ic_sable_printtogo_background.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/drawable/ic_sable_printtogo_background.xml
+new file mode 100644
+index 0000000..811854a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/drawable/ic_sable_printtogo_background.xml
+@@ -0,0 +1,10 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M0,0h108v108H0z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/drawable/ic_sable_printtogo_foreground.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/drawable/ic_sable_printtogo_foreground.xml
+new file mode 100644
+index 0000000..1bce5d9
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/drawable/ic_sable_printtogo_foreground.xml
+@@ -0,0 +1,19 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M214.67,72H200V40a8,8,0,0,0-8-8H64a8,8,0,0,0-8,8V72H41.33C27.36,72,16,82.77,16,96v80a8,8,0,0,0,8,8H56v32a8,8,0,0,0,8,8H192a8,8,0,0,0,8-8V184h32a8,8,0,0,0,8-8V96C240,82.77,228.64,72,214.67,72ZM72,48H184V72H72ZM184,208H72V160H184Zm40-40H200V152a8,8,0,0,0-8-8H64a8,8,0,0,0-8,8v16H32V96c0-4.41,4.19-8,9.33-8H214.67c5.14,0,9.33,3.59,9.33,8Zm-24-52a12,12,0,1,1-12-12A12,12,0,0,1,200,116Z" />
++    </group>
++    <path
++        android:fillColor="#C77DDB"
++        android:pathData="M38,76.5h32v1.5H38z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/drawable/ic_sable_printtogo_monochrome.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/drawable/ic_sable_printtogo_monochrome.xml
+new file mode 100644
+index 0000000..089a714
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/drawable/ic_sable_printtogo_monochrome.xml
+@@ -0,0 +1,16 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#FFFFFFFF"
++            android:pathData="M214.67,72H200V40a8,8,0,0,0-8-8H64a8,8,0,0,0-8,8V72H41.33C27.36,72,16,82.77,16,96v80a8,8,0,0,0,8,8H56v32a8,8,0,0,0,8,8H192a8,8,0,0,0,8-8V184h32a8,8,0,0,0,8-8V96C240,82.77,228.64,72,214.67,72ZM72,48H184V72H72ZM184,208H72V160H184Zm40-40H200V152a8,8,0,0,0-8-8H64a8,8,0,0,0-8,8v16H32V96c0-4.41,4.19-8,9.33-8H214.67c5.14,0,9.33,3.59,9.33,8Zm-24-52a12,12,0,1,1-12-12A12,12,0,0,1,200,116Z" />
++    </group>
++</vector>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/mipmap-anydpi-v26/ic_sable_printtogo.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/mipmap-anydpi-v26/ic_sable_printtogo.xml
+new file mode 100644
+index 0000000..9319a33
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/mipmap-anydpi-v26/ic_sable_printtogo.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_printtogo_background" />
++    <foreground android:drawable="@drawable/ic_sable_printtogo_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_printtogo_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/mipmap-anydpi-v26/ic_sable_printtogo_round.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/mipmap-anydpi-v26/ic_sable_printtogo_round.xml
+new file mode 100644
+index 0000000..9319a33
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/mipmap-anydpi-v26/ic_sable_printtogo_round.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_printtogo_background" />
++    <foreground android:drawable="@drawable/ic_sable_printtogo_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_printtogo_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ar/strings.xml
+new file mode 100644
+index 0000000..41ce251
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ar/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Arabic. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">اطبع من حاسوبك إلى هذا الهاتف. ما دام Print To Go مفعّلًا، يكون الهاتف طابعة على شبكة Wi-Fi لديك، وتُحفظ كل طباعة بصيغة PDF في Documents/Print To Go.</string>
++    <string name="start">بدء الاستقبال</string>
++    <string name="stop">إيقاف</string>
++    <string name="off">متوقف. لا يمكن لأي شيء الطباعة على هذا الهاتف.</string>
++    <string name="ready">جاهز باسم %1$s. اختره في نافذة الطباعة على الحاسوب. يتوقف بعد 10 دقائق دون طباعة.</string>
++    <string name="no_wifi">اتصل بشبكة Wi-Fi أولًا. يستمع Print To Go عبر Wi-Fi فقط، ولا يستخدم بيانات الجوال أبدًا.</string>
++    <string name="start_failed">تعذّر بدء Print To Go. حاول مرة أخرى.</string>
++    <string name="saved">تم الحفظ: %1$s</string>
++    <string name="save_failed">تعذّر حفظ %1$s.</string>
++    <string name="open_folder">فتح المطبوعات المحفوظة</string>
++    <string name="running">Print To Go مفعّل</string>
++    <string name="channel_running">Print To Go قيد التشغيل</string>
++    <string name="channel_saved">المطبوعات المحفوظة</string>
++    <string name="idle_off">توقف Print To Go بعد 10 دقائق دون طباعة.</string>
++    <string name="hint">Enter يبدأ أو يوقف · O يفتح المطبوعات المحفوظة · رجوع للخروج</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-de/strings.xml
+new file mode 100644
+index 0000000..2a98cf6
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-de/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- German. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">Drucken Sie vom Computer auf dieses Telefon. Solange Print To Go an ist, ist das Telefon ein Drucker in Ihrem WLAN, und jeder Druck wird als PDF unter Documents/Print To Go gespeichert.</string>
++    <string name="start">Empfang starten</string>
++    <string name="stop">Stopp</string>
++    <string name="off">Aus. Nichts kann auf dieses Telefon drucken.</string>
++    <string name="ready">Bereit als %1$s. Wählen Sie es im Druckdialog des Computers. Nach 10 Minuten ohne Druck schaltet es sich aus.</string>
++    <string name="no_wifi">Verbinden Sie sich zuerst mit einem WLAN. Print To Go empfängt nur über WLAN, nie über mobile Daten.</string>
++    <string name="start_failed">Print To Go konnte nicht starten. Versuchen Sie es erneut.</string>
++    <string name="saved">Gespeichert: %1$s</string>
++    <string name="save_failed">%1$s konnte nicht gespeichert werden.</string>
++    <string name="open_folder">Gespeicherte Drucke öffnen</string>
++    <string name="running">Print To Go ist an</string>
++    <string name="channel_running">Print To Go läuft</string>
++    <string name="channel_saved">Gespeicherte Drucke</string>
++    <string name="idle_off">Print To Go hat sich nach 10 Minuten ohne Druck ausgeschaltet.</string>
++    <string name="hint">Enter startet oder stoppt · O öffnet gespeicherte Drucke · Zurück verlässt</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-el/strings.xml
+new file mode 100644
+index 0000000..d257148
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-el/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Greek. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">Εκτυπώστε από τον υπολογιστή σας σε αυτό το τηλέφωνο. Όσο το Print To Go είναι ενεργό, το τηλέφωνο είναι εκτυπωτής στο Wi-Fi σας και κάθε εκτύπωση αποθηκεύεται ως PDF στο Documents/Print To Go.</string>
++    <string name="start">Έναρξη λήψης</string>
++    <string name="stop">Διακοπή</string>
++    <string name="off">Ανενεργό. Τίποτα δεν μπορεί να εκτυπώσει σε αυτό το τηλέφωνο.</string>
++    <string name="ready">Έτοιμο ως %1$s. Επιλέξτε το στο παράθυρο εκτύπωσης του υπολογιστή. Απενεργοποιείται μετά από 10 λεπτά χωρίς εκτύπωση.</string>
++    <string name="no_wifi">Συνδεθείτε πρώτα σε Wi-Fi. Το Print To Go ακούει μόνο σε Wi-Fi, ποτέ σε δεδομένα κινητής.</string>
++    <string name="start_failed">Το Print To Go δεν μπόρεσε να ξεκινήσει. Δοκιμάστε ξανά.</string>
++    <string name="saved">Αποθηκεύτηκε: %1$s</string>
++    <string name="save_failed">Δεν ήταν δυνατή η αποθήκευση του %1$s.</string>
++    <string name="open_folder">Άνοιγμα αποθηκευμένων εκτυπώσεων</string>
++    <string name="running">Το Print To Go είναι ενεργό</string>
++    <string name="channel_running">Το Print To Go εκτελείται</string>
++    <string name="channel_saved">Αποθηκευμένες εκτυπώσεις</string>
++    <string name="idle_off">Το Print To Go απενεργοποιήθηκε μετά από 10 λεπτά χωρίς εκτύπωση.</string>
++    <string name="hint">Το Enter ξεκινά ή σταματά · Το O ανοίγει τις αποθηκευμένες εκτυπώσεις · Το Πίσω βγαίνει</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-es/strings.xml
+new file mode 100644
+index 0000000..e9eb4da
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-es/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Spanish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">Imprime desde tu ordenador a este teléfono. Mientras Print To Go está activo, el teléfono es una impresora en tu Wi-Fi y cada impresión se guarda como PDF en Documents/Print To Go.</string>
++    <string name="start">Empezar a recibir</string>
++    <string name="stop">Detener</string>
++    <string name="off">Desactivado. Nada puede imprimir en este teléfono.</string>
++    <string name="ready">Listo como %1$s. Elígelo en el diálogo de impresión del ordenador. Se desactiva tras 10 minutos sin imprimir.</string>
++    <string name="no_wifi">Conéctate primero a una Wi-Fi. Print To Go solo escucha por Wi-Fi, nunca por datos móviles.</string>
++    <string name="start_failed">Print To Go no pudo iniciarse. Inténtalo de nuevo.</string>
++    <string name="saved">Guardado: %1$s</string>
++    <string name="save_failed">No se pudo guardar %1$s.</string>
++    <string name="open_folder">Abrir impresiones guardadas</string>
++    <string name="running">Print To Go está activo</string>
++    <string name="channel_running">Print To Go en marcha</string>
++    <string name="channel_saved">Impresiones guardadas</string>
++    <string name="idle_off">Print To Go se desactivó tras 10 minutos sin imprimir.</string>
++    <string name="hint">Intro inicia o detiene · O abre las impresiones guardadas · Atrás sale</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-fr/strings.xml
+new file mode 100644
+index 0000000..4cd76f0
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-fr/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- French. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">Imprimez depuis votre ordinateur vers ce téléphone. Tant que Print To Go est actif, le téléphone est une imprimante sur votre Wi-Fi et chaque impression est enregistrée en PDF dans Documents/Print To Go.</string>
++    <string name="start">Commencer la réception</string>
++    <string name="stop">Arrêter</string>
++    <string name="off">Désactivé. Rien ne peut imprimer sur ce téléphone.</string>
++    <string name="ready">Prêt sous le nom %1$s. Choisissez-le dans la fenêtre d\'impression de l\'ordinateur. Il s\'arrête après 10 minutes sans impression.</string>
++    <string name="no_wifi">Connectez-vous d\'abord au Wi-Fi. Print To Go n\'écoute que sur le Wi-Fi, jamais sur les données mobiles.</string>
++    <string name="start_failed">Print To Go n\'a pas pu démarrer. Réessayez.</string>
++    <string name="saved">Enregistré : %1$s</string>
++    <string name="save_failed">%1$s n\'a pas pu être enregistré.</string>
++    <string name="open_folder">Ouvrir les impressions enregistrées</string>
++    <string name="running">Print To Go est actif</string>
++    <string name="channel_running">Print To Go en cours</string>
++    <string name="channel_saved">Impressions enregistrées</string>
++    <string name="idle_off">Print To Go s\'est arrêté après 10 minutes sans impression.</string>
++    <string name="hint">Entrée démarre ou arrête · O ouvre les impressions enregistrées · Retour quitte</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-hi/strings.xml
+new file mode 100644
+index 0000000..d3fbfab
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-hi/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hindi. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">अपने कंप्यूटर से इस फ़ोन पर प्रिंट करें। जब तक Print To Go चालू है, फ़ोन आपके Wi-Fi पर एक प्रिंटर है और हर प्रिंट Documents/Print To Go में PDF के रूप में सहेजा जाता है।</string>
++    <string name="start">प्राप्त करना शुरू करें</string>
++    <string name="stop">रोकें</string>
++    <string name="off">बंद। कुछ भी इस फ़ोन पर प्रिंट नहीं कर सकता।</string>
++    <string name="ready">%1$s के रूप में तैयार। इसे कंप्यूटर के प्रिंट डायलॉग में चुनें। 10 मिनट तक कोई प्रिंट न आने पर यह बंद हो जाता है।</string>
++    <string name="no_wifi">पहले Wi-Fi से जुड़ें। Print To Go केवल Wi-Fi पर सुनता है, मोबाइल डेटा पर कभी नहीं।</string>
++    <string name="start_failed">Print To Go शुरू नहीं हो सका। फिर से कोशिश करें।</string>
++    <string name="saved">सहेजा गया: %1$s</string>
++    <string name="save_failed">%1$s सहेजा नहीं जा सका।</string>
++    <string name="open_folder">सहेजे गए प्रिंट खोलें</string>
++    <string name="running">Print To Go चालू है</string>
++    <string name="channel_running">Print To Go चल रहा है</string>
++    <string name="channel_saved">सहेजे गए प्रिंट</string>
++    <string name="idle_off">10 मिनट तक कोई प्रिंट न आने पर Print To Go बंद हो गया।</string>
++    <string name="hint">Enter शुरू या बंद करता है · O सहेजे गए प्रिंट खोलता है · Back बाहर जाता है</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-it/strings.xml
+new file mode 100644
+index 0000000..ec1cc2f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-it/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Italian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">Stampa dal computer su questo telefono. Mentre Print To Go è attivo, il telefono è una stampante sulla tua rete Wi-Fi e ogni stampa viene salvata come PDF in Documents/Print To Go.</string>
++    <string name="start">Avvia ricezione</string>
++    <string name="stop">Interrompi</string>
++    <string name="off">Disattivato. Nulla può stampare su questo telefono.</string>
++    <string name="ready">Pronto come %1$s. Sceglilo nella finestra di stampa del computer. Si spegne dopo 10 minuti senza stampe.</string>
++    <string name="no_wifi">Connettiti prima al Wi-Fi. Print To Go ascolta solo sul Wi-Fi, mai sui dati mobili.</string>
++    <string name="start_failed">Impossibile avviare Print To Go. Riprova.</string>
++    <string name="saved">Salvato: %1$s</string>
++    <string name="save_failed">Impossibile salvare %1$s.</string>
++    <string name="open_folder">Apri stampe salvate</string>
++    <string name="running">Print To Go è attivo</string>
++    <string name="channel_running">Print To Go in esecuzione</string>
++    <string name="channel_saved">Stampe salvate</string>
++    <string name="idle_off">Print To Go si è spento dopo 10 minuti senza stampe.</string>
++    <string name="hint">Invio avvia o interrompe · O apre le stampe salvate · Indietro esce</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-iw/strings.xml
+new file mode 100644
+index 0000000..2678352
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-iw/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hebrew. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">הדפיסו מהמחשב לטלפון הזה. כל עוד Print To Go פועל, הטלפון הוא מדפסת ברשת ה-Wi-Fi שלכם, וכל הדפסה נשמרת כ-PDF ב-Documents/Print To Go.</string>
++    <string name="start">התחלת קבלה</string>
++    <string name="stop">עצירה</string>
++    <string name="off">כבוי. שום דבר לא יכול להדפיס לטלפון הזה.</string>
++    <string name="ready">מוכן בשם %1$s. בחרו בו בחלון ההדפסה של המחשב. הוא נכבה אחרי 10 דקות בלי הדפסה.</string>
++    <string name="no_wifi">התחברו קודם ל-Wi-Fi. Print To Go מאזין רק ב-Wi-Fi, אף פעם לא בנתונים סלולריים.</string>
++    <string name="start_failed">לא ניתן להפעיל את Print To Go. נסו שוב.</string>
++    <string name="saved">נשמר: %1$s</string>
++    <string name="save_failed">לא ניתן לשמור את %1$s.</string>
++    <string name="open_folder">פתיחת ההדפסות השמורות</string>
++    <string name="running">Print To Go פועל</string>
++    <string name="channel_running">Print To Go רץ</string>
++    <string name="channel_saved">הדפסות שמורות</string>
++    <string name="idle_off">Print To Go נכבה אחרי 10 דקות בלי הדפסה.</string>
++    <string name="hint">Enter מפעיל או עוצר · O פותח את ההדפסות השמורות · חזרה יוצאת</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ja/strings.xml
+new file mode 100644
+index 0000000..9a8bb96
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ja/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Japanese. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">パソコンからこの電話に印刷します。Print To Go がオンの間、電話は Wi-Fi 上のプリンターになり、印刷物は Documents/Print To Go に PDF として保存されます。</string>
++    <string name="start">受信を開始</string>
++    <string name="stop">停止</string>
++    <string name="off">オフ。この電話には何も印刷できません。</string>
++    <string name="ready">%1$s として準備完了。パソコンの印刷画面で選んでください。10 分間印刷がないとオフになります。</string>
++    <string name="no_wifi">まず Wi-Fi に接続してください。Print To Go は Wi-Fi だけで待ち受け、モバイルデータでは待ち受けません。</string>
++    <string name="start_failed">Print To Go を開始できませんでした。もう一度お試しください。</string>
++    <string name="saved">保存しました: %1$s</string>
++    <string name="save_failed">%1$s を保存できませんでした。</string>
++    <string name="open_folder">保存した印刷物を開く</string>
++    <string name="running">Print To Go はオンです</string>
++    <string name="channel_running">Print To Go 実行中</string>
++    <string name="channel_saved">保存した印刷物</string>
++    <string name="idle_off">10 分間印刷がなかったため Print To Go をオフにしました。</string>
++    <string name="hint">Enter で開始または停止 · O で保存した印刷物を開く · Back で終了</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ko/strings.xml
+new file mode 100644
+index 0000000..f792617
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ko/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Korean. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">컴퓨터에서 이 휴대전화로 인쇄합니다. Print To Go가 켜져 있는 동안 휴대전화는 Wi-Fi의 프린터가 되고, 인쇄물은 Documents/Print To Go에 PDF로 저장됩니다.</string>
++    <string name="start">수신 시작</string>
++    <string name="stop">중지</string>
++    <string name="off">꺼짐. 이 휴대전화로 아무것도 인쇄할 수 없습니다.</string>
++    <string name="ready">%1$s(으)로 준비됨. 컴퓨터의 인쇄 창에서 선택하세요. 10분 동안 인쇄가 없으면 꺼집니다.</string>
++    <string name="no_wifi">먼저 Wi-Fi에 연결하세요. Print To Go는 Wi-Fi에서만 수신하며 모바일 데이터에서는 수신하지 않습니다.</string>
++    <string name="start_failed">Print To Go를 시작할 수 없습니다. 다시 시도하세요.</string>
++    <string name="saved">저장됨: %1$s</string>
++    <string name="save_failed">%1$s을(를) 저장할 수 없습니다.</string>
++    <string name="open_folder">저장된 인쇄물 열기</string>
++    <string name="running">Print To Go 켜짐</string>
++    <string name="channel_running">Print To Go 실행 중</string>
++    <string name="channel_saved">저장된 인쇄물</string>
++    <string name="idle_off">10분 동안 인쇄가 없어 Print To Go가 꺼졌습니다.</string>
++    <string name="hint">Enter 시작 또는 중지 · O 저장된 인쇄물 열기 · Back 나가기</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-nl/strings.xml
+new file mode 100644
+index 0000000..aa3cba0
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-nl/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Dutch. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">Print vanaf je computer naar deze telefoon. Zolang Print To Go aan staat, is de telefoon een printer op je wifi en wordt elke afdruk als pdf bewaard in Documents/Print To Go.</string>
++    <string name="start">Ontvangen starten</string>
++    <string name="stop">Stoppen</string>
++    <string name="off">Uit. Niets kan naar deze telefoon printen.</string>
++    <string name="ready">Klaar als %1$s. Kies hem in het printvenster van je computer. Na 10 minuten zonder afdruk gaat hij uit.</string>
++    <string name="no_wifi">Maak eerst verbinding met wifi. Print To Go luistert alleen via wifi, nooit via mobiele data.</string>
++    <string name="start_failed">Print To Go kon niet starten. Probeer het opnieuw.</string>
++    <string name="saved">Bewaard: %1$s</string>
++    <string name="save_failed">%1$s kon niet worden bewaard.</string>
++    <string name="open_folder">Bewaarde afdrukken openen</string>
++    <string name="running">Print To Go staat aan</string>
++    <string name="channel_running">Print To Go actief</string>
++    <string name="channel_saved">Bewaarde afdrukken</string>
++    <string name="idle_off">Print To Go is uitgegaan na 10 minuten zonder afdruk.</string>
++    <string name="hint">Enter start of stopt · O opent bewaarde afdrukken · Terug sluit</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-pl/strings.xml
+new file mode 100644
+index 0000000..95d72e8
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-pl/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Polish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">Drukuj z komputera na ten telefon. Gdy Print To Go jest włączone, telefon jest drukarką w Twojej sieci Wi-Fi, a każdy wydruk jest zapisywany jako PDF w Documents/Print To Go.</string>
++    <string name="start">Zacznij odbierać</string>
++    <string name="stop">Zatrzymaj</string>
++    <string name="off">Wyłączone. Nic nie może drukować na tym telefonie.</string>
++    <string name="ready">Gotowe jako %1$s. Wybierz je w oknie drukowania komputera. Wyłącza się po 10 minutach bez wydruku.</string>
++    <string name="no_wifi">Najpierw połącz się z Wi-Fi. Print To Go nasłuchuje tylko przez Wi-Fi, nigdy przez dane komórkowe.</string>
++    <string name="start_failed">Nie udało się uruchomić Print To Go. Spróbuj ponownie.</string>
++    <string name="saved">Zapisano: %1$s</string>
++    <string name="save_failed">Nie udało się zapisać %1$s.</string>
++    <string name="open_folder">Otwórz zapisane wydruki</string>
++    <string name="running">Print To Go jest włączone</string>
++    <string name="channel_running">Print To Go działa</string>
++    <string name="channel_saved">Zapisane wydruki</string>
++    <string name="idle_off">Print To Go wyłączyło się po 10 minutach bez wydruku.</string>
++    <string name="hint">Enter uruchamia lub zatrzymuje · O otwiera zapisane wydruki · Wstecz zamyka</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-pt/strings.xml
+new file mode 100644
+index 0000000..a1610ff
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-pt/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Portuguese. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">Imprima do computador para este telefone. Enquanto o Print To Go está ativo, o telefone é uma impressora na sua Wi-Fi e cada impressão é salva como PDF em Documents/Print To Go.</string>
++    <string name="start">Começar a receber</string>
++    <string name="stop">Parar</string>
++    <string name="off">Desativado. Nada pode imprimir neste telefone.</string>
++    <string name="ready">Pronto como %1$s. Escolha-o na janela de impressão do computador. Desliga após 10 minutos sem impressões.</string>
++    <string name="no_wifi">Conecte-se primeiro a uma Wi-Fi. O Print To Go só escuta pela Wi-Fi, nunca pelos dados móveis.</string>
++    <string name="start_failed">Não foi possível iniciar o Print To Go. Tente novamente.</string>
++    <string name="saved">Salvo: %1$s</string>
++    <string name="save_failed">Não foi possível salvar %1$s.</string>
++    <string name="open_folder">Abrir impressões salvas</string>
++    <string name="running">Print To Go está ativo</string>
++    <string name="channel_running">Print To Go em execução</string>
++    <string name="channel_saved">Impressões salvas</string>
++    <string name="idle_off">O Print To Go desligou após 10 minutos sem impressões.</string>
++    <string name="hint">Enter inicia ou para · O abre as impressões salvas · Voltar sai</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ru/strings.xml
+new file mode 100644
+index 0000000..eb9c074
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ru/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Russian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">Печатайте с компьютера на этот телефон. Пока Print To Go включён, телефон — принтер в вашей сети Wi-Fi, а каждая печать сохраняется как PDF в Documents/Print To Go.</string>
++    <string name="start">Начать приём</string>
++    <string name="stop">Остановить</string>
++    <string name="off">Выключено. Ничто не может печатать на этот телефон.</string>
++    <string name="ready">Готов как %1$s. Выберите его в окне печати компьютера. Отключается через 10 минут без печати.</string>
++    <string name="no_wifi">Сначала подключитесь к Wi-Fi. Print To Go слушает только Wi-Fi, никогда мобильные данные.</string>
++    <string name="start_failed">Не удалось запустить Print To Go. Повторите попытку.</string>
++    <string name="saved">Сохранено: %1$s</string>
++    <string name="save_failed">Не удалось сохранить %1$s.</string>
++    <string name="open_folder">Открыть сохранённые распечатки</string>
++    <string name="running">Print To Go включён</string>
++    <string name="channel_running">Print To Go работает</string>
++    <string name="channel_saved">Сохранённые распечатки</string>
++    <string name="idle_off">Print To Go отключился после 10 минут без печати.</string>
++    <string name="hint">Enter запускает или останавливает · O открывает сохранённые распечатки · Назад — выход</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-sv/strings.xml
+new file mode 100644
+index 0000000..f78a8e7
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-sv/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Swedish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">Skriv ut från datorn till den här telefonen. Medan Print To Go är på är telefonen en skrivare på ditt wifi, och varje utskrift sparas som PDF i Documents/Print To Go.</string>
++    <string name="start">Börja ta emot</string>
++    <string name="stop">Stoppa</string>
++    <string name="off">Av. Inget kan skriva ut till den här telefonen.</string>
++    <string name="ready">Redo som %1$s. Välj den i datorns utskriftsdialog. Den stängs av efter 10 minuter utan utskrift.</string>
++    <string name="no_wifi">Anslut till wifi först. Print To Go lyssnar bara på wifi, aldrig på mobildata.</string>
++    <string name="start_failed">Print To Go kunde inte starta. Försök igen.</string>
++    <string name="saved">Sparad: %1$s</string>
++    <string name="save_failed">%1$s kunde inte sparas.</string>
++    <string name="open_folder">Öppna sparade utskrifter</string>
++    <string name="running">Print To Go är på</string>
++    <string name="channel_running">Print To Go körs</string>
++    <string name="channel_saved">Sparade utskrifter</string>
++    <string name="idle_off">Print To Go stängdes av efter 10 minuter utan utskrift.</string>
++    <string name="hint">Enter startar eller stoppar · O öppnar sparade utskrifter · Bakåt lämnar</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-tr/strings.xml
+new file mode 100644
+index 0000000..124e81f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-tr/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Turkish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">Bilgisayarınızdan bu telefona yazdırın. Print To Go açıkken telefon Wi-Fi ağınızda bir yazıcıdır ve her baskı Documents/Print To Go klasörüne PDF olarak kaydedilir.</string>
++    <string name="start">Almaya başla</string>
++    <string name="stop">Durdur</string>
++    <string name="off">Kapalı. Bu telefona hiçbir şey yazdıramaz.</string>
++    <string name="ready">%1$s olarak hazır. Bilgisayarın yazdırma penceresinde seçin. 10 dakika baskı olmazsa kapanır.</string>
++    <string name="no_wifi">Önce Wi-Fi\'ye bağlanın. Print To Go yalnızca Wi-Fi\'de dinler, mobil veride asla.</string>
++    <string name="start_failed">Print To Go başlatılamadı. Tekrar deneyin.</string>
++    <string name="saved">Kaydedildi: %1$s</string>
++    <string name="save_failed">%1$s kaydedilemedi.</string>
++    <string name="open_folder">Kaydedilen baskıları aç</string>
++    <string name="running">Print To Go açık</string>
++    <string name="channel_running">Print To Go çalışıyor</string>
++    <string name="channel_saved">Kaydedilen baskılar</string>
++    <string name="idle_off">Print To Go 10 dakika baskı olmadığı için kapandı.</string>
++    <string name="hint">Enter başlatır veya durdurur · O kaydedilen baskıları açar · Geri çıkar</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ur/strings.xml
+new file mode 100644
+index 0000000..3d77e7d
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-ur/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Urdu. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">اپنے کمپیوٹر سے اس فون پر پرنٹ کریں۔ جب تک Print To Go آن ہے، فون آپ کے Wi-Fi پر ایک پرنٹر ہے اور ہر پرنٹ Documents/Print To Go میں PDF کے طور پر محفوظ ہوتا ہے۔</string>
++    <string name="start">وصول کرنا شروع کریں</string>
++    <string name="stop">روکیں</string>
++    <string name="off">بند۔ کوئی چیز اس فون پر پرنٹ نہیں کر سکتی۔</string>
++    <string name="ready">%1$s کے نام سے تیار۔ اسے کمپیوٹر کے پرنٹ ڈائیلاگ میں منتخب کریں۔ 10 منٹ تک کوئی پرنٹ نہ آئے تو یہ بند ہو جاتا ہے۔</string>
++    <string name="no_wifi">پہلے Wi-Fi سے جڑیں۔ Print To Go صرف Wi-Fi پر سنتا ہے، موبائل ڈیٹا پر کبھی نہیں۔</string>
++    <string name="start_failed">Print To Go شروع نہیں ہو سکا۔ دوبارہ کوشش کریں۔</string>
++    <string name="saved">محفوظ ہو گیا: %1$s</string>
++    <string name="save_failed">%1$s محفوظ نہیں ہو سکا۔</string>
++    <string name="open_folder">محفوظ پرنٹ کھولیں</string>
++    <string name="running">Print To Go آن ہے</string>
++    <string name="channel_running">Print To Go چل رہا ہے</string>
++    <string name="channel_saved">محفوظ پرنٹ</string>
++    <string name="idle_off">10 منٹ تک کوئی پرنٹ نہ آنے پر Print To Go بند ہو گیا۔</string>
++    <string name="hint">Enter شروع یا بند کرتا ہے · O محفوظ پرنٹ کھولتا ہے · Back باہر جاتا ہے</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-zh-rCN/strings.xml
+new file mode 100644
+index 0000000..1c3b3d4
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values-zh-rCN/strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Chinese (Simplified). Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
++<resources>
++    <string name="intro">从电脑打印到这部手机。Print To Go 开启时，手机就是你 Wi-Fi 上的一台打印机，每次打印都会以 PDF 保存到 Documents/Print To Go。</string>
++    <string name="start">开始接收</string>
++    <string name="stop">停止</string>
++    <string name="off">已关闭。任何设备都无法打印到这部手机。</string>
++    <string name="ready">已就绪，名称为 %1$s。请在电脑的打印对话框中选择它。10 分钟没有打印就会关闭。</string>
++    <string name="no_wifi">请先连接 Wi-Fi。Print To Go 只在 Wi-Fi 上监听，从不使用移动数据。</string>
++    <string name="start_failed">Print To Go 无法启动。请重试。</string>
++    <string name="saved">已保存：%1$s</string>
++    <string name="save_failed">无法保存 %1$s。</string>
++    <string name="open_folder">打开已保存的打印件</string>
++    <string name="running">Print To Go 已开启</string>
++    <string name="channel_running">Print To Go 正在运行</string>
++    <string name="channel_saved">已保存的打印件</string>
++    <string name="idle_off">10 分钟没有打印，Print To Go 已关闭。</string>
++    <string name="hint">Enter 开始或停止 · O 打开已保存的打印件 · Back 退出</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/printtogo/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..e3747a9
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/res/values/strings.xml
+@@ -0,0 +1,21 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (O open) name keyboard keys: keep them as the key, translate the word.
++     Keep equal to PrintToGoText.EN (PrintToGoTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sable Print To Go</string>
++    <string name="intro">Print from your computer to this phone. While Print To Go is on, the phone is a printer on your Wi-Fi, and each print is saved as a PDF in Documents/Print To Go.</string>
++    <string name="start">Start receiving</string>
++    <string name="stop">Stop</string>
++    <string name="off">Off. Nothing can print to this phone.</string>
++    <string name="ready">Ready as %1$s. Choose it in your computer\'s print dialog. It turns off after 10 minutes without a print.</string>
++    <string name="no_wifi">Connect to Wi-Fi first. Print To Go only listens on Wi-Fi, never on mobile data.</string>
++    <string name="start_failed">Print To Go could not start. Try again.</string>
++    <string name="saved">Saved: %1$s</string>
++    <string name="save_failed">%1$s could not be saved.</string>
++    <string name="open_folder">Open saved prints</string>
++    <string name="running">Print To Go is on</string>
++    <string name="channel_running">Print To Go running</string>
++    <string name="channel_saved">Saved prints</string>
++    <string name="idle_off">Print To Go turned off after 10 minutes without a print.</string>
++    <string name="hint">Enter starts or stops · O opens saved prints · Back leaves</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/PrintToGoTextTest.kt b/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/PrintToGoTextTest.kt
+new file mode 100644
+index 0000000..4f08ea3
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/PrintToGoTextTest.kt
+@@ -0,0 +1,62 @@
++package org.sableos.titan2.printtogo
++
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.titan2.printtogo.core.PrintToGoText
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class PrintToGoTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map {
++        it.value
++    }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        PrintToGoText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f ->
++            f.name.startsWith("values-") && File(f, "strings.xml").isFile
++        }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, PrintToGoText.EN.keys, tr.keys.intersect(PrintToGoText.EN.keys))
++            PrintToGoText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/core/HttpTest.kt b/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/core/HttpTest.kt
+new file mode 100644
+index 0000000..02d95cb
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/core/HttpTest.kt
+@@ -0,0 +1,42 @@
++package org.sableos.titan2.printtogo.core
++
++import java.io.ByteArrayInputStream
++import java.io.ByteArrayOutputStream
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class HttpTest {
++    @Test
++    fun contentLengthAndChunkedBodiesOnOneConnection() {
++        val wire =
++            "POST /ipp/print HTTP/1.1\r\nContent-Type: application/ipp\r\nContent-Length: 5\r\n" +
++                "Expect: 100-continue\r\n\r\nhello" +
++                "POST /ipp/print HTTP/1.1\r\nTransfer-Encoding: chunked\r\n" +
++                "Connection: close\r\n\r\n" +
++                "4\r\nabcd\r\n3;x=y\r\nefg\r\n0\r\n\r\n"
++        val input = ByteArrayInputStream(wire.toByteArray())
++        val first = Http.read(input)!!
++        assertEquals("POST", first.method)
++        assertEquals("/ipp/print", first.path)
++        assertEquals("application/ipp", first.header("Content-Type"))
++        assertTrue(first.expectsContinue)
++        assertTrue(first.keepAlive)
++        assertEquals("hello", String(first.body.readBytes()))
++        val second = Http.read(input)!!
++        assertEquals("abcdefg", String(second.body.readBytes()))
++        assertEquals(false, second.keepAlive)
++        assertNull(Http.read(input))
++    }
++
++    @Test
++    fun responsesCarryLengthAndConnection() {
++        val out = ByteArrayOutputStream()
++        Http.respond(out, 200, "OK", "application/ipp", byteArrayOf(1, 2, 3), keepAlive = true)
++        val text = String(out.toByteArray(), Charsets.ISO_8859_1)
++        assertTrue(text.startsWith("HTTP/1.1 200 OK\r\n"))
++        assertTrue("Content-Length: 3\r\n" in text)
++        assertTrue("Connection: keep-alive\r\n" in text)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/core/IppTest.kt b/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/core/IppTest.kt
+new file mode 100644
+index 0000000..8cdc4a0
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/core/IppTest.kt
+@@ -0,0 +1,173 @@
++package org.sableos.titan2.printtogo.core
++
++import java.io.ByteArrayInputStream
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++import org.sableos.titan2.printtogo.core.IppPrinter.Operation
++import org.sableos.titan2.printtogo.core.IppPrinter.Status
++
++class IppTest {
++    private val info =
++        PrinterInfo("Sable Print To Go (Q25)", "ipp://192.168.1.5:8631/ipp/print", "urn:uuid:1234")
++
++    private fun request(op: Int, vararg attributes: IppAttribute, id: Int = 7) = IppMessage(
++        op,
++        id,
++        listOf(
++            IppGroup(
++                Ipp.GROUP_OPERATION,
++                listOf(
++                    IppAttribute(
++                        "attributes-charset",
++                        listOf(IppValue.Text("utf-8", Ipp.TAG_CHARSET))
++                    ),
++                    IppAttribute(
++                        "attributes-natural-language",
++                        listOf(IppValue.Text("en", Ipp.TAG_LANGUAGE))
++                    ),
++                    IppAttribute("printer-uri", listOf(IppValue.Text(info.uri, Ipp.TAG_URI)))
++                ) + attributes
++            )
++        )
++    )
++
++    private fun text(name: String, value: String, tag: Int = Ipp.TAG_NAME) =
++        IppAttribute(name, listOf(IppValue.Text(value, tag)))
++
++    @Test
++    fun messagesRoundTripWithCollectionsAndLeaveTheDocumentUnread() {
++        val printer = IppPrinter(info) { 5 }
++        val response = printer.handle(request(Operation.GET_PRINTER_ATTRIBUTES)) { _, _ -> null }
++        val bytes = Ipp.encode(response) + "%PDF-1.7".toByteArray()
++        val input = ByteArrayInputStream(bytes)
++        val decoded = Ipp.decode(input)
++        assertEquals(response, decoded)
++        assertEquals("%PDF-1.7", String(input.readBytes()))
++        val database = decoded.group(Ipp.GROUP_PRINTER)!!.find("media-col-database")!!.values
++        assertEquals(IppPrinter.MEDIA.size, database.size)
++        val a4 = database.first() as IppValue.Collection
++        val size = a4.members.first {
++            it.first == "media-size"
++        }.second.single() as IppValue.Collection
++        assertEquals(
++            listOf(IppValue.Integer(21000)),
++            size.members.first {
++                it.first == "x-dimension"
++            }.second
++        )
++    }
++
++    @Test
++    fun printerAnswersWhatDriverlessClientsAsk() {
++        val printer = IppPrinter(info) { 42 }
++        val attributes = printer.handle(request(Operation.GET_PRINTER_ATTRIBUTES)) { _, _ -> null }
++        assertEquals(Status.OK, attributes.code)
++        assertEquals(7, attributes.requestId)
++        assertEquals(info.uri, attributes.text(Ipp.GROUP_PRINTER, "printer-uri-supported"))
++        assertEquals(42, attributes.int(Ipp.GROUP_PRINTER, "printer-up-time"))
++        val formats = attributes.group(
++            Ipp.GROUP_PRINTER
++        )!!.find("document-format-supported")!!.values
++        assertEquals(IppPrinter.FORMATS.toList(), formats.map { (it as IppValue.Text).value })
++        val bad =
++            request(Operation.VALIDATE_JOB, text("document-format", "image/jpeg", Ipp.TAG_MIME))
++        assertEquals(
++            Status.DOCUMENT_FORMAT_NOT_SUPPORTED,
++            printer.handle(bad) { _, _ ->
++                null
++            }.code
++        )
++        assertEquals(
++            Status.OPERATION_NOT_SUPPORTED,
++            printer.handle(request(0x0010)) { _, _ ->
++                null
++            }.code
++        )
++        val old = request(Operation.GET_PRINTER_ATTRIBUTES).copy(version = 0x0300)
++        assertEquals(Status.VERSION_NOT_SUPPORTED, printer.handle(old) { _, _ -> null }.code)
++    }
++
++    @Test
++    fun printJobSavesAndReportsTheJob() {
++        val printer = IppPrinter(info) { 1 }
++        var seen: Pair<PrintJob, String>? = null
++        val done =
++            printer.handle(
++                request(
++                    Operation.PRINT_JOB,
++                    text("job-name", "Boarding pass"),
++                    text("document-format", IppPrinter.PDF, Ipp.TAG_MIME)
++                )
++            ) { job, format ->
++                seen = job to format
++                "Boarding pass 2026-11-05 1331.pdf"
++            }
++        assertEquals("Boarding pass", seen!!.first.name)
++        assertEquals(IppPrinter.PDF, seen!!.second)
++        assertEquals(Status.OK, done.code)
++        assertEquals(IppPrinter.JobState.COMPLETED, done.int(Ipp.GROUP_JOB, "job-state"))
++        assertEquals("${info.uri}/1", done.text(Ipp.GROUP_JOB, "job-uri"))
++        assertEquals("anonymous", done.text(Ipp.GROUP_JOB, "job-originating-user-name"))
++        assertEquals(1, done.int(Ipp.GROUP_JOB, "time-at-completed"))
++        val failed = printer.handle(request(Operation.PRINT_JOB)) { _, _ -> null }
++        assertEquals(Status.INTERNAL_ERROR, failed.code)
++        assertEquals(IppPrinter.JobState.ABORTED, failed.int(Ipp.GROUP_JOB, "job-state"))
++        val pending = printer.handle(request(Operation.GET_JOBS)) { _, _ -> null }
++        assertEquals(0, pending.groups.count { it.tag == Ipp.GROUP_JOB })
++        val ended = request(Operation.GET_JOBS, text("which-jobs", "completed", Ipp.TAG_KEYWORD))
++        val jobs = printer.handle(ended) { _, _ -> null }
++        assertEquals(2, jobs.groups.count { it.tag == Ipp.GROUP_JOB })
++        assertEquals("Boarding pass 2026-11-05 1331.pdf", printer.received.first().savedAs)
++    }
++
++    @Test
++    fun createJobThenSendDocument() {
++        val printer = IppPrinter(info) { 1 }
++        val created = printer.handle(request(Operation.CREATE_JOB, text("job-name", "Report"))) {
++                _,
++                _
++            ->
++            null
++        }
++        val id = created.int(Ipp.GROUP_JOB, "job-id")!!
++        val send =
++            request(
++                Operation.SEND_DOCUMENT,
++                IppAttribute("job-id", listOf(IppValue.Integer(id))),
++                text("document-format", IppPrinter.PWG_RASTER, Ipp.TAG_MIME),
++                IppAttribute("last-document", listOf(IppValue.Bool(true)))
++            )
++        val noLast =
++            request(Operation.SEND_DOCUMENT, IppAttribute("job-id", listOf(IppValue.Integer(id))))
++        assertEquals(Status.BAD_REQUEST, printer.handle(noLast) { _, _ -> "x" }.code)
++        var format: String? = null
++        val sent = printer.handle(send) { _, f -> "Report.pdf".also { format = f } }
++        assertEquals(Status.OK, sent.code)
++        assertEquals(IppPrinter.PWG_RASTER, format)
++        val missing =
++            request(
++                Operation.SEND_DOCUMENT,
++                IppAttribute("job-id", listOf(IppValue.Integer(99))),
++                IppAttribute("last-document", listOf(IppValue.Bool(true)))
++            )
++        assertEquals(Status.NOT_FOUND, printer.handle(missing) { _, _ -> "x" }.code)
++        assertNull(printer.received.firstOrNull { it.id == 99 })
++    }
++
++    @Test
++    fun malformedRequestsAreRefused() {
++        val printer = IppPrinter(info) { 1 }
++        val noId = request(Operation.GET_PRINTER_ATTRIBUTES, id = 0)
++        assertEquals(Status.BAD_REQUEST, printer.handle(noId) { _, _ -> null }.code)
++        val good = request(Operation.GET_PRINTER_ATTRIBUTES)
++        val noTarget = good.copy(
++            groups = listOf(
++                good.groups[0].copy(attributes = good.groups[0].attributes.take(2))
++            )
++        )
++        assertEquals(Status.BAD_REQUEST, printer.handle(noTarget) { _, _ -> null }.code)
++        val noGroups = good.copy(groups = emptyList())
++        assertEquals(Status.BAD_REQUEST, printer.handle(noGroups) { _, _ -> null }.code)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/core/PrintToGoTest.kt b/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/core/PrintToGoTest.kt
+new file mode 100644
+index 0000000..5063a6b
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/core/PrintToGoTest.kt
+@@ -0,0 +1,57 @@
++package org.sableos.titan2.printtogo.core
++
++import java.time.ZoneId
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class PrintToGoTest {
++    private val utc = ZoneId.of("UTC")
++    private val at = 1_793_885_460_000L // 2026-11-05 13:31 UTC
++
++    @Test
++    fun savedNamesAreSafeAndStamped() {
++        assertEquals(
++            "Boarding pass 2026-11-05 1331.pdf",
++            PrintToGo.fileName("Boarding pass.pdf", at, utc)
++        )
++        assertEquals(
++            "report 2026-11-05 1331.pdf",
++            PrintToGo.fileName("C:\\Users\\me\\report.docx", at, utc)
++        )
++        assertEquals("a b 2026-11-05 1331.pdf", PrintToGo.fileName("a:b", at, utc))
++        assertEquals("Print 2026-11-05 1331.pdf", PrintToGo.fileName("  ", at, utc))
++        assertEquals(
++            60 + " 2026-11-05 1331.pdf".length,
++            PrintToGo.fileName("x".repeat(200), at, utc).length
++        )
++    }
++
++    @Test
++    fun theFirstBytesDecideTheFormat() {
++        assertEquals(
++            IppPrinter.PDF,
++            PrintToGo.sniff("%PDF-1.4".toByteArray(), IppPrinter.OCTET_STREAM)
++        )
++        assertEquals(
++            IppPrinter.PWG_RASTER,
++            PrintToGo.sniff("RaS2xxxx".toByteArray(), IppPrinter.PDF)
++        )
++        assertEquals(
++            IppPrinter.URF_RASTER,
++            PrintToGo.sniff("UNIRAST\u0000".toByteArray(), IppPrinter.OCTET_STREAM)
++        )
++        assertNull(PrintToGo.sniff("PK\u0003\u0004".toByteArray(), IppPrinter.OCTET_STREAM))
++        assertEquals(IppPrinter.PDF, PrintToGo.sniff(ByteArray(0), IppPrinter.PDF))
++    }
++
++    @Test
++    fun announcementAndIdleTimeout() {
++        val txt = PrintToGo.txtRecord("Sable Print To Go (Q25)", "urn:uuid:abc")
++        assertEquals("ipp/print", txt["rp"])
++        assertEquals("abc", txt["UUID"])
++        assertEquals("application/pdf,image/pwg-raster,image/urf", txt["pdl"])
++        assertEquals(PrintToGo.IDLE_MS, PrintToGo.remaining(1000, 1000))
++        assertEquals(0L, PrintToGo.remaining(0, PrintToGo.IDLE_MS + 5))
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/core/RasterTest.kt b/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/core/RasterTest.kt
+new file mode 100644
+index 0000000..4b5fba3
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/core/RasterTest.kt
+@@ -0,0 +1,79 @@
++package org.sableos.titan2.printtogo.core
++
++import java.io.ByteArrayInputStream
++import java.io.ByteArrayOutputStream
++import java.io.DataOutputStream
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class RasterTest {
++    private fun pwgPage(out: DataOutputStream, width: Int, height: Int, bitsPerPixel: Int) {
++        val header = ByteArray(RasterReader.PWG_HEADER)
++        fun put(at: Int, v: Int) {
++            header[at] = (v shr 24).toByte()
++            header[at + 1] = (v shr 16).toByte()
++            header[at + 2] = (v shr 8).toByte()
++            header[at + 3] = v.toByte()
++        }
++        put(RasterReader.PWG_RESOLUTION, 300)
++        put(RasterReader.PWG_WIDTH, width)
++        put(RasterReader.PWG_HEIGHT, height)
++        put(RasterReader.PWG_BITS_PER_COLOR, 8)
++        put(RasterReader.PWG_BITS_PER_PIXEL, bitsPerPixel)
++        out.write(header)
++    }
++
++    @Test
++    fun pwgGreyPagesDecodeRunsLiteralsRepeatsAndWhiteFill() {
++        val bytes = ByteArrayOutputStream()
++        val out = DataOutputStream(bytes)
++        out.write(RasterReader.PWG_SYNC)
++        pwgPage(out, width = 4, height = 3, bitsPerPixel = 8)
++        // Line 0, repeated twice: 2 x 0x10, then 2 literal pixels.
++        out.write(byteArrayOf(1, 1, 0x10, (257 - 2).toByte(), 0x20, 0x30))
++        // Line 2: one black pixel then white to the end.
++        out.write(byteArrayOf(0, 0, 0x00, 0x80.toByte()))
++        val reader = RasterReader(ByteArrayInputStream(bytes.toByteArray()))
++        val page = reader.nextPage()!!
++        assertEquals(RasterPage(4, 3, 300, 1), page)
++        val rows = mutableListOf<List<Int>>()
++        reader.readRows { _, argb -> rows += argb.map { it and 0xFF } }
++        assertEquals(listOf(0x10, 0x10, 0x20, 0x30), rows[0])
++        assertEquals(rows[0], rows[1])
++        assertEquals(listOf(0x00, 0xFF, 0xFF, 0xFF), rows[2])
++        assertNull(reader.nextPage())
++    }
++
++    @Test
++    fun appleRasterRgbPage() {
++        val bytes = ByteArrayOutputStream()
++        val out = DataOutputStream(bytes)
++        out.write(RasterReader.URF_SYNC)
++        out.writeInt(1)
++        val header = ByteArray(RasterReader.URF_HEADER)
++        header[0] = 24
++        fun put(at: Int, v: Int) {
++            header[at] = (v shr 24).toByte()
++            header[at + 1] = (v shr 16).toByte()
++            header[at + 2] = (v shr 8).toByte()
++            header[at + 3] = v.toByte()
++        }
++        put(RasterReader.URF_WIDTH, 2)
++        put(RasterReader.URF_HEIGHT, 1)
++        put(RasterReader.URF_DPI, 300)
++        out.write(header)
++        out.write(byteArrayOf(0, 1, 0x11, 0x22, 0x33))
++        val reader = RasterReader(ByteArrayInputStream(bytes.toByteArray()))
++        assertEquals(RasterPage(2, 1, 300, 3), reader.nextPage())
++        val rows = mutableListOf<List<Int>>()
++        reader.readRows { _, argb -> rows += argb.map { it and 0xFFFFFF } }
++        assertEquals(listOf(listOf(0x112233, 0x112233)), rows)
++        assertNull(reader.nextPage())
++    }
++
++    @Test(expected = RasterReader.UnsupportedRaster::class)
++    fun otherFormatsAreRefused() {
++        RasterReader(ByteArrayInputStream("%PDF-1.7 ....".toByteArray()))
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/settings.gradle.kts b/sable-src/apps/titan2/platform/settings.gradle.kts
+index 0236ba9..53d31c6 100644
+--- a/sable-src/apps/titan2/platform/settings.gradle.kts
++++ b/sable-src/apps/titan2/platform/settings.gradle.kts
+@@ -13,4 +13,4 @@ dependencyResolutionManagement {
+     }
+ }
+ rootProject.name = "sable-titan2-platform"
+-include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools", ":vault", ":profiles", ":spaces")
++include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools", ":vault", ":profiles", ":spaces", ":printtogo")
+diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+index 0b12975..10f697e 100644
+--- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
++++ b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+@@ -31,3 +31,4 @@ terminal	ic_sable_terminal	terminal-window	5ee2be45ae5f7ff95d51e142baad1103cd8b4
+ tasks	ic_sable_tasks	check-square	69fc9a39cab4af71874d4cc56eaa6d8943962f2619f5c9a7e2e38d01e232c928	#2BB5A0	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/tasks/src/main/res	none
+ browser	ic_sable_browser	globe	3b53d207c09fc72de699c8b2149892e065b570b3ae144412ae53244b0a0f7977	#4D9CFF	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/browser/src/main/res	none
+ spaces	ic_sable_spaces	briefcase	c908360aa8ffeff3b78be469066aa9faf7df2eda8f34a3596c44157dddc96453	#3FA7D6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/spaces/src/main/res	none
++printtogo	ic_sable_printtogo	printer	398705192743d7ced5da5ca18f2b9e69759284276596f3dd3787720093d3f57e	#C77DDB	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/printtogo/src/main/res	none
+diff --git a/sable-src/third_party/phosphor-icons/PROVENANCE.md b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+index 8be4a1f..7b18ebd 100644
+--- a/sable-src/third_party/phosphor-icons/PROVENANCE.md
++++ b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+@@ -27,7 +27,7 @@ adaptive launcher icon (background, foreground, monochrome layers and `mipmap-an
+ 
+ Glyphs added for the Q25 adaptive-icon work (verbatim `assets/regular/<name>.svg` at the pinned commit, fetched
+ from raw.githubusercontent.com): bomb, book-open-text, calculator, calendar-dots, chat-circle-dots, chat-text,
+-cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench. Added for Sable Tasks: check-square. Added for Sable Spaces: briefcase.
++cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench. Added for Sable Tasks: check-square. Added for Sable Spaces: briefcase. Added for Sable Print To Go: printer.
+ Added for Secure Vault (Private Space file layer, `origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): vault.
+ Added for Sound Profiles (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): speaker-high.
+ Added for Sable Start's tile-free app glyphs on the Q25 (`model/AppGlyphs.kt`, drawn by `ui/SableGlyphIcon.kt` from
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/printer.svg b/sable-src/third_party/phosphor-icons/glyphs/printer.svg
+new file mode 100644
+index 0000000..9045e07
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/printer.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M214.67,72H200V40a8,8,0,0,0-8-8H64a8,8,0,0,0-8,8V72H41.33C27.36,72,16,82.77,16,96v80a8,8,0,0,0,8,8H56v32a8,8,0,0,0,8,8H192a8,8,0,0,0,8-8V184h32a8,8,0,0,0,8-8V96C240,82.77,228.64,72,214.67,72ZM72,48H184V72H72ZM184,208H72V160H184Zm40-40H200V152a8,8,0,0,0-8-8H64a8,8,0,0,0-8,8v16H32V96c0-4.41,4.19-8,9.33-8H214.67c5.14,0,9.33,3.59,9.33,8Zm-24-52a12,12,0,1,1-12-12A12,12,0,0,1,200,116Z"/></svg>
+\ No newline at end of file
