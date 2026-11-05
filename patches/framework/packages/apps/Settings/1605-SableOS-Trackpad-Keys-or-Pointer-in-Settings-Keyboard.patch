@@ -1,0 +1,166 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 5 Nov 2026 13:05:00 +0000
+Subject: [PATCH] SableOS: Trackpad Keys or Pointer in Settings > Keyboard
+
+The Zinwa Q25 trackpad has two modes in the bbqX0kbd driver: arrow keys
+(the default, BlackBerry focus movement) and a pointer. Settings >
+System > Keyboard > Trackpad offers both. Settings only stores the
+choice in persist.sys.sable.trackpad (keys or pointer); init writes the
+driver's /proc/q20_switch_key_mouse from it (sable-trackpad.rc), which
+device patch 1503 labels so no app can write it. Shown only where the
+switch exists.
+---
+ res/values/sable_trackpad_strings.xml         | 35 +++++++++
+ res/xml/keyboard_settings.xml                 | 11 +++
+ .../SableTrackpadPreferenceController.java    | 76 +++++++++++++++++++
+ 3 files changed, 122 insertions(+)
+
+diff --git a/res/values/sable_trackpad_strings.xml b/res/values/sable_trackpad_strings.xml
+new file mode 100644
+index 0000000..9fff106
+--- /dev/null
++++ b/res/values/sable_trackpad_strings.xml
+@@ -0,0 +1,35 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- Settings > System > Keyboard: the trackpad mode row and its dialog title. -->
++    <string name="sable_trackpad_title">Trackpad</string>
++    <!-- Trackpad mode: the trackpad moves focus like arrow keys (BlackBerry style, the default). -->
++    <string name="sable_trackpad_keys">Keys: moves between items</string>
++    <!-- Trackpad mode: the trackpad moves an on-screen pointer; clicking taps where it points. -->
++    <string name="sable_trackpad_pointer">Pointer: moves a cursor</string>
++    <!-- Search keywords for the trackpad mode row. -->
++    <string name="keywords_sable_trackpad">trackpad, touchpad, mouse, pointer, cursor, arrow keys</string>
++
++    <string-array name="sable_trackpad_mode_entries">
++        <item>@string/sable_trackpad_keys</item>
++        <item>@string/sable_trackpad_pointer</item>
++    </string-array>
++    <!-- persist.sys.sable.trackpad values read by system_ext/etc/init/sable-trackpad.rc. -->
++    <string-array name="sable_trackpad_mode_values" translatable="false">
++        <item>keys</item>
++        <item>pointer</item>
++    </string-array>
++</resources>
+diff --git a/res/xml/keyboard_settings.xml b/res/xml/keyboard_settings.xml
+index 7579bdd..d1ac1ef 100644
+--- a/res/xml/keyboard_settings.xml
++++ b/res/xml/keyboard_settings.xml
+@@ -72,6 +72,17 @@
+         settings:keywords="@string/keywords_sable_keyboard_backlight"
+         settings:controller="com.android.settings.sable.SableKeyboardBacklightPreferenceController" />
+ 
++    <!-- SableOS: trackpad mode (Zinwa Q25), shown where the keyboard driver has the switch. -->
++    <ListPreference
++        android:key="sable_trackpad_mode"
++        android:title="@string/sable_trackpad_title"
++        android:entries="@array/sable_trackpad_mode_entries"
++        android:entryValues="@array/sable_trackpad_mode_values"
++        android:dialogTitle="@string/sable_trackpad_title"
++        android:persistent="false"
++        settings:keywords="@string/keywords_sable_trackpad"
++        settings:controller="com.android.settings.sable.SableTrackpadPreferenceController" />
++
+     <!-- SableOS: Keyboard firmware (also *#*#1122#*#*), where the keyboard driver has the
+          stock firmware-upgrade switch. -->
+     <Preference
+diff --git a/src/com/android/settings/sable/SableTrackpadPreferenceController.java b/src/com/android/settings/sable/SableTrackpadPreferenceController.java
+new file mode 100644
+index 0000000..cea4493
+--- /dev/null
++++ b/src/com/android/settings/sable/SableTrackpadPreferenceController.java
+@@ -0,0 +1,76 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++import android.os.SystemProperties;
++
++import androidx.preference.ListPreference;
++import androidx.preference.Preference;
++
++import com.android.settings.core.BasePreferenceController;
++
++import java.io.File;
++
++/**
++ * Settings > System > Keyboard > Trackpad (Zinwa Q25): Keys moves between items like arrow keys,
++ * Pointer moves a cursor. Settings only stores the choice in persist.sys.sable.trackpad; init
++ * writes the keyboard driver's switch (sable-trackpad.rc), which no app may write. Shown only
++ * where the driver has the switch.
++ */
++public class SableTrackpadPreferenceController extends BasePreferenceController
++        implements Preference.OnPreferenceChangeListener {
++
++    static final String PROP = "persist.sys.sable.trackpad";
++    static final String KEYS = "keys";
++    static final String POINTER = "pointer";
++    private static final String SWITCH = "/proc/q20_switch_key_mouse";
++
++    public SableTrackpadPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return new File(SWITCH).exists() ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++
++    static String mode() {
++        return POINTER.equals(SystemProperties.get(PROP, KEYS)) ? POINTER : KEYS;
++    }
++
++    @Override
++    public void updateState(Preference preference) {
++        super.updateState(preference);
++        if (preference instanceof ListPreference) {
++            ListPreference list = (ListPreference) preference;
++            list.setValue(mode());
++            list.setSummary(list.getEntry());
++        }
++    }
++
++    @Override
++    public boolean onPreferenceChange(Preference preference, Object newValue) {
++        String value = String.valueOf(newValue);
++        if (!KEYS.equals(value) && !POINTER.equals(value)) {
++            return false;
++        }
++        SystemProperties.set(PROP, value);
++        updateState(preference);
++        return true;
++    }
++}
+-- 
+2.43.0
+

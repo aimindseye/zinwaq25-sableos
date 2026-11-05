@@ -77,6 +77,7 @@ Alt+Left and Alt+Right move between pages. Alt+Space opens Command, and any lett
 - The banner shows the status dials, the date, the weather and the Hub unread count. The status bar shows the time.
 - Swipe right or press Alt+Left to open Hub. Swipe left or press Alt+Right to open All apps.
 - On Sable Start, a quick sideways flick on the trackpad turns one page; slow strokes move between tiles. A light touch at the bottom of the screen right after a trackpad stroke is ignored, so brushing the glass does not open an app.
+- Settings > System > Keyboard > Trackpad switches the trackpad between Keys (moves between items, the default) and Pointer (moves a cursor; a click taps where it points).
 - The tray at the bottom shows one to three rows of Favorites. Drag it up or down to change the rows. Up opens the whole tray and Esc closes it.
 - Space switches panels (Favorites, All, Downloads), and typing searches apps.
 - Menu on an app: Open, Add to Favorites or Remove from Favorites, Move (arrows carry it, Enter drops it) and App Info. Then Hub, Home Screen Style, Settings and Close.

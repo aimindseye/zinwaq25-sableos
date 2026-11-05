@@ -24,7 +24,7 @@ the Q4 gates in [QUALIFICATION.md](QUALIFICATION.md) apply unchanged.
 
 ## Status
 
-62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Ten more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), frameworks/base 0317 (the next event on the lock screen), and frameworks/base 0318 (the Peek as an app column beside the newest notification).
+62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Twelve more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), frameworks/base 0317 (the next event on the lock screen), frameworks/base 0318 (the Peek as an app column beside the newest notification), and Settings 1605 with device tree 1503 (the trackpad Keys or Pointer choice).
 
 Every patch applies to the 24.0 heads in order. That is not yet a build: the ports below were
 written against the 24.0 sources without compiling them, so the first 24.0 build is the real test.
@@ -131,6 +131,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/Settings/1602-SableOS-Lock-screen-peek-row-in-Settings-Security.patch` | new on 24.0 |
 | `packages/apps/Settings/1603-SableOS-size-tiles-for-Display-Text-and-Lock-screen.patch` | new on 24.0 |
 | `packages/apps/Settings/1604-SableOS-Sable-settings-page-in-one-list.patch` | new on 24.0 |
+| `packages/apps/Settings/1605-SableOS-Trackpad-Keys-or-Pointer-in-Settings-Keyboard.patch` | new on 24.0 |
 | `packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | ported by hand |
 | `packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | ported by hand |
 | `packages/apps/SetupWizard/0403-SableOS-Esc-returns-to-the-previous-setup-step.patch` | ported by hand |
@@ -147,6 +148,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/SetupWizard/0414-SableOS-keep-Next-on-screen-in-short-windows.patch` | ported by hand |
 | `packages/apps/SetupWizard/0415-SableOS-text-size-choice-on-the-Theme-step.patch` | new on 24.0 |
 | `device/xelex/mt6789-common/1502-SableOS-let-Settings-drive-the-Q25-keyboard-firmware.patch` | ported by hand |
+| `device/xelex/mt6789-common/1503-SableOS-let-init-set-the-Q25-trackpad-mode.patch` | new on 24.0 |
 
 ## What the hand ports changed
 

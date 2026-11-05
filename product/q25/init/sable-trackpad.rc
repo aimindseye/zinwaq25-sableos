@@ -1,0 +1,12 @@
+# SableOS Zinwa Q25: trackpad mode from Settings > System > Keyboard > Trackpad.
+#
+# Settings writes persist.sys.sable.trackpad (keys or pointer); init writes the bbqX0kbd
+# driver's mode switch, which device patch 1503 labels so only init may write it. Only the
+# two known values are written. Persist properties load at boot, so the choice is restored
+# then too (the driver starts in keys mode). Installed to system_ext/etc/init at Q4.
+
+on property:persist.sys.sable.trackpad=keys
+    write /proc/q20_switch_key_mouse 1
+
+on property:persist.sys.sable.trackpad=pointer
+    write /proc/q20_switch_key_mouse 0
