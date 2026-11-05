@@ -20,7 +20,7 @@ the Q4 gates in [QUALIFICATION.md](QUALIFICATION.md) apply unchanged.
   pinned in `build/config/q25.env` and `manifests/local_manifests/sable_q25.xml`.
 * `device/xelex/Q25` still sets `TARGET_SCREEN_DENSITY := 193`; SableOS keeps 280
   (`SABLE_LCD_DENSITY`, [DISPLAY](../device-profile/DISPLAY.md)).
-* An existing 23.2 tree is re-initialised by `bootstrap`, because the new projects are missing.
+* An existing 23.2 tree is moved to 24.0 by `bootstrap`: it reverts the Sable framework patches, runs `repo init -b lineage-24.0` and syncs, keeping the downloaded objects.
 
 ## Status
 

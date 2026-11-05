@@ -12,8 +12,18 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/build/lib/common.sh"
 # Already downloaded? Then do nothing (a re-sync is only done with --update).
 UPDATE=NO
 [[ "${1:-}" == --update ]] && UPDATE=YES
+# The branch the tree's manifest follows ("lineage-23.2" for a tree from before SableOS 2.0).
+manifest_branch() {
+    git -C "$SABLE_ANDROID_ROOT/.repo/manifests" config --get branch.default.merge 2>/dev/null | sed 's#^refs/heads/##'
+}
 tree_complete() {
     [[ -d "$SABLE_ANDROID_ROOT/.repo" && -f "$SABLE_ANDROID_ROOT/build/envsetup.sh" ]] || return 1
+    local branch
+    branch="$(manifest_branch)"
+    if [[ "$branch" != "$SABLE_Q25_LINEAGE_BRANCH" ]]; then
+        echo "The tree at $SABLE_ANDROID_ROOT follows ${branch:-an unknown branch}, not $SABLE_Q25_LINEAGE_BRANCH; moving it over"
+        return 1
+    fi
     local path
     for path in device/xelex/Q25 device/xelex/mt6789-common kernel/xelex/mt6789 hardware/mediatek device/mediatek/sepolicy_vndr vendor/xelex/Q25 vendor/xelex/mt6789-common; do
         [[ -d "$SABLE_ANDROID_ROOT/$path" ]] || return 1
@@ -35,14 +45,21 @@ command -v "$SABLE_REPO_TOOL" >/dev/null 2>&1 || sable_fail "repo tool not found
 mkdir -p "$SABLE_ANDROID_ROOT" "$SABLE_EVIDENCE_ROOT"
 cd "$SABLE_ANDROID_ROOT"
 
-if [[ ! -d .repo ]]; then
-    sable_log "repo init $SABLE_Q25_LINEAGE_MANIFEST_URL -b $SABLE_Q25_LINEAGE_BRANCH"
-    "$SABLE_REPO_TOOL" init \
-        -u "$SABLE_Q25_LINEAGE_MANIFEST_URL" \
-        -b "$SABLE_Q25_LINEAGE_BRANCH" \
-        --git-lfs \
-        --no-clone-bundle
+# An existing tree may still carry the Sable framework patches from an earlier build;
+# repo sync can't check out over them, so take them out first (stage puts them back).
+if [[ -f "$SABLE_ANDROID_ROOT/.sable-q25-framework-patches" ]]; then
+    sable_log "reverting the Sable framework patches before the sync"
+    bash "$SABLE_REPO_ROOT/scripts/apply-framework-patches.sh" revert
 fi
+
+# repo init every time: on an existing tree it only switches the manifest branch, so a
+# lineage-23.2 tree moves to $SABLE_Q25_LINEAGE_BRANCH and keeps its downloaded objects.
+sable_log "repo init $SABLE_Q25_LINEAGE_MANIFEST_URL -b $SABLE_Q25_LINEAGE_BRANCH"
+"$SABLE_REPO_TOOL" init \
+    -u "$SABLE_Q25_LINEAGE_MANIFEST_URL" \
+    -b "$SABLE_Q25_LINEAGE_BRANCH" \
+    --git-lfs \
+    --no-clone-bundle
 
 mkdir -p .repo/local_manifests
 install -m 0644 "$SABLE_REPO_ROOT/manifests/local_manifests/sable_q25.xml" .repo/local_manifests/sable_q25.xml

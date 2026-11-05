@@ -889,6 +889,11 @@ all_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_BUILD_ROOT=/nonexistent/sable b
 tree_t="$(mktemp -d)"
 mkdir -p "$tree_t/.repo" "$tree_t/build" "$tree_t/device/xelex/Q25" "$tree_t/device/xelex/mt6789-common" "$tree_t/vendor/xelex/mt6789-common" "$tree_t/kernel/xelex/mt6789" "$tree_t/hardware/mediatek" "$tree_t/device/mediatek/sepolicy_vndr" "$tree_t/vendor/xelex/Q25"
 touch "$tree_t/build/envsetup.sh"
+git init -q "$tree_t/.repo/manifests"
+git -C "$tree_t/.repo/manifests" config branch.default.merge refs/heads/lineage-23.2
+boot_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_ANDROID_ROOT="$tree_t" bash build/sable.sh q25 bootstrap 2>&1 || true)"
+[[ "$boot_out" == *"follows lineage-23.2, not lineage-24.0"* && "$boot_out" != *"not downloading again"* ]] && pass "bootstrap moves a lineage-23.2 tree to 24.0" || fail "bootstrap keeps a lineage-23.2 tree"
+git -C "$tree_t/.repo/manifests" config branch.default.merge refs/heads/lineage-24.0
 boot_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_ANDROID_ROOT="$tree_t" bash build/sable.sh q25 bootstrap 2>&1 || true)"
 [[ "$boot_out" == *"not downloading again"* ]] && pass "bootstrap skips a finished download" || fail "bootstrap re-downloads"
 rm -rf "$tree_t"
