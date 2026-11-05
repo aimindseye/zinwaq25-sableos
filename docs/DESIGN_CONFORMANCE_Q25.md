@@ -12,7 +12,7 @@ Status words: **Done in code** (built and unit-tested, not yet seen on a device)
 |---|---|
 | Lock screen PIN | Typing works wherever focus is. W E R S D F Z X C type 1 to 9, 0 types 0, Enter unlocks. |
 | LineageOS leftovers | No LineageOS features step or wording in setup; Launcher3 settings and search provider hidden; LineageOS Updater replaced. |
-| Settings > Sable | Holds Sable Setup only. |
+| Settings > Sable | One list after BlackBerry 10's settings list: Setup, Display, Home screen, Home style, Hub, Attention, Lock screen, Keyboard, Diagnostics (Settings 1604). |
 | Keyboard light | Settings shows a note instead of controls: the PaBaLF firmware runs the light itself (Sym+0, Sym+Shift+1 to 9). |
 
 ## Reviewed on a Q25 (PR #28 image, 2026-10-22) and fixed in PR #32, not yet on a device

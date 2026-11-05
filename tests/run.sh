@@ -756,7 +756,7 @@ grep -q 'PLATFORM_ENFORCEMENT = Enforcement.NOT_ENFORCED' patches/framework/pack
 if [[ -z "$missing" ]]; then pass "Mobile Manager actions, Focus receiver and App lock status"; else fail "Mobile Manager:$missing"; fi
 
 # Display and App info (Settings patch 1001) open the action App display compatibility declares;
-# Settings > Sable (1103) opens Sable Setup's launcher activity and nothing else.
+# Settings > Sable (1103) opens Sable Setup's launcher activity; 1604 adds the rest of the list.
 sable_links=(patches/framework/packages/apps/Settings/1001-*.patch)
 missing=""
 action=org.sableos.titan2.displaycompat.action.APP_PROFILE
@@ -771,6 +771,18 @@ grep -q '<category android:name="android.intent.category.LAUNCHER" />' \
     sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml || missing="$missing app:setup-launcher"
 grep -q '^+        android:key="sable_setup"' "${setup_page[@]}" &&
     grep -q '^-        android:key="sable_hub"' "${setup_page[@]}" || missing="$missing settings:setup-row-only"
+# Settings > Sable as one list (1604): its Start and Hub rows open actions those apps declare.
+sable_page=(patches/framework/packages/apps/Settings/1604-*.patch)
+for action in org.sableos.start.action.EDIT_HOME org.sableos.start.action.CHOOSE_HOME_STYLE; do
+    grep -q "\"$action\"" "${sable_page[@]}" || missing="$missing settings:$action"
+    grep -q "<action android:name=\"$action\" />" sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml ||
+        missing="$missing start:$action"
+done
+for action in org.sableos.hub.action.CONNECTED_APPS org.sableos.hub.action.ATTENTION_SETTINGS; do
+    grep -q "\"$action\"" "${sable_page[@]}" || missing="$missing settings:$action"
+    grep -q "<action android:name=\"$action\" />" sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml ||
+        missing="$missing hub:$action"
+done
 if [[ -z "$missing" ]]; then pass "Settings Sable entries land on actions the Sable apps declare"; else fail "Sable entry actions missing:$missing"; fi
 
 # 6h. Stock app keyboard model (Files, Photos, Browser patches 1001-1099): the pure sable/

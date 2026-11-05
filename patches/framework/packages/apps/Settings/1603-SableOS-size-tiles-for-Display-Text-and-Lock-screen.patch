@@ -21,15 +21,15 @@ set elsewhere selects no tile and is named as custom. Pure steps in
 sable/SableSizes.
 ---
  res/layout/sable_size_tiles_preference.xml    |  36 +++++
- res/values/strings_sable_sizes.xml            |  31 ++++
+ res/values/strings_sable_sizes.xml            |  37 +++++
  res/values/strings_sable_text_size.xml        |   7 -
  res/xml/display_settings.xml                  |  23 ++-
- .../SableDisplaySizePreferenceController.java | 114 +++++++++++++++
- ...bleLockScreenSizePreferenceController.java |  81 +++++++++++
- .../sable/SableSizeTilesPreference.java       | 132 ++++++++++++++++++
+ .../SableDisplaySizePreferenceController.java | 116 +++++++++++++++
+ ...bleLockScreenSizePreferenceController.java |  85 +++++++++++
+ .../sable/SableSizeTilesPreference.java       | 134 ++++++++++++++++++
  .../android/settings/sable/SableSizes.java    |  84 +++++++++++
- .../SableTextSizePreferenceController.java    |  27 ++--
- 9 files changed, 510 insertions(+), 25 deletions(-)
+ .../SableTextSizePreferenceController.java    |  30 ++--
+ 9 files changed, 527 insertions(+), 25 deletions(-)
 
 diff --git a/res/layout/sable_size_tiles_preference.xml b/res/layout/sable_size_tiles_preference.xml
 new file mode 100644
@@ -75,10 +75,10 @@ index 0000000..a3ffb8a
 +</LinearLayout>
 diff --git a/res/values/strings_sable_sizes.xml b/res/values/strings_sable_sizes.xml
 new file mode 100644
-index 0000000..263f5fa
+index 0000000..df676ce
 --- /dev/null
 +++ b/res/values/strings_sable_sizes.xml
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,37 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!--
 +     Copyright (C) 2026 The SableOS Project
@@ -90,7 +90,11 @@ index 0000000..263f5fa
 +    <!-- Spoken for the chosen tile, e.g. "Large, selected". -->
 +    <string name="sable_size_tile_chosen"><xliff:g id="size" example="Large">%1$s</xliff:g>, selected</string>
 +
++    <!-- Under a size row: the chosen size, then what the setting changes. -->
++    <string name="sable_size_summary"><xliff:g id="size" example="Large">%1$s</xliff:g> · <xliff:g id="what" example="PIN pad and lock screen text">%2$s</xliff:g></string>
++
 +    <string name="sable_display_size_title">Display size</string>
++    <string name="sable_display_size_hint">Everything on screen</string>
 +    <string name="sable_display_size_keywords">display size, screen size, zoom, density, bigger, smaller</string>
 +    <string name="sable_display_size_custom">Custom, set in Display size and text</string>
 +    <string-array name="sable_display_size_entries" translatable="true">
@@ -102,6 +106,8 @@ index 0000000..263f5fa
 +    </string-array>
 +
 +    <string name="sable_lock_screen_size_title">Lock screen size</string>
++    <string name="sable_lock_screen_size_hint">PIN pad and lock screen text</string>
++    <string name="sable_text_size_hint">Text in apps and Settings</string>
 +    <string name="sable_lock_screen_size_keywords">lock screen size, PIN pad, PIN keys, bigger keys</string>
 +    <string-array name="sable_lock_screen_size_entries" translatable="true">
 +        <item>Small</item>
@@ -169,10 +175,10 @@ index 758da9c..a9f19e8 100644
              android:key="text_reading_options"
 diff --git a/src/com/android/settings/sable/SableDisplaySizePreferenceController.java b/src/com/android/settings/sable/SableDisplaySizePreferenceController.java
 new file mode 100644
-index 0000000..ad24f27
+index 0000000..aaeb6ed
 --- /dev/null
 +++ b/src/com/android/settings/sable/SableDisplaySizePreferenceController.java
-@@ -0,0 +1,114 @@
+@@ -0,0 +1,116 @@
 +/*
 + * Copyright (C) 2026 The SableOS Project
 + *
@@ -234,7 +240,8 @@ index 0000000..ad24f27
 +        int index = SableSizes.displayIndexOf(initialDensity(), baseDensity());
 +        tiles.setSelectedIndex(index);
 +        tiles.setSummary(index >= 0
-+                ? tiles.getSelectedName()
++                ? mContext.getString(R.string.sable_size_summary, tiles.getSelectedName(),
++                        mContext.getString(R.string.sable_display_size_hint))
 +                : mContext.getString(R.string.sable_display_size_custom));
 +    }
 +
@@ -264,7 +271,8 @@ index 0000000..ad24f27
 +        });
 +        if (preference instanceof SableSizeTilesPreference) {
 +            SableSizeTilesPreference tiles = (SableSizeTilesPreference) preference;
-+            preference.setSummary(tiles.getNames()[index]);
++            preference.setSummary(mContext.getString(R.string.sable_size_summary,
++                    tiles.getNames()[index], mContext.getString(R.string.sable_display_size_hint)));
 +        }
 +        return true;
 +    }
@@ -289,10 +297,10 @@ index 0000000..ad24f27
 +}
 diff --git a/src/com/android/settings/sable/SableLockScreenSizePreferenceController.java b/src/com/android/settings/sable/SableLockScreenSizePreferenceController.java
 new file mode 100644
-index 0000000..75ba340
+index 0000000..bd3b360
 --- /dev/null
 +++ b/src/com/android/settings/sable/SableLockScreenSizePreferenceController.java
-@@ -0,0 +1,81 @@
+@@ -0,0 +1,85 @@
 +/*
 + * Copyright (C) 2026 The SableOS Project
 + *
@@ -317,6 +325,7 @@ index 0000000..75ba340
 +
 +import androidx.preference.Preference;
 +
++import com.android.settings.R;
 +import com.android.settings.core.BasePreferenceController;
 +
 +/**
@@ -348,7 +357,8 @@ index 0000000..75ba340
 +        tiles.setSelectedIndex(SableSizes.lockLevel(Settings.Secure.getInt(
 +                mContext.getContentResolver(), SableSizes.LOCK_SETTING,
 +                SableSizes.LOCK_DEFAULT_LEVEL)));
-+        tiles.setSummary(tiles.getSelectedName());
++        tiles.setSummary(mContext.getString(R.string.sable_size_summary, tiles.getSelectedName(),
++                mContext.getString(R.string.sable_lock_screen_size_hint)));
 +    }
 +
 +    @Override
@@ -369,17 +379,19 @@ index 0000000..75ba340
 +            stored = false;
 +        }
 +        if (stored && preference instanceof SableSizeTilesPreference) {
-+            preference.setSummary(((SableSizeTilesPreference) preference).getNames()[level]);
++            preference.setSummary(mContext.getString(R.string.sable_size_summary,
++                    ((SableSizeTilesPreference) preference).getNames()[level],
++                    mContext.getString(R.string.sable_lock_screen_size_hint)));
 +        }
 +        return stored;
 +    }
 +}
 diff --git a/src/com/android/settings/sable/SableSizeTilesPreference.java b/src/com/android/settings/sable/SableSizeTilesPreference.java
 new file mode 100644
-index 0000000..5ebe5c8
+index 0000000..27a8efc
 --- /dev/null
 +++ b/src/com/android/settings/sable/SableSizeTilesPreference.java
-@@ -0,0 +1,132 @@
+@@ -0,0 +1,134 @@
 +/*
 + * Copyright (C) 2026 The SableOS Project
 + *
@@ -417,7 +429,7 @@ index 0000000..5ebe5c8
 +/**
 + * A row of "A" tiles, small to large, for one size choice (BB10's size picker). Each tile can be
 + * focused with the trackpad or arrow keys and chosen with Enter, Space or a tap; the chosen tile is
-+ * filled with the accent. The tile names come from {@code android:entries}; the change listener
++ * filled solid with the accent. The tile names come from {@code android:entries}; the change listener
 + * receives the chosen index as an Integer and the controller writes the setting.
 + */
 +public class SableSizeTilesPreference extends Preference {
@@ -468,6 +480,7 @@ index 0000000..5ebe5c8
 +        float density = context.getResources().getDisplayMetrics().density;
 +        int accent = color(context, android.R.attr.colorAccent);
 +        int outline = color(context, android.R.attr.textColorSecondary);
++        int onAccent = color(context, android.R.attr.textColorPrimaryInverse);
 +        int count = mNames.length;
 +        for (int i = 0; i < count; i++) {
 +            final int index = i;
@@ -476,13 +489,14 @@ index 0000000..5ebe5c8
 +            tile.setText(R.string.sable_size_tile_glyph);
 +            tile.setGravity(Gravity.CENTER);
 +            tile.setTextSize(TypedValue.COMPLEX_UNIT_SP, SableSizes.tileTextSp(i, count));
-+            tile.setTextColor(chosen ? accent : outline);
++            tile.setTextColor(chosen ? onAccent : outline);
 +            tile.setIncludeFontPadding(false);
 +            GradientDrawable shape = new GradientDrawable();
 +            shape.setCornerRadius(8 * density);
 +            shape.setStroke(Math.round((chosen ? 2 : 1) * density),
 +                    ColorStateList.valueOf(chosen ? accent : outline));
-+            shape.setColor((accent & 0x00FFFFFF) | (chosen ? 0x33000000 : 0));
++            // The chosen tile is filled solid, as on BB10, so it reads at arm's length.
++            shape.setColor(chosen ? accent : 0);
 +            tile.setBackground(shape);
 +            tile.setFocusable(true);
 +            tile.setClickable(true);
@@ -603,7 +617,7 @@ index 0000000..9d44e4b
 +    }
 +}
 diff --git a/src/com/android/settings/sable/SableTextSizePreferenceController.java b/src/com/android/settings/sable/SableTextSizePreferenceController.java
-index ccdb5d5..9cf3e57 100644
+index ccdb5d5..73a43b8 100644
 --- a/src/com/android/settings/sable/SableTextSizePreferenceController.java
 +++ b/src/com/android/settings/sable/SableTextSizePreferenceController.java
 @@ -20,7 +20,6 @@ import android.content.Context;
@@ -626,7 +640,7 @@ index ccdb5d5..9cf3e57 100644
   */
  public class SableTextSizePreferenceController extends BasePreferenceController
          implements Preference.OnPreferenceChangeListener {
-@@ -49,31 +49,28 @@ public class SableTextSizePreferenceController extends BasePreferenceController
+@@ -49,31 +49,29 @@ public class SableTextSizePreferenceController extends BasePreferenceController
      @Override
      public void updateState(Preference preference) {
          super.updateState(preference);
@@ -643,7 +657,8 @@ index ccdb5d5..9cf3e57 100644
          if (index >= 0) {
 -            list.setValue(String.valueOf(index));
 -            list.setSummary(list.getEntry());
-+            tiles.setSummary(tiles.getSelectedName());
++            tiles.setSummary(mContext.getString(R.string.sable_size_summary,
++                    tiles.getSelectedName(), mContext.getString(R.string.sable_text_size_hint)));
          } else {
 -            list.setValue(null);
 -            list.setSummary(mContext.getString(R.string.sable_text_size_custom,
@@ -665,14 +680,16 @@ index ccdb5d5..9cf3e57 100644
          if (index < 0 || index >= SableTextSize.SCALES.length) {
              return false;
          }
-@@ -85,8 +82,8 @@ public class SableTextSizePreferenceController extends BasePreferenceController
+@@ -85,8 +83,10 @@ public class SableTextSizePreferenceController extends BasePreferenceController
              Log.w(TAG, "could not set the text size", e);
              stored = false;
          }
 -        if (stored && preference instanceof ListPreference) {
 -            preference.setSummary(((ListPreference) preference).getEntries()[index]);
 +        if (stored && preference instanceof SableSizeTilesPreference) {
-+            preference.setSummary(((SableSizeTilesPreference) preference).getNames()[index]);
++            preference.setSummary(mContext.getString(R.string.sable_size_summary,
++                    ((SableSizeTilesPreference) preference).getNames()[index],
++                    mContext.getString(R.string.sable_text_size_hint)));
          }
          return stored;
      }
