@@ -18,6 +18,7 @@
     <application
         android:name="org.sableos.titan2.compass.CompassApplication"
         android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_sable_compass"
         android:roundIcon="@mipmap/ic_sable_compass_round"
         android:label="@string/app_name"
