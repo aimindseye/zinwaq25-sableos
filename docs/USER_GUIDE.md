@@ -23,7 +23,7 @@ Installing erases the phone. Back up first, and keep the stock firmware package.
 
 ### First-boot setup and Sable Setup
 
-The first-boot setup walks through language, Wi-Fi, theme and Weather city. Every step fits the square screen with Next on screen. Sable Setup opens next, and later from Settings > Sable Setup. Its first rows are the choices most people change:
+The first-boot setup walks through language, Wi-Fi, theme, Sable apps and Weather city. The Sable apps step offers Full Sable (every Sable app), Essentials (Start, Keyboard, Hub, Messages, Camera, Tools, Vault and Setup) or Stock Android (the standard Android app wherever the phone has one, such as its Camera and Browser). Apps left out are turned off, not uninstalled: Settings > Apps > See all apps > the app > Enable brings one back. Every step fits the square screen with Next on screen. Sable Setup opens next, and later from Settings > Sable Setup. Its first rows are the choices most people change:
 
 | Setup row | Default | What it does |
 | --- | --- | --- |

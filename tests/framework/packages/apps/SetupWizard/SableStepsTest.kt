@@ -17,7 +17,8 @@ class SableStepsTest {
         val order = listOf(
             "WelcomeActivity" to 1, "LocaleActivity" to 2, "SableKeyboardActivity" to 2,
             "SableKeyboardTestActivity" to 2, "SimMissingActivity" to 3, "NetworkSetupActivity" to 3,
-            "SablePrivacyActivity" to 4, "ThemeSettingsActivity" to 5, "DateTimeActivity" to 6,
+            "SablePrivacyActivity" to 4, "ThemeSettingsActivity" to 5, "SableAppsActivity" to 5,
+            "DateTimeActivity" to 6,
             "RestoreIntroActivity" to 6, "LocationSettingsActivity" to 6, "UpdateRecoveryActivity" to 6,
             "BiometricActivity" to 7, "ScreenLockActivity" to 7, "NavigationSettingsActivity" to 7,
             "FinishActivity" to 8,

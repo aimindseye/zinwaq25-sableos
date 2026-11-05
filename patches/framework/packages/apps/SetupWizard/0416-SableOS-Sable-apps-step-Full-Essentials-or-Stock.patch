@@ -1,0 +1,525 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 5 Nov 2026 14:00:00 +0000
+Subject: [PATCH] SableOS: Sable apps step, Full, Essentials or Stock
+
+Plan phase C, optional Sable apps: a step after Theme (shown as part of
+step 5, so the count stays at 8) offers Full Sable, Essentials or Stock
+Android. Next disables the apps left out for this user with
+COMPONENT_ENABLED_STATE_DISABLED_USER, never uninstalls anything, and
+remembers the choice in Settings.Secure sable_app_set; Settings, Apps,
+Enable brings any app back, and Full Sable turns every Sable app on.
+
+* Essentials is the owner's set: Keyboard, Start, Setup, Tools, Hub,
+  Messages, Camera and Vault.
+* Stock Android turns a Sable app off when it has no LineageOS
+  counterpart or its counterpart is installed, so Sable Messages stays
+  on while the image has no other SMS app.
+* A LineageOS app is never disabled: where a Sable app goes off, its
+  installed counterpart (Messaging, Etar, Twelve, ExactCalculator,
+  Aperture, Jelly) is turned on.
+* Start, Keyboard, Setup, Display Compat, the speech engine and the
+  screen reader are never turned off.
+* The Ready screen's bar line now matches Start's dots-only bottom row
+  and names Alt+Space.
+
+Pure policy: sable/SableAppSet.java.
+---
+ app/src/main/AndroidManifest.xml                                |  14 +++
+ .../main/java/org/lineageos/setupwizard/SableAppsActivity.java  | 105 +++++++++++++++++
+ .../main/java/org/lineageos/setupwizard/sable/SableAppSet.java  | 171 ++++++++++++++++++++++++++++
+ .../main/java/org/lineageos/setupwizard/sable/SableSteps.java   |   1 +
+ app/src/main/res/drawable/ic_sable_apps.xml                     |  15 +++
+ app/src/main/res/layout/sable_apps_page.xml                     |  70 ++++++++++++
+ app/src/main/res/raw/lineage_wizard_script.xml                  |   7 ++
+ app/src/main/res/raw/lineage_wizard_script_user.xml             |   7 ++
+ app/src/main/res/values/sable_strings.xml                       |  11 +-
+ 9 files changed, 400 insertions(+), 1 deletion(-)
+
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 04a6b82..49f3e78 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -176,6 +176,20 @@
+             </intent-filter>
+         </activity>
+ 
++        <!-- SableOS: Full Sable, Essentials or Stock Android, after Theme. -->
++        <activity
++            android:name=".SableAppsActivity"
++            android:label="@string/activity_label_empty"
++            android:configChanges="mcc|mnc|keyboard|keyboardHidden"
++            android:immersive="true"
++            android:exported="false"
++            android:windowSoftInputMode="stateAlwaysHidden">
++            <intent-filter>
++                <action android:name="org.sableos.setupwizard.SABLE_APPS" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
+         <!-- SableOS: privacy summary step after Wi-Fi. -->
+         <activity
+             android:name=".SablePrivacyActivity"
+diff --git a/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java b/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java
+new file mode 100644
+index 0000000..3ebadf5
+--- /dev/null
++++ b/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java
+@@ -0,0 +1,105 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard;
++
++import android.annotation.Nullable;
++import android.content.pm.PackageManager;
++import android.os.Bundle;
++import android.provider.Settings;
++import android.util.Log;
++import android.widget.RadioGroup;
++
++import org.lineageos.setupwizard.base.BaseSetupWizardActivity;
++import org.lineageos.setupwizard.sable.SableAppSet;
++
++import java.util.HashSet;
++import java.util.Map;
++import java.util.Set;
++
++/**
++ * SableOS Sable apps step, after Theme: Full Sable, Essentials or Stock Android
++ * ({@link SableAppSet}). Apps left out are disabled for this user, never uninstalled, and come
++ * back from Settings, Apps. Next applies the choice; the step shows the last choice when
++ * revisited, and choosing Full Sable again turns every Sable app back on.
++ */
++public class SableAppsActivity extends BaseSetupWizardActivity {
++    private static final String TAG = "SableApps";
++    private static final int[] IDS = {
++        R.id.sable_apps_full, R.id.sable_apps_essentials, R.id.sable_apps_stock,
++    };
++
++    private RadioGroup group;
++
++    @Override
++    protected void onCreate(@Nullable Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        getGlifLayout().setDescriptionText(getString(R.string.sable_apps_summary));
++        group = findViewById(R.id.sable_apps_group);
++        final int stored = SableAppSet.choiceOf(
++                Settings.Secure.getString(getContentResolver(), SableAppSet.SETTING));
++        group.check(IDS[stored]);
++        setNextAllowed(true);
++    }
++
++    @Override
++    protected void onNextPressed() {
++        final int choice = choiceChecked();
++        Settings.Secure.putString(getContentResolver(), SableAppSet.SETTING,
++                SableAppSet.storedValueOf(choice));
++        final PackageManager pm = getPackageManager();
++        new Thread(() -> apply(pm, choice), "SableApps").start();
++        super.onNextPressed();
++    }
++
++    private int choiceChecked() {
++        final int checked = group.getCheckedRadioButtonId();
++        for (int i = 0; i < IDS.length; i++) {
++            if (IDS[i] == checked) return i;
++        }
++        return SableAppSet.FULL;
++    }
++
++    /** Disables or re-enables each installed app for this user; never uninstalls anything. */
++    private static void apply(PackageManager pm, int choice) {
++        final Map<String, Boolean> plan = SableAppSet.plan(choice, installed(pm));
++        for (Map.Entry<String, Boolean> entry : plan.entrySet()) {
++            final int state = entry.getValue()
++                    ? PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
++                    : PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER;
++            try {
++                if (pm.getApplicationEnabledSetting(entry.getKey()) != state) {
++                    pm.setApplicationEnabledSetting(entry.getKey(), state, 0);
++                }
++            } catch (IllegalArgumentException | SecurityException e) {
++                Log.w(TAG, "could not change " + entry.getKey(), e);
++            }
++        }
++    }
++
++    private static Set<String> installed(PackageManager pm) {
++        final Set<String> names = new HashSet<>();
++        for (android.content.pm.ApplicationInfo info : pm.getInstalledApplications(
++                PackageManager.MATCH_DISABLED_COMPONENTS)) {
++            names.add(info.packageName);
++        }
++        return names;
++    }
++
++    @Override
++    protected int getLayoutResId() {
++        return R.layout.sable_apps_page;
++    }
++
++    @Override
++    protected int getTitleResId() {
++        return R.string.setup_sable_apps;
++    }
++
++    @Override
++    protected int getIconResId() {
++        return R.drawable.ic_sable_apps;
++    }
++}
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java
+new file mode 100644
+index 0000000..53fbd7d
+--- /dev/null
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java
+@@ -0,0 +1,171 @@
++/*
++ * SPDX-FileCopyrightText: The SableOS Project
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package org.lineageos.setupwizard.sable;
++
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.LinkedHashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.Set;
++
++/**
++ * Which apps the Sable apps step leaves on: Full Sable, Essentials or Stock Android. Pure Java.
++ *
++ * <p>Apps are only ever disabled for the user, never uninstalled, and Settings, Apps brings any
++ * of them back. A LineageOS app is never disabled here: Full Sable leaves the stock apps as they
++ * are, and Essentials and Stock Android turn a stock app back on where the Sable app it stands in
++ * for is turned off.
++ *
++ * <ul>
++ *   <li><b>Full Sable</b>: every Sable app on.
++ *   <li><b>Essentials</b>: Keyboard, Start, Setup, Tools, Hub, Messages, Camera and Vault; the
++ *       other Sable apps off.
++ *   <li><b>Stock Android</b>: the LineageOS app where the phone has one; a Sable app is turned
++ *       off when it has no stock counterpart or its counterpart is installed, so Messages stays
++ *       on when the image has no other SMS app.
++ * </ul>
++ *
++ * <p>Start (the home screen), Keyboard (the Q25 keyboard's input method), Setup, Display Compat
++ * and the speech engine and screen reader are never turned off by this step.
++ */
++public final class SableAppSet {
++    public static final int FULL = 0;
++    public static final int ESSENTIALS = 1;
++    public static final int STOCK = 2;
++
++    /** Settings.Secure key that remembers the choice, so the step shows it when revisited. */
++    public static final String SETTING = "sable_app_set";
++
++    /** Never turned off: home, input, setup itself, display compatibility and accessibility. */
++    public static final Set<String> ALWAYS = set(
++            "org.sableos.launcher",
++            "org.sableos.titan2.keyboard",
++            "org.sableos.titan2.setup",
++            "org.sableos.titan2.displaycompat",
++            "org.sableos.speech",
++            "org.sableos.textreader");
++
++    /** The Essentials set (owner decision): Keyboard, Start, Setup, Tools, Hub, Messages, Camera, Vault. */
++    public static final Set<String> ESSENTIAL = set(
++            "org.sableos.launcher",
++            "org.sableos.titan2.keyboard",
++            "org.sableos.titan2.setup",
++            "org.sableos.tools",
++            "org.sableos.hub",
++            "org.sableos.messages",
++            "org.sableos.titan2.camera",
++            "org.sableos.titan2.vault");
++
++    /** Every other Sable app the image may hold. */
++    public static final List<String> OPTIONAL = Collections.unmodifiableList(Arrays.asList(
++            "org.sableos.titan2.profiles",
++            "org.sableos.titan2.spaces",
++            "org.sableos.titan2.printtogo",
++            "org.sableos.titan2.compass",
++            "org.sableos.titan2.radiodiag",
++            "org.sableos.calculator",
++            "org.sableos.sudoku",
++            "org.sableos.minesweeper",
++            "org.sableos.game2048",
++            "org.sableos.bricks",
++            "org.sableos.snake",
++            "org.sableos.blocks",
++            "org.sableos.reversi",
++            "org.sableos.solitaire",
++            "org.sableos.mahjong",
++            "org.sableos.words",
++            "org.sableos.media",
++            "org.sableos.weather",
++            "org.sableos.calendar",
++            "org.sableos.notes",
++            "org.sableos.tasks",
++            "org.sableos.browser",
++            "org.sableos.reader",
++            "org.sableos.mail",
++            "org.sableos.terminal"));
++
++    /** The LineageOS apps a Sable app stands in for. */
++    private static final Map<String, List<String>> STOCK_TWINS;
++
++    static {
++        final Map<String, List<String>> m = new LinkedHashMap<>();
++        m.put("org.sableos.messages", Collections.singletonList("com.android.messaging"));
++        m.put("org.sableos.calendar", Collections.singletonList("org.lineageos.etar"));
++        m.put("org.sableos.media", Collections.singletonList("org.lineageos.twelve"));
++        m.put("org.sableos.calculator", Collections.singletonList("com.android.calculator2"));
++        m.put("org.sableos.titan2.camera", Collections.singletonList("org.lineageos.aperture"));
++        m.put("org.sableos.browser", Collections.singletonList("org.lineageos.jelly"));
++        STOCK_TWINS = Collections.unmodifiableMap(m);
++    }
++
++    private SableAppSet() {}
++
++    /** The stock apps that stand in for {@code sablePackage}, possibly none. */
++    public static List<String> twinsOf(String sablePackage) {
++        final List<String> twins = STOCK_TWINS.get(sablePackage);
++        return twins == null ? Collections.<String>emptyList() : twins;
++    }
++
++    /**
++     * @param choice {@link #FULL}, {@link #ESSENTIALS} or {@link #STOCK}
++     * @param installed the packages installed for the user (enabled or not)
++     * @return package to on (true) or off (false), in a stable order, for installed packages only;
++     *     a package missing from the map is left as it is
++     */
++    public static Map<String, Boolean> plan(int choice, Set<String> installed) {
++        final Map<String, Boolean> plan = new LinkedHashMap<>();
++        for (String app : sableApps()) {
++            if (!installed.contains(app)) continue;
++            final boolean on = keepsOn(choice, app, installed);
++            plan.put(app, on);
++            if (!on) {
++                // Its stock counterpart takes over, so it must be on.
++                for (String twin : twinsOf(app)) {
++                    if (installed.contains(twin)) plan.put(twin, true);
++                }
++            }
++        }
++        return plan;
++    }
++
++    /** A remembered choice, or Full Sable for a missing or unknown value. */
++    public static int choiceOf(String stored) {
++        if ("essentials".equals(stored)) return ESSENTIALS;
++        if ("stock".equals(stored)) return STOCK;
++        return FULL;
++    }
++
++    /** The value stored for a choice. */
++    public static String storedValueOf(int choice) {
++        if (choice == ESSENTIALS) return "essentials";
++        if (choice == STOCK) return "stock";
++        return "full";
++    }
++
++    private static boolean keepsOn(int choice, String app, Set<String> installed) {
++        if (ALWAYS.contains(app) || choice == FULL) return true;
++        if (choice == ESSENTIALS) return ESSENTIAL.contains(app);
++        // Stock Android: off unless the app stands in for stock apps the phone does not have.
++        final List<String> twins = twinsOf(app);
++        if (twins.isEmpty()) return false;
++        for (String twin : twins) {
++            if (installed.contains(twin)) return false;
++        }
++        return true;
++    }
++
++    private static List<String> sableApps() {
++        final List<String> all = new java.util.ArrayList<>(ESSENTIAL);
++        for (String app : ALWAYS) if (!all.contains(app)) all.add(app);
++        all.addAll(OPTIONAL);
++        return all;
++    }
++
++    private static Set<String> set(String... packages) {
++        return Collections.unmodifiableSet(new java.util.LinkedHashSet<>(Arrays.asList(packages)));
++    }
++}
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableSteps.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableSteps.java
+index 42a78f3..d2a20a9 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/sable/SableSteps.java
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableSteps.java
+@@ -43,6 +43,7 @@ public final class SableSteps {
+         m.put("NetworkSetupActivity", WIFI);
+         m.put("SablePrivacyActivity", PRIVACY);
+         m.put("ThemeSettingsActivity", THEME);
++        m.put("SableAppsActivity", THEME);
+         m.put("DateTimeActivity", DEVICE);
+         m.put("RestoreIntroActivity", DEVICE);
+         m.put("LocationSettingsActivity", DEVICE);
+diff --git a/app/src/main/res/drawable/ic_sable_apps.xml b/app/src/main/res/drawable/ic_sable_apps.xml
+new file mode 100644
+index 0000000..642bb39
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_sable_apps.xml
+@@ -0,0 +1,15 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <!-- Nine squares: the app grid. -->
++    <path
++        android:fillColor="#FFFFFFFF"
++        android:pathData="M4,4h4v4H4zM10,4h4v4h-4zM16,4h4v4h-4zM4,10h4v4H4zM10,10h4v4h-4zM16,10h4v4h-4zM4,16h4v4H4zM10,16h4v4h-4zM16,16h4v4h-4z" />
++</vector>
+diff --git a/app/src/main/res/layout/sable_apps_page.xml b/app/src/main/res/layout/sable_apps_page.xml
+new file mode 100644
+index 0000000..d7aee0f
+--- /dev/null
++++ b/app/src/main/res/layout/sable_apps_page.xml
+@@ -0,0 +1,70 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     SPDX-FileCopyrightText: The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<com.google.android.setupdesign.GlifLayout
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/setup_wizard_layout"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent">
++
++    <LinearLayout
++        android:orientation="vertical"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        style="@style/SudContentFrame">
++
++        <ScrollView
++            android:id="@+id/page"
++            android:layout_width="match_parent"
++            android:layout_height="0dp"
++            android:layout_weight="1">
++
++            <LinearLayout
++                android:orientation="vertical"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content">
++
++                <!-- Each choice says what it keeps, so arrow keys read the choice and its
++                     effect together. -->
++                <RadioGroup
++                    android:id="@+id/sable_apps_group"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:orientation="vertical">
++
++                    <RadioButton
++                        android:id="@+id/sable_apps_full"
++                        android:layout_width="match_parent"
++                        android:layout_height="wrap_content"
++                        android:minHeight="48dp"
++                        android:paddingVertical="8dp"
++                        android:text="@string/sable_apps_full" />
++
++                    <RadioButton
++                        android:id="@+id/sable_apps_essentials"
++                        android:layout_width="match_parent"
++                        android:layout_height="wrap_content"
++                        android:minHeight="48dp"
++                        android:paddingVertical="8dp"
++                        android:text="@string/sable_apps_essentials" />
++
++                    <RadioButton
++                        android:id="@+id/sable_apps_stock"
++                        android:layout_width="match_parent"
++                        android:layout_height="wrap_content"
++                        android:minHeight="48dp"
++                        android:paddingVertical="8dp"
++                        android:text="@string/sable_apps_stock" />
++
++                </RadioGroup>
++
++                <TextView
++                    style="@style/SableSetupCard"
++                    android:text="@string/sable_apps_note" />
++
++            </LinearLayout>
++        </ScrollView>
++    </LinearLayout>
++</com.google.android.setupdesign.GlifLayout>
+diff --git a/app/src/main/res/raw/lineage_wizard_script.xml b/app/src/main/res/raw/lineage_wizard_script.xml
+index 63ce269..e8ad6e3 100644
+--- a/app/src/main/res/raw/lineage_wizard_script.xml
++++ b/app/src/main/res/raw/lineage_wizard_script.xml
+@@ -65,6 +65,13 @@
+     <WizardAction
+         id="theme_settings"
+         wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.THEME_SETTINGS;end">
++        <result wizard:action="sable_apps" />
++    </WizardAction>
++
++    <!-- SableOS: Full Sable, Essentials or Stock Android (apps left out are disabled). -->
++    <WizardAction
++        id="sable_apps"
++        wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_APPS;end">
+         <result wizard:action="datetime" />
+     </WizardAction>
+ 
+diff --git a/app/src/main/res/raw/lineage_wizard_script_user.xml b/app/src/main/res/raw/lineage_wizard_script_user.xml
+index 817706c..e7dca8a 100644
+--- a/app/src/main/res/raw/lineage_wizard_script_user.xml
++++ b/app/src/main/res/raw/lineage_wizard_script_user.xml
+@@ -43,6 +43,13 @@
+     <WizardAction
+         id="theme_settings"
+         wizard:uri="intent:#Intent;action=org.lineageos.setupwizard.THEME_SETTINGS;end">
++        <result wizard:action="sable_apps" />
++    </WizardAction>
++
++    <!-- SableOS: Full Sable, Essentials or Stock Android for this user. -->
++    <WizardAction
++        id="sable_apps"
++        wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_APPS;end">
+         <result wizard:action="navigation_settings" />
+     </WizardAction>
+ 
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
+index a494a73..bee5a53 100644
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
+@@ -84,11 +84,20 @@
+         <item>Slate</item>
+     </string-array>
+ 
++    <!-- SableOS Sable apps step (plan phase C), after Theme. Apps left out are disabled, never
++         uninstalled. -->
++    <string name="setup_sable_apps">Sable apps</string>
++    <string name="sable_apps_summary">Choose which apps to keep on. You can change this later.</string>
++    <string name="sable_apps_full"><b>Full Sable</b>\nEvery Sable app: Hub, Messages, Calendar, Notes, Tasks, Weather, Mail, Browser, Media, Compass, Print To Go, games and the rest.</string>
++    <string name="sable_apps_essentials"><b>Essentials</b>\nStart, Keyboard, Hub, Messages, Camera, Tools, Vault and Setup. The other Sable apps are turned off.</string>
++    <string name="sable_apps_stock"><b>Stock Android</b>\nThe standard Android app wherever the phone has one, such as its Camera, Browser or Calendar. Sable apps are turned off except Start, Keyboard and any app the phone has no other choice for.</string>
++    <string name="sable_apps_note">Nothing is uninstalled. To bring an app back, open Settings, Apps, See all apps, choose the app and select Enable. Running setup again and choosing Full Sable turns every Sable app back on.</string>
++
+     <!-- SableOS Ready screen on the final setup page (setup design "Ready to Start"). Sable
+          Start is laid out BlackBerry 10 style: Hub on the left, Active Frames home, app pages
+          on the right. -->
+     <string name="sable_ready_done">Setup complete</string>
+     <string name="sable_ready_title">Ready for Sable Start</string>
+     <string name="sable_ready_home">Home is Sable Start: Active Frames shows your open apps, with Hub to the left and your app grid to the right (Alt+Left / Alt+Right).</string>
+-    <string name="sable_ready_bar">The bar is Hub · page dots · Camera (Alt+1, Alt+2); start typing anywhere to search.</string>
++    <string name="sable_ready_bar">The bottom row shows the page dots. Start typing on the home screen to search, or press Alt+Space in any app.</string>
+ </resources>
+-- 
+2.43.0
+
