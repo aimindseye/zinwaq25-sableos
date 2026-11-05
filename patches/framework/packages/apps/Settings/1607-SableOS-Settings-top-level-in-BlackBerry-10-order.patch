@@ -1,0 +1,303 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 5 Nov 2026 21:30:00 +0000
+Subject: [PATCH] SableOS: Settings top level in BlackBerry 10 order
+
+Owner pick 2026-11-05 (reorder only): the Settings homepage keeps every
+row but lists them in BlackBerry 10 style order.
+
+* Sable comes first, in its own untitled group.
+* Networks and connected devices, then Notifications, Sound and Modes,
+  then Apps, Display, Wallpaper and Keyboard.
+* Security and privacy moves above the device rows, and Accessibility
+  joins it after Emergency.
+* System, Storage, Battery and About close the list, in that order.
+
+Nothing is hidden and search is unchanged. Both the classic and the
+expressive homepage layouts get the same order.
+---
+ res/xml/top_level_settings.xml            | 58 +++++++++++++++++++++++++++--------------------
+ res/xml/top_level_settings_expressive.xml | 63 ++++++++++++++++++++++++++++-----------------------
+ 2 files changed, 68 insertions(+), 53 deletions(-)
+diff --git a/res/xml/top_level_settings.xml b/res/xml/top_level_settings.xml
+index 10a7d35..86d15d4 100644
+--- a/res/xml/top_level_settings.xml
++++ b/res/xml/top_level_settings.xml
+@@ -26,6 +26,25 @@
+         android:layout="@layout/settingslib_untitled_preference_category">
+     </PreferenceCategory>
+ 
++    <!-- SableOS: BlackBerry 10 order (owner pick 2026-11-05, reorder only): Sable first, then
++         Networks, Notifications, Apps, Display, Security and privacy, Accessibility, Device,
++         Storage, Battery and About. Nothing is hidden. -->
++    <PreferenceCategory
++        android:order="-135"
++        android:key="top_level_sable_category"
++        android:layout="@layout/settingslib_expressive_untitled_preference_category">
++        <!-- SableOS: Settings > Sable, one list of the Sable settings (SableSettingsFragment). -->
++        <com.android.settings.widget.HomepagePreference
++            android:fragment="com.android.settings.sable.SableSettingsFragment"
++            android:icon="@drawable/ic_sable_settings_filled"
++            android:key="top_level_sable"
++            android:order="-10"
++            android:title="@string/sable_settings_title"
++            android:summary="@string/sable_settings_summary"
++            settings:highlightableMenuKey="@string/menu_key_sable"
++            settings:controller="com.android.settings.sable.TopLevelSablePreferenceController"/>
++    </PreferenceCategory>
++
+     <PreferenceCategory
+         android:order="-130"
+         android:key="top_level_connectivity_category"
+@@ -59,7 +78,7 @@
+             android:fragment="com.android.settings.applications.AppDashboardFragment"
+             android:icon="@drawable/ic_apps_filled"
+             android:key="top_level_apps"
+-            android:order="-60"
++            android:order="-45"
+             android:title="@string/apps_dashboard_title"
+             android:summary="@string/app_and_notification_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_apps"
+@@ -69,7 +88,7 @@
+             android:fragment="com.android.settings.notification.ConfigureNotificationSettings"
+             android:icon="@drawable/ic_notifications_filled"
+             android:key="top_level_notifications"
+-            android:order="-50"
++            android:order="-60"
+             android:title="@string/configure_notification_settings"
+             android:summary="@string/notification_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_notifications"/>
+@@ -78,7 +97,7 @@
+             android:fragment="com.android.settings.notification.SoundSettings"
+             android:icon="@drawable/ic_volume_up_filled"
+             android:key="top_level_sound"
+-            android:order="-40"
++            android:order="-55"
+             android:title="@string/sound_settings"
+             android:summary="@string/sound_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_sound"/>
+@@ -87,7 +106,7 @@
+             android:fragment="com.android.settings.notification.modes.ZenModesListFragment"
+             android:icon="@*android:drawable/ic_zen_priority_modes"
+             android:key="top_level_priority_modes"
+-            android:order="-35"
++            android:order="-50"
+             android:title="@string/zen_modes_list_title"
+             settings:useAdminDisabledSummary="true"
+             settings:highlightableMenuKey="@string/menu_key_priority_modes"
+@@ -142,7 +161,7 @@
+             android:fragment="com.android.settings.deviceinfo.StorageDashboardFragment"
+             android:icon="@drawable/ic_storage_filled"
+             android:key="top_level_storage"
+-            android:order="-50"
++            android:order="-40"
+             android:title="@string/storage_settings"
+             android:summary="@string/summary_placeholder"
+             settings:highlightableMenuKey="@string/menu_key_storage"
+@@ -162,22 +181,11 @@
+             android:fragment="com.android.settings.system.SystemDashboardFragment"
+             android:icon="@drawable/ic_settings_system_dashboard_filled"
+             android:key="top_level_system"
+-            android:order="-20"
++            android:order="-50"
+             android:title="@string/header_category_system"
+             android:summary="@string/system_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_system"/>
+ 
+-        <!-- SableOS: Settings > Sable, one list of the Sable settings (SableSettingsFragment). -->
+-        <com.android.settings.widget.HomepagePreference
+-            android:fragment="com.android.settings.sable.SableSettingsFragment"
+-            android:icon="@drawable/ic_sable_settings_filled"
+-            android:key="top_level_sable"
+-            android:order="-15"
+-            android:title="@string/sable_settings_title"
+-            android:summary="@string/sable_settings_summary"
+-            settings:highlightableMenuKey="@string/menu_key_sable"
+-            settings:controller="com.android.settings.sable.TopLevelSablePreferenceController"/>
+-
+         <com.android.settings.widget.HomepagePreference
+             android:fragment="com.android.settings.deviceinfo.aboutphone.MyDeviceInfoFragment"
+             android:icon="@drawable/ic_settings_about_device_filled"
+@@ -190,7 +198,7 @@
+     </PreferenceCategory>
+ 
+     <PreferenceCategory
+-        android:order="-100"
++        android:order="-115"
+         android:key="top_level_security_privacy_category"
+         android:layout="@layout/settingslib_expressive_untitled_preference_category">
+         <com.android.settings.widget.HomepagePreference
+@@ -271,22 +279,22 @@
+             android:fragment="com.android.settings.emergency.EmergencyDashboardFragment"
+             settings:isPreferenceVisible="@bool/config_show_emergency_settings"
+             settings:highlightableMenuKey="@string/menu_key_emergency"/>
+-    </PreferenceCategory>
+-
+-    <PreferenceCategory
+-        android:order="100"
+-        android:key="top_level_support_category"
+-        android:layout="@layout/settingslib_expressive_untitled_preference_category">
+ 
+         <com.android.settings.widget.HomepagePreference
+             android:fragment="com.android.settings.accessibility.AccessibilitySettings"
+             android:icon="@drawable/ic_settings_accessibility_filled"
+             android:key="top_level_accessibility"
+-            android:order="-20"
++            android:order="20"
+             android:title="@string/accessibility_settings"
+             android:summary="@string/accessibility_settings_summary"
+             settings:highlightableMenuKey="@string/menu_key_accessibility"
+             settings:controller="com.android.settings.accessibility.TopLevelAccessibilityPreferenceController"/>
++    </PreferenceCategory>
++
++    <PreferenceCategory
++        android:order="100"
++        android:key="top_level_support_category"
++        android:layout="@layout/settingslib_expressive_untitled_preference_category">
+ 
+         <com.android.settings.widget.HomepagePreference
+             android:icon="@drawable/ic_help_filled"
+diff --git a/res/xml/top_level_settings_expressive.xml b/res/xml/top_level_settings_expressive.xml
+index 1bdc40c..7c4a931 100644
+--- a/res/xml/top_level_settings_expressive.xml
++++ b/res/xml/top_level_settings_expressive.xml
+@@ -20,6 +20,24 @@
+     xmlns:settings="http://schemas.android.com/apk/res-auto"
+     android:key="top_level_settings">
+ 
++    <!-- SableOS: BlackBerry 10 order (owner pick 2026-11-05, reorder only): Sable first, then
++         Networks, Notifications, Apps, Display, Security and privacy, Accessibility, Device,
++         Storage, Battery and About. Nothing is hidden. -->
++    <com.android.settingslib.widget.UntitledPreferenceCategory
++        android:order="-135"
++        android:key="top_level_sable_category">
++        <!-- SableOS: Sable Start, Hub, Tools diagnostics and App display compatibility. -->
++        <com.android.settings.widget.HomepagePreference
++            android:fragment="com.android.settings.sable.SableSettingsFragment"
++            android:icon="@drawable/ic_homepage_sable"
++            android:key="top_level_sable"
++            android:order="-10"
++            android:title="@string/sable_settings_title"
++            android:summary="@string/sable_settings_summary"
++            settings:highlightableMenuKey="@string/menu_key_sable"
++            settings:controller="com.android.settings.sable.TopLevelSablePreferenceController"/>
++    </com.android.settingslib.widget.UntitledPreferenceCategory>
++
+     <com.android.settingslib.widget.UntitledPreferenceCategory
+         android:order="-130"
+         android:key="top_level_connectivity_category">
+@@ -51,7 +69,7 @@
+             android:fragment="com.android.settings.applications.AppDashboardFragment"
+             android:icon="@drawable/ic_homepage_apps"
+             android:key="top_level_apps"
+-            android:order="-60"
++            android:order="-45"
+             android:title="@string/apps_dashboard_title"
+             android:summary="@string/app_and_notification_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_apps"
+@@ -61,7 +79,7 @@
+             android:fragment="com.android.settings.notification.ConfigureNotificationSettings"
+             android:icon="@drawable/ic_homepage_notification"
+             android:key="top_level_notifications"
+-            android:order="-50"
++            android:order="-60"
+             android:title="@string/configure_notification_settings"
+             android:summary="@string/notification_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_notifications"/>
+@@ -70,7 +88,7 @@
+             android:fragment="com.android.settings.notification.SoundSettings"
+             android:icon="@drawable/ic_homepage_sound"
+             android:key="top_level_sound"
+-            android:order="-40"
++            android:order="-55"
+             android:title="@string/sound_settings"
+             android:summary="@string/sound_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_sound" />
+@@ -79,7 +97,7 @@
+             android:fragment="com.android.settings.notification.modes.ZenModesListFragment"
+             android:icon="@drawable/ic_homepage_modes"
+             android:key="top_level_priority_modes"
+-            android:order="-35"
++            android:order="-50"
+             android:title="@string/zen_modes_list_title"
+             settings:useAdminDisabledSummary="true"
+             settings:highlightableMenuKey="@string/menu_key_priority_modes"
+@@ -134,7 +152,7 @@
+             android:fragment="com.android.settings.deviceinfo.StorageDashboardFragment"
+             android:icon="@drawable/ic_homepage_storage"
+             android:key="top_level_storage"
+-            android:order="-50"
++            android:order="-40"
+             android:title="@string/storage_settings"
+             android:summary="@string/summary_placeholder"
+             settings:highlightableMenuKey="@string/menu_key_storage"
+@@ -154,22 +172,11 @@
+             android:fragment="com.android.settings.system.SystemDashboardFragment"
+             android:icon="@drawable/ic_homepage_system_dashboard"
+             android:key="top_level_system"
+-            android:order="-20"
++            android:order="-50"
+             android:title="@string/header_category_system"
+             android:summary="@string/system_dashboard_summary"
+             settings:highlightableMenuKey="@string/menu_key_system"/>
+ 
+-        <!-- SableOS: Sable Start, Hub, Tools diagnostics and App display compatibility. -->
+-        <com.android.settings.widget.HomepagePreference
+-            android:fragment="com.android.settings.sable.SableSettingsFragment"
+-            android:icon="@drawable/ic_homepage_sable"
+-            android:key="top_level_sable"
+-            android:order="-15"
+-            android:title="@string/sable_settings_title"
+-            android:summary="@string/sable_settings_summary"
+-            settings:highlightableMenuKey="@string/menu_key_sable"
+-            settings:controller="com.android.settings.sable.TopLevelSablePreferenceController"/>
+-
+         <com.android.settings.widget.HomepagePreference
+             android:fragment="com.android.settings.deviceinfo.aboutphone.MyDeviceInfoFragment"
+             android:icon="@drawable/ic_homepage_about"
+@@ -182,7 +189,7 @@
+     </com.android.settingslib.widget.UntitledPreferenceCategory>
+ 
+     <com.android.settingslib.widget.UntitledPreferenceCategory
+-        android:order="-100"
++        android:order="-115"
+         android:key="top_level_security_privacy_category"
+         android:layout="@layout/settingslib_expressive_untitled_preference_category">
+         <com.android.settings.widget.HomepagePreference
+@@ -263,6 +270,16 @@
+             android:fragment="com.android.settings.emergency.EmergencyDashboardFragment"
+             settings:isPreferenceVisible="@bool/config_show_emergency_settings"
+             settings:highlightableMenuKey="@string/menu_key_emergency"/>
++
++        <com.android.settings.widget.HomepagePreference
++            android:fragment="com.android.settings.accessibility.AccessibilitySettings"
++            android:icon="@drawable/ic_homepage_accessibility"
++            android:key="top_level_accessibility"
++            android:order="20"
++            android:title="@string/accessibility_settings"
++            android:summary="@string/accessibility_settings_summary"
++            settings:highlightableMenuKey="@string/menu_key_accessibility"
++            settings:controller="com.android.settings.accessibility.TopLevelAccessibilityPreferenceController"/>
+     </com.android.settingslib.widget.UntitledPreferenceCategory>
+ 
+     <com.android.settingslib.widget.UntitledPreferenceCategory
+@@ -274,16 +291,6 @@
+         android:key="top_level_support_category"
+         android:layout="@layout/settingslib_expressive_untitled_preference_category">
+ 
+-        <com.android.settings.widget.HomepagePreference
+-            android:fragment="com.android.settings.accessibility.AccessibilitySettings"
+-            android:icon="@drawable/ic_homepage_accessibility"
+-            android:key="top_level_accessibility"
+-            android:order="-20"
+-            android:title="@string/accessibility_settings"
+-            android:summary="@string/accessibility_settings_summary"
+-            settings:highlightableMenuKey="@string/menu_key_accessibility"
+-            settings:controller="com.android.settings.accessibility.TopLevelAccessibilityPreferenceController"/>
+-
+         <com.android.settings.widget.HomepagePreference
+             android:icon="@drawable/ic_homepage_support"
+             android:key="top_level_support"
+-- 
+2.43.0
+
