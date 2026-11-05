@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Sable Browser</string>
+    <string name="address_hint">Search or type a web address</string>
+    <string name="keys_hint">L address · Space page · T top · B bottom · R reload · M pointer</string>
+    <string name="pointer_on">Trackpad pointer on</string>
+    <string name="pointer_off">Pointer off · the trackpad scrolls the page</string>
+    <string name="page_failed">This page couldn’t load. R tries again.</string>
+    <string name="no_app_for_link">No app can open this link.</string>
+    <string name="share_page">Share page</string>
+    <string name="downloading">Downloading %1$s</string>
+    <string name="download_failed">This download couldn’t start.</string>
+    <string name="choose_file">Choose a file</string>
+</resources>

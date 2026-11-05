@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">اس ہفتے کوئی تقریب نہیں۔ C ایک بناتا ہے۔</string>
     <string name="selected">منتخب: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] کھولیں  [E] ترمیم  [Del] حذف  [T] آج"</string>
+    <string name="calendars">کیلنڈر</string>
+    <string name="calendars_hint">دکھائے گئے کیلنڈر ایجنڈا، مصروفیت کے حلقے اور Start کا مہینہ بھرتے ہیں۔</string>
+    <string name="no_calendars">اس فون پر ابھی کوئی کیلنڈر نہیں۔ ترتیبات > اکاؤنٹس میں اکاؤنٹ شامل کریں۔</string>
+    <string name="l_calendars">" · L کیلنڈر"</string>
+    <string name="day_events">%1$s، %2$s ایونٹس</string>
 </resources>

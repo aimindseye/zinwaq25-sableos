@@ -30,5 +30,5 @@
     <string name="convert_convert">Omrekenen</string>
     <string name="convert_enter_a_number_with_up">Voer een getal in met maximaal drie decimalen</string>
     <string name="convert_length_mass_temperature_and_volume">Omrekeningen van lengte, massa, temperatuur en volume worden lokaal en offline uitgevoerd.</string>
-    <string name="convert_native_bridge_failure">Fout in de native interface</string>
+    <string name="convert_native_bridge_failure">Omrekenen mislukt</string>
 </resources>

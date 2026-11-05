@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">Spazio di lavoro</string>
+    <string name="work">Lavoro</string>
+    <string name="intro">Tieni le app di lavoro separate dalle tue: dati e account propri, un badge Lavoro e un selettore Personale · Lavoro in Start che può metterle in pausa.</string>
+    <string name="make">Crea uno spazio di lavoro</string>
+    <string name="making">Android sta creando lo spazio di lavoro. Ci vuole un minuto.</string>
+    <string name="not_allowed">Questo telefono non può creare uno spazio di lavoro ora. Potrebbe esserci già uno spazio di lavoro o un gestore del telefono.</string>
+    <string name="cancelled">Nessuno spazio di lavoro è stato creato.</string>
+    <string name="ready">Il tuo spazio di lavoro è pronto. Aggiungi le app che usi per lavoro: ognuna ha la sua copia con i suoi dati.</string>
+    <string name="paused">Le app di lavoro sono in pausa. Attivale da Start (Tutte le app, Lavoro) per aggiungere app.</string>
+    <string name="in_work">%1$s · in Lavoro</string>
+    <string name="no_apps">Tutte le tue app sono già in Lavoro.</string>
+    <string name="could_not_open">Lo spazio di lavoro non ha risposto. Riprova tra poco.</string>
+    <string name="remove">Rimuovi lo spazio di lavoro</string>
+    <string name="add_confirm">Aggiungere %1$s (%2$s) a Lavoro? Invio la aggiunge, Indietro annulla.</string>
+    <string name="added">%1$s ora è in Lavoro.</string>
+    <string name="add_failed">Impossibile aggiungere %1$s a Lavoro.</string>
+    <string name="remove_confirm">Rimuovere lo spazio di lavoro con tutte le app di lavoro e i loro dati? Y lo rimuove, N lo mantiene.</string>
+    <string name="yes">Sì</string>
+    <string name="no">No</string>
+    <string name="hint">Su e Giù scelgono un\'app · Invio la aggiunge · O opzioni · R rimuove lo spazio di lavoro · Indietro esce</string>
+    <string name="options">Opzioni dello spazio di lavoro</string>
+    <string name="options_intro">Valgono solo nello spazio di lavoro. Ognuna parte come Consentito.</string>
+    <string name="option_copy">Copiare da app di lavoro ad app personali</string>
+    <string name="option_share">Condividere da app personali ad app di lavoro</string>
+    <string name="option_screenshots">Screenshot delle app di lavoro</string>
+    <string name="allowed">Consentito</string>
+    <string name="blocked">Bloccato</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">Blocco di lavoro</string>
+    <string name="work_lock_about">Un PIN, una sequenza o una password separati per le app di lavoro, richiesti quando le apri dopo che il telefono è stato bloccato.</string>
+    <string name="options_hint">Su e Giù scelgono · Invio cambia · L imposta il blocco di lavoro · Indietro esce</string>
+    <string name="options_failed">Android non ha accettato la modifica.</string>
+</resources>

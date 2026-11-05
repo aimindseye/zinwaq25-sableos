@@ -19,7 +19,7 @@ DESIGN-KF-B. Tile behaviour, state and user resizing are unchanged.
 
 diff --git a/packages/SystemUI/res/values/config_qs_large_tiles.xml b/packages/SystemUI/res/values/config_qs_large_tiles.xml
 new file mode 100644
-index 00000000..d8d5c3fd
+index 0000000..d8d5c3f
 --- /dev/null
 +++ b/packages/SystemUI/res/values/config_qs_large_tiles.xml
 @@ -0,0 +1,26 @@
@@ -50,63 +50,44 @@ index 00000000..d8d5c3fd
 +    </string-array>
 +</resources>
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepository.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepository.kt
-index 9a1671df..6dbf6ea3 100644
+index 9f4d35f..a3da764 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepository.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepository.kt
-@@ -16,8 +16,11 @@
- 
- package com.android.systemui.qs.panels.data.repository
- 
-+import android.content.res.Resources
- import com.android.systemui.dagger.SysUISingleton
-+import com.android.systemui.dagger.qualifiers.Main
- import com.android.systemui.qs.pipeline.shared.TileSpec
-+import com.android.systemui.res.R
- import javax.inject.Inject
- 
- /** Repository for the default set of [TileSpec] that should be displayed as large tiles. */
-@@ -25,13 +28,19 @@ interface DefaultLargeTilesRepository {
+@@ -30,22 +30,27 @@ interface DefaultLargeTilesRepository {
      val defaultLargeTiles: Set<TileSpec>
  }
  
 +/**
 + * Reads the default large tiles from [R.array.quick_settings_default_large_tiles] so a product
 + * overlay can choose them (SableOS: every default tile is large on square screens). The resource
-+ * defaults to the upstream set.
++ * defaults to the upstream set. The split internet tile flag keeps its own upstream array.
 + */
  @SysUISingleton
--class DefaultLargeTilesRepositoryImpl @Inject constructor() : DefaultLargeTilesRepository {
+ @SuppressLint("ShadeDisplayAwareContextChecker")
+ class DefaultLargeTilesRepositoryImpl @Inject constructor(@Main resources: Resources) :
+     DefaultLargeTilesRepository {
 -    override val defaultLargeTiles =
--        setOf(
--            TileSpec.create("internet"),
--            TileSpec.create("bt"),
--            TileSpec.create("dnd"),
--            TileSpec.create("cast"),
--        )
-+class DefaultLargeTilesRepositoryImpl @Inject constructor(@Main resources: Resources) :
-+    DefaultLargeTilesRepository {
 +    override val defaultLargeTiles: Set<TileSpec> =
-+        resources
-+            .getStringArray(R.array.quick_settings_default_large_tiles)
-+            .map { it.trim() }
-+            .filter { it.isNotEmpty() }
-+            .map { TileSpec.create(it) }
-+            .toSet()
+         if (QsSplitInternetTile.isEnabled) {
+             resources
+                 .getStringArray(R.array.quick_settings_large_tiles_default_split)
+                 .map(TileSpec::create)
+                 .toSet()
+         } else {
+-            setOf(
+-                TileSpec.create("internet"),
+-                TileSpec.create("bt"),
+-                TileSpec.create("dnd"),
+-                TileSpec.create("cast"),
+-            )
++            resources
++                .getStringArray(R.array.quick_settings_default_large_tiles)
++                .map { it.trim() }
++                .filter { it.isNotEmpty() }
++                .map { TileSpec.create(it) }
++                .toSet()
+         }
  }
-diff --git a/packages/SystemUI/tests/utils/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepositoryKosmos.kt b/packages/SystemUI/tests/utils/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepositoryKosmos.kt
-index 92ac0894..8b99f1ad 100644
---- a/packages/SystemUI/tests/utils/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepositoryKosmos.kt
-+++ b/packages/SystemUI/tests/utils/src/com/android/systemui/qs/panels/data/repository/DefaultLargeTilesRepositoryKosmos.kt
-@@ -16,7 +16,8 @@
- 
- package com.android.systemui.qs.panels.data.repository
- 
-+import android.content.res.mainResources
- import com.android.systemui.kosmos.Kosmos
- 
- var Kosmos.defaultLargeTilesRepository: DefaultLargeTilesRepository by
--    Kosmos.Fixture { DefaultLargeTilesRepositoryImpl() }
-+    Kosmos.Fixture { DefaultLargeTilesRepositoryImpl(mainResources) }
 -- 
 2.43.0
 

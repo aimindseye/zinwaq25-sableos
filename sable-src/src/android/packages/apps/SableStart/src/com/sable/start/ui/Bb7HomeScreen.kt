@@ -62,12 +62,23 @@ import org.sableos.design.SableTheme
 import org.sableos.start.live.LiveAvailability
 import org.sableos.start.model.AppEntry
 import org.sableos.start.model.Bb7Home
+import org.sableos.start.model.Bb7IconSize
+import org.sableos.start.model.Bb7Layout
+import org.sableos.start.model.Bb7Naming
 import org.sableos.start.model.Bb7Panel
 import org.sableos.start.model.Bb7Swipe
+import org.sableos.start.model.Bb7Tab
+import org.sableos.start.model.Bb7Tabs
+import org.sableos.start.model.Bb7TrayView
 import org.sableos.start.model.HomeApps
 import org.sableos.start.model.HomeHeader
+import org.sableos.start.model.SpeedDialKeys
+import org.sableos.start.model.StartTypeToSearch
+import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
+import org.sableos.start.platform.LetterShortcutRepository
 import org.sableos.start.platform.LiveSurfaceRepository
+import org.sableos.start.platform.SpeedDialRepository
 import java.text.DateFormat
 import java.util.Date
 
@@ -90,17 +101,43 @@ fun Bb7HomeScreen(
     favoriteKeys: List<String>?,
     homeRows: Int,
     liveSurfaceRepository: LiveSurfaceRepository,
+    /** The tray's view, grid columns and icon size, set from the home menu. */
+    layout: Bb7Layout = Bb7Layout(),
     appearance: SableAppearance,
     refreshGeneration: Int,
     homeGeneration: Int,
     onLaunchApp: (AppEntry) -> Boolean,
     onOpenAppInfo: (AppEntry) -> Unit,
     onOpenHub: () -> Unit,
+    /** BlackBerry 7's Delete: the system uninstaller asks before anything is removed. */
+    onUninstallApp: (AppEntry) -> Unit = {},
     onFavoritesChanged: (List<String>) -> Unit,
     onHomeRowsChanged: (Int) -> Unit,
+    onLayoutChanged: (Bb7Layout) -> Unit = {},
+    /** The user's own tray tabs, after Favorites, All and Downloads. */
+    tabs: List<Bb7Tab> = emptyList(),
+    onTabsChanged: (List<Bb7Tab>) -> Unit = {},
+    /** Holding a letter opens its app or calls its speed dial, as on the BlackBerry 10 home. */
+    speedDial: SpeedDialRepository? = null,
+    letterShortcuts: LetterShortcutRepository? = null,
     onOpenMenu: (List<Pair<String, () -> Unit>>) -> Unit,
 ) {
-    var panel by remember { mutableStateOf(Bb7Panel.Favorites) }
+    // The tray place: the three panels, then the user's tabs (see Bb7Home.trayPlaces).
+    var place by remember { mutableIntStateOf(0) }
+    // A tab deleted elsewhere leaves the tray on Favorites.
+    val at = if (place < Bb7Home.trayPlaces(tabs.size)) place else 0
+    val panel = Bb7Home.panelAt(at)
+    val tabIndex = at - Bb7Panel.entries.size
+    val tab = tabs.getOrNull(tabIndex)
+    // A new tab's name while it is typed, and the app waiting for its hold-key letter.
+    var naming by remember { mutableStateOf<String?>(null) }
+    var lettering by remember { mutableStateOf<AppEntry?>(null) }
+    var shortcutVersion by remember { mutableIntStateOf(0) }
+    val speedDialKeys = remember { SpeedDialKeys() }
+    val heldLetters by
+        produceState(emptySet<Char>(), refreshGeneration, speedDial, shortcutVersion) {
+            value = speedDial?.assignedLetters() ?: emptySet()
+        }
     var open by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableIntStateOf(0) }
@@ -116,6 +153,8 @@ fun Bb7HomeScreen(
         query = ""
         selected = 0
         moving = false
+        naming = null
+        lettering = null
     }
     val live by
         produceState(liveSurfaceRepository.initialSnapshot(), refreshGeneration) {
@@ -130,20 +169,27 @@ fun Bb7HomeScreen(
         }
     val openApps = {
         query = ""
-        panel = Bb7Panel.All
+        place = Bb7Panel.All.ordinal
         open = true
         selected = 0
     }
 
     val searching = query.isNotEmpty()
     val shown =
-        if (searching) Bb7Home.search(apps, query) else Bb7Home.panelApps(panel, apps, favoriteKeys)
+        when {
+            searching -> Bb7Home.search(apps, query)
+            panel != null -> Bb7Home.panelApps(panel, apps, favoriteKeys)
+            tab != null -> Bb7Home.tabApps(tab, apps)
+            else -> emptyList()
+        }
     val favorites = Bb7Home.panelApps(Bb7Panel.Favorites, apps, favoriteKeys).map { it.stableKey() }
     val trayTitle =
         when {
+            naming != null -> t("new_tab_name", naming.orEmpty() + "_")
+            lettering != null -> t("letter_press_for", lettering?.label.orEmpty())
             moving -> t("move") + shown.getOrNull(selected)?.label.orEmpty() + t("enter_to_drop")
             searching -> t("search", query)
-            else -> panel.title
+            else -> panel?.title ?: tab?.name.orEmpty()
         }
     // Moves the favourite being moved one place ([delta] -1/+1) or a row ([delta] ±columns).
     val moveBy = { delta: Int ->
@@ -166,13 +212,46 @@ fun Bb7HomeScreen(
                 } else {
                     add(t("add_to_favorites") to { onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key)) })
                 }
+                tabs.forEachIndexed { index, own ->
+                    val label = if (key in own.keys) t("remove_from_tab", own.name) else t("add_to_tab", own.name)
+                    add(label to { onTabsChanged(Bb7Tabs.toggle(tabs, index, key)) })
+                }
+                if (letterShortcuts != null && app.inLauncherUser) {
+                    val letter = letterShortcuts.load().letterOf(app.component.flattenToString())
+                    val label = letter?.let { t("letter_shortcut_current", it.uppercaseChar().toString()) }
+                    add((label ?: t("letter_shortcut")) to { lettering = app })
+                }
                 add(t("app_info") to { onOpenAppInfo(app) })
+                if (app.canUninstall && app.inLauncherUser) add(t("delete_app") to { onUninstallApp(app) })
+            }
+            if (!searching && tabs.size < Bb7Tabs.MAX) add(t("new_tab") to { naming = "" })
+            if (!searching && tab != null) {
+                add(
+                    t("delete_tab", tab.name) to {
+                        onTabsChanged(Bb7Tabs.remove(tabs, tabIndex))
+                        place = 0
+                    },
+                )
             }
             if (!open && !searching && homeRows < Bb7Home.MAX_HOME_ROWS) {
                 add(t("show_more_rows") to { onHomeRowsChanged(homeRows + 1) })
             }
             if (!open && !searching && homeRows > Bb7Home.MIN_HOME_ROWS) {
                 add(t("show_fewer_rows") to { onHomeRowsChanged(homeRows - 1) })
+            }
+            if (!searching) {
+                // Each line shows its current value; choosing it moves to the next one.
+                val nextView = if (layout.view == Bb7TrayView.Grid) Bb7TrayView.List else Bb7TrayView.Grid
+                add(t("tray_view", layout.view.title) to { onLayoutChanged(layout.copy(view = nextView)) })
+                val auto = layout.columns == Bb7Layout.AUTO
+                val shownColumns = if (auto) t("columns_auto") else layout.columns.toString()
+                add(
+                    t("grid_columns", shownColumns) to
+                        { onLayoutChanged(layout.copy(columns = Bb7Home.nextColumns(layout.columns))) },
+                )
+                val sizes = Bb7IconSize.entries
+                val nextSize = sizes[(layout.iconSize.ordinal + 1) % sizes.size]
+                add(t("icon_size", layout.iconSize.title) to { onLayoutChanged(layout.copy(iconSize = nextSize)) })
             }
         }
     }
@@ -187,8 +266,60 @@ fun Bb7HomeScreen(
                         .focusRequester(focus)
                         .focusable()
                         .onPreviewKeyEvent { event ->
-                            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                             val native = event.nativeKeyEvent
+                            val down = event.type == KeyEventType.KeyDown
+                            if (naming != null || lettering != null) {
+                                if (down) {
+                                    naming?.let { name ->
+                                        naming = Bb7Naming.onKey(native.keyCode, native.unicodeChar, name)
+                                        if (naming == null && native.keyCode == KeyEvent.KEYCODE_ENTER) {
+                                            val next = Bb7Tabs.add(tabs, name)
+                                            if (next.size > tabs.size) {
+                                                onTabsChanged(next)
+                                                place = Bb7Home.trayPlaces(next.size) - 1
+                                                selected = 0
+                                            }
+                                        }
+                                    }
+                                    lettering?.let { app ->
+                                        lettering = null
+                                        val letter = SpeedDialKeys.letterFor(native.keyCode)
+                                        val plain = native.metaState and CHORD_META == 0
+                                        if (native.keyCode == KeyEvent.KEYCODE_DEL) {
+                                            letterShortcuts?.remove(app.component)
+                                        } else if (letter != null && plain) {
+                                            letterShortcuts?.assign(letter, app.component)
+                                        }
+                                        shortcutVersion++
+                                    }
+                                }
+                                return@onPreviewKeyEvent true
+                            }
+                            // Holding an assigned letter opens its app or calls; a short press still searches.
+                            if (!moving && !searching) {
+                                val seed =
+                                    if (down) {
+                                        StartTypeToSearch.seed(native.unicodeChar, native.metaState, native.repeatCount > 0)
+                                    } else {
+                                        null
+                                    }
+                                val step =
+                                    speedDialKeys.onKey(
+                                        native.keyCode,
+                                        down,
+                                        native.repeatCount,
+                                        native.metaState,
+                                        seed,
+                                        heldLetters,
+                                    )
+                                if (step is SpeedDialKeys.Step.Call) speedDial?.call(step.letter)
+                                if (step is SpeedDialKeys.Step.Search) {
+                                    query = step.seed
+                                    selected = 0
+                                }
+                                if (step != SpeedDialKeys.Step.Pass) return@onPreviewKeyEvent true
+                            }
+                            if (!down) return@onPreviewKeyEvent false
                             val columns = keyColumns
                             val visible = if (open || searching) shown.size else minOf(shown.size, columns * homeRows)
                             if (moving) {
@@ -204,14 +335,14 @@ fun Bb7HomeScreen(
                             when {
                                 native.keyCode == KeyEvent.KEYCODE_DPAD_LEFT && native.isAltPressed ->
                                     if (open || searching) {
-                                        panel = Bb7Home.step(panel, -1)
+                                        place = Bb7Home.stepPlace(at, -1, tabs.size)
                                         selected = 0
                                     } else {
                                         onOpenHub()
                                     }
                                 native.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && native.isAltPressed ->
                                     if (open || searching) {
-                                        panel = Bb7Home.step(panel, 1)
+                                        place = Bb7Home.stepPlace(at, 1, tabs.size)
                                         selected = 0
                                     } else {
                                         openApps()
@@ -237,7 +368,7 @@ fun Bb7HomeScreen(
                                     native.keyCode == KeyEvent.KEYCODE_DPAD_CENTER ->
                                     shown.getOrNull(selected)?.let { onLaunchApp(it) }
                                 native.keyCode == KeyEvent.KEYCODE_SPACE && !searching -> {
-                                    panel = Bb7Home.step(panel, 1)
+                                    place = Bb7Home.stepPlace(at, 1, tabs.size)
                                     selected = 0
                                 }
                                 native.keyCode == KeyEvent.KEYCODE_DEL && searching -> {
@@ -265,7 +396,7 @@ fun Bb7HomeScreen(
                             true
                         },
             ) {
-                val columns = Bb7Home.columns(maxWidth.value.toInt())
+                val columns = Bb7Home.columns(maxWidth.value.toInt(), layout, open = open || searching)
                 SideEffect { keyColumns = columns }
                 val swipe = with(LocalDensity.current) { SWIPE_DP.dp.toPx() }
                 val rowPx = with(LocalDensity.current) { ROW_DP.dp.toPx() }
@@ -301,6 +432,8 @@ fun Bb7HomeScreen(
                         title = trayTitle,
                         apps = if (open || searching) shown else shown.take(columns * homeRows),
                         columns = columns,
+                        list = (open || searching) && layout.view == Bb7TrayView.List,
+                        iconDp = layout.iconSize.dp,
                         open = open || searching,
                         moving = moving,
                         onResize = { dragged ->
@@ -320,7 +453,7 @@ fun Bb7HomeScreen(
                         },
                         onStep = { step ->
                             query = ""
-                            panel = Bb7Home.step(panel, step)
+                            place = Bb7Home.stepPlace(at, step, tabs.size)
                             selected = 0
                         },
                         onLaunch = { onLaunchApp(it) },
@@ -408,6 +541,8 @@ private fun Bb7Tray(
     title: String,
     apps: List<AppEntry>,
     columns: Int,
+    list: Boolean,
+    iconDp: Int,
     open: Boolean,
     moving: Boolean,
     selected: Int,
@@ -475,34 +610,58 @@ private fun Bb7Tray(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            itemsIndexed(apps, key = { _, app -> app.component.flattenToString() + app.user.hashCode() }) { index, app ->
+            itemsIndexed(
+                apps,
+                key = { _, app -> app.component.flattenToString() + app.user.hashCode() },
+            ) { index, app ->
                 val isSelected = index == selected
                 val outline = if (moving && isSelected) Color.White else MaterialTheme.colorScheme.primary
-                Column(
-                    modifier =
-                        Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else Color.Transparent)
-                            .border(
-                                if (isSelected) 2.dp else 0.dp,
-                                if (isSelected) outline else Color.Transparent,
-                                RoundedCornerShape(8.dp),
-                            )
-                            .combinedClickable(onClick = { onLaunch(app) }, onLongClick = { onInfo(app) })
-                            .padding(vertical = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    AppMark(app = app, size = ICON_DP)
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = app.label,
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 2.dp),
-                    )
+                val cell =
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else Color.Transparent,
+                        ).border(
+                            if (isSelected) 2.dp else 0.dp,
+                            if (isSelected) outline else Color.Transparent,
+                            RoundedCornerShape(8.dp),
+                        ).combinedClickable(
+                            onClick = { onLaunch(app) },
+                            onLongClick = { onInfo(app) },
+                        )
+                if (list) {
+                    // BlackBerry 7's list: icon and name on one row.
+                    Row(
+                        modifier = cell.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AppMark(app = app, size = iconDp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = app.label,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = cell.padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        AppMark(app = app, size = iconDp)
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = app.label,
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 2.dp),
+                        )
+                    }
                 }
             }
         }
@@ -522,13 +681,15 @@ private fun TrayArrow(
     }
 }
 
+// Shift, Alt, Sym, Fn, Ctrl and Meta: a chord never sets a hold-key letter.
+private const val CHORD_META = 0xc1 or 0x32 or 0x4 or 0x8 or 0x7000 or 0x70000
+
 private const val DATE_TICK_MS = 60_000L
 private const val RING_DP = 34
 private const val SWIPE_DP = 72
 
 /** A tray row's height, the drag that shows one more or one fewer row. */
 private const val ROW_DP = 64
-private const val ICON_DP = 40
 private val BANNER_SCRIM = Color(0x99000000)
 private val TRAY_SCRIM = Color(0xE6000000)
 private val BANNER_MUTED = Color(0xFFC9D1DA)

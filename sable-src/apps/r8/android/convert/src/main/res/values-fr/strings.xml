@@ -30,5 +30,5 @@
     <string name="convert_convert">Convertir</string>
     <string name="convert_enter_a_number_with_up">Saisissez un nombre avec trois décimales au maximum</string>
     <string name="convert_length_mass_temperature_and_volume">Les conversions de longueur, de masse, de température et de volume sont effectuées sur l’appareil, hors ligne.</string>
-    <string name="convert_native_bridge_failure">Échec de l’interface native</string>
+    <string name="convert_native_bridge_failure">Échec de la conversion</string>
 </resources>

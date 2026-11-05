@@ -183,4 +183,21 @@
     <string name="personal">Personale</string>
     <string name="private_space">Spazio privato</string>
     <string name="profile_2">Profilo %1$s</string>
+    <string name="mark_read">Segna come letto</string>
+    <string name="snooze_1_hour">Posticipa di 1 ora</string>
+    <string name="dismiss_notification">Ignora notifica</string>
+    <string name="snoozed_for_an_hour">Posticipato di un’ora.</string>
+    <string name="notification_dismissed">Notifica ignorata.</string>
+    <string name="sent_to_the_app">Inviato all’app.</string>
+    <string name="the_notification_is_gone">La notifica non c’è più.</string>
+    <string name="mark_prior_read">Segna precedenti come letti</string>
+    <string name="marked_prior_read">È stato chiesto alle app di segnare come lette %1$s notifiche precedenti.</string>
+    <string name="each_message_on_its_own">Ogni messaggio a sé</string>
+    <string name="one_row_per_received_message">Una riga per ogni messaggio ricevuto. Disattiva Unisci conversazioni.</string>
+    <string name="remind_me">Ricordamelo</string>
+    <string name="tasks_unavailable">Sable Tasks non è installato.</string>
+    <string name="row_menu_snooze">Posticipa nel menu della riga</string>
+    <string name="row_menu_snooze_detail">Aggiunge Posticipa di 1 ora e il tasto Z per una notifica attiva.</string>
+    <string name="row_menu_remind_me">Ricordamelo nel menu della riga</string>
+    <string name="row_menu_remind_me_detail">Aggiunge un promemoria in Sable Tasks per domattina. Viene salvata solo l’app, mai il messaggio.</string>
 </resources>

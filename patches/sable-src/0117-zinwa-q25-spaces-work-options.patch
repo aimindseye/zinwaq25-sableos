@@ -1,0 +1,821 @@
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/spaces/src/main/AndroidManifest.xml
+index e56bb0d..3451e4f 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/AndroidManifest.xml
+@@ -3,7 +3,8 @@
+      user and in work profiles only (product/q25/sysconfig/preinstalled-packages-sable-spaces.xml).
+      The main user's copy makes the Work space with Android's own managed-profile setup and lists apps
+      to add; the copy inside the Work space is its profile owner and does the adding and removing, each
+-     after the user confirms on its own screen. No network, no backup, no launcher entry: Sable Setup
++     after the user confirms on its own screen, and holds the Work space's options (all Allowed until the
++     user changes them there). No network, no backup, no launcher entry: Sable Setup
+      opens it. -->
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ 
+@@ -56,6 +57,20 @@
+             </intent-filter>
+         </activity>
+ 
++        <!-- Inside the Work space only, like InWorkActivity: its options (copy out, share in, screenshots,
++             the Work lock). Opening it changes nothing; only the user's keys or taps there do. -->
++        <activity
++            android:name=".android.WorkOptionsActivity"
++            android:enabled="false"
++            android:exported="true"
++            android:excludeFromRecents="true"
++            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
++            <intent-filter>
++                <action android:name="org.sableos.spaces.action.OPTIONS" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
+         <!-- Android's managed-profile setup asks which mode to use, then hands over the new profile. -->
+         <activity
+             android:name=".android.ProvisioningModeActivity"
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkOptionsActivity.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkOptionsActivity.kt
+new file mode 100644
+index 0000000..b36f0d6
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkOptionsActivity.kt
+@@ -0,0 +1,167 @@
++package org.sableos.titan2.spaces.android
++
++import android.app.Activity
++import android.app.admin.DevicePolicyManager
++import android.content.ActivityNotFoundException
++import android.content.Intent
++import android.os.Bundle
++import android.os.UserManager
++import android.util.Log
++import android.view.KeyEvent
++import android.widget.LinearLayout
++import android.window.OnBackInvokedDispatcher
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.BODY_SP
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.GAP
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.PAD
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.SMALL_SP
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.TITLE_SP
++import org.sableos.titan2.spaces.core.SpacesText.t
++import org.sableos.titan2.spaces.core.WorkOption
++import org.sableos.titan2.spaces.core.WorkSpace
++import org.sableos.titan2.theme.SablePalette
++
++/**
++ * Inside the Work space: its options. Copying out of Work, sharing into Work and screenshots of work apps
++ * each start as Allowed; Enter on one switches it between Allowed and Blocked. L opens Android's own screen
++ * for a Work lock, separate from the phone's. Any app of the main user can open this screen through the
++ * forwarding, but only a key press or tap here changes anything.
++ */
++class WorkOptionsActivity : Activity() {
++    private lateinit var dpm: DevicePolicyManager
++    private lateinit var views: SpacesViews
++    private lateinit var body: LinearLayout
++    private var selected = 0
++    private var message: String? = null
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        dpm = getSystemService(DevicePolicyManager::class.java)
++        if (!dpm.isProfileOwnerApp(packageName)) {
++            finish()
++            return
++        }
++        val palette = SablePalette.read(this).also { it.applyTo(this) }
++        views = SpacesViews(this, palette)
++        body = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            setPadding(views.px(PAD), views.px(PAD), views.px(PAD), views.px(PAD))
++            setBackgroundColor(palette.window)
++        }
++        setContentView(body)
++        onBackInvokedDispatcher.registerOnBackInvokedCallback(
++            OnBackInvokedDispatcher.PRIORITY_DEFAULT
++        ) { finish() }
++        render()
++    }
++
++    private fun isBlocked(option: WorkOption): Boolean {
++        val admin = SpacesAdminReceiver.component(this)
++        return when (option) {
++            WorkOption.COPY_OUT -> restricted(UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE)
++            WorkOption.SHARE_IN -> restricted(UserManager.DISALLOW_SHARE_INTO_MANAGED_PROFILE)
++            WorkOption.SCREENSHOTS -> dpm.getScreenCaptureDisabled(admin)
++        }
++    }
++
++    private fun restricted(key: String): Boolean =
++        dpm.getUserRestrictions(SpacesAdminReceiver.component(this)).getBoolean(key, false)
++
++    private fun toggle(option: WorkOption) {
++        val admin = SpacesAdminReceiver.component(this)
++        val block = !isBlocked(option)
++        try {
++            when (option) {
++                WorkOption.COPY_OUT -> restrict(
++                    UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE,
++                    block
++                )
++
++                WorkOption.SHARE_IN -> restrict(
++                    UserManager.DISALLOW_SHARE_INTO_MANAGED_PROFILE,
++                    block
++                )
++
++                WorkOption.SCREENSHOTS -> dpm.setScreenCaptureDisabled(admin, block)
++            }
++            message = null
++        } catch (e: SecurityException) {
++            Log.w(TAG, "Android refused to change ${option.name}", e)
++            message = t("options_failed")
++        }
++        render()
++    }
++
++    private fun restrict(key: String, block: Boolean) {
++        val admin = SpacesAdminReceiver.component(this)
++        if (block) dpm.addUserRestriction(admin, key) else dpm.clearUserRestriction(admin, key)
++    }
++
++    /** Android's own screen for the Work space's lock, started here so it applies to Work. */
++    private fun workLock() {
++        try {
++            startActivity(Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD))
++        } catch (_: ActivityNotFoundException) {
++            message = t("options_failed")
++            render()
++        }
++    }
++
++    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
++        val options = WorkOption.entries
++        when (keyCode) {
++            KeyEvent.KEYCODE_DPAD_UP -> select(WorkSpace.move(selected, -1, options.size))
++
++            KeyEvent.KEYCODE_DPAD_DOWN -> select(WorkSpace.move(selected, 1, options.size))
++
++            KeyEvent.KEYCODE_ENTER,
++            KeyEvent.KEYCODE_NUMPAD_ENTER,
++            KeyEvent.KEYCODE_DPAD_CENTER
++            -> toggle(options[selected])
++
++            KeyEvent.KEYCODE_L -> workLock()
++
++            KeyEvent.KEYCODE_ESCAPE -> finish()
++
++            else -> return super.onKeyDown(keyCode, event)
++        }
++        return true
++    }
++
++    private fun select(index: Int) {
++        selected = index
++        render()
++    }
++
++    private fun render() {
++        val palette = views.palette
++        body.removeAllViews()
++        body.addView(views.text(t("options"), TITLE_SP, palette.text, bold = true))
++        body.addView(views.text(t("options_intro"), BODY_SP, palette.muted))
++        WorkOption.entries.forEachIndexed { i, option ->
++            val blocked = isBlocked(option)
++            val line = t("option_line", t(option.key), t(WorkSpace.optionValueKey(blocked)))
++            body.addView(
++                views.text(line, BODY_SP, if (blocked) palette.warn else palette.text).apply {
++                    val on = i == selected
++                    setPadding(views.px(GAP), views.px(GAP), views.px(GAP), views.px(GAP))
++                    background = views.box(
++                        if (on) palette.surface else palette.window,
++                        if (on) palette.accent else palette.window
++                    )
++                    setOnClickListener {
++                        selected = i
++                        toggle(option)
++                    }
++                }
++            )
++        }
++        message?.let { body.addView(views.text(it, SMALL_SP, palette.warn)) }
++        body.addView(views.button(t("work_lock")) { workLock() })
++        body.addView(views.text(t("work_lock_about"), SMALL_SP, palette.muted))
++        body.addView(views.text(t("options_hint"), SMALL_SP, palette.muted))
++    }
++
++    private companion object {
++        const val TAG = "SableSpaces"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkProfileSetup.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkProfileSetup.kt
+index e7aec22..986d907 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkProfileSetup.kt
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkProfileSetup.kt
+@@ -12,7 +12,8 @@ import org.sableos.titan2.spaces.core.WorkSpace
+ 
+ /**
+  * Finishes a new Work space from inside it: names it Work, lets the main user's Sable Spaces reach
+- * this copy for adding apps and removing the space, and turns the profile on. Nothing else is set.
++ * this copy for adding apps, its options and removing the space, and turns the profile on. Nothing else
++ * is set: every option starts as Allowed.
+  * Safe to run twice (the setup broadcast and the policy compliance screen both call it).
+  */
+ object WorkProfileSetup {
+@@ -27,7 +28,11 @@ object WorkProfileSetup {
+         val admin = SpacesAdminReceiver.component(context)
+         try {
+             dpm.setProfileName(admin, t("work"))
+-            listOf(WorkSpace.ACTION_ADD_APP, WorkSpace.ACTION_REMOVE).forEach { action ->
++            listOf(
++                WorkSpace.ACTION_ADD_APP,
++                WorkSpace.ACTION_REMOVE,
++                WorkSpace.ACTION_OPTIONS
++            ).forEach { action ->
+                 val filter = IntentFilter(action).apply { addCategory(Intent.CATEGORY_DEFAULT) }
+                 dpm.addCrossProfileIntentFilter(
+                     admin,
+@@ -35,11 +40,13 @@ object WorkProfileSetup {
+                     DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED
+                 )
+             }
+-            context.packageManager.setComponentEnabledSetting(
+-                ComponentName(context, InWorkActivity::class.java),
+-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+-                PackageManager.DONT_KILL_APP
+-            )
++            listOf(InWorkActivity::class.java, WorkOptionsActivity::class.java).forEach { screen ->
++                context.packageManager.setComponentEnabledSetting(
++                    ComponentName(context, screen),
++                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
++                    PackageManager.DONT_KILL_APP
++                )
++            }
+             dpm.setProfileEnabled(admin)
+         } catch (e: SecurityException) {
+             Log.w(TAG, "Android refused part of the Work space setup", e)
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkSpaceActivity.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkSpaceActivity.kt
+index a55ead9..3a1d483 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkSpaceActivity.kt
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkSpaceActivity.kt
+@@ -112,6 +112,8 @@ class WorkSpaceActivity : Activity() {
+ 
+             KeyEvent.KEYCODE_R -> if (state == SpaceState.On || state == SpaceState.Paused) remove()
+ 
++            KeyEvent.KEYCODE_O -> if (state == SpaceState.On) options()
++
+             KeyEvent.KEYCODE_ESCAPE -> finish()
+ 
+             else -> return super.onKeyDown(keyCode, event)
+@@ -163,6 +165,8 @@ class WorkSpaceActivity : Activity() {
+ 
+     private fun remove() = forward(Intent(WorkSpace.ACTION_REMOVE))
+ 
++    private fun options() = forward(Intent(WorkSpace.ACTION_OPTIONS))
++
+     /** Into the Work space through the forwarding it set up; it has no package, so Android picks the forwarder. */
+     private fun forward(intent: Intent) {
+         try {
+@@ -194,6 +198,7 @@ class WorkSpaceActivity : Activity() {
+             SpaceState.On -> {
+                 if (apps.isEmpty()) body.addView(views.text(t("no_apps"), BODY_SP, palette.muted))
+                 apps.forEachIndexed { i, app -> body.addView(row(i, app)) }
++                body.addView(views.button(t("options")) { options() })
+                 body.addView(views.button(t("remove")) { remove() })
+                 body.addView(views.text(t("hint"), SMALL_SP, palette.muted))
+             }
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt
+index f4d8683..6c70ee2 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt
+@@ -35,9 +35,23 @@ object SpacesText {
+             "remove_confirm" to
+                 "Remove the Work space with every work app and its data? Y removes it, N keeps it.",
+             "yes" to "Yes",
++            "options" to "Work space options",
++            "options_intro" to "These apply inside the Work space only. Each starts as Allowed.",
++            "option_copy" to "Copy from work apps into personal apps",
++            "option_share" to "Share from personal apps into work apps",
++            "option_screenshots" to "Screenshots of work apps",
++            "allowed" to "Allowed",
++            "blocked" to "Blocked",
++            "option_line" to "%1\$s: %2\$s",
++            "work_lock" to "Work lock",
++            "work_lock_about" to
++                "A separate PIN, pattern or password for work apps, asked when you open them after the phone was locked.",
++            "options_hint" to
++                "Up and Down choose · Enter changes it · L sets the Work lock · Back leaves",
++            "options_failed" to "Android did not accept that change.",
+             "no" to "No",
+             "hint" to
+-                "Up and Down choose an app · Enter adds it · R removes the Work space · Back leaves"
++                "Up and Down choose an app · Enter adds it · O options · R removes the Work space · Back leaves"
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/WorkSpace.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/WorkSpace.kt
+index 6b9a681..c4adbe1 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/WorkSpace.kt
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/WorkSpace.kt
+@@ -3,6 +3,21 @@ package org.sableos.titan2.spaces.core
+ /** Where the Work space stands, seen from the main user. */
+ enum class SpaceState { NotAllowed, None, On, Paused }
+ 
++/**
++ * The Work space's own options, set by Sable Spaces inside it as the profile owner. Each starts as Allowed
++ * and only the user changes it, on the options screen inside the Work space.
++ */
++enum class WorkOption(val key: String) {
++    /** Copying text from a work app and pasting it in a personal app (Android's cross-profile copy). */
++    COPY_OUT("option_copy"),
++
++    /** Sharing from a personal app into a work app (the Work tab in the share sheet). */
++    SHARE_IN("option_share"),
++
++    /** Screenshots and screen recordings of work apps. */
++    SCREENSHOTS("option_screenshots")
++}
++
+ /** An app the user can add to the Work space. */
+ data class AppChoice(val packageName: String, val label: String)
+ 
+@@ -14,6 +29,9 @@ object WorkSpace {
+     /** Forwarded from the main user into the Work space; both are confirmed there first. */
+     const val ACTION_ADD_APP = "org.sableos.spaces.action.ADD_APP"
+     const val ACTION_REMOVE = "org.sableos.spaces.action.REMOVE"
++
++    /** Forwarded into the Work space: its options screen, where every change is made by the user there. */
++    const val ACTION_OPTIONS = "org.sableos.spaces.action.OPTIONS"
+     const val EXTRA_PACKAGE = "org.sableos.spaces.extra.PACKAGE"
+     const val EXTRA_LABEL = "org.sableos.spaces.extra.LABEL"
+ 
+@@ -51,6 +69,9 @@ object WorkSpace {
+             .distinctBy { it.packageName }
+             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
+ 
++    /** The options screen's line for [option]: its name and Allowed or Blocked. */
++    fun optionValueKey(blocked: Boolean): String = if (blocked) "blocked" else "allowed"
++
+     /** The selection after Up or Down, kept on the list. */
+     fun move(selected: Int, delta: Int, size: Int): Int =
+         if (size == 0) 0 else (selected + delta).coerceIn(0, size - 1)
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ar/strings.xml
+index 10582e1..4c0833b 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ar/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">إزالة مساحة العمل مع كل تطبيقات العمل وبياناتها؟ Y يزيلها، وN يبقيها.</string>
+     <string name="yes">نعم</string>
+     <string name="no">لا</string>
+-    <string name="hint">أعلى وأسفل لاختيار تطبيق · Enter يضيفه · R يزيل مساحة العمل · رجوع للخروج</string>
++    <string name="hint">أعلى وأسفل لاختيار تطبيق · Enter يضيفه · O الخيارات · R يزيل مساحة العمل · رجوع للخروج</string>
++    <string name="options">خيارات مساحة العمل</string>
++    <string name="options_intro">تنطبق داخل مساحة العمل فقط. يبدأ كل منها مسموحًا.</string>
++    <string name="option_copy">النسخ من تطبيقات العمل إلى التطبيقات الشخصية</string>
++    <string name="option_share">المشاركة من التطبيقات الشخصية إلى تطبيقات العمل</string>
++    <string name="option_screenshots">لقطات شاشة تطبيقات العمل</string>
++    <string name="allowed">مسموح</string>
++    <string name="blocked">محظور</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">قفل العمل</string>
++    <string name="work_lock_about">رقم PIN أو نمط أو كلمة مرور منفصلة لتطبيقات العمل، تُطلب عند فتحها بعد قفل الهاتف.</string>
++    <string name="options_hint">أعلى وأسفل للاختيار · Enter يغيّر · L يضبط قفل العمل · رجوع للخروج</string>
++    <string name="options_failed">لم يقبل Android هذا التغيير.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-de/strings.xml
+index c5e6e32..200d65d 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-de/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">Arbeitsbereich mit allen Arbeits-Apps und ihren Daten entfernen? Y entfernt ihn, N behält ihn.</string>
+     <string name="yes">Ja</string>
+     <string name="no">Nein</string>
+-    <string name="hint">Auf und Ab wählen eine App · Enter fügt sie hinzu · R entfernt den Arbeitsbereich · Zurück verlässt</string>
++    <string name="hint">Auf und Ab wählen eine App · Enter fügt sie hinzu · O Optionen · R entfernt den Arbeitsbereich · Zurück verlässt</string>
++    <string name="options">Optionen für den Arbeitsbereich</string>
++    <string name="options_intro">Diese gelten nur im Arbeitsbereich. Jede ist anfangs erlaubt.</string>
++    <string name="option_copy">Aus Arbeits-Apps in private Apps kopieren</string>
++    <string name="option_share">Aus privaten Apps in Arbeits-Apps teilen</string>
++    <string name="option_screenshots">Bildschirmfotos von Arbeits-Apps</string>
++    <string name="allowed">Erlaubt</string>
++    <string name="blocked">Gesperrt</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">Arbeitssperre</string>
++    <string name="work_lock_about">Eine eigene PIN, ein Muster oder Passwort für Arbeits-Apps, abgefragt beim Öffnen, nachdem das Telefon gesperrt war.</string>
++    <string name="options_hint">Auf und Ab wählen · Enter ändert · L legt die Arbeitssperre fest · Zurück verlässt</string>
++    <string name="options_failed">Android hat diese Änderung nicht angenommen.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-el/strings.xml
+index fcdbf3a..cc04e7e 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-el/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">Κατάργηση του χώρου εργασίας με όλες τις εφαρμογές εργασίας και τα δεδομένα τους; Το Y τον καταργεί, το N τον κρατά.</string>
+     <string name="yes">Ναι</string>
+     <string name="no">Όχι</string>
+-    <string name="hint">Πάνω και Κάτω επιλέγουν εφαρμογή · Enter την προσθέτει · R καταργεί τον χώρο εργασίας · Πίσω έξοδος</string>
++    <string name="hint">Πάνω και Κάτω επιλέγουν εφαρμογή · Enter την προσθέτει · O επιλογές · R καταργεί τον χώρο εργασίας · Πίσω έξοδος</string>
++    <string name="options">Επιλογές χώρου εργασίας</string>
++    <string name="options_intro">Ισχύουν μόνο μέσα στον χώρο εργασίας. Όλες ξεκινούν ως Επιτρέπεται.</string>
++    <string name="option_copy">Αντιγραφή από εφαρμογές εργασίας σε προσωπικές</string>
++    <string name="option_share">Κοινοποίηση από προσωπικές εφαρμογές σε εφαρμογές εργασίας</string>
++    <string name="option_screenshots">Στιγμιότυπα οθόνης εφαρμογών εργασίας</string>
++    <string name="allowed">Επιτρέπεται</string>
++    <string name="blocked">Αποκλείεται</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">Κλείδωμα εργασίας</string>
++    <string name="work_lock_about">Ξεχωριστό PIN, μοτίβο ή κωδικός για τις εφαρμογές εργασίας, που ζητείται όταν τις ανοίγετε αφού κλειδώθηκε το τηλέφωνο.</string>
++    <string name="options_hint">Πάνω και Κάτω επιλέγουν · Το Enter αλλάζει · Το L ορίζει το κλείδωμα εργασίας · Το Πίσω βγαίνει</string>
++    <string name="options_failed">Το Android δεν δέχτηκε αυτή την αλλαγή.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-es/strings.xml
+index 85d4fbf..024e428 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-es/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">¿Quitar el espacio de trabajo con todas las apps de trabajo y sus datos? Y lo quita, N lo conserva.</string>
+     <string name="yes">Sí</string>
+     <string name="no">No</string>
+-    <string name="hint">Arriba y Abajo eligen una app · Enter la añade · R quita el espacio de trabajo · Atrás sale</string>
++    <string name="hint">Arriba y Abajo eligen una app · Enter la añade · O opciones · R quita el espacio de trabajo · Atrás sale</string>
++    <string name="options">Opciones del espacio de trabajo</string>
++    <string name="options_intro">Se aplican solo dentro del espacio de trabajo. Todas empiezan como Permitido.</string>
++    <string name="option_copy">Copiar de apps de trabajo a apps personales</string>
++    <string name="option_share">Compartir de apps personales a apps de trabajo</string>
++    <string name="option_screenshots">Capturas de pantalla de apps de trabajo</string>
++    <string name="allowed">Permitido</string>
++    <string name="blocked">Bloqueado</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">Bloqueo del trabajo</string>
++    <string name="work_lock_about">Un PIN, patrón o contraseña aparte para las apps de trabajo, que se pide al abrirlas después de bloquear el teléfono.</string>
++    <string name="options_hint">Arriba y Abajo eligen · Intro lo cambia · L configura el bloqueo del trabajo · Atrás sale</string>
++    <string name="options_failed">Android no aceptó ese cambio.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-fr/strings.xml
+index 91da168..b1d9fa6 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-fr/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">Supprimer l\'espace professionnel avec toutes les applis professionnelles et leurs données ? Y le supprime, N le garde.</string>
+     <string name="yes">Oui</string>
+     <string name="no">Non</string>
+-    <string name="hint">Haut et Bas choisissent une appli · Entrée l\'ajoute · R supprime l\'espace professionnel · Retour quitte</string>
++    <string name="hint">Haut et Bas choisissent une appli · Entrée l\'ajoute · O options · R supprime l\'espace professionnel · Retour quitte</string>
++    <string name="options">Options de l\'espace professionnel</string>
++    <string name="options_intro">Elles ne s\'appliquent que dans l\'espace professionnel. Chacune est d\'abord autorisée.</string>
++    <string name="option_copy">Copier des applis professionnelles vers les applis personnelles</string>
++    <string name="option_share">Partager des applis personnelles vers les applis professionnelles</string>
++    <string name="option_screenshots">Captures d\'écran des applis professionnelles</string>
++    <string name="allowed">Autorisé</string>
++    <string name="blocked">Bloqué</string>
++    <string name="option_line">%1$s : %2$s</string>
++    <string name="work_lock">Verrouillage professionnel</string>
++    <string name="work_lock_about">Un code, schéma ou mot de passe distinct pour les applis professionnelles, demandé à leur ouverture après le verrouillage du téléphone.</string>
++    <string name="options_hint">Haut et Bas choisissent · Entrée change · L règle le verrouillage professionnel · Retour quitte</string>
++    <string name="options_failed">Android n\'a pas accepté ce changement.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-hi/strings.xml
+index 717c78c..6498302 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-hi/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">सभी कार्य ऐप्स और उनके डेटा के साथ कार्य स्थान हटाएं? Y हटाता है, N रखता है।</string>
+     <string name="yes">हाँ</string>
+     <string name="no">नहीं</string>
+-    <string name="hint">ऊपर और नीचे ऐप चुनते हैं · Enter जोड़ता है · R कार्य स्थान हटाता है · Back बाहर जाता है</string>
++    <string name="hint">ऊपर और नीचे ऐप चुनते हैं · Enter जोड़ता है · O विकल्प · R कार्य स्थान हटाता है · Back बाहर जाता है</string>
++    <string name="options">कार्य स्थान विकल्प</string>
++    <string name="options_intro">ये केवल कार्य स्थान के अंदर लागू होते हैं। हर एक शुरू में अनुमत है।</string>
++    <string name="option_copy">कार्य ऐप से निजी ऐप में कॉपी करना</string>
++    <string name="option_share">निजी ऐप से कार्य ऐप में शेयर करना</string>
++    <string name="option_screenshots">कार्य ऐप के स्क्रीनशॉट</string>
++    <string name="allowed">अनुमत</string>
++    <string name="blocked">अवरुद्ध</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">कार्य लॉक</string>
++    <string name="work_lock_about">कार्य ऐप के लिए अलग PIN, पैटर्न या पासवर्ड, जो फ़ोन लॉक होने के बाद उन्हें खोलने पर पूछा जाता है।</string>
++    <string name="options_hint">ऊपर और नीचे चुनते हैं · Enter बदलता है · L कार्य लॉक सेट करता है · Back बाहर जाता है</string>
++    <string name="options_failed">Android ने यह बदलाव स्वीकार नहीं किया।</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-it/strings.xml
+index 1b5e767..0912640 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-it/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">Rimuovere lo spazio di lavoro con tutte le app di lavoro e i loro dati? Y lo rimuove, N lo mantiene.</string>
+     <string name="yes">Sì</string>
+     <string name="no">No</string>
+-    <string name="hint">Su e Giù scelgono un\'app · Invio la aggiunge · R rimuove lo spazio di lavoro · Indietro esce</string>
++    <string name="hint">Su e Giù scelgono un\'app · Invio la aggiunge · O opzioni · R rimuove lo spazio di lavoro · Indietro esce</string>
++    <string name="options">Opzioni dello spazio di lavoro</string>
++    <string name="options_intro">Valgono solo nello spazio di lavoro. Ognuna parte come Consentito.</string>
++    <string name="option_copy">Copiare da app di lavoro ad app personali</string>
++    <string name="option_share">Condividere da app personali ad app di lavoro</string>
++    <string name="option_screenshots">Screenshot delle app di lavoro</string>
++    <string name="allowed">Consentito</string>
++    <string name="blocked">Bloccato</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">Blocco di lavoro</string>
++    <string name="work_lock_about">Un PIN, una sequenza o una password separati per le app di lavoro, richiesti quando le apri dopo che il telefono è stato bloccato.</string>
++    <string name="options_hint">Su e Giù scelgono · Invio cambia · L imposta il blocco di lavoro · Indietro esce</string>
++    <string name="options_failed">Android non ha accettato la modifica.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-iw/strings.xml
+index 59609ed..93ec940 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-iw/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">להסיר את מרחב העבודה עם כל אפליקציות העבודה והנתונים שלהן? Y מסיר, N משאיר.</string>
+     <string name="yes">כן</string>
+     <string name="no">לא</string>
+-    <string name="hint">למעלה ולמטה בוחרים אפליקציה · Enter מוסיף · R מסיר את מרחב העבודה · חזרה יוצא</string>
++    <string name="hint">למעלה ולמטה בוחרים אפליקציה · Enter מוסיף · O אפשרויות · R מסיר את מרחב העבודה · חזרה יוצא</string>
++    <string name="options">אפשרויות מרחב העבודה</string>
++    <string name="options_intro">הן חלות רק בתוך מרחב העבודה. כל אחת מתחילה כמותרת.</string>
++    <string name="option_copy">העתקה מאפליקציות עבודה לאפליקציות אישיות</string>
++    <string name="option_share">שיתוף מאפליקציות אישיות לאפליקציות עבודה</string>
++    <string name="option_screenshots">צילומי מסך של אפליקציות עבודה</string>
++    <string name="allowed">מותר</string>
++    <string name="blocked">חסום</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">נעילת עבודה</string>
++    <string name="work_lock_about">קוד, תבנית או סיסמה נפרדים לאפליקציות עבודה, שנדרשים כשפותחים אותן אחרי שהטלפון ננעל.</string>
++    <string name="options_hint">למעלה ולמטה בוחרים · Enter משנה · L מגדיר את נעילת העבודה · חזרה יוצאת</string>
++    <string name="options_failed">Android לא קיבל את השינוי.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ja/strings.xml
+index c386277..4d2cc83 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ja/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">仕事用スペースをすべての仕事用アプリとそのデータごと削除しますか？Y で削除、N で残します。</string>
+     <string name="yes">はい</string>
+     <string name="no">いいえ</string>
+-    <string name="hint">上下でアプリを選択 · Enter で追加 · R で仕事用スペースを削除 · 戻るで終了</string>
++    <string name="hint">上下でアプリを選択 · Enter で追加 · O オプション · R で仕事用スペースを削除 · 戻るで終了</string>
++    <string name="options">仕事用スペースのオプション</string>
++    <string name="options_intro">これらは仕事用スペースの中だけに適用されます。最初はすべて許可です。</string>
++    <string name="option_copy">仕事用アプリから個人用アプリへのコピー</string>
++    <string name="option_share">個人用アプリから仕事用アプリへの共有</string>
++    <string name="option_screenshots">仕事用アプリのスクリーンショット</string>
++    <string name="allowed">許可</string>
++    <string name="blocked">ブロック</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">仕事用ロック</string>
++    <string name="work_lock_about">仕事用アプリ専用の PIN、パターン、パスワード。電話がロックされた後に開くと求められます。</string>
++    <string name="options_hint">上下で選択 · Enter で切り替え · L で仕事用ロックを設定 · Back で終了</string>
++    <string name="options_failed">Android はこの変更を受け付けませんでした。</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ko/strings.xml
+index b2d192c..f5f470d 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ko/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">모든 업무 앱과 데이터를 포함해 업무 공간을 삭제할까요? Y는 삭제, N은 유지.</string>
+     <string name="yes">예</string>
+     <string name="no">아니요</string>
+-    <string name="hint">위아래로 앱 선택 · Enter로 추가 · R로 업무 공간 삭제 · 뒤로로 나가기</string>
++    <string name="hint">위아래로 앱 선택 · Enter로 추가 · O 옵션 · R로 업무 공간 삭제 · 뒤로로 나가기</string>
++    <string name="options">업무 공간 옵션</string>
++    <string name="options_intro">업무 공간 안에서만 적용됩니다. 모두 처음에는 허용입니다.</string>
++    <string name="option_copy">업무 앱에서 개인 앱으로 복사</string>
++    <string name="option_share">개인 앱에서 업무 앱으로 공유</string>
++    <string name="option_screenshots">업무 앱 스크린샷</string>
++    <string name="allowed">허용</string>
++    <string name="blocked">차단</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">업무용 잠금</string>
++    <string name="work_lock_about">업무 앱 전용 PIN, 패턴 또는 비밀번호로, 휴대전화가 잠긴 뒤 열 때 요청됩니다.</string>
++    <string name="options_hint">위아래로 선택 · Enter로 변경 · L로 업무용 잠금 설정 · Back 나가기</string>
++    <string name="options_failed">Android가 이 변경을 받아들이지 않았습니다.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-nl/strings.xml
+index c2270f2..e29b03e 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-nl/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">De werkruimte met alle werk-apps en hun gegevens verwijderen? Y verwijdert, N behoudt.</string>
+     <string name="yes">Ja</string>
+     <string name="no">Nee</string>
+-    <string name="hint">Omhoog en Omlaag kiezen een app · Enter voegt toe · R verwijdert de werkruimte · Terug sluit</string>
++    <string name="hint">Omhoog en Omlaag kiezen een app · Enter voegt toe · O opties · R verwijdert de werkruimte · Terug sluit</string>
++    <string name="options">Opties voor de werkruimte</string>
++    <string name="options_intro">Deze gelden alleen in de werkruimte. Elk begint als Toegestaan.</string>
++    <string name="option_copy">Kopiëren van werk-apps naar persoonlijke apps</string>
++    <string name="option_share">Delen van persoonlijke apps naar werk-apps</string>
++    <string name="option_screenshots">Schermafbeeldingen van werk-apps</string>
++    <string name="allowed">Toegestaan</string>
++    <string name="blocked">Geblokkeerd</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">Werkvergrendeling</string>
++    <string name="work_lock_about">Een aparte pincode, patroon of wachtwoord voor werk-apps, gevraagd als je ze opent nadat de telefoon vergrendeld was.</string>
++    <string name="options_hint">Omhoog en Omlaag kiezen · Enter wijzigt · L stelt de werkvergrendeling in · Terug sluit</string>
++    <string name="options_failed">Android heeft die wijziging niet geaccepteerd.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-pl/strings.xml
+index fc937ef..e34b86e 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-pl/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">Usunąć przestrzeń służbową ze wszystkimi aplikacjami służbowymi i ich danymi? Y usuwa, N zachowuje.</string>
+     <string name="yes">Tak</string>
+     <string name="no">Nie</string>
+-    <string name="hint">Góra i Dół wybierają aplikację · Enter dodaje · R usuwa przestrzeń służbową · Wstecz wychodzi</string>
++    <string name="hint">Góra i Dół wybierają aplikację · Enter dodaje · O opcje · R usuwa przestrzeń służbową · Wstecz wychodzi</string>
++    <string name="options">Opcje przestrzeni służbowej</string>
++    <string name="options_intro">Dotyczą tylko przestrzeni służbowej. Każda na początku jest dozwolona.</string>
++    <string name="option_copy">Kopiowanie z aplikacji służbowych do prywatnych</string>
++    <string name="option_share">Udostępnianie z aplikacji prywatnych do służbowych</string>
++    <string name="option_screenshots">Zrzuty ekranu aplikacji służbowych</string>
++    <string name="allowed">Dozwolone</string>
++    <string name="blocked">Zablokowane</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">Blokada służbowa</string>
++    <string name="work_lock_about">Osobny PIN, wzór lub hasło do aplikacji służbowych, wymagane przy ich otwieraniu po zablokowaniu telefonu.</string>
++    <string name="options_hint">Góra i Dół wybierają · Enter zmienia · L ustawia blokadę służbową · Wstecz zamyka</string>
++    <string name="options_failed">Android nie przyjął tej zmiany.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-pt/strings.xml
+index 2b16903..3edfea6 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-pt/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">Remover o espaço de trabalho com todas as apps de trabalho e seus dados? Y remove, N mantém.</string>
+     <string name="yes">Sim</string>
+     <string name="no">Não</string>
+-    <string name="hint">Cima e Baixo escolhem uma app · Enter adiciona · R remove o espaço de trabalho · Voltar sai</string>
++    <string name="hint">Cima e Baixo escolhem uma app · Enter adiciona · O opções · R remove o espaço de trabalho · Voltar sai</string>
++    <string name="options">Opções do espaço de trabalho</string>
++    <string name="options_intro">Valem apenas dentro do espaço de trabalho. Cada uma começa como Permitido.</string>
++    <string name="option_copy">Copiar de apps de trabalho para apps pessoais</string>
++    <string name="option_share">Compartilhar de apps pessoais para apps de trabalho</string>
++    <string name="option_screenshots">Capturas de tela de apps de trabalho</string>
++    <string name="allowed">Permitido</string>
++    <string name="blocked">Bloqueado</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">Bloqueio de trabalho</string>
++    <string name="work_lock_about">Um PIN, padrão ou senha separado para apps de trabalho, pedido ao abri-los depois que o telefone foi bloqueado.</string>
++    <string name="options_hint">Cima e Baixo escolhem · Enter altera · L define o bloqueio de trabalho · Voltar sai</string>
++    <string name="options_failed">O Android não aceitou essa alteração.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ru/strings.xml
+index 6c42496..cf18b29 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ru/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">Удалить рабочее пространство со всеми рабочими приложениями и их данными? Y — удалить, N — оставить.</string>
+     <string name="yes">Да</string>
+     <string name="no">Нет</string>
+-    <string name="hint">Вверх и Вниз — выбор приложения · Enter — добавить · R — удалить рабочее пространство · Назад — выход</string>
++    <string name="hint">Вверх и Вниз — выбор приложения · Enter — добавить · O параметры · R — удалить рабочее пространство · Назад — выход</string>
++    <string name="options">Параметры рабочего пространства</string>
++    <string name="options_intro">Они действуют только в рабочем пространстве. Сначала всё разрешено.</string>
++    <string name="option_copy">Копирование из рабочих приложений в личные</string>
++    <string name="option_share">Отправка из личных приложений в рабочие</string>
++    <string name="option_screenshots">Снимки экрана рабочих приложений</string>
++    <string name="allowed">Разрешено</string>
++    <string name="blocked">Запрещено</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">Блокировка рабочих приложений</string>
++    <string name="work_lock_about">Отдельный PIN-код, графический ключ или пароль для рабочих приложений, который запрашивается при их открытии после блокировки телефона.</string>
++    <string name="options_hint">Вверх и Вниз выбирают · Enter меняет · L задаёт блокировку · Назад — выход</string>
++    <string name="options_failed">Android не принял это изменение.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-sv/strings.xml
+index c4e7279..6205a92 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-sv/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">Ta bort arbetsytan med alla jobbappar och deras data? Y tar bort, N behåller.</string>
+     <string name="yes">Ja</string>
+     <string name="no">Nej</string>
+-    <string name="hint">Upp och Ned väljer en app · Enter lägger till · R tar bort arbetsytan · Tillbaka lämnar</string>
++    <string name="hint">Upp och Ned väljer en app · Enter lägger till · O alternativ · R tar bort arbetsytan · Tillbaka lämnar</string>
++    <string name="options">Alternativ för arbetsytan</string>
++    <string name="options_intro">De gäller bara i arbetsytan. Alla börjar som Tillåtet.</string>
++    <string name="option_copy">Kopiera från arbetsappar till privata appar</string>
++    <string name="option_share">Dela från privata appar till arbetsappar</string>
++    <string name="option_screenshots">Skärmbilder av arbetsappar</string>
++    <string name="allowed">Tillåtet</string>
++    <string name="blocked">Blockerat</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">Arbetslås</string>
++    <string name="work_lock_about">En separat pinkod, ett mönster eller lösenord för arbetsappar, som efterfrågas när du öppnar dem efter att telefonen låsts.</string>
++    <string name="options_hint">Upp och Ned väljer · Enter ändrar · L ställer in arbetslåset · Bakåt lämnar</string>
++    <string name="options_failed">Android godtog inte ändringen.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-tr/strings.xml
+index 6018ae3..5534e73 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-tr/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">İş alanı tüm iş uygulamaları ve verileriyle kaldırılsın mı? Y kaldırır, N tutar.</string>
+     <string name="yes">Evet</string>
+     <string name="no">Hayır</string>
+-    <string name="hint">Yukarı ve Aşağı uygulama seçer · Enter ekler · R iş alanını kaldırır · Geri çıkar</string>
++    <string name="hint">Yukarı ve Aşağı uygulama seçer · Enter ekler · O seçenekler · R iş alanını kaldırır · Geri çıkar</string>
++    <string name="options">İş alanı seçenekleri</string>
++    <string name="options_intro">Bunlar yalnızca iş alanında geçerlidir. Hepsi başta İzinli\'dir.</string>
++    <string name="option_copy">İş uygulamalarından kişisel uygulamalara kopyalama</string>
++    <string name="option_share">Kişisel uygulamalardan iş uygulamalarına paylaşma</string>
++    <string name="option_screenshots">İş uygulamalarının ekran görüntüleri</string>
++    <string name="allowed">İzinli</string>
++    <string name="blocked">Engelli</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">İş kilidi</string>
++    <string name="work_lock_about">İş uygulamaları için ayrı bir PIN, desen veya şifre; telefon kilitlendikten sonra açarken sorulur.</string>
++    <string name="options_hint">Yukarı ve Aşağı seçer · Enter değiştirir · L iş kilidini ayarlar · Geri çıkar</string>
++    <string name="options_failed">Android bu değişikliği kabul etmedi.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ur/strings.xml
+index bcf2152..d1b8b47 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ur/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">تمام کام کی ایپس اور ان کے ڈیٹا کے ساتھ کام کی جگہ ہٹائیں؟ Y ہٹاتا ہے، N رکھتا ہے۔</string>
+     <string name="yes">ہاں</string>
+     <string name="no">نہیں</string>
+-    <string name="hint">اوپر اور نیچے ایپ منتخب کرتے ہیں · Enter شامل کرتا ہے · R کام کی جگہ ہٹاتا ہے · Back باہر جاتا ہے</string>
++    <string name="hint">اوپر اور نیچے ایپ منتخب کرتے ہیں · Enter شامل کرتا ہے · O اختیارات · R کام کی جگہ ہٹاتا ہے · Back باہر جاتا ہے</string>
++    <string name="options">کام کی جگہ کے اختیارات</string>
++    <string name="options_intro">یہ صرف کام کی جگہ کے اندر لاگو ہوتے ہیں۔ ہر ایک شروع میں اجازت یافتہ ہے۔</string>
++    <string name="option_copy">ورک ایپس سے ذاتی ایپس میں کاپی کرنا</string>
++    <string name="option_share">ذاتی ایپس سے ورک ایپس میں شیئر کرنا</string>
++    <string name="option_screenshots">ورک ایپس کے اسکرین شاٹس</string>
++    <string name="allowed">اجازت ہے</string>
++    <string name="blocked">بلاک ہے</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">ورک لاک</string>
++    <string name="work_lock_about">ورک ایپس کے لیے الگ PIN، پیٹرن یا پاس ورڈ، جو فون لاک ہونے کے بعد انہیں کھولنے پر پوچھا جاتا ہے۔</string>
++    <string name="options_hint">اوپر اور نیچے منتخب کرتے ہیں · Enter بدلتا ہے · L ورک لاک سیٹ کرتا ہے · Back باہر جاتا ہے</string>
++    <string name="options_failed">Android نے یہ تبدیلی قبول نہیں کی۔</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-zh-rCN/strings.xml
+index 35bc022..ba99735 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-zh-rCN/strings.xml
+@@ -20,5 +20,17 @@
+     <string name="remove_confirm">移除工作空间及其所有工作应用和数据？Y 移除，N 保留。</string>
+     <string name="yes">是</string>
+     <string name="no">否</string>
+-    <string name="hint">上下选择应用 · Enter 添加 · R 移除工作空间 · 返回退出</string>
++    <string name="hint">上下选择应用 · Enter 添加 · O 选项 · R 移除工作空间 · 返回退出</string>
++    <string name="options">工作空间选项</string>
++    <string name="options_intro">这些设置只在工作空间内生效。每项一开始都是允许。</string>
++    <string name="option_copy">从工作应用复制到个人应用</string>
++    <string name="option_share">从个人应用分享到工作应用</string>
++    <string name="option_screenshots">工作应用的屏幕截图</string>
++    <string name="allowed">允许</string>
++    <string name="blocked">阻止</string>
++    <string name="option_line">%1$s：%2$s</string>
++    <string name="work_lock">工作锁</string>
++    <string name="work_lock_about">工作应用单独的 PIN、图案或密码，手机锁定后打开它们时需要输入。</string>
++    <string name="options_hint">上下键选择 · Enter 切换 · L 设置工作锁 · Back 退出</string>
++    <string name="options_failed">Android 未接受此更改。</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml
+index ec46715..05af80f 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml
+@@ -1,5 +1,5 @@
+ <?xml version="1.0" encoding="utf-8"?>
+-<!-- English. Single capital letters in hints (R remove, Y yes, N no) name keyboard keys: keep them as the key, translate the word.
++<!-- English. Single capital letters in hints (O options, R remove, Y yes, N no, L Work lock) name keyboard keys: keep them as the key, translate the word.
+      Keep equal to SpacesText.EN (SpacesTextTest checks); translations go in values-<lang>/. -->
+ <resources>
+     <string name="app_name" translatable="false">Sable Spaces</string>
+@@ -22,5 +22,17 @@
+     <string name="remove_confirm">Remove the Work space with every work app and its data? Y removes it, N keeps it.</string>
+     <string name="yes">Yes</string>
+     <string name="no">No</string>
+-    <string name="hint">Up and Down choose an app · Enter adds it · R removes the Work space · Back leaves</string>
++    <string name="hint">Up and Down choose an app · Enter adds it · O options · R removes the Work space · Back leaves</string>
++    <string name="options">Work space options</string>
++    <string name="options_intro">These apply inside the Work space only. Each starts as Allowed.</string>
++    <string name="option_copy">Copy from work apps into personal apps</string>
++    <string name="option_share">Share from personal apps into work apps</string>
++    <string name="option_screenshots">Screenshots of work apps</string>
++    <string name="allowed">Allowed</string>
++    <string name="blocked">Blocked</string>
++    <string name="option_line">%1$s: %2$s</string>
++    <string name="work_lock">Work lock</string>
++    <string name="work_lock_about">A separate PIN, pattern or password for work apps, asked when you open them after the phone was locked.</string>
++    <string name="options_hint">Up and Down choose · Enter changes it · L sets the Work lock · Back leaves</string>
++    <string name="options_failed">Android did not accept that change.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/core/WorkSpaceTest.kt b/sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/core/WorkSpaceTest.kt
+index 4220c3c..cff3dbd 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/core/WorkSpaceTest.kt
++++ b/sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/core/WorkSpaceTest.kt
+@@ -67,4 +67,13 @@ class WorkSpaceTest {
+         assertEquals(1, WorkSpace.move(0, 1, 3))
+         assertEquals(0, WorkSpace.move(5, 1, 0))
+     }
++
++    @Test
++    fun everyOptionHasItsLineAndStartsAllowed() {
++        WorkOption.entries.forEach { assertTrue(it.key, it.key in SpacesText.EN) }
++        assertEquals("allowed", WorkSpace.optionValueKey(blocked = false))
++        assertEquals("blocked", WorkSpace.optionValueKey(blocked = true))
++        assertTrue("allowed" in SpacesText.EN && "blocked" in SpacesText.EN)
++        assertEquals(3, WorkOption.entries.size)
++    }
+ }

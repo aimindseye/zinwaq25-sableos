@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">کام</string>
+    <string name="tasks_hint">C نیا · Enter ترمیم · اسپیس مکمل · Z کل · D حذف · H مکمل</string>
+    <string name="no_tasks">کوئی کام نہیں۔ C ایک شامل کرتا ہے۔</string>
+    <string name="group_overdue">تاخیر شدہ</string>
+    <string name="group_today">آج</string>
+    <string name="group_tomorrow">کل</string>
+    <string name="group_this_week">اس ہفتے</string>
+    <string name="group_later">بعد میں</string>
+    <string name="group_no_date">کوئی تاریخ نہیں</string>
+    <string name="group_done">مکمل</string>
+    <string name="due_at">مقررہ %1$s</string>
+    <string name="remind_at">یاد دہانی %1$s</string>
+    <string name="from_app">%1$s سے</string>
+    <string name="every_day">ہر دن</string>
+    <string name="every_week">ہر ہفتے</string>
+    <string name="every_month">ہر مہینے</string>
+    <string name="new_task">نیا کام</string>
+    <string name="edit_task">کام میں ترمیم</string>
+    <string name="title">عنوان</string>
+    <string name="details">تفصیلات</string>
+    <string name="due">مقررہ</string>
+    <string name="remind">یاد دہانی</string>
+    <string name="none">کوئی نہیں</string>
+    <string name="pick_time">وقت چنیں</string>
+    <string name="later_today">آج بعد میں</string>
+    <string name="this_evening">آج شام</string>
+    <string name="tomorrow_morning">کل صبح</string>
+    <string name="repeat">دہرائیں: %1$s</string>
+    <string name="never">کبھی نہیں</string>
+    <string name="save">محفوظ کریں</string>
+    <string name="cancel">منسوخ</string>
+    <string name="delete">حذف</string>
+    <string name="delete_task">“%1$s” حذف کریں؟</string>
+    <string name="deleted">“%1$s” حذف ہو گیا</string>
+    <string name="add_a_title">عنوان شامل کریں۔</string>
+    <string name="reminders">یاد دہانیاں</string>
+    <string name="task_reminder">کام کی یاد دہانی</string>
+    <string name="done">مکمل</string>
+    <string name="snooze_1_hour">1 گھنٹہ مؤخر</string>
+    <string name="reminders_off">یاد دہانی کی اطلاعات بند ہیں۔ Enter انہیں اجازت دیتا ہے؛ یاد دہانیاں پھر بھی یہاں دکھتی ہیں۔</string>
+    <string name="follow_up_in">%1$s میں فالو اپ</string>
+    <string name="show_done">مکمل دکھائیں (H)</string>
+    <string name="hide_done">مکمل چھپائیں (H)</string>
+</resources>

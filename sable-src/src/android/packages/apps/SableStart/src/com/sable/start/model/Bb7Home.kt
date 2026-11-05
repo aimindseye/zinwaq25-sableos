@@ -47,6 +47,158 @@ enum class Bb7Panel(
     val title: String get() = t(titleKey)
 }
 
+/** How the open tray lists apps: icons in a grid, or BlackBerry 7's list of icon and name rows. */
+enum class Bb7TrayView(
+    private val titleKey: String,
+) {
+    Grid("view_grid"),
+    List("view_list"),
+    ;
+
+    val title: String get() = t(titleKey)
+}
+
+/** Tray icon sizes, in dp. */
+enum class Bb7IconSize(
+    val dp: Int,
+    private val titleKey: String,
+) {
+    Small(32, "icon_small"),
+    Medium(40, "icon_medium"),
+    Large(48, "icon_large"),
+    ;
+
+    val title: String get() = t(titleKey)
+}
+
+/**
+ * The tray's look: [view] for the open tray (the closed tray on the home screen is always icons),
+ * [columns] for the grid ([AUTO] fits the screen) and [iconSize].
+ */
+data class Bb7Layout(
+    val view: Bb7TrayView = Bb7TrayView.Grid,
+    val columns: Int = AUTO,
+    val iconSize: Bb7IconSize = Bb7IconSize.Medium,
+) {
+    /** Saved as "view:columns:size"; anything unreadable gives the default. */
+    fun encode(): String = "${view.name}:$columns:${iconSize.name}"
+
+    companion object {
+        const val AUTO = 0
+
+        private val CHOSEN = Bb7Home.MIN_COLUMNS..Bb7Home.MAX_COLUMNS
+
+        private fun validColumns(columns: Int): Boolean = columns == AUTO || columns in CHOSEN
+
+        fun decode(saved: String?): Bb7Layout {
+            val parts = saved?.split(':').orEmpty()
+            if (parts.size != 3) return Bb7Layout()
+            return Bb7Layout(
+                view = Bb7TrayView.entries.firstOrNull { it.name == parts[0] } ?: Bb7TrayView.Grid,
+                columns = parts[1].toIntOrNull()?.takeIf(::validColumns) ?: AUTO,
+                iconSize = Bb7IconSize.entries.firstOrNull { it.name == parts[2] } ?: Bb7IconSize.Medium,
+            )
+        }
+    }
+}
+
+/** A tray tab the user made, after BlackBerry 7's own folders in the tray: a name and its apps (stable keys). */
+data class Bb7Tab(
+    val name: String,
+    val keys: List<String> = emptyList(),
+)
+
+/**
+ * The user's tray tabs, shown after Favorites, All and Downloads. Saved as one line per tab, the name, a tab, then the
+ * apps' stable keys separated by commas; a damaged line is dropped, never thrown.
+ */
+object Bb7Tabs {
+    const val MAX = 5
+    const val MAX_NAME = 20
+
+    private const val TAB_SEPARATOR = "\n"
+    private const val NAME_SEPARATOR = "\t"
+    private const val KEY_SEPARATOR = ","
+
+    /** A usable tab name: control characters dropped, trimmed, at most [MAX_NAME]; null when nothing is left. */
+    fun cleanName(text: String): String? =
+        text
+            .filterNot { it.isISOControl() }
+            .trim()
+            .take(MAX_NAME)
+            .trim()
+            .ifEmpty { null }
+
+    /** [tabs] with a new empty tab called [name]; unchanged when full, the name is empty or already used. */
+    fun add(
+        tabs: List<Bb7Tab>,
+        name: String,
+    ): List<Bb7Tab> {
+        val clean = cleanName(name) ?: return tabs
+        val taken = tabs.any { it.name.equals(clean, ignoreCase = true) }
+        return if (tabs.size >= MAX || taken) tabs else tabs + Bb7Tab(clean)
+    }
+
+    /** [tabs] without the tab at [index]; its apps stay installed and in every other tab. */
+    fun remove(
+        tabs: List<Bb7Tab>,
+        index: Int,
+    ): List<Bb7Tab> = tabs.filterIndexed { i, _ -> i != index }
+
+    /** Adds [key] to the end of the tab at [index], or takes it out when it is already there. */
+    fun toggle(
+        tabs: List<Bb7Tab>,
+        index: Int,
+        key: String,
+    ): List<Bb7Tab> =
+        tabs.mapIndexed { i, tab ->
+            when {
+                i != index -> tab
+                key in tab.keys -> tab.copy(keys = tab.keys - key)
+                else -> tab.copy(keys = tab.keys + key)
+            }
+        }
+
+    fun encode(tabs: List<Bb7Tab>): String =
+        tabs.joinToString(TAB_SEPARATOR) { it.name + NAME_SEPARATOR + it.keys.joinToString(KEY_SEPARATOR) }
+
+    fun decode(text: String?): List<Bb7Tab> {
+        var tabs = emptyList<Bb7Tab>()
+        text.orEmpty().split(TAB_SEPARATOR).forEach { line ->
+            val keys =
+                line
+                    .substringAfter(NAME_SEPARATOR, "")
+                    .split(KEY_SEPARATOR)
+                    .filter { it.isNotBlank() && NAME_SEPARATOR !in it }
+                    .distinct()
+            val added = add(tabs, line.substringBefore(NAME_SEPARATOR))
+            tabs = if (added.size > tabs.size) added.dropLast(1) + added.last().copy(keys = keys) else added
+        }
+        return tabs
+    }
+}
+
+/** Typing a new tab's name in the tray title: Enter saves, Escape or Back cancels, Backspace deletes. */
+object Bb7Naming {
+    private const val KEYCODE_BACK = 4
+    private const val KEYCODE_ENTER = 66
+    private const val KEYCODE_DEL = 67
+    private const val KEYCODE_ESCAPE = 111
+
+    /** The name after one key: null when naming ends (Enter saves what [name] holds, Escape and Back drop it). */
+    fun onKey(
+        keyCode: Int,
+        unicode: Int,
+        name: String,
+    ): String? =
+        when {
+            keyCode == KEYCODE_ENTER || keyCode == KEYCODE_ESCAPE || keyCode == KEYCODE_BACK -> null
+            keyCode == KEYCODE_DEL -> name.dropLast(1)
+            unicode <= 0 || unicode.toChar().isISOControl() || name.length >= Bb7Tabs.MAX_NAME -> name
+            else -> name + unicode.toChar()
+        }
+}
+
 /** Where a horizontal swipe on the BlackBerry 7 home goes: Hub is to the left, the apps to the right. */
 enum class Bb7Swipe { Hub, Apps }
 
@@ -75,6 +227,29 @@ object Bb7Home {
 
     fun columns(widthDp: Int): Int = (widthDp / CELL_DP).coerceIn(MIN_COLUMNS, MAX_COLUMNS)
 
+    /** Room around an icon in its cell; a Medium icon gives [CELL_DP]. */
+    private const val CELL_PAD_DP = CELL_DP - 40
+
+    /** Columns for [layout]: one in the open list view, the chosen number, or as many as fit. */
+    fun columns(
+        widthDp: Int,
+        layout: Bb7Layout,
+        open: Boolean,
+    ): Int =
+        when {
+            open && layout.view == Bb7TrayView.List -> 1
+            layout.columns != Bb7Layout.AUTO -> layout.columns.coerceIn(MIN_COLUMNS, MAX_COLUMNS)
+            else -> (widthDp / (layout.iconSize.dp + CELL_PAD_DP)).coerceIn(MIN_COLUMNS, MAX_COLUMNS)
+        }
+
+    /** The next choice in the home menu: Auto, 4 ... 8, then Auto again. */
+    fun nextColumns(columns: Int): Int =
+        when (columns) {
+            Bb7Layout.AUTO -> MIN_COLUMNS
+            in MIN_COLUMNS until MAX_COLUMNS -> columns + 1
+            else -> Bb7Layout.AUTO
+        }
+
     /**
      * The apps of one panel, in order. Favorites: the user's Home apps ([favoriteKeys], stable
      * keys) or, without any, [DEFAULT_FAVORITE_PACKAGES] that are installed; All: every app by
@@ -99,6 +274,28 @@ object Bb7Home {
         }
     }
 
+    /** Tray places: the three panels in order, then the user's [tabs]. */
+    fun trayPlaces(tabs: Int): Int = Bb7Panel.entries.size + tabs
+
+    /** The panel at tray place [place], or null for a user tab. */
+    fun panelAt(place: Int): Bb7Panel? = Bb7Panel.entries.getOrNull(place)
+
+    /** The next tray place left ([step] -1) or right (+1), wrapping through the panels and [tabs] user tabs. */
+    fun stepPlace(
+        place: Int,
+        step: Int,
+        tabs: Int,
+    ): Int = (place + step).mod(trayPlaces(tabs))
+
+    /** A user tab's apps in the order they were added; uninstalled ones are skipped. */
+    fun tabApps(
+        tab: Bb7Tab,
+        apps: List<AppEntry>,
+    ): List<AppEntry> {
+        val byKey = apps.associateBy { it.stableKey() }
+        return tab.keys.mapNotNull { byKey[it] }
+    }
+
     /** The next panel left ([step] -1) or right (+1), wrapping. */
     fun step(
         panel: Bb7Panel,
@@ -116,12 +313,13 @@ object Bb7Home {
         apps: List<AppEntry>,
         query: String,
     ): List<AppEntry> {
-        val q = query.trim().lowercase()
+        val q = SearchFold.fold(query.trim())
         if (q.isEmpty()) return emptyList()
         val byName = apps.sortedBy { it.label.lowercase() }
-        val starts = byName.filter { it.label.lowercase().startsWith(q) }
-        val word = byName.filter { it !in starts && it.label.lowercase().split(' ').any { w -> w.startsWith(q) } }
-        val any = byName.filter { it !in starts && it !in word && q in it.label.lowercase() }
+        val name = byName.associateWith { SearchFold.fold(it.label) }
+        val starts = byName.filter { name.getValue(it).startsWith(q) }
+        val word = byName.filter { it !in starts && name.getValue(it).split(' ').any { w -> w.startsWith(q) } }
+        val any = byName.filter { it !in starts && it !in word && q in name.getValue(it) }
         return starts + word + any
     }
 

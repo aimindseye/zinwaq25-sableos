@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">Bilgisayarınızdan bu telefona yazdırın. Print To Go açıkken telefon Wi-Fi ağınızda bir yazıcıdır ve her baskı Documents/Print To Go klasörüne PDF olarak kaydedilir.</string>
+    <string name="start">Almaya başla</string>
+    <string name="stop">Durdur</string>
+    <string name="off">Kapalı. Bu telefona hiçbir şey yazdıramaz.</string>
+    <string name="ready">%1$s olarak hazır. Bilgisayarın yazdırma penceresinde seçin. 10 dakika baskı olmazsa kapanır.</string>
+    <string name="no_wifi">Önce Wi-Fi\'ye bağlanın. Print To Go yalnızca Wi-Fi\'de dinler, mobil veride asla.</string>
+    <string name="start_failed">Print To Go başlatılamadı. Tekrar deneyin.</string>
+    <string name="saved">Kaydedildi: %1$s</string>
+    <string name="save_failed">%1$s kaydedilemedi.</string>
+    <string name="open_folder">Kaydedilen baskıları aç</string>
+    <string name="running">Print To Go açık</string>
+    <string name="channel_running">Print To Go çalışıyor</string>
+    <string name="channel_saved">Kaydedilen baskılar</string>
+    <string name="idle_off">Print To Go 10 dakika baskı olmadığı için kapandı.</string>
+    <string name="hint">Enter başlatır veya durdurur · O kaydedilen baskıları açar · Geri çıkar</string>
+</resources>

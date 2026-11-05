@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Korean. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">북</string>
+    <string name="ne">북동</string>
+    <string name="e">동</string>
+    <string name="se">남동</string>
+    <string name="s">남</string>
+    <string name="sw">남서</string>
+    <string name="w">서</string>
+    <string name="nw">북서</string>
+    <string name="dial_n">북</string>
+    <string name="dial_e">동</string>
+    <string name="dial_s">남</string>
+    <string name="dial_w">서</string>
+    <string name="true_mark">진</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">자북</string>
+    <string name="true_north">진북</string>
+    <string name="true_waiting">진북을 위해 대략적인 위치를 찾는 중입니다. 그때까지 자북을 표시합니다.</string>
+    <string name="true_denied">진북에는 대략적인 위치가 필요합니다. 자북을 표시합니다.</string>
+    <string name="accuracy_high">정확도: 높음</string>
+    <string name="accuracy_medium">정확도: 보통</string>
+    <string name="accuracy_low">정확도: 낮음. C를 눌러 보정하세요.</string>
+    <string name="accuracy_unreliable">정확도: 불안정. C를 눌러 보정하세요.</string>
+    <string name="no_sensor">이 휴대전화에는 나침반 센서가 없습니다.</string>
+    <string name="flat_or_upright">휴대전화를 평평하게 두거나, 보는 방향으로 세워 드세요.</string>
+    <string name="held">고정됨. H로 해제.</string>
+    <string name="calibrate">보정</string>
+    <string name="calibrate_body">휴대전화를 돌리면서 8자를 몇 번 그리세요. 금속, 자석, 스피커에서 떨어지세요.</string>
+    <string name="calibrate_done">보정되었습니다.</string>
+    <string name="hint">T 진북 · C 보정 · H 고정 · Back 나가기</string>
+    <string name="calibrate_hint">C 또는 Back으로 나침반에 돌아가기</string>
+</resources>

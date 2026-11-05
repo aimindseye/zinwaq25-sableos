@@ -183,4 +183,21 @@
     <string name="personal">شخصي</string>
     <string name="private_space">مساحة خاصة</string>
     <string name="profile_2">الملف %1$s</string>
+    <string name="mark_read">تعليم كمقروء</string>
+    <string name="snooze_1_hour">تأجيل ساعة</string>
+    <string name="dismiss_notification">تجاهل الإشعار</string>
+    <string name="snoozed_for_an_hour">تم التأجيل لمدة ساعة.</string>
+    <string name="notification_dismissed">تم تجاهل الإشعار.</string>
+    <string name="sent_to_the_app">أُرسل إلى التطبيق.</string>
+    <string name="the_notification_is_gone">لم يعد الإشعار موجودًا.</string>
+    <string name="mark_prior_read">وضع علامة مقروء على السابق</string>
+    <string name="marked_prior_read">طُلب من التطبيقات وضع علامة مقروء على %1$s من الإشعارات الأقدم.</string>
+    <string name="each_message_on_its_own">كل رسالة على حدة</string>
+    <string name="one_row_per_received_message">صف لكل رسالة مستلمة. يوقف دمج المحادثات.</string>
+    <string name="remind_me">ذكّرني</string>
+    <string name="tasks_unavailable">تطبيق Sable Tasks غير مثبّت.</string>
+    <string name="row_menu_snooze">الغفوة في قائمة الصف</string>
+    <string name="row_menu_snooze_detail">يضيف غفوة لمدة ساعة والمفتاح Z لإشعار نشط.</string>
+    <string name="row_menu_remind_me">ذكّرني في قائمة الصف</string>
+    <string name="row_menu_remind_me_detail">يضيف متابعة في Sable Tasks لصباح الغد. يُحفظ التطبيق فقط، وليس الرسالة أبدًا.</string>
 </resources>

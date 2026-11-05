@@ -74,4 +74,10 @@
     <string name="weather_row_city">Prévisions pour %1$s ; aucune autorisation de localisation</string>
     <string name="weather_row_none">Choisissez la ville affichée par Weather ; aucune autorisation de localisation</string>
     <string name="weather_row_failed">Impossible de lire la ville de Weather</string>
+    <string name="row_hub_menu_title">Menu de ligne du Hub</string>
+    <string name="row_hub_menu_detail">Reporter et Me le rappeler sont désactivés tant que vous ne les activez pas dans le Hub</string>
+    <string name="action_hub_row_menu">Paramètres du Hub</string>
+    <string name="row_work_space_title">Espace professionnel</string>
+    <string name="row_work_space_detail">Facultatif : gardez les applis professionnelles à part, avec un sélecteur Personnel · Travail dans Start</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

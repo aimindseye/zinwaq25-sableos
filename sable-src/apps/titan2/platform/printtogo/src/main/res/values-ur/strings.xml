@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Urdu. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">اپنے کمپیوٹر سے اس فون پر پرنٹ کریں۔ جب تک Print To Go آن ہے، فون آپ کے Wi-Fi پر ایک پرنٹر ہے اور ہر پرنٹ Documents/Print To Go میں PDF کے طور پر محفوظ ہوتا ہے۔</string>
+    <string name="start">وصول کرنا شروع کریں</string>
+    <string name="stop">روکیں</string>
+    <string name="off">بند۔ کوئی چیز اس فون پر پرنٹ نہیں کر سکتی۔</string>
+    <string name="ready">%1$s کے نام سے تیار۔ اسے کمپیوٹر کے پرنٹ ڈائیلاگ میں منتخب کریں۔ 10 منٹ تک کوئی پرنٹ نہ آئے تو یہ بند ہو جاتا ہے۔</string>
+    <string name="no_wifi">پہلے Wi-Fi سے جڑیں۔ Print To Go صرف Wi-Fi پر سنتا ہے، موبائل ڈیٹا پر کبھی نہیں۔</string>
+    <string name="start_failed">Print To Go شروع نہیں ہو سکا۔ دوبارہ کوشش کریں۔</string>
+    <string name="saved">محفوظ ہو گیا: %1$s</string>
+    <string name="save_failed">%1$s محفوظ نہیں ہو سکا۔</string>
+    <string name="open_folder">محفوظ پرنٹ کھولیں</string>
+    <string name="running">Print To Go آن ہے</string>
+    <string name="channel_running">Print To Go چل رہا ہے</string>
+    <string name="channel_saved">محفوظ پرنٹ</string>
+    <string name="idle_off">10 منٹ تک کوئی پرنٹ نہ آنے پر Print To Go بند ہو گیا۔</string>
+    <string name="hint">Enter شروع یا بند کرتا ہے · O محفوظ پرنٹ کھولتا ہے · Back باہر جاتا ہے</string>
+</resources>

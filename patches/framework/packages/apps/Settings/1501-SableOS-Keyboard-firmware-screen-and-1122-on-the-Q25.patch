@@ -28,17 +28,12 @@ Needs the device sepolicy that lets system_app write the node.
  .../SableKeyboardFirmwareCodeReceiver.java    |  44 ++++++
  ...eKeyboardFirmwarePreferenceController.java |  37 +++++
  7 files changed, 371 insertions(+)
- create mode 100644 res/values/sable_keyboard_firmware_strings.xml
- create mode 100644 src/com/android/settings/sable/SableKeyboardFirmware.java
- create mode 100644 src/com/android/settings/sable/SableKeyboardFirmwareActivity.java
- create mode 100644 src/com/android/settings/sable/SableKeyboardFirmwareCodeReceiver.java
- create mode 100644 src/com/android/settings/sable/SableKeyboardFirmwarePreferenceController.java
 
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index fb3e5af..dea37ac 100644
+index 807c672..a8093f2 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
-@@ -3875,6 +3875,23 @@
+@@ -3918,6 +3918,23 @@
                  android:value="com.android.settings.TestingSettings" />
          </activity>
  
@@ -106,10 +101,10 @@ index 0000000..f42a120
 +    <string name="keywords_sable_keyboard_firmware">keyboard firmware, uf2, 1122, firmware upgrade, PaBaLF</string>
 +</resources>
 diff --git a/res/xml/keyboard_settings.xml b/res/xml/keyboard_settings.xml
-index d2463f7..2b22602 100644
+index 74c5013..7579bdd 100644
 --- a/res/xml/keyboard_settings.xml
 +++ b/res/xml/keyboard_settings.xml
-@@ -66,6 +66,20 @@
+@@ -72,6 +72,20 @@
          settings:keywords="@string/keywords_sable_keyboard_backlight"
          settings:controller="com.android.settings.sable.SableKeyboardBacklightPreferenceController" />
  

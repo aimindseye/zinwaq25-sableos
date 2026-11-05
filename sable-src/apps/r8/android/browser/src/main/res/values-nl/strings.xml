@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">Zoek of typ een webadres</string>
+    <string name="keys_hint">L adres · Space pagina · T boven · B onder · R vernieuwen · M aanwijzer</string>
+    <string name="pointer_on">Trackpad-aanwijzer aan</string>
+    <string name="pointer_off">Aanwijzer uit · het trackpad scrolt de pagina</string>
+    <string name="page_failed">Deze pagina kon niet laden. R probeert het opnieuw.</string>
+    <string name="no_app_for_link">Geen app kan deze link openen.</string>
+    <string name="share_page">Pagina delen</string>
+    <string name="downloading">%1$s downloaden</string>
+    <string name="download_failed">Deze download kon niet starten.</string>
+    <string name="choose_file">Kies een bestand</string>
+</resources>

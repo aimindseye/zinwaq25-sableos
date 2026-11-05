@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hindi. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">उत्तर</string>
+    <string name="ne">उत्तर-पूर्व</string>
+    <string name="e">पूर्व</string>
+    <string name="se">दक्षिण-पूर्व</string>
+    <string name="s">दक्षिण</string>
+    <string name="sw">दक्षिण-पश्चिम</string>
+    <string name="w">पश्चिम</string>
+    <string name="nw">उत्तर-पश्चिम</string>
+    <string name="dial_n">उ</string>
+    <string name="dial_e">पू</string>
+    <string name="dial_s">द</string>
+    <string name="dial_w">प</string>
+    <string name="true_mark">स</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">चुंबकीय उत्तर</string>
+    <string name="true_north">वास्तविक उत्तर</string>
+    <string name="true_waiting">वास्तविक उत्तर के लिए आपका अनुमानित स्थान खोजा जा रहा है। तब तक चुंबकीय उत्तर दिखाया जा रहा है।</string>
+    <string name="true_denied">वास्तविक उत्तर के लिए आपका अनुमानित स्थान चाहिए। चुंबकीय उत्तर दिखाया जा रहा है।</string>
+    <string name="accuracy_high">सटीकता: उच्च</string>
+    <string name="accuracy_medium">सटीकता: मध्यम</string>
+    <string name="accuracy_low">सटीकता: कम। कैलिब्रेट करने के लिए C दबाएँ।</string>
+    <string name="accuracy_unreliable">सटीकता: अविश्वसनीय। कैलिब्रेट करने के लिए C दबाएँ।</string>
+    <string name="no_sensor">इस फ़ोन में कंपास सेंसर नहीं है।</string>
+    <string name="flat_or_upright">फ़ोन को सपाट रखें, या सीधा उस दिशा में जिधर आप देख रहे हैं।</string>
+    <string name="held">रोका गया। H छोड़ता है।</string>
+    <string name="calibrate">कैलिब्रेट करें</string>
+    <string name="calibrate_body">फ़ोन को कुछ बार 8 के आकार में घुमाएँ, साथ में उसे मोड़ते रहें। धातु, चुंबक और स्पीकर से दूर रहें।</string>
+    <string name="calibrate_done">कैलिब्रेट हो गया।</string>
+    <string name="hint">T वास्तविक उत्तर · C कैलिब्रेट · H रोकें · Back बाहर जाता है</string>
+    <string name="calibrate_hint">C या Back कंपास पर लौटाता है</string>
+</resources>

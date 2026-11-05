@@ -20,6 +20,7 @@ import org.sableos.hub.notifications.SableNotificationListenerService
 import org.sableos.hub.platform.PrivacyReader
 import org.sableos.hub.policy.ConnectedAppsParity
 import org.sableos.hub.policy.HubAppCounts
+import org.sableos.hub.policy.HubHomeRows
 import org.sableos.hub.policy.HubPrivacyState
 
 /**
@@ -28,6 +29,10 @@ import org.sableos.hub.policy.HubPrivacyState
  * - `apps`: Start's unread bar, one row per app (`package`, `count`), most unread first; no
  *   notification text. Hidden apps are left out, and while the device is locked or Sable private
  *   mode is on there is one row, package "*", with the total ([HubAppCounts]).
+ * - `messages`: the Hub page's message list, the newest inbox rows as Hub shows them after
+ *   redaction (`thread_id`, `title`, `preview`, `date`, `unread`, `sms`, `package`); empty while
+ *   the device is locked, in Sable private mode, without notification access for connected apps,
+ *   and for work or private profiles ([HubHomeRows]).
  */
 class HubSnapshotProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
@@ -41,7 +46,14 @@ class HubSnapshotProvider : ContentProvider() {
     ): Cursor {
         val appContext = checkNotNull(context)
         enforceLauncherCaller(appContext)
-        if (uri.pathSegments.firstOrNull() == PATH_APPS) return appCounts(appContext)
+        return when (uri.pathSegments.firstOrNull()) {
+            PATH_APPS -> appCounts(appContext)
+            PATH_MESSAGES -> homeRows(appContext)
+            else -> attention(appContext)
+        }
+    }
+
+    private fun attention(appContext: android.content.Context): Cursor {
         val canReadSms =
             appContext.checkSelfPermission(Manifest.permission.READ_SMS) ==
                 PackageManager.PERMISSION_GRANTED
@@ -124,6 +136,45 @@ class HubSnapshotProvider : ContentProvider() {
         }
     }
 
+    private fun homeRows(appContext: android.content.Context): Cursor {
+        val userManager = appContext.getSystemService(UserManager::class.java)
+        val personalSerial = userManager?.getSerialNumberForUser(Process.myUserHandle()) ?: -1L
+        val privacy =
+            HubPrivacyState(
+                deviceLocked = PrivacyReader(appContext).deviceLocked(),
+                privateMode = HubPreferences(appContext).privateMode(),
+            )
+        val rows =
+            if (privacy.countsOnly) {
+                emptyList()
+            } else {
+                val snapshot = runCatching { HubRepository(appContext).snapshot() }.getOrNull()
+                val accessGranted = notificationAccessGranted(appContext)
+                val conversations =
+                    snapshot
+                        ?.conversations
+                        .orEmpty()
+                        .filter { accessGranted || it.source == HubConversationSource.Sms }
+                HubHomeRows.rows(conversations, snapshot?.privacy ?: privacy, personalSerial)
+            }
+        return MatrixCursor(MESSAGE_COLUMNS).apply {
+            rows.forEach { row ->
+                addRow(
+                    arrayOf<Any?>(
+                        row.threadId,
+                        row.title,
+                        row.preview,
+                        row.dateMillis,
+                        row.unread,
+                        if (row.sms) 1 else 0,
+                        row.packageName,
+                    ),
+                )
+            }
+            setNotificationUri(appContext.contentResolver, SNAPSHOT_URI)
+        }
+    }
+
     private fun notificationAccessGranted(context: android.content.Context): Boolean =
         runCatching {
             checkNotNull(context.getSystemService(NotificationManager::class.java))
@@ -135,6 +186,8 @@ class HubSnapshotProvider : ContentProvider() {
     override fun getType(uri: Uri): String =
         if (uri.pathSegments.firstOrNull() == PATH_APPS) {
             "vnd.android.cursor.dir/vnd.org.sableos.hub.app-count"
+        } else if (uri.pathSegments.firstOrNull() == PATH_MESSAGES) {
+            "vnd.android.cursor.dir/vnd.org.sableos.hub.home-row"
         } else {
             "vnd.android.cursor.item/vnd.org.sableos.hub.snapshot"
         }
@@ -177,8 +230,11 @@ class HubSnapshotProvider : ContentProvider() {
         val SNAPSHOT_URI: Uri =
             Uri.parse("content://org.sableos.hub.snapshot/current")
         const val PATH_APPS = "apps"
+        const val PATH_MESSAGES = "messages"
         private val COLUMNS =
             arrayOf("title", "detail", "availability", "observed_at")
         private val APP_COLUMNS = arrayOf("package", "count")
+        private val MESSAGE_COLUMNS =
+            arrayOf("thread_id", "title", "preview", "date", "unread", "sms", "package")
     }
 }

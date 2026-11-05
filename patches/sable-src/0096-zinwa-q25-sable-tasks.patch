@@ -1,0 +1,3349 @@
+diff --git a/sable-src/apps/r8/android/notes/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/notes/src/main/AndroidManifest.xml
+index 38fd71a..1c1efc0 100644
+--- a/sable-src/apps/r8/android/notes/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/notes/src/main/AndroidManifest.xml
+@@ -4,6 +4,8 @@
+          the system file picker and share sheet only when the user asks. -->
+     <queries>
+         <provider android:authorities="org.sableos.appearance" />
++        <!-- R on a checklist item in Tasks view hands it to Sable Tasks. -->
++        <package android:name="org.sableos.tasks" />
+     </queries>
+     <application
+         android:name=".NotesApplication"
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
+index 13d1e53..fb90066 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
+@@ -126,10 +126,25 @@ class NotesController(
+         when (key) {
+             TasksKey.History -> state.showDone = !state.showDone
+             TasksKey.OpenNote -> show(Screen.Editor(state.focusedTask?.noteId ?: return false))
++            TasksKey.Remind -> return remindInTasks(state.focusedTask ?: return false)
+         }
+         return true
+     }
+ 
++    /**
++     * R on a checklist item hands it to Sable Tasks as a new task (its text, then the note's title), where
++     * a due date and reminder can be set. Nothing happens when Sable Tasks is not installed.
++     */
++    private fun remindInTasks(task: Tasks.Task): Boolean {
++        val text = task.text + if (task.noteTitle.isBlank()) "" else "\n" + task.noteTitle
++        val intent =
++            Intent(Intent.ACTION_SEND)
++                .setType("text/plain")
++                .setPackage(TASKS_PACKAGE)
++                .putExtra(Intent.EXTRA_TEXT, text)
++        return runCatching { activity.startActivity(intent) }.isSuccess
++    }
++
+     private fun show(screen: Screen) {
+         state.searching = false
+         state.screen = screen
+@@ -279,6 +294,7 @@ class NotesController(
+     }
+ 
+     private companion object {
++        const val TASKS_PACKAGE = "org.sableos.tasks"
+         const val SAVE_DELAY_MS = 800L
+         const val MAX_IMPORT_BYTES = 1 shl 20
+         const val MAX_FILE_NAME_CHARS = 60
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesKeys.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesKeys.kt
+index 3693098..f2ca643 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesKeys.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesKeys.kt
+@@ -36,7 +36,7 @@ enum class EditorMenu(
+ }
+ 
+ /** Tasks screen keys. */
+-enum class TasksKey { OpenNote, History }
++enum class TasksKey { OpenNote, History, Remind }
+ 
+ /**
+  * The Notes keymap (UTILITIES_NOTES_RECORDER_UX: Ctrl+N new, Ctrl+S save, Ctrl+F find, Ctrl+Enter
+@@ -46,7 +46,7 @@ enum class TasksKey { OpenNote, History }
+ object NotesKeys {
+     val LIST_HINT: String get() = t("c_new_s_find_k")
+     val EDITOR_HINT: String get() = t("menu_list_item_tick_find")
+-    val TASKS_HINT: String get() = t("enter_tick_o_open_note")
++    val TASKS_HINT: String get() = t("enter_tick_o_open_note") + t("r_remind_in_tasks")
+ 
+     fun list(
+         keyCode: Int,
+@@ -117,6 +117,7 @@ object NotesKeys {
+             chord -> null
+             keyCode == KeyEvent.KEYCODE_O -> TasksKey.OpenNote
+             keyCode == KeyEvent.KEYCODE_H -> TasksKey.History
++            keyCode == KeyEvent.KEYCODE_R -> TasksKey.Remind
+             else -> null
+         }
+ }
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesText.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesText.kt
+index 19fe3fd..e94ed8c 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesText.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesText.kt
+@@ -37,6 +37,7 @@ object NotesText {
+             "c_new_s_find_k" to "C new · S find · K tasks · L colour · D delete",
+             "menu_list_item_tick_find" to "Menu: list item, tick, find, colour, share · Back saves",
+             "enter_tick_o_open_note" to "Enter tick · O open note · H done items · Back",
++            "r_remind_in_tasks" to " · R remind in Tasks",
+             "type_your_note_the_first" to "Type your note. The first line is its title.",
+             "change_colour_now" to "Change colour, now %1\$s",
+             "edited" to "Edited %1\$s%2\$s",
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-ar/strings.xml
+index 27e3345..d9d7801 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-ar/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">سيتم حذف «%1$s» من هذا الهاتف.</string>
+     <string name="delete">حذف</string>
+     <string name="keep">إبقاء</string>
++    <string name="r_remind_in_tasks">" · R تذكير في المهام"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-de/strings.xml
+index 3685d59..6fc8278 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-de/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">„%1$s“ wird von diesem Telefon gelöscht.</string>
+     <string name="delete">Löschen</string>
+     <string name="keep">Behalten</string>
++    <string name="r_remind_in_tasks">" · R in Aufgaben erinnern"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-el/strings.xml
+index d4a1516..0f1d0f3 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-el/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">Το «%1$s» θα διαγραφεί από αυτό το τηλέφωνο.</string>
+     <string name="delete">Διαγραφή</string>
+     <string name="keep">Διατήρηση</string>
++    <string name="r_remind_in_tasks">" · R υπενθύμιση στις Εργασίες"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-es/strings.xml
+index cf495ba..48365de 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-es/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">«%1$s» se eliminará de este teléfono.</string>
+     <string name="delete">Eliminar</string>
+     <string name="keep">Conservar</string>
++    <string name="r_remind_in_tasks">" · R recordar en Tareas"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-fr/strings.xml
+index 12d2581..65911e4 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-fr/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">« %1$s » sera supprimée de ce téléphone.</string>
+     <string name="delete">Supprimer</string>
+     <string name="keep">Conserver</string>
++    <string name="r_remind_in_tasks">" · R rappel dans Tâches"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-hi/strings.xml
+index a752750..21d2284 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-hi/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">“%1$s” इस फ़ोन से हटा दिया जाएगा।</string>
+     <string name="delete">हटाएँ</string>
+     <string name="keep">रखें</string>
++    <string name="r_remind_in_tasks">" · R कार्य में याद दिलाएँ"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-it/strings.xml
+index 9fd529b..6e670f6 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-it/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">“%1$s” verrà eliminata da questo telefono.</string>
+     <string name="delete">Elimina</string>
+     <string name="keep">Conserva</string>
++    <string name="r_remind_in_tasks">" · R promemoria in Attività"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-iw/strings.xml
+index c1f7caa..bc54226 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-iw/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">„%1$s” תימחק מהטלפון הזה.</string>
+     <string name="delete">מחיקה</string>
+     <string name="keep">שמירה</string>
++    <string name="r_remind_in_tasks">" · R תזכורת במשימות"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-ja/strings.xml
+index 3871a5e..b026fee 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-ja/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">「%1$s」はこの端末から削除されます。</string>
+     <string name="delete">削除</string>
+     <string name="keep">残す</string>
++    <string name="r_remind_in_tasks">" · R タスクで通知"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-ko/strings.xml
+index e8f7682..0b12538 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-ko/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">“%1$s”이(가) 이 휴대전화에서 삭제됩니다.</string>
+     <string name="delete">삭제</string>
+     <string name="keep">유지</string>
++    <string name="r_remind_in_tasks">" · R 할 일에서 알림"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-nl/strings.xml
+index 9d2e00b..e6c04a2 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-nl/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">“%1$s” wordt van deze telefoon verwijderd.</string>
+     <string name="delete">Verwijderen</string>
+     <string name="keep">Bewaren</string>
++    <string name="r_remind_in_tasks">" · R herinneren in Taken"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-pl/strings.xml
+index 31225be..7c0c5ad 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-pl/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">„%1$s” zostanie usunięta z tego telefonu.</string>
+     <string name="delete">Usuń</string>
+     <string name="keep">Zachowaj</string>
++    <string name="r_remind_in_tasks">" · R przypomnij w Zadaniach"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-pt/strings.xml
+index 08f54ea..7318de9 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-pt/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">“%1$s” será excluída deste telefone.</string>
+     <string name="delete">Excluir</string>
+     <string name="keep">Manter</string>
++    <string name="r_remind_in_tasks">" · R lembrar em Tarefas"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-ru/strings.xml
+index c98a625..a011909 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-ru/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">«%1$s» будет удалена с этого телефона.</string>
+     <string name="delete">Удалить</string>
+     <string name="keep">Оставить</string>
++    <string name="r_remind_in_tasks">" · R напомнить в Задачах"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-sv/strings.xml
+index 6ee9da6..42544b8 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-sv/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">”%1$s” raderas från den här telefonen.</string>
+     <string name="delete">Radera</string>
+     <string name="keep">Behåll</string>
++    <string name="r_remind_in_tasks">" · R påminn i Uppgifter"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-tr/strings.xml
+index 729240d..c254b68 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-tr/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">“%1$s” bu telefondan silinecek.</string>
+     <string name="delete">Sil</string>
+     <string name="keep">Sakla</string>
++    <string name="r_remind_in_tasks">" · R Görevler\'de hatırlat"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-ur/strings.xml
+index 7b3b3a1..dbc431b 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-ur/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">«%1$s» اس فون سے حذف کر دیا جائے گا۔</string>
+     <string name="delete">حذف کریں</string>
+     <string name="keep">رکھیں</string>
++    <string name="r_remind_in_tasks">" · R کام میں یاد دہانی"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values-zh-rCN/strings.xml
+index 493f2c1..9606398 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values-zh-rCN/strings.xml
+@@ -53,4 +53,5 @@
+     <string name="will_be_deleted_from_this">“%1$s”将从此手机中删除。</string>
+     <string name="delete">删除</string>
+     <string name="keep">保留</string>
++    <string name="r_remind_in_tasks">" · R 在任务中提醒"</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/notes/src/main/res/values/strings.xml b/sable-src/apps/r8/android/notes/src/main/res/values/strings.xml
+index ba31a6f..d57d763 100644
+--- a/sable-src/apps/r8/android/notes/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/notes/src/main/res/values/strings.xml
+@@ -29,6 +29,7 @@
+     <string name="c_new_s_find_k">C new · S find · K tasks · L colour · D delete</string>
+     <string name="menu_list_item_tick_find">Menu: list item, tick, find, colour, share · Back saves</string>
+     <string name="enter_tick_o_open_note">Enter tick · O open note · H done items · Back</string>
++    <string name="r_remind_in_tasks">" · R remind in Tasks"</string>
+     <string name="type_your_note_the_first">Type your note. The first line is its title.</string>
+     <string name="change_colour_now">Change colour, now %1$s</string>
+     <string name="edited">Edited %1$s%2$s</string>
+diff --git a/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NotesKeysTest.kt b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NotesKeysTest.kt
+index 58a60ec..e9ddac9 100644
+--- a/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NotesKeysTest.kt
++++ b/sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/core/NotesKeysTest.kt
+@@ -41,4 +41,12 @@ class NotesKeysTest {
+         assertEquals(EditorMenu.Delete, EditorMenu.forKey(KeyEvent.KEYCODE_D))
+         assertNull(EditorMenu.forKey(KeyEvent.KEYCODE_Z))
+     }
++
++    @Test
++    fun tasksViewKeysIncludeRemindInTasks() {
++        assertEquals(TasksKey.OpenNote, NotesKeys.tasks(KeyEvent.KEYCODE_O, chord = false))
++        assertEquals(TasksKey.History, NotesKeys.tasks(KeyEvent.KEYCODE_H, chord = false))
++        assertEquals(TasksKey.Remind, NotesKeys.tasks(KeyEvent.KEYCODE_R, chord = false))
++        assertNull(NotesKeys.tasks(KeyEvent.KEYCODE_R, chord = true))
++    }
+ }
+diff --git a/sable-src/apps/r8/android/settings.gradle.kts b/sable-src/apps/r8/android/settings.gradle.kts
+index b524e8e..d09e258 100644
+--- a/sable-src/apps/r8/android/settings.gradle.kts
++++ b/sable-src/apps/r8/android/settings.gradle.kts
+@@ -27,3 +27,4 @@ include(":sablestart-visual-review")
+ include(":weather")
+ include(":calendar")
+ include(":notes")
++include(":tasks")
+diff --git a/sable-src/apps/r8/android/tasks/build.gradle.kts b/sable-src/apps/r8/android/tasks/build.gradle.kts
+new file mode 100644
+index 0000000..dc0823e
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/build.gradle.kts
+@@ -0,0 +1,75 @@
++plugins {
++    id("com.android.application")
++    id("org.jetbrains.kotlin.android")
++    id("org.jetbrains.kotlin.plugin.compose")
++}
++
++android {
++    namespace = "org.sableos.tasks"
++    compileSdk = 36
++
++    defaultConfig {
++        applicationId = "org.sableos.tasks"
++        minSdk = 30
++        targetSdk = 36
++        versionCode = 1
++        versionName = "0.1.0"
++    }
++
++    buildTypes {
++        // The Q25 image ships the release variant (product/q25/apps.tsv): R8-shrunk and signed by
++        // the platform build, so it fits the dynamic partitions (a debug APK is about 30 MB).
++        release {
++            isMinifyEnabled = true
++            isShrinkResources = true
++            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
++        }
++    }
++
++    buildFeatures {
++        compose = true
++    }
++
++    compileOptions {
++        sourceCompatibility = JavaVersion.VERSION_17
++        targetCompatibility = JavaVersion.VERSION_17
++    }
++
++    kotlin {
++        compilerOptions {
++            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
++            allWarningsAsErrors.set(true)
++        }
++    }
++
++    lint {
++        checkTestSources = false
++    }
++}
++
++androidComponents {
++    beforeVariants(selector().all()) { variantBuilder ->
++        variantBuilder.enableAndroidTest = false
++    }
++}
++
++dependencies {
++    implementation(project(":design"))
++    implementation(platform(libs.androidx.compose.bom))
++    implementation(libs.androidx.activity.compose)
++    implementation("androidx.compose.material3:material3")
++    implementation("androidx.compose.foundation:foundation")
++    implementation("androidx.compose.ui:ui")
++    debugImplementation("androidx.compose.ui:ui-tooling")
++
++    testImplementation(libs.junit)
++}
++
++extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
++    config.setFrom(rootProject.file("config/detekt.yml"))
++    ignoreFailures = false
++}
++
++extensions.configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
++    ignoreFailures.set(false)
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/tasks/src/main/AndroidManifest.xml
+new file mode 100644
+index 0000000..54a5200
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/AndroidManifest.xml
+@@ -0,0 +1,55 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
++    <!-- Reminder notifications (granted at first boot by default-permissions-sable-q25.xml; reminders
++         still show in the app without it) and setting reminders again after a restart. Inexact alarms
++         only, so no SCHEDULE_EXACT_ALARM. Tasks stay in app storage; nothing goes online. -->
++    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
++    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
++    <queries>
++        <provider android:authorities="org.sableos.appearance" />
++    </queries>
++    <application
++        android:name=".TasksApplication"
++        android:allowBackup="false"
++        android:usesCleartextTraffic="false"
++        android:icon="@mipmap/ic_sable_tasks"
++        android:roundIcon="@mipmap/ic_sable_tasks_round"
++        android:label="@string/app_name"
++        android:supportsRtl="true"
++        android:theme="@android:style/Theme.Material.NoActionBar">
++        <activity
++            android:name=".MainActivity"
++            android:exported="true"
++            android:launchMode="singleTask"
++            android:windowSoftInputMode="adjustResize">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++                <category android:name="android.intent.category.LAUNCHER" />
++            </intent-filter>
++            <!-- Text shared from another app (a Notes checklist item, a message) becomes a new task. -->
++            <intent-filter>
++                <action android:name="android.intent.action.SEND" />
++                <category android:name="android.intent.category.DEFAULT" />
++                <data android:mimeType="text/plain" />
++            </intent-filter>
++            <!-- A follow-up for a Hub notification: the source package and key only, never its text. -->
++            <intent-filter>
++                <action android:name="org.sableos.tasks.action.FOLLOW_UP" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++        <receiver
++            android:name=".platform.TaskAlarmReceiver"
++            android:exported="false" />
++        <receiver
++            android:name=".platform.TaskBootReceiver"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.intent.action.BOOT_COMPLETED" />
++                <action android:name="android.intent.action.TIME_SET" />
++                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
++                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
++            </intent-filter>
++        </receiver>
++    </application>
++</manifest>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/MainActivity.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/MainActivity.kt
+new file mode 100644
+index 0000000..2e7ef18
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/MainActivity.kt
+@@ -0,0 +1,110 @@
++package org.sableos.tasks
++
++import android.Manifest
++import android.content.Intent
++import android.os.Bundle
++import android.view.KeyEvent
++import androidx.activity.ComponentActivity
++import androidx.activity.compose.setContent
++import androidx.activity.enableEdgeToEdge
++import androidx.activity.result.contract.ActivityResultContracts
++import org.sableos.design.SableGlobalTheme
++import org.sableos.tasks.core.ReminderPreset
++import org.sableos.tasks.core.TaskRecord
++import org.sableos.tasks.core.TaskSchedule
++import org.sableos.tasks.core.TasksKeys
++import org.sableos.tasks.core.TasksText.t
++import org.sableos.tasks.platform.TaskAlarms
++import org.sableos.tasks.platform.taskRepository
++import org.sableos.tasks.ui.TasksApp
++import org.sableos.tasks.ui.TasksState
++import java.time.Instant
++import java.time.ZoneId
++
++/**
++ * Sable Tasks: tasks and reminders kept on the phone (ported from TenSeven Tasks). Text shared from
++ * another app becomes a new task; a reminder notification opens its task.
++ */
++class MainActivity : ComponentActivity() {
++    private val repository by lazy { taskRepository(this) }
++    private val state = TasksState()
++    private val askNotifications =
++        registerForActivityResult(ActivityResultContracts.RequestPermission()) { refresh() }
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        enableEdgeToEdge()
++        refresh()
++        setContent {
++            SableGlobalTheme(window = window) {
++                TasksApp(state, repository, onChanged = ::refresh, onAllowNotifications = ::allowNotifications)
++            }
++        }
++        if (savedInstanceState == null) handleIntent(intent)
++    }
++
++    override fun onNewIntent(intent: Intent) {
++        super.onNewIntent(intent)
++        setIntent(intent)
++        handleIntent(intent)
++    }
++
++    override fun onResume() {
++        super.onResume()
++        refresh()
++    }
++
++    private fun refresh() {
++        state.tasks = repository.list()
++        state.notificationsAllowed = TaskAlarms.notificationsAllowed(this)
++    }
++
++    private fun allowNotifications() {
++        askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
++    }
++
++    private fun handleIntent(intent: Intent?) {
++        intent ?: return
++        when {
++            intent.action == Intent.ACTION_SEND -> {
++                intent.getStringExtra(Intent.EXTRA_TEXT)?.let(TaskRecord::fromSharedText)?.let { state.openEditor(it, isNew = true) }
++            }
++
++            intent.action == ACTION_FOLLOW_UP -> followUp(intent)
++
++            else -> {
++                intent.getStringExtra(EXTRA_TASK_ID)?.let(repository::find)?.let { state.openEditor(it, isNew = false) }
++            }
++        }
++    }
++
++    /** Hub's "follow up": a task named after the app, reminding tomorrow morning; no notification text. */
++    private fun followUp(intent: Intent) {
++        val pkg = intent.getStringExtra(EXTRA_SOURCE_PACKAGE) ?: return
++        val key = intent.getStringExtra(EXTRA_SOURCE_KEY) ?: return
++        val app = intent.getStringExtra(EXTRA_SOURCE_APP)?.take(APP_NAME_MAX)?.ifBlank { null } ?: pkg
++        val remind = TaskSchedule.preset(ReminderPreset.TomorrowMorning, Instant.now(), ZoneId.systemDefault())
++        val task = repository.followUp(pkg, key, t("follow_up_in", app), remind)
++        refresh()
++        state.openEditor(task, isNew = false)
++    }
++
++    /** List keys arrive here only when no focused view used them, so typing in a field always wins. */
++    override fun onKeyDown(
++        keyCode: Int,
++        event: KeyEvent,
++    ): Boolean {
++        val modified = event.isAltPressed || event.isCtrlPressed || event.isMetaPressed
++        val key = TasksKeys.screen(keyCode, modified)
++        return (key != null && event.repeatCount == 0 && state.onScreenKey(key)) || super.onKeyDown(keyCode, event)
++    }
++
++    companion object {
++        const val EXTRA_TASK_ID = "org.sableos.tasks.extra.TASK_ID"
++        const val ACTION_FOLLOW_UP = "org.sableos.tasks.action.FOLLOW_UP"
++        const val EXTRA_SOURCE_PACKAGE = "org.sableos.tasks.extra.SOURCE_PACKAGE"
++        const val EXTRA_SOURCE_KEY = "org.sableos.tasks.extra.SOURCE_KEY"
++        const val EXTRA_SOURCE_APP = "org.sableos.tasks.extra.SOURCE_APP"
++        private const val APP_NAME_MAX = 100
++    }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/TasksApplication.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/TasksApplication.kt
+new file mode 100644
+index 0000000..f0bfa51
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/TasksApplication.kt
+@@ -0,0 +1,14 @@
++package org.sableos.tasks
++
++import android.app.Application
++import org.sableos.design.DesignText
++import org.sableos.tasks.core.TasksText
++
++/** Binds this app's text and the design library's to the string resources, so the phone's language is used. */
++class TasksApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        DesignText.t.bindTo(this)
++        TasksText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRecord.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRecord.kt
+new file mode 100644
+index 0000000..fcc967f
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRecord.kt
+@@ -0,0 +1,56 @@
++package org.sableos.tasks.core
++
++import java.time.ZoneId
++import java.util.UUID
++
++enum class TaskPriority { Low, Normal, High }
++
++enum class TaskRepeat { Never, Daily, Weekly, Monthly }
++
++/**
++ * One task, kept in app storage only: no account, no Calendar entry, no sync. Ported from TenSeven
++ * Tasks (aimindseye/tenseven-launcher, Apache-2.0). A follow-up made from a Hub notification keeps
++ * the source app's package and a one-way digest of its key, never the notification's text.
++ */
++data class TaskRecord(
++    val id: String = UUID.randomUUID().toString(),
++    val title: String,
++    val details: String = "",
++    val completed: Boolean = false,
++    val dueAtEpochMs: Long? = null,
++    val remindAtEpochMs: Long? = null,
++    val zoneId: String = ZoneId.systemDefault().id,
++    val priority: TaskPriority = TaskPriority.Normal,
++    val repeat: TaskRepeat = TaskRepeat.Never,
++    val originPackage: String? = null,
++    val originToken: String? = null,
++    val updatedAtEpochMs: Long = System.currentTimeMillis(),
++) {
++    init {
++        require(UUID_PATTERN.matches(id)) { "Invalid task ID" }
++        require(title.isNotBlank() && title.length <= MAX_TITLE) { "Task title is required" }
++        require(details.length <= MAX_DETAILS) { "Task details too long" }
++        require(dueAtEpochMs == null || dueAtEpochMs >= 0) { "Invalid due date" }
++        require(remindAtEpochMs == null || remindAtEpochMs >= 0) { "Invalid reminder date" }
++        require(updatedAtEpochMs >= 0) { "Invalid update time" }
++        require(originPackage == null || (originPackage.isNotBlank() && originPackage.length <= MAX_TITLE))
++        require(originToken == null || originToken.matches(TOKEN_PATTERN))
++        ZoneId.of(zoneId)
++    }
++
++    companion object {
++        const val MAX_TITLE = 240
++        const val MAX_DETAILS = 16_000
++        private val UUID_PATTERN = Regex("[0-9a-f-]{36}")
++        private val TOKEN_PATTERN = Regex("[0-9a-f]{64}")
++
++        /** A task from shared text: the first line is the title, the rest the details. */
++        fun fromSharedText(text: String): TaskRecord? {
++            val trimmed = text.trim()
++            if (trimmed.isEmpty()) return null
++            val title = trimmed.lineSequence().first().trim().take(MAX_TITLE)
++            val details = trimmed.substringAfter('\n', "").trim().take(MAX_DETAILS)
++            return TaskRecord(title = title, details = details)
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRepository.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRepository.kt
+new file mode 100644
+index 0000000..b31292c
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskRepository.kt
+@@ -0,0 +1,98 @@
++package org.sableos.tasks.core
++
++import java.security.MessageDigest
++
++/** Where reminders are scheduled; Android's inexact alarms on the phone, a recorder in tests. */
++interface TaskScheduler {
++    fun cancel(id: String)
++
++    fun schedule(task: TaskRecord)
++}
++
++/**
++ * Tasks and their reminders, independent of any screen. Ported from TenSeven Tasks: the file is
++ * written before alarms change, so a failed write never cancels a reminder that was set.
++ */
++class TaskRepository(
++    private val store: TaskStore,
++    private val scheduler: TaskScheduler,
++    private val now: () -> Long = System::currentTimeMillis,
++) {
++    fun list(): List<TaskRecord> = store.list()
++
++    fun find(id: String): TaskRecord? = list().firstOrNull { it.id == id }
++
++    fun save(task: TaskRecord) {
++        store.save(task)
++        scheduler.cancel(task.id)
++        scheduler.schedule(task)
++    }
++
++    fun delete(id: String) {
++        scheduler.cancel(id)
++        store.delete(id)
++    }
++
++    /** Done (or not done again). A repeating dated task moves to its next occurrence instead. */
++    fun complete(task: TaskRecord): TaskRecord {
++        val next =
++            if (!task.completed && task.repeat != TaskRepeat.Never &&
++                (task.dueAtEpochMs != null || task.remindAtEpochMs != null)
++            ) {
++                task.copy(
++                    dueAtEpochMs = TaskSchedule.advanceAfter(task.dueAtEpochMs, task.repeat, task.zoneId, now()),
++                    remindAtEpochMs = TaskSchedule.advanceAfter(task.remindAtEpochMs, task.repeat, task.zoneId, now()),
++                    updatedAtEpochMs = now(),
++                )
++            } else {
++                task.copy(completed = !task.completed, updatedAtEpochMs = now())
++            }
++        save(next)
++        return next
++    }
++
++    /** Reminder again in an hour (the notification's Snooze 1 hour). */
++    fun snooze(task: TaskRecord): TaskRecord {
++        val next = task.copy(remindAtEpochMs = now() + TaskSchedule.SNOOZE_MILLIS, updatedAtEpochMs = now())
++        save(next)
++        return next
++    }
++
++    /**
++     * A follow-up for one Hub notification, made only when the user asks. Keeps the source app's package
++     * and a SHA-256 of package and key, never the key or the notification's text; asking again for the
++     * same notification updates the open follow-up instead of adding another.
++     */
++    fun followUp(
++        packageName: String,
++        notificationKey: String,
++        title: String,
++        remindAt: Long?,
++    ): TaskRecord {
++        val token = digest(packageName + "\n" + notificationKey)
++        val existing = list().firstOrNull { !it.completed && it.originToken == token }
++        val task =
++            existing?.copy(remindAtEpochMs = remindAt, updatedAtEpochMs = now())
++                ?: TaskRecord(
++                    title = title.take(TaskRecord.MAX_TITLE),
++                    remindAtEpochMs = remindAt,
++                    originPackage = packageName,
++                    originToken = token,
++                    updatedAtEpochMs = now(),
++                )
++        save(task)
++        return task
++    }
++
++    fun rescheduleAll() = list().forEach { scheduler.schedule(it) }
++
++    private fun digest(value: String): String =
++        MessageDigest
++            .getInstance("SHA-256")
++            .digest(value.toByteArray(Charsets.UTF_8))
++            .joinToString("") { "%02x".format(it.toInt() and BYTE_MASK) }
++
++    private companion object {
++        const val BYTE_MASK = 0xFF
++    }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskSchedule.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskSchedule.kt
+new file mode 100644
+index 0000000..dc7dd6d
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskSchedule.kt
+@@ -0,0 +1,131 @@
++package org.sableos.tasks.core
++
++import java.time.Instant
++import java.time.ZoneId
++
++/** The quick reminder times in the editor and on a focused row. */
++enum class ReminderPreset { LaterToday, ThisEvening, TomorrowMorning }
++
++/** List sections, in order. Overdue is past due (or past a reminder) and not done. */
++enum class TaskGroup { Overdue, Today, Tomorrow, ThisWeek, Later, NoDate, Done }
++
++/** Time-zone-aware scheduling, ported from TenSeven Tasks. Reminders are inexact, never exact alarms. */
++object TaskSchedule {
++    const val MORNING_HOUR = 9
++    const val EVENING_HOUR = 18
++    const val LATER_TODAY_HOURS = 2L
++    const val SNOOZE_MILLIS = 60 * 60 * 1000L
++    private const val MAX_STEPS = 4000
++    private const val WEEK_DAYS = 7L
++
++    fun nextOccurrence(
++        epochMs: Long?,
++        repeat: TaskRepeat,
++        zoneName: String,
++    ): Long? {
++        if (epochMs == null || repeat == TaskRepeat.Never) return epochMs
++        val at = Instant.ofEpochMilli(epochMs).atZone(ZoneId.of(zoneName))
++        val shifted =
++            when (repeat) {
++                TaskRepeat.Daily -> at.plusDays(1)
++                TaskRepeat.Weekly -> at.plusWeeks(1)
++                TaskRepeat.Monthly -> at.plusMonths(1)
++                TaskRepeat.Never -> at
++            }
++        return shifted.toInstant().toEpochMilli()
++    }
++
++    /** The first occurrence after [nowMs]; completing a future occurrence still moves to the next one. */
++    fun advanceAfter(
++        epochMs: Long?,
++        repeat: TaskRepeat,
++        zoneName: String,
++        nowMs: Long,
++    ): Long? {
++        val previous = epochMs ?: return null
++        if (repeat == TaskRepeat.Never) return previous
++        var next = nextOccurrence(previous, repeat, zoneName) ?: return null
++        // Bounded, so a corrupt years-old record cannot loop for ever.
++        repeat(MAX_STEPS) {
++            if (next > nowMs) return next
++            next = nextOccurrence(next, repeat, zoneName) ?: return null
++        }
++        return next
++    }
++
++    fun preset(
++        preset: ReminderPreset,
++        now: Instant,
++        zone: ZoneId,
++    ): Long {
++        val local = now.atZone(zone)
++        val at =
++            when (preset) {
++                ReminderPreset.LaterToday -> {
++                    val later = local.plusHours(LATER_TODAY_HOURS)
++                    if (later.toLocalDate() != local.toLocalDate()) {
++                        local.toLocalDate().plusDays(1).atTime(MORNING_HOUR, 0).atZone(zone)
++                    } else {
++                        later
++                    }
++                }
++
++                ReminderPreset.ThisEvening -> {
++                    val today = local.toLocalDate().atTime(EVENING_HOUR, 0).atZone(zone)
++                    if (today.toInstant() > now) today else today.plusDays(1)
++                }
++
++                ReminderPreset.TomorrowMorning -> {
++                    local.toLocalDate().plusDays(1).atTime(MORNING_HOUR, 0).atZone(zone)
++                }
++            }
++        return at.toInstant().toEpochMilli()
++    }
++
++    fun group(
++        task: TaskRecord,
++        now: Instant,
++        zone: ZoneId,
++    ): TaskGroup {
++        if (task.completed) return TaskGroup.Done
++        val nowMs = now.toEpochMilli()
++        val due = task.dueAtEpochMs
++        val remind = task.remindAtEpochMs
++        if ((due != null && due < nowMs) || (due == null && remind != null && remind < nowMs)) return TaskGroup.Overdue
++        val anchor = due ?: remind ?: return TaskGroup.NoDate
++        val date = Instant.ofEpochMilli(anchor).atZone(zone).toLocalDate()
++        val today = now.atZone(zone).toLocalDate()
++        return when {
++            !date.isAfter(today) -> TaskGroup.Today
++            date == today.plusDays(1) -> TaskGroup.Tomorrow
++            !date.isAfter(today.plusDays(WEEK_DAYS)) -> TaskGroup.ThisWeek
++            else -> TaskGroup.Later
++        }
++    }
++
++    /** Sections in order, each sorted by its date (undated by last edit); done ones only when [withDone]. */
++    fun sections(
++        tasks: List<TaskRecord>,
++        withDone: Boolean,
++        now: Instant,
++        zone: ZoneId,
++    ): List<Pair<TaskGroup, List<TaskRecord>>> {
++        val grouped = tasks.groupBy { group(it, now, zone) }
++        return TaskGroup.entries
++            .filter { it != TaskGroup.Done || withDone }
++            .mapNotNull { section ->
++                grouped[section]
++                    ?.sortedWith(
++                        compareBy<TaskRecord> { it.dueAtEpochMs ?: it.remindAtEpochMs ?: Long.MAX_VALUE }
++                            .thenByDescending { it.priority }
++                            .thenByDescending { it.updatedAtEpochMs },
++                    )?.let { section to it }
++            }
++    }
++
++    /** Tasks whose reminder has come and that are not done: what Start and the reminder line count. */
++    fun dueReminders(
++        tasks: List<TaskRecord>,
++        nowMs: Long,
++    ): List<TaskRecord> = tasks.filter { !it.completed && it.remindAtEpochMs != null && it.remindAtEpochMs <= nowMs }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskStore.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskStore.kt
+new file mode 100644
+index 0000000..231b032
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TaskStore.kt
+@@ -0,0 +1,104 @@
++package org.sableos.tasks.core
++
++import java.io.File
++import java.io.InputStream
++import java.nio.file.AtomicMoveNotSupportedException
++import java.nio.file.Files
++import java.nio.file.StandardCopyOption
++import java.util.Properties
++import java.util.UUID
++
++/**
++ * One file per task in app storage, written atomically (temporary file, then a move), so a failed write
++ * never loses the old copy. Ported from TenSeven Tasks; the format name is Sable's own.
++ */
++class TaskStore(
++    private val directory: File,
++) {
++    fun list(): List<TaskRecord> =
++        directory
++            .listFiles { file -> file.isFile && file.name.endsWith(SUFFIX) }
++            .orEmpty()
++            .mapNotNull { file ->
++                runCatching { decode(file.name.removeSuffix(SUFFIX), file.inputStream().use(::loadProperties)) }.getOrNull()
++            }.sortedWith(compareBy<TaskRecord> { it.completed }.thenByDescending { it.updatedAtEpochMs })
++
++    @Synchronized
++    fun save(task: TaskRecord) {
++        directory.mkdirs()
++        val destination = file(task.id)
++        val temporary = File(directory, task.id + ".tmp-" + UUID.randomUUID())
++        temporary.outputStream().use { properties(task).store(it, "Sable Tasks v1") }
++        try {
++            try {
++                Files.move(
++                    temporary.toPath(),
++                    destination.toPath(),
++                    StandardCopyOption.ATOMIC_MOVE,
++                    StandardCopyOption.REPLACE_EXISTING,
++                )
++            } catch (_: AtomicMoveNotSupportedException) {
++                Files.move(temporary.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
++            }
++        } finally {
++            if (temporary.exists()) Files.delete(temporary.toPath())
++        }
++    }
++
++    fun delete(id: String) {
++        Files.deleteIfExists(file(id).toPath())
++    }
++
++    private fun file(id: String): File {
++        require(ID.matches(id)) { "Invalid task ID" }
++        return File(directory, "$id$SUFFIX")
++    }
++
++    private fun decode(
++        id: String,
++        props: Properties,
++    ): TaskRecord {
++        require(props.getProperty("format") == FORMAT && props.getProperty("version") == "1")
++
++        fun optionalLong(key: String): Long? = props.getProperty(key)?.takeIf(String::isNotBlank)?.toLong()
++        return TaskRecord(
++            id = id,
++            title = props.getProperty("title") ?: error("Missing task title"),
++            details = props.getProperty("details", ""),
++            completed = props.getProperty("completed") == "true",
++            dueAtEpochMs = optionalLong("dueAt"),
++            remindAtEpochMs = optionalLong("remindAt"),
++            zoneId = props.getProperty("zone", "UTC"),
++            priority = TaskPriority.valueOf(props.getProperty("priority", TaskPriority.Normal.name)),
++            repeat = TaskRepeat.valueOf(props.getProperty("repeat", TaskRepeat.Never.name)),
++            originPackage = props.getProperty("originPackage")?.takeIf(String::isNotBlank),
++            originToken = props.getProperty("originToken")?.takeIf(String::isNotBlank),
++            updatedAtEpochMs = props.getProperty("updatedAt", "0").toLong(),
++        )
++    }
++
++    private fun properties(task: TaskRecord) =
++        Properties().apply {
++            setProperty("format", FORMAT)
++            setProperty("version", "1")
++            setProperty("title", task.title)
++            setProperty("details", task.details)
++            setProperty("completed", task.completed.toString())
++            setProperty("dueAt", task.dueAtEpochMs?.toString().orEmpty())
++            setProperty("remindAt", task.remindAtEpochMs?.toString().orEmpty())
++            setProperty("zone", task.zoneId)
++            setProperty("priority", task.priority.name)
++            setProperty("repeat", task.repeat.name)
++            setProperty("updatedAt", task.updatedAtEpochMs.toString())
++            setProperty("originPackage", task.originPackage.orEmpty())
++            setProperty("originToken", task.originToken.orEmpty())
++        }
++
++    private fun loadProperties(stream: InputStream): Properties = Properties().apply { load(stream) }
++
++    private companion object {
++        const val FORMAT = "sable-task"
++        const val SUFFIX = ".task"
++        val ID = Regex("[0-9a-f-]{36}")
++    }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TasksKeys.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TasksKeys.kt
+new file mode 100644
+index 0000000..10158ea
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TasksKeys.kt
+@@ -0,0 +1,48 @@
++package org.sableos.tasks.core
++
++import android.view.KeyEvent
++import org.sableos.tasks.core.TasksText.t
++
++/** Keys for the whole list; they reach it only when no text field has focus. */
++enum class ScreenKey { New, ShowDone }
++
++/** Keys for the focused task row. Enter (or a tap) opens it. */
++enum class RowKey { Done, Tomorrow, Delete }
++
++/**
++ * The Tasks keymap, BlackBerry style single letters: C new, H done list; on a row Space done,
++ * Z remind tomorrow morning, D or Del delete. Anything with Alt or Ctrl held (a digit or symbol on the
++ * Q25) is left to the app.
++ */
++object TasksKeys {
++    val HINT: String get() = t("tasks_hint")
++
++    fun screen(
++        keyCode: Int,
++        modified: Boolean,
++    ): ScreenKey? =
++        if (modified) {
++            null
++        } else {
++            when (keyCode) {
++                KeyEvent.KEYCODE_C -> ScreenKey.New
++                KeyEvent.KEYCODE_H -> ScreenKey.ShowDone
++                else -> null
++            }
++        }
++
++    fun row(
++        keyCode: Int,
++        modified: Boolean,
++    ): RowKey? =
++        if (modified) {
++            null
++        } else {
++            when (keyCode) {
++                KeyEvent.KEYCODE_SPACE -> RowKey.Done
++                KeyEvent.KEYCODE_Z -> RowKey.Tomorrow
++                KeyEvent.KEYCODE_D, KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_FORWARD_DEL -> RowKey.Delete
++                else -> null
++            }
++        }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TasksText.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TasksText.kt
+new file mode 100644
+index 0000000..24d7930
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TasksText.kt
+@@ -0,0 +1,58 @@
++package org.sableos.tasks.core
++
++import org.sableos.design.SableTexts
++
++/**
++ * Every line Sable Tasks shows, in English, by string resource name. res/values/strings.xml
++ * repeats them (TasksTextTest keeps the two equal) and res/values-<lang>/strings.xml translates them.
++ */
++object TasksText {
++    val EN: Map<String, String> =
++        mapOf(
++            "tasks" to "tasks",
++            "tasks_hint" to "C new · Enter edit · Space done · Z tomorrow · D delete · H done list",
++            "no_tasks" to "No tasks. C adds one.",
++            "group_overdue" to "Overdue",
++            "group_today" to "Today",
++            "group_tomorrow" to "Tomorrow",
++            "group_this_week" to "This week",
++            "group_later" to "Later",
++            "group_no_date" to "No date",
++            "group_done" to "Done",
++            "due_at" to "Due %1\$s",
++            "remind_at" to "Remind %1\$s",
++            "from_app" to "From %1\$s",
++            "every_day" to "Every day",
++            "every_week" to "Every week",
++            "every_month" to "Every month",
++            "new_task" to "New task",
++            "edit_task" to "Edit task",
++            "title" to "Title",
++            "details" to "Details",
++            "due" to "Due",
++            "remind" to "Remind",
++            "none" to "None",
++            "pick_time" to "Pick a time",
++            "later_today" to "Later today",
++            "this_evening" to "This evening",
++            "tomorrow_morning" to "Tomorrow morning",
++            "repeat" to "Repeat: %1\$s",
++            "never" to "Never",
++            "save" to "Save",
++            "cancel" to "Cancel",
++            "delete" to "Delete",
++            "delete_task" to "Delete “%1\$s”?",
++            "deleted" to "Deleted “%1\$s”",
++            "add_a_title" to "Add a title.",
++            "reminders" to "Reminders",
++            "task_reminder" to "Task reminder",
++            "done" to "Done",
++            "snooze_1_hour" to "Snooze 1 hour",
++            "reminders_off" to "Reminder alerts are off. Enter allows them; reminders still show here.",
++            "follow_up_in" to "Follow up in %1\$s",
++            "show_done" to "Show done (H)",
++            "hide_done" to "Hide done (H)",
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/platform/TaskPlatform.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/platform/TaskPlatform.kt
+new file mode 100644
+index 0000000..0a78930
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/platform/TaskPlatform.kt
+@@ -0,0 +1,180 @@
++package org.sableos.tasks.platform
++
++import android.Manifest
++import android.app.AlarmManager
++import android.app.Notification
++import android.app.NotificationChannel
++import android.app.NotificationManager
++import android.app.PendingIntent
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
++import android.content.pm.PackageManager
++import android.graphics.drawable.Icon
++import android.net.Uri
++import org.sableos.tasks.MainActivity
++import org.sableos.tasks.R
++import org.sableos.tasks.core.TaskRecord
++import org.sableos.tasks.core.TaskRepository
++import org.sableos.tasks.core.TaskScheduler
++import org.sableos.tasks.core.TaskStore
++import org.sableos.tasks.core.TasksText
++import org.sableos.tasks.core.TasksText.t
++
++/** The app's one repository over its private files, with Android alarms as the scheduler. */
++fun taskRepository(context: Context): TaskRepository {
++    val app = context.applicationContext
++    return TaskRepository(
++        TaskStore(app.filesDir.resolve("tasks-v1")),
++        object : TaskScheduler {
++            override fun cancel(id: String) = TaskAlarms.cancel(app, id)
++
++            override fun schedule(task: TaskRecord) = TaskAlarms.schedule(app, task)
++        },
++    )
++}
++
++/**
++ * Inexact, idle-allowed wake-ups (setAndAllowWhileIdle): no SCHEDULE_EXACT_ALARM grant, so a reminder
++ * may come a few minutes late in deep sleep. Overdue reminders always show in the app.
++ */
++object TaskAlarms {
++    const val ACTION_DUE = "org.sableos.tasks.action.DUE"
++    const val ACTION_DONE = "org.sableos.tasks.action.DONE"
++    const val ACTION_SNOOZE = "org.sableos.tasks.action.SNOOZE"
++    const val EXTRA_ID = "id"
++    const val CHANNEL = "reminders"
++
++    fun broadcast(
++        context: Context,
++        action: String,
++        id: String,
++    ): PendingIntent {
++        val intent =
++            Intent(context, TaskAlarmReceiver::class.java).apply {
++                this.action = action
++                data = Uri.parse("sable-task://" + action.substringAfterLast('.').lowercase() + "/" + id)
++                putExtra(EXTRA_ID, id)
++            }
++        return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
++    }
++
++    fun cancel(
++        context: Context,
++        id: String,
++    ) {
++        context.getSystemService(AlarmManager::class.java)?.cancel(broadcast(context, ACTION_DUE, id))
++        context.getSystemService(NotificationManager::class.java)?.cancel(id, NOTIFICATION_ID)
++    }
++
++    fun schedule(
++        context: Context,
++        task: TaskRecord,
++    ) {
++        val at = task.remindAtEpochMs ?: return
++        if (task.completed || at <= System.currentTimeMillis()) return
++        val alarm = context.getSystemService(AlarmManager::class.java) ?: return
++        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, broadcast(context, ACTION_DUE, task.id))
++    }
++
++    fun notificationsAllowed(context: Context): Boolean =
++        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
++
++    /**
++     * The reminder as a notification, so it also shows in Hub, whose row menu offers the two actions
++     * here (Done, Snooze 1 hour) under the app's own names. The lock screen sees only "Task reminder".
++     */
++    fun notify(
++        context: Context,
++        task: TaskRecord,
++    ) {
++        if (!notificationsAllowed(context)) return
++        val manager = context.getSystemService(NotificationManager::class.java) ?: return
++        manager.createNotificationChannel(
++            NotificationChannel(CHANNEL, t("reminders"), NotificationManager.IMPORTANCE_DEFAULT),
++        )
++        val icon = Icon.createWithResource(context, R.drawable.ic_sable_tasks_monochrome)
++        val open =
++            PendingIntent.getActivity(
++                context,
++                0,
++                Intent(context, MainActivity::class.java)
++                    .setData(Uri.parse("sable-task://open/" + task.id))
++                    .putExtra(MainActivity.EXTRA_TASK_ID, task.id)
++                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
++                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
++            )
++        val public =
++            Notification
++                .Builder(context, CHANNEL)
++                .setSmallIcon(R.drawable.ic_sable_tasks_monochrome)
++                .setContentTitle(t("task_reminder"))
++                .build()
++        val notification =
++            Notification
++                .Builder(context, CHANNEL)
++                .setSmallIcon(R.drawable.ic_sable_tasks_monochrome)
++                .setContentTitle(task.title)
++                .setContentText(task.details.lineSequence().firstOrNull().orEmpty())
++                .setCategory(Notification.CATEGORY_REMINDER)
++                .setVisibility(Notification.VISIBILITY_PRIVATE)
++                .setPublicVersion(public)
++                .setContentIntent(open)
++                .setAutoCancel(true)
++                .addAction(Notification.Action.Builder(icon, t("done"), broadcast(context, ACTION_DONE, task.id)).build())
++                .addAction(
++                    Notification.Action.Builder(icon, t("snooze_1_hour"), broadcast(context, ACTION_SNOOZE, task.id)).build(),
++                ).build()
++        manager.notify(task.id, NOTIFICATION_ID, notification)
++    }
++
++    private const val NOTIFICATION_ID = 1
++}
++
++/** Due reminders and the notification's Done and Snooze 1 hour; not exported. */
++class TaskAlarmReceiver : BroadcastReceiver() {
++    override fun onReceive(
++        context: Context,
++        intent: Intent,
++    ) {
++        TasksText.t.bindTo(context)
++        val id = intent.getStringExtra(TaskAlarms.EXTRA_ID) ?: return
++        val repository = taskRepository(context)
++        val task = repository.find(id) ?: return
++        when (intent.action) {
++            TaskAlarms.ACTION_DUE -> {
++                val at = task.remindAtEpochMs ?: return
++                when {
++                    task.completed -> Unit
++                    at > System.currentTimeMillis() -> TaskAlarms.schedule(context, task)
++                    else -> TaskAlarms.notify(context, task)
++                }
++            }
++
++            TaskAlarms.ACTION_DONE -> {
++                // Saving cancels this notification and sets the next reminder of a repeating task.
++                if (!task.completed) repository.complete(task)
++            }
++
++            TaskAlarms.ACTION_SNOOZE -> {
++                repository.snooze(task)
++            }
++        }
++    }
++}
++
++/** After a restart or a clock or time zone change, every pending reminder is set again. */
++class TaskBootReceiver : BroadcastReceiver() {
++    override fun onReceive(
++        context: Context,
++        intent: Intent,
++    ) {
++        when (intent.action) {
++            Intent.ACTION_BOOT_COMPLETED,
++            Intent.ACTION_TIME_CHANGED,
++            Intent.ACTION_TIMEZONE_CHANGED,
++            Intent.ACTION_MY_PACKAGE_REPLACED,
++            -> taskRepository(context).rescheduleAll()
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TaskEditor.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TaskEditor.kt
+new file mode 100644
+index 0000000..d291a17
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TaskEditor.kt
+@@ -0,0 +1,164 @@
++package org.sableos.tasks.ui
++
++import android.app.DatePickerDialog
++import android.app.TimePickerDialog
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.FlowRow
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedTextField
++import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.unit.dp
++import org.sableos.design.SableActionButton
++import org.sableos.design.SableSpacing
++import org.sableos.tasks.core.ReminderPreset
++import org.sableos.tasks.core.TaskRecord
++import org.sableos.tasks.core.TaskRepeat
++import org.sableos.tasks.core.TaskSchedule
++import org.sableos.tasks.core.TasksText.t
++import java.time.Instant
++import java.time.ZoneId
++import java.util.Calendar
++
++/** New and edit form: title, details, due, reminder (quick times or a picked one) and repeat. */
++@Composable
++internal fun TaskEditor(
++    task: TaskRecord,
++    isNew: Boolean,
++    onSave: (TaskRecord) -> Unit,
++    onCancel: () -> Unit,
++    onDelete: (TaskRecord) -> Unit,
++) {
++    val context = LocalContext.current
++    var title by remember(task.id) { mutableStateOf(if (task.title == TasksState.NEW_PLACEHOLDER) "" else task.title) }
++    var details by remember(task.id) { mutableStateOf(task.details) }
++    var due by remember(task.id) { mutableStateOf(task.dueAtEpochMs) }
++    var remind by remember(task.id) { mutableStateOf(task.remindAtEpochMs) }
++    var repeat by remember(task.id) { mutableStateOf(task.repeat) }
++    var error by remember(task.id) { mutableStateOf<String?>(null) }
++
++    Text(if (isNew) t("new_task") else t("edit_task"), style = MaterialTheme.typography.headlineMedium)
++    Spacer(Modifier.height(SableSpacing.Md))
++    OutlinedTextField(
++        value = title,
++        onValueChange = { title = it.take(TaskRecord.MAX_TITLE) },
++        label = { Text(t("title")) },
++        singleLine = true,
++        isError = error != null,
++        supportingText = error?.let { message -> { Text(message) } },
++        modifier = Modifier.fillMaxWidth(),
++    )
++    OutlinedTextField(
++        value = details,
++        onValueChange = { details = it.take(TaskRecord.MAX_DETAILS) },
++        label = { Text(t("details")) },
++        minLines = 2,
++        modifier = Modifier.fillMaxWidth(),
++    )
++    Spacer(Modifier.height(SableSpacing.Sm))
++    WhenLine(t("due"), due?.let { formatWhen(context, it) } ?: t("none"))
++    Row(horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm)) {
++        TextButton(onClick = { pickDateTime(context, due ?: defaultTime()) { due = it } }) { Text(t("pick_time")) }
++        TextButton(onClick = { due = null }) { Text(t("none")) }
++    }
++    WhenLine(t("remind"), remind?.let { formatWhen(context, it) } ?: t("none"))
++    FlowRow(horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm)) {
++        ReminderPreset.entries.forEach { preset ->
++            TextButton(onClick = { remind = TaskSchedule.preset(preset, Instant.now(), ZoneId.systemDefault()) }) {
++                Text(presetLabel(preset))
++            }
++        }
++        TextButton(onClick = { pickDateTime(context, remind ?: defaultTime()) { remind = it } }) { Text(t("pick_time")) }
++        TextButton(onClick = { remind = null }) { Text(t("none")) }
++    }
++    TextButton(onClick = { repeat = TaskRepeat.entries[(repeat.ordinal + 1) % TaskRepeat.entries.size] }) {
++        Text(t("repeat", repeatLabel(repeat)))
++    }
++    Spacer(Modifier.height(SableSpacing.Md))
++    Row(horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm)) {
++        SableActionButton(text = t("save"), onClick = {
++            val name = title.trim()
++            if (name.isEmpty()) {
++                error = t("add_a_title")
++            } else {
++                onSave(
++                    task.copy(
++                        title = name,
++                        details = details.trim(),
++                        dueAtEpochMs = due,
++                        remindAtEpochMs = remind,
++                        repeat = repeat,
++                        completed = task.completed,
++                        updatedAtEpochMs = System.currentTimeMillis(),
++                    ),
++                )
++            }
++        })
++        SableActionButton(text = t("cancel"), primary = false, onClick = onCancel)
++        if (!isNew) SableActionButton(text = t("delete"), primary = false, onClick = { onDelete(task) })
++    }
++}
++
++@Composable
++private fun WhenLine(
++    label: String,
++    value: String,
++) {
++    Column(Modifier.fillMaxWidth().height(44.dp), verticalArrangement = Arrangement.Center) {
++        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
++        Text(value, style = MaterialTheme.typography.bodyLarge)
++    }
++}
++
++private fun presetLabel(preset: ReminderPreset): String =
++    when (preset) {
++        ReminderPreset.LaterToday -> t("later_today")
++        ReminderPreset.ThisEvening -> t("this_evening")
++        ReminderPreset.TomorrowMorning -> t("tomorrow_morning")
++    }
++
++private fun defaultTime(): Long = TaskSchedule.preset(ReminderPreset.TomorrowMorning, Instant.now(), ZoneId.systemDefault())
++
++/** System date picker, then time picker; [onPicked] gets the combined local time. */
++private fun pickDateTime(
++    context: android.content.Context,
++    initialMillis: Long,
++    onPicked: (Long) -> Unit,
++) {
++    val initial = Calendar.getInstance().apply { timeInMillis = initialMillis }
++    DatePickerDialog(
++        context,
++        { _, year, month, day ->
++            TimePickerDialog(
++                context,
++                { _, hour, minute ->
++                    val picked =
++                        Calendar.getInstance().apply {
++                            timeInMillis = initialMillis
++                            set(year, month, day, hour, minute, 0)
++                            set(Calendar.MILLISECOND, 0)
++                        }
++                    onPicked(picked.timeInMillis)
++                },
++                initial.get(Calendar.HOUR_OF_DAY),
++                initial.get(Calendar.MINUTE),
++                android.text.format.DateFormat.is24HourFormat(context),
++            ).show()
++        },
++        initial.get(Calendar.YEAR),
++        initial.get(Calendar.MONTH),
++        initial.get(Calendar.DAY_OF_MONTH),
++    ).show()
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt
+new file mode 100644
+index 0000000..5c8d339
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt
+@@ -0,0 +1,271 @@
++package org.sableos.tasks.ui
++
++import androidx.activity.compose.BackHandler
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.AlertDialog
++import androidx.compose.material3.Checkbox
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.input.key.KeyEventType
++import androidx.compose.ui.input.key.isAltPressed
++import androidx.compose.ui.input.key.isCtrlPressed
++import androidx.compose.ui.input.key.isMetaPressed
++import androidx.compose.ui.input.key.onPreviewKeyEvent
++import androidx.compose.ui.input.key.type
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.text.style.TextDecoration
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.dp
++import org.sableos.design.SableActionButton
++import org.sableos.design.SableSize
++import org.sableos.design.SableSpacing
++import org.sableos.design.sableFocusRing
++import org.sableos.tasks.core.ReminderPreset
++import org.sableos.tasks.core.RowKey
++import org.sableos.tasks.core.ScreenKey
++import org.sableos.tasks.core.TaskGroup
++import org.sableos.tasks.core.TaskRecord
++import org.sableos.tasks.core.TaskRepeat
++import org.sableos.tasks.core.TaskRepository
++import org.sableos.tasks.core.TaskSchedule
++import org.sableos.tasks.core.TasksKeys
++import org.sableos.tasks.core.TasksText.t
++import java.time.Instant
++import java.time.ZoneId
++
++@Composable
++fun TasksApp(
++    state: TasksState,
++    repository: TaskRepository,
++    onChanged: () -> Unit,
++    onAllowNotifications: () -> Unit,
++) {
++    BackHandler(enabled = state.editing != null) { state.closeEditor() }
++    state.pendingDelete?.let { task -> DeleteDialog(state, repository, task, onChanged) }
++    Surface(
++        modifier = Modifier.fillMaxSize(),
++        color = MaterialTheme.colorScheme.background,
++        contentColor = MaterialTheme.colorScheme.onBackground,
++    ) {
++        Column(
++            modifier =
++                Modifier
++                    .fillMaxSize()
++                    .verticalScroll(rememberScrollState())
++                    .padding(horizontal = SableSpacing.ScreenHorizontal, vertical = SableSpacing.ScreenVertical),
++        ) {
++            val editing = state.editing
++            if (editing == null) {
++                TaskList(state, repository, onChanged, onAllowNotifications)
++            } else {
++                TaskEditor(
++                    task = editing,
++                    isNew = state.editingIsNew,
++                    onSave = { saved ->
++                        repository.save(saved)
++                        state.closeEditor()
++                        onChanged()
++                    },
++                    onCancel = state::closeEditor,
++                    onDelete = { state.pendingDelete = it },
++                )
++            }
++        }
++    }
++}
++
++@Composable
++private fun TaskList(
++    state: TasksState,
++    repository: TaskRepository,
++    onChanged: () -> Unit,
++    onAllowNotifications: () -> Unit,
++) {
++    Text(text = t("tasks"), style = MaterialTheme.typography.displayLarge)
++    state.status?.let {
++        Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
++    }
++    if (!state.notificationsAllowed) {
++        Text(
++            text = t("reminders_off"),
++            modifier = Modifier.fillMaxWidth().sableFocusRing().clickable(onClick = onAllowNotifications).padding(vertical = 8.dp),
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.primary,
++        )
++    }
++    Spacer(Modifier.height(SableSpacing.Md))
++    val sections = TaskSchedule.sections(state.tasks, state.showDone, Instant.now(), ZoneId.systemDefault())
++    if (sections.isEmpty()) {
++        Text(t("no_tasks"), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
++    }
++    sections.forEach { (group, tasks) ->
++        Text(
++            text = groupLabel(group),
++            style = MaterialTheme.typography.labelLarge,
++            color = if (group == TaskGroup.Overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
++            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
++        )
++        tasks.forEach { task ->
++            TaskRow(
++                task = task,
++                onOpen = { state.openEditor(task, isNew = false) },
++                onKey = { key ->
++                    when (key) {
++                        RowKey.Done -> repository.complete(task)
++                        RowKey.Tomorrow -> {
++                            val at = TaskSchedule.preset(ReminderPreset.TomorrowMorning, Instant.now(), ZoneId.systemDefault())
++                            repository.save(task.copy(remindAtEpochMs = at, updatedAtEpochMs = System.currentTimeMillis()))
++                        }
++                        RowKey.Delete -> state.pendingDelete = task
++                    }
++                    onChanged()
++                },
++            )
++        }
++    }
++    Spacer(Modifier.height(SableSpacing.Md))
++    Row {
++        SableActionButton(text = t("new_task"), primary = false, onClick = { state.onScreenKey(ScreenKey.New) })
++        Spacer(Modifier.width(SableSpacing.Sm))
++        SableActionButton(
++            text = if (state.showDone) t("hide_done") else t("show_done"),
++            primary = false,
++            onClick = { state.showDone = !state.showDone },
++        )
++    }
++    Spacer(Modifier.height(SableSpacing.Md))
++    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(8.dp)) {
++        Text(
++            text = TasksKeys.HINT,
++            modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
++            style = MaterialTheme.typography.labelLarge,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++    }
++}
++
++@Composable
++private fun TaskRow(
++    task: TaskRecord,
++    onOpen: () -> Unit,
++    onKey: (RowKey) -> Unit,
++) {
++    val context = LocalContext.current
++    Row(
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .heightIn(min = SableSize.TouchTarget)
++                .onPreviewKeyEvent { event ->
++                    val modified = event.isAltPressed || event.isCtrlPressed || event.isMetaPressed
++                    val key = TasksKeys.row(event.nativeKeyEvent.keyCode, modified)
++                    if (key != null && event.type == KeyEventType.KeyUp) onKey(key)
++                    key != null
++                }.sableFocusRing()
++                .clickable(onClick = onOpen)
++                .padding(vertical = 4.dp),
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        Checkbox(checked = task.completed, onCheckedChange = { onKey(RowKey.Done) })
++        Column(Modifier.weight(1f)) {
++            Text(
++                text = task.title,
++                style = MaterialTheme.typography.titleMedium,
++                textDecoration = if (task.completed) TextDecoration.LineThrough else null,
++                maxLines = 2,
++                overflow = TextOverflow.Ellipsis,
++            )
++            val line = taskLine(context, task)
++            if (line.isNotEmpty()) {
++                Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
++            }
++        }
++    }
++}
++
++@Composable
++private fun DeleteDialog(
++    state: TasksState,
++    repository: TaskRepository,
++    task: TaskRecord,
++    onChanged: () -> Unit,
++) {
++    AlertDialog(
++        onDismissRequest = { state.pendingDelete = null },
++        text = { Text(t("delete_task", task.title)) },
++        confirmButton = {
++            TextButton(onClick = {
++                repository.delete(task.id)
++                state.pendingDelete = null
++                state.closeEditor()
++                state.status = t("deleted", task.title)
++                onChanged()
++            }) { Text(t("delete")) }
++        },
++        dismissButton = { TextButton(onClick = { state.pendingDelete = null }) { Text(t("cancel")) } },
++    )
++}
++
++internal fun groupLabel(group: TaskGroup): String =
++    when (group) {
++        TaskGroup.Overdue -> t("group_overdue")
++        TaskGroup.Today -> t("group_today")
++        TaskGroup.Tomorrow -> t("group_tomorrow")
++        TaskGroup.ThisWeek -> t("group_this_week")
++        TaskGroup.Later -> t("group_later")
++        TaskGroup.NoDate -> t("group_no_date")
++        TaskGroup.Done -> t("group_done")
++    }
++
++internal fun repeatLabel(repeat: TaskRepeat): String =
++    when (repeat) {
++        TaskRepeat.Never -> t("never")
++        TaskRepeat.Daily -> t("every_day")
++        TaskRepeat.Weekly -> t("every_week")
++        TaskRepeat.Monthly -> t("every_month")
++    }
++
++/** "Due Nov 5 · 17:00 · Remind … · Every week · From Gmail". */
++private fun taskLine(
++    context: android.content.Context,
++    task: TaskRecord,
++): String =
++    listOfNotNull(
++        task.dueAtEpochMs?.let { t("due_at", formatWhen(context, it)) },
++        task.remindAtEpochMs?.let { t("remind_at", formatWhen(context, it)) },
++        task.repeat.takeIf { it != TaskRepeat.Never }?.let(::repeatLabel),
++        task.originPackage?.let { pkg -> t("from_app", appLabel(context, pkg)) },
++    ).joinToString(" · ")
++
++private fun appLabel(
++    context: android.content.Context,
++    pkg: String,
++): String =
++    runCatching {
++        val pm = context.packageManager
++        pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
++    }.getOrDefault(pkg)
++
++internal fun formatWhen(
++    context: android.content.Context,
++    millis: Long,
++): String =
++    android.text.format.DateFormat.getMediumDateFormat(context).format(java.util.Date(millis)) + " · " +
++        android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(millis))
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksState.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksState.kt
+new file mode 100644
+index 0000000..80de071
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksState.kt
+@@ -0,0 +1,49 @@
++package org.sableos.tasks.ui
++
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.setValue
++import org.sableos.tasks.core.ScreenKey
++import org.sableos.tasks.core.TaskRecord
++
++/** Screen state; every field is Compose state, so readers recompose on change. */
++class TasksState {
++    var tasks by mutableStateOf<List<TaskRecord>>(emptyList())
++    var showDone by mutableStateOf(false)
++    var notificationsAllowed by mutableStateOf(true)
++    var status by mutableStateOf<String?>(null)
++
++    /** The task being edited (a new one is not saved until Save), or null on the list. */
++    var editing by mutableStateOf<TaskRecord?>(null)
++    var editingIsNew by mutableStateOf(false)
++    var pendingDelete by mutableStateOf<TaskRecord?>(null)
++
++    fun openEditor(
++        task: TaskRecord,
++        isNew: Boolean,
++    ) {
++        status = null
++        editing = task
++        editingIsNew = isNew
++    }
++
++    fun closeEditor() {
++        editing = null
++        editingIsNew = false
++    }
++
++    /** C new, H done list; not while editing or confirming. */
++    fun onScreenKey(key: ScreenKey): Boolean {
++        if (editing != null || pendingDelete != null) return false
++        when (key) {
++            ScreenKey.New -> openEditor(TaskRecord(title = NEW_PLACEHOLDER), isNew = true)
++            ScreenKey.ShowDone -> showDone = !showDone
++        }
++        return true
++    }
++
++    companion object {
++        /** A new task starts with an empty title field; the record needs some title until Save. */
++        const val NEW_PLACEHOLDER = "…"
++    }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/drawable/ic_sable_tasks.xml b/sable-src/apps/r8/android/tasks/src/main/res/drawable/ic_sable_tasks.xml
+new file mode 100644
+index 0000000..b2cae85
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/drawable/ic_sable_tasks.xml
+@@ -0,0 +1,21 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="48dp"
++    android:height="48dp"
++    android:viewportWidth="256"
++    android:viewportHeight="256">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M32,16h192c8.8,0 16,7.2 16,16v192c0,8.8 -7.2,16 -16,16H32c-8.8,0 -16,-7.2 -16,-16V32c0,-8.8 7.2,-16 16,-16z" />
++    <group
++        android:scaleX="0.70"
++        android:scaleY="0.70"
++        android:translateX="38.4"
++        android:translateY="34">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM224,48V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32H208A16,16,0,0,1,224,48ZM208,208V48H48V208H208Z" />
++    </group>
++    <path
++        android:fillColor="#2BB5A0"
++        android:pathData="M28,226h200v6H28z" />
++</vector>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/drawable/ic_sable_tasks_background.xml b/sable-src/apps/r8/android/tasks/src/main/res/drawable/ic_sable_tasks_background.xml
+new file mode 100644
+index 0000000..811854a
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/drawable/ic_sable_tasks_background.xml
+@@ -0,0 +1,10 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M0,0h108v108H0z" />
++</vector>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/drawable/ic_sable_tasks_foreground.xml b/sable-src/apps/r8/android/tasks/src/main/res/drawable/ic_sable_tasks_foreground.xml
+new file mode 100644
+index 0000000..da401f0
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/drawable/ic_sable_tasks_foreground.xml
+@@ -0,0 +1,19 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM224,48V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32H208A16,16,0,0,1,224,48ZM208,208V48H48V208H208Z" />
++    </group>
++    <path
++        android:fillColor="#2BB5A0"
++        android:pathData="M38,76.5h32v1.5H38z" />
++</vector>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/drawable/ic_sable_tasks_monochrome.xml b/sable-src/apps/r8/android/tasks/src/main/res/drawable/ic_sable_tasks_monochrome.xml
+new file mode 100644
+index 0000000..8cd1f98
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/drawable/ic_sable_tasks_monochrome.xml
+@@ -0,0 +1,16 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#FFFFFFFF"
++            android:pathData="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM224,48V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32H208A16,16,0,0,1,224,48ZM208,208V48H48V208H208Z" />
++    </group>
++</vector>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/mipmap-anydpi-v26/ic_sable_tasks.xml b/sable-src/apps/r8/android/tasks/src/main/res/mipmap-anydpi-v26/ic_sable_tasks.xml
+new file mode 100644
+index 0000000..50a0411
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/mipmap-anydpi-v26/ic_sable_tasks.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_tasks_background" />
++    <foreground android:drawable="@drawable/ic_sable_tasks_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_tasks_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/mipmap-anydpi-v26/ic_sable_tasks_round.xml b/sable-src/apps/r8/android/tasks/src/main/res/mipmap-anydpi-v26/ic_sable_tasks_round.xml
+new file mode 100644
+index 0000000..50a0411
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/mipmap-anydpi-v26/ic_sable_tasks_round.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_tasks_background" />
++    <foreground android:drawable="@drawable/ic_sable_tasks_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_tasks_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/r8/android/tasks/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-ar/strings.xml
+new file mode 100644
+index 0000000..3655c94
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-ar/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">المهام</string>
++    <string name="tasks_hint">C جديدة · Enter تعديل · مسافة تمت · Z غدًا · D حذف · H المكتملة</string>
++    <string name="no_tasks">لا توجد مهام. C يضيف مهمة.</string>
++    <string name="group_overdue">متأخرة</string>
++    <string name="group_today">اليوم</string>
++    <string name="group_tomorrow">غدًا</string>
++    <string name="group_this_week">هذا الأسبوع</string>
++    <string name="group_later">لاحقًا</string>
++    <string name="group_no_date">بلا تاريخ</string>
++    <string name="group_done">مكتملة</string>
++    <string name="due_at">الاستحقاق %1$s</string>
++    <string name="remind_at">تذكير %1$s</string>
++    <string name="from_app">من %1$s</string>
++    <string name="every_day">كل يوم</string>
++    <string name="every_week">كل أسبوع</string>
++    <string name="every_month">كل شهر</string>
++    <string name="new_task">مهمة جديدة</string>
++    <string name="edit_task">تعديل المهمة</string>
++    <string name="title">العنوان</string>
++    <string name="details">التفاصيل</string>
++    <string name="due">الاستحقاق</string>
++    <string name="remind">تذكير</string>
++    <string name="none">لا شيء</string>
++    <string name="pick_time">اختيار وقت</string>
++    <string name="later_today">لاحقًا اليوم</string>
++    <string name="this_evening">هذا المساء</string>
++    <string name="tomorrow_morning">صباح الغد</string>
++    <string name="repeat">التكرار: %1$s</string>
++    <string name="never">أبدًا</string>
++    <string name="save">حفظ</string>
++    <string name="cancel">إلغاء</string>
++    <string name="delete">حذف</string>
++    <string name="delete_task">حذف «%1$s»؟</string>
++    <string name="deleted">تم حذف «%1$s»</string>
++    <string name="add_a_title">أضف عنوانًا.</string>
++    <string name="reminders">التذكيرات</string>
++    <string name="task_reminder">تذكير بمهمة</string>
++    <string name="done">تمت</string>
++    <string name="snooze_1_hour">تأجيل ساعة</string>
++    <string name="reminders_off">تنبيهات التذكير متوقفة. Enter يسمح بها، وتظل التذكيرات هنا.</string>
++    <string name="follow_up_in">متابعة في %1$s</string>
++    <string name="show_done">إظهار المكتملة (H)</string>
++    <string name="hide_done">إخفاء المكتملة (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-de/strings.xml
+new file mode 100644
+index 0000000..71b8959
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-de/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">Aufgaben</string>
++    <string name="tasks_hint">C neu · Enter bearbeiten · Leertaste erledigt · Z morgen · D löschen · H erledigte</string>
++    <string name="no_tasks">Keine Aufgaben. C fügt eine hinzu.</string>
++    <string name="group_overdue">Überfällig</string>
++    <string name="group_today">Heute</string>
++    <string name="group_tomorrow">Morgen</string>
++    <string name="group_this_week">Diese Woche</string>
++    <string name="group_later">Später</string>
++    <string name="group_no_date">Ohne Datum</string>
++    <string name="group_done">Erledigt</string>
++    <string name="due_at">Fällig %1$s</string>
++    <string name="remind_at">Erinnern %1$s</string>
++    <string name="from_app">Aus %1$s</string>
++    <string name="every_day">Jeden Tag</string>
++    <string name="every_week">Jede Woche</string>
++    <string name="every_month">Jeden Monat</string>
++    <string name="new_task">Neue Aufgabe</string>
++    <string name="edit_task">Aufgabe bearbeiten</string>
++    <string name="title">Titel</string>
++    <string name="details">Details</string>
++    <string name="due">Fällig</string>
++    <string name="remind">Erinnern</string>
++    <string name="none">Keine</string>
++    <string name="pick_time">Zeit wählen</string>
++    <string name="later_today">Später heute</string>
++    <string name="this_evening">Heute Abend</string>
++    <string name="tomorrow_morning">Morgen früh</string>
++    <string name="repeat">Wiederholen: %1$s</string>
++    <string name="never">Nie</string>
++    <string name="save">Speichern</string>
++    <string name="cancel">Abbrechen</string>
++    <string name="delete">Löschen</string>
++    <string name="delete_task">„%1$s“ löschen?</string>
++    <string name="deleted">„%1$s“ gelöscht</string>
++    <string name="add_a_title">Gib einen Titel ein.</string>
++    <string name="reminders">Erinnerungen</string>
++    <string name="task_reminder">Aufgabenerinnerung</string>
++    <string name="done">Erledigt</string>
++    <string name="snooze_1_hour">1 Stunde später</string>
++    <string name="reminders_off">Erinnerungshinweise sind aus. Enter erlaubt sie; Erinnerungen erscheinen trotzdem hier.</string>
++    <string name="follow_up_in">Nachfassen in %1$s</string>
++    <string name="show_done">Erledigte zeigen (H)</string>
++    <string name="hide_done">Erledigte ausblenden (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-el/strings.xml
+new file mode 100644
+index 0000000..63f5c94
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-el/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">εργασίες</string>
++    <string name="tasks_hint">C νέα · Enter επεξεργασία · Κενό έγινε · Z αύριο · D διαγραφή · H ολοκληρωμένες</string>
++    <string name="no_tasks">Δεν υπάρχουν εργασίες. Το C προσθέτει μία.</string>
++    <string name="group_overdue">Εκπρόθεσμες</string>
++    <string name="group_today">Σήμερα</string>
++    <string name="group_tomorrow">Αύριο</string>
++    <string name="group_this_week">Αυτή την εβδομάδα</string>
++    <string name="group_later">Αργότερα</string>
++    <string name="group_no_date">Χωρίς ημερομηνία</string>
++    <string name="group_done">Ολοκληρωμένες</string>
++    <string name="due_at">Λήξη %1$s</string>
++    <string name="remind_at">Υπενθύμιση %1$s</string>
++    <string name="from_app">Από %1$s</string>
++    <string name="every_day">Κάθε μέρα</string>
++    <string name="every_week">Κάθε εβδομάδα</string>
++    <string name="every_month">Κάθε μήνα</string>
++    <string name="new_task">Νέα εργασία</string>
++    <string name="edit_task">Επεξεργασία εργασίας</string>
++    <string name="title">Τίτλος</string>
++    <string name="details">Λεπτομέρειες</string>
++    <string name="due">Λήξη</string>
++    <string name="remind">Υπενθύμιση</string>
++    <string name="none">Καμία</string>
++    <string name="pick_time">Επιλογή ώρας</string>
++    <string name="later_today">Αργότερα σήμερα</string>
++    <string name="this_evening">Απόψε</string>
++    <string name="tomorrow_morning">Αύριο το πρωί</string>
++    <string name="repeat">Επανάληψη: %1$s</string>
++    <string name="never">Ποτέ</string>
++    <string name="save">Αποθήκευση</string>
++    <string name="cancel">Ακύρωση</string>
++    <string name="delete">Διαγραφή</string>
++    <string name="delete_task">Διαγραφή «%1$s»;</string>
++    <string name="deleted">Διαγράφηκε «%1$s»</string>
++    <string name="add_a_title">Προσθέστε τίτλο.</string>
++    <string name="reminders">Υπενθυμίσεις</string>
++    <string name="task_reminder">Υπενθύμιση εργασίας</string>
++    <string name="done">Έγινε</string>
++    <string name="snooze_1_hour">Αναβολή 1 ώρας</string>
++    <string name="reminders_off">Οι ειδοποιήσεις υπενθυμίσεων είναι ανενεργές. Το Enter τις επιτρέπει· οι υπενθυμίσεις φαίνονται εδώ.</string>
++    <string name="follow_up_in">Συνέχεια στο %1$s</string>
++    <string name="show_done">Εμφάνιση ολοκληρωμένων (H)</string>
++    <string name="hide_done">Απόκρυψη ολοκληρωμένων (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-es/strings.xml
+new file mode 100644
+index 0000000..1026cc2
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-es/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">tareas</string>
++    <string name="tasks_hint">C nueva · Enter editar · Espacio hecha · Z mañana · D borrar · H hechas</string>
++    <string name="no_tasks">No hay tareas. C añade una.</string>
++    <string name="group_overdue">Vencidas</string>
++    <string name="group_today">Hoy</string>
++    <string name="group_tomorrow">Mañana</string>
++    <string name="group_this_week">Esta semana</string>
++    <string name="group_later">Más adelante</string>
++    <string name="group_no_date">Sin fecha</string>
++    <string name="group_done">Hechas</string>
++    <string name="due_at">Vence %1$s</string>
++    <string name="remind_at">Recordar %1$s</string>
++    <string name="from_app">De %1$s</string>
++    <string name="every_day">Cada día</string>
++    <string name="every_week">Cada semana</string>
++    <string name="every_month">Cada mes</string>
++    <string name="new_task">Nueva tarea</string>
++    <string name="edit_task">Editar tarea</string>
++    <string name="title">Título</string>
++    <string name="details">Detalles</string>
++    <string name="due">Vence</string>
++    <string name="remind">Recordar</string>
++    <string name="none">Ninguno</string>
++    <string name="pick_time">Elegir hora</string>
++    <string name="later_today">Más tarde hoy</string>
++    <string name="this_evening">Esta tarde</string>
++    <string name="tomorrow_morning">Mañana por la mañana</string>
++    <string name="repeat">Repetir: %1$s</string>
++    <string name="never">Nunca</string>
++    <string name="save">Guardar</string>
++    <string name="cancel">Cancelar</string>
++    <string name="delete">Borrar</string>
++    <string name="delete_task">¿Borrar «%1$s»?</string>
++    <string name="deleted">«%1$s» borrada</string>
++    <string name="add_a_title">Añade un título.</string>
++    <string name="reminders">Recordatorios</string>
++    <string name="task_reminder">Recordatorio de tarea</string>
++    <string name="done">Hecha</string>
++    <string name="snooze_1_hour">Posponer 1 hora</string>
++    <string name="reminders_off">Los avisos de recordatorio están desactivados. Enter los permite; los recordatorios siguen aquí.</string>
++    <string name="follow_up_in">Seguimiento en %1$s</string>
++    <string name="show_done">Mostrar hechas (H)</string>
++    <string name="hide_done">Ocultar hechas (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-fr/strings.xml
+new file mode 100644
+index 0000000..f539d31
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-fr/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">tâches</string>
++    <string name="tasks_hint">C nouvelle · Entrée modifier · Espace faite · Z demain · D supprimer · H faites</string>
++    <string name="no_tasks">Aucune tâche. C en ajoute une.</string>
++    <string name="group_overdue">En retard</string>
++    <string name="group_today">Aujourd’hui</string>
++    <string name="group_tomorrow">Demain</string>
++    <string name="group_this_week">Cette semaine</string>
++    <string name="group_later">Plus tard</string>
++    <string name="group_no_date">Sans date</string>
++    <string name="group_done">Faites</string>
++    <string name="due_at">Échéance %1$s</string>
++    <string name="remind_at">Rappel %1$s</string>
++    <string name="from_app">De %1$s</string>
++    <string name="every_day">Chaque jour</string>
++    <string name="every_week">Chaque semaine</string>
++    <string name="every_month">Chaque mois</string>
++    <string name="new_task">Nouvelle tâche</string>
++    <string name="edit_task">Modifier la tâche</string>
++    <string name="title">Titre</string>
++    <string name="details">Détails</string>
++    <string name="due">Échéance</string>
++    <string name="remind">Rappel</string>
++    <string name="none">Aucun</string>
++    <string name="pick_time">Choisir l’heure</string>
++    <string name="later_today">Plus tard aujourd’hui</string>
++    <string name="this_evening">Ce soir</string>
++    <string name="tomorrow_morning">Demain matin</string>
++    <string name="repeat">Répéter : %1$s</string>
++    <string name="never">Jamais</string>
++    <string name="save">Enregistrer</string>
++    <string name="cancel">Annuler</string>
++    <string name="delete">Supprimer</string>
++    <string name="delete_task">Supprimer « %1$s » ?</string>
++    <string name="deleted">« %1$s » supprimée</string>
++    <string name="add_a_title">Ajoutez un titre.</string>
++    <string name="reminders">Rappels</string>
++    <string name="task_reminder">Rappel de tâche</string>
++    <string name="done">Faite</string>
++    <string name="snooze_1_hour">Reporter d’1 heure</string>
++    <string name="reminders_off">Les alertes de rappel sont désactivées. Entrée les autorise ; les rappels restent visibles ici.</string>
++    <string name="follow_up_in">Relancer dans %1$s</string>
++    <string name="show_done">Afficher les faites (H)</string>
++    <string name="hide_done">Masquer les faites (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-hi/strings.xml
+new file mode 100644
+index 0000000..33fba34
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-hi/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">कार्य</string>
++    <string name="tasks_hint">C नया · Enter संपादन · स्पेस पूरा · Z कल · D हटाएँ · H पूरे</string>
++    <string name="no_tasks">कोई कार्य नहीं। C एक जोड़ता है।</string>
++    <string name="group_overdue">समय बीता</string>
++    <string name="group_today">आज</string>
++    <string name="group_tomorrow">कल</string>
++    <string name="group_this_week">इस सप्ताह</string>
++    <string name="group_later">बाद में</string>
++    <string name="group_no_date">कोई तारीख नहीं</string>
++    <string name="group_done">पूरे</string>
++    <string name="due_at">नियत %1$s</string>
++    <string name="remind_at">याद दिलाएँ %1$s</string>
++    <string name="from_app">%1$s से</string>
++    <string name="every_day">हर दिन</string>
++    <string name="every_week">हर सप्ताह</string>
++    <string name="every_month">हर महीने</string>
++    <string name="new_task">नया कार्य</string>
++    <string name="edit_task">कार्य संपादित करें</string>
++    <string name="title">शीर्षक</string>
++    <string name="details">विवरण</string>
++    <string name="due">नियत</string>
++    <string name="remind">याद दिलाएँ</string>
++    <string name="none">कोई नहीं</string>
++    <string name="pick_time">समय चुनें</string>
++    <string name="later_today">आज बाद में</string>
++    <string name="this_evening">आज शाम</string>
++    <string name="tomorrow_morning">कल सुबह</string>
++    <string name="repeat">दोहराएँ: %1$s</string>
++    <string name="never">कभी नहीं</string>
++    <string name="save">सहेजें</string>
++    <string name="cancel">रद्द करें</string>
++    <string name="delete">हटाएँ</string>
++    <string name="delete_task">“%1$s” हटाएँ?</string>
++    <string name="deleted">“%1$s” हटाया गया</string>
++    <string name="add_a_title">शीर्षक जोड़ें।</string>
++    <string name="reminders">रिमाइंडर</string>
++    <string name="task_reminder">कार्य रिमाइंडर</string>
++    <string name="done">पूरा</string>
++    <string name="snooze_1_hour">1 घंटा स्नूज़</string>
++    <string name="reminders_off">रिमाइंडर सूचनाएँ बंद हैं। Enter उन्हें अनुमति देता है; रिमाइंडर फिर भी यहाँ दिखते हैं।</string>
++    <string name="follow_up_in">%1$s में फ़ॉलो-अप</string>
++    <string name="show_done">पूरे दिखाएँ (H)</string>
++    <string name="hide_done">पूरे छिपाएँ (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-it/strings.xml
+new file mode 100644
+index 0000000..731ad6a
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-it/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">attività</string>
++    <string name="tasks_hint">C nuova · Invio modifica · Spazio fatta · Z domani · D elimina · H fatte</string>
++    <string name="no_tasks">Nessuna attività. C ne aggiunge una.</string>
++    <string name="group_overdue">In ritardo</string>
++    <string name="group_today">Oggi</string>
++    <string name="group_tomorrow">Domani</string>
++    <string name="group_this_week">Questa settimana</string>
++    <string name="group_later">Più avanti</string>
++    <string name="group_no_date">Senza data</string>
++    <string name="group_done">Fatte</string>
++    <string name="due_at">Scade %1$s</string>
++    <string name="remind_at">Promemoria %1$s</string>
++    <string name="from_app">Da %1$s</string>
++    <string name="every_day">Ogni giorno</string>
++    <string name="every_week">Ogni settimana</string>
++    <string name="every_month">Ogni mese</string>
++    <string name="new_task">Nuova attività</string>
++    <string name="edit_task">Modifica attività</string>
++    <string name="title">Titolo</string>
++    <string name="details">Dettagli</string>
++    <string name="due">Scadenza</string>
++    <string name="remind">Promemoria</string>
++    <string name="none">Nessuno</string>
++    <string name="pick_time">Scegli orario</string>
++    <string name="later_today">Più tardi oggi</string>
++    <string name="this_evening">Stasera</string>
++    <string name="tomorrow_morning">Domattina</string>
++    <string name="repeat">Ripeti: %1$s</string>
++    <string name="never">Mai</string>
++    <string name="save">Salva</string>
++    <string name="cancel">Annulla</string>
++    <string name="delete">Elimina</string>
++    <string name="delete_task">Eliminare «%1$s»?</string>
++    <string name="deleted">«%1$s» eliminata</string>
++    <string name="add_a_title">Aggiungi un titolo.</string>
++    <string name="reminders">Promemoria</string>
++    <string name="task_reminder">Promemoria attività</string>
++    <string name="done">Fatta</string>
++    <string name="snooze_1_hour">Rimanda di 1 ora</string>
++    <string name="reminders_off">Gli avvisi dei promemoria sono disattivati. Invio li consente; i promemoria restano qui.</string>
++    <string name="follow_up_in">Ricontatta in %1$s</string>
++    <string name="show_done">Mostra fatte (H)</string>
++    <string name="hide_done">Nascondi fatte (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-iw/strings.xml
+new file mode 100644
+index 0000000..72e60d1
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-iw/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">משימות</string>
++    <string name="tasks_hint">C חדשה · Enter עריכה · רווח בוצע · Z מחר · D מחיקה · H שבוצעו</string>
++    <string name="no_tasks">אין משימות. C מוסיף אחת.</string>
++    <string name="group_overdue">באיחור</string>
++    <string name="group_today">היום</string>
++    <string name="group_tomorrow">מחר</string>
++    <string name="group_this_week">השבוע</string>
++    <string name="group_later">מאוחר יותר</string>
++    <string name="group_no_date">ללא תאריך</string>
++    <string name="group_done">בוצעו</string>
++    <string name="due_at">יעד %1$s</string>
++    <string name="remind_at">תזכורת %1$s</string>
++    <string name="from_app">מ-%1$s</string>
++    <string name="every_day">כל יום</string>
++    <string name="every_week">כל שבוע</string>
++    <string name="every_month">כל חודש</string>
++    <string name="new_task">משימה חדשה</string>
++    <string name="edit_task">עריכת משימה</string>
++    <string name="title">כותרת</string>
++    <string name="details">פרטים</string>
++    <string name="due">יעד</string>
++    <string name="remind">תזכורת</string>
++    <string name="none">ללא</string>
++    <string name="pick_time">בחירת שעה</string>
++    <string name="later_today">מאוחר יותר היום</string>
++    <string name="this_evening">הערב</string>
++    <string name="tomorrow_morning">מחר בבוקר</string>
++    <string name="repeat">חזרה: %1$s</string>
++    <string name="never">אף פעם</string>
++    <string name="save">שמירה</string>
++    <string name="cancel">ביטול</string>
++    <string name="delete">מחיקה</string>
++    <string name="delete_task">למחוק את „%1$s”?</string>
++    <string name="deleted">„%1$s” נמחקה</string>
++    <string name="add_a_title">יש להוסיף כותרת.</string>
++    <string name="reminders">תזכורות</string>
++    <string name="task_reminder">תזכורת למשימה</string>
++    <string name="done">בוצע</string>
++    <string name="snooze_1_hour">נודניק לשעה</string>
++    <string name="reminders_off">התראות התזכורת כבויות. Enter מאפשר אותן; התזכורות עדיין מופיעות כאן.</string>
++    <string name="follow_up_in">מעקב ב-%1$s</string>
++    <string name="show_done">הצגת שבוצעו (H)</string>
++    <string name="hide_done">הסתרת שבוצעו (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-ja/strings.xml
+new file mode 100644
+index 0000000..60dc7c5
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-ja/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">タスク</string>
++    <string name="tasks_hint">C 新規 · Enter 編集 · Space 完了 · Z 明日 · D 削除 · H 完了済み</string>
++    <string name="no_tasks">タスクはありません。C で追加します。</string>
++    <string name="group_overdue">期限切れ</string>
++    <string name="group_today">今日</string>
++    <string name="group_tomorrow">明日</string>
++    <string name="group_this_week">今週</string>
++    <string name="group_later">今後</string>
++    <string name="group_no_date">日付なし</string>
++    <string name="group_done">完了</string>
++    <string name="due_at">期限 %1$s</string>
++    <string name="remind_at">通知 %1$s</string>
++    <string name="from_app">%1$s から</string>
++    <string name="every_day">毎日</string>
++    <string name="every_week">毎週</string>
++    <string name="every_month">毎月</string>
++    <string name="new_task">新しいタスク</string>
++    <string name="edit_task">タスクを編集</string>
++    <string name="title">タイトル</string>
++    <string name="details">詳細</string>
++    <string name="due">期限</string>
++    <string name="remind">通知</string>
++    <string name="none">なし</string>
++    <string name="pick_time">時刻を選択</string>
++    <string name="later_today">今日のあとで</string>
++    <string name="this_evening">今晩</string>
++    <string name="tomorrow_morning">明日の朝</string>
++    <string name="repeat">繰り返し: %1$s</string>
++    <string name="never">しない</string>
++    <string name="save">保存</string>
++    <string name="cancel">キャンセル</string>
++    <string name="delete">削除</string>
++    <string name="delete_task">「%1$s」を削除しますか？</string>
++    <string name="deleted">「%1$s」を削除しました</string>
++    <string name="add_a_title">タイトルを入力してください。</string>
++    <string name="reminders">リマインダー</string>
++    <string name="task_reminder">タスクのリマインダー</string>
++    <string name="done">完了</string>
++    <string name="snooze_1_hour">1 時間後に再通知</string>
++    <string name="reminders_off">リマインダーの通知はオフです。Enter で許可します。リマインダーはここに表示されます。</string>
++    <string name="follow_up_in">%1$s でフォローアップ</string>
++    <string name="show_done">完了済みを表示 (H)</string>
++    <string name="hide_done">完了済みを隠す (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-ko/strings.xml
+new file mode 100644
+index 0000000..f7d39b2
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-ko/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">할 일</string>
++    <string name="tasks_hint">C 새로 만들기 · Enter 편집 · Space 완료 · Z 내일 · D 삭제 · H 완료 목록</string>
++    <string name="no_tasks">할 일이 없습니다. C로 추가하세요.</string>
++    <string name="group_overdue">기한 지남</string>
++    <string name="group_today">오늘</string>
++    <string name="group_tomorrow">내일</string>
++    <string name="group_this_week">이번 주</string>
++    <string name="group_later">나중에</string>
++    <string name="group_no_date">날짜 없음</string>
++    <string name="group_done">완료</string>
++    <string name="due_at">마감 %1$s</string>
++    <string name="remind_at">알림 %1$s</string>
++    <string name="from_app">%1$s에서</string>
++    <string name="every_day">매일</string>
++    <string name="every_week">매주</string>
++    <string name="every_month">매월</string>
++    <string name="new_task">새 할 일</string>
++    <string name="edit_task">할 일 편집</string>
++    <string name="title">제목</string>
++    <string name="details">세부정보</string>
++    <string name="due">마감</string>
++    <string name="remind">알림</string>
++    <string name="none">없음</string>
++    <string name="pick_time">시간 선택</string>
++    <string name="later_today">오늘 나중에</string>
++    <string name="this_evening">오늘 저녁</string>
++    <string name="tomorrow_morning">내일 아침</string>
++    <string name="repeat">반복: %1$s</string>
++    <string name="never">안 함</string>
++    <string name="save">저장</string>
++    <string name="cancel">취소</string>
++    <string name="delete">삭제</string>
++    <string name="delete_task">‘%1$s’을(를) 삭제할까요?</string>
++    <string name="deleted">‘%1$s’ 삭제됨</string>
++    <string name="add_a_title">제목을 입력하세요.</string>
++    <string name="reminders">알림</string>
++    <string name="task_reminder">할 일 알림</string>
++    <string name="done">완료</string>
++    <string name="snooze_1_hour">1시간 후 다시 알림</string>
++    <string name="reminders_off">알림 표시가 꺼져 있습니다. Enter로 허용하세요. 알림은 여기에도 표시됩니다.</string>
++    <string name="follow_up_in">%1$s 후속 조치</string>
++    <string name="show_done">완료 표시 (H)</string>
++    <string name="hide_done">완료 숨기기 (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-nl/strings.xml
+new file mode 100644
+index 0000000..824dd18
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-nl/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">taken</string>
++    <string name="tasks_hint">C nieuw · Enter bewerken · Spatie klaar · Z morgen · D verwijderen · H klaar</string>
++    <string name="no_tasks">Geen taken. C voegt er een toe.</string>
++    <string name="group_overdue">Te laat</string>
++    <string name="group_today">Vandaag</string>
++    <string name="group_tomorrow">Morgen</string>
++    <string name="group_this_week">Deze week</string>
++    <string name="group_later">Later</string>
++    <string name="group_no_date">Geen datum</string>
++    <string name="group_done">Klaar</string>
++    <string name="due_at">Uiterlijk %1$s</string>
++    <string name="remind_at">Herinneren %1$s</string>
++    <string name="from_app">Uit %1$s</string>
++    <string name="every_day">Elke dag</string>
++    <string name="every_week">Elke week</string>
++    <string name="every_month">Elke maand</string>
++    <string name="new_task">Nieuwe taak</string>
++    <string name="edit_task">Taak bewerken</string>
++    <string name="title">Titel</string>
++    <string name="details">Details</string>
++    <string name="due">Uiterlijk</string>
++    <string name="remind">Herinneren</string>
++    <string name="none">Geen</string>
++    <string name="pick_time">Tijd kiezen</string>
++    <string name="later_today">Later vandaag</string>
++    <string name="this_evening">Vanavond</string>
++    <string name="tomorrow_morning">Morgenochtend</string>
++    <string name="repeat">Herhalen: %1$s</string>
++    <string name="never">Nooit</string>
++    <string name="save">Opslaan</string>
++    <string name="cancel">Annuleren</string>
++    <string name="delete">Verwijderen</string>
++    <string name="delete_task">‘%1$s’ verwijderen?</string>
++    <string name="deleted">‘%1$s’ verwijderd</string>
++    <string name="add_a_title">Voeg een titel toe.</string>
++    <string name="reminders">Herinneringen</string>
++    <string name="task_reminder">Taakherinnering</string>
++    <string name="done">Klaar</string>
++    <string name="snooze_1_hour">1 uur uitstellen</string>
++    <string name="reminders_off">Herinneringsmeldingen staan uit. Enter staat ze toe; herinneringen blijven hier zichtbaar.</string>
++    <string name="follow_up_in">Opvolgen in %1$s</string>
++    <string name="show_done">Klaar tonen (H)</string>
++    <string name="hide_done">Klaar verbergen (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-pl/strings.xml
+new file mode 100644
+index 0000000..5d6aff9
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-pl/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">zadania</string>
++    <string name="tasks_hint">C nowe · Enter edytuj · Spacja zrobione · Z jutro · D usuń · H zrobione</string>
++    <string name="no_tasks">Brak zadań. C dodaje zadanie.</string>
++    <string name="group_overdue">Zaległe</string>
++    <string name="group_today">Dziś</string>
++    <string name="group_tomorrow">Jutro</string>
++    <string name="group_this_week">W tym tygodniu</string>
++    <string name="group_later">Później</string>
++    <string name="group_no_date">Bez daty</string>
++    <string name="group_done">Zrobione</string>
++    <string name="due_at">Termin %1$s</string>
++    <string name="remind_at">Przypomnij %1$s</string>
++    <string name="from_app">Z %1$s</string>
++    <string name="every_day">Codziennie</string>
++    <string name="every_week">Co tydzień</string>
++    <string name="every_month">Co miesiąc</string>
++    <string name="new_task">Nowe zadanie</string>
++    <string name="edit_task">Edytuj zadanie</string>
++    <string name="title">Tytuł</string>
++    <string name="details">Szczegóły</string>
++    <string name="due">Termin</string>
++    <string name="remind">Przypomnij</string>
++    <string name="none">Brak</string>
++    <string name="pick_time">Wybierz godzinę</string>
++    <string name="later_today">Później dziś</string>
++    <string name="this_evening">Wieczorem</string>
++    <string name="tomorrow_morning">Jutro rano</string>
++    <string name="repeat">Powtarzaj: %1$s</string>
++    <string name="never">Nigdy</string>
++    <string name="save">Zapisz</string>
++    <string name="cancel">Anuluj</string>
++    <string name="delete">Usuń</string>
++    <string name="delete_task">Usunąć „%1$s”?</string>
++    <string name="deleted">Usunięto „%1$s”</string>
++    <string name="add_a_title">Dodaj tytuł.</string>
++    <string name="reminders">Przypomnienia</string>
++    <string name="task_reminder">Przypomnienie o zadaniu</string>
++    <string name="done">Zrobione</string>
++    <string name="snooze_1_hour">Odłóż o 1 godzinę</string>
++    <string name="reminders_off">Powiadomienia o przypomnieniach są wyłączone. Enter je włącza; przypomnienia nadal są tutaj.</string>
++    <string name="follow_up_in">Wróć do %1$s</string>
++    <string name="show_done">Pokaż zrobione (H)</string>
++    <string name="hide_done">Ukryj zrobione (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-pt/strings.xml
+new file mode 100644
+index 0000000..811e07b
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-pt/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">tarefas</string>
++    <string name="tasks_hint">C nova · Enter editar · Espaço feita · Z amanhã · D apagar · H feitas</string>
++    <string name="no_tasks">Sem tarefas. C adiciona uma.</string>
++    <string name="group_overdue">Atrasadas</string>
++    <string name="group_today">Hoje</string>
++    <string name="group_tomorrow">Amanhã</string>
++    <string name="group_this_week">Esta semana</string>
++    <string name="group_later">Mais tarde</string>
++    <string name="group_no_date">Sem data</string>
++    <string name="group_done">Feitas</string>
++    <string name="due_at">Prazo %1$s</string>
++    <string name="remind_at">Lembrar %1$s</string>
++    <string name="from_app">De %1$s</string>
++    <string name="every_day">Todos os dias</string>
++    <string name="every_week">Todas as semanas</string>
++    <string name="every_month">Todos os meses</string>
++    <string name="new_task">Nova tarefa</string>
++    <string name="edit_task">Editar tarefa</string>
++    <string name="title">Título</string>
++    <string name="details">Detalhes</string>
++    <string name="due">Prazo</string>
++    <string name="remind">Lembrar</string>
++    <string name="none">Nenhum</string>
++    <string name="pick_time">Escolher hora</string>
++    <string name="later_today">Mais tarde hoje</string>
++    <string name="this_evening">Esta noite</string>
++    <string name="tomorrow_morning">Amanhã de manhã</string>
++    <string name="repeat">Repetir: %1$s</string>
++    <string name="never">Nunca</string>
++    <string name="save">Guardar</string>
++    <string name="cancel">Cancelar</string>
++    <string name="delete">Apagar</string>
++    <string name="delete_task">Apagar \"%1$s\"?</string>
++    <string name="deleted">\"%1$s\" apagada</string>
++    <string name="add_a_title">Adicione um título.</string>
++    <string name="reminders">Lembretes</string>
++    <string name="task_reminder">Lembrete de tarefa</string>
++    <string name="done">Feita</string>
++    <string name="snooze_1_hour">Adiar 1 hora</string>
++    <string name="reminders_off">Os alertas de lembrete estão desligados. Enter permite-os; os lembretes continuam aqui.</string>
++    <string name="follow_up_in">Acompanhar em %1$s</string>
++    <string name="show_done">Mostrar feitas (H)</string>
++    <string name="hide_done">Ocultar feitas (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-ru/strings.xml
+new file mode 100644
+index 0000000..bce1d88
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-ru/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">задачи</string>
++    <string name="tasks_hint">C новая · Enter изменить · Пробел готово · Z завтра · D удалить · H готовые</string>
++    <string name="no_tasks">Задач нет. C добавляет задачу.</string>
++    <string name="group_overdue">Просрочено</string>
++    <string name="group_today">Сегодня</string>
++    <string name="group_tomorrow">Завтра</string>
++    <string name="group_this_week">На этой неделе</string>
++    <string name="group_later">Позже</string>
++    <string name="group_no_date">Без даты</string>
++    <string name="group_done">Готово</string>
++    <string name="due_at">Срок %1$s</string>
++    <string name="remind_at">Напомнить %1$s</string>
++    <string name="from_app">Из %1$s</string>
++    <string name="every_day">Каждый день</string>
++    <string name="every_week">Каждую неделю</string>
++    <string name="every_month">Каждый месяц</string>
++    <string name="new_task">Новая задача</string>
++    <string name="edit_task">Изменить задачу</string>
++    <string name="title">Название</string>
++    <string name="details">Подробности</string>
++    <string name="due">Срок</string>
++    <string name="remind">Напомнить</string>
++    <string name="none">Нет</string>
++    <string name="pick_time">Выбрать время</string>
++    <string name="later_today">Позже сегодня</string>
++    <string name="this_evening">Сегодня вечером</string>
++    <string name="tomorrow_morning">Завтра утром</string>
++    <string name="repeat">Повтор: %1$s</string>
++    <string name="never">Никогда</string>
++    <string name="save">Сохранить</string>
++    <string name="cancel">Отмена</string>
++    <string name="delete">Удалить</string>
++    <string name="delete_task">Удалить «%1$s»?</string>
++    <string name="deleted">«%1$s» удалена</string>
++    <string name="add_a_title">Добавьте название.</string>
++    <string name="reminders">Напоминания</string>
++    <string name="task_reminder">Напоминание о задаче</string>
++    <string name="done">Готово</string>
++    <string name="snooze_1_hour">Отложить на 1 час</string>
++    <string name="reminders_off">Уведомления о напоминаниях выключены. Enter включает их; напоминания всё равно видны здесь.</string>
++    <string name="follow_up_in">Вернуться к %1$s</string>
++    <string name="show_done">Показать готовые (H)</string>
++    <string name="hide_done">Скрыть готовые (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-sv/strings.xml
+new file mode 100644
+index 0000000..c0e8895
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-sv/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">uppgifter</string>
++    <string name="tasks_hint">C ny · Enter redigera · Mellanslag klar · Z i morgon · D ta bort · H klara</string>
++    <string name="no_tasks">Inga uppgifter. C lägger till en.</string>
++    <string name="group_overdue">Försenade</string>
++    <string name="group_today">I dag</string>
++    <string name="group_tomorrow">I morgon</string>
++    <string name="group_this_week">Den här veckan</string>
++    <string name="group_later">Senare</string>
++    <string name="group_no_date">Inget datum</string>
++    <string name="group_done">Klara</string>
++    <string name="due_at">Förfaller %1$s</string>
++    <string name="remind_at">Påminn %1$s</string>
++    <string name="from_app">Från %1$s</string>
++    <string name="every_day">Varje dag</string>
++    <string name="every_week">Varje vecka</string>
++    <string name="every_month">Varje månad</string>
++    <string name="new_task">Ny uppgift</string>
++    <string name="edit_task">Redigera uppgift</string>
++    <string name="title">Titel</string>
++    <string name="details">Detaljer</string>
++    <string name="due">Förfaller</string>
++    <string name="remind">Påminn</string>
++    <string name="none">Ingen</string>
++    <string name="pick_time">Välj tid</string>
++    <string name="later_today">Senare i dag</string>
++    <string name="this_evening">I kväll</string>
++    <string name="tomorrow_morning">I morgon bitti</string>
++    <string name="repeat">Upprepa: %1$s</string>
++    <string name="never">Aldrig</string>
++    <string name="save">Spara</string>
++    <string name="cancel">Avbryt</string>
++    <string name="delete">Ta bort</string>
++    <string name="delete_task">Ta bort ”%1$s”?</string>
++    <string name="deleted">”%1$s” borttagen</string>
++    <string name="add_a_title">Lägg till en titel.</string>
++    <string name="reminders">Påminnelser</string>
++    <string name="task_reminder">Uppgiftspåminnelse</string>
++    <string name="done">Klar</string>
++    <string name="snooze_1_hour">Snooza 1 timme</string>
++    <string name="reminders_off">Påminnelseaviseringar är av. Enter tillåter dem; påminnelser visas ändå här.</string>
++    <string name="follow_up_in">Följ upp i %1$s</string>
++    <string name="show_done">Visa klara (H)</string>
++    <string name="hide_done">Dölj klara (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-tr/strings.xml
+new file mode 100644
+index 0000000..8d2cf8b
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-tr/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">görevler</string>
++    <string name="tasks_hint">C yeni · Enter düzenle · Boşluk bitti · Z yarın · D sil · H bitenler</string>
++    <string name="no_tasks">Görev yok. C bir tane ekler.</string>
++    <string name="group_overdue">Gecikmiş</string>
++    <string name="group_today">Bugün</string>
++    <string name="group_tomorrow">Yarın</string>
++    <string name="group_this_week">Bu hafta</string>
++    <string name="group_later">Daha sonra</string>
++    <string name="group_no_date">Tarih yok</string>
++    <string name="group_done">Bitenler</string>
++    <string name="due_at">Son tarih %1$s</string>
++    <string name="remind_at">Hatırlat %1$s</string>
++    <string name="from_app">Kaynak: %1$s</string>
++    <string name="every_day">Her gün</string>
++    <string name="every_week">Her hafta</string>
++    <string name="every_month">Her ay</string>
++    <string name="new_task">Yeni görev</string>
++    <string name="edit_task">Görevi düzenle</string>
++    <string name="title">Başlık</string>
++    <string name="details">Ayrıntılar</string>
++    <string name="due">Son tarih</string>
++    <string name="remind">Hatırlat</string>
++    <string name="none">Yok</string>
++    <string name="pick_time">Saat seç</string>
++    <string name="later_today">Bugün daha sonra</string>
++    <string name="this_evening">Bu akşam</string>
++    <string name="tomorrow_morning">Yarın sabah</string>
++    <string name="repeat">Tekrarla: %1$s</string>
++    <string name="never">Asla</string>
++    <string name="save">Kaydet</string>
++    <string name="cancel">İptal</string>
++    <string name="delete">Sil</string>
++    <string name="delete_task">“%1$s” silinsin mi?</string>
++    <string name="deleted">“%1$s” silindi</string>
++    <string name="add_a_title">Bir başlık ekleyin.</string>
++    <string name="reminders">Hatırlatıcılar</string>
++    <string name="task_reminder">Görev hatırlatıcısı</string>
++    <string name="done">Bitti</string>
++    <string name="snooze_1_hour">1 saat ertele</string>
++    <string name="reminders_off">Hatırlatıcı uyarıları kapalı. Enter izin verir; hatırlatıcılar yine burada görünür.</string>
++    <string name="follow_up_in">%1$s için takip</string>
++    <string name="show_done">Bitenleri göster (H)</string>
++    <string name="hide_done">Bitenleri gizle (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-ur/strings.xml
+new file mode 100644
+index 0000000..d500d51
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-ur/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">کام</string>
++    <string name="tasks_hint">C نیا · Enter ترمیم · اسپیس مکمل · Z کل · D حذف · H مکمل</string>
++    <string name="no_tasks">کوئی کام نہیں۔ C ایک شامل کرتا ہے۔</string>
++    <string name="group_overdue">تاخیر شدہ</string>
++    <string name="group_today">آج</string>
++    <string name="group_tomorrow">کل</string>
++    <string name="group_this_week">اس ہفتے</string>
++    <string name="group_later">بعد میں</string>
++    <string name="group_no_date">کوئی تاریخ نہیں</string>
++    <string name="group_done">مکمل</string>
++    <string name="due_at">مقررہ %1$s</string>
++    <string name="remind_at">یاد دہانی %1$s</string>
++    <string name="from_app">%1$s سے</string>
++    <string name="every_day">ہر دن</string>
++    <string name="every_week">ہر ہفتے</string>
++    <string name="every_month">ہر مہینے</string>
++    <string name="new_task">نیا کام</string>
++    <string name="edit_task">کام میں ترمیم</string>
++    <string name="title">عنوان</string>
++    <string name="details">تفصیلات</string>
++    <string name="due">مقررہ</string>
++    <string name="remind">یاد دہانی</string>
++    <string name="none">کوئی نہیں</string>
++    <string name="pick_time">وقت چنیں</string>
++    <string name="later_today">آج بعد میں</string>
++    <string name="this_evening">آج شام</string>
++    <string name="tomorrow_morning">کل صبح</string>
++    <string name="repeat">دہرائیں: %1$s</string>
++    <string name="never">کبھی نہیں</string>
++    <string name="save">محفوظ کریں</string>
++    <string name="cancel">منسوخ</string>
++    <string name="delete">حذف</string>
++    <string name="delete_task">“%1$s” حذف کریں؟</string>
++    <string name="deleted">“%1$s” حذف ہو گیا</string>
++    <string name="add_a_title">عنوان شامل کریں۔</string>
++    <string name="reminders">یاد دہانیاں</string>
++    <string name="task_reminder">کام کی یاد دہانی</string>
++    <string name="done">مکمل</string>
++    <string name="snooze_1_hour">1 گھنٹہ مؤخر</string>
++    <string name="reminders_off">یاد دہانی کی اطلاعات بند ہیں۔ Enter انہیں اجازت دیتا ہے؛ یاد دہانیاں پھر بھی یہاں دکھتی ہیں۔</string>
++    <string name="follow_up_in">%1$s میں فالو اپ</string>
++    <string name="show_done">مکمل دکھائیں (H)</string>
++    <string name="hide_done">مکمل چھپائیں (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values-zh-rCN/strings.xml
+new file mode 100644
+index 0000000..4fa0cf4
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values-zh-rCN/strings.xml
+@@ -0,0 +1,46 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="tasks">任务</string>
++    <string name="tasks_hint">C 新建 · Enter 编辑 · 空格 完成 · Z 明天 · D 删除 · H 已完成</string>
++    <string name="no_tasks">没有任务。按 C 添加。</string>
++    <string name="group_overdue">已逾期</string>
++    <string name="group_today">今天</string>
++    <string name="group_tomorrow">明天</string>
++    <string name="group_this_week">本周</string>
++    <string name="group_later">以后</string>
++    <string name="group_no_date">无日期</string>
++    <string name="group_done">已完成</string>
++    <string name="due_at">截止 %1$s</string>
++    <string name="remind_at">提醒 %1$s</string>
++    <string name="from_app">来自 %1$s</string>
++    <string name="every_day">每天</string>
++    <string name="every_week">每周</string>
++    <string name="every_month">每月</string>
++    <string name="new_task">新任务</string>
++    <string name="edit_task">编辑任务</string>
++    <string name="title">标题</string>
++    <string name="details">详情</string>
++    <string name="due">截止</string>
++    <string name="remind">提醒</string>
++    <string name="none">无</string>
++    <string name="pick_time">选择时间</string>
++    <string name="later_today">今天晚些时候</string>
++    <string name="this_evening">今晚</string>
++    <string name="tomorrow_morning">明天早上</string>
++    <string name="repeat">重复：%1$s</string>
++    <string name="never">从不</string>
++    <string name="save">保存</string>
++    <string name="cancel">取消</string>
++    <string name="delete">删除</string>
++    <string name="delete_task">删除“%1$s”？</string>
++    <string name="deleted">已删除“%1$s”</string>
++    <string name="add_a_title">请添加标题。</string>
++    <string name="reminders">提醒</string>
++    <string name="task_reminder">任务提醒</string>
++    <string name="done">完成</string>
++    <string name="snooze_1_hour">1 小时后提醒</string>
++    <string name="reminders_off">提醒通知已关闭。按 Enter 允许；提醒仍会显示在这里。</string>
++    <string name="follow_up_in">在 %1$s 中跟进</string>
++    <string name="show_done">显示已完成 (H)</string>
++    <string name="hide_done">隐藏已完成 (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/main/res/values/strings.xml b/sable-src/apps/r8/android/tasks/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..fb1c38e
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/main/res/values/strings.xml
+@@ -0,0 +1,48 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Keep equal to TasksText.EN (TasksTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sable Tasks</string>
++    <string name="tasks">tasks</string>
++    <string name="tasks_hint">C new · Enter edit · Space done · Z tomorrow · D delete · H done list</string>
++    <string name="no_tasks">No tasks. C adds one.</string>
++    <string name="group_overdue">Overdue</string>
++    <string name="group_today">Today</string>
++    <string name="group_tomorrow">Tomorrow</string>
++    <string name="group_this_week">This week</string>
++    <string name="group_later">Later</string>
++    <string name="group_no_date">No date</string>
++    <string name="group_done">Done</string>
++    <string name="due_at">Due %1$s</string>
++    <string name="remind_at">Remind %1$s</string>
++    <string name="from_app">From %1$s</string>
++    <string name="every_day">Every day</string>
++    <string name="every_week">Every week</string>
++    <string name="every_month">Every month</string>
++    <string name="new_task">New task</string>
++    <string name="edit_task">Edit task</string>
++    <string name="title">Title</string>
++    <string name="details">Details</string>
++    <string name="due">Due</string>
++    <string name="remind">Remind</string>
++    <string name="none">None</string>
++    <string name="pick_time">Pick a time</string>
++    <string name="later_today">Later today</string>
++    <string name="this_evening">This evening</string>
++    <string name="tomorrow_morning">Tomorrow morning</string>
++    <string name="repeat">Repeat: %1$s</string>
++    <string name="never">Never</string>
++    <string name="save">Save</string>
++    <string name="cancel">Cancel</string>
++    <string name="delete">Delete</string>
++    <string name="delete_task">Delete “%1$s”?</string>
++    <string name="deleted">Deleted “%1$s”</string>
++    <string name="add_a_title">Add a title.</string>
++    <string name="reminders">Reminders</string>
++    <string name="task_reminder">Task reminder</string>
++    <string name="done">Done</string>
++    <string name="snooze_1_hour">Snooze 1 hour</string>
++    <string name="reminders_off">Reminder alerts are off. Enter allows them; reminders still show here.</string>
++    <string name="follow_up_in">Follow up in %1$s</string>
++    <string name="show_done">Show done (H)</string>
++    <string name="hide_done">Hide done (H)</string>
++</resources>
+diff --git a/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/TasksTextTest.kt b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/TasksTextTest.kt
+new file mode 100644
+index 0000000..c5306d4
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/TasksTextTest.kt
+@@ -0,0 +1,64 @@
++package org.sableos.tasks
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.tasks.core.TasksText
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class TasksTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map { it.value }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        TasksText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f -> f.name.startsWith("values-") && File(f, "strings.xml").isFile }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, TasksText.EN.keys, tr.keys.intersect(TasksText.EN.keys))
++            TasksText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++
++    @Test
++    fun linesFillTheirArguments() {
++        assertEquals("Due today", TasksText.t("due_at", "today"))
++        assertEquals("Deleted “Milk”", TasksText.t("deleted", "Milk"))
++    }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskRepositoryTest.kt b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskRepositoryTest.kt
+new file mode 100644
+index 0000000..2090f26
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskRepositoryTest.kt
+@@ -0,0 +1,95 @@
++package org.sableos.tasks.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNotEquals
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import java.io.File
++import java.nio.file.Files
++import java.time.Instant
++
++class TaskRepositoryTest {
++    private class Recorder(
++        private val store: TaskStore,
++    ) : TaskScheduler {
++        val events = mutableListOf<String>()
++
++        override fun cancel(id: String) {
++            events += "cancel:$id"
++        }
++
++        override fun schedule(task: TaskRecord) {
++            assertTrue("written before alarms change", store.list().any { it == task })
++            events += "schedule:${task.id}"
++        }
++    }
++
++    private fun withDir(block: (File) -> Unit) {
++        val dir = Files.createTempDirectory("sable-task-repo-").toFile()
++        try {
++            block(dir)
++        } finally {
++            dir.deleteRecursively()
++        }
++    }
++
++    @Test
++    fun saveSchedulesAndDeleteCancels() =
++        withDir { dir ->
++            val store = TaskStore(dir)
++            val scheduler = Recorder(store)
++            val repo = TaskRepository(store, scheduler) { 1000L }
++            val task = TaskRecord(title = "Prepare report")
++            repo.save(task)
++            assertEquals(listOf("cancel:${task.id}", "schedule:${task.id}"), scheduler.events)
++            assertEquals(listOf(task), TaskRepository(TaskStore(dir), scheduler).list())
++            repo.delete(task.id)
++            assertTrue(repo.list().isEmpty())
++            assertEquals("cancel:${task.id}", scheduler.events.last())
++        }
++
++    @Test
++    fun aFailedWriteLeavesAlarmsAlone() =
++        withDir { dir ->
++            val blocked = File(dir, "not-a-directory").apply { writeText("blocked") }
++            val store = TaskStore(blocked)
++            val scheduler = Recorder(store)
++            assertTrue(runCatching { TaskRepository(store, scheduler).save(TaskRecord(title = "New")) }.isFailure)
++            assertTrue(scheduler.events.isEmpty())
++        }
++
++    @Test
++    fun completingARepeatMovesItForwardAndSnoozeIsAnHour() =
++        withDir { dir ->
++            val store = TaskStore(dir)
++            val now = Instant.parse("2026-11-02T16:00:00Z").toEpochMilli()
++            val repo = TaskRepository(store, Recorder(store)) { now }
++            val daily =
++                TaskRecord(title = "Daily", zoneId = "UTC", repeat = TaskRepeat.Daily, dueAtEpochMs = now - 1000, remindAtEpochMs = now - 2000)
++            val next = repo.complete(daily)
++            assertFalse(next.completed)
++            assertTrue(next.dueAtEpochMs!! > now && next.remindAtEpochMs!! > now)
++            val once = repo.complete(TaskRecord(title = "Once"))
++            assertTrue(once.completed)
++            assertFalse(repo.complete(once).completed)
++            assertEquals(now + TaskSchedule.SNOOZE_MILLIS, repo.snooze(daily).remindAtEpochMs)
++        }
++
++    @Test
++    fun followUpsKeepOnlyAHashedKeyAndDoNotDuplicate() =
++        withDir { dir ->
++            val store = TaskStore(dir)
++            val repo = TaskRepository(store, Recorder(store)) { 1000L }
++            val first = repo.followUp("example.mail", "private-original-key", "Follow up in Mail", 2000L)
++            val again = repo.followUp("example.mail", "private-original-key", "Follow up in Mail", null)
++            assertEquals(first.id, again.id)
++            assertNull(again.remindAtEpochMs)
++            assertEquals(1, repo.list().size)
++            assertEquals(64, again.originToken!!.length)
++            assertTrue(dir.listFiles()!!.none { it.readText().contains("private-original-key") })
++            repo.complete(again)
++            assertNotEquals(again.id, repo.followUp("example.mail", "private-original-key", "Follow up in Mail", 3000L).id)
++        }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskScheduleTest.kt b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskScheduleTest.kt
+new file mode 100644
+index 0000000..6c16952
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskScheduleTest.kt
+@@ -0,0 +1,85 @@
++package org.sableos.tasks.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++import java.time.Instant
++import java.time.ZoneId
++
++class TaskScheduleTest {
++    private val ny = ZoneId.of("America/New_York")
++    private val utc = ZoneId.of("UTC")
++
++    @Test
++    fun springForwardTomorrowMorningKeepsLocalTime() {
++        val now = Instant.parse("2026-03-07T21:00:00Z")
++        assertEquals(
++            Instant.parse("2026-03-08T13:00:00Z").toEpochMilli(),
++            TaskSchedule.preset(ReminderPreset.TomorrowMorning, now, ny),
++        )
++    }
++
++    @Test
++    fun dailyRepeatCrossesDstAndSkipsMissedDays() {
++        val before = Instant.parse("2026-03-07T14:00:00Z").toEpochMilli()
++        assertEquals(
++            Instant.parse("2026-03-08T13:00:00Z").toEpochMilli(),
++            TaskSchedule.nextOccurrence(before, TaskRepeat.Daily, ny.id),
++        )
++        val now = Instant.parse("2026-03-10T02:00:00Z").toEpochMilli()
++        assertEquals(
++            Instant.parse("2026-03-10T13:00:00Z").toEpochMilli(),
++            TaskSchedule.advanceAfter(before, TaskRepeat.Daily, ny.id, now),
++        )
++    }
++
++    @Test
++    fun presetsHandleMidnightEveningAndMonthEnd() {
++        val late = Instant.parse("2026-11-02T23:00:00Z")
++        val morning = Instant.parse("2026-11-02T10:00:00Z")
++        assertEquals(Instant.parse("2026-11-03T09:00:00Z").toEpochMilli(), TaskSchedule.preset(ReminderPreset.LaterToday, late, utc))
++        assertEquals(Instant.parse("2026-11-02T12:00:00Z").toEpochMilli(), TaskSchedule.preset(ReminderPreset.LaterToday, morning, utc))
++        assertEquals(Instant.parse("2026-11-02T18:00:00Z").toEpochMilli(), TaskSchedule.preset(ReminderPreset.ThisEvening, morning, utc))
++        assertEquals(Instant.parse("2026-11-03T18:00:00Z").toEpochMilli(), TaskSchedule.preset(ReminderPreset.ThisEvening, late, utc))
++        val jan = Instant.parse("2026-01-31T09:00:00Z").toEpochMilli()
++        assertEquals(Instant.parse("2026-02-28T09:00:00Z").toEpochMilli(), TaskSchedule.nextOccurrence(jan, TaskRepeat.Monthly, "UTC"))
++        assertEquals(jan, TaskSchedule.advanceAfter(jan, TaskRepeat.Never, "UTC", late.toEpochMilli()))
++        assertNull(TaskSchedule.advanceAfter(null, TaskRepeat.Daily, "UTC", late.toEpochMilli()))
++    }
++
++    @Test
++    fun groupsUseLocalDatesAndPastDueIsOverdue() {
++        val now = Instant.parse("2026-11-02T16:00:00Z")
++
++        fun due(hours: Long) = TaskRecord(title = "Dated", dueAtEpochMs = now.plusSeconds(hours * 3600).toEpochMilli())
++        assertEquals(TaskGroup.Overdue, TaskSchedule.group(due(-1), now, ny))
++        assertEquals(TaskGroup.Today, TaskSchedule.group(due(2), now, ny))
++        assertEquals(TaskGroup.Tomorrow, TaskSchedule.group(due(24), now, ny))
++        assertEquals(TaskGroup.ThisWeek, TaskSchedule.group(due(5 * 24), now, ny))
++        assertEquals(TaskGroup.Later, TaskSchedule.group(due(9 * 24), now, ny))
++        assertEquals(TaskGroup.NoDate, TaskSchedule.group(TaskRecord(title = "Undated"), now, ny))
++        assertEquals(TaskGroup.Done, TaskSchedule.group(due(-1).copy(completed = true), now, ny))
++        val remindOnly = TaskRecord(title = "Call", remindAtEpochMs = now.minusSeconds(60).toEpochMilli())
++        assertEquals(TaskGroup.Overdue, TaskSchedule.group(remindOnly, now, ny))
++    }
++
++    @Test
++    fun sectionsAreOrderedAndHideDoneUnlessAsked() {
++        val now = Instant.parse("2026-11-02T16:00:00Z")
++        val later = TaskRecord(title = "Later", dueAtEpochMs = now.plusSeconds(20 * 86_400).toEpochMilli())
++        val soon = TaskRecord(title = "Soon", dueAtEpochMs = now.plusSeconds(3600).toEpochMilli())
++        val done = TaskRecord(title = "Done", completed = true)
++        val sections = TaskSchedule.sections(listOf(later, done, soon), withDone = false, now = now, zone = utc)
++        assertEquals(listOf(TaskGroup.Today, TaskGroup.Later), sections.map { it.first })
++        val all = TaskSchedule.sections(listOf(later, done, soon), withDone = true, now = now, zone = utc)
++        assertEquals(TaskGroup.Done, all.last().first)
++    }
++
++    @Test
++    fun sharedTextBecomesTitleAndDetails() {
++        val task = TaskRecord.fromSharedText("  Buy milk\nsemi-skimmed, 2 l  ")!!
++        assertEquals("Buy milk", task.title)
++        assertEquals("semi-skimmed, 2 l", task.details)
++        assertNull(TaskRecord.fromSharedText("   "))
++    }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskStoreTest.kt b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskStoreTest.kt
+new file mode 100644
+index 0000000..2de2103
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TaskStoreTest.kt
+@@ -0,0 +1,63 @@
++package org.sableos.tasks.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import java.io.File
++import java.nio.file.Files
++import java.util.UUID
++
++class TaskStoreTest {
++    private fun withDir(block: (File) -> Unit) {
++        val dir = Files.createTempDirectory("sable-tasks-").toFile()
++        try {
++            block(dir)
++        } finally {
++            dir.deleteRecursively()
++        }
++    }
++
++    @Test
++    fun roundTripsEveryField() =
++        withDir { dir ->
++            val store = TaskStore(dir)
++            val task =
++                TaskRecord(
++                    title = "Email the report",
++                    details = "Line one\nRésumé and ગુજરાતી",
++                    dueAtEpochMs = 1_900_000_000_000L,
++                    remindAtEpochMs = 1_899_999_000_000L,
++                    priority = TaskPriority.High,
++                    repeat = TaskRepeat.Weekly,
++                    zoneId = "America/New_York",
++                    originPackage = "example.mail",
++                    originToken = "a".repeat(64),
++                    updatedAtEpochMs = 16L,
++                )
++            store.save(task)
++            assertEquals(listOf(task), store.list())
++            store.save(task.copy(completed = true))
++            assertTrue(store.list().single().completed)
++            store.delete(task.id)
++            assertTrue(store.list().isEmpty())
++        }
++
++    @Test
++    fun corruptFilesAreSkippedAndBlankTitlesRefused() =
++        withDir { dir ->
++            File(dir, UUID.randomUUID().toString() + ".task").writeText("incorrect-format")
++            assertTrue(TaskStore(dir).list().isEmpty())
++            assertTrue(runCatching { TaskRecord(title = " ") }.isFailure)
++        }
++
++    @Test
++    fun aFailedReplaceKeepsTheOldDataAndLeavesNoTemporaryFile() =
++        withDir { dir ->
++            val task = TaskRecord(title = "Must not erase data")
++            val blocker = File(dir, task.id + ".task").apply { mkdir() }
++            val existing = File(blocker, "existing").apply { writeText("retain") }
++            assertTrue(runCatching { TaskStore(dir).save(task) }.isFailure)
++            assertEquals("retain", existing.readText())
++            assertTrue(dir.listFiles()!!.none { it.name.contains(".tmp-") })
++        }
++}
+diff --git a/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TasksKeysTest.kt b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TasksKeysTest.kt
+new file mode 100644
+index 0000000..5521a16
+--- /dev/null
++++ b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TasksKeysTest.kt
+@@ -0,0 +1,27 @@
++package org.sableos.tasks.core
++
++import android.view.KeyEvent
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class TasksKeysTest {
++    @Test
++    fun letterKeysMapAndAltLeavesThemAlone() {
++        assertEquals(ScreenKey.New, TasksKeys.screen(KeyEvent.KEYCODE_C, modified = false))
++        assertEquals(ScreenKey.ShowDone, TasksKeys.screen(KeyEvent.KEYCODE_H, modified = false))
++        assertNull(TasksKeys.screen(KeyEvent.KEYCODE_C, modified = true))
++        assertEquals(RowKey.Done, TasksKeys.row(KeyEvent.KEYCODE_SPACE, modified = false))
++        assertEquals(RowKey.Tomorrow, TasksKeys.row(KeyEvent.KEYCODE_Z, modified = false))
++        assertEquals(RowKey.Delete, TasksKeys.row(KeyEvent.KEYCODE_DEL, modified = false))
++        assertNull(TasksKeys.row(KeyEvent.KEYCODE_Z, modified = true))
++    }
++
++    @Test
++    fun hintNamesEveryKey() {
++        listOf("C new", "Enter edit", "Space done", "Z tomorrow", "D delete", "H done list").forEach {
++            assertTrue(it, TasksKeys.HINT.contains(it))
++        }
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
+index 3e32bd9..6484868 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
+@@ -34,6 +34,7 @@ enum class AppGlyph(
+     READER("book-open-text", 0xFF35C66B),
+     TEXT_READER("text-align-left", 0xFF4D9CFF),
+     NOTES("notepad", 0xFFF5C542),
++    TASKS("check-square", 0xFF2BB5A0),
+     TERMINAL("terminal-window", 0xFF3FA37A),
+     SUDOKU("grid-nine", 0xFF4D9CFF),
+     MINESWEEPER("bomb", 0xFFF28C45),
+@@ -78,6 +79,7 @@ object AppGlyphs {
+             "org.sableos.reader" to AppGlyph.READER,
+             "org.sableos.textreader" to AppGlyph.TEXT_READER,
+             "org.sableos.notes" to AppGlyph.NOTES,
++            "org.sableos.tasks" to AppGlyph.TASKS,
+             "org.sableos.terminal" to AppGlyph.TERMINAL,
+             "org.sableos.sudoku" to AppGlyph.SUDOKU,
+             "org.sableos.minesweeper" to AppGlyph.MINESWEEPER,
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt
+index df62a09..224fc2a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt
+@@ -145,6 +145,7 @@ internal fun sableGlyphPath(glyph: AppGlyph): String =
+         AppGlyph.READER -> "M232,48H160a40,40,0,0,0-32,16A40,40,0,0,0,96,48H24a8,8,0,0,0-8,8V200a8,8,0,0,0,8,8H96a24,24,0,0,1,24,24,8,8,0,0,0,16,0,24,24,0,0,1,24-24h72a8,8,0,0,0,8-8V56A8,8,0,0,0,232,48ZM96,192H32V64H96a24,24,0,0,1,24,24V200A39.81,39.81,0,0,0,96,192Zm128,0H160a39.81,39.81,0,0,0-24,8V88a24,24,0,0,1,24-24h64ZM160,88h40a8,8,0,0,1,0,16H160a8,8,0,0,1,0-16Zm48,40a8,8,0,0,1-8,8H160a8,8,0,0,1,0-16h40A8,8,0,0,1,208,128Zm0,32a8,8,0,0,1-8,8H160a8,8,0,0,1,0-16h40A8,8,0,0,1,208,160Z"
+         AppGlyph.TEXT_READER -> "M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm8,48H168a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,24H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-48,40H40a8,8,0,0,0,0,16H168a8,8,0,0,0,0-16Z"
+         AppGlyph.NOTES -> "M168,128a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,128Zm-8,24H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16ZM216,40V200a32,32,0,0,1-32,32H72a32,32,0,0,1-32-32V40a8,8,0,0,1,8-8H72V24a8,8,0,0,1,16,0v8h32V24a8,8,0,0,1,16,0v8h32V24a8,8,0,0,1,16,0v8h24A8,8,0,0,1,216,40Zm-16,8H184v8a8,8,0,0,1-16,0V48H136v8a8,8,0,0,1-16,0V48H88v8a8,8,0,0,1-16,0V48H56V200a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16Z"
++        AppGlyph.TASKS -> "M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM224,48V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32H208A16,16,0,0,1,224,48ZM208,208V48H48V208H208Z"
+         AppGlyph.TERMINAL -> "M128,128a8,8,0,0,1-3,6.25l-40,32a8,8,0,1,1-10-12.5L107.19,128,75,102.25a8,8,0,1,1,10-12.5l40,32A8,8,0,0,1,128,128Zm48,24H136a8,8,0,0,0,0,16h40a8,8,0,0,0,0-16Zm56-96V200a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40H216A16,16,0,0,1,232,56ZM216,200V56H40V200H216Z"
+         AppGlyph.SUDOKU -> "M216,48H40A16,16,0,0,0,24,64V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48ZM104,144V112h48v32Zm48,16v32H104V160ZM40,112H88v32H40Zm64-16V64h48V96Zm64,16h48v32H168Zm48-16H168V64h48ZM88,64V96H40V64ZM40,160H88v32H40Zm176,32H168V160h48v32Z"
+         AppGlyph.MINESWEEPER -> "M248,32h0a8,8,0,0,0-8,8,52.66,52.66,0,0,1-3.57,17.39C232.38,67.22,225.7,72,216,72c-11.06,0-18.85-9.76-29.49-24.65C176,32.66,164.12,16,144,16c-16.39,0-29,8.89-35.43,25a66.07,66.07,0,0,0-3.9,15H88A16,16,0,0,0,72,72v9.59A88,88,0,0,0,112,248h1.59A88,88,0,0,0,152,81.59V72a16,16,0,0,0-16-16H120.88a46.76,46.76,0,0,1,2.69-9.37C127.62,36.78,134.3,32,144,32c11.06,0,18.85,9.76,29.49,24.65C184,71.34,195.88,88,216,88c16.39,0,29-8.89,35.43-25A68.69,68.69,0,0,0,256,40,8,8,0,0,0,248,32ZM140.8,94a72,72,0,1,1-57.6,0A8,8,0,0,0,88,86.66V72h48V86.66A8,8,0,0,0,140.8,94ZM111.89,209.32A8,8,0,0,1,104,216a8.52,8.52,0,0,1-1.33-.11,57.5,57.5,0,0,1-46.57-46.57,8,8,0,1,1,15.78-2.64,41.29,41.29,0,0,0,33.43,33.43A8,8,0,0,1,111.89,209.32Z"
+diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+index 28a23ba..4bc25b8 100644
+--- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
++++ b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+@@ -28,3 +28,4 @@ mahjong	ic_sable_game	stack	ee9eaaeb345e8a28c9662cf8a59147cb86080bd922e41f143444
+ words	ic_sable_game	text-aa	e964560ce335191f6bfc660ee8be894d6459561516152f9fceaddb0b8d00b0d2	#D9A441	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/words/res	none
+ notes	ic_sable_notes	notepad	65f069445f9cbf08b9dbbcab5069512095d25c4b0a17113cf98ca9fdc380cf82	#F5C542	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/notes/src/main/res	none
+ terminal	ic_sable_terminal	terminal-window	5ee2be45ae5f7ff95d51e142baad1103cd8b473f89e69f983f3f5b40c884327d	#3FA37A	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/connectbot/res	none
++tasks	ic_sable_tasks	check-square	69fc9a39cab4af71874d4cc56eaa6d8943962f2619f5c9a7e2e38d01e232c928	#2BB5A0	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/tasks/src/main/res	none
+diff --git a/sable-src/third_party/phosphor-icons/PROVENANCE.md b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+index 9dc7d2e..a186b01 100644
+--- a/sable-src/third_party/phosphor-icons/PROVENANCE.md
++++ b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+@@ -27,7 +27,7 @@ adaptive launcher icon (background, foreground, monochrome layers and `mipmap-an
+ 
+ Glyphs added for the Q25 adaptive-icon work (verbatim `assets/regular/<name>.svg` at the pinned commit, fetched
+ from raw.githubusercontent.com): bomb, book-open-text, calculator, calendar-dots, chat-circle-dots, chat-text,
+-cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench.
++cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench. Added for Sable Tasks: check-square.
+ Added for Secure Vault (Private Space file layer, `origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): vault.
+ Added for Sound Profiles (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): speaker-high.
+ Added for Sable Start's tile-free app glyphs on the Q25 (`model/AppGlyphs.kt`, drawn by `ui/SableGlyphIcon.kt` from
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/check-square.svg b/sable-src/third_party/phosphor-icons/glyphs/check-square.svg
+new file mode 100644
+index 0000000..d85c285
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/check-square.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM224,48V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32H208A16,16,0,0,1,224,48ZM208,208V48H48V208H208Z"/></svg>
+\ No newline at end of file

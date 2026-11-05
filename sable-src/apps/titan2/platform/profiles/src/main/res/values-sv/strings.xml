@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">Endast samtal ringer; meddelanden och aviseringar är tysta</string>
     <string name="all_alerts_off">Alla aviseringar av</string>
     <string name="nothing_rings_or_vibrates_alarms">Inget ljud eller vibration; alarm hörs fortfarande</string>
+    <string name="bedside">Nattduksbord</string>
+    <string name="alarms_only_and_the_dimmest">Bara alarm, skärmen så mörk som möjligt</string>
 </resources>

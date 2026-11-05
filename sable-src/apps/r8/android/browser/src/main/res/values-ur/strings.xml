@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">تلاش کریں یا ویب پتہ لکھیں</string>
+    <string name="keys_hint">L پتہ · Space صفحہ · T اوپر · B نیچے · R دوبارہ لوڈ · M پوائنٹر</string>
+    <string name="pointer_on">ٹریک پیڈ پوائنٹر آن</string>
+    <string name="pointer_off">پوائنٹر بند · ٹریک پیڈ صفحہ اسکرول کرتا ہے</string>
+    <string name="page_failed">یہ صفحہ لوڈ نہیں ہو سکا۔ R دوبارہ کوشش کرتا ہے۔</string>
+    <string name="no_app_for_link">کوئی ایپ یہ لنک نہیں کھول سکتی۔</string>
+    <string name="share_page">صفحہ شیئر کریں</string>
+    <string name="downloading">%1$s ڈاؤن لوڈ ہو رہا ہے</string>
+    <string name="download_failed">یہ ڈاؤن لوڈ شروع نہیں ہو سکا۔</string>
+    <string name="choose_file">فائل منتخب کریں</string>
+</resources>

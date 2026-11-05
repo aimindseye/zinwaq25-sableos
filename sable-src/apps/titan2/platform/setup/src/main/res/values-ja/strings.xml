@@ -74,4 +74,10 @@
     <string name="weather_row_city">%1$s の予報；位置情報の権限なし</string>
     <string name="weather_row_none">天気アプリに表示する都市を選択；位置情報の権限なし</string>
     <string name="weather_row_failed">天気アプリの都市を読み取れませんでした</string>
+    <string name="row_hub_menu_title">Hub の行メニュー</string>
+    <string name="row_hub_menu_detail">スヌーズとリマインドは Hub でオンにするまでオフです</string>
+    <string name="action_hub_row_menu">Hub の設定</string>
+    <string name="row_work_space_title">仕事用スペース</string>
+    <string name="row_work_space_detail">任意: 仕事用アプリを分けて、Start で個人用 · 仕事を切り替え</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

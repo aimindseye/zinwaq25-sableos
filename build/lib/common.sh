@@ -65,7 +65,7 @@ sable_require_android_root() {
     return 0
 }
 
-# Release config (bp4a for lineage-23.2) from the synced LineageOS tree.
+# Release config (cp2a for lineage-24.0) from the synced LineageOS tree.
 sable_target_release() {
     if [[ -n "${SABLE_Q25_TARGET_RELEASE:-}" ]]; then
         printf '%s\n' "$SABLE_Q25_TARGET_RELEASE"

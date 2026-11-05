@@ -183,4 +183,21 @@
     <string name="personal">Persoonlijk</string>
     <string name="private_space">Privéruimte</string>
     <string name="profile_2">Profiel %1$s</string>
+    <string name="mark_read">Markeren als gelezen</string>
+    <string name="snooze_1_hour">1 uur snoozen</string>
+    <string name="dismiss_notification">Melding sluiten</string>
+    <string name="snoozed_for_an_hour">Een uur gesnoozed.</string>
+    <string name="notification_dismissed">Melding gesloten.</string>
+    <string name="sent_to_the_app">Naar de app gestuurd.</string>
+    <string name="the_notification_is_gone">De melding is er niet meer.</string>
+    <string name="mark_prior_read">Eerdere als gelezen markeren</string>
+    <string name="marked_prior_read">De apps is gevraagd %1$s oudere meldingen als gelezen te markeren.</string>
+    <string name="each_message_on_its_own">Elk bericht apart</string>
+    <string name="one_row_per_received_message">Eén rij per ontvangen bericht. Zet Gesprekken samenvoegen uit.</string>
+    <string name="remind_me">Herinner me</string>
+    <string name="tasks_unavailable">Sable Tasks is niet geïnstalleerd.</string>
+    <string name="row_menu_snooze">Uitstellen in het rijmenu</string>
+    <string name="row_menu_snooze_detail">Voegt 1 uur uitstellen en de toets Z toe voor een actieve melding.</string>
+    <string name="row_menu_remind_me">Herinner me in het rijmenu</string>
+    <string name="row_menu_remind_me_detail">Voegt een opvolgtaak toe in Sable Tasks voor morgenochtend. Alleen de app wordt bewaard, nooit het bericht.</string>
 </resources>

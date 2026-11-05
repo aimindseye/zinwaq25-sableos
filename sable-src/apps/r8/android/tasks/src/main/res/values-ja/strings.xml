@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">タスク</string>
+    <string name="tasks_hint">C 新規 · Enter 編集 · Space 完了 · Z 明日 · D 削除 · H 完了済み</string>
+    <string name="no_tasks">タスクはありません。C で追加します。</string>
+    <string name="group_overdue">期限切れ</string>
+    <string name="group_today">今日</string>
+    <string name="group_tomorrow">明日</string>
+    <string name="group_this_week">今週</string>
+    <string name="group_later">今後</string>
+    <string name="group_no_date">日付なし</string>
+    <string name="group_done">完了</string>
+    <string name="due_at">期限 %1$s</string>
+    <string name="remind_at">通知 %1$s</string>
+    <string name="from_app">%1$s から</string>
+    <string name="every_day">毎日</string>
+    <string name="every_week">毎週</string>
+    <string name="every_month">毎月</string>
+    <string name="new_task">新しいタスク</string>
+    <string name="edit_task">タスクを編集</string>
+    <string name="title">タイトル</string>
+    <string name="details">詳細</string>
+    <string name="due">期限</string>
+    <string name="remind">通知</string>
+    <string name="none">なし</string>
+    <string name="pick_time">時刻を選択</string>
+    <string name="later_today">今日のあとで</string>
+    <string name="this_evening">今晩</string>
+    <string name="tomorrow_morning">明日の朝</string>
+    <string name="repeat">繰り返し: %1$s</string>
+    <string name="never">しない</string>
+    <string name="save">保存</string>
+    <string name="cancel">キャンセル</string>
+    <string name="delete">削除</string>
+    <string name="delete_task">「%1$s」を削除しますか？</string>
+    <string name="deleted">「%1$s」を削除しました</string>
+    <string name="add_a_title">タイトルを入力してください。</string>
+    <string name="reminders">リマインダー</string>
+    <string name="task_reminder">タスクのリマインダー</string>
+    <string name="done">完了</string>
+    <string name="snooze_1_hour">1 時間後に再通知</string>
+    <string name="reminders_off">リマインダーの通知はオフです。Enter で許可します。リマインダーはここに表示されます。</string>
+    <string name="follow_up_in">%1$s でフォローアップ</string>
+    <string name="show_done">完了済みを表示 (H)</string>
+    <string name="hide_done">完了済みを隠す (H)</string>
+</resources>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hebrew. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">הדפיסו מהמחשב לטלפון הזה. כל עוד Print To Go פועל, הטלפון הוא מדפסת ברשת ה-Wi-Fi שלכם, וכל הדפסה נשמרת כ-PDF ב-Documents/Print To Go.</string>
+    <string name="start">התחלת קבלה</string>
+    <string name="stop">עצירה</string>
+    <string name="off">כבוי. שום דבר לא יכול להדפיס לטלפון הזה.</string>
+    <string name="ready">מוכן בשם %1$s. בחרו בו בחלון ההדפסה של המחשב. הוא נכבה אחרי 10 דקות בלי הדפסה.</string>
+    <string name="no_wifi">התחברו קודם ל-Wi-Fi. Print To Go מאזין רק ב-Wi-Fi, אף פעם לא בנתונים סלולריים.</string>
+    <string name="start_failed">לא ניתן להפעיל את Print To Go. נסו שוב.</string>
+    <string name="saved">נשמר: %1$s</string>
+    <string name="save_failed">לא ניתן לשמור את %1$s.</string>
+    <string name="open_folder">פתיחת ההדפסות השמורות</string>
+    <string name="running">Print To Go פועל</string>
+    <string name="channel_running">Print To Go רץ</string>
+    <string name="channel_saved">הדפסות שמורות</string>
+    <string name="idle_off">Print To Go נכבה אחרי 10 דקות בלי הדפסה.</string>
+    <string name="hint">Enter מפעיל או עוצר · O פותח את ההדפסות השמורות · חזרה יוצאת</string>
+</resources>

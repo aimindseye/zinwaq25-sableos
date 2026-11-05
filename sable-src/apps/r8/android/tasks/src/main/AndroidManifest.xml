@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Reminder notifications (granted at first boot by default-permissions-sable-q25.xml; reminders
+         still show in the app without it) and setting reminders again after a restart. Inexact alarms
+         only, so no SCHEDULE_EXACT_ALARM. Tasks stay in app storage; nothing goes online. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <queries>
+        <provider android:authorities="org.sableos.appearance" />
+    </queries>
+    <permission
+        android:name="org.sableos.tasks.permission.SYSTEM_EVENTS"
+        android:protectionLevel="signature" />
+
+    <application
+        android:name=".TasksApplication"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        android:icon="@mipmap/ic_sable_tasks"
+        android:roundIcon="@mipmap/ic_sable_tasks_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Text shared from another app (a Notes checklist item, a message) becomes a new task. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- A follow-up for a Hub notification: the source package and key only, never its text. -->
+            <intent-filter>
+                <action android:name="org.sableos.tasks.action.FOLLOW_UP" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <receiver
+            android:name=".platform.TaskAlarmReceiver"
+            android:exported="false" />
+        <!-- Boot, time and package broadcasts come from the system, which holds every permission;
+             the signature permission keeps other apps from sending this receiver anything. -->
+        <receiver
+            android:name=".platform.TaskBootReceiver"
+            android:exported="true"
+            android:permission="org.sableos.tasks.permission.SYSTEM_EVENTS">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -183,4 +183,21 @@
     <string name="personal">ذاتی</string>
     <string name="private_space">نجی اسپیس</string>
     <string name="profile_2">پروفائل %1$s</string>
+    <string name="mark_read">پڑھا ہوا نشان زد کریں</string>
+    <string name="snooze_1_hour">1 گھنٹے کے لیے اسنوز کریں</string>
+    <string name="dismiss_notification">اطلاع ہٹائیں</string>
+    <string name="snoozed_for_an_hour">ایک گھنٹے کے لیے اسنوز کیا گیا۔</string>
+    <string name="notification_dismissed">اطلاع ہٹا دی گئی۔</string>
+    <string name="sent_to_the_app">ایپ کو بھیج دیا گیا۔</string>
+    <string name="the_notification_is_gone">اطلاع اب موجود نہیں ہے۔</string>
+    <string name="mark_prior_read">پچھلے کو پڑھا ہوا نشان زد کریں</string>
+    <string name="marked_prior_read">ایپس سے %1$s پرانی اطلاعات کو پڑھا ہوا نشان زد کرنے کو کہا گیا۔</string>
+    <string name="each_message_on_its_own">ہر پیغام الگ</string>
+    <string name="one_row_per_received_message">ہر موصول پیغام کے لیے ایک قطار۔ گفتگو یکجا کرنا بند کرتا ہے۔</string>
+    <string name="remind_me">مجھے یاد دلائیں</string>
+    <string name="tasks_unavailable">Sable Tasks انسٹال نہیں ہے۔</string>
+    <string name="row_menu_snooze">قطار کے مینو میں مؤخر</string>
+    <string name="row_menu_snooze_detail">فعال اطلاع کے لیے 1 گھنٹہ مؤخر اور Z کلید شامل کرتا ہے۔</string>
+    <string name="row_menu_remind_me">قطار کے مینو میں مجھے یاد دلائیں</string>
+    <string name="row_menu_remind_me_detail">Sable Tasks میں کل صبح کے لیے فالو اپ شامل کرتا ہے۔ صرف ایپ محفوظ ہوتی ہے، پیغام کبھی نہیں۔</string>
 </resources>

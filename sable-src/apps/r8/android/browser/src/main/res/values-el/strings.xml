@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">Αναζήτηση ή διεύθυνση ιστού</string>
+    <string name="keys_hint">L διεύθυνση · Space σελίδα · T αρχή · B τέλος · R ανανέωση · M δείκτης</string>
+    <string name="pointer_on">Δείκτης trackpad ενεργός</string>
+    <string name="pointer_off">Δείκτης ανενεργός · το trackpad κυλά τη σελίδα</string>
+    <string name="page_failed">Η σελίδα δεν φόρτωσε. Το R δοκιμάζει ξανά.</string>
+    <string name="no_app_for_link">Καμία εφαρμογή δεν ανοίγει αυτόν τον σύνδεσμο.</string>
+    <string name="share_page">Κοινοποίηση σελίδας</string>
+    <string name="downloading">Λήψη %1$s</string>
+    <string name="download_failed">Αυτή η λήψη δεν ξεκίνησε.</string>
+    <string name="choose_file">Επιλέξτε αρχείο</string>
+</resources>

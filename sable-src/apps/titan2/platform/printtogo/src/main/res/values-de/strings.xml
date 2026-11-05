@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">Drucken Sie vom Computer auf dieses Telefon. Solange Print To Go an ist, ist das Telefon ein Drucker in Ihrem WLAN, und jeder Druck wird als PDF unter Documents/Print To Go gespeichert.</string>
+    <string name="start">Empfang starten</string>
+    <string name="stop">Stopp</string>
+    <string name="off">Aus. Nichts kann auf dieses Telefon drucken.</string>
+    <string name="ready">Bereit als %1$s. Wählen Sie es im Druckdialog des Computers. Nach 10 Minuten ohne Druck schaltet es sich aus.</string>
+    <string name="no_wifi">Verbinden Sie sich zuerst mit einem WLAN. Print To Go empfängt nur über WLAN, nie über mobile Daten.</string>
+    <string name="start_failed">Print To Go konnte nicht starten. Versuchen Sie es erneut.</string>
+    <string name="saved">Gespeichert: %1$s</string>
+    <string name="save_failed">%1$s konnte nicht gespeichert werden.</string>
+    <string name="open_folder">Gespeicherte Drucke öffnen</string>
+    <string name="running">Print To Go ist an</string>
+    <string name="channel_running">Print To Go läuft</string>
+    <string name="channel_saved">Gespeicherte Drucke</string>
+    <string name="idle_off">Print To Go hat sich nach 10 Minuten ohne Druck ausgeschaltet.</string>
+    <string name="hint">Enter startet oder stoppt · O öffnet gespeicherte Drucke · Zurück verlässt</string>
+</resources>

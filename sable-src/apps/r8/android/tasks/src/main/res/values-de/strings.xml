@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">Aufgaben</string>
+    <string name="tasks_hint">C neu · Enter bearbeiten · Leertaste erledigt · Z morgen · D löschen · H erledigte</string>
+    <string name="no_tasks">Keine Aufgaben. C fügt eine hinzu.</string>
+    <string name="group_overdue">Überfällig</string>
+    <string name="group_today">Heute</string>
+    <string name="group_tomorrow">Morgen</string>
+    <string name="group_this_week">Diese Woche</string>
+    <string name="group_later">Später</string>
+    <string name="group_no_date">Ohne Datum</string>
+    <string name="group_done">Erledigt</string>
+    <string name="due_at">Fällig %1$s</string>
+    <string name="remind_at">Erinnern %1$s</string>
+    <string name="from_app">Aus %1$s</string>
+    <string name="every_day">Jeden Tag</string>
+    <string name="every_week">Jede Woche</string>
+    <string name="every_month">Jeden Monat</string>
+    <string name="new_task">Neue Aufgabe</string>
+    <string name="edit_task">Aufgabe bearbeiten</string>
+    <string name="title">Titel</string>
+    <string name="details">Details</string>
+    <string name="due">Fällig</string>
+    <string name="remind">Erinnern</string>
+    <string name="none">Keine</string>
+    <string name="pick_time">Zeit wählen</string>
+    <string name="later_today">Später heute</string>
+    <string name="this_evening">Heute Abend</string>
+    <string name="tomorrow_morning">Morgen früh</string>
+    <string name="repeat">Wiederholen: %1$s</string>
+    <string name="never">Nie</string>
+    <string name="save">Speichern</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="delete">Löschen</string>
+    <string name="delete_task">„%1$s“ löschen?</string>
+    <string name="deleted">„%1$s“ gelöscht</string>
+    <string name="add_a_title">Gib einen Titel ein.</string>
+    <string name="reminders">Erinnerungen</string>
+    <string name="task_reminder">Aufgabenerinnerung</string>
+    <string name="done">Erledigt</string>
+    <string name="snooze_1_hour">1 Stunde später</string>
+    <string name="reminders_off">Erinnerungshinweise sind aus. Enter erlaubt sie; Erinnerungen erscheinen trotzdem hier.</string>
+    <string name="follow_up_in">Nachfassen in %1$s</string>
+    <string name="show_done">Erledigte zeigen (H)</string>
+    <string name="hide_done">Erledigte ausblenden (H)</string>
+</resources>

@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">Ingen händelse den här veckan. C skapar en.</string>
     <string name="selected">Vald: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] öppna  [E] redigera  [Del] ta bort  [T] idag"</string>
+    <string name="calendars">Kalendrar</string>
+    <string name="calendars_hint">Visade kalendrar fyller agendan, upptagetringarna och månaden i Start.</string>
+    <string name="no_calendars">Inga kalendrar på telefonen än. Lägg till ett konto under Inställningar > Konton.</string>
+    <string name="l_calendars">" · L kalendrar"</string>
+    <string name="day_events">%1$s, %2$s händelser</string>
 </resources>

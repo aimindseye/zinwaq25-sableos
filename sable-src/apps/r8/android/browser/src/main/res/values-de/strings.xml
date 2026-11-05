@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">Suchen oder Webadresse eingeben</string>
+    <string name="keys_hint">L Adresse · Space Seite · T oben · B unten · R neu laden · M Zeiger</string>
+    <string name="pointer_on">Trackpad-Zeiger an</string>
+    <string name="pointer_off">Zeiger aus · das Trackpad scrollt die Seite</string>
+    <string name="page_failed">Diese Seite konnte nicht geladen werden. R versucht es erneut.</string>
+    <string name="no_app_for_link">Keine App kann diesen Link öffnen.</string>
+    <string name="share_page">Seite teilen</string>
+    <string name="downloading">%1$s wird heruntergeladen</string>
+    <string name="download_failed">Dieser Download konnte nicht starten.</string>
+    <string name="choose_file">Datei auswählen</string>
+</resources>

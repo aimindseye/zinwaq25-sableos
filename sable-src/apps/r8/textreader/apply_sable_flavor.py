@@ -86,6 +86,7 @@ def main() -> None:
     patch_tests(root)
     copy_design_sources(root)
     copy_launcher_icons(root)
+    copy_speak_focus(root)
     print_summary(actual)
 
 
@@ -185,7 +186,29 @@ def patch_manifest(manifest: pathlib.Path) -> None:
         'android:label="Read in Sable Text Reader"',
         1,
     )
+    # Speak what's focused (sable-src 0094): an accessibility service, off until the user turns it on.
+    manifest_text = replace_text_once(
+        manifest_text,
+        "    </application>\n",
+        SPEAK_FOCUS_SERVICE + "    </application>\n",
+        "SABLE_TEXT_READER_SPEAK_FOCUS_ANCHOR",
+    )
     manifest.write_text(manifest_text, encoding="utf-8")
+
+
+SPEAK_FOCUS_SERVICE = """        <service
+            android:name="org.sableos.textreader.speak.SpeakFocusService"
+            android:exported="true"
+            android:label="@string/sable_speak_focus_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/sable_speak_focus_service" />
+        </service>
+"""
 
 
 def patch_main_activity(main: pathlib.Path) -> None:
@@ -552,6 +575,20 @@ def copy_launcher_icons(root: pathlib.Path) -> None:
         shutil.copyfile(source, destination)
 
 
+def copy_speak_focus(root: pathlib.Path) -> None:
+    # Speak what's focused: Kotlin sources and their unit test from speak/; the service config and
+    # strings come with res/ (copy_launcher_icons copies every XML under it).
+    speak = pathlib.Path(__file__).resolve().parent / "speak"
+    for kind, dest in (("main", "app/src/main/java"), ("test", "app/src/test/java")):
+        files = sorted((speak / kind).rglob("*.kt"))
+        if not files:
+            fail(f"SABLE_TEXT_READER_SPEAK_FOCUS=FAIL_MISSING kind={kind}")
+        for source in files:
+            destination = root / dest / source.relative_to(speak / kind)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, destination)
+
+
 def print_summary(actual: str) -> None:
     print(f"SABLE_TEXT_READER_UPSTREAM_COMMIT=PASS value={actual}")
     print("SABLE_TEXT_READER_APPLICATION_ID=PASS")
@@ -568,6 +605,7 @@ def print_summary(actual: str) -> None:
     print("SABLE_TEXT_READER_TTS=PASS")
     print("SABLE_TEXT_READER_TTS_NETWORK_VOICES=PASS_FILTERED")
     print("SABLE_TEXT_READER_OCR=PASS_CAMERA_GALLERY_LATIN_DEVANAGARI")
+    print("SABLE_TEXT_READER_SPEAK_FOCUS=PASS_OFF_UNTIL_ENABLED")
     print("SABLE_TEXT_READER_FLAVOR_PATCH=PASS")
 
 

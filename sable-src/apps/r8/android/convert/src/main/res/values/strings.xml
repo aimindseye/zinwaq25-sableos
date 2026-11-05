@@ -31,5 +31,5 @@
     <string name="convert_convert">Convert</string>
     <string name="convert_enter_a_number_with_up">Enter a number with up to three decimal places</string>
     <string name="convert_length_mass_temperature_and_volume">Length, mass, temperature and volume conversions are local and offline.</string>
-    <string name="convert_native_bridge_failure">Native bridge failure</string>
+    <string name="convert_native_bridge_failure">Conversion failed</string>
 </resources>

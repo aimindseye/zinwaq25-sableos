@@ -1,0 +1,1129 @@
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
+index 93cab1a..2ccf1aa 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
+@@ -226,6 +226,13 @@ object HubText {
+             "personal" to "Personal",
+             "private_space" to "Private space",
+             "profile_2" to "Profile %1\$s",
++            "mark_read" to "Mark read",
++            "snooze_1_hour" to "Snooze 1 hour",
++            "dismiss_notification" to "Dismiss notification",
++            "snoozed_for_an_hour" to "Snoozed for an hour.",
++            "notification_dismissed" to "Notification dismissed.",
++            "sent_to_the_app" to "Sent to the app.",
++            "the_notification_is_gone" to "The notification is no longer there.",
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+index dd9ecd6..5a524f1 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+ import org.sableos.design.SableGlobalTheme
+ import org.sableos.hub.HubText.t
++import org.sableos.hub.notifications.HubNotificationCommands
+ import org.sableos.hub.policy.HubDrafts
+ import org.sableos.hub.policy.HubHandoffTarget
+ import org.sableos.hub.policy.HubIntents
+@@ -236,6 +237,12 @@ class MainActivity : ComponentActivity() {
+                     },
+                     combineConversations = combineConversations,
+                     loadAppIcon = ::loadAppIcon,
++                    notificationFacts = HubNotificationCommands::facts,
++                    onNotificationCommand = { key, entry ->
++                        HubNotificationCommands.run(this@MainActivity, key, entry).also {
++                            refreshGeneration += 1
++                        }
++                    },
+                 )
+             }
+         }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedActionRegistry.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedActionRegistry.kt
+new file mode 100644
+index 0000000..52b271c
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/ConnectedActionRegistry.kt
+@@ -0,0 +1,77 @@
++package org.sableos.hub.notifications
++
++import android.app.Notification
++import android.app.PendingIntent
++import android.service.notification.StatusBarNotification
++import org.sableos.hub.policy.HubAppAction
++import org.sableos.hub.policy.HubNotificationFacts
++import java.util.concurrent.ConcurrentHashMap
++
++/** A source app's own notification action, kept so Hub's row menu can run it. */
++internal data class ConnectedSourceAction(
++    val index: Int,
++    val label: String,
++    val pendingIntent: PendingIntent,
++    val semanticAction: Int,
++)
++
++internal data class ConnectedNotificationActions(
++    val clearable: Boolean,
++    val actions: List<ConnectedSourceAction>,
++)
++
++/**
++ * The live notification behind each Hub row: whether it can be dismissed and the source's own
++ * actions. Only actions the source put on the notification are kept (never a system-generated
++ * contextual one) and never an action that asks for text (Reply covers those).
++ */
++internal object ConnectedActionRegistry {
++    private const val MAX_ACTIONS = 6
++    private val entries = ConcurrentHashMap<String, ConnectedNotificationActions>()
++
++    fun register(sbn: StatusBarNotification) {
++        val actions =
++            sbn.notification.actions
++                .orEmpty()
++                .asSequence()
++                .take(MAX_ACTIONS)
++                .mapIndexedNotNull { index, action ->
++                    val intent = action.actionIntent ?: return@mapIndexedNotNull null
++                    val title = action.title?.toString()?.trim().orEmpty()
++                    val asksForText = !action.remoteInputs.isNullOrEmpty()
++                    if (title.isEmpty() || action.isContextual || asksForText) {
++                        null
++                    } else {
++                        ConnectedSourceAction(index, title, intent, action.semanticAction)
++                    }
++                }.toList()
++        entries[sbn.key] = ConnectedNotificationActions(sbn.isClearable, actions)
++    }
++
++    fun remove(notificationKey: String) {
++        entries.remove(notificationKey)
++    }
++
++    fun clear() {
++        entries.clear()
++    }
++
++    fun facts(notificationKey: String): HubNotificationFacts {
++        val entry = entries[notificationKey] ?: return HubNotificationFacts()
++        val markRead =
++            entry.actions.firstOrNull {
++                it.semanticAction == Notification.Action.SEMANTIC_ACTION_MARK_AS_READ
++            }
++        return HubNotificationFacts(
++            live = true,
++            clearable = entry.clearable,
++            markReadIndex = markRead?.index ?: -1,
++            appActions = entry.actions.map { HubAppAction(it.index, it.label) },
++        )
++    }
++
++    fun action(
++        notificationKey: String,
++        index: Int,
++    ): ConnectedSourceAction? = entries[notificationKey]?.actions?.firstOrNull { it.index == index }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/HubNotificationCommands.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/HubNotificationCommands.kt
+new file mode 100644
+index 0000000..0f3b358
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/HubNotificationCommands.kt
+@@ -0,0 +1,103 @@
++package org.sableos.hub.notifications
++
++import android.app.PendingIntent
++import android.content.Context
++import android.service.notification.NotificationListenerService
++import android.util.Log
++import org.sableos.hub.HubText.t
++import org.sableos.hub.platform.PrivacyReader
++import org.sableos.hub.policy.HubMenuEntry
++import org.sableos.hub.policy.HubMessageMenu
++import org.sableos.hub.policy.HubRowAction
++import java.lang.ref.WeakReference
++
++/**
++ * The only place Hub acts on a notification, and only when the user picks Mark read, Snooze,
++ * Dismiss or one of the source's own actions on one Hub row. It snoozes or dismisses that one
++ * notification by key through Hub's own listener, or sends the source's own PendingIntent. Hub
++ * still never posts, re-ranks or bulk-clears notifications, nor touches channels or Do Not
++ * Disturb (DESIGN-KF-A, tests/kf-a-notification-policy-check.sh).
++ */
++object HubNotificationCommands {
++    private const val TAG = "HubNotificationCommands"
++
++    @Volatile
++    private var listener: WeakReference<NotificationListenerService>? = null
++
++    internal fun attach(service: NotificationListenerService) {
++        listener = WeakReference(service)
++    }
++
++    internal fun detach(service: NotificationListenerService) {
++        if (listener?.get() === service) listener = null
++    }
++
++    /** What Android exposes for the row's notification now. */
++    fun facts(notificationKey: String) = ConnectedActionRegistry.facts(notificationKey)
++
++    /**
++     * Runs [entry] on the notification [notificationKey]; returns the status line to show, or
++     * null for an entry that is not a notification command.
++     */
++    fun run(
++        context: Context,
++        notificationKey: String,
++        entry: HubMenuEntry,
++    ): String? {
++        if (PrivacyReader(context).deviceLocked()) return t("unlock_the_device_and_profile")
++        return when (entry) {
++            is HubMenuEntry.App -> {
++                send(context, notificationKey, entry.action.index)
++            }
++
++            is HubMenuEntry.Hub -> {
++                when (entry.action) {
++                    HubRowAction.MarkRead -> {
++                        val index = facts(notificationKey).markReadIndex
++                        if (index < 0) t("the_notification_is_gone") else send(context, notificationKey, index)
++                    }
++
++                    HubRowAction.Snooze -> {
++                        onListener { it.snoozeNotification(notificationKey, HubMessageMenu.SNOOZE_MILLIS) }
++                            ?.let { t("snoozed_for_an_hour") } ?: t("the_notification_is_gone")
++                    }
++
++                    HubRowAction.Dismiss -> {
++                        onListener { it.cancelNotification(notificationKey) }
++                            ?.let { t("notification_dismissed") } ?: t("the_notification_is_gone")
++                    }
++
++                    else -> {
++                        null
++                    }
++                }
++            }
++        }
++    }
++
++    private fun send(
++        context: Context,
++        notificationKey: String,
++        index: Int,
++    ): String {
++        val action = ConnectedActionRegistry.action(notificationKey, index) ?: return t("the_notification_is_gone")
++        return try {
++            action.pendingIntent.send(context, 0, null)
++            t("sent_to_the_app")
++        } catch (e: PendingIntent.CanceledException) {
++            ConnectedActionRegistry.remove(notificationKey)
++            t("the_notification_is_gone")
++        }
++    }
++
++    private fun onListener(block: (NotificationListenerService) -> Unit): Unit? {
++        val service = listener?.get() ?: return null
++        return try {
++            block(service)
++        } catch (e: RuntimeException) {
++            // SecurityException once the listener is unbound, or a key Android no longer has.
++            Log.w(TAG, "notification command failed", e)
++            null
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/SableNotificationListenerService.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/SableNotificationListenerService.kt
+index 37f8d70..91f1713 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/SableNotificationListenerService.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/SableNotificationListenerService.kt
+@@ -31,10 +31,12 @@ import java.util.concurrent.ConcurrentHashMap
+ import java.util.concurrent.atomic.AtomicLong
+ 
+ /**
+- * Hub's NotificationListenerService. It only reads what Android delivers: it never cancels,
+- * snoozes, re-posts or re-ranks notifications, never changes interruption filters or channels,
++ * Hub's NotificationListenerService. It reads what Android delivers and never re-posts or
++ * re-ranks notifications, never bulk-clears them, never changes interruption filters or channels,
+  * and never posts a notification of its own (DESIGN-KF-A: Android owns delivery and DND; the
+- * shade is the notification center). tests/kf-a-notification-policy-check.sh enforces this.
++ * shade is the notification center). The one exception is a user command on one Hub row
++ * (Snooze or Dismiss), which HubNotificationCommands runs through this listener.
++ * tests/kf-a-notification-policy-check.sh enforces this.
+  */
+ class SableNotificationListenerService : NotificationListenerService() {
+     private val workerScope =
+@@ -83,6 +85,7 @@ class SableNotificationListenerService : NotificationListenerService() {
+ 
+     override fun onListenerConnected() {
+         super.onListenerConnected()
++        HubNotificationCommands.attach(this)
+         seedUnreadCounts()
+         notifyHiddenAppsChanged()
+         refreshPoliciesAndReprocess()
+@@ -140,6 +143,7 @@ class SableNotificationListenerService : NotificationListenerService() {
+     ) {
+         val envelope = eligibleEnvelope(sbn, ranking)
+         if (envelope != null) {
++            ConnectedActionRegistry.register(sbn)
+             val generation = generationCounter.incrementAndGet()
+             notificationGenerations[sbn.key] = generation
+             workerScope.launch {
+@@ -189,6 +193,7 @@ class SableNotificationListenerService : NotificationListenerService() {
+ 
+     private fun clearNotificationState(notificationKey: String) {
+         ConnectedReplyRegistry.remove(notificationKey)
++        ConnectedActionRegistry.remove(notificationKey)
+         ConnectedNotificationActivityRegistry.remove(notificationKey)
+     }
+ 
+@@ -482,6 +487,7 @@ class SableNotificationListenerService : NotificationListenerService() {
+     override fun onNotificationRemoved(sbn: StatusBarNotification) {
+         notificationGenerations.remove(sbn.key)
+         ConnectedReplyRegistry.remove(sbn.key)
++        ConnectedActionRegistry.remove(sbn.key)
+         ConnectedNotificationActivityRegistry.remove(sbn.key)
+         ActiveNotificationCountRegistry.remove(sbn.key)
+         notifyHubDataChanged()
+@@ -491,6 +497,8 @@ class SableNotificationListenerService : NotificationListenerService() {
+         ConnectedNotificationActivityRegistry.clear()
+         ActiveNotificationCountRegistry.clear()
+         ConnectedReplyRegistry.clear()
++        ConnectedActionRegistry.clear()
++        HubNotificationCommands.detach(this)
+         notifyHubDataChanged()
+         notifyHiddenAppsChanged()
+         super.onListenerDisconnected()
+@@ -527,6 +535,7 @@ class SableNotificationListenerService : NotificationListenerService() {
+             contentResolver.unregisterContentObserver(policyObserver)
+         }
+         workerScope.cancel()
++        HubNotificationCommands.detach(this)
+         super.onDestroy()
+     }
+ 
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMessageMenu.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMessageMenu.kt
+new file mode 100644
+index 0000000..63c7d5e
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMessageMenu.kt
+@@ -0,0 +1,119 @@
++package org.sableos.hub.policy
++
++import org.sableos.hub.HubConversationSource
++
++/**
++ * What Android exposes for a row's live notification, as the listener captured it. Pure data:
++ * the PendingIntents stay in ConnectedActionRegistry.
++ *
++ * [markReadIndex] is the source's own action with SEMANTIC_ACTION_MARK_AS_READ, or -1. [appActions]
++ * are the source's other visible actions (Archive, Delete, Like…) under the source's own titles,
++ * never a system-generated contextual action and never the reply action (Reply covers it).
++ */
++data class HubNotificationFacts(
++    val live: Boolean = false,
++    val clearable: Boolean = false,
++    val markReadIndex: Int = -1,
++    val appActions: List<HubAppAction> = emptyList(),
++)
++
++/** One of the source app's own notification actions, by its index in Notification.actions. */
++data class HubAppAction(
++    val index: Int,
++    val label: String,
++)
++
++/** One line of the row menu: a Hub action, or one of the source app's own actions. */
++sealed interface HubMenuEntry {
++    val label: String
++
++    /** The single key that runs the entry on a focused row, shown beside it; null for none. */
++    val shortcut: String?
++
++    data class Hub(
++        val action: HubRowAction,
++    ) : HubMenuEntry {
++        override val label: String get() = action.label
++        override val shortcut: String? get() = HubMessageMenu.shortcutLabel(action)
++    }
++
++    data class App(
++        val action: HubAppAction,
++    ) : HubMenuEntry {
++        override val label: String get() = action.label
++        override val shortcut: String? get() = null
++    }
++}
++
++/** A key pressed on a focused row, as [HubMessageMenu.forKey] reads it. */
++enum class HubRowKey { R, U, Z, Delete }
++
++/**
++ * The BB10 row menu of a Hub message (Menu, Alt+Enter or a long press; it opens on the right
++ * edge): Open and Reply first, then Mark read, Snooze and Dismiss when the row's notification is
++ * live, then the source's own actions under their own names, then the routes that leave Hub.
++ *
++ * Mark read and the app actions run the source's own PendingIntent, so Hub still invents nothing
++ * (`INVENT_UNSUPPORTED_ACTIONS=NO`): an SMS cannot be marked read from Hub and gets none of them.
++ * Everything that acts on the notification needs the phone unlocked, like Reply.
++ */
++object HubMessageMenu {
++    const val SNOOZE_MILLIS: Long = 60L * 60L * 1000L
++
++    /** At most this many source actions are listed; Android shows at most three. */
++    const val MAX_APP_ACTIONS = 3
++
++    fun entries(
++        item: HubInboxItem,
++        privacy: HubPrivacyState = HubPrivacyState(),
++        facts: HubNotificationFacts = HubNotificationFacts(),
++    ): List<HubMenuEntry> {
++        val base = HubRowActions.forItem(item, privacy)
++        val conversation = (item as? HubInboxItem.Conversation)?.conversation
++        val notificationActions =
++            conversation != null &&
++                conversation.source != HubConversationSource.Sms &&
++                conversation.sourceNotificationKey != null &&
++                facts.live &&
++                !privacy.deviceLocked
++        if (!notificationActions) return base.map { HubMenuEntry.Hub(it) }
++
++        val head = base.takeWhile { it == HubRowAction.Open || it == HubRowAction.Reply }
++        val tail = base.drop(head.size)
++        val middle = mutableListOf<HubMenuEntry>()
++        if (facts.markReadIndex >= 0) middle += HubMenuEntry.Hub(HubRowAction.MarkRead)
++        middle += HubMenuEntry.Hub(HubRowAction.Snooze)
++        if (facts.clearable) middle += HubMenuEntry.Hub(HubRowAction.Dismiss)
++        facts.appActions
++            .asSequence()
++            .filter { it.index != facts.markReadIndex && it.label.isNotBlank() }
++            .distinctBy { it.label.trim().lowercase() }
++            .take(MAX_APP_ACTIONS)
++            .forEach { middle += HubMenuEntry.App(it.copy(label = it.label.trim())) }
++        return head.map { HubMenuEntry.Hub(it) } + middle + tail.map { HubMenuEntry.Hub(it) }
++    }
++
++    /** The entry a row key runs, when the row's menu has it; R reply, U mark read, Z snooze, Del dismiss. */
++    fun forKey(
++        key: HubRowKey,
++        entries: List<HubMenuEntry>,
++    ): HubMenuEntry? {
++        val wanted =
++            when (key) {
++                HubRowKey.R -> HubRowAction.Reply
++                HubRowKey.U -> HubRowAction.MarkRead
++                HubRowKey.Z -> HubRowAction.Snooze
++                HubRowKey.Delete -> HubRowAction.Dismiss
++            }
++        return entries.firstOrNull { it is HubMenuEntry.Hub && it.action == wanted }
++    }
++
++    fun shortcutLabel(action: HubRowAction): String? =
++        when (action) {
++            HubRowAction.Reply -> "R"
++            HubRowAction.MarkRead -> "U"
++            HubRowAction.Snooze -> "Z"
++            HubRowAction.Dismiss -> "Del"
++            else -> null
++        }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt
+index 1d07325..b35693b 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt
+@@ -11,6 +11,9 @@ enum class HubRowAction(
+ ) {
+     Open("open"),
+     Reply("reply"),
++    MarkRead("mark_read"),
++    Snooze("snooze_1_hour"),
++    Dismiss("dismiss_notification"),
+     CallBack("call_back"),
+     Text("text"),
+     OpenInMessages("open_in_messages"),
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+index b570c19..b90e22c 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.ColumnScope
+ import androidx.compose.foundation.layout.FlowRow
+ import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxHeight
++import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.RowScope
+ import androidx.compose.foundation.layout.Spacer
+ import androidx.compose.foundation.layout.fillMaxSize
+@@ -30,6 +32,7 @@ import androidx.compose.foundation.lazy.items
+ import androidx.compose.foundation.lazy.itemsIndexed
+ import androidx.compose.foundation.lazy.rememberLazyListState
+ import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
+ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.foundation.text.KeyboardActions
+@@ -79,6 +82,7 @@ import androidx.compose.ui.text.input.ImeAction
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.window.Dialog
++import androidx.compose.ui.window.DialogProperties
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.launch
+ import org.sableos.design.SableActionButton
+@@ -126,6 +130,10 @@ import org.sableos.hub.policy.HubInboxFilter
+ import org.sableos.hub.policy.HubInboxItem
+ import org.sableos.hub.policy.HubInboxRow
+ import org.sableos.hub.policy.HubInboxRowRole
++import org.sableos.hub.policy.HubMenuEntry
++import org.sableos.hub.policy.HubMessageMenu
++import org.sableos.hub.policy.HubNotificationFacts
++import org.sableos.hub.policy.HubRowKey
+ import org.sableos.hub.policy.HubNewMessagePill
+ import org.sableos.hub.policy.HubPrivacyBadge
+ import org.sableos.hub.policy.HubPrivacyState
+@@ -335,6 +343,8 @@ private class HubActions(
+     val onDraftChange: (String, String) -> Unit,
+     val combineConversations: Boolean,
+     val loadAppIcon: suspend (String, Long) -> ImageBitmap?,
++    val notificationFacts: (String) -> HubNotificationFacts,
++    val onNotificationCommand: (String, HubMenuEntry) -> String?,
+ )
+ 
+ @Composable
+@@ -361,6 +371,8 @@ fun HubScreen(
+     onPendingAddressConsumed: () -> Unit = {},
+     combineConversations: Boolean = true,
+     loadAppIcon: suspend (String, Long) -> ImageBitmap? = { _, _ -> null },
++    notificationFacts: (String) -> HubNotificationFacts = { HubNotificationFacts() },
++    onNotificationCommand: (String, HubMenuEntry) -> String? = { _, _ -> null },
+ ) {
+     val state = remember { HubUiState() }
+ 
+@@ -412,6 +424,8 @@ fun HubScreen(
+             onDraftChange = onDraftChange,
+             combineConversations = combineConversations,
+             loadAppIcon = loadAppIcon,
++            notificationFacts = notificationFacts,
++            onNotificationCommand = onNotificationCommand,
+         )
+ 
+     SableRefreshableSurface(
+@@ -1236,7 +1250,14 @@ private fun ColumnScope.InboxPivot(
+                             Modifier
+                                 .focusRequester(requesters.getOrPut(row.item.key) { FocusRequester() })
+                                 .clusterKeys(row, rowActions)
+-                                .rowActionsKey { state.actionsItem = row.item },
++                                .rowActionsKey { state.actionsItem = row.item }
++                                .rowCommandKeys { key ->
++                                    val entries = menuFor(row.item, snapshot.privacy, actions)
++                                    HubMessageMenu.forKey(key, entries)?.let { entry ->
++                                        runMenuEntry(entry, row.item, state, actions, onConversation, onTextCaller)
++                                        true
++                                    } ?: false
++                                },
+                         onOpen = { focusMemory.remember(FOCUS_SURFACE_INBOX, row.item.key, index) },
+                         onLongPress = { state.actionsItem = row.item },
+                         onConversation = onConversation,
+@@ -1274,14 +1295,47 @@ private fun ColumnScope.InboxPivot(
+     state.actionsItem?.let { item ->
+         HubRowActionsSheet(
+             item = item,
+-            privacy = snapshot.privacy,
+-            onAction = { action -> runRowAction(action, item, state, actions, onConversation, onTextCaller) },
++            entries = menuFor(item, snapshot.privacy, actions),
++            onEntry = { entry -> runMenuEntry(entry, item, state, actions, onConversation, onTextCaller) },
+             onDismiss = { state.actionsItem = null },
+         )
+     }
+ }
+ 
+ /** Runs one row action through the activity's provider-safe handoffs. */
++/** The row's menu: Hub actions, plus what its live notification allows (HubMessageMenu). */
++private fun menuFor(
++    item: HubInboxItem,
++    privacy: HubPrivacyState,
++    actions: HubActions,
++): List<HubMenuEntry> {
++    val key = (item as? HubInboxItem.Conversation)?.conversation?.sourceNotificationKey
++    val facts = key?.let(actions.notificationFacts) ?: HubNotificationFacts()
++    return HubMessageMenu.entries(item, privacy, facts)
++}
++
++private fun runMenuEntry(
++    entry: HubMenuEntry,
++    item: HubInboxItem,
++    state: HubUiState,
++    actions: HubActions,
++    onConversation: (HubConversation) -> Unit,
++    onTextCaller: (HubCall) -> Unit,
++) {
++    val notificationCommand =
++        entry is HubMenuEntry.App ||
++            (entry is HubMenuEntry.Hub && entry.action in NOTIFICATION_COMMANDS)
++    if (!notificationCommand) {
++        runRowAction((entry as HubMenuEntry.Hub).action, item, state, actions, onConversation, onTextCaller)
++        return
++    }
++    state.actionsItem = null
++    val key = (item as? HubInboxItem.Conversation)?.conversation?.sourceNotificationKey ?: return
++    actions.onNotificationCommand(key, entry)?.let { state.statusMessage = it }
++}
++
++private val NOTIFICATION_COMMANDS = setOf(HubRowAction.MarkRead, HubRowAction.Snooze, HubRowAction.Dismiss)
++
+ private fun runRowAction(
+     action: HubRowAction,
+     item: HubInboxItem,
+@@ -1359,49 +1413,114 @@ private fun runConversationAction(
+ }
+ 
+ /**
+- * The row actions sheet: the row's provider-safe actions as a short focusable list, first one
+- * focused. Back or Esc closes it and focus returns to the row.
++ * The row menu, BB10 style: a full-height panel on the right edge listing the row's actions, the
++ * first one focused, each with its row key (R, U, Z, Del) beside it. Up and Down move, Enter runs,
++ * Back or Esc closes it and focus returns to the row.
+  */
+ @Composable
+ private fun HubRowActionsSheet(
+     item: HubInboxItem,
+-    privacy: HubPrivacyState,
+-    onAction: (HubRowAction) -> Unit,
++    entries: List<HubMenuEntry>,
++    onEntry: (HubMenuEntry) -> Unit,
+     onDismiss: () -> Unit,
+ ) {
+-    val rowActions = remember(item, privacy) { HubRowActions.forItem(item, privacy) }
+     val first = remember { FocusRequester() }
+     LaunchedEffect(item) {
+         withFrameNanos { }
+         runCatching { first.requestFocus() }
+     }
+-    Dialog(onDismissRequest = onDismiss) {
+-        SablePanel {
++    Dialog(
++        onDismissRequest = onDismiss,
++        properties = DialogProperties(usePlatformDefaultWidth = false),
++    ) {
++        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
++            Surface(
++                modifier = Modifier.fillMaxHeight().widthIn(min = 200.dp, max = 260.dp),
++                color = MaterialTheme.colorScheme.surfaceVariant,
++                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
++            ) {
++                Column(
++                    modifier = Modifier.verticalScroll(rememberScrollState()).padding(vertical = SableSpacing.Sm),
++                ) {
++                    Text(
++                        text = HubRowActions.title(item),
++                        style = MaterialTheme.typography.titleMedium,
++                        maxLines = 1,
++                        overflow = TextOverflow.Ellipsis,
++                        modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
++                    )
++                    entries.forEachIndexed { index, entry ->
++                        HubMenuLine(
++                            entry = entry,
++                            modifier = if (index == 0) Modifier.focusRequester(first) else Modifier,
++                            onClick = { onEntry(entry) },
++                        )
++                    }
++                }
++            }
++        }
++    }
++}
++
++@Composable
++private fun HubMenuLine(
++    entry: HubMenuEntry,
++    modifier: Modifier,
++    onClick: () -> Unit,
++) {
++    var focused by remember { mutableStateOf(false) }
++    Surface(
++        onClick = onClick,
++        modifier =
++            modifier
++                .fillMaxWidth()
++                .heightIn(min = 48.dp)
++                .onFocusChanged { focused = it.isFocused },
++        color = if (focused) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
++        border = if (focused) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
++    ) {
++        Row(
++            modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
+             Text(
+-                text = HubRowActions.title(item),
+-                style = MaterialTheme.typography.titleMedium,
+-                maxLines = 1,
++                text = entry.label,
++                style = MaterialTheme.typography.bodyLarge,
++                maxLines = 2,
+                 overflow = TextOverflow.Ellipsis,
++                modifier = Modifier.weight(1f),
+             )
+-            rowActions.forEachIndexed { index, action ->
+-                SableActionButton(
+-                    text = action.label,
+-                    modifier =
+-                        if (index ==
+-                            0
+-                        ) {
+-                            Modifier.fillMaxWidth().focusRequester(first)
+-                        } else {
+-                            Modifier.fillMaxWidth()
+-                        },
+-                    primary = index == 0,
+-                    onClick = { onAction(action) },
++            entry.shortcut?.let { key ->
++                Text(
++                    text = key,
++                    style = MaterialTheme.typography.labelMedium,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 )
+             }
+         }
+     }
+ }
+ 
++/**
++ * Single keys on a focused row, as on BlackBerry: R reply, U mark read, Z snooze, Del dismiss.
++ * A key the row's menu does not have falls through to the filters. Never while typing: rows hold
++ * no text field.
++ */
++private fun Modifier.rowCommandKeys(onKey: (HubRowKey) -> Boolean): Modifier =
++    onKeyEvent { event ->
++        val plain = !event.isAltPressed && !event.isCtrlPressed && !event.isMetaPressed
++        val key =
++            when {
++                !plain || event.type != KeyEventType.KeyDown -> null
++                event.key == Key.R -> HubRowKey.R
++                event.key == Key.U -> HubRowKey.U
++                event.key == Key.Z -> HubRowKey.Z
++                event.key == Key.Delete || event.key == Key.Backspace -> HubRowKey.Delete
++                else -> null
++            }
++        key != null && onKey(key)
++    }
++
+ /** Menu, or Alt+Enter (the Q25's Fn+Enter), opens the focused row's actions. */
+ private fun Modifier.rowActionsKey(onActions: () -> Unit): Modifier =
+     onPreviewKeyEvent { event ->
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml
+index 4e74f82..cc7b24e 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">شخصي</string>
+     <string name="private_space">مساحة خاصة</string>
+     <string name="profile_2">الملف %1$s</string>
++    <string name="mark_read">تعليم كمقروء</string>
++    <string name="snooze_1_hour">تأجيل ساعة</string>
++    <string name="dismiss_notification">تجاهل الإشعار</string>
++    <string name="snoozed_for_an_hour">تم التأجيل لمدة ساعة.</string>
++    <string name="notification_dismissed">تم تجاهل الإشعار.</string>
++    <string name="sent_to_the_app">أُرسل إلى التطبيق.</string>
++    <string name="the_notification_is_gone">لم يعد الإشعار موجودًا.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml
+index 4b2e3d9..ca5a983 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">Persönlich</string>
+     <string name="private_space">Privater Bereich</string>
+     <string name="profile_2">Profil %1$s</string>
++    <string name="mark_read">Als gelesen markieren</string>
++    <string name="snooze_1_hour">1 Stunde schlummern</string>
++    <string name="dismiss_notification">Benachrichtigung schließen</string>
++    <string name="snoozed_for_an_hour">Für eine Stunde zurückgestellt.</string>
++    <string name="notification_dismissed">Benachrichtigung geschlossen.</string>
++    <string name="sent_to_the_app">An die App gesendet.</string>
++    <string name="the_notification_is_gone">Die Benachrichtigung ist nicht mehr da.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml
+index c095c0b..2a81f33 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">Προσωπικά</string>
+     <string name="private_space">Ιδιωτικός χώρος</string>
+     <string name="profile_2">Προφίλ %1$s</string>
++    <string name="mark_read">Σήμανση ως αναγνωσμένο</string>
++    <string name="snooze_1_hour">Αναβολή 1 ώρα</string>
++    <string name="dismiss_notification">Παράβλεψη ειδοποίησης</string>
++    <string name="snoozed_for_an_hour">Αναβλήθηκε για μία ώρα.</string>
++    <string name="notification_dismissed">Η ειδοποίηση παραβλέφθηκε.</string>
++    <string name="sent_to_the_app">Στάλθηκε στην εφαρμογή.</string>
++    <string name="the_notification_is_gone">Η ειδοποίηση δεν υπάρχει πια.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml
+index 69e44d2..4eaade6 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">Personal</string>
+     <string name="private_space">Espacio privado</string>
+     <string name="profile_2">Perfil %1$s</string>
++    <string name="mark_read">Marcar como leído</string>
++    <string name="snooze_1_hour">Posponer 1 hora</string>
++    <string name="dismiss_notification">Descartar notificación</string>
++    <string name="snoozed_for_an_hour">Pospuesto una hora.</string>
++    <string name="notification_dismissed">Notificación descartada.</string>
++    <string name="sent_to_the_app">Enviado a la app.</string>
++    <string name="the_notification_is_gone">La notificación ya no está.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml
+index 747e259..9370a7e 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">Personnel</string>
+     <string name="private_space">Espace privé</string>
+     <string name="profile_2">Profil %1$s</string>
++    <string name="mark_read">Marquer comme lu</string>
++    <string name="snooze_1_hour">Reporter d’une heure</string>
++    <string name="dismiss_notification">Ignorer la notification</string>
++    <string name="snoozed_for_an_hour">Reporté d’une heure.</string>
++    <string name="notification_dismissed">Notification ignorée.</string>
++    <string name="sent_to_the_app">Envoyé à l’application.</string>
++    <string name="the_notification_is_gone">La notification n’est plus là.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml
+index 42d8e5e..928a7c8 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">व्यक्तिगत</string>
+     <string name="private_space">निजी स्पेस</string>
+     <string name="profile_2">प्रोफ़ाइल %1$s</string>
++    <string name="mark_read">पढ़ा हुआ चिह्नित करें</string>
++    <string name="snooze_1_hour">1 घंटे के लिए स्नूज़ करें</string>
++    <string name="dismiss_notification">सूचना हटाएँ</string>
++    <string name="snoozed_for_an_hour">एक घंटे के लिए स्नूज़ किया गया।</string>
++    <string name="notification_dismissed">सूचना हटा दी गई।</string>
++    <string name="sent_to_the_app">ऐप को भेजा गया।</string>
++    <string name="the_notification_is_gone">सूचना अब मौजूद नहीं है।</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml
+index 34191a4..aac43d4 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">Personale</string>
+     <string name="private_space">Spazio privato</string>
+     <string name="profile_2">Profilo %1$s</string>
++    <string name="mark_read">Segna come letto</string>
++    <string name="snooze_1_hour">Posticipa di 1 ora</string>
++    <string name="dismiss_notification">Ignora notifica</string>
++    <string name="snoozed_for_an_hour">Posticipato di un’ora.</string>
++    <string name="notification_dismissed">Notifica ignorata.</string>
++    <string name="sent_to_the_app">Inviato all’app.</string>
++    <string name="the_notification_is_gone">La notifica non c’è più.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml
+index 03104ba..65c18e2 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">אישי</string>
+     <string name="private_space">מרחב פרטי</string>
+     <string name="profile_2">פרופיל %1$s</string>
++    <string name="mark_read">סימון כנקרא</string>
++    <string name="snooze_1_hour">נודניק לשעה</string>
++    <string name="dismiss_notification">סגירת ההתראה</string>
++    <string name="snoozed_for_an_hour">נדחה לשעה.</string>
++    <string name="notification_dismissed">ההתראה נסגרה.</string>
++    <string name="sent_to_the_app">נשלח לאפליקציה.</string>
++    <string name="the_notification_is_gone">ההתראה כבר לא קיימת.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml
+index 19c8caa..d0c1a16 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">個人用</string>
+     <string name="private_space">プライベートスペース</string>
+     <string name="profile_2">プロファイル %1$s</string>
++    <string name="mark_read">既読にする</string>
++    <string name="snooze_1_hour">1時間スヌーズ</string>
++    <string name="dismiss_notification">通知を閉じる</string>
++    <string name="snoozed_for_an_hour">1時間スヌーズしました。</string>
++    <string name="notification_dismissed">通知を閉じました。</string>
++    <string name="sent_to_the_app">アプリに送信しました。</string>
++    <string name="the_notification_is_gone">通知はもうありません。</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml
+index 03080a7..5834ef1 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">개인용</string>
+     <string name="private_space">비공개 공간</string>
+     <string name="profile_2">프로필 %1$s</string>
++    <string name="mark_read">읽음으로 표시</string>
++    <string name="snooze_1_hour">1시간 다시 알림</string>
++    <string name="dismiss_notification">알림 닫기</string>
++    <string name="snoozed_for_an_hour">1시간 동안 다시 알림으로 설정했습니다.</string>
++    <string name="notification_dismissed">알림을 닫았습니다.</string>
++    <string name="sent_to_the_app">앱으로 보냈습니다.</string>
++    <string name="the_notification_is_gone">알림이 더 이상 없습니다.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml
+index d680ca8..38fbfa5 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">Persoonlijk</string>
+     <string name="private_space">Privéruimte</string>
+     <string name="profile_2">Profiel %1$s</string>
++    <string name="mark_read">Markeren als gelezen</string>
++    <string name="snooze_1_hour">1 uur snoozen</string>
++    <string name="dismiss_notification">Melding sluiten</string>
++    <string name="snoozed_for_an_hour">Een uur gesnoozed.</string>
++    <string name="notification_dismissed">Melding gesloten.</string>
++    <string name="sent_to_the_app">Naar de app gestuurd.</string>
++    <string name="the_notification_is_gone">De melding is er niet meer.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml
+index 2a43da2..dd2ba86 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">Osobiste</string>
+     <string name="private_space">Przestrzeń prywatna</string>
+     <string name="profile_2">Profil %1$s</string>
++    <string name="mark_read">Oznacz jako przeczytane</string>
++    <string name="snooze_1_hour">Odłóż o 1 godzinę</string>
++    <string name="dismiss_notification">Odrzuć powiadomienie</string>
++    <string name="snoozed_for_an_hour">Odłożono o godzinę.</string>
++    <string name="notification_dismissed">Powiadomienie odrzucone.</string>
++    <string name="sent_to_the_app">Wysłano do aplikacji.</string>
++    <string name="the_notification_is_gone">Powiadomienia już nie ma.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml
+index e370083..e8d52b4 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">Pessoal</string>
+     <string name="private_space">Espaço privado</string>
+     <string name="profile_2">Perfil %1$s</string>
++    <string name="mark_read">Marcar como lida</string>
++    <string name="snooze_1_hour">Adiar 1 hora</string>
++    <string name="dismiss_notification">Dispensar notificação</string>
++    <string name="snoozed_for_an_hour">Adiado por uma hora.</string>
++    <string name="notification_dismissed">Notificação dispensada.</string>
++    <string name="sent_to_the_app">Enviado para o app.</string>
++    <string name="the_notification_is_gone">A notificação não está mais lá.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml
+index e054837..448ba53 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">Личные</string>
+     <string name="private_space">Частное пространство</string>
+     <string name="profile_2">Профиль %1$s</string>
++    <string name="mark_read">Отметить как прочитанное</string>
++    <string name="snooze_1_hour">Отложить на 1 час</string>
++    <string name="dismiss_notification">Закрыть уведомление</string>
++    <string name="snoozed_for_an_hour">Отложено на час.</string>
++    <string name="notification_dismissed">Уведомление закрыто.</string>
++    <string name="sent_to_the_app">Отправлено в приложение.</string>
++    <string name="the_notification_is_gone">Уведомления больше нет.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml
+index c30ef09..a82adf1 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">Personlig</string>
+     <string name="private_space">Privat utrymme</string>
+     <string name="profile_2">Profil %1$s</string>
++    <string name="mark_read">Markera som läst</string>
++    <string name="snooze_1_hour">Snooza 1 timme</string>
++    <string name="dismiss_notification">Stäng aviseringen</string>
++    <string name="snoozed_for_an_hour">Snoozad i en timme.</string>
++    <string name="notification_dismissed">Aviseringen stängdes.</string>
++    <string name="sent_to_the_app">Skickat till appen.</string>
++    <string name="the_notification_is_gone">Aviseringen finns inte längre.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml
+index 19e54ce..3c6525e 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">Kişisel</string>
+     <string name="private_space">Özel alan</string>
+     <string name="profile_2">Profil %1$s</string>
++    <string name="mark_read">Okundu olarak işaretle</string>
++    <string name="snooze_1_hour">1 saat ertele</string>
++    <string name="dismiss_notification">Bildirimi kapat</string>
++    <string name="snoozed_for_an_hour">Bir saat ertelendi.</string>
++    <string name="notification_dismissed">Bildirim kapatıldı.</string>
++    <string name="sent_to_the_app">Uygulamaya gönderildi.</string>
++    <string name="the_notification_is_gone">Bildirim artık yok.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml
+index 069c8e6..e053966 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">ذاتی</string>
+     <string name="private_space">نجی اسپیس</string>
+     <string name="profile_2">پروفائل %1$s</string>
++    <string name="mark_read">پڑھا ہوا نشان زد کریں</string>
++    <string name="snooze_1_hour">1 گھنٹے کے لیے اسنوز کریں</string>
++    <string name="dismiss_notification">اطلاع ہٹائیں</string>
++    <string name="snoozed_for_an_hour">ایک گھنٹے کے لیے اسنوز کیا گیا۔</string>
++    <string name="notification_dismissed">اطلاع ہٹا دی گئی۔</string>
++    <string name="sent_to_the_app">ایپ کو بھیج دیا گیا۔</string>
++    <string name="the_notification_is_gone">اطلاع اب موجود نہیں ہے۔</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml
+index c63da89..c5ac71b 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml
+@@ -183,4 +183,11 @@
+     <string name="personal">个人</string>
+     <string name="private_space">私密空间</string>
+     <string name="profile_2">配置文件 %1$s</string>
++    <string name="mark_read">标为已读</string>
++    <string name="snooze_1_hour">暂停提醒 1 小时</string>
++    <string name="dismiss_notification">关闭通知</string>
++    <string name="snoozed_for_an_hour">已暂停提醒一小时。</string>
++    <string name="notification_dismissed">通知已关闭。</string>
++    <string name="sent_to_the_app">已发送给应用。</string>
++    <string name="the_notification_is_gone">该通知已不存在。</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
+index 44ef6a2..f7c89bd 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
+@@ -185,4 +185,11 @@
+     <string name="personal">Personal</string>
+     <string name="private_space">Private space</string>
+     <string name="profile_2">Profile %1$s</string>
++    <string name="mark_read">Mark read</string>
++    <string name="snooze_1_hour">Snooze 1 hour</string>
++    <string name="dismiss_notification">Dismiss notification</string>
++    <string name="snoozed_for_an_hour">Snoozed for an hour.</string>
++    <string name="notification_dismissed">Notification dismissed.</string>
++    <string name="sent_to_the_app">Sent to the app.</string>
++    <string name="the_notification_is_gone">The notification is no longer there.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMessageMenuTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMessageMenuTest.kt
+new file mode 100644
+index 0000000..6a52246
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMessageMenuTest.kt
+@@ -0,0 +1,105 @@
++package org.sableos.hub.policy
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++import org.sableos.hub.HubConversation
++import org.sableos.hub.HubConversationSource
++
++/** The BB10 row menu: Hub actions, then what the live notification allows, then the hand-offs. */
++class HubMessageMenuTest {
++    private val gmail =
++        HubConversation(
++            threadId = -7L,
++            address = "demo",
++            displayName = "Demo project",
++            lastBody = "The latest launcher preview is ready.",
++            lastDateMillis = 1_000L,
++            unreadCount = 1,
++            source = HubConversationSource.ConnectedApp,
++            sourceLabel = "Gmail",
++            sourcePackage = "com.google.android.gm",
++            sourceUserSerial = 0L,
++            sourceNotificationKey = "k",
++            canQuickReply = true,
++        )
++    private val sms =
++        HubConversation(
++            threadId = 3L,
++            address = "+15550100100",
++            displayName = "Maya",
++            lastBody = "Hi",
++            lastDateMillis = 2_000L,
++            unreadCount = 1,
++        )
++    private val live =
++        HubNotificationFacts(
++            live = true,
++            clearable = true,
++            markReadIndex = 2,
++            appActions =
++                listOf(
++                    HubAppAction(0, "Archive"),
++                    HubAppAction(1, " Delete "),
++                    HubAppAction(2, "Mark as read"),
++                    HubAppAction(3, "archive"),
++                    HubAppAction(4, ""),
++                ),
++        )
++
++    private fun labels(entries: List<HubMenuEntry>) =
++        entries.map { (it as? HubMenuEntry.Hub)?.action?.name ?: "app:" + it.label }
++
++    @Test
++    fun liveNotificationAddsMarkReadSnoozeDismissAndTheAppsOwnActions() {
++        assertEquals(
++            listOf(
++                "Open",
++                "Reply",
++                "MarkRead",
++                "Snooze",
++                "Dismiss",
++                "app:Archive",
++                "app:Delete",
++                "OpenSourceApp",
++                "SourceNotifications",
++                "PrivacyOptions",
++            ),
++            labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail), facts = live)),
++        )
++    }
++
++    @Test
++    fun noMarkReadWithoutTheSourcesOwnActionAndNoDismissForOngoing() {
++        val facts = live.copy(clearable = false, markReadIndex = -1, appActions = emptyList())
++        assertEquals(
++            listOf("Open", "Reply", "Snooze", "OpenSourceApp", "SourceNotifications", "PrivacyOptions"),
++            labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail), facts = facts)),
++        )
++    }
++
++    @Test
++    fun goneNotificationLockedPhoneAndSmsGetNoNotificationCommands() {
++        val base = HubRowActions.forConversation(gmail).map { it.name }
++        assertEquals(base, labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail))))
++        val locked = HubPrivacyState(deviceLocked = true)
++        assertEquals(
++            HubRowActions.forConversation(gmail, locked).map { it.name },
++            labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail), locked, live)),
++        )
++        val smsBase = HubRowActions.forConversation(sms).map { it.name }
++        assertEquals(smsBase, labels(HubMessageMenu.entries(HubInboxItem.Conversation(sms), facts = live)))
++    }
++
++    @Test
++    fun rowKeysRunOnlyWhatTheMenuHas() {
++        val entries = HubMessageMenu.entries(HubInboxItem.Conversation(gmail), facts = live)
++        assertEquals(HubMenuEntry.Hub(HubRowAction.Reply), HubMessageMenu.forKey(HubRowKey.R, entries))
++        assertEquals(HubMenuEntry.Hub(HubRowAction.MarkRead), HubMessageMenu.forKey(HubRowKey.U, entries))
++        assertEquals(HubMenuEntry.Hub(HubRowAction.Snooze), HubMessageMenu.forKey(HubRowKey.Z, entries))
++        assertEquals(HubMenuEntry.Hub(HubRowAction.Dismiss), HubMessageMenu.forKey(HubRowKey.Delete, entries))
++        val smsEntries = HubMessageMenu.entries(HubInboxItem.Conversation(sms), facts = live)
++        assertNull(HubMessageMenu.forKey(HubRowKey.Z, smsEntries))
++        assertEquals("Del", HubMessageMenu.shortcutLabel(HubRowAction.Dismiss))
++    }
++}

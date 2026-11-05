@@ -65,9 +65,31 @@ class SoundProfilesTest {
     fun profilesStepAndResolveByName() {
         assertEquals(SoundProfile.NORMAL, SoundProfiles.next(null))
         assertEquals(SoundProfile.LOUD, SoundProfiles.next(SoundProfile.NORMAL))
-        assertEquals(SoundProfile.NORMAL, SoundProfiles.next(SoundProfile.ALL_ALERTS_OFF))
+        assertEquals(SoundProfile.BEDSIDE, SoundProfiles.next(SoundProfile.ALL_ALERTS_OFF))
+        assertEquals(SoundProfile.NORMAL, SoundProfiles.next(SoundProfile.BEDSIDE))
         assertEquals(SoundProfile.PHONE_CALLS_ONLY, SoundProfile.fromName("PHONE_CALLS_ONLY"))
         assertNull(SoundProfile.fromName("nope"))
-        assertTrue(SoundProfile.entries.size == 5)
+        assertTrue(SoundProfile.entries.size == 6)
+    }
+
+    @Test
+    fun bedsideIsAlarmsOnlyOnADimScreenAndPutsBrightnessBack() {
+        val bedside = SoundProfiles.plan(
+            SoundProfile.BEDSIDE,
+            ProfileSettings(vibrate = true, volumePercent = 80)
+        )
+        assertEquals(Ringer.SILENT, bedside.ringer)
+        assertEquals(Dnd.ALARMS_ONLY, bedside.dnd)
+        assertFalse("never vibrates", bedside.vibrateWhenRinging)
+        assertNull(bedside.volumePercent)
+        assertTrue(bedside.dimScreen)
+        assertFalse(SoundProfiles.plan(SoundProfile.ALL_ALERTS_OFF).dimScreen)
+        assertEquals(
+            1 to 120,
+            SoundProfiles.restoreBrightness(SoundProfiles.formatBrightness(1, 120))
+        )
+        assertEquals(0 to 255, SoundProfiles.restoreBrightness("0,999"))
+        assertNull(SoundProfiles.restoreBrightness(null))
+        assertNull(SoundProfiles.restoreBrightness("junk"))
     }
 }

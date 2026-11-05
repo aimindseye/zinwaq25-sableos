@@ -28,6 +28,7 @@ import org.sableos.hub.policy.AttentionOutput
 import org.sableos.hub.policy.AttentionSelection
 import org.sableos.hub.policy.AttentionSelections
 import org.sableos.hub.policy.HubIntents
+import org.sableos.hub.policy.HubMenuOptions
 import org.sableos.hub.policy.NotificationConcept
 import org.sableos.hub.policy.SettingsRoute
 import org.sableos.hub.policy.SettingsTarget
@@ -83,6 +84,12 @@ class ConnectedAppsActivity : ComponentActivity() {
             var combineConversations by remember {
                 mutableStateOf(true)
             }
+            var eachMessage by remember {
+                mutableStateOf(false)
+            }
+            var menuOptions by remember {
+                mutableStateOf(HubMenuOptions())
+            }
 
             LaunchedEffect(refreshGeneration) {
                 loading = true
@@ -107,6 +114,8 @@ class ConnectedAppsActivity : ComponentActivity() {
                     )
                 privateMode = preferences.privateMode()
                 combineConversations = preferences.combineConversations()
+                eachMessage = preferences.eachMessage()
+                menuOptions = preferences.menuOptions()
                 notificationAccessGranted = hasNotificationAccess()
                 loading = false
             }
@@ -132,6 +141,16 @@ class ConnectedAppsActivity : ComponentActivity() {
                     onCombineConversationsChanged = { enabled ->
                         preferences.setCombineConversations(enabled)
                         refreshGeneration += 1
+                    },
+                    eachMessage = eachMessage,
+                    onEachMessageChanged = { enabled ->
+                        preferences.setEachMessage(enabled)
+                        refreshGeneration += 1
+                    },
+                    menuOptions = menuOptions,
+                    onMenuOptionsChanged = { options ->
+                        preferences.setMenuOptions(options)
+                        menuOptions = options
                     },
                     onAttentionChanged = ::updateAttention,
                     onOpenAndroidNotificationSettings = ::openAndroidNotificationSettings,

@@ -78,7 +78,25 @@ object SetupRows {
             Action.NetworkSettings
         ),
         WeatherCityStep.row(snapshot.weatherCity)
-    ).map { applyTarget(it, targets(it.action)) }
+    ).plus(optionalRows()).map { applyTarget(it, targets(it.action)) }
+
+    /** Choices a fresh phone leaves off: Hub's extra row menu entries and a Work space. */
+    private fun optionalRows(): List<Item> = listOf(
+        Item(
+            "hub_menu",
+            t("row_hub_menu_title"),
+            t("row_hub_menu_detail"),
+            Readiness.Informational,
+            Action.HubRowMenu
+        ),
+        Item(
+            "work_space",
+            t("row_work_space_title"),
+            t("row_work_space_detail"),
+            Readiness.Informational,
+            Action.WorkSpace
+        )
+    )
 
     /** HOME is owned by the canonical lane (IR-003); this row never judges it. */
     private fun home(o: Observed): Item = when (o) {

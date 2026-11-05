@@ -1,6 +1,7 @@
 package org.sableos.hub
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.database.ContentObserver
 import android.os.Bundle
@@ -8,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.CallLog
 import android.provider.Telephony
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -26,9 +28,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.sableos.design.SableGlobalTheme
 import org.sableos.hub.HubText.t
+import org.sableos.hub.notifications.HubNotificationCommands
 import org.sableos.hub.policy.HubDrafts
 import org.sableos.hub.policy.HubHandoffTarget
 import org.sableos.hub.policy.HubIntents
+import org.sableos.hub.policy.HubMenuOptions
+import org.sableos.hub.policy.HubRemindMe
 import org.sableos.hub.ui.HubScreen
 import kotlin.math.roundToInt
 
@@ -44,6 +49,7 @@ class MainActivity : ComponentActivity() {
     private var pendingThreadId by mutableStateOf<Long?>(null)
     private var pendingQuery by mutableStateOf<HubLaunchQuery?>(null)
     private var pendingAddress by mutableStateOf<String?>(null)
+    private var pendingMenuThreadId by mutableStateOf<Long?>(null)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val providerRefresh = Runnable { refreshGeneration += 1 }
     private var providerObserversRegistered = false
@@ -83,6 +89,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             pendingQuery = launchQueryFrom(intent)
             pendingAddress = conversationAddressFrom(intent)
+            applyOpenThread(intent)
         }
         contentResolver.registerContentObserver(
             ConnectedAppsRepository.HISTORY_URI,
@@ -111,6 +118,12 @@ class MainActivity : ComponentActivity() {
             var combineConversations by remember {
                 mutableStateOf(true)
             }
+            var eachMessage by remember {
+                mutableStateOf(false)
+            }
+            var menuOptions by remember {
+                mutableStateOf(HubMenuOptions())
+            }
 
             LaunchedEffect(refreshGeneration) {
                 refreshing = refreshGeneration == userRefreshGeneration
@@ -118,10 +131,10 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.IO) {
                         repository.snapshot()
                     }
-                combineConversations =
-                    withContext(Dispatchers.IO) {
-                        HubPreferences(applicationContext).combineConversations()
-                    }
+                val preferences = withContext(Dispatchers.IO) { HubPreferences(applicationContext) }
+                combineConversations = preferences.combineConversations()
+                eachMessage = preferences.eachMessage()
+                menuOptions = preferences.menuOptions()
                 refreshing = false
             }
 
@@ -230,14 +243,44 @@ class MainActivity : ComponentActivity() {
                     onPendingThreadConsumed = {
                         pendingThreadId = null
                     },
+                    pendingMenuThreadId = pendingMenuThreadId,
+                    onPendingMenuConsumed = { pendingMenuThreadId = null },
                     pendingAddress = pendingAddress,
                     onPendingAddressConsumed = {
                         pendingAddress = null
                     },
                     combineConversations = combineConversations,
+                    eachMessage = eachMessage,
                     loadAppIcon = ::loadAppIcon,
+                    notificationFacts = HubNotificationCommands::facts,
+                    onNotificationCommand = { key, entry ->
+                        HubNotificationCommands.run(this@MainActivity, key, entry).also {
+                            refreshGeneration += 1
+                        }
+                    },
+                    menuOptions = menuOptions,
+                    onRemindMe = ::remindMe,
                 )
             }
+        }
+    }
+
+    /** Remind me: Sable Tasks opens its new follow-up; null status when it opened. */
+    private fun remindMe(conversation: HubConversation): String? {
+        val followUp =
+            HubRemindMe.followUp(conversation, packageName) ?: return t("the_source_app_is_unavailable")
+        val intent =
+            Intent(HubRemindMe.ACTION_FOLLOW_UP)
+                .setPackage(HubRemindMe.TASKS_PACKAGE)
+                .putExtra(HubRemindMe.EXTRA_SOURCE_PACKAGE, followUp.packageName)
+                .putExtra(HubRemindMe.EXTRA_SOURCE_KEY, followUp.key)
+                .putExtra(HubRemindMe.EXTRA_SOURCE_APP, followUp.appName)
+        return try {
+            startActivity(intent)
+            null
+        } catch (e: ActivityNotFoundException) {
+            Log.i(TAG, "no Sable Tasks for Remind me", e)
+            t("tasks_unavailable")
         }
     }
 
@@ -265,6 +308,19 @@ class MainActivity : ComponentActivity() {
         }
         launchQueryFrom(intent)?.let { query -> pendingQuery = query }
         conversationAddressFrom(intent)?.let { address -> pendingAddress = address }
+        applyOpenThread(intent)
+    }
+
+    /** Sable Start's Hub page: open a message's thread, or its row menu in the inbox. */
+    private fun applyOpenThread(intent: Intent?) {
+        val open = intent?.takeIf { it.action == HubIntents.ACTION_OPEN_THREAD } ?: return
+        val threadId =
+            open.getLongExtra(HubIntents.EXTRA_THREAD_ID, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE } ?: return
+        if (open.getBooleanExtra(HubIntents.EXTRA_ROW_MENU, false)) {
+            pendingMenuThreadId = threadId
+        } else {
+            pendingThreadId = threadId
+        }
     }
 
     /** Command's search text and/or Start's filter (ACTION_MAIN extras); null for a plain launch. */
@@ -361,6 +417,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
+        const val TAG = "SableHub"
         const val PROVIDER_REFRESH_DELAY_MILLIS = 250L
         const val DOCK_ICON_SIZE_DP = 40f
         val PROVIDER_URIS =

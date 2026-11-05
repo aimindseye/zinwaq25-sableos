@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">المهام</string>
+    <string name="tasks_hint">C جديدة · Enter تعديل · مسافة تمت · Z غدًا · D حذف · H المكتملة</string>
+    <string name="no_tasks">لا توجد مهام. C يضيف مهمة.</string>
+    <string name="group_overdue">متأخرة</string>
+    <string name="group_today">اليوم</string>
+    <string name="group_tomorrow">غدًا</string>
+    <string name="group_this_week">هذا الأسبوع</string>
+    <string name="group_later">لاحقًا</string>
+    <string name="group_no_date">بلا تاريخ</string>
+    <string name="group_done">مكتملة</string>
+    <string name="due_at">الاستحقاق %1$s</string>
+    <string name="remind_at">تذكير %1$s</string>
+    <string name="from_app">من %1$s</string>
+    <string name="every_day">كل يوم</string>
+    <string name="every_week">كل أسبوع</string>
+    <string name="every_month">كل شهر</string>
+    <string name="new_task">مهمة جديدة</string>
+    <string name="edit_task">تعديل المهمة</string>
+    <string name="title">العنوان</string>
+    <string name="details">التفاصيل</string>
+    <string name="due">الاستحقاق</string>
+    <string name="remind">تذكير</string>
+    <string name="none">لا شيء</string>
+    <string name="pick_time">اختيار وقت</string>
+    <string name="later_today">لاحقًا اليوم</string>
+    <string name="this_evening">هذا المساء</string>
+    <string name="tomorrow_morning">صباح الغد</string>
+    <string name="repeat">التكرار: %1$s</string>
+    <string name="never">أبدًا</string>
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+    <string name="delete">حذف</string>
+    <string name="delete_task">حذف «%1$s»؟</string>
+    <string name="deleted">تم حذف «%1$s»</string>
+    <string name="add_a_title">أضف عنوانًا.</string>
+    <string name="reminders">التذكيرات</string>
+    <string name="task_reminder">تذكير بمهمة</string>
+    <string name="done">تمت</string>
+    <string name="snooze_1_hour">تأجيل ساعة</string>
+    <string name="reminders_off">تنبيهات التذكير متوقفة. Enter يسمح بها، وتظل التذكيرات هنا.</string>
+    <string name="follow_up_in">متابعة في %1$s</string>
+    <string name="show_done">إظهار المكتملة (H)</string>
+    <string name="hide_done">إخفاء المكتملة (H)</string>
+</resources>

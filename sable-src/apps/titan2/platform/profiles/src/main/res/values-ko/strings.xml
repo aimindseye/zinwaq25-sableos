@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">전화만 울리고 메시지와 알림은 무음</string>
     <string name="all_alerts_off">모든 알림 끄기</string>
     <string name="nothing_rings_or_vibrates_alarms">소리와 진동이 모두 꺼지지만 알람은 계속 울림</string>
+    <string name="bedside">침대 옆</string>
+    <string name="alarms_only_and_the_dimmest">알람만, 화면은 가장 어둡게</string>
 </resources>

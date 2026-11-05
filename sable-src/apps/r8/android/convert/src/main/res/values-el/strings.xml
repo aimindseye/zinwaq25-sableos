@@ -30,5 +30,5 @@
     <string name="convert_convert">Μετατροπή</string>
     <string name="convert_enter_a_number_with_up">Εισαγάγετε αριθμό με έως τρία δεκαδικά ψηφία</string>
     <string name="convert_length_mass_temperature_and_volume">Οι μετατροπές μήκους, μάζας, θερμοκρασίας και όγκου γίνονται τοπικά και χωρίς σύνδεση.</string>
-    <string name="convert_native_bridge_failure">Αποτυχία εγγενούς διεπαφής</string>
+    <string name="convert_native_bridge_failure">Η μετατροπή απέτυχε</string>
 </resources>

@@ -12,7 +12,10 @@ enum class SoundProfile(private val titleKey: String, private val summaryKey: St
     LOUD("loud", "rings_and_alerts_at_full"),
     VIBRATE_ONLY("vibrate_only", "vibrates_for_calls_and_alerts"),
     PHONE_CALLS_ONLY("phone_calls_only", "only_calls_ring_messages_and"),
-    ALL_ALERTS_OFF("all_alerts_off", "nothing_rings_or_vibrates_alarms");
+    ALL_ALERTS_OFF("all_alerts_off", "nothing_rings_or_vibrates_alarms"),
+
+    /** BB10's Bedside Mode: alarms only and the screen at its dimmest, put back when you leave it. */
+    BEDSIDE("bedside", "alarms_only_and_the_dimmest");
 
     val title: String get() = t(titleKey)
     val summary: String get() = t(summaryKey)
@@ -45,58 +48,21 @@ data class ProfilePlan(
     val vibrateWhenRinging: Boolean,
     val light: Boolean,
     val ringtone: String?,
-    val notificationTone: String?
+    val notificationTone: String?,
+    /** Bedside: the screen at [SoundProfiles.BEDSIDE_BRIGHTNESS], auto-brightness off. */
+    val dimScreen: Boolean = false
 )
 
 object SoundProfiles {
     const val NORMAL_VOLUME = 70
     const val FULL_VOLUME = 100
 
+    /** Bedside brightness on Android's 0-255 scale: readable in the dark, no glow. */
+    const val BEDSIDE_BRIGHTNESS = 8
+
     fun plan(profile: SoundProfile, settings: ProfileSettings = ProfileSettings()): ProfilePlan {
-        val base = when (profile) {
-            SoundProfile.NORMAL -> ProfilePlan(
-                Ringer.NORMAL,
-                Dnd.OFF,
-                NORMAL_VOLUME,
-                true,
-                true,
-                null,
-                null
-            )
-
-            SoundProfile.LOUD -> ProfilePlan(
-                Ringer.NORMAL,
-                Dnd.OFF,
-                FULL_VOLUME,
-                true,
-                true,
-                null,
-                null
-            )
-
-            SoundProfile.VIBRATE_ONLY -> ProfilePlan(
-                Ringer.VIBRATE,
-                Dnd.OFF,
-                null,
-                true,
-                true,
-                null,
-                null
-            )
-
-            SoundProfile.PHONE_CALLS_ONLY ->
-                ProfilePlan(Ringer.NORMAL, Dnd.CALLS_ONLY, NORMAL_VOLUME, true, false, null, null)
-
-            SoundProfile.ALL_ALERTS_OFF -> ProfilePlan(
-                Ringer.SILENT,
-                Dnd.ALARMS_ONLY,
-                null,
-                false,
-                false,
-                null,
-                null
-            )
-        }
+        val base = basePlan(profile)
+        val silent = profile == SoundProfile.ALL_ALERTS_OFF || profile == SoundProfile.BEDSIDE
         // A silent or vibrating profile has no volume to set; the user's volume applies only where it rings.
         val volume = settings.volumePercent?.coerceIn(0, FULL_VOLUME)?.takeIf {
             base.volumePercent !=
@@ -104,13 +70,57 @@ object SoundProfiles {
         }
         return base.copy(
             volumePercent = volume ?: base.volumePercent,
-            vibrateWhenRinging = settings.vibrate?.takeIf { profile != SoundProfile.ALL_ALERTS_OFF }
+            vibrateWhenRinging = settings.vibrate?.takeIf { !silent }
                 ?: base.vibrateWhenRinging,
             light = settings.light ?: base.light,
             ringtone = settings.ringtone,
             notificationTone = settings.notificationTone
         )
     }
+
+    private fun basePlan(profile: SoundProfile): ProfilePlan = when (profile) {
+        SoundProfile.NORMAL ->
+            ProfilePlan(Ringer.NORMAL, Dnd.OFF, NORMAL_VOLUME, true, true, null, null)
+
+        SoundProfile.LOUD ->
+            ProfilePlan(Ringer.NORMAL, Dnd.OFF, FULL_VOLUME, true, true, null, null)
+
+        SoundProfile.VIBRATE_ONLY ->
+            ProfilePlan(Ringer.VIBRATE, Dnd.OFF, null, true, true, null, null)
+
+        SoundProfile.PHONE_CALLS_ONLY ->
+            ProfilePlan(Ringer.NORMAL, Dnd.CALLS_ONLY, NORMAL_VOLUME, true, false, null, null)
+
+        SoundProfile.ALL_ALERTS_OFF ->
+            ProfilePlan(Ringer.SILENT, Dnd.ALARMS_ONLY, null, false, false, null, null)
+
+        SoundProfile.BEDSIDE ->
+            ProfilePlan(
+                Ringer.SILENT,
+                Dnd.ALARMS_ONLY,
+                null,
+                false,
+                false,
+                null,
+                null,
+                dimScreen = true
+            )
+    }
+
+    /**
+     * The brightness to put back when leaving Bedside: what was saved on entering it, else null
+     * (nothing to restore). [saved] is "mode,value" as [formatBrightness] wrote it.
+     */
+    fun restoreBrightness(saved: String?): Pair<Int, Int>? {
+        val parts = saved?.split(',').orEmpty()
+        val mode = parts.getOrNull(0)?.toIntOrNull()
+        val value = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, MAX_BRIGHTNESS)
+        return if (mode != null && value != null) mode to value else null
+    }
+
+    fun formatBrightness(mode: Int, value: Int): String = "$mode,$value"
+
+    private const val MAX_BRIGHTNESS = 255
 
     /** The next profile, for a key or tile that steps through them. */
     fun next(current: SoundProfile?): SoundProfile {

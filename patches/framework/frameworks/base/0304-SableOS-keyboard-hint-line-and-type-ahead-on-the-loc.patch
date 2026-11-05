@@ -67,7 +67,7 @@ SableKeyguardTypeAhead.java.
 
 diff --git a/packages/SystemUI/res/values/sable_keyguard_strings.xml b/packages/SystemUI/res/values/sable_keyguard_strings.xml
 new file mode 100644
-index 000000000000..69ca7e8acd81
+index 0000000..69ca7e8
 --- /dev/null
 +++ b/packages/SystemUI/res/values/sable_keyguard_strings.xml
 @@ -0,0 +1,24 @@
@@ -96,7 +96,7 @@ index 000000000000..69ca7e8acd81
 +    <string name="sable_keyguard_hint_enter">Enter unlocks</string>
 +</resources>
 diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
-index 4b46370ac1ff..d381b3784bd5 100644
+index 5abb4d3..85037b2 100644
 --- a/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
 +++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
 @@ -23,6 +23,7 @@ import android.content.Context;
@@ -107,7 +107,7 @@ index 4b46370ac1ff..d381b3784bd5 100644
  import android.os.UserHandle;
  import android.os.UserManager;
  import android.text.Editable;
-@@ -46,6 +47,7 @@ import com.android.internal.util.LatencyTracker;
+@@ -47,6 +48,7 @@ import com.android.internal.util.LatencyTracker;
  import com.android.internal.widget.LockPatternUtils;
  import com.android.keyguard.KeyguardSecurityModel.SecurityMode;
  import com.android.keyguard.domain.interactor.KeyguardKeyboardInteractor;
@@ -115,7 +115,7 @@ index 4b46370ac1ff..d381b3784bd5 100644
  import com.android.systemui.Flags;
  import com.android.systemui.bouncer.ui.helper.BouncerHapticPlayer;
  import com.android.systemui.classifier.FalsingCollector;
-@@ -280,6 +282,12 @@ public class KeyguardPasswordViewController
+@@ -287,6 +289,12 @@ public class KeyguardPasswordViewController
      public void onResume(int reason) {
          super.onResume(reason);
          mPaused = false;
@@ -129,10 +129,10 @@ index 4b46370ac1ff..d381b3784bd5 100644
              showInput();
          }
 diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputView.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputView.java
-index fb5494b1cf1a..3aaba3a2c00a 100644
+index 2bd16ea..34124fc 100644
 --- a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputView.java
 +++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputView.java
-@@ -33,6 +33,7 @@ import android.animation.AnimatorSet;
+@@ -35,6 +35,7 @@ import android.animation.AnimatorSet;
  import android.animation.ValueAnimator;
  import android.content.Context;
  import android.graphics.Rect;
@@ -140,7 +140,7 @@ index fb5494b1cf1a..3aaba3a2c00a 100644
  import android.util.AttributeSet;
  import android.view.KeyEvent;
  import android.view.View;
-@@ -41,6 +42,8 @@ import androidx.annotation.CallSuper;
+@@ -46,6 +47,8 @@ import androidx.annotation.CallSuper;
  
  import com.android.app.animation.Interpolators;
  import com.android.internal.widget.LockscreenCredential;
@@ -149,7 +149,7 @@ index fb5494b1cf1a..3aaba3a2c00a 100644
  import com.android.systemui.Flags;
  import com.android.systemui.res.R;
  
-@@ -56,6 +59,8 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView
+@@ -61,6 +64,8 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView
      private NumPadButton mOkButton;
      private NumPadButton mDeleteButton;
      private NumPadKey[] mButtons = new NumPadKey[10];
@@ -158,7 +158,7 @@ index fb5494b1cf1a..3aaba3a2c00a 100644
  
      public KeyguardPinBasedInputView(Context context) {
          this(context, null);
-@@ -112,6 +117,86 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView
+@@ -140,6 +145,86 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView
          return super.onKeyDown(keyCode, event);
      }
  
@@ -246,7 +246,7 @@ index fb5494b1cf1a..3aaba3a2c00a 100644
      public boolean onKeyUp(int keyCode, KeyEvent event) {
          if (KeyEvent.isConfirmKey(keyCode)) {
 diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
-index 9608cd2b228e..c72ada947635 100644
+index da1eb30..f8afca4 100644
 --- a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
 +++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
 @@ -22,6 +22,7 @@ import static com.android.internal.widget.flags.Flags.hideLastCharWithPhysicalIn
@@ -257,7 +257,7 @@ index 9608cd2b228e..c72ada947635 100644
  import android.graphics.drawable.Drawable;
  import android.graphics.drawable.GradientDrawable;
  import android.graphics.drawable.StateListDrawable;
-@@ -274,6 +275,9 @@ public abstract class KeyguardPinBasedInputViewController<T extends KeyguardPinB
+@@ -262,6 +263,9 @@ public abstract class KeyguardPinBasedInputViewController<T extends KeyguardPinB
          // as requestFocus will no-op since the focus flag is already set. By clearing focus first,
          // it's guaranteed that the view has focus.
          mPasswordEntry.clearFocus();
@@ -268,7 +268,7 @@ index 9608cd2b228e..c72ada947635 100644
      }
  
 diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java
-index e6c1e535ad3e..bf8c09da66a8 100644
+index 22d119a..9aa2b39 100644
 --- a/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java
 +++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPinViewController.java
 @@ -19,6 +19,7 @@ package com.android.keyguard;
@@ -276,10 +276,10 @@ index e6c1e535ad3e..bf8c09da66a8 100644
  
  import android.hardware.input.InputManager;
 +import android.os.SystemClock;
+ import android.uilatencystats.UiLatencyStatsManager;
  import android.view.View;
  
- import com.android.internal.logging.UiEvent;
-@@ -27,6 +28,7 @@ import com.android.internal.util.LatencyTracker;
+@@ -28,6 +29,7 @@ import com.android.internal.util.LatencyTracker;
  import com.android.internal.widget.LockPatternUtils;
  import com.android.keyguard.KeyguardSecurityModel.SecurityMode;
  import com.android.keyguard.domain.interactor.KeyguardKeyboardInteractor;
@@ -287,7 +287,7 @@ index e6c1e535ad3e..bf8c09da66a8 100644
  import com.android.systemui.bouncer.ui.helper.BouncerHapticPlayer;
  import com.android.systemui.classifier.FalsingCollector;
  import com.android.systemui.flags.FeatureFlags;
-@@ -87,6 +89,15 @@ public class KeyguardPinViewController
+@@ -92,6 +94,15 @@ public class KeyguardPinViewController
          mUiEventLogger = uiEventLogger;
      }
  
@@ -304,10 +304,10 @@ index e6c1e535ad3e..bf8c09da66a8 100644
      protected void onViewAttached() {
          super.onViewAttached();
 diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardSecurityContainerController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardSecurityContainerController.java
-index 1b353b019673..89e68a148ac3 100644
+index c7d93d7..c04c112 100644
 --- a/packages/SystemUI/src/com/android/keyguard/KeyguardSecurityContainerController.java
 +++ b/packages/SystemUI/src/com/android/keyguard/KeyguardSecurityContainerController.java
-@@ -1054,6 +1054,15 @@ public class KeyguardSecurityContainerController extends ViewController<Keyguard
+@@ -1096,6 +1096,15 @@ public class KeyguardSecurityContainerController extends ViewController<Keyguard
       * @return whether the event was consumed as a media key.
       */
      public boolean interceptMediaKey(KeyEvent event) {
@@ -325,7 +325,7 @@ index 1b353b019673..89e68a148ac3 100644
              switch (keyCode) {
 diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
 new file mode 100644
-index 000000000000..3d64f8f0f094
+index 0000000..3d64f8f
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardKeys.java
 @@ -0,0 +1,193 @@
@@ -524,7 +524,7 @@ index 000000000000..3d64f8f0f094
 +}
 diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardTypeAhead.java b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardTypeAhead.java
 new file mode 100644
-index 000000000000..08603add12d8
+index 0000000..08603ad
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/keyguard/sable/SableKeyguardTypeAhead.java
 @@ -0,0 +1,107 @@
@@ -636,23 +636,14 @@ index 000000000000..08603add12d8
 +    }
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/bouncer/domain/interactor/BouncerMessageInteractor.kt b/packages/SystemUI/src/com/android/systemui/bouncer/domain/interactor/BouncerMessageInteractor.kt
-index 4da52c020293..96623b288426 100644
+index 6209b6d..3fc55a7 100644
 --- a/packages/SystemUI/src/com/android/systemui/bouncer/domain/interactor/BouncerMessageInteractor.kt
 +++ b/packages/SystemUI/src/com/android/systemui/bouncer/domain/interactor/BouncerMessageInteractor.kt
-@@ -16,6 +16,7 @@
- 
- package com.android.systemui.bouncer.domain.interactor
- 
-+import android.content.res.Resources
- import android.hardware.biometrics.BiometricFaceConstants
- import android.hardware.biometrics.BiometricSourceType
- import android.os.CountDownTimer
-@@ -25,12 +26,14 @@ import com.android.keyguard.KeyguardSecurityModel
+@@ -26,11 +26,13 @@ import com.android.keyguard.KeyguardSecurityModel
  import com.android.keyguard.KeyguardSecurityModel.SecurityMode
  import com.android.keyguard.KeyguardUpdateMonitor
  import com.android.keyguard.KeyguardUpdateMonitorCallback
 +import com.android.keyguard.sable.SableKeyguardKeys
- import com.android.systemui.Flags
  import com.android.systemui.authentication.shared.model.AuthenticationMethodModel
  import com.android.systemui.biometrics.data.repository.FacePropertyRepository
  import com.android.systemui.biometrics.shared.model.SensorStrength
@@ -660,9 +651,9 @@ index 4da52c020293..96623b288426 100644
  import com.android.systemui.bouncer.shared.model.BouncerMessageModel
 +import com.android.systemui.bouncer.shared.model.BouncerMessagePair
  import com.android.systemui.bouncer.shared.model.BouncerMessageStrings
+ import com.android.systemui.bouncer.shared.model.LockoutMessageModel
  import com.android.systemui.bouncer.shared.model.Message
- import com.android.systemui.dagger.SysUISingleton
-@@ -413,14 +416,38 @@ constructor(
+@@ -427,14 +429,38 @@ constructor(
  
      private val defaultMessage: BouncerMessageModel
          get() =
@@ -707,39 +698,37 @@ index 4da52c020293..96623b288426 100644
          get() = secureLockDeviceInteractor.get().hasFace.value
  
 diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardIndicationRotateTextViewController.java b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardIndicationRotateTextViewController.java
-index 61b661f8bb6d..2e80aa7fa33d 100644
+index edfe040..93d7892 100644
 --- a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardIndicationRotateTextViewController.java
 +++ b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardIndicationRotateTextViewController.java
-@@ -397,6 +397,8 @@ public class KeyguardIndicationRotateTextViewController extends
-     public static final int INDICATION_TYPE_ADAPTIVE_AUTH = 14;
-     public static final int INDICATION_TYPE_WATCH_DISCONNECTED = 15;
-     public static final int INDICATION_TYPE_SECURE_LOCK_DEVICE = 16;
+@@ -402,6 +402,8 @@ public class KeyguardIndicationRotateTextViewController extends
+     public static final int INDICATION_TYPE_CLICK_TO_UNLOCK_HINT = 17;
+     public static final int INDICATION_TYPE_KEY_TO_UNLOCK_HINT = 18;
+     public static final int INDICATION_TYPE_ENTER_TO_UNLOCK_HINT = 19;
 +    /** Sable: the hardware-keyboard unlock hint ("Type PIN · Enter unlocks"). */
-+    public static final int INDICATION_TYPE_SABLE_KEYBOARD_HINT = 17;
++    public static final int INDICATION_TYPE_SABLE_KEYBOARD_HINT = 20;
  
      @IntDef({
              INDICATION_TYPE_NONE,
-@@ -415,7 +417,8 @@ public class KeyguardIndicationRotateTextViewController extends
-             INDICATION_IS_DISMISSIBLE,
-             INDICATION_TYPE_ADAPTIVE_AUTH,
-             INDICATION_TYPE_WATCH_DISCONNECTED,
--            INDICATION_TYPE_SECURE_LOCK_DEVICE
-+            INDICATION_TYPE_SECURE_LOCK_DEVICE,
-+            INDICATION_TYPE_SABLE_KEYBOARD_HINT
+@@ -424,6 +426,7 @@ public class KeyguardIndicationRotateTextViewController extends
+             INDICATION_TYPE_CLICK_TO_UNLOCK_HINT,
+             INDICATION_TYPE_KEY_TO_UNLOCK_HINT,
+             INDICATION_TYPE_ENTER_TO_UNLOCK_HINT,
++            INDICATION_TYPE_SABLE_KEYBOARD_HINT,
      })
      @Retention(RetentionPolicy.SOURCE)
-     public @interface IndicationType{}
-@@ -457,6 +460,8 @@ public class KeyguardIndicationRotateTextViewController extends
-                 return "watch_disconnected";
-             case INDICATION_TYPE_SECURE_LOCK_DEVICE:
-                 return "secure_lock_device";
+     public @interface IndicationType {
+@@ -474,6 +477,8 @@ public class KeyguardIndicationRotateTextViewController extends
+                 return "key_to_unlock_hint";
+             case INDICATION_TYPE_ENTER_TO_UNLOCK_HINT:
+                 return "enter_to_unlock_hint";
 +            case INDICATION_TYPE_SABLE_KEYBOARD_HINT:
 +                return "sable_keyboard_hint";
              default:
                  return "unknown[" + type + "]";
          }
 diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt b/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt
-index d3380ed3c303..838b437a8d54 100644
+index 02ea158..95f2da0 100644
 --- a/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt
 +++ b/packages/SystemUI/src/com/android/systemui/keyguard/domain/interactor/KeyguardKeyEventInteractor.kt
 @@ -18,7 +18,12 @@ package com.android.systemui.keyguard.domain.interactor
@@ -752,10 +741,10 @@ index d3380ed3c303..838b437a8d54 100644
  import android.view.KeyEvent
 +import com.android.keyguard.sable.SableKeyguardKeys
 +import com.android.keyguard.sable.SableKeyguardTypeAhead
+ import com.android.systemui.Flags
  import com.android.systemui.back.domain.interactor.BackActionInteractor
  import com.android.systemui.dagger.SysUISingleton
- import com.android.systemui.deviceentry.domain.interactor.DeviceEntryInteractor
-@@ -58,6 +63,10 @@ constructor(
+@@ -59,6 +64,10 @@ constructor(
              }
          }
  
@@ -766,7 +755,7 @@ index d3380ed3c303..838b437a8d54 100644
          if (event.handleAction()) {
              if (KeyEvent.isConfirmKey(event.keyCode)) {
                  if (isDeviceAwake()) {
-@@ -110,6 +119,62 @@ constructor(
+@@ -117,6 +126,62 @@ constructor(
          }
      }
  
@@ -830,10 +819,10 @@ index d3380ed3c303..838b437a8d54 100644
          val shouldUnlockOnMenuPressed =
              isDeviceAwake() &&
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java b/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java
-index 7f0926a44e01..37005f285b6b 100644
+index 78b0da5..2a90176 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/KeyguardIndicationController.java
-@@ -43,6 +43,7 @@ import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewCont
+@@ -46,6 +46,7 @@ import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewCont
  import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_LOGOUT;
  import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_OWNER_INFO;
  import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_PERSISTENT_UNLOCK_MESSAGE;
@@ -841,7 +830,7 @@ index 7f0926a44e01..37005f285b6b 100644
  import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_SECURE_LOCK_DEVICE;
  import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_TRUST;
  import static com.android.systemui.keyguard.KeyguardIndicationRotateTextViewController.INDICATION_TYPE_USER_LOCKED;
-@@ -60,6 +61,7 @@ import android.content.Intent;
+@@ -63,6 +64,7 @@ import android.content.Intent;
  import android.content.IntentFilter;
  import android.content.pm.UserInfo;
  import android.content.res.ColorStateList;
@@ -849,7 +838,7 @@ index 7f0926a44e01..37005f285b6b 100644
  import android.content.res.Resources;
  import android.graphics.Color;
  import android.hardware.biometrics.BiometricSourceType;
-@@ -87,6 +89,7 @@ import com.android.keyguard.KeyguardUpdateMonitor;
+@@ -90,6 +92,7 @@ import com.android.keyguard.KeyguardUpdateMonitor;
  import com.android.keyguard.KeyguardUpdateMonitorCallback;
  import com.android.keyguard.TrustGrantFlags;
  import com.android.keyguard.logging.KeyguardLogger;
@@ -857,7 +846,7 @@ index 7f0926a44e01..37005f285b6b 100644
  import com.android.settingslib.Utils;
  import com.android.settingslib.fuelgauge.BatteryStatus;
  import com.android.systemui.Flags;
-@@ -537,6 +540,7 @@ public class KeyguardIndicationController {
+@@ -546,6 +549,7 @@ public class KeyguardIndicationController {
          updateLockScreenLogoutView();
          updateLockScreenPersistentUnlockMsg();
          updateLockScreenAdaptiveAuthMsg(userId);
@@ -865,7 +854,7 @@ index 7f0926a44e01..37005f285b6b 100644
          if (showLockedByYourWatchKeyguardIndicator()) {
              updateLockScreenWatchDisconnectedMsg(userId);
          }
-@@ -645,6 +649,52 @@ public class KeyguardIndicationController {
+@@ -657,6 +661,52 @@ public class KeyguardIndicationController {
          });
      }
  

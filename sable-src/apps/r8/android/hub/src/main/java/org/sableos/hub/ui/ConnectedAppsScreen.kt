@@ -40,6 +40,7 @@ import org.sableos.hub.HubText.t
 import org.sableos.hub.policy.AttentionOutput
 import org.sableos.hub.policy.ConnectedAppsParity
 import org.sableos.hub.policy.HubMailSources
+import org.sableos.hub.policy.HubMenuOptions
 import java.util.Locale
 
 private enum class ConnectedAppsPivot {
@@ -63,6 +64,10 @@ internal fun ConnectedAppsScreen(
     onPrivateModeChanged: (Boolean) -> Unit = {},
     combineConversations: Boolean = true,
     onCombineConversationsChanged: (Boolean) -> Unit = {},
+    eachMessage: Boolean = false,
+    onEachMessageChanged: (Boolean) -> Unit = {},
+    menuOptions: HubMenuOptions = HubMenuOptions(),
+    onMenuOptionsChanged: (HubMenuOptions) -> Unit = {},
     onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit = { _, _ -> },
     onOpenAndroidNotificationSettings: (ConnectedAppKey) -> Unit = {},
     onOpenAttentionSettings: () -> Unit = {},
@@ -119,6 +124,10 @@ internal fun ConnectedAppsScreen(
                         onPrivateModeChanged = onPrivateModeChanged,
                         combineConversations = combineConversations,
                         onCombineConversationsChanged = onCombineConversationsChanged,
+                        eachMessage = eachMessage,
+                        onEachMessageChanged = onEachMessageChanged,
+                        menuOptions = menuOptions,
+                        onMenuOptionsChanged = onMenuOptionsChanged,
                         onOpenAttentionSettings = onOpenAttentionSettings,
                     )
                 }
@@ -196,6 +205,10 @@ private fun NotificationAccessPanel(
     onPrivateModeChanged: (Boolean) -> Unit,
     combineConversations: Boolean,
     onCombineConversationsChanged: (Boolean) -> Unit,
+    eachMessage: Boolean,
+    onEachMessageChanged: (Boolean) -> Unit,
+    menuOptions: HubMenuOptions,
+    onMenuOptionsChanged: (HubMenuOptions) -> Unit,
     onOpenAttentionSettings: () -> Unit,
 ) {
     SablePanel {
@@ -229,8 +242,30 @@ private fun NotificationAccessPanel(
             detail =
                 t("group_adjacent_messages_from_the"),
             checked = combineConversations,
-            enabled = true,
+            enabled = !eachMessage,
             onCheckedChange = onCombineConversationsChanged,
+        )
+        PolicySwitchRow(
+            label = t("each_message_on_its_own"),
+            detail = t("one_row_per_received_message"),
+            checked = eachMessage,
+            enabled = true,
+            onCheckedChange = onEachMessageChanged,
+        )
+        // Row menu extras: off unless the user turns them on here (Sable Setup opens this page).
+        PolicySwitchRow(
+            label = t("row_menu_snooze"),
+            detail = t("row_menu_snooze_detail"),
+            checked = menuOptions.snooze,
+            enabled = true,
+            onCheckedChange = { onMenuOptionsChanged(menuOptions.copy(snooze = it)) },
+        )
+        PolicySwitchRow(
+            label = t("row_menu_remind_me"),
+            detail = t("row_menu_remind_me_detail"),
+            checked = menuOptions.remindMe,
+            enabled = true,
+            onCheckedChange = { onMenuOptionsChanged(menuOptions.copy(remindMe = it)) },
         )
         TextButton(onClick = onOpenAttentionSettings) {
             Text(t("sable_attention"))

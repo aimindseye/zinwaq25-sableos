@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">görevler</string>
+    <string name="tasks_hint">C yeni · Enter düzenle · Boşluk bitti · Z yarın · D sil · H bitenler</string>
+    <string name="no_tasks">Görev yok. C bir tane ekler.</string>
+    <string name="group_overdue">Gecikmiş</string>
+    <string name="group_today">Bugün</string>
+    <string name="group_tomorrow">Yarın</string>
+    <string name="group_this_week">Bu hafta</string>
+    <string name="group_later">Daha sonra</string>
+    <string name="group_no_date">Tarih yok</string>
+    <string name="group_done">Bitenler</string>
+    <string name="due_at">Son tarih %1$s</string>
+    <string name="remind_at">Hatırlat %1$s</string>
+    <string name="from_app">Kaynak: %1$s</string>
+    <string name="every_day">Her gün</string>
+    <string name="every_week">Her hafta</string>
+    <string name="every_month">Her ay</string>
+    <string name="new_task">Yeni görev</string>
+    <string name="edit_task">Görevi düzenle</string>
+    <string name="title">Başlık</string>
+    <string name="details">Ayrıntılar</string>
+    <string name="due">Son tarih</string>
+    <string name="remind">Hatırlat</string>
+    <string name="none">Yok</string>
+    <string name="pick_time">Saat seç</string>
+    <string name="later_today">Bugün daha sonra</string>
+    <string name="this_evening">Bu akşam</string>
+    <string name="tomorrow_morning">Yarın sabah</string>
+    <string name="repeat">Tekrarla: %1$s</string>
+    <string name="never">Asla</string>
+    <string name="save">Kaydet</string>
+    <string name="cancel">İptal</string>
+    <string name="delete">Sil</string>
+    <string name="delete_task">“%1$s” silinsin mi?</string>
+    <string name="deleted">“%1$s” silindi</string>
+    <string name="add_a_title">Bir başlık ekleyin.</string>
+    <string name="reminders">Hatırlatıcılar</string>
+    <string name="task_reminder">Görev hatırlatıcısı</string>
+    <string name="done">Bitti</string>
+    <string name="snooze_1_hour">1 saat ertele</string>
+    <string name="reminders_off">Hatırlatıcı uyarıları kapalı. Enter izin verir; hatırlatıcılar yine burada görünür.</string>
+    <string name="follow_up_in">%1$s için takip</string>
+    <string name="show_done">Bitenleri göster (H)</string>
+    <string name="hide_done">Bitenleri gizle (H)</string>
+</resources>

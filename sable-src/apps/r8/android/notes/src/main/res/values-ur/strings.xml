@@ -53,4 +53,5 @@
     <string name="will_be_deleted_from_this">«%1$s» اس فون سے حذف کر دیا جائے گا۔</string>
     <string name="delete">حذف کریں</string>
     <string name="keep">رکھیں</string>
+    <string name="r_remind_in_tasks">" · R کام میں یاد دہانی"</string>
 </resources>

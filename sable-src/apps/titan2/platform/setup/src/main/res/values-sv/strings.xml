@@ -74,4 +74,10 @@
     <string name="weather_row_city">Prognoser för %1$s; ingen platsbehörighet</string>
     <string name="weather_row_none">Välj staden som Väder visar; ingen platsbehörighet</string>
     <string name="weather_row_failed">Kunde inte läsa Vädrets stad</string>
+    <string name="row_hub_menu_title">Hubs radmeny</string>
+    <string name="row_hub_menu_detail">Snooza och Påminn mig är av tills du slår på dem i Hub</string>
+    <string name="action_hub_row_menu">Hub-inställningar</string>
+    <string name="row_work_space_title">Arbetsyta</string>
+    <string name="row_work_space_detail">Valfritt: håll jobbappar åtskilda, med ett reglage Privat · Arbete i Start</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

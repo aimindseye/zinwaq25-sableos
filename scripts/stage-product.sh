@@ -185,6 +185,9 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # bbqX0kbd driver (kernel and Settings patches 0901).
     mkdir -p "$VENDOR_SABLE/etc/init"
     cp "$SABLE_REPO_ROOT/product/q25/init/sable-keyboard-backlight.rc" "$VENDOR_SABLE/etc/init/"
+    # Trackpad mode (Settings > Keyboard > Trackpad): init writes the bbqX0kbd mode switch
+    # (device patch 1503 labels it for init only).
+    cp "$SABLE_REPO_ROOT/product/q25/init/sable-trackpad.rc" "$VENDOR_SABLE/etc/init/"
     # Privileged permission allowlist for the apps.tsv "platform" and "privileged" rows
     # (App display compatibility, Secure Vault).
     mkdir -p "$VENDOR_SABLE/etc/permissions"
@@ -233,6 +236,7 @@ PRODUCT_COPY_FILES += \
     vendor/sable/q25/etc/default-permissions/default-permissions-sable-q25.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/default-permissions/default-permissions-sable-q25.xml \
     vendor/sable/q25/etc/battery/zinwa-q25.conf:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/sable/battery/zinwa-q25.conf \
     vendor/sable/q25/etc/init/sable-keyboard-backlight.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-keyboard-backlight.rc \
+    vendor/sable/q25/etc/init/sable-trackpad.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-trackpad.rc \
     vendor/sable/q25/etc/init/sable-power.rc:$(TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc \
     vendor/sable/q25/media/sable_default_wallpaper.png:$(TARGET_COPY_OUT_PRODUCT)/media/wallpaper/sable_default_wallpaper.png
 MK

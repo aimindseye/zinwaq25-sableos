@@ -226,6 +226,24 @@ object HubText {
             "personal" to "Personal",
             "private_space" to "Private space",
             "profile_2" to "Profile %1\$s",
+            "mark_read" to "Mark read",
+            "snooze_1_hour" to "Snooze 1 hour",
+            "dismiss_notification" to "Dismiss notification",
+            "snoozed_for_an_hour" to "Snoozed for an hour.",
+            "notification_dismissed" to "Notification dismissed.",
+            "sent_to_the_app" to "Sent to the app.",
+            "the_notification_is_gone" to "The notification is no longer there.",
+            "mark_prior_read" to "Mark prior read",
+            "marked_prior_read" to "Asked the apps to mark %1\$s older notifications read.",
+            "each_message_on_its_own" to "Each message on its own",
+            "one_row_per_received_message" to "One row per received message. Turns off Combine conversations.",
+            "remind_me" to "Remind me",
+            "tasks_unavailable" to "Sable Tasks is not installed.",
+            "row_menu_snooze" to "Snooze in the row menu",
+            "row_menu_snooze_detail" to "Adds Snooze 1 hour and the Z key for a live notification.",
+            "row_menu_remind_me" to "Remind me in the row menu",
+            "row_menu_remind_me_detail" to
+                "Adds a follow-up in Sable Tasks for tomorrow morning. Only the app is saved, never the message.",
         )
 
     val t = SableTexts(EN)

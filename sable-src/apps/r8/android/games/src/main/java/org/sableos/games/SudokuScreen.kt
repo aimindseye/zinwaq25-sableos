@@ -36,10 +36,10 @@ private const val DEFAULT_SUDOKU =
 @Composable
 internal fun SudokuScreen() {
     var state by remember {
-        mutableStateOf(requireOk(NativeBridge.sudokuStart(DEFAULT_SUDOKU)))
+        mutableStateOf(requireOk(GamesCore.sudokuStart(DEFAULT_SUDOKU)))
     }
     var board by remember {
-        mutableStateOf(requireOk(NativeBridge.sudokuBoard(state)))
+        mutableStateOf(requireOk(GamesCore.sudokuBoard(state)))
     }
     var selectedRow by remember { mutableIntStateOf(0) }
     var selectedCol by remember { mutableIntStateOf(2) }
@@ -47,8 +47,8 @@ internal fun SudokuScreen() {
     val history = remember { mutableStateListOf<String>() }
 
     fun reset() {
-        state = requireOk(NativeBridge.sudokuStart(DEFAULT_SUDOKU))
-        board = requireOk(NativeBridge.sudokuBoard(state))
+        state = requireOk(GamesCore.sudokuStart(DEFAULT_SUDOKU))
+        board = requireOk(GamesCore.sudokuBoard(state))
         selectedRow = 0
         selectedCol = 2
         history.clear()
@@ -57,7 +57,7 @@ internal fun SudokuScreen() {
 
     fun setValue(value: Int) {
         val response =
-            NativeBridge.sudokuSet(
+            GamesCore.sudokuSet(
                 state,
                 selectedRow,
                 selectedCol,
@@ -67,9 +67,9 @@ internal fun SudokuScreen() {
         if (response.startsWith("OK:")) {
             history.add(state)
             state = response.removePrefix("OK:")
-            board = requireOk(NativeBridge.sudokuBoard(state))
+            board = requireOk(GamesCore.sudokuBoard(state))
             status =
-                if (NativeBridge.sudokuSolved(state)) {
+                if (GamesCore.sudokuSolved(state)) {
                     t("solved")
                 } else if (value == 0) {
                     t("cell_erased")
@@ -88,7 +88,7 @@ internal fun SudokuScreen() {
         }
 
         state = history.removeAt(history.lastIndex)
-        board = requireOk(NativeBridge.sudokuBoard(state))
+        board = requireOk(GamesCore.sudokuBoard(state))
         status = t("last_move_undone")
     }
 

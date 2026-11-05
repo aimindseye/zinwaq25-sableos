@@ -1,0 +1,12 @@
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+index a2f3785..52b60fc 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+@@ -74,6 +74,7 @@ import org.sableos.start.model.HomeApps
+ import org.sableos.start.model.HomeHeader
+ import org.sableos.start.model.SpeedDialKeys
+ import org.sableos.start.model.StartTypeToSearch
++import org.sableos.start.model.inLauncherUser
+ import org.sableos.start.model.stableKey
+ import org.sableos.start.platform.LetterShortcutRepository
+ import org.sableos.start.platform.LiveSurfaceRepository

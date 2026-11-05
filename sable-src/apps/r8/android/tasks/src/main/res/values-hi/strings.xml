@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">कार्य</string>
+    <string name="tasks_hint">C नया · Enter संपादन · स्पेस पूरा · Z कल · D हटाएँ · H पूरे</string>
+    <string name="no_tasks">कोई कार्य नहीं। C एक जोड़ता है।</string>
+    <string name="group_overdue">समय बीता</string>
+    <string name="group_today">आज</string>
+    <string name="group_tomorrow">कल</string>
+    <string name="group_this_week">इस सप्ताह</string>
+    <string name="group_later">बाद में</string>
+    <string name="group_no_date">कोई तारीख नहीं</string>
+    <string name="group_done">पूरे</string>
+    <string name="due_at">नियत %1$s</string>
+    <string name="remind_at">याद दिलाएँ %1$s</string>
+    <string name="from_app">%1$s से</string>
+    <string name="every_day">हर दिन</string>
+    <string name="every_week">हर सप्ताह</string>
+    <string name="every_month">हर महीने</string>
+    <string name="new_task">नया कार्य</string>
+    <string name="edit_task">कार्य संपादित करें</string>
+    <string name="title">शीर्षक</string>
+    <string name="details">विवरण</string>
+    <string name="due">नियत</string>
+    <string name="remind">याद दिलाएँ</string>
+    <string name="none">कोई नहीं</string>
+    <string name="pick_time">समय चुनें</string>
+    <string name="later_today">आज बाद में</string>
+    <string name="this_evening">आज शाम</string>
+    <string name="tomorrow_morning">कल सुबह</string>
+    <string name="repeat">दोहराएँ: %1$s</string>
+    <string name="never">कभी नहीं</string>
+    <string name="save">सहेजें</string>
+    <string name="cancel">रद्द करें</string>
+    <string name="delete">हटाएँ</string>
+    <string name="delete_task">“%1$s” हटाएँ?</string>
+    <string name="deleted">“%1$s” हटाया गया</string>
+    <string name="add_a_title">शीर्षक जोड़ें।</string>
+    <string name="reminders">रिमाइंडर</string>
+    <string name="task_reminder">कार्य रिमाइंडर</string>
+    <string name="done">पूरा</string>
+    <string name="snooze_1_hour">1 घंटा स्नूज़</string>
+    <string name="reminders_off">रिमाइंडर सूचनाएँ बंद हैं। Enter उन्हें अनुमति देता है; रिमाइंडर फिर भी यहाँ दिखते हैं।</string>
+    <string name="follow_up_in">%1$s में फ़ॉलो-अप</string>
+    <string name="show_done">पूरे दिखाएँ (H)</string>
+    <string name="hide_done">पूरे छिपाएँ (H)</string>
+</resources>

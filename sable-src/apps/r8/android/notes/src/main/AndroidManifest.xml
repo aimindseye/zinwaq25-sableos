@@ -4,6 +4,8 @@
          the system file picker and share sheet only when the user asks. -->
     <queries>
         <provider android:authorities="org.sableos.appearance" />
+        <!-- R on a checklist item in Tasks view hands it to Sable Tasks. -->
+        <package android:name="org.sableos.tasks" />
     </queries>
     <application
         android:name=".NotesApplication"

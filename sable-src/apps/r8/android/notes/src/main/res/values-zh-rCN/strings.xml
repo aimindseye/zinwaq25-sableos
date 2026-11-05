@@ -53,4 +53,5 @@
     <string name="will_be_deleted_from_this">“%1$s”将从此手机中删除。</string>
     <string name="delete">删除</string>
     <string name="keep">保留</string>
+    <string name="r_remind_in_tasks">" · R 在任务中提醒"</string>
 </resources>

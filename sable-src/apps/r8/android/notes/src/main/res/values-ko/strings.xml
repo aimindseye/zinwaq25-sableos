@@ -53,4 +53,5 @@
     <string name="will_be_deleted_from_this">“%1$s”이(가) 이 휴대전화에서 삭제됩니다.</string>
     <string name="delete">삭제</string>
     <string name="keep">유지</string>
+    <string name="r_remind_in_tasks">" · R 할 일에서 알림"</string>
 </resources>

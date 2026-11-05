@@ -8,6 +8,7 @@ import org.sableos.hub.HubCall
 import org.sableos.hub.HubCallKind
 import org.sableos.hub.HubConversation
 import org.sableos.hub.HubConversationSource
+import org.sableos.hub.HubMessage
 
 class HubInboxTest {
     private val sms =
@@ -155,5 +156,37 @@ class HubInboxTest {
         // Connected-app conversations are never matched by address.
         assertNull(HubThreadResolver.resolve(conversations, HubThreadResolver.NEW_THREAD_ID, "team"))
         assertNull(HubThreadResolver.resolve(conversations, HubThreadResolver.NEW_THREAD_ID, null))
+    }
+
+    @Test
+    fun eachMessageOnItsOwnGivesOneRowPerReceivedMessage() {
+        fun msg(
+            id: Long,
+            thread: Long,
+            at: Long,
+            incoming: Boolean = true,
+            read: Boolean = false,
+            source: HubConversationSource = HubConversationSource.Sms,
+        ) = HubMessage(id, thread, "x", "m$id", at, incoming, read, source)
+        val messages =
+            listOf(
+                msg(1, 7L, 3_000L),
+                msg(2, 7L, 2_500L, read = true),
+                msg(3, 7L, 2_800L, incoming = false),
+                msg(4, -42L, 2_000L, source = HubConversationSource.ConnectedApp),
+                // Same thread id, other source: not Maya's.
+                msg(5, 7L, 1_000L, source = HubConversationSource.ConnectedApp),
+            )
+        val rows = HubInbox.eachMessage(listOf(sms, connected), messages)
+        assertEquals(listOf(1L, 2L, 4L), rows.map { it.messageId })
+        assertEquals(listOf("m1", "m2", "m4"), rows.map { it.lastBody })
+        assertEquals(listOf(1, 0, 1), rows.map { it.unreadCount })
+        val keys = rows.map { HubInboxItem.Conversation(it).key }
+        assertEquals(keys.size, keys.toSet().size)
+        // No received message: the conversation keeps its one row.
+        assertEquals(listOf(sms), HubInbox.eachMessage(listOf(sms), emptyList()))
+        // A hidden list preview keeps each message's text hidden.
+        val hidden = HubInbox.eachMessage(listOf(sms.copy(lastBody = "")), messages)
+        assertTrue(hidden.all { it.lastBody.isEmpty() })
     }
 }

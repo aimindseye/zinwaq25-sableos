@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">仅来电响铃；消息和通知静音</string>
     <string name="all_alerts_off">关闭所有通知</string>
     <string name="nothing_rings_or_vibrates_alarms">没有铃声和振动；闹钟仍会响起</string>
+    <string name="bedside">床头</string>
+    <string name="alarms_only_and_the_dimmest">仅闹钟，屏幕调到最暗</string>
 </resources>

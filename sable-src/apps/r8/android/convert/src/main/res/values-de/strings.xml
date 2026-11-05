@@ -30,5 +30,5 @@
     <string name="convert_convert">Umrechnen</string>
     <string name="convert_enter_a_number_with_up">Zahl mit bis zu drei Nachkommastellen eingeben</string>
     <string name="convert_length_mass_temperature_and_volume">Umrechnungen von Länge, Masse, Temperatur und Volumen erfolgen lokal und offline.</string>
-    <string name="convert_native_bridge_failure">Fehler der nativen Schnittstelle</string>
+    <string name="convert_native_bridge_failure">Umrechnung fehlgeschlagen</string>
 </resources>

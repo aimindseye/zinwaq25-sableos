@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">Imprimez depuis votre ordinateur vers ce téléphone. Tant que Print To Go est actif, le téléphone est une imprimante sur votre Wi-Fi et chaque impression est enregistrée en PDF dans Documents/Print To Go.</string>
+    <string name="start">Commencer la réception</string>
+    <string name="stop">Arrêter</string>
+    <string name="off">Désactivé. Rien ne peut imprimer sur ce téléphone.</string>
+    <string name="ready">Prêt sous le nom %1$s. Choisissez-le dans la fenêtre d\'impression de l\'ordinateur. Il s\'arrête après 10 minutes sans impression.</string>
+    <string name="no_wifi">Connectez-vous d\'abord au Wi-Fi. Print To Go n\'écoute que sur le Wi-Fi, jamais sur les données mobiles.</string>
+    <string name="start_failed">Print To Go n\'a pas pu démarrer. Réessayez.</string>
+    <string name="saved">Enregistré : %1$s</string>
+    <string name="save_failed">%1$s n\'a pas pu être enregistré.</string>
+    <string name="open_folder">Ouvrir les impressions enregistrées</string>
+    <string name="running">Print To Go est actif</string>
+    <string name="channel_running">Print To Go en cours</string>
+    <string name="channel_saved">Impressions enregistrées</string>
+    <string name="idle_off">Print To Go s\'est arrêté après 10 minutes sans impression.</string>
+    <string name="hint">Entrée démarre ou arrête · O ouvre les impressions enregistrées · Retour quitte</string>
+</resources>

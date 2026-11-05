@@ -18,18 +18,18 @@ cannot show Active Frames) every command behaves as before.
  create mode 100644 quickstep/src/com/android/quickstep/sable/SableActiveFrames.kt
 
 diff --git a/quickstep/src/com/android/quickstep/OverviewCommandHelper.kt b/quickstep/src/com/android/quickstep/OverviewCommandHelper.kt
-index d32e122..95f97f7 100644
+index 779d413..13871ae 100644
 --- a/quickstep/src/com/android/quickstep/OverviewCommandHelper.kt
 +++ b/quickstep/src/com/android/quickstep/OverviewCommandHelper.kt
-@@ -55,6 +55,7 @@ import com.android.quickstep.OverviewCommandHelper.CommandType.SHOW_WITH_FOCUS
+@@ -55,6 +55,7 @@ import com.android.quickstep.OverviewCommandHelper.CommandType.SHOW_ALT_TAB
  import com.android.quickstep.OverviewCommandHelper.CommandType.TOGGLE
  import com.android.quickstep.OverviewCommandHelper.CommandType.TOGGLE_OVERVIEW_PREVIOUS
  import com.android.quickstep.OverviewCommandHelper.CommandType.TOGGLE_WITH_FOCUS
 +import com.android.quickstep.sable.SableActiveFrames
- import com.android.quickstep.util.ActiveGestureLog
- import com.android.quickstep.util.ActiveGestureProtoLogProxy
- import com.android.quickstep.views.DesktopTaskView
-@@ -127,6 +128,13 @@ constructor(
+ import com.android.quickstep.dagger.SysUIConnectionSingleton
+ import com.android.quickstep.fallback.RecentsState
+ import com.android.quickstep.fallback.toRecentsState
+@@ -131,6 +132,13 @@ constructor(
          displayId: Int = DEFAULT_DISPLAY,
          isLastOfBatch: Boolean = true,
      ): CommandInfo? {
@@ -43,7 +43,7 @@ index d32e122..95f97f7 100644
          if (commandQueue.size >= MAX_QUEUE_SIZE) {
              OverviewCommandHelperProtoLogProxy.logCommandQueueFull(type, commandQueue)
              return null
-@@ -844,5 +852,9 @@ constructor(
+@@ -878,5 +886,9 @@ constructor(
          private const val MAX_QUEUE_SIZE = 3
          private const val QUEUE_WAIT_DURATION_IN_MS = 5000L
          @VisibleForTesting val TOGGLE_PREVIOUS_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(5)

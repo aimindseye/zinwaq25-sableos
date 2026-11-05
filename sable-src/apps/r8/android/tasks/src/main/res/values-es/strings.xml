@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">tareas</string>
+    <string name="tasks_hint">C nueva · Enter editar · Espacio hecha · Z mañana · D borrar · H hechas</string>
+    <string name="no_tasks">No hay tareas. C añade una.</string>
+    <string name="group_overdue">Vencidas</string>
+    <string name="group_today">Hoy</string>
+    <string name="group_tomorrow">Mañana</string>
+    <string name="group_this_week">Esta semana</string>
+    <string name="group_later">Más adelante</string>
+    <string name="group_no_date">Sin fecha</string>
+    <string name="group_done">Hechas</string>
+    <string name="due_at">Vence %1$s</string>
+    <string name="remind_at">Recordar %1$s</string>
+    <string name="from_app">De %1$s</string>
+    <string name="every_day">Cada día</string>
+    <string name="every_week">Cada semana</string>
+    <string name="every_month">Cada mes</string>
+    <string name="new_task">Nueva tarea</string>
+    <string name="edit_task">Editar tarea</string>
+    <string name="title">Título</string>
+    <string name="details">Detalles</string>
+    <string name="due">Vence</string>
+    <string name="remind">Recordar</string>
+    <string name="none">Ninguno</string>
+    <string name="pick_time">Elegir hora</string>
+    <string name="later_today">Más tarde hoy</string>
+    <string name="this_evening">Esta tarde</string>
+    <string name="tomorrow_morning">Mañana por la mañana</string>
+    <string name="repeat">Repetir: %1$s</string>
+    <string name="never">Nunca</string>
+    <string name="save">Guardar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="delete">Borrar</string>
+    <string name="delete_task">¿Borrar «%1$s»?</string>
+    <string name="deleted">«%1$s» borrada</string>
+    <string name="add_a_title">Añade un título.</string>
+    <string name="reminders">Recordatorios</string>
+    <string name="task_reminder">Recordatorio de tarea</string>
+    <string name="done">Hecha</string>
+    <string name="snooze_1_hour">Posponer 1 hora</string>
+    <string name="reminders_off">Los avisos de recordatorio están desactivados. Enter los permite; los recordatorios siguen aquí.</string>
+    <string name="follow_up_in">Seguimiento en %1$s</string>
+    <string name="show_done">Mostrar hechas (H)</string>
+    <string name="hide_done">Ocultar hechas (H)</string>
+</resources>

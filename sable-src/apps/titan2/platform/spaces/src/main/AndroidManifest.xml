@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sable Spaces: Sable's own profile manager for the Work space (BB10 Balance). Installed for the main
+     user and in work profiles only (product/q25/sysconfig/preinstalled-packages-sable-spaces.xml).
+     The main user's copy makes the Work space with Android's own managed-profile setup and lists apps
+     to add; the copy inside the Work space is its profile owner and does the adding and removing, each
+     after the user confirms on its own screen, and holds the Work space's options (all Allowed until the
+     user changes them there). No network, no backup, no launcher entry: Sable Setup
+     opens it. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <queries>
+        <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
+        <provider android:authorities="org.sableos.appearance" />
+        <!-- The user's launchable apps, to offer them for the Work space. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
+    <application
+        android:name="org.sableos.titan2.spaces.SpacesApplication"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        android:icon="@mipmap/ic_sable_spaces"
+        android:roundIcon="@mipmap/ic_sable_spaces_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+
+        <!-- Sable Setup's Work space row. -->
+        <activity
+            android:name=".android.WorkSpaceActivity"
+            android:exported="true"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
+            <intent-filter>
+                <action android:name="org.sableos.spaces.action.WORK_SPACE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Inside the Work space only: off in the main user, turned on by WorkProfileSetup once the
+             profile exists, and reached from the main user through the profile's intent forwarding.
+             Every request is confirmed on this screen first. -->
+        <activity
+            android:name=".android.InWorkActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
+            <intent-filter>
+                <action android:name="org.sableos.spaces.action.ADD_APP" />
+                <action android:name="org.sableos.spaces.action.REMOVE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Inside the Work space only, like InWorkActivity: its options (copy out, share in, screenshots,
+             the Work lock). Opening it changes nothing; only the user's keys or taps there do. -->
+        <activity
+            android:name=".android.WorkOptionsActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
+            <intent-filter>
+                <action android:name="org.sableos.spaces.action.OPTIONS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Android's managed-profile setup asks which mode to use, then hands over the new profile. -->
+        <activity
+            android:name=".android.ProvisioningModeActivity"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <intent-filter>
+                <action android:name="android.app.action.GET_PROVISIONING_MODE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".android.PolicyComplianceActivity"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <intent-filter>
+                <action android:name="android.app.action.ADMIN_POLICY_COMPLIANCE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".android.SpacesAdminReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

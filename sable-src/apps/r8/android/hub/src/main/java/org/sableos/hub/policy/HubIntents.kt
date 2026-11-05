@@ -53,6 +53,15 @@ object HubIntents {
     /** A phone number or SMS address (Contacts' default number for the person). */
     const val EXTRA_ADDRESS = "org.sableos.hub.extra.ADDRESS"
 
+    /**
+     * Sable Start's Hub page: open the Hub thread [EXTRA_THREAD_ID] (a `thread_id` from the
+     * snapshot provider's `messages`), or with [EXTRA_ROW_MENU] show that row's menu in the inbox.
+     * It only navigates; an unknown thread opens the inbox.
+     */
+    const val ACTION_OPEN_THREAD = "org.sableos.hub.action.OPEN_THREAD"
+    const val EXTRA_THREAD_ID = "org.sableos.hub.extra.THREAD_ID"
+    const val EXTRA_ROW_MENU = "org.sableos.hub.extra.ROW_MENU"
+
     const val MAX_QUERY_LENGTH = 120
     const val MAX_ADDRESS_LENGTH = 64
 

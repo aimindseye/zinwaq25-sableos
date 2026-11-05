@@ -1,0 +1,2127 @@
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/BusyMonth.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/BusyMonth.kt
+new file mode 100644
+index 0000000..9a9dd17
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/BusyMonth.kt
+@@ -0,0 +1,164 @@
++package org.sableos.calendar
++
++import androidx.compose.foundation.Canvas
++import androidx.compose.foundation.background
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.shape.CircleShape
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.geometry.Offset
++import androidx.compose.ui.geometry.Size
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.graphics.StrokeCap
++import androidx.compose.ui.graphics.drawscope.Stroke
++import androidx.compose.ui.semantics.contentDescription
++import androidx.compose.ui.semantics.semantics
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.unit.Dp
++import androidx.compose.ui.unit.dp
++import org.sableos.calendar.CalendarText.t
++import org.sableos.design.sableFocusRing
++import java.time.LocalDate
++import java.time.YearMonth
++import java.time.format.DateTimeFormatter
++import java.util.Locale
++
++/** Cell and ring sizes: compact over the agenda, full in the month view (V). */
++private data class RingSizes(
++    val cell: Dp,
++    val ring: Dp,
++    val stroke: Dp,
++)
++
++private val COMPACT = RingSizes(cell = 36.dp, ring = 30.dp, stroke = 3.dp)
++private val FULL = RingSizes(cell = 48.dp, ring = 40.dp, stroke = 4.dp)
++private const val TRACK_ALPHA = 0.35f
++private const val SELECTED_ALPHA = 0.22f
++private const val RING_START_DEGREES = -90f
++
++/**
++ * The month with a busy ring on each day (CalendarBusy): the arc is how much of 08:00–20:00 is
++ * booked, a thin outer ring marks an all-day event, and today is bold. Every day is focusable, so the
++ * trackpad moves through the month and Enter picks a day.
++ */
++@Composable
++internal fun BusyMonthGrid(
++    month: YearMonth,
++    selectedDate: LocalDate,
++    busy: Map<LocalDate, BusyDay>,
++    compact: Boolean,
++    onSelectDate: (LocalDate) -> Unit,
++) {
++    val sizes = if (compact) COMPACT else FULL
++    val today = LocalDate.now()
++    Row(Modifier.fillMaxWidth()) {
++        weekdayInitials().forEach { label ->
++            Text(
++                text = label,
++                modifier = Modifier.weight(1f),
++                style = MaterialTheme.typography.labelMedium,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        }
++    }
++    Spacer(Modifier.height(4.dp))
++    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
++        CalendarBusy.monthCells(month).chunked(DAYS_PER_WEEK).forEach { week ->
++            Row(Modifier.fillMaxWidth()) {
++                week.forEach { date ->
++                    Box(Modifier.weight(1f).height(sizes.cell), contentAlignment = Alignment.Center) {
++                        if (date != null) {
++                            BusyDayCell(date, busy[date], date == selectedDate, date == today, sizes) {
++                                onSelectDate(date)
++                            }
++                        }
++                    }
++                }
++            }
++        }
++    }
++}
++
++@Composable
++private fun BusyDayCell(
++    date: LocalDate,
++    day: BusyDay?,
++    selected: Boolean,
++    today: Boolean,
++    sizes: RingSizes,
++    onClick: () -> Unit,
++) {
++    val arc = MaterialTheme.colorScheme.primary
++    val track = MaterialTheme.colorScheme.outlineVariant.copy(alpha = TRACK_ALPHA)
++    val allDay = MaterialTheme.colorScheme.tertiary
++    val sweep = CalendarBusy.sweepDegrees(day)
++    val label = dayLabel(date, day)
++    Box(
++        modifier =
++            Modifier
++                .size(sizes.ring + sizes.stroke * 2)
++                .clip(CircleShape)
++                .background(if (selected) arc.copy(alpha = SELECTED_ALPHA) else Color.Transparent)
++                .sableFocusRing()
++                .clickable(onClick = onClick)
++                .semantics { contentDescription = label },
++        contentAlignment = Alignment.Center,
++    ) {
++        Canvas(Modifier.size(sizes.ring)) {
++            val stroke = sizes.stroke.toPx()
++            val inset = stroke / 2
++            val arcSize = Size(size.width - stroke, size.height - stroke)
++            if (day != null) {
++                drawArc(track, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
++            }
++            if (sweep > 0f) {
++                drawArc(
++                    arc,
++                    RING_START_DEGREES,
++                    sweep,
++                    false,
++                    Offset(inset, inset),
++                    arcSize,
++                    style = Stroke(stroke, cap = StrokeCap.Round),
++                )
++            }
++            if (day?.allDay == true) {
++                drawCircle(allDay, radius = size.minDimension / 2 + stroke, style = Stroke(stroke / 2))
++            }
++        }
++        Text(
++            text = date.dayOfMonth.toString(),
++            style = MaterialTheme.typography.labelLarge,
++            fontWeight = if (today) FontWeight.Bold else FontWeight.Normal,
++            color = if (selected || today) arc else MaterialTheme.colorScheme.onSurface,
++        )
++    }
++}
++
++private const val DAYS_PER_WEEK = 7
++
++private fun weekdayInitials(): List<String> {
++    val monday = LocalDate.of(2024, 1, 1)
++    val format = DateTimeFormatter.ofPattern("EEEEE", Locale.getDefault())
++    return (0 until DAYS_PER_WEEK).map { monday.plusDays(it.toLong()).format(format) }
++}
++
++private fun dayLabel(
++    date: LocalDate,
++    day: BusyDay?,
++): String {
++    val name = date.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault()))
++    return if (day == null) name else t("day_events", name, day.count.toString())
++}
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarBusy.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarBusy.kt
+new file mode 100644
+index 0000000..8328ac4
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarBusy.kt
+@@ -0,0 +1,113 @@
++package org.sableos.calendar
++
++import java.time.Instant
++import java.time.LocalDate
++import java.time.YearMonth
++import java.time.ZoneId
++import java.time.ZoneOffset
++
++/** How full one day is: booked minutes between [CalendarBusy.DAY_START_HOUR] and [CalendarBusy.DAY_END_HOUR]. */
++data class BusyDay(
++    val date: LocalDate,
++    val busyMinutes: Int,
++    val allDay: Boolean,
++    val count: Int,
++) {
++    val fraction: Float get() = (busyMinutes.toFloat() / CalendarBusy.WINDOW_MINUTES).coerceIn(0f, 1f)
++}
++
++/**
++ * Busy rings (owner decision 2026-11-04): each day of the month carries a ring whose arc is the share
++ * of its 08:00–20:00 that events fill, overlaps counted once. An all-day event draws a thin full
++ * outer ring instead, so a holiday does not read as a booked day. Pure, so it is unit-tested.
++ */
++object CalendarBusy {
++    const val DAY_START_HOUR = 8
++    const val DAY_END_HOUR = 20
++    const val WINDOW_MINUTES = (DAY_END_HOUR - DAY_START_HOUR) * 60
++
++    /** A day with any event shows at least this much arc, so one short meeting is still visible. */
++    const val MIN_SWEEP_DEGREES = 24f
++
++    fun days(
++        first: LocalDate,
++        endExclusive: LocalDate,
++        events: List<CalendarEvent>,
++        zone: ZoneId,
++    ): Map<LocalDate, BusyDay> {
++        val result = LinkedHashMap<LocalDate, BusyDay>()
++        var date = first
++        while (date.isBefore(endExclusive)) {
++            day(date, events, zone)?.let { result[date] = it }
++            date = date.plusDays(1)
++        }
++        return result
++    }
++
++    private fun day(
++        date: LocalDate,
++        events: List<CalendarEvent>,
++        zone: ZoneId,
++    ): BusyDay? {
++        val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
++        val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
++        val windowStart = date.atTime(DAY_START_HOUR, 0).atZone(zone).toInstant().toEpochMilli()
++        val windowEnd = date.atTime(DAY_END_HOUR, 0).atZone(zone).toInstant().toEpochMilli()
++        var count = 0
++        var allDay = false
++        val spans = mutableListOf<LongRange>()
++        events.forEach { event ->
++            if (event.allDay) {
++                // The provider stores all-day events as UTC midnights.
++                val from = utcDate(event.startMillis)
++                val until = utcDate(event.endMillis).let { if (it == from) it.plusDays(1) else it }
++                if (!date.isBefore(from) && date.isBefore(until)) {
++                    count += 1
++                    allDay = true
++                }
++            } else if (event.startMillis < dayEnd && event.endMillis > dayStart) {
++                count += 1
++                val start = maxOf(event.startMillis, windowStart)
++                val end = minOf(event.endMillis, windowEnd)
++                if (end > start) spans += start until end
++            }
++        }
++        if (count == 0) return null
++        return BusyDay(date = date, busyMinutes = (union(spans) / 60_000L).toInt(), allDay = allDay, count = count)
++    }
++
++    private fun union(spans: List<LongRange>): Long {
++        var total = 0L
++        var currentStart = Long.MIN_VALUE
++        var currentEnd = Long.MIN_VALUE
++        spans.sortedBy { it.first }.forEach { span ->
++            val end = span.last + 1
++            if (span.first > currentEnd) {
++                if (currentEnd > currentStart) total += currentEnd - currentStart
++                currentStart = span.first
++                currentEnd = end
++            } else if (end > currentEnd) {
++                currentEnd = end
++            }
++        }
++        if (currentEnd > currentStart) total += currentEnd - currentStart
++        return total
++    }
++
++    private fun utcDate(millis: Long): LocalDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
++
++    /** Arc of the ring in degrees: none for a free day, at least [MIN_SWEEP_DEGREES] for any timed event. */
++    fun sweepDegrees(day: BusyDay?): Float {
++        if (day == null || day.busyMinutes == 0) return 0f
++        return maxOf(MIN_SWEEP_DEGREES, day.fraction * 360f)
++    }
++
++    /** Month grid cells, Monday first: leading blanks, the days, trailing blanks to a whole week. */
++    fun monthCells(month: YearMonth): List<LocalDate?> {
++        val leading = month.atDay(1).dayOfWeek.value - 1
++        val days = (1..month.lengthOfMonth()).map(month::atDay)
++        val cells = List<LocalDate?>(leading) { null } + days
++        val trailing = (7 - cells.size % 7) % 7
++        return cells + List<LocalDate?>(trailing) { null }
++    }
++}
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarRepository.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarRepository.kt
+index 4aec586..246afbf 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarRepository.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarRepository.kt
+@@ -11,6 +11,7 @@ import android.provider.CalendarContract
+ import org.sableos.calendar.CalendarText.t
+ import java.time.Instant
+ import java.time.LocalDate
++import java.time.YearMonth
+ import java.time.ZoneId
+ 
+ data class CalendarEvent(
+@@ -58,6 +59,15 @@ data class CalendarEventDetail(
+         )
+ }
+ 
++/** One calendar on the phone (any account), with its show/hide switch (CalendarContract VISIBLE). */
++data class CalendarSource(
++    val id: Long,
++    val name: String,
++    val account: String,
++    val color: Int,
++    val visible: Boolean,
++)
++
+ data class CalendarSnapshot(
+     val title: String,
+     val detail: String,
+@@ -112,7 +122,8 @@ class CalendarRepository(
+                     .query(
+                         builder.build(),
+                         projection,
+-                        null,
++                        // Only calendars the user shows (Calendars, L): the agenda, rings and Start agree.
++                        CalendarContract.Instances.VISIBLE + "=1",
+                         null,
+                         CalendarContract.Instances.BEGIN + " ASC",
+                     )?.use { cursor ->
+@@ -348,6 +359,56 @@ class CalendarRepository(
+         }
+     }
+ 
++    /** Every calendar of every account on the phone, shown or hidden, by account then name. */
++    fun calendars(): List<CalendarSource> {
++        if (!canRead()) return emptyList()
++        val projection =
++            arrayOf(
++                CalendarContract.Calendars._ID,
++                CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
++                CalendarContract.Calendars.ACCOUNT_NAME,
++                CalendarContract.Calendars.CALENDAR_COLOR,
++                CalendarContract.Calendars.VISIBLE,
++            )
++        return runCatching {
++            buildList {
++                resolver
++                    .query(CalendarContract.Calendars.CONTENT_URI, projection, null, null, null)
++                    ?.use { cursor ->
++                        while (cursor.moveToNext()) {
++                            add(
++                                CalendarSource(
++                                    id = cursor.getLong(0),
++                                    name = cursor.getString(1)?.trim().orEmpty().ifEmpty { t("calendar") },
++                                    account = cursor.getString(2)?.trim().orEmpty(),
++                                    color = cursor.getInt(3),
++                                    visible = cursor.getInt(4) != 0,
++                                ),
++                            )
++                        }
++                    }
++            }.sortedWith(compareBy({ it.account.lowercase() }, { it.name.lowercase() }))
++        }.getOrDefault(emptyList())
++    }
++
++    /** Shows or hides one calendar everywhere that honours VISIBLE (this app, Start, other calendar apps). */
++    fun setVisible(
++        calendarId: Long,
++        visible: Boolean,
++    ): Boolean {
++        if (!canWrite()) return false
++        val values = ContentValues().apply { put(CalendarContract.Calendars.VISIBLE, if (visible) 1 else 0) }
++        val uri = ContentUris.withAppendedId(CalendarContract.Calendars.CONTENT_URI, calendarId)
++        return runCatching { resolver.update(uri, values, null, null) > 0 }.getOrDefault(false)
++    }
++
++    /** Busy days of [month] for the rings, from the shown calendars. */
++    fun busyMonth(month: YearMonth): Map<LocalDate, BusyDay> {
++        val first = month.atDay(1)
++        val end = month.plusMonths(1).atDay(1)
++        return CalendarBusy.days(first, end, range(first, end), ZoneId.systemDefault())
++    }
++
+     private fun firstWritableCalendarId(): Long? {
+         if (!canWrite()) return null
+         val projection = arrayOf(CalendarContract.Calendars._ID)
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt
+index 8c4a65e..ba00a47 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt
+@@ -7,6 +7,8 @@ import android.database.MatrixCursor
+ import android.net.Uri
+ import android.os.Binder
+ import android.os.Process
++import java.time.LocalDate
++import java.time.YearMonth
+ 
+ class CalendarSnapshotProvider : ContentProvider() {
+     override fun onCreate(): Boolean = true
+@@ -20,7 +22,18 @@ class CalendarSnapshotProvider : ContentProvider() {
+     ): Cursor {
+         val appContext = checkNotNull(context)
+         enforceLauncherCaller(appContext)
+-        val snapshot = CalendarRepository(appContext).snapshot()
++        val repository = CalendarRepository(appContext)
++        val cursor =
++            when (uri.lastPathSegment) {
++                PATH_MONTH -> monthCursor(repository)
++                PATH_NEXT -> nextCursor(repository)
++                else -> null
++            }
++        if (cursor != null) {
++            cursor.setNotificationUri(appContext.contentResolver, SNAPSHOT_URI)
++            return cursor
++        }
++        val snapshot = repository.snapshot()
+         return MatrixCursor(COLUMNS).apply {
+             addRow(
+                 arrayOf<Any?>(
+@@ -34,6 +47,29 @@ class CalendarSnapshotProvider : ContentProvider() {
+         }
+     }
+ 
++    /** Start's month widget: one row per busy day of this month (shown calendars only). */
++    private fun monthCursor(repository: CalendarRepository): Cursor =
++        MatrixCursor(MONTH_COLUMNS).apply {
++            val month = YearMonth.now()
++            repository.busyMonth(month).values.forEach { day ->
++                addRow(arrayOf<Any?>(day.date.toString(), day.busyMinutes, if (day.allDay) 1 else 0, day.count))
++            }
++        }
++
++    /** Start's month widget: the next few events of the coming week (title, start, all day). */
++    private fun nextCursor(repository: CalendarRepository): Cursor =
++        MatrixCursor(NEXT_COLUMNS).apply {
++            val now = System.currentTimeMillis()
++            val today = LocalDate.now()
++            repository
++                .range(today, today.plusDays(NEXT_DAYS))
++                .filter { it.endMillis > now }
++                .take(MAX_NEXT)
++                .forEach { event ->
++                    addRow(arrayOf<Any?>(event.title, event.startMillis, if (event.allDay) 1 else 0, event.calendarName))
++                }
++        }
++
+     override fun getType(uri: Uri): String = "vnd.android.cursor.item/vnd.org.sableos.calendar.snapshot"
+ 
+     override fun insert(
+@@ -74,5 +110,11 @@ class CalendarSnapshotProvider : ContentProvider() {
+             Uri.parse("content://org.sableos.calendar.snapshot/current")
+         private val COLUMNS =
+             arrayOf("title", "detail", "availability", "observed_at")
++        const val PATH_MONTH = "month"
++        const val PATH_NEXT = "next"
++        private val MONTH_COLUMNS = arrayOf("date", "busy_minutes", "all_day", "count")
++        private val NEXT_COLUMNS = arrayOf("title", "begin", "all_day", "calendar")
++        private const val NEXT_DAYS = 7L
++        private const val MAX_NEXT = 3
+     }
+ }
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+index 77c8ab9..d7b15a6 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+@@ -72,6 +72,11 @@ object CalendarText {
+             "no_event_this_week_c" to "No event this week. C creates one.",
+             "selected" to "Selected: %1\$s",
+             "enter_open_e_edit_del_2" to "[Enter] open  [E] edit  [Del] delete  [T] today",
++            "calendars" to "Calendars",
++            "calendars_hint" to "Shown calendars fill the agenda, the busy rings and Start's month.",
++            "no_calendars" to "No calendars on this phone yet. Add an account in Settings > Accounts.",
++            "l_calendars" to " · L calendars",
++            "day_events" to "%1\$s, %2\$s events",
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
+index 1f4551e..f34192c 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
+@@ -20,10 +20,11 @@ enum class CalendarScreenKey {
+     Next,
+     Previous,
+     Refresh,
++    Calendars,
+ }
+ 
+ object CalendarScreenKeys {
+-    /** C, T, V, J, K, R; anything with Alt/Ctrl held (a digit or shortcut on the Q25) is left alone. */
++    /** C, T, V, J, K, R, L; anything with Alt/Ctrl held (a digit or shortcut on the Q25) is left alone. */
+     fun action(
+         keyCode: Int,
+         modified: Boolean,
+@@ -38,12 +39,13 @@ object CalendarScreenKeys {
+                 KeyEvent.KEYCODE_J -> CalendarScreenKey.Next
+                 KeyEvent.KEYCODE_K -> CalendarScreenKey.Previous
+                 KeyEvent.KEYCODE_R -> CalendarScreenKey.Refresh
++                KeyEvent.KEYCODE_L -> CalendarScreenKey.Calendars
+                 else -> null
+             }
+         }
+ 
+     /** The hint dock under the agenda and week views; every key named here is mapped above. */
+-    val DOCK: String get() = t("c_create_t_today_v")
++    val DOCK: String get() = t("c_create_t_today_v") + t("l_calendars")
+ }
+ 
+ /** The browsing views V cycles through: agenda (list with detail), week (5 columns), month. */
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt
+new file mode 100644
+index 0000000..3447203
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt
+@@ -0,0 +1,104 @@
++package org.sableos.calendar
++
++import androidx.compose.foundation.background
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.selection.toggleable
++import androidx.compose.foundation.shape.CircleShape
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Switch
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.semantics.Role
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.dp
++import org.sableos.calendar.CalendarText.t
++import org.sableos.design.SableSize
++import org.sableos.design.sableFocusRing
++
++/**
++ * Calendars (L): every calendar of every account on the phone with a show switch. Hidden calendars
++ * leave the agenda, week, month, busy rings and Start's month; the switch is Android's own
++ * CalendarContract VISIBLE flag, so other calendar apps follow it too.
++ */
++@Composable
++internal fun CalendarsList(
++    calendars: List<CalendarSource>,
++    onToggle: (CalendarSource, Boolean) -> Unit,
++) {
++    Text(text = t("calendars"), style = MaterialTheme.typography.headlineMedium)
++    Text(
++        text = t("calendars_hint"),
++        style = MaterialTheme.typography.bodyMedium,
++        color = MaterialTheme.colorScheme.onSurfaceVariant,
++    )
++    Spacer(Modifier.height(12.dp))
++    if (calendars.isEmpty()) {
++        Text(
++            text = t("no_calendars"),
++            style = MaterialTheme.typography.titleMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++        return
++    }
++    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
++        calendars.forEach { source -> CalendarSourceRow(source, onToggle) }
++    }
++}
++
++@Composable
++private fun CalendarSourceRow(
++    source: CalendarSource,
++    onToggle: (CalendarSource, Boolean) -> Unit,
++) {
++    Row(
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .heightIn(min = SableSize.TouchTarget)
++                .sableFocusRing()
++                .toggleable(value = source.visible, role = Role.Switch) { onToggle(source, it) }
++                .padding(vertical = 6.dp),
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        Box(
++            Modifier
++                .size(12.dp)
++                .background(Color(source.color or OPAQUE), CircleShape),
++        )
++        Spacer(Modifier.width(12.dp))
++        Column(Modifier.weight(1f)) {
++            Text(
++                text = source.name,
++                style = MaterialTheme.typography.titleMedium,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++            if (source.account.isNotEmpty()) {
++                Text(
++                    text = source.account,
++                    style = MaterialTheme.typography.bodySmall,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                )
++            }
++        }
++        // The row is the toggle; the switch only shows its state.
++        Switch(checked = source.visible, onCheckedChange = null)
++    }
++}
++
++private const val OPAQUE = -0x1000000
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+index df7712a..c39d5e5 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+@@ -155,6 +155,7 @@ private enum class CalendarMode {
+     NewEvent,
+     Detail,
+     Edit,
++    Calendars,
+ }
+ 
+ /** An agenda event awaiting an explicit delete confirmation. */
+@@ -177,6 +178,10 @@ private class CalendarAppState {
+     var view by mutableStateOf(CalendarView.Agenda)
+     var selectedDate by mutableStateOf(LocalDate.now())
+     var events by mutableStateOf<List<CalendarEvent>>(emptyList())
++
++    // Busy rings for the month holding selectedDate, and the calendars list (L).
++    var busy by mutableStateOf<Map<LocalDate, BusyDay>>(emptyMap())
++    var calendars by mutableStateOf<List<CalendarSource>>(emptyList())
+     var refreshing by mutableStateOf(false)
+ 
+     // Unsaved new event kept while the user backs out to the agenda, restored on re-entry this session.
+@@ -305,6 +310,11 @@ private class CalendarAppState {
+                 onRefresh()
+                 status = t("refreshed")
+             }
++
++            CalendarScreenKey.Calendars -> {
++                status = null
++                mode = CalendarMode.Calendars
++            }
+         }
+         return true
+     }
+@@ -406,6 +416,17 @@ private fun CalendarApp(
+         }
+     }
+ 
++    val shownMonth = YearMonth.from(state.selectedDate)
++    LaunchedEffect(refreshGeneration, shownMonth) {
++        state.busy = withContext(Dispatchers.IO) { repository.busyMonth(shownMonth) }
++    }
++
++    LaunchedEffect(refreshGeneration, state.mode) {
++        if (state.mode == CalendarMode.Calendars) {
++            state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
++        }
++    }
++
+     LaunchedEffect(state.openEvent, refreshGeneration) {
+         val occurrence = state.openEvent ?: return@LaunchedEffect
+         state.onDetailLoaded(withContext(Dispatchers.IO) { repository.event(occurrence) })
+@@ -510,6 +531,10 @@ private fun CalendarModeContent(
+         CalendarMode.Edit -> {
+             EditPane(state, repository, onRefresh)
+         }
++
++        CalendarMode.Calendars -> {
++            CalendarsPane(state, repository, onRefresh)
++        }
+     }
+ }
+ 
+@@ -522,6 +547,7 @@ private fun AgendaPane(state: CalendarAppState) {
+     ApprovedCalendarLanding(
+         selectedDate = state.selectedDate,
+         events = state.events,
++        busy = state.busy,
+         selected = state.openEvent,
+         onSelectDate = { state.selectedDate = it },
+         onOpenMonth = { state.view = CalendarView.Month },
+@@ -548,6 +574,7 @@ private fun MonthPane(state: CalendarAppState) {
+     MonthView(
+         month = YearMonth.from(state.selectedDate),
+         selectedDate = state.selectedDate,
++        busy = state.busy,
+         onSelectDate = { date ->
+             state.selectedDate = date
+             state.view = CalendarView.Agenda
+@@ -556,6 +583,30 @@ private fun MonthPane(state: CalendarAppState) {
+     KeyDock()
+ }
+ 
++@Composable
++private fun CalendarsPane(
++    state: CalendarAppState,
++    repository: CalendarRepository,
++    onRefresh: () -> Unit,
++) {
++    val scope = rememberCoroutineScope()
++    BackToAgenda { state.mode = CalendarMode.Agenda }
++    CalendarsList(
++        calendars = state.calendars,
++        onToggle = { source, visible ->
++            scope.launch {
++                val changed = withContext(Dispatchers.IO) { repository.setVisible(source.id, visible) }
++                if (changed) {
++                    state.calendars = state.calendars.map { if (it.id == source.id) it.copy(visible = visible) else it }
++                    onRefresh()
++                } else {
++                    state.status = t("this_calendar_is_read_only")
++                }
++            }
++        },
++    )
++}
++
+ @Composable
+ private fun NewEventPane(
+     state: CalendarAppState,
+@@ -658,6 +709,7 @@ private fun LoadingLine() {
+ private fun ApprovedCalendarLanding(
+     selectedDate: LocalDate,
+     events: List<CalendarEvent>,
++    busy: Map<LocalDate, BusyDay>,
+     selected: CalendarEvent?,
+     onSelectDate: (LocalDate) -> Unit,
+     onOpenMonth: () -> Unit,
+@@ -694,12 +746,16 @@ private fun ApprovedCalendarLanding(
+         }
+     }
+ 
+-    Spacer(Modifier.height(18.dp))
+-    CalendarWeekStrip(
++    Spacer(Modifier.height(12.dp))
++    // The month with busy rings over the agenda (owner decision 2026-11-04).
++    BusyMonthGrid(
++        month = YearMonth.from(selectedDate),
+         selectedDate = selectedDate,
++        busy = busy,
++        compact = true,
+         onSelectDate = onSelectDate,
+     )
+-    Spacer(Modifier.height(18.dp))
++    Spacer(Modifier.height(12.dp))
+     Text(
+         text = CalendarLabels.dayHeading(selectedDate, LocalDate.now()),
+         style = MaterialTheme.typography.labelLarge,
+@@ -788,56 +844,6 @@ private fun CalendarIdentityMark() {
+     }
+ }
+ 
+-@Composable
+-private fun CalendarWeekStrip(
+-    selectedDate: LocalDate,
+-    onSelectDate: (LocalDate) -> Unit,
+-) {
+-    val monday =
+-        selectedDate.minusDays((selectedDate.dayOfWeek.value - 1).toLong())
+-    Row(
+-        modifier = Modifier.fillMaxWidth(),
+-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+-    ) {
+-        repeat(7) { offset ->
+-            val date = monday.plusDays(offset.toLong())
+-            val selected = date == selectedDate
+-            Column(
+-                modifier =
+-                    Modifier
+-                        .weight(1f)
+-                        .clip(RoundedCornerShape(6.dp))
+-                        .background(
+-                            if (selected) {
+-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+-                            } else {
+-                                MaterialTheme.colorScheme.surface
+-                            },
+-                        ).border(
+-                            1.dp,
+-                            if (selected) {
+-                                MaterialTheme.colorScheme.primary
+-                            } else {
+-                                MaterialTheme.colorScheme.outlineVariant
+-                            },
+-                            RoundedCornerShape(6.dp),
+-                        ).clickable { onSelectDate(date) }
+-                        .padding(vertical = 8.dp),
+-                horizontalAlignment = Alignment.CenterHorizontally,
+-            ) {
+-                Text(
+-                    text = date.dayOfWeek.name.take(1),
+-                    style = MaterialTheme.typography.labelLarge,
+-                )
+-                Text(
+-                    text = date.dayOfMonth.toString(),
+-                    style = MaterialTheme.typography.titleMedium,
+-                )
+-            }
+-        }
+-    }
+-}
+-
+ /** Agenda row: Enter opens the event, E edits, Del asks to delete; focus (or J/K) selects it. */
+ @Composable
+ private fun AgendaEventRow(
+@@ -1089,6 +1095,7 @@ private fun DeleteConfirmDialog(
+ private fun MonthView(
+     month: YearMonth,
+     selectedDate: LocalDate,
++    busy: Map<LocalDate, BusyDay>,
+     onSelectDate: (LocalDate) -> Unit,
+ ) {
+     Text(
+@@ -1101,65 +1108,13 @@ private fun MonthView(
+         style = MaterialTheme.typography.headlineMedium,
+     )
+     Spacer(Modifier.height(SableSpacing.Md))
+-
+-    Row(Modifier.fillMaxWidth()) {
+-        listOf("M", "T", "W", "T", "F", "S", "S").forEach { label ->
+-            Text(
+-                text = label,
+-                modifier = Modifier.weight(1f),
+-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+-            )
+-        }
+-    }
+-    Spacer(Modifier.height(6.dp))
+-
+-    val first = month.atDay(1)
+-    val leading = first.dayOfWeek.value - 1
+-    val cells =
+-        List<LocalDate?>(leading) { null } +
+-            (1..month.lengthOfMonth()).map(month::atDay)
+-
+-    cells.chunked(7).forEach { week ->
+-        Row(
+-            modifier = Modifier.fillMaxWidth(),
+-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+-        ) {
+-            repeat(7) { index ->
+-                val date = week.getOrNull(index)
+-                val selected = date == selectedDate
+-                Box(
+-                    modifier =
+-                        Modifier
+-                            .weight(1f)
+-                            .height(46.dp)
+-                            .clickable(enabled = date != null) {
+-                                date?.let(onSelectDate)
+-                            }.background(
+-                                if (selected) {
+-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+-                                } else {
+-                                    MaterialTheme.colorScheme.surface
+-                                },
+-                                RoundedCornerShape(5.dp),
+-                            ),
+-                    contentAlignment = Alignment.Center,
+-                ) {
+-                    date?.let {
+-                        Text(
+-                            text = it.dayOfMonth.toString(),
+-                            color =
+-                                if (selected) {
+-                                    MaterialTheme.colorScheme.primary
+-                                } else {
+-                                    MaterialTheme.colorScheme.onSurface
+-                                },
+-                        )
+-                    }
+-                }
+-            }
+-        }
+-        Spacer(Modifier.height(4.dp))
+-    }
++    BusyMonthGrid(
++        month = month,
++        selectedDate = selectedDate,
++        busy = busy,
++        compact = false,
++        onSelectDate = onSelectDate,
++    )
+ }
+ 
+ /** New-event and edit-event form. [onSave] runs the provider write and reports success. */
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
+index dc15640..fdcab92 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">لا أحداث هذا الأسبوع. C ينشئ حدثاً.</string>
+     <string name="selected">المحدد: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] فتح  [E] تعديل  [Del] حذف  [T] اليوم"</string>
++    <string name="calendars">التقويمات</string>
++    <string name="calendars_hint">التقويمات المعروضة تملأ جدول الأعمال وحلقات الانشغال وشهر Start.</string>
++    <string name="no_calendars">لا توجد تقويمات على هذا الهاتف بعد. أضف حسابًا من الإعدادات > الحسابات.</string>
++    <string name="l_calendars">" · L التقويمات"</string>
++    <string name="day_events">%1$s، %2$s أحداث</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
+index 8dddd12..d5b786f 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">Kein Termin diese Woche. C erstellt einen.</string>
+     <string name="selected">Ausgewählt: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] öffnen  [E] bearbeiten  [Del] löschen  [T] heute"</string>
++    <string name="calendars">Kalender</string>
++    <string name="calendars_hint">Angezeigte Kalender füllen die Agenda, die Belegungsringe und den Monat in Start.</string>
++    <string name="no_calendars">Noch keine Kalender auf diesem Telefon. Füge ein Konto unter Einstellungen > Konten hinzu.</string>
++    <string name="l_calendars">" · L Kalender"</string>
++    <string name="day_events">%1$s, %2$s Termine</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
+index cb1a06d..5481e34 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">Κανένα συμβάν αυτή την εβδομάδα. Το C δημιουργεί ένα.</string>
+     <string name="selected">Επιλεγμένο: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] άνοιγμα  [E] επεξεργασία  [Del] διαγραφή  [T] σήμερα"</string>
++    <string name="calendars">Ημερολόγια</string>
++    <string name="calendars_hint">Τα εμφανιζόμενα ημερολόγια γεμίζουν την ατζέντα, τους δακτυλίους φόρτου και τον μήνα του Start.</string>
++    <string name="no_calendars">Δεν υπάρχουν ακόμη ημερολόγια σε αυτό το τηλέφωνο. Προσθέστε λογαριασμό στις Ρυθμίσεις > Λογαριασμοί.</string>
++    <string name="l_calendars">" · L ημερολόγια"</string>
++    <string name="day_events">%1$s, %2$s συμβάντα</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
+index e4f6811..10aaa34 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">No hay eventos esta semana. C crea uno.</string>
+     <string name="selected">Seleccionado: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] abrir  [E] editar  [Del] eliminar  [T] hoy"</string>
++    <string name="calendars">Calendarios</string>
++    <string name="calendars_hint">Los calendarios visibles llenan la agenda, los anillos de ocupación y el mes de Start.</string>
++    <string name="no_calendars">Aún no hay calendarios en este teléfono. Añade una cuenta en Ajustes > Cuentas.</string>
++    <string name="l_calendars">" · L calendarios"</string>
++    <string name="day_events">%1$s, %2$s eventos</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
+index a79ac4e..3f4d08b 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">Aucun événement cette semaine. C en crée un.</string>
+     <string name="selected">Sélectionné : %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] ouvrir  [E] modifier  [Del] supprimer  [T] aujourd’hui"</string>
++    <string name="calendars">Agendas</string>
++    <string name="calendars_hint">Les agendas affichés remplissent l’agenda, les anneaux d’occupation et le mois de Start.</string>
++    <string name="no_calendars">Aucun agenda sur ce téléphone. Ajoutez un compte dans Paramètres > Comptes.</string>
++    <string name="l_calendars">" · L agendas"</string>
++    <string name="day_events">%1$s, %2$s événements</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
+index 8d663ac..bc9a3c1 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">इस सप्ताह कोई इवेंट नहीं है। C एक बनाता है।</string>
+     <string name="selected">चयनित: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] खोलें  [E] संपादित करें  [Del] हटाएँ  [T] आज"</string>
++    <string name="calendars">कैलेंडर</string>
++    <string name="calendars_hint">दिखाए गए कैलेंडर एजेंडा, व्यस्तता रिंग और Start के महीने को भरते हैं।</string>
++    <string name="no_calendars">इस फ़ोन पर अभी कोई कैलेंडर नहीं है। सेटिंग > खाते में खाता जोड़ें।</string>
++    <string name="l_calendars">" · L कैलेंडर"</string>
++    <string name="day_events">%1$s, %2$s इवेंट</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
+index fbffc57..e386427 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">Nessun evento questa settimana. C ne crea uno.</string>
+     <string name="selected">Selezionato: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] apri  [E] modifica  [Del] elimina  [T] oggi"</string>
++    <string name="calendars">Calendari</string>
++    <string name="calendars_hint">I calendari mostrati riempiono l’agenda, gli anelli di impegno e il mese di Start.</string>
++    <string name="no_calendars">Ancora nessun calendario su questo telefono. Aggiungi un account in Impostazioni > Account.</string>
++    <string name="l_calendars">" · L calendari"</string>
++    <string name="day_events">%1$s, %2$s eventi</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
+index 3248b77..b82bfaf 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">אין אירועים השבוע. C יוצר אירוע.</string>
+     <string name="selected">נבחר: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] פתיחה  [E] עריכה  [Del] מחיקה  [T] היום"</string>
++    <string name="calendars">יומנים</string>
++    <string name="calendars_hint">היומנים המוצגים ממלאים את סדר היום, טבעות העומס ואת החודש ב-Start.</string>
++    <string name="no_calendars">עדיין אין יומנים בטלפון הזה. אפשר להוסיף חשבון בהגדרות > חשבונות.</string>
++    <string name="l_calendars">" · L יומנים"</string>
++    <string name="day_events">%1$s, %2$s אירועים</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
+index fd674c0..4b18d4d 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">今週の予定はありません。C で作成します。</string>
+     <string name="selected">選択中: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] 開く  [E] 編集  [Del] 削除  [T] 今日"</string>
++    <string name="calendars">カレンダー</string>
++    <string name="calendars_hint">表示中のカレンダーが予定リスト、予定リング、Start の月表示に使われます。</string>
++    <string name="no_calendars">このスマートフォンにはまだカレンダーがありません。設定 > アカウントでアカウントを追加してください。</string>
++    <string name="l_calendars">" · L カレンダー"</string>
++    <string name="day_events">%1$s、予定 %2$s 件</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
+index f348ae7..3c5376e 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">이번 주 일정이 없습니다. C로 만듭니다.</string>
+     <string name="selected">선택됨: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] 열기  [E] 편집  [Del] 삭제  [T] 오늘"</string>
++    <string name="calendars">캘린더</string>
++    <string name="calendars_hint">표시된 캘린더가 일정 목록, 바쁨 링, Start의 월 보기에 사용됩니다.</string>
++    <string name="no_calendars">이 휴대전화에 아직 캘린더가 없습니다. 설정 > 계정에서 계정을 추가하세요.</string>
++    <string name="l_calendars">" · L 캘린더"</string>
++    <string name="day_events">%1$s, 일정 %2$s개</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
+index 636942d..73f15bc 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">Geen afspraak deze week. C maakt er een.</string>
+     <string name="selected">Geselecteerd: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] openen  [E] bewerken  [Del] verwijderen  [T] vandaag"</string>
++    <string name="calendars">Agenda\'s</string>
++    <string name="calendars_hint">Getoonde agenda\'s vullen de agenda, de drukte-ringen en de maand in Start.</string>
++    <string name="no_calendars">Nog geen agenda\'s op deze telefoon. Voeg een account toe via Instellingen > Accounts.</string>
++    <string name="l_calendars">" · L agenda\'s"</string>
++    <string name="day_events">%1$s, %2$s afspraken</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
+index a973834..5a6056a 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">Brak wydarzeń w tym tygodniu. C tworzy nowe.</string>
+     <string name="selected">Wybrano: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] otwórz  [E] edytuj  [Del] usuń  [T] dziś"</string>
++    <string name="calendars">Kalendarze</string>
++    <string name="calendars_hint">Widoczne kalendarze wypełniają agendę, pierścienie zajętości i miesiąc w Start.</string>
++    <string name="no_calendars">Na tym telefonie nie ma jeszcze kalendarzy. Dodaj konto w Ustawienia > Konta.</string>
++    <string name="l_calendars">" · L kalendarze"</string>
++    <string name="day_events">%1$s, wydarzenia: %2$s</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
+index 01f238c..e99fbda 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">Nenhum evento esta semana. C cria um.</string>
+     <string name="selected">Selecionado: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] abrir  [E] editar  [Del] excluir  [T] hoje"</string>
++    <string name="calendars">Agendas</string>
++    <string name="calendars_hint">As agendas visíveis preenchem a lista de eventos, os anéis de ocupação e o mês do Start.</string>
++    <string name="no_calendars">Ainda não há agendas neste telefone. Adicione uma conta em Definições > Contas.</string>
++    <string name="l_calendars">" · L agendas"</string>
++    <string name="day_events">%1$s, %2$s eventos</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
+index ff79a47..40a6b43 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">На этой неделе событий нет. C создаёт событие.</string>
+     <string name="selected">Выбрано: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] открыть  [E] изменить  [Del] удалить  [T] сегодня"</string>
++    <string name="calendars">Календари</string>
++    <string name="calendars_hint">Показанные календари заполняют список дел, кольца занятости и месяц в Start.</string>
++    <string name="no_calendars">На этом телефоне пока нет календарей. Добавьте аккаунт в Настройки > Аккаунты.</string>
++    <string name="l_calendars">" · L календари"</string>
++    <string name="day_events">%1$s, событий: %2$s</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
+index 5ba13d2..debfde9 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">Ingen händelse den här veckan. C skapar en.</string>
+     <string name="selected">Vald: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] öppna  [E] redigera  [Del] ta bort  [T] idag"</string>
++    <string name="calendars">Kalendrar</string>
++    <string name="calendars_hint">Visade kalendrar fyller agendan, upptagetringarna och månaden i Start.</string>
++    <string name="no_calendars">Inga kalendrar på telefonen än. Lägg till ett konto under Inställningar > Konton.</string>
++    <string name="l_calendars">" · L kalendrar"</string>
++    <string name="day_events">%1$s, %2$s händelser</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
+index 36622d3..c7e0a30 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">Bu hafta etkinlik yok. C bir tane oluşturur.</string>
+     <string name="selected">Seçili: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] aç  [E] düzenle  [Del] sil  [T] bugün"</string>
++    <string name="calendars">Takvimler</string>
++    <string name="calendars_hint">Gösterilen takvimler ajandayı, yoğunluk halkalarını ve Start\'taki ayı doldurur.</string>
++    <string name="no_calendars">Bu telefonda henüz takvim yok. Ayarlar > Hesaplar\'dan bir hesap ekleyin.</string>
++    <string name="l_calendars">" · L takvimler"</string>
++    <string name="day_events">%1$s, %2$s etkinlik</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
+index 3fd7731..8efc266 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">اس ہفتے کوئی تقریب نہیں۔ C ایک بناتا ہے۔</string>
+     <string name="selected">منتخب: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] کھولیں  [E] ترمیم  [Del] حذف  [T] آج"</string>
++    <string name="calendars">کیلنڈر</string>
++    <string name="calendars_hint">دکھائے گئے کیلنڈر ایجنڈا، مصروفیت کے حلقے اور Start کا مہینہ بھرتے ہیں۔</string>
++    <string name="no_calendars">اس فون پر ابھی کوئی کیلنڈر نہیں۔ ترتیبات > اکاؤنٹس میں اکاؤنٹ شامل کریں۔</string>
++    <string name="l_calendars">" · L کیلنڈر"</string>
++    <string name="day_events">%1$s، %2$s ایونٹس</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
+index cafd524..d523eaa 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
+@@ -57,4 +57,9 @@
+     <string name="no_event_this_week_c">本周没有日程。按 C 创建。</string>
+     <string name="selected">已选择：%1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] 打开  [E] 编辑  [Del] 删除  [T] 今天"</string>
++    <string name="calendars">日历</string>
++    <string name="calendars_hint">显示的日历会用于日程、忙碌圆环和 Start 的月视图。</string>
++    <string name="no_calendars">此手机上还没有日历。请在“设置 > 帐号”中添加帐号。</string>
++    <string name="l_calendars">" · L 日历"</string>
++    <string name="day_events">%1$s，%2$s 个活动</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+index 3b2dedb..70b59cd 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+@@ -59,4 +59,9 @@
+     <string name="no_event_this_week_c">No event this week. C creates one.</string>
+     <string name="selected">Selected: %1$s</string>
+     <string name="enter_open_e_edit_del_2">"[Enter] open  [E] edit  [Del] delete  [T] today"</string>
++    <string name="calendars">Calendars</string>
++    <string name="calendars_hint">Shown calendars fill the agenda, the busy rings and Start\'s month.</string>
++    <string name="no_calendars">No calendars on this phone yet. Add an account in Settings > Accounts.</string>
++    <string name="l_calendars">" · L calendars"</string>
++    <string name="day_events">%1$s, %2$s events</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarBusyTest.kt b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarBusyTest.kt
+new file mode 100644
+index 0000000..c425504
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarBusyTest.kt
+@@ -0,0 +1,102 @@
++package org.sableos.calendar
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import java.time.LocalDate
++import java.time.LocalDateTime
++import java.time.YearMonth
++import java.time.ZoneOffset
++
++class CalendarBusyTest {
++    private val zone = ZoneOffset.UTC
++    private val day = LocalDate.of(2026, 11, 4)
++
++    private fun timed(
++        id: Long,
++        start: LocalDateTime,
++        minutes: Long,
++    ) = CalendarEvent(
++        id = id,
++        title = "E$id",
++        startMillis = start.toInstant(zone).toEpochMilli(),
++        endMillis = start.plusMinutes(minutes).toInstant(zone).toEpochMilli(),
++        allDay = false,
++        calendarName = "Work",
++    )
++
++    private fun allDay(
++        id: Long,
++        from: LocalDate,
++        days: Long,
++    ) = CalendarEvent(
++        id = id,
++        title = "A$id",
++        startMillis = from.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
++        endMillis = from.plusDays(days).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
++        allDay = true,
++        calendarName = "Holidays",
++    )
++
++    @Test
++    fun overlappingEventsCountOnce() {
++        val events =
++            listOf(
++                timed(1, day.atTime(9, 0), 60),
++                timed(2, day.atTime(9, 30), 60),
++                timed(3, day.atTime(14, 0), 30),
++            )
++        val busy = CalendarBusy.days(day, day.plusDays(1), events, zone).getValue(day)
++        assertEquals(120, busy.busyMinutes)
++        assertEquals(3, busy.count)
++        assertFalse(busy.allDay)
++        assertEquals(120f / 720f, busy.fraction, 0.0001f)
++    }
++
++    @Test
++    fun onlyTheWakingWindowCountsAndNightEventsStillShow() {
++        val events = listOf(timed(1, day.atTime(6, 0), 180), timed(2, day.atTime(22, 0), 60))
++        val busy = CalendarBusy.days(day, day.plusDays(1), events, zone).getValue(day)
++        assertEquals(60, busy.busyMinutes)
++        assertEquals(2, busy.count)
++    }
++
++    @Test
++    fun multiDayEventsSplitAcrossDays() {
++        val events = listOf(timed(1, day.atTime(18, 0), 18 * 60))
++        val busy = CalendarBusy.days(day, day.plusDays(2), events, zone)
++        assertEquals(120, busy.getValue(day).busyMinutes)
++        assertEquals(240, busy.getValue(day.plusDays(1)).busyMinutes)
++    }
++
++    @Test
++    fun allDayEventsMarkTheirDaysWithoutBookingThem() {
++        val events = listOf(allDay(1, day, 2))
++        val busy = CalendarBusy.days(day, day.plusDays(3), events, zone)
++        assertTrue(busy.getValue(day).allDay)
++        assertTrue(busy.getValue(day.plusDays(1)).allDay)
++        assertEquals(0, busy.getValue(day).busyMinutes)
++        assertNull(busy[day.plusDays(2)])
++        assertEquals(0f, CalendarBusy.sweepDegrees(busy.getValue(day)))
++    }
++
++    @Test
++    fun freeDaysHaveNoRingAndShortMeetingsStillShow() {
++        assertEquals(0f, CalendarBusy.sweepDegrees(null))
++        val short = CalendarBusy.days(day, day.plusDays(1), listOf(timed(1, day.atTime(10, 0), 15)), zone).getValue(day)
++        assertEquals(CalendarBusy.MIN_SWEEP_DEGREES, CalendarBusy.sweepDegrees(short))
++        val full = CalendarBusy.days(day, day.plusDays(1), listOf(timed(1, day.atTime(7, 0), 14 * 60)), zone).getValue(day)
++        assertEquals(360f, CalendarBusy.sweepDegrees(full))
++    }
++
++    @Test
++    fun monthCellsStartOnMondayAndFillWholeWeeks() {
++        val cells = CalendarBusy.monthCells(YearMonth.of(2026, 11))
++        assertEquals(0, cells.size % 7)
++        assertEquals(6, cells.indexOf(LocalDate.of(2026, 11, 1)))
++        assertEquals(LocalDate.of(2026, 11, 30), cells.filterNotNull().last())
++        assertEquals(42, cells.size)
++    }
++}
+diff --git a/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarWeekTest.kt b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarWeekTest.kt
+index 750aab3..6ee782a 100644
+--- a/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarWeekTest.kt
++++ b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarWeekTest.kt
+@@ -51,7 +51,7 @@ class CalendarWeekTest {
+ 
+     @Test
+     fun dockNamesEveryScreenKey() {
+-        listOf("C create", "T today", "V view", "J/K event", "R refresh").forEach {
++        listOf("C create", "T today", "V view", "J/K event", "R refresh", "L calendars").forEach {
+             assertTrue(it, CalendarScreenKeys.DOCK.contains(it))
+         }
+     }
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+index a2efe64..756a9fc 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+@@ -59,6 +59,7 @@ val canonicalPresentationSources =
+         "com/sable/start/model/LetterShortcuts.kt",
+         "com/sable/start/model/QuickBar.kt",
+         "com/sable/start/model/SpeedDial.kt",
++        "com/sable/start/model/StartMonth.kt",
+         "com/sable/start/model/StartText.kt",
+         "com/sable/start/platform/DeviceStatsSampler.kt",
+         "com/sable/start/platform/LetterShortcutRepository.kt",
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
+index b51224a..90abf2b 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
+@@ -80,7 +80,7 @@ class HomeLayoutTest {
+ 
+     @Test
+     fun glanceDefaultsAreWeatherCalendarBatteryMedia() {
+-        assertEquals(listOf("weather", "calendar", "battery", "media"), GlanceWidgets.normalize(null))
++        assertEquals(listOf("month", "weather", "battery", "media"), GlanceWidgets.normalize(null))
+         assertEquals(listOf("media", "weather"), GlanceWidgets.normalize(listOf("media", "bogus", "weather", "media")))
+         assertEquals(emptyList<String>(), GlanceWidgets.normalize(emptyList()))
+     }
+@@ -88,9 +88,9 @@ class HomeLayoutTest {
+     @Test
+     fun glanceWidgetsHideAndShow() {
+         val shown = GlanceWidgets.toggle(GlanceWidgets.DEFAULT, GlanceWidgets.BATTERY)
+-        assertEquals(listOf("weather", "calendar", "media"), shown)
++        assertEquals(listOf("month", "weather", "media"), shown)
+         assertEquals(
+-            listOf("weather", "calendar", "media", "battery"),
++            listOf("month", "weather", "media", "battery"),
+             GlanceWidgets.toggle(shown, GlanceWidgets.BATTERY),
+         )
+         assertEquals(shown, GlanceWidgets.toggle(shown, "bogus"))
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartMonthTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartMonthTest.kt
+new file mode 100644
+index 0000000..52e8283
+--- /dev/null
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartMonthTest.kt
+@@ -0,0 +1,44 @@
++package org.sableos.start.model
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import java.time.LocalDate
++import java.time.YearMonth
++
++class StartMonthTest {
++    @Test
++    fun ringsFollowBookedMinutesWithAFloor() {
++        assertEquals(0f, StartMonth.sweepDegrees(0))
++        assertEquals(StartMonth.MIN_SWEEP_DEGREES, StartMonth.sweepDegrees(10))
++        assertEquals(180f, StartMonth.sweepDegrees(360))
++        assertEquals(360f, StartMonth.sweepDegrees(2000))
++    }
++
++    @Test
++    fun cellsStartOnMondayInWholeWeeks() {
++        val cells = StartMonth.cells(YearMonth.of(2026, 11))
++        assertEquals(42, cells.size)
++        assertEquals(LocalDate.of(2026, 11, 1), cells[6])
++        assertEquals(35, StartMonth.cells(YearMonth.of(2026, 12)).size)
++    }
++
++    @Test
++    fun upcomingDaysSayTodayTomorrowOrTheWeekday() {
++        val today = LocalDate.of(2026, 11, 4)
++        val words = "Today" to "Tomorrow"
++        val weekday: (LocalDate) -> String = { it.dayOfWeek.name }
++        assertEquals("Today", StartMonth.dayWord(today, today, weekday, words))
++        assertEquals("Tomorrow", StartMonth.dayWord(today.plusDays(1), today, weekday, words))
++        assertEquals("FRIDAY", StartMonth.dayWord(today.plusDays(2), today, weekday, words))
++    }
++
++    @Test
++    fun theMonthFrameGetsAWholeRow() {
++        val rows = GlanceWidgets.rows(listOf("weather", "month", "battery", "media", "hub"), 2)
++        assertEquals(listOf(listOf("weather"), listOf("month"), listOf("battery", "media"), listOf("hub")), rows)
++        assertEquals(
++            listOf(listOf("month"), listOf("weather", "battery"), listOf("media")),
++            GlanceWidgets.rows(GlanceWidgets.DEFAULT, 2),
++        )
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/Android.bp b/sable-src/src/android/packages/apps/SableStart/Android.bp
+index 237d60a..0a68852 100644
+--- a/sable-src/src/android/packages/apps/SableStart/Android.bp
++++ b/sable-src/src/android/packages/apps/SableStart/Android.bp
+@@ -19,6 +19,7 @@ filegroup {
+         "src/com/sable/start/model/LetterShortcuts.kt",
+         "src/com/sable/start/model/QuickBar.kt",
+         "src/com/sable/start/model/SpeedDial.kt",
++        "src/com/sable/start/model/StartMonth.kt",
+         "src/com/sable/start/model/StartText.kt",
+         "src/com/sable/start/platform/DeviceStatsSampler.kt",
+         "src/com/sable/start/platform/LetterShortcutRepository.kt",
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index 7ab09e2..4b18e77 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">اختصار الضغط المطوّل</string>
+     <string name="letter_shortcut_current">اختصار الضغط المطوّل: %1$s</string>
+     <string name="letter_shortcut_press">اضغط الحرف الذي ستضغط عليه مطوّلًا في الشاشة الرئيسية لفتح هذا التطبيق. مفتاح الحذف يزيله. يحلّ محلّ الاتصال السريع على الحرف نفسه.</string>
++    <string name="month">الشهر</string>
++    <string name="month_free">لا شيء خلال الأيام السبعة القادمة</string>
++    <string name="month_today">اليوم</string>
++    <string name="month_tomorrow">غدًا</string>
++    <string name="month_all_day">طوال اليوم</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index f938faf..a1850cd 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">Tastenkürzel (halten)</string>
+     <string name="letter_shortcut_current">Tastenkürzel (halten): %1$s</string>
+     <string name="letter_shortcut_press">Drücke den Buchstaben, der auf dem Startbildschirm gehalten diese App öffnet. Rücktaste entfernt ihn. Er ersetzt eine Kurzwahl auf demselben Buchstaben.</string>
++    <string name="month">Monat</string>
++    <string name="month_free">Nichts in den nächsten 7 Tagen</string>
++    <string name="month_today">Heute</string>
++    <string name="month_tomorrow">Morgen</string>
++    <string name="month_all_day">ganztägig</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index 6e69c02..fc1e936 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">Συντόμευση παρατεταμένου πλήκτρου</string>
+     <string name="letter_shortcut_current">Συντόμευση παρατεταμένου πλήκτρου: %1$s</string>
+     <string name="letter_shortcut_press">Πάτησε το γράμμα που θα κρατάς πατημένο στην Αρχική για να ανοίγει αυτή η εφαρμογή. Το Backspace το αφαιρεί. Αντικαθιστά τη γρήγορη κλήση στο ίδιο γράμμα.</string>
++    <string name="month">Μήνας</string>
++    <string name="month_free">Τίποτα τις επόμενες 7 ημέρες</string>
++    <string name="month_today">Σήμερα</string>
++    <string name="month_tomorrow">Αύριο</string>
++    <string name="month_all_day">ολοήμερο</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index c6fe92b..16037b3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">Atajo al mantener una tecla</string>
+     <string name="letter_shortcut_current">Atajo al mantener una tecla: %1$s</string>
+     <string name="letter_shortcut_press">Pulsa la letra que mantendrás pulsada en Inicio para abrir esta app. Retroceso la quita. Sustituye a una marcación rápida en la misma letra.</string>
++    <string name="month">Mes</string>
++    <string name="month_free">Nada en los próximos 7 días</string>
++    <string name="month_today">Hoy</string>
++    <string name="month_tomorrow">Mañana</string>
++    <string name="month_all_day">todo el día</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index 068b28a..760ecff 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">Raccourci par appui long</string>
+     <string name="letter_shortcut_current">Raccourci par appui long : %1$s</string>
+     <string name="letter_shortcut_press">Appuyez sur la lettre à maintenir sur l\'accueil pour ouvrir cette appli. Retour arrière la supprime. Elle remplace une numérotation rapide sur la même lettre.</string>
++    <string name="month">Mois</string>
++    <string name="month_free">Rien dans les 7 prochains jours</string>
++    <string name="month_today">Aujourd’hui</string>
++    <string name="month_tomorrow">Demain</string>
++    <string name="month_all_day">toute la journée</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index fd30c78..877a437 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">देर तक दबाने का शॉर्टकट</string>
+     <string name="letter_shortcut_current">देर तक दबाने का शॉर्टकट: %1$s</string>
+     <string name="letter_shortcut_press">होम पर जिस अक्षर को दबाए रखने से यह ऐप खुले, वह अक्षर दबाएँ। Backspace इसे हटाता है। यह उसी अक्षर के स्पीड डायल की जगह ले लेता है।</string>
++    <string name="month">महीना</string>
++    <string name="month_free">अगले 7 दिनों में कुछ नहीं</string>
++    <string name="month_today">आज</string>
++    <string name="month_tomorrow">कल</string>
++    <string name="month_all_day">पूरे दिन</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index 3ff755e..122713c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">Scorciatoia a tasto premuto</string>
+     <string name="letter_shortcut_current">Scorciatoia a tasto premuto: %1$s</string>
+     <string name="letter_shortcut_press">Premi la lettera da tenere premuta nella Home per aprire questa app. Backspace la rimuove. Sostituisce una selezione rapida sulla stessa lettera.</string>
++    <string name="month">Mese</string>
++    <string name="month_free">Niente nei prossimi 7 giorni</string>
++    <string name="month_today">Oggi</string>
++    <string name="month_tomorrow">Domani</string>
++    <string name="month_all_day">tutto il giorno</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index 921bd0f..aa58847 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">קיצור בלחיצה ארוכה</string>
+     <string name="letter_shortcut_current">קיצור בלחיצה ארוכה: %1$s</string>
+     <string name="letter_shortcut_press">הקש את האות שתחזיק במסך הבית כדי לפתוח את האפליקציה הזו. מקש המחיקה מסיר אותה. היא מחליפה חיוג מהיר על אותה אות.</string>
++    <string name="month">חודש</string>
++    <string name="month_free">אין כלום ב-7 הימים הבאים</string>
++    <string name="month_today">היום</string>
++    <string name="month_tomorrow">מחר</string>
++    <string name="month_all_day">כל היום</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index bc22d72..35656d2 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">長押しショートカット</string>
+     <string name="letter_shortcut_current">長押しショートカット: %1$s</string>
+     <string name="letter_shortcut_press">ホームで長押しするとこのアプリを開く文字キーを押してください。Backspaceで解除します。同じ文字のクイックダイヤルは置き換えられます。</string>
++    <string name="month">月</string>
++    <string name="month_free">今後7日間の予定はありません</string>
++    <string name="month_today">今日</string>
++    <string name="month_tomorrow">明日</string>
++    <string name="month_all_day">終日</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index ebd847e..6ba1646 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">길게 누르기 단축키</string>
+     <string name="letter_shortcut_current">길게 누르기 단축키: %1$s</string>
+     <string name="letter_shortcut_press">홈에서 길게 누르면 이 앱이 열리도록 할 글자 키를 누르세요. Backspace로 해제합니다. 같은 글자의 단축 다이얼을 대체합니다.</string>
++    <string name="month">월</string>
++    <string name="month_free">앞으로 7일 동안 일정 없음</string>
++    <string name="month_today">오늘</string>
++    <string name="month_tomorrow">내일</string>
++    <string name="month_all_day">종일</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index b71e476..30ac977 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">Snelkoppeling bij ingedrukt houden</string>
+     <string name="letter_shortcut_current">Snelkoppeling bij ingedrukt houden: %1$s</string>
+     <string name="letter_shortcut_press">Druk op de letter die je op Start ingedrukt houdt om deze app te openen. Backspace verwijdert hem. Hij vervangt een snelkeuze op dezelfde letter.</string>
++    <string name="month">Maand</string>
++    <string name="month_free">Niets in de komende 7 dagen</string>
++    <string name="month_today">Vandaag</string>
++    <string name="month_tomorrow">Morgen</string>
++    <string name="month_all_day">hele dag</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index e64c717..920c14d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">Skrót przez przytrzymanie</string>
+     <string name="letter_shortcut_current">Skrót przez przytrzymanie: %1$s</string>
+     <string name="letter_shortcut_press">Naciśnij literę, którą przytrzymasz na ekranie głównym, aby otworzyć tę aplikację. Backspace ją usuwa. Zastępuje szybkie wybieranie na tej samej literze.</string>
++    <string name="month">Miesiąc</string>
++    <string name="month_free">Nic w ciągu najbliższych 7 dni</string>
++    <string name="month_today">Dziś</string>
++    <string name="month_tomorrow">Jutro</string>
++    <string name="month_all_day">cały dzień</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index 1e6cab0..3ada22b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">Atalho por tecla pressionada</string>
+     <string name="letter_shortcut_current">Atalho por tecla pressionada: %1$s</string>
+     <string name="letter_shortcut_press">Pressione a letra que você vai manter pressionada no início para abrir este app. Backspace remove. Ela substitui uma discagem rápida na mesma letra.</string>
++    <string name="month">Mês</string>
++    <string name="month_free">Nada nos próximos 7 dias</string>
++    <string name="month_today">Hoje</string>
++    <string name="month_tomorrow">Amanhã</string>
++    <string name="month_all_day">dia inteiro</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 291dbc0..38d912f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">Ярлык по удержанию клавиши</string>
+     <string name="letter_shortcut_current">Ярлык по удержанию клавиши: %1$s</string>
+     <string name="letter_shortcut_press">Нажмите букву, удержание которой на главном экране откроет это приложение. Backspace удаляет её. Заменяет быстрый набор на той же букве.</string>
++    <string name="month">Месяц</string>
++    <string name="month_free">Ничего в ближайшие 7 дней</string>
++    <string name="month_today">Сегодня</string>
++    <string name="month_tomorrow">Завтра</string>
++    <string name="month_all_day">весь день</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 033e5a6..6f010a4 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">Genväg med nedhållen tangent</string>
+     <string name="letter_shortcut_current">Genväg med nedhållen tangent: %1$s</string>
+     <string name="letter_shortcut_press">Tryck på bokstaven som du håller nere på startskärmen för att öppna den här appen. Backsteg tar bort den. Den ersätter en snabbuppringning på samma bokstav.</string>
++    <string name="month">Månad</string>
++    <string name="month_free">Inget de närmaste 7 dagarna</string>
++    <string name="month_today">I dag</string>
++    <string name="month_tomorrow">I morgon</string>
++    <string name="month_all_day">heldag</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index fe1df7b..5235ea0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">Basılı tutma kısayolu</string>
+     <string name="letter_shortcut_current">Basılı tutma kısayolu: %1$s</string>
+     <string name="letter_shortcut_press">Ana ekranda basılı tutunca bu uygulamayı açacak harfe basın. Backspace kaldırır. Aynı harfteki hızlı aramanın yerini alır.</string>
++    <string name="month">Ay</string>
++    <string name="month_free">Önümüzdeki 7 günde etkinlik yok</string>
++    <string name="month_today">Bugün</string>
++    <string name="month_tomorrow">Yarın</string>
++    <string name="month_all_day">tüm gün</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index b93c49f..2e61c48 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">دیر تک دبانے کا شارٹ کٹ</string>
+     <string name="letter_shortcut_current">دیر تک دبانے کا شارٹ کٹ: %1$s</string>
+     <string name="letter_shortcut_press">ہوم پر وہ حرف دبائیں جسے دبائے رکھنے سے یہ ایپ کھلے۔ Backspace اسے ہٹاتا ہے۔ یہ اسی حرف پر اسپیڈ ڈائل کی جگہ لے لیتا ہے۔</string>
++    <string name="month">مہینہ</string>
++    <string name="month_free">اگلے 7 دنوں میں کچھ نہیں</string>
++    <string name="month_today">آج</string>
++    <string name="month_tomorrow">کل</string>
++    <string name="month_all_day">پورا دن</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 8fd9e3c..c9c40f9 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -248,4 +248,9 @@
+     <string name="letter_shortcut">长按快捷键</string>
+     <string name="letter_shortcut_current">长按快捷键：%1$s</string>
+     <string name="letter_shortcut_press">请按下要在主屏幕长按的字母，用来打开此应用。退格键可清除。它会取代同一字母上的快速拨号。</string>
++    <string name="month">月份</string>
++    <string name="month_free">未来 7 天没有安排</string>
++    <string name="month_today">今天</string>
++    <string name="month_tomorrow">明天</string>
++    <string name="month_all_day">全天</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 17f641d..2abdc3b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -252,4 +252,9 @@
+     <string name="letter_shortcut">Hold-key shortcut</string>
+     <string name="letter_shortcut_current">Hold-key shortcut: %1$s</string>
+     <string name="letter_shortcut_press">Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.</string>
++    <string name="month">Month</string>
++    <string name="month_free">Nothing in the next 7 days</string>
++    <string name="month_today">Today</string>
++    <string name="month_tomorrow">Tomorrow</string>
++    <string name="month_all_day">all day</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/live/LiveSurfaceModels.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/live/LiveSurfaceModels.kt
+index ac3b836..fb80bd3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/live/LiveSurfaceModels.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/live/LiveSurfaceModels.kt
+@@ -1,5 +1,7 @@
+ package org.sableos.start.live
+ 
++import java.time.LocalDate
++
+ enum class LiveAvailability {
+     LOADING,
+     LIVE,
+@@ -45,6 +47,21 @@ data class HubMessageRow(
+     val packageName: String?,
+ )
+ 
++/** One busy day of this month from Sable Calendar (booked minutes between 08:00 and 20:00). */
++data class CalendarBusyDay(
++    val date: LocalDate,
++    val busyMinutes: Int,
++    val allDay: Boolean,
++    val count: Int,
++)
++
++/** One of the next events of the coming week, for Start's Month widget. */
++data class UpcomingEvent(
++    val title: String,
++    val beginMillis: Long,
++    val allDay: Boolean,
++)
++
+ data class LiveSurfaceSnapshot(
+     val dateText: String,
+     val timeText: String,
+@@ -59,6 +76,9 @@ data class LiveSurfaceSnapshot(
+     val hubApps: List<AppUnreadCount> = emptyList(),
+     /** The Hub page's message list, newest first; empty when Hub sends none. */
+     val hubMessages: List<HubMessageRow> = emptyList(),
++    /** Start's Month widget: this month's busy days and the next events; empty without Calendar. */
++    val calendarMonth: List<CalendarBusyDay> = emptyList(),
++    val calendarNext: List<UpcomingEvent> = emptyList(),
+ ) {
+     init {
+         require(dateText.isNotBlank())
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
+index 3da4aab..f1b29a0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
+@@ -123,10 +123,43 @@ object GlanceWidgets {
+     const val MAIL = "mail"
+     const val PHOTOS = "photos"
+ 
+-    val ALL: List<String> = listOf(WEATHER, CALENDAR, BATTERY, MEDIA, HUB, MAIL, PHOTOS)
++    /** This month with Sable Calendar's busy rings and the next events; a full-width frame. */
++    const val MONTH = "month"
+ 
+-    /** "Curated widgets: Weather, Calendar, Battery, Media." */
+-    val DEFAULT: List<String> = listOf(WEATHER, CALENDAR, BATTERY, MEDIA)
++    val ALL: List<String> = listOf(MONTH, WEATHER, CALENDAR, BATTERY, MEDIA, HUB, MAIL, PHOTOS)
++
++    /**
++     * "Curated widgets": Month (owner decision 2026-11-04, in place of the one-line Calendar frame,
++     * which Edit Home can still add), Weather, Battery, Media.
++     */
++    val DEFAULT: List<String> = listOf(MONTH, WEATHER, BATTERY, MEDIA)
++
++    /** Widgets drawn across both columns. */
++    val FULL_WIDTH: Set<String> = setOf(MONTH)
++
++    /** Frame rows in order: a full-width widget alone, the others two to a row. */
++    fun rows(
++        shown: List<String>,
++        columns: Int,
++    ): List<List<String>> {
++        val rows = mutableListOf<List<String>>()
++        var pending = mutableListOf<String>()
++        shown.forEach { widget ->
++            if (widget in FULL_WIDTH) {
++                if (pending.isNotEmpty()) rows += pending
++                pending = mutableListOf()
++                rows += listOf(widget)
++            } else {
++                pending += widget
++                if (pending.size == columns) {
++                    rows += pending
++                    pending = mutableListOf()
++                }
++            }
++        }
++        if (pending.isNotEmpty()) rows += pending
++        return rows
++    }
+ 
+     /** Drops unknown and duplicate names; null (never customised) gives [DEFAULT]. */
+     fun normalize(saved: List<String>?): List<String> = saved?.filter { it in ALL }?.distinct() ?: DEFAULT
+@@ -145,6 +178,7 @@ object GlanceWidgets {
+         when (widget) {
+             WEATHER -> t("weather")
+             CALENDAR -> t("calendar")
++            MONTH -> t("month")
+             BATTERY -> t("battery")
+             MEDIA -> t("media")
+             HUB -> t("hub")
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartMonth.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartMonth.kt
+new file mode 100644
+index 0000000..99b24a1
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartMonth.kt
+@@ -0,0 +1,42 @@
++package org.sableos.start.model
++
++import java.time.LocalDate
++import java.time.YearMonth
++
++/**
++ * Start's Month widget (owner decision 2026-11-04): this month with Sable Calendar's busy rings and
++ * the next events. Calendar's snapshot provider gives booked minutes per day between 08:00 and 20:00
++ * from the calendars the user shows; this draws them. Pure policy, unit tested in
++ * apps/r8/android/sablestart-presentation-check/src/test.
++ */
++object StartMonth {
++    const val WINDOW_MINUTES = 12 * 60
++    const val MIN_SWEEP_DEGREES = 24f
++    const val DAYS_PER_WEEK = 7
++
++    /** Arc of a day's ring in degrees: none when free, at least [MIN_SWEEP_DEGREES] when booked. */
++    fun sweepDegrees(busyMinutes: Int): Float {
++        if (busyMinutes <= 0) return 0f
++        return maxOf(MIN_SWEEP_DEGREES, busyMinutes.coerceAtMost(WINDOW_MINUTES) * 360f / WINDOW_MINUTES)
++    }
++
++    /** Month grid cells, Monday first, padded with blanks to whole weeks. */
++    fun cells(month: YearMonth): List<LocalDate?> {
++        val leading = month.atDay(1).dayOfWeek.value - 1
++        val cells = List<LocalDate?>(leading) { null } + (1..month.lengthOfMonth()).map(month::atDay)
++        return cells + List<LocalDate?>((DAYS_PER_WEEK - cells.size % DAYS_PER_WEEK) % DAYS_PER_WEEK) { null }
++    }
++
++    /** "Today", "Tomorrow" or the weekday for an upcoming event's day. */
++    fun dayWord(
++        day: LocalDate,
++        today: LocalDate,
++        weekday: (LocalDate) -> String,
++        words: Pair<String, String>,
++    ): String =
++        when (day) {
++            today -> words.first
++            today.plusDays(1) -> words.second
++            else -> weekday(day)
++        }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 8843392..b4b5d7d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -63,6 +63,11 @@ object StartText {
+                 "Wi-Fi, Mobile, CPU, RAM, battery time left, Cell and Settings",
+             "weather" to "Weather",
+             "calendar" to "Calendar",
++            "month" to "Month",
++            "month_free" to "Nothing in the next 7 days",
++            "month_today" to "Today",
++            "month_tomorrow" to "Tomorrow",
++            "month_all_day" to "all day",
+             "media" to "Media",
+             "mail" to "Mail",
+             "photos" to "Photos",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LiveSurfaceRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LiveSurfaceRepository.kt
+index 037add3..e71ec7f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LiveSurfaceRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LiveSurfaceRepository.kt
+@@ -11,10 +11,13 @@ import com.sable.start.model.StartText.t
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+ import org.sableos.start.live.AppUnreadCount
++import org.sableos.start.live.CalendarBusyDay
+ import org.sableos.start.live.HubMessageRow
+ import org.sableos.start.live.LiveAvailability
+ import org.sableos.start.live.LiveDatum
+ import org.sableos.start.live.LiveSurfaceSnapshot
++import org.sableos.start.live.UpcomingEvent
++import java.time.LocalDate
+ import java.util.Date
+ 
+ class LiveSurfaceRepository(
+@@ -102,9 +105,44 @@ class LiveSurfaceRepository(
+                 observedAtEpochMs = nowEpochMs,
+                 hubApps = hubAppCounts(),
+                 hubMessages = hubMessages(),
++                calendarMonth = calendarMonth(),
++                calendarNext = calendarNext(),
+             )
+         }
+ 
++    /** Sable Calendar's busy days of this month for Start's Month widget; empty when Calendar cannot say. */
++    private fun calendarMonth(): List<CalendarBusyDay> =
++        runCatching {
++            resolver.query(CALENDAR_MONTH_URI, null, null, null, null)?.use { cursor ->
++                val date = cursor.getColumnIndexOrThrow("date")
++                val minutes = cursor.getColumnIndexOrThrow("busy_minutes")
++                val allDay = cursor.getColumnIndexOrThrow("all_day")
++                val count = cursor.getColumnIndexOrThrow("count")
++                buildList {
++                    while (cursor.moveToNext() && size < MAX_MONTH_DAYS) {
++                        val day = runCatching { LocalDate.parse(cursor.getString(date)) }.getOrNull() ?: continue
++                        add(CalendarBusyDay(day, cursor.getInt(minutes), cursor.getInt(allDay) != 0, cursor.getInt(count)))
++                    }
++                }
++            }
++        }.getOrNull().orEmpty()
++
++    /** Sable Calendar's next events of the coming week (title, start, all day). */
++    private fun calendarNext(): List<UpcomingEvent> =
++        runCatching {
++            resolver.query(CALENDAR_NEXT_URI, null, null, null, null)?.use { cursor ->
++                val title = cursor.getColumnIndexOrThrow("title")
++                val begin = cursor.getColumnIndexOrThrow("begin")
++                val allDay = cursor.getColumnIndexOrThrow("all_day")
++                buildList {
++                    while (cursor.moveToNext() && size < MAX_NEXT_EVENTS) {
++                        val name = cursor.getString(title)?.trim().orEmpty()
++                        if (name.isNotEmpty()) add(UpcomingEvent(name, cursor.getLong(begin), cursor.getInt(allDay) != 0))
++                    }
++                }
++            }
++        }.getOrNull().orEmpty()
++
+     /** Sable Hub's per-app unread counts (package and count only); empty when Hub cannot say. */
+     private fun hubAppCounts(): List<AppUnreadCount> =
+         runCatching {
+@@ -284,6 +322,14 @@ class LiveSurfaceRepository(
+             Uri.parse("content://org.sableos.weather.snapshot/current")
+         val CALENDAR_URI: Uri =
+             Uri.parse("content://org.sableos.calendar.snapshot/current")
++
++        /** The Month widget's busy days and next events; Calendar notifies [CALENDAR_URI]. */
++        val CALENDAR_MONTH_URI: Uri =
++            Uri.parse("content://org.sableos.calendar.snapshot/month")
++        val CALENDAR_NEXT_URI: Uri =
++            Uri.parse("content://org.sableos.calendar.snapshot/next")
++        private const val MAX_MONTH_DAYS = 31
++        private const val MAX_NEXT_EVENTS = 3
+         val MESSAGES_URI: Uri =
+             Uri.parse("content://org.sableos.hub.snapshot/current")
+ 
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 9de5aa4..fb6c240 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -129,6 +129,7 @@ import org.sableos.design.SableRefreshableSurface
+ import org.sableos.design.SableTheme
+ import org.sableos.design.SableTypeToJump
+ import org.sableos.design.sableFocusRing
++import org.sableos.start.live.CalendarBusyDay
+ import org.sableos.start.live.HubMessageRow
+ import org.sableos.start.live.LiveAvailability
+ import org.sableos.start.live.LiveDatum
+@@ -155,6 +156,7 @@ import org.sableos.start.model.HubPeople
+ import org.sableos.start.model.HubPerson
+ import org.sableos.start.model.QuickBar
+ import org.sableos.start.model.SpeedDialKeys
++import org.sableos.start.model.StartMonth
+ import org.sableos.start.model.StartPages
+ import org.sableos.start.model.StartTypeToSearch
+ import org.sableos.start.model.inLauncherUser
+@@ -170,9 +172,14 @@ import org.sableos.start.privacy.AppActionContext
+ import org.sableos.start.privacy.AppActionPolicy
+ import org.sableos.start.privacy.PrivacyFilter
+ import org.sableos.start.privacy.PrivacySummaryPolicy
++import java.time.Instant
+ import java.time.LocalDate
+ import java.time.LocalTime
++import java.time.YearMonth
++import java.time.ZoneId
++import java.time.ZoneOffset
+ import java.time.format.DateTimeFormatter
++import java.util.Date
+ import java.util.Locale
+ import androidx.compose.foundation.Canvas as ComposeCanvas
+ 
+@@ -1518,7 +1525,7 @@ private fun GlanceFrames(
+         contentPadding = PaddingValues(FRAME_PADDING),
+         verticalArrangement = Arrangement.spacedBy(FRAME_GAP),
+     ) {
+-        items(widgets.chunked(ActiveFrames.COLUMNS), key = { row -> row.first() }) { row ->
++        items(GlanceWidgets.rows(widgets, ActiveFrames.COLUMNS), key = { row -> row.first() }) { row ->
+             Row(horizontalArrangement = Arrangement.spacedBy(FRAME_GAP)) {
+                 row.forEach { widget ->
+                     val modifier =
+@@ -1544,10 +1551,13 @@ private fun GlanceFrames(
+                                 modifier = modifier,
+                             )
+                         }
++                        GlanceWidgets.MONTH -> MonthGlanceFrame(snapshot, { open(CALENDAR_PACKAGE) }, modifier)
+                         else -> LiveGlanceFrame(widget, snapshot, apps, { open(it) }, onShowHub, modifier)
+                     }
+                 }
+-                repeat(ActiveFrames.COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
++                if (row.first() !in GlanceWidgets.FULL_WIDTH) {
++                    repeat(ActiveFrames.COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
++                }
+             }
+         }
+     }
+@@ -1662,6 +1672,176 @@ private fun GlanceFrameCard(
+     }
+ }
+ 
++/**
++ * The Month frame (owner decision 2026-11-04): this month with Sable Calendar's busy rings on the
++ * left (the arc is how much of 08:00–20:00 is booked; a thin outer ring marks an all-day event) and
++ * the next three events of the coming week on the right. Enter opens Calendar. It reads only the
++ * calendars the user shows in Calendar (L); without Calendar access it shows the month and a hint.
++ */
++@Composable
++private fun MonthGlanceFrame(
++    snapshot: LiveSurfaceSnapshot,
++    onOpen: () -> Unit,
++    modifier: Modifier,
++) {
++    var focused by remember { mutableStateOf(false) }
++    val shape = RoundedCornerShape(4.dp)
++    Box(
++        modifier =
++            modifier
++                .onFocusChanged { focused = it.isFocused }
++                .clip(shape)
++                .background(Bb10Card)
++                .border(if (focused) 3.dp else 1.dp, if (focused) Bb10Blue else Bb10Line, shape)
++                .clickable(onClick = onOpen),
++    ) {
++        Box(Modifier.fillMaxWidth().height(4.dp).background(SableBlue))
++        Row(
++            modifier =
++                Modifier
++                    .fillMaxSize()
++                    .padding(start = 8.dp, end = 10.dp, top = 8.dp, bottom = FRAME_LABEL_HEIGHT + 2.dp),
++            horizontalArrangement = Arrangement.spacedBy(10.dp),
++        ) {
++            MiniMonth(snapshot, Modifier.weight(1.1f))
++            UpcomingList(snapshot, Modifier.weight(1f))
++        }
++        Text(
++            text = YearMonth.now().format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault())),
++            modifier =
++                Modifier
++                    .align(Alignment.BottomStart)
++                    .fillMaxWidth()
++                    .height(FRAME_LABEL_HEIGHT)
++                    .background(if (focused) Bb10Blue else Color(0xE6000000))
++                    .padding(horizontal = 8.dp, vertical = 3.dp),
++            style = MaterialTheme.typography.labelLarge,
++            color = if (focused) Bb10OnBlue else Color.White,
++            maxLines = 1,
++        )
++    }
++}
++
++@Composable
++private fun MiniMonth(
++    snapshot: LiveSurfaceSnapshot,
++    modifier: Modifier,
++) {
++    val today = LocalDate.now()
++    val busy = remember(snapshot.calendarMonth) { snapshot.calendarMonth.associateBy { it.date } }
++    val initials =
++        remember {
++            val format = DateTimeFormatter.ofPattern("EEEEE", Locale.getDefault())
++            (0L until StartMonth.DAYS_PER_WEEK).map { LocalDate.of(2024, 1, 1).plusDays(it).format(format) }
++        }
++    Column(modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
++        Row(Modifier.fillMaxWidth()) {
++            initials.forEach {
++                Text(
++                    text = it,
++                    modifier = Modifier.weight(1f),
++                    style = MaterialTheme.typography.labelSmall,
++                    color = Bb10Muted,
++                    textAlign = TextAlign.Center,
++                )
++            }
++        }
++        StartMonth.cells(YearMonth.from(today)).chunked(StartMonth.DAYS_PER_WEEK).forEach { week ->
++            Row(Modifier.fillMaxWidth()) {
++                week.forEach { date ->
++                    Box(Modifier.weight(1f).height(20.dp), contentAlignment = Alignment.Center) {
++                        if (date != null) MiniDay(date, busy[date], date == today)
++                    }
++                }
++            }
++        }
++    }
++}
++
++@Composable
++private fun MiniDay(
++    date: LocalDate,
++    day: CalendarBusyDay?,
++    today: Boolean,
++) {
++    val arc = SableBlue
++    val track = Bb10Line
++    val sweep = StartMonth.sweepDegrees(day?.busyMinutes ?: 0)
++    Box(Modifier.size(19.dp), contentAlignment = Alignment.Center) {
++        ComposeCanvas(Modifier.size(17.dp)) {
++            val stroke = 2.dp.toPx()
++            val inset = stroke / 2
++            val arcSize = Size(size.width - stroke, size.height - stroke)
++            if (day != null) drawArc(track, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
++            if (sweep > 0f) {
++                drawArc(arc, -90f, sweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
++            }
++            if (day?.allDay == true) drawCircle(arc, radius = size.minDimension / 2 + stroke, style = Stroke(stroke / 2))
++        }
++        Text(
++            text = date.dayOfMonth.toString(),
++            style = MaterialTheme.typography.labelSmall,
++            fontWeight = if (today) FontWeight.Bold else FontWeight.Normal,
++            color = if (today) arc else Bb10Text,
++            maxLines = 1,
++        )
++    }
++}
++
++@Composable
++private fun UpcomingList(
++    snapshot: LiveSurfaceSnapshot,
++    modifier: Modifier,
++) {
++    val context = LocalContext.current
++    val today = LocalDate.now()
++    val zone = ZoneId.systemDefault()
++    val weekday = DateTimeFormatter.ofPattern("EEE", Locale.getDefault())
++    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
++        if (snapshot.calendarNext.isEmpty()) {
++            Text(
++                text =
++                    if (snapshot.calendar.availability == LiveAvailability.PERMISSION_REQUIRED) {
++                        snapshot.calendar.detail
++                    } else {
++                        t("month_free")
++                    },
++                style = MaterialTheme.typography.bodySmall,
++                color = Bb10Muted,
++                maxLines = 3,
++                overflow = TextOverflow.Ellipsis,
++            )
++        }
++        snapshot.calendarNext.forEach { event ->
++            val start = Instant.ofEpochMilli(event.beginMillis)
++            // All-day events are stored at UTC midnight.
++            val day = start.atZone(if (event.allDay) ZoneOffset.UTC else zone).toLocalDate()
++            val dayText = StartMonth.dayWord(day, today, { it.format(weekday) }, t("month_today") to t("month_tomorrow"))
++            val time =
++                if (event.allDay) {
++                    t("month_all_day")
++                } else {
++                    android.text.format.DateFormat.getTimeFormat(context).format(Date(event.beginMillis))
++                }
++            Column {
++                Text(
++                    text = "$dayText · $time",
++                    style = MaterialTheme.typography.labelSmall,
++                    color = SableBlue,
++                    maxLines = 1,
++                )
++                Text(
++                    text = event.title,
++                    style = MaterialTheme.typography.bodySmall,
++                    color = Bb10Text,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                )
++            }
++        }
++    }
++}
++
+ /** "72° Partly cloudy" and "Seattle" from the Weather snapshot ([HomeHeader.weather]). */
+ private fun weatherLines(datum: LiveDatum): Pair<String, String> {
+     if (datum.availability != LiveAvailability.LIVE && datum.availability != LiveAvailability.EMPTY) {

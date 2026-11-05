@@ -15,54 +15,55 @@ The decision is SableKeyPolicy.escapeGoesBack (IR-014).
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01FqvfFQhAvko2gkqcxM25Aa
 ---
- .../setupwizard/BaseSetupWizardActivity.java  | 22 +++++++++++++++++++
- .../setupwizard/sable/SableKeyPolicy.java     |  8 +++++++
- 2 files changed, 30 insertions(+)
+ .../java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt    | 23 +++++++++++++++++++++++
+ app/src/main/java/org/lineageos/setupwizard/sable/SableKeyPolicy.java |  8 ++++++++
+ 2 files changed, 31 insertions(+)
 
-diff --git a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
-index 96bd6054..db423785 100644
---- a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
-+++ b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
-@@ -42,6 +42,7 @@ import com.google.android.setupdesign.util.ThemeHelper;
+diff --git a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt b/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
+index 466ed1c..c72ccb8 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
++++ b/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
+@@ -35,6 +35,7 @@ import org.lineageos.setupwizard.EXTRA_WIZARD_BUNDLE
+ import org.lineageos.setupwizard.LOGV
+ import org.lineageos.setupwizard.R
+ import org.lineageos.setupwizard.sable.SableKeyFocus
++import org.lineageos.setupwizard.sable.SableKeyPolicy
+ import org.lineageos.setupwizard.util.SetupWizardUtils
+ import org.lineageos.setupwizard.wizardmanager.WizardManager
  
- import org.lineageos.setupwizard.NavigationLayout.NavigationBarListener;
- import org.lineageos.setupwizard.sable.SableKeyFocus;
-+import org.lineageos.setupwizard.sable.SableKeyPolicy;
- import org.lineageos.setupwizard.util.SetupWizardUtils;
- 
- public abstract class BaseSetupWizardActivity extends AppCompatActivity implements
-@@ -175,6 +176,27 @@ public abstract class BaseSetupWizardActivity extends AppCompatActivity implemen
-         return super.dispatchKeyEvent(event);
+@@ -118,6 +119,28 @@ abstract class BaseSetupWizardActivity : AppCompatActivity() {
+         return super.dispatchKeyEvent(event)
      }
  
-+    @Override
-+    public boolean onKeyDown(int keyCode, KeyEvent event) {
++    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
 +        // SableOS IR-014: Esc returns to the previous step, the same as Back. It only reaches
 +        // here when no view (text field, IME, list) used it; the step changes on key up.
-+        if (SableKeyPolicy.escapeGoesBack(keyCode, event.getMetaState())) {
-+            event.startTracking();
-+            return true;
++        if (SableKeyPolicy.escapeGoesBack(keyCode, event.metaState)) {
++            event.startTracking()
++            return true
 +        }
-+        return super.onKeyDown(keyCode, event);
++        return super.onKeyDown(keyCode, event)
 +    }
 +
-+    @Override
-+    public boolean onKeyUp(int keyCode, KeyEvent event) {
-+        if (SableKeyPolicy.escapeGoesBack(keyCode, event.getMetaState())
-+                && event.isTracking() && !event.isCanceled()) {
-+            getOnBackPressedDispatcher().onBackPressed();
-+            return true;
++    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
++        if (
++            SableKeyPolicy.escapeGoesBack(keyCode, event.metaState) &&
++                event.isTracking &&
++                !event.isCanceled
++        ) {
++            onBackPressedDispatcher.onBackPressed()
++            return true
 +        }
-+        return super.onKeyUp(keyCode, event);
++        return super.onKeyUp(keyCode, event)
 +    }
 +
      /**
       * The step's forward action for keyboard focus: the Welcome screen's Start button, else
-      * the navigation bar's Next button when it is shown.
-diff --git a/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java b/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java
-index 5382b6b4..e17003dc 100644
---- a/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java
-+++ b/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java
+      * the footer bar's Next button when it is shown.
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyPolicy.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyPolicy.java
+index 5382b6b..e17003d 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyPolicy.java
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyPolicy.java
 @@ -98,6 +98,14 @@ public final class SableKeyPolicy {
          return (metaState & (META_CTRL_ON | META_META_ON)) != 0;
      }

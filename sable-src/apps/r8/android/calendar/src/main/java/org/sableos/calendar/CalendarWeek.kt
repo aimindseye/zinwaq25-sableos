@@ -20,10 +20,11 @@ enum class CalendarScreenKey {
     Next,
     Previous,
     Refresh,
+    Calendars,
 }
 
 object CalendarScreenKeys {
-    /** C, T, V, J, K, R; anything with Alt/Ctrl held (a digit or shortcut on the Q25) is left alone. */
+    /** C, T, V, J, K, R, L; anything with Alt/Ctrl held (a digit or shortcut on the Q25) is left alone. */
     fun action(
         keyCode: Int,
         modified: Boolean,
@@ -38,12 +39,13 @@ object CalendarScreenKeys {
                 KeyEvent.KEYCODE_J -> CalendarScreenKey.Next
                 KeyEvent.KEYCODE_K -> CalendarScreenKey.Previous
                 KeyEvent.KEYCODE_R -> CalendarScreenKey.Refresh
+                KeyEvent.KEYCODE_L -> CalendarScreenKey.Calendars
                 else -> null
             }
         }
 
     /** The hint dock under the agenda and week views; every key named here is mapped above. */
-    val DOCK: String get() = t("c_create_t_today_v")
+    val DOCK: String get() = t("c_create_t_today_v") + t("l_calendars")
 }
 
 /** The browsing views V cycles through: agenda (list with detail), week (5 columns), month. */

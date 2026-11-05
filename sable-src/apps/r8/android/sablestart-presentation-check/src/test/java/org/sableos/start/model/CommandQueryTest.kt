@@ -94,3 +94,16 @@ class CommandGroupsTest {
         assertEquals(1, CommandBestMatch.tier("Sable Settings", "set"))
     }
 }
+
+class SearchFoldTest {
+    @Test
+    fun accentsAndCaseDoNotMatterWhenSearching() {
+        assertEquals("ky vuong", SearchFold.fold("Kỳ Vương"))
+        assertEquals("cafe", SearchFold.fold("Café"))
+        assertEquals("dien thoai", SearchFold.fold("Điện thoại"))
+        assertEquals(0, CommandBestMatch.tier("Kỳ Vương", "ky v"))
+        assertEquals(1, CommandBestMatch.tier("Le Café", "cafe"))
+        val apps = listOf("Mail", "Kỳ Vương", "Café Bar")
+        assertEquals(listOf("Kỳ Vương"), CommandRanking.apps(apps, { it }, { null }, "vuong"))
+    }
+}

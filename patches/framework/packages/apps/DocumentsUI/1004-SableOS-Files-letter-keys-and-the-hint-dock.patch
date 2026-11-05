@@ -20,10 +20,10 @@ Subject: [PATCH 1004/1004] SableOS: Files letter keys and the hint dock
  2 files changed, 124 insertions(+)
 
 diff --git a/src/com/android/documentsui/BaseActivity.java b/src/com/android/documentsui/BaseActivity.java
-index baffe6d..1b4400b 100644
+index c919edb..5a7e8c2 100644
 --- a/src/com/android/documentsui/BaseActivity.java
 +++ b/src/com/android/documentsui/BaseActivity.java
-@@ -868,6 +868,13 @@ public abstract class BaseActivity
+@@ -1316,6 +1316,13 @@ public abstract class BaseActivity
          mInjector.actions.loadDocumentsForCurrentStack();
      }
  
@@ -38,10 +38,10 @@ index baffe6d..1b4400b 100644
       * Set mode based on explicit user action.
       */
 diff --git a/src/com/android/documentsui/files/FilesActivity.java b/src/com/android/documentsui/files/FilesActivity.java
-index 5e06467..043054f 100644
+index 5c053ba..3c30f76 100644
 --- a/src/com/android/documentsui/files/FilesActivity.java
 +++ b/src/com/android/documentsui/files/FilesActivity.java
-@@ -32,15 +32,23 @@ import android.graphics.Color;
+@@ -33,15 +33,23 @@ import android.graphics.Color;
  import android.net.Uri;
  import android.os.Build;
  import android.os.Bundle;
@@ -63,9 +63,9 @@ index 5e06467..043054f 100644
  import androidx.annotation.RequiresApi;
 +import androidx.coordinatorlayout.widget.CoordinatorLayout;
  import androidx.fragment.app.FragmentManager;
- import androidx.lifecycle.ViewModelProvider;
- 
-@@ -285,6 +293,7 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
+ import androidx.lifecycle.LifecycleOwnerKt;
+ import androidx.lifecycle.ViewModel;
+@@ -308,6 +316,7 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
          }
  
          presentFileErrors(icicle, intent);
@@ -73,7 +73,7 @@ index 5e06467..043054f 100644
      }
  
      private AppsRowManager getAppsRowManager() {
-@@ -525,11 +534,28 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
+@@ -547,11 +556,28 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
          if (action == SableFilesKeys.Action.UPSTREAM) {
              return false;
          }
@@ -102,7 +102,7 @@ index 5e06467..043054f 100644
              case SEARCH:
                  mInjector.searchManager.onSearchBarClicked();
                  break;
-@@ -571,6 +597,97 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
+@@ -593,6 +619,97 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
          }
      }
  

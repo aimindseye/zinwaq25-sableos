@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 5 Nov 2026 13:00:00 +0000
+Subject: [PATCH] SableOS: let init set the Q25 trackpad mode
+
+/proc/q20_switch_key_mouse (bbqX0kbd) picks the trackpad mode: 1 arrow
+keys, 0 pointer. It is mode 0777 but carries the generic proc label, so
+only root reaches it. Label it proc_sable_trackpad and let init write
+it, for Settings > System > Keyboard > Trackpad (persist.sys.sable.trackpad,
+applied by sable-trackpad.rc). Settings may only check that it exists;
+no app can write it.
+---
+ sepolicy/vendor/genfs_contexts    | 3 +++
+ sepolicy/vendor/sable_trackpad.te | 7 +++++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/sepolicy/vendor/genfs_contexts b/sepolicy/vendor/genfs_contexts
+index 63f893a..0d3cab9 100644
+--- a/sepolicy/vendor/genfs_contexts
++++ b/sepolicy/vendor/genfs_contexts
+@@ -8,3 +8,6 @@ genfscon sysfs /devices/platform/soc/11017000.i2c/i2c-5/5-006b/power_supply/upm6
+ 
+ # SableOS: keyboard firmware-upgrade switch (bbqX0kbd), driven by Settings > Keyboard firmware
+ genfscon proc /firmware_upgrade u:object_r:proc_sable_kbd_fw:s0
++
++# SableOS: trackpad mode switch (bbqX0kbd), 1 arrow keys, 0 pointer; init writes Settings' choice
++genfscon proc /q20_switch_key_mouse u:object_r:proc_sable_trackpad:s0
+diff --git a/sepolicy/vendor/sable_trackpad.te b/sepolicy/vendor/sable_trackpad.te
+new file mode 100644
+index 0000000..6decb0f
+--- /dev/null
++++ b/sepolicy/vendor/sable_trackpad.te
+@@ -0,0 +1,7 @@
++# SableOS: /proc/q20_switch_key_mouse, the Q25 trackpad's mode (1 arrow keys, 0 pointer). Settings
++# stores the choice in persist.sys.sable.trackpad and init writes the node
++# (system_ext/etc/init/sable-trackpad.rc); no app may write it. Settings may check that it exists.
++type proc_sable_trackpad, fs_type, proc_type;
++
++allow init proc_sable_trackpad:file w_file_perms;
++allow system_app proc_sable_trackpad:file getattr;
+-- 
+2.43.0
+

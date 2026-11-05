@@ -1,33 +1,35 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: SableOS <noreply@sableos.invalid>
-Date: Wed, 21 Oct 2026 23:11:55 +0000
-Subject: [PATCH] SableOS: microG signature spoofing on user builds when the
- product ships microG
+Date: Wed, 4 Nov 2026 18:30:00 +0000
+Subject: [PATCH] SableOS: microG signature spoofing on user builds when the 
+ product allows it
 
-LineageOS 23.2 already allows restricted signature spoofing for microG
-(ComputerEngine.isMicrogSigned): only com.google.android.gms and
+LineageOS 24.0 already allows restricted signature spoofing for microG
+(MicrogUtils.isMicrogSigned): only com.google.android.gms and
 com.android.vending, only when signed with the microG release key, and only
 to Google's one signature. It does so on debuggable builds only. A read-only
 property, ro.sable.microg.spoofing, set by the SableOS product layer on
 every Q4+ image (built-in microG or the microG add-on), lets the same
 checks pass on user builds. Nothing else changes.
----
- .../java/com/android/server/pm/ComputerEngine.java  | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/services/core/java/com/android/server/pm/ComputerEngine.java b/services/core/java/com/android/server/pm/ComputerEngine.java
-index 3300f3481792..384c75f662c3 100644
---- a/services/core/java/com/android/server/pm/ComputerEngine.java
-+++ b/services/core/java/com/android/server/pm/ComputerEngine.java
-@@ -108,6 +108,7 @@ import android.os.IBinder;
- import android.os.ParcelableException;
- import android.os.PatternMatcher;
- import android.os.Process;
+24.0 moved the check from ComputerEngine to MicrogUtils.
+---
+ .../com/android/internal/content/MicrogUtils.java | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/core/java/com/android/internal/content/MicrogUtils.java b/core/java/com/android/internal/content/MicrogUtils.java
+index 71b32ff..cf8c1e2 100644
+--- a/core/java/com/android/internal/content/MicrogUtils.java
++++ b/core/java/com/android/internal/content/MicrogUtils.java
+@@ -14,6 +14,7 @@ import android.content.pm.PackageManager;
+ import android.content.pm.Signature;
+ import android.content.pm.SigningDetails;
+ import android.os.Bundle;
 +import android.os.SystemProperties;
- import android.os.Trace;
- import android.os.UserHandle;
- import android.os.UserManager;
-@@ -1485,8 +1486,18 @@ public class ComputerEngine implements Computer {
+ import android.text.TextUtils;
+ 
+ import com.android.server.pm.pkg.AndroidPackage;
+@@ -36,6 +37,16 @@ public final class MicrogUtils {
  
      public static native boolean isDebuggable();
  
@@ -41,12 +43,23 @@ index 3300f3481792..384c75f662c3 100644
 +        return isDebuggable() || SystemProperties.getBoolean(SABLE_MICROG_SPOOFING_PROP, false);
 +    }
 +
-     public static boolean isMicrogSigned(AndroidPackage p) {
--        if (!isDebuggable()) {
-+        if (!isMicrogSpoofingAllowedOnBuild()) {
-             return false;
-         }
+     private static boolean isMicrogPackageName(@Nullable String packageName) {
+         return COMPANION_PACKAGE_NAME.equals(packageName)
+                 || SERVICES_PACKAGE_NAME.equals(packageName);
+@@ -43,11 +54,11 @@ public final class MicrogUtils {
  
+     /**
+      * Whether the package is a microG package signed with the real microG key. Always false on
+-     * non-debuggable builds.
++     * non-debuggable builds unless ro.sable.microg.spoofing is true (SableOS).
+      */
+     public static boolean isMicrogSigned(@NonNull AndroidPackage pkg) {
+         SigningDetails signingDetails = pkg.getSigningDetails();
+-        return isDebuggable() && isMicrogPackageName(pkg.getPackageName())
++        return isMicrogSpoofingAllowedOnBuild() && isMicrogPackageName(pkg.getPackageName())
+                 && signingDetails != null
+                 && Signature.areExactMatch(signingDetails, new Signature[]{REAL_SIGNATURE});
+     }
 -- 
 2.43.0
 

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">Εκτυπώστε από τον υπολογιστή σας σε αυτό το τηλέφωνο. Όσο το Print To Go είναι ενεργό, το τηλέφωνο είναι εκτυπωτής στο Wi-Fi σας και κάθε εκτύπωση αποθηκεύεται ως PDF στο Documents/Print To Go.</string>
+    <string name="start">Έναρξη λήψης</string>
+    <string name="stop">Διακοπή</string>
+    <string name="off">Ανενεργό. Τίποτα δεν μπορεί να εκτυπώσει σε αυτό το τηλέφωνο.</string>
+    <string name="ready">Έτοιμο ως %1$s. Επιλέξτε το στο παράθυρο εκτύπωσης του υπολογιστή. Απενεργοποιείται μετά από 10 λεπτά χωρίς εκτύπωση.</string>
+    <string name="no_wifi">Συνδεθείτε πρώτα σε Wi-Fi. Το Print To Go ακούει μόνο σε Wi-Fi, ποτέ σε δεδομένα κινητής.</string>
+    <string name="start_failed">Το Print To Go δεν μπόρεσε να ξεκινήσει. Δοκιμάστε ξανά.</string>
+    <string name="saved">Αποθηκεύτηκε: %1$s</string>
+    <string name="save_failed">Δεν ήταν δυνατή η αποθήκευση του %1$s.</string>
+    <string name="open_folder">Άνοιγμα αποθηκευμένων εκτυπώσεων</string>
+    <string name="running">Το Print To Go είναι ενεργό</string>
+    <string name="channel_running">Το Print To Go εκτελείται</string>
+    <string name="channel_saved">Αποθηκευμένες εκτυπώσεις</string>
+    <string name="idle_off">Το Print To Go απενεργοποιήθηκε μετά από 10 λεπτά χωρίς εκτύπωση.</string>
+    <string name="hint">Το Enter ξεκινά ή σταματά · Το O ανοίγει τις αποθηκευμένες εκτυπώσεις · Το Πίσω βγαίνει</string>
+</resources>

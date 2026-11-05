@@ -52,7 +52,13 @@ enum class Action(private val labelKey: String) {
     NetworkSettings("action_network_settings"),
 
     /** Opens Setup's own Weather city step; the only action whose choice is written (by Sable Weather). */
-    WeatherCity("action_weather_city");
+    WeatherCity("action_weather_city"),
+
+    /** Hub's settings page, where Snooze and Remind me are turned on for Hub's row menu. */
+    HubRowMenu("action_hub_row_menu"),
+
+    /** Sable Spaces, where the user can make a Work space (BB10 Balance) with Android's own setup. */
+    WorkSpace("action_work_space");
 
     /** What the button opens, for a launch failure line; empty for [None]. */
     val label: String get() = if (labelKey.isEmpty()) "" else SetupText.t(labelKey)

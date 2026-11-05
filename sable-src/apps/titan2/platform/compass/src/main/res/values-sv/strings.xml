@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Swedish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">Norr</string>
+    <string name="ne">Nordost</string>
+    <string name="e">Öster</string>
+    <string name="se">Sydost</string>
+    <string name="s">Söder</string>
+    <string name="sw">Sydväst</string>
+    <string name="w">Väster</string>
+    <string name="nw">Nordväst</string>
+    <string name="dial_n">N</string>
+    <string name="dial_e">Ö</string>
+    <string name="dial_s">S</string>
+    <string name="dial_w">V</string>
+    <string name="true_mark">G</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">Magnetisk nord</string>
+    <string name="true_north">Geografisk nord</string>
+    <string name="true_waiting">Söker din ungefärliga plats för geografisk nord. Visar magnetisk nord tills dess.</string>
+    <string name="true_denied">Geografisk nord behöver din ungefärliga plats. Visar magnetisk nord.</string>
+    <string name="accuracy_high">Noggrannhet: hög</string>
+    <string name="accuracy_medium">Noggrannhet: medel</string>
+    <string name="accuracy_low">Noggrannhet: låg. Tryck C för att kalibrera.</string>
+    <string name="accuracy_unreliable">Noggrannhet: opålitlig. Tryck C för att kalibrera.</string>
+    <string name="no_sensor">Den här telefonen har ingen kompassensor.</string>
+    <string name="flat_or_upright">Håll telefonen platt, eller upprätt åt det håll du tittar.</string>
+    <string name="held">Låst. H släpper.</string>
+    <string name="calibrate">Kalibrera</string>
+    <string name="calibrate_body">Rör telefonen i en åtta några gånger och vrid den samtidigt. Håll avstånd till metall, magneter och högtalare.</string>
+    <string name="calibrate_done">Kalibrerad.</string>
+    <string name="hint">T geografisk nord · C kalibrera · H lås · Bakåt lämnar</string>
+    <string name="calibrate_hint">C eller Bakåt går tillbaka till kompassen</string>
+</resources>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chinese (Simplified). Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">从电脑打印到这部手机。Print To Go 开启时，手机就是你 Wi-Fi 上的一台打印机，每次打印都会以 PDF 保存到 Documents/Print To Go。</string>
+    <string name="start">开始接收</string>
+    <string name="stop">停止</string>
+    <string name="off">已关闭。任何设备都无法打印到这部手机。</string>
+    <string name="ready">已就绪，名称为 %1$s。请在电脑的打印对话框中选择它。10 分钟没有打印就会关闭。</string>
+    <string name="no_wifi">请先连接 Wi-Fi。Print To Go 只在 Wi-Fi 上监听，从不使用移动数据。</string>
+    <string name="start_failed">Print To Go 无法启动。请重试。</string>
+    <string name="saved">已保存：%1$s</string>
+    <string name="save_failed">无法保存 %1$s。</string>
+    <string name="open_folder">打开已保存的打印件</string>
+    <string name="running">Print To Go 已开启</string>
+    <string name="channel_running">Print To Go 正在运行</string>
+    <string name="channel_saved">已保存的打印件</string>
+    <string name="idle_off">10 分钟没有打印，Print To Go 已关闭。</string>
+    <string name="hint">Enter 开始或停止 · O 打开已保存的打印件 · Back 退出</string>
+</resources>

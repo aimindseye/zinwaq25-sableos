@@ -40,7 +40,7 @@ object ConvertText {
             "convert_enter_a_number_with_up" to "Enter a number with up to three decimal places",
             "convert_length_mass_temperature_and_volume" to
                 "Length, mass, temperature and volume conversions are local and offline.",
-            "convert_native_bridge_failure" to "Native bridge failure",
+            "convert_native_bridge_failure" to "Conversion failed",
         )
 
     val t = SableTexts(EN)

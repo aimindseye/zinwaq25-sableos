@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sable Spaces is never a device admin of the main user. As the Work space's profile owner it names
+     the profile, forwards its own two actions into it, adds apps the user picks, and removes the Work
+     space (wipe-data) when the user confirms that inside it. -->
+<device-admin>
+    <uses-policies>
+        <wipe-data />
+    </uses-policies>
+</device-admin>

@@ -52,10 +52,10 @@ the page; everything is read off the main thread.
  create mode 100644 src/com/android/settings/applications/sable/SableAppSecurityPreferenceController.java
 
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index a3146788c69..bf0f7a0318e 100644
+index b0399bd..ccdb3f7 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
-@@ -2011,6 +2011,27 @@
+@@ -2020,6 +2020,27 @@
                  android:value="@string/menu_key_apps"/>
          </activity>
  
@@ -85,7 +85,7 @@ index a3146788c69..bf0f7a0318e 100644
              android:label="@string/aspect_ratio_title">
 diff --git a/res/values/strings_sable_app_security.xml b/res/values/strings_sable_app_security.xml
 new file mode 100644
-index 00000000000..48d2654115e
+index 0000000..48d2654
 --- /dev/null
 +++ b/res/values/strings_sable_app_security.xml
 @@ -0,0 +1,115 @@
@@ -205,7 +205,7 @@ index 00000000000..48d2654115e
 +    <string name="sable_security_change_history_unknown">Not kept on this device</string>
 +</resources>
 diff --git a/res/xml/app_info_settings.xml b/res/xml/app_info_settings.xml
-index 78b9552e726..4acce3e1a35 100644
+index 78b9552..4acce3e 100644
 --- a/res/xml/app_info_settings.xml
 +++ b/res/xml/app_info_settings.xml
 @@ -59,6 +59,13 @@
@@ -223,7 +223,7 @@ index 78b9552e726..4acce3e1a35 100644
          android:key="manage_target_app_function_access_settings"
          android:title="@string/manage_target_app_function_access_settings_title"
 diff --git a/res/xml/apps.xml b/res/xml/apps.xml
-index 79da9c0be36..80db734cd24 100644
+index 79da9c0..80db734 100644
 --- a/res/xml/apps.xml
 +++ b/res/xml/apps.xml
 @@ -118,6 +118,15 @@
@@ -244,7 +244,7 @@ index 79da9c0be36..80db734cd24 100644
          android:fragment="com.android.settings.applications.specialaccess.SpecialAccessSettings"
 diff --git a/res/xml/sable_app_security.xml b/res/xml/sable_app_security.xml
 new file mode 100644
-index 00000000000..896b899f54b
+index 0000000..896b899
 --- /dev/null
 +++ b/res/xml/sable_app_security.xml
 @@ -0,0 +1,46 @@
@@ -296,7 +296,7 @@ index 00000000000..896b899f54b
 +</PreferenceScreen>
 diff --git a/res/xml/sable_app_security_apps.xml b/res/xml/sable_app_security_apps.xml
 new file mode 100644
-index 00000000000..2e75fe9f6b3
+index 0000000..2e75fe9
 --- /dev/null
 +++ b/res/xml/sable_app_security_apps.xml
 @@ -0,0 +1,31 @@
@@ -332,10 +332,10 @@ index 00000000000..2e75fe9f6b3
 +
 +</PreferenceScreen>
 diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
-index b4a5b7f0cd5..b242f4da86e 100644
+index aa756d3..f6ed0c7 100644
 --- a/src/com/android/settings/Settings.java
 +++ b/src/com/android/settings/Settings.java
-@@ -160,6 +160,8 @@ public class Settings extends SettingsActivity {
+@@ -179,6 +179,8 @@ public class Settings extends SettingsActivity {
      public static class ManageApplicationsActivity extends SettingsActivity { /* empty */ }
      /** SableOS: org.sableos.settings.NETWORK_MANAGER. */
      public static class SableNetworkManagerActivity extends SettingsActivity { /* empty */ }
@@ -345,18 +345,18 @@ index b4a5b7f0cd5..b242f4da86e 100644
          public AppStorageSettingsActivity() {
              super(AppInfoStorageScreen.KEY, AppStorageSettings.class);
 diff --git a/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java b/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
-index 3a255901702..17f7cb204a7 100644
+index 33f4363..0b5d01a 100644
 --- a/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
 +++ b/src/com/android/settings/applications/appinfo/AppInfoDashboardFragment.java
-@@ -59,6 +59,7 @@ import com.android.settings.SettingsPreferenceFragment;
+@@ -61,6 +61,7 @@ import com.android.settings.SettingsPreferenceFragment;
  import com.android.settings.applications.manageapplications.ManageApplications;
  import com.android.settings.applications.specialaccess.interactacrossprofiles.InteractAcrossProfilesDetailsPreferenceController;
  import com.android.settings.applications.specialaccess.pictureinpicture.PictureInPictureDetailPreferenceController;
 +import com.android.settings.applications.sable.SableAppSecurityPreferenceController;
  import com.android.settings.core.SubSettingLauncher;
  import com.android.settings.dashboard.DashboardFragment;
- import com.android.settingslib.RestrictedLockUtilsInternal;
-@@ -172,6 +173,7 @@ public class AppInfoDashboardFragment extends DashboardFragment
+ import com.android.settings.utils.HsuUtils;
+@@ -177,6 +178,7 @@ public class AppInfoDashboardFragment extends DashboardFragment
  
          use(AppPermissionPreferenceController.class).setParentFragment(this);
          use(AppPermissionPreferenceController.class).setPackageName(packageName);
@@ -366,7 +366,7 @@ index 3a255901702..17f7cb204a7 100644
          use(AppSettingPreferenceController.class)
 diff --git a/src/com/android/settings/applications/sable/SableAppSecurityAppsFragment.java b/src/com/android/settings/applications/sable/SableAppSecurityAppsFragment.java
 new file mode 100644
-index 00000000000..4c442922c9a
+index 0000000..4c44292
 --- /dev/null
 +++ b/src/com/android/settings/applications/sable/SableAppSecurityAppsFragment.java
 @@ -0,0 +1,213 @@
@@ -585,7 +585,7 @@ index 00000000000..4c442922c9a
 +}
 diff --git a/src/com/android/settings/applications/sable/SableAppSecurityFragment.java b/src/com/android/settings/applications/sable/SableAppSecurityFragment.java
 new file mode 100644
-index 00000000000..0446a6ab18a
+index 0000000..0446a6a
 --- /dev/null
 +++ b/src/com/android/settings/applications/sable/SableAppSecurityFragment.java
 @@ -0,0 +1,638 @@
@@ -1229,7 +1229,7 @@ index 00000000000..0446a6ab18a
 +}
 diff --git a/src/com/android/settings/applications/sable/SableAppSecurityPreferenceController.java b/src/com/android/settings/applications/sable/SableAppSecurityPreferenceController.java
 new file mode 100644
-index 00000000000..953b6432815
+index 0000000..953b643
 --- /dev/null
 +++ b/src/com/android/settings/applications/sable/SableAppSecurityPreferenceController.java
 @@ -0,0 +1,36 @@
@@ -1270,7 +1270,7 @@ index 00000000000..953b6432815
 +    }
 +}
 diff --git a/src/com/android/settings/core/gateway/SettingsGateway.java b/src/com/android/settings/core/gateway/SettingsGateway.java
-index 430318f0999..00e209b2f15 100644
+index a97c082..d10b025 100644
 --- a/src/com/android/settings/core/gateway/SettingsGateway.java
 +++ b/src/com/android/settings/core/gateway/SettingsGateway.java
 @@ -74,6 +74,7 @@ import com.android.settings.applications.specialaccess.pictureinpicture.PictureI

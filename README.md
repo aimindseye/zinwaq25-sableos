@@ -2,11 +2,10 @@
 
 [![Sable apps](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/android.yml/badge.svg)](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/android.yml)
 [![Checks](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/checks.yml/badge.svg)](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/checks.yml)
-[![Rust](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/rust.yml/badge.svg)](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/rust.yml)
 [![Security](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/security.yml/badge.svg)](https://github.com/aimindseye/zinwaq25-sableos/actions/workflows/security.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=aimindseye_zinwaq25-sableos&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=aimindseye_zinwaq25-sableos)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Platform: LineageOS 23.2](https://img.shields.io/badge/Platform-LineageOS_23.2_(Android_16)-167C80.svg)](https://wiki.lineageos.org/devices/Q25/)
+[![Platform: LineageOS 24.0](https://img.shields.io/badge/Platform-LineageOS_24.0_(Android_17)-167C80.svg)](https://wiki.lineageos.org/devices/Q25/)
 [![Device: Zinwa Q25](https://img.shields.io/badge/Device-Zinwa_Q25-black.svg)](https://wiki.lineageos.org/devices/Q25/)
 
 SableOS is a privacy-focused, keyboard-first Android-compatible OS. This
@@ -60,7 +59,7 @@ Titan 2 or Q27 SableOS lanes.
 ```text
 DEVICE=Q25
 PHASE=R0, Q1, Q2 PASS on a Q25; Q4 alpha-20261029 (main after PR #38) flashed 2026-10-29, device gates in progress
-BASE=LineageOS 23.2 (Android 16 QPR2), official lineage_Q25 device (not a GSI)
+BASE=LineageOS 24.0 (Android 17), official lineage_Q25 device (not a GSI)
 SABLE_LAYER=vendor/extra/product.mk -> vendor/sable/q25 (+ patches/framework at Q4)
 APPS_BUILD=PASS in GitHub Actions (Gradle build, unit tests, Lint, detekt, ktlint)
 IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 (2026-10-22); PR #33 Q4 (2026-10-28); alpha-20261028; alpha-20261029
@@ -72,7 +71,7 @@ RELEASES=1.0 (the first SableOS release, built from this main), earlier test bui
 
 ## Install a release
 
-Every release is built on **LineageOS 23.2 (Android 16 QPR2)** and says so in its
+Every release is built on **LineageOS 24.0 (Android 17)** and says so in its
 release notes. Download `sableos-q25-full-1.0-*.zip` from
 [Releases](https://github.com/aimindseye/zinwaq25-sableos/releases), then, with
 `adb` and `fastboot` installed and the phone's USB-C cable plugged in:
@@ -118,7 +117,7 @@ you start: unlocking erases everything, and SableOS is an unofficial community b
 | Network | 2G/3G/4G LTE, no 5G |
 | Connectivity | Wi-Fi 6 (a/b/g/n/ac/ax), Bluetooth 5.2, NFC, USB-C, 3.5 mm jack, FM |
 | Stock OS | Android 14 |
-| SableOS base | LineageOS 23.2 (Android 16 QPR2) |
+| SableOS base | LineageOS 24.0 (Android 17) |
 
 More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 
@@ -165,7 +164,7 @@ bash build/sable.sh q25 all --yes
 ```
 
 That one command checks your computer and says what is missing, downloads
-LineageOS 23.2 (about 200 GB, first run only), builds the Sable apps, adds the
+LineageOS 24.0 (about 200 GB, first run only), builds the Sable apps, adds the
 Sable layer, builds the image and collects the files. The first run takes many
 hours. If it stops, read the message, fix that, and run the same command again:
 finished steps are reused, and LineageOS and microG that are already downloaded
@@ -196,12 +195,12 @@ device-profile/           Q25 hardware capability profile and key map
 apps/                     how the Sable application sources are managed
 sable-src/                Sable app sources imported from SableOS (pinned commit)
 patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0085)
-patches/framework/        Q4 patches to LineageOS 23.2 projects (Settings, SystemUI, Dialer, ...)
+patches/framework/        Q4 patches to LineageOS 24.0 projects ([port status](docs/LINEAGE_24_PORT.md)) (Settings, SystemUI, Dialer, ...)
 product/common/overlay/   Q4 static overlays (framework, SystemUI, SetupWizard, Glimpse, Gallery2)
 docs/                     guides
 tests/run.sh              static checks and host unit tests
 sonar-project.properties  SonarCloud analysis scope (scripts/sonar-compile-commands.sh feeds the C shim)
-.github/workflows/        GitHub Actions: checks, Sable apps, Rust, Security, SonarCloud
+.github/workflows/        GitHub Actions: checks, Sable apps, Security, SonarCloud
 ```
 
 ## Continuous integration
@@ -212,11 +211,10 @@ GitHub Actions runs on every pull request and on `main`:
 |---|---|
 | `checks` | `tests/run.sh`: shellcheck, pins, staging dry runs, framework patch apply/revert, design and policy checks, host unit tests |
 | `Sable apps` | `scripts/build-apps.sh` for each Gradle project (platform apps, r8 apps, Reader, Mail, Text Reader) with unit tests, Android Lint, detekt, ktlint and Kover |
-| `Rust` | fmt, clippy, tests, `cargo audit`, `cargo deny`, coverage for `sable-src/apps/r8/rust` |
 | `Security` | Gitleaks history scan and MobSF source scan (also weekly) |
 | `SonarCloud` | SonarCloud scan of the whole repository (Kotlin, Java, C, Python, shell, XML), waiting on the "Sonar way" quality gate |
 
-`Sable apps` and `Rust` only run when their sources change. SonarCloud runs as
+`Sable apps` only runs when its sources change. SonarCloud runs as
 CI-based analysis, so Automatic Analysis must stay off in the SonarCloud
 project. The only open SonarCloud findings on `main` are the 25 `restrict`
 qualifiers in the camera shim, kept on purpose. The LineageOS image

@@ -29,6 +29,7 @@
     <string name="c_new_s_find_k">C new · S find · K tasks · L colour · D delete</string>
     <string name="menu_list_item_tick_find">Menu: list item, tick, find, colour, share · Back saves</string>
     <string name="enter_tick_o_open_note">Enter tick · O open note · H done items · Back</string>
+    <string name="r_remind_in_tasks">" · R remind in Tasks"</string>
     <string name="type_your_note_the_first">Type your note. The first line is its title.</string>
     <string name="change_colour_now">Change colour, now %1$s</string>
     <string name="edited">Edited %1$s%2$s</string>

@@ -53,6 +53,7 @@ def main() -> None:
     print("SABLE_TEXT_READER_GLOBAL_APPEARANCE=PASS")
     print("SABLE_TEXT_READER_TEXT_INPUT=PASS_BOUNDED_2_MIB")
     print("SABLE_TEXT_READER_TTS_NETWORK_VOICES=PASS_FILTERED")
+    print("SABLE_TEXT_READER_SPEAK_FOCUS=PASS_NO_TOUCH_NO_KEYS_QUIET_LOCKED")
 
     if len(sys.argv) == 3:
         verify_apk(root, pathlib.Path(sys.argv[2]).resolve())
@@ -120,6 +121,15 @@ def verify_sources(root: pathlib.Path) -> None:
     )
     require(tts_settings, "fun selectLocalVoice(", "SABLE_TEXT_READER_LOCAL_TTS_SELECTOR")
     require(design, 'AUTHORITY = "org.sableos.appearance"', "SABLE_TEXT_READER_APPEARANCE_AUTHORITY")
+    speak = root / "app/src/main/java/org/sableos/textreader/speak"
+    require(speak / "FocusSpeech.kt", "if (facts.locked) return null", "SABLE_TEXT_READER_SPEAK_FOCUS_LOCKED")
+    require(speak / "SpeakFocusService.kt", "FocusSpeech.utterance(", "SABLE_TEXT_READER_SPEAK_FOCUS_POLICY")
+    config = root / "app/src/main/res/xml/sable_speak_focus_service.xml"
+    require(config, 'android:accessibilityFeedbackType="feedbackSpoken"', "SABLE_TEXT_READER_SPEAK_FOCUS_CONFIG")
+    # A focus speaker, not a screen reader: it never takes touch exploration or filters keys.
+    forbid(config, "flagRequestTouchExplorationMode", "SABLE_TEXT_READER_SPEAK_FOCUS_TOUCH")
+    forbid(config, "flagRequestFilterKeyEvents", "SABLE_TEXT_READER_SPEAK_FOCUS_KEYS")
+    forbid(config, "canRequestFilterKeyEvents", "SABLE_TEXT_READER_SPEAK_FOCUS_KEYS")
 
 
 def is_launcher_filter(intent_filter: ET.Element, android: str) -> bool:
@@ -159,6 +169,8 @@ def verify_manifest(manifest_path: pathlib.Path) -> None:
         "android.intent.action.PROCESS_TEXT",
         'android:mimeType="text/plain"',
         'android:authorities="org.sableos.appearance"',
+        "org.sableos.textreader.speak.SpeakFocusService",
+        "android.permission.BIND_ACCESSIBILITY_SERVICE",
     ):
         if token not in manifest_text:
             fail("SABLE_TEXT_READER_MANIFEST", f"missing={token!r}")

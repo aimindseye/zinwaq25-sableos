@@ -61,17 +61,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
@@ -80,6 +83,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
@@ -129,21 +133,28 @@ import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableTheme
 import org.sableos.design.SableTypeToJump
 import org.sableos.design.sableFocusRing
+import org.sableos.start.live.CalendarBusyDay
+import org.sableos.start.live.HubMessageRow
 import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
+import org.sableos.start.live.UpcomingEvent
 import org.sableos.start.model.ActiveFrame
 import org.sableos.start.model.ActiveFrames
 import org.sableos.start.model.AppEntry
 import org.sableos.start.model.AppGlyphs
 import org.sableos.start.model.AppGrid
 import org.sableos.start.model.AppProfiles
+import org.sableos.start.model.Balance
+import org.sableos.start.model.BalanceSpace
 import org.sableos.start.model.CommandBestMatch
 import org.sableos.start.model.CommandGroups
 import org.sableos.start.model.CommandQuery
 import org.sableos.start.model.CommandRanking
 import org.sableos.start.model.CommandScope
 import org.sableos.start.model.CoreAppIdentity
+import org.sableos.start.model.FrameMedia
+import org.sableos.start.model.FrameMediaCommand
 import org.sableos.start.model.GlanceWidgets
 import org.sableos.start.model.HomeApps
 import org.sableos.start.model.HomeHeader
@@ -152,12 +163,18 @@ import org.sableos.start.model.HubBar
 import org.sableos.start.model.HubFilter
 import org.sableos.start.model.HubPeople
 import org.sableos.start.model.HubPerson
+import org.sableos.start.model.InstantAction
+import org.sableos.start.model.InstantActions
+import org.sableos.start.model.InstantRow
 import org.sableos.start.model.QuickBar
 import org.sableos.start.model.SpeedDialKeys
+import org.sableos.start.model.StartMonth
 import org.sableos.start.model.StartPages
 import org.sableos.start.model.StartTypeToSearch
+import org.sableos.start.model.TrackpadFlick
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
+import org.sableos.start.platform.FrameMediaRepository
 import org.sableos.start.platform.LetterShortcutRepository
 import org.sableos.start.platform.LiveSurfaceRepository
 import org.sableos.start.platform.PeopleRepository
@@ -169,9 +186,14 @@ import org.sableos.start.privacy.AppActionContext
 import org.sableos.start.privacy.AppActionPolicy
 import org.sableos.start.privacy.PrivacyFilter
 import org.sableos.start.privacy.PrivacySummaryPolicy
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Date
 import java.util.Locale
 import androidx.compose.foundation.Canvas as ComposeCanvas
 
@@ -327,8 +349,8 @@ private val Bb10Dim: Color
  * Production Sable Start UI in the BlackBerry 10 layout (owner request, after
  * the BB10 UI Guidelines): a horizontal strip of Hub (left), Active Frames
  * (Home: up to eight recent apps as live cards, or the Glance widgets while
- * none run) and the app grid pages (right), with the BB10 page dots and the
- * Phone · Search · Camera bar. All Apps, Command/Search, Peek, Edit Home and
+ * none run) and the app grid pages (right), above the Hub · page dots · Camera
+ * bar. All Apps, Command/Search, Peek, Edit Home and
  * Appearance open over the pages. Recents/Overview remain owned by Android
  * Quickstep; Active Frames read the same recent tasks.
  */
@@ -375,6 +397,9 @@ fun SableStartScreen(
     /** null: no private space on this device; true: locked; false: unlocked. */
     privateSpaceLocked: Boolean? = null,
     onTogglePrivateSpace: () -> Unit = {},
+    /** Balance. null: no work profile; true: work apps paused; false: on. */
+    workPaused: Boolean? = null,
+    onToggleWork: () -> Unit = {},
     /** Counts up for each "show the Hub page" request (org.sableos.start.action.SHOW_HUB). */
     hubGeneration: Int = 0,
     /** The tab that request asked for ([HubFilter] by name), or null for All. */
@@ -595,6 +620,7 @@ fun SableStartScreen(
                                 state = startPager,
                                 pageCount = pageCount,
                                 quickSlots = quickSlots,
+                                hubUnread = liveSnapshot.hubApps.any { it.count > 0 },
                                 onMovePage = ::movePage,
                                 onShowPage = { page -> pagerScope.launch { startPager.animateScrollToPage(page) } },
                                 onQuickSlot = ::activateSlot,
@@ -778,6 +804,8 @@ fun SableStartScreen(
                             onOpenAppInfo = onOpenAppInfo,
                             privateSpaceLocked = privateSpaceLocked,
                             onTogglePrivateSpace = onTogglePrivateSpace,
+                            workPaused = workPaused,
+                            onToggleWork = onToggleWork,
                         )
 
                     SableStartDestination.Search ->
@@ -929,11 +957,11 @@ private fun startGridHeightDp(): Int {
 }
 
 /**
- * The horizontal strip (BB10 layout): pages, the BB10 page indicator and the
- * Phone · Search · Camera bar.
+ * The horizontal strip (BB10 layout): pages above the bottom bar, which holds
+ * Hub, the page dots and Camera.
  *
  * Keys anywhere on the strip: Alt+Left/Right (Fn+Left/Right) move one page,
- * Alt+1..Alt+3 open the bar slots, Alt+Space opens Command, digits typed on the
+ * Alt+1 and Alt+2 open the bar slots, Alt+Space opens Command, digits typed on the
  * focused Phone slot dial, Menu that nothing took opens Edit Home, and any
  * other printable key opens Command/Search seeded with it.
  */
@@ -942,6 +970,7 @@ private fun StartStrip(
     state: PagerState,
     pageCount: Int,
     quickSlots: List<QuickSlot>,
+    hubUnread: Boolean,
     onMovePage: (Int) -> Unit,
     onShowPage: (Int) -> Unit,
     onQuickSlot: (QuickSlot) -> Unit,
@@ -957,6 +986,7 @@ private fun StartStrip(
 ) {
     var phoneSlotFocused by remember { mutableStateOf(false) }
     val speedDialKeys = remember { SpeedDialKeys() }
+    val trackpadFlick = remember { TrackpadFlick() }
     Column(
         modifier =
             Modifier
@@ -964,6 +994,20 @@ private fun StartStrip(
                 .background(Bb10Background)
                 .onPreviewKeyEvent { event ->
                     val native = event.nativeKeyEvent
+                    // A quick sideways trackpad stroke turns the page; slow strokes move focus.
+                    val flick =
+                        if (event.type == KeyEventType.KeyDown) {
+                            trackpadFlick.onKeyDown(
+                                keyCode = native.keyCode,
+                                metaState = native.metaState,
+                                repeat = native.repeatCount,
+                                timeMs = native.eventTime,
+                            )
+                        } else {
+                            TrackpadFlick.Step.Pass
+                        }
+                    if (flick is TrackpadFlick.Step.Turn) onMovePage(flick.delta)
+                    if (flick != TrackpadFlick.Step.Pass) return@onPreviewKeyEvent true
                     val delta = StartPages.keyDelta(native.keyCode, native.metaState)
                     val alt = native.metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) != 0
                     val dial = if (phoneSlotFocused) QuickBar.dialChar(native.unicodeChar) else null
@@ -1033,13 +1077,12 @@ private fun StartStrip(
             beyondViewportPageCount = 0,
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) { index -> page(index) }
-        Bb10PageIndicator(
+        Bb10BottomBar(
             current = state.currentPage,
-            count = pageCount,
-            onShowPage = onShowPage,
-        )
-        Bb10ActionBar(
+            pageCount = pageCount,
             slots = quickSlots,
+            hubUnread = hubUnread,
+            onShowPage = onShowPage,
             onSlot = onQuickSlot,
             onOptions = onSlotOptions,
             onHubPeek = onHubPeek,
@@ -1049,19 +1092,21 @@ private fun StartStrip(
 }
 
 /**
- * BB10 page indicator: the Hub mark, the Active Frames mark and one dot per
- * app grid page; the current page is white, the others grey.
+ * BB10 page indicator in the middle of the bottom bar: the Active Frames mark
+ * and one dot per app grid page; the current page is white, the others grey.
+ * The Hub page has a mark only when no bar slot opens Hub ([showHubMark]).
  */
 @Composable
 private fun Bb10PageIndicator(
     current: Int,
     count: Int,
+    showHubMark: Boolean,
     onShowPage: (Int) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
         modifier =
-            Modifier
-                .fillMaxWidth()
+            modifier
                 .height(INDICATOR_HEIGHT_DP.dp)
                 .semantics {
                     contentDescription = pageDescription(current)
@@ -1070,6 +1115,7 @@ private fun Bb10PageIndicator(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         for (page in 0 until count) {
+            if (page == StartPages.HUB && !showHubMark) continue
             val color = if (page == current) Bb10Text else Bb10Dim
             Box(
                 modifier =
@@ -1310,6 +1356,27 @@ private fun ColumnScope.ActiveFramesGrid(
     onRequestPermissions: () -> Unit,
     onShowHub: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val mediaRepository = remember(context) { FrameMediaRepository(context) }
+    val currentUser = remember { android.os.Process.myUserHandle().hashCode() }
+    var mediaGeneration by remember { mutableIntStateOf(0) }
+    // Only while frames show: sessions coming, going, playing or pausing redraw the controls.
+    DisposableEffect(mediaRepository, frames.isEmpty()) {
+        val stop = if (frames.isEmpty()) ({}) else mediaRepository.watch { mediaGeneration++ }
+        onDispose { stop() }
+    }
+    val media by
+        produceState(initialValue = emptyList<FrameMedia>(), mediaGeneration, framesGeneration, frames.isEmpty()) {
+            value = if (frames.isEmpty()) emptyList() else withContext(Dispatchers.IO) { mediaRepository.sessions() }
+        }
+    val scope = rememberCoroutineScope()
+
+    fun control(
+        packageName: String,
+        command: FrameMediaCommand,
+    ) {
+        scope.launch(Dispatchers.IO) { mediaRepository.control(packageName, command) }
+    }
     BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
         val cardHeight =
             ((maxHeight - FRAME_PADDING * 2 - FRAME_GAP) / ActiveFrames.ROWS_PER_SCREEN).coerceAtLeast(FRAME_MIN_HEIGHT)
@@ -1340,6 +1407,8 @@ private fun ColumnScope.ActiveFramesGrid(
                             frame = frame,
                             app = appForFrame(frame, apps),
                             live = appForFrame(frame, apps)?.let { liveDatumForApp(it, snapshot) },
+                            media = ActiveFrames.mediaFor(frame, media, currentUser),
+                            onMedia = { command -> control(frame.packageName, command) },
                             framesGeneration = framesGeneration,
                             frameSnapshot = frameSnapshot,
                             onResume = { onResume(frame) },
@@ -1378,6 +1447,8 @@ private fun FrameCard(
     frame: ActiveFrame,
     app: AppEntry?,
     live: LiveDatum?,
+    media: FrameMedia?,
+    onMedia: (FrameMediaCommand) -> Unit,
     framesGeneration: Int,
     frameSnapshot: (ActiveFrame) -> Bitmap?,
     onResume: () -> Unit,
@@ -1400,8 +1471,15 @@ private fun FrameCard(
                 .border(if (focused) 2.dp else 1.dp, if (focused) Bb10Blue else Bb10Line, shape)
                 .onPreviewKeyEvent { event ->
                     val native = event.nativeKeyEvent
-                    if (!ActiveFrames.isCloseKey(native.keyCode, native.metaState)) return@onPreviewKeyEvent false
-                    if (event.type == KeyEventType.KeyDown && native.repeatCount == 0) onClose()
+                    val action =
+                        when {
+                            ActiveFrames.isCloseKey(native.keyCode, native.metaState) -> onClose
+                            media != null && ActiveFrames.isPlayPauseKey(native.keyCode, native.metaState) -> {
+                                { onMedia(FrameMediaCommand.PlayPause) }
+                            }
+                            else -> return@onPreviewKeyEvent false
+                        }
+                    if (event.type == KeyEventType.KeyDown && native.repeatCount == 0) action()
                     true
                 }.combinedClickable(onClick = onResume, onLongClick = onClose)
                 .semantics { contentDescription = t("active_frame_enter_resumes_x", label) },
@@ -1416,6 +1494,14 @@ private fun FrameCard(
                     contentScale = ContentScale.FillWidth,
                     alignment = Alignment.TopCenter,
                 )
+                // Live frames: Sable apps say what is new over their picture; a playing app gets controls.
+                if (media != null) {
+                    FrameMediaBar(media, onMedia, Modifier.align(Alignment.BottomCenter))
+                } else {
+                    live?.takeIf { it.availability == LiveAvailability.LIVE && it.detail.isNotBlank() }?.let {
+                        FrameLiveLine(it.detail, Modifier.align(Alignment.BottomCenter))
+                    }
+                }
             } else {
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -1476,6 +1562,80 @@ private fun FrameCard(
     }
 }
 
+/** One line of an app's live state over the bottom of its frame. */
+@Composable
+private fun FrameLiveLine(
+    text: String,
+    modifier: Modifier,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = FRAME_ON_SCRIM,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.fillMaxWidth().background(FRAME_SCRIM).padding(horizontal = 8.dp, vertical = 4.dp),
+    )
+}
+
+/**
+ * Previous, play or pause, and next over a frame whose app is playing, through the app's own
+ * media session; its title above them. The buttons take touch only: on the keyboard, Space
+ * plays or pauses the focused frame, so arrow keys keep moving between frames.
+ */
+@Composable
+private fun FrameMediaBar(
+    media: FrameMedia,
+    onMedia: (FrameMediaCommand) -> Unit,
+    modifier: Modifier,
+) {
+    Column(modifier.fillMaxWidth().background(FRAME_SCRIM).padding(vertical = 4.dp)) {
+        media.title?.takeIf { it.isNotBlank() }?.let { title ->
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                color = FRAME_ON_SCRIM,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FrameMediaButton("⏮", t("frame_previous"), media.canPrevious) { onMedia(FrameMediaCommand.Previous) }
+            FrameMediaButton(
+                if (media.playing) "⏸" else "▶",
+                if (media.playing) t("frame_pause") else t("frame_play"),
+                true,
+            ) { onMedia(FrameMediaCommand.PlayPause) }
+            FrameMediaButton("⏭", t("frame_next"), media.canNext) { onMedia(FrameMediaCommand.Next) }
+        }
+    }
+}
+
+@Composable
+private fun FrameMediaButton(
+    glyph: String,
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size(FRAME_MEDIA_BUTTON)
+                .focusProperties { canFocus = false }
+                .clickable(enabled = enabled, onClick = onClick)
+                .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = glyph, fontSize = 18.sp, color = if (enabled) FRAME_ON_SCRIM else FRAME_ON_SCRIM_DIM)
+    }
+}
+
 /**
  * No frames: the Glance widgets as frames, in the user's order (Weather,
  * Calendar, Battery, Media by default). No ambient polling: values refresh
@@ -1513,7 +1673,7 @@ private fun GlanceFrames(
         contentPadding = PaddingValues(FRAME_PADDING),
         verticalArrangement = Arrangement.spacedBy(FRAME_GAP),
     ) {
-        items(widgets.chunked(ActiveFrames.COLUMNS), key = { row -> row.first() }) { row ->
+        items(GlanceWidgets.rows(widgets, ActiveFrames.COLUMNS), key = { row -> row.first() }) { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(FRAME_GAP)) {
                 row.forEach { widget ->
                     val modifier =
@@ -1539,10 +1699,13 @@ private fun GlanceFrames(
                                 modifier = modifier,
                             )
                         }
+                        GlanceWidgets.MONTH -> MonthGlanceFrame(snapshot, { open(CALENDAR_PACKAGE) }, modifier)
                         else -> LiveGlanceFrame(widget, snapshot, apps, { open(it) }, onShowHub, modifier)
                     }
                 }
-                repeat(ActiveFrames.COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
+                if (row.first() !in GlanceWidgets.FULL_WIDTH) {
+                    repeat(ActiveFrames.COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
+                }
             }
         }
     }
@@ -1654,6 +1817,176 @@ private fun GlanceFrameCard(
             color = if (focused) Bb10OnBlue else Color.White,
             maxLines = 1,
         )
+    }
+}
+
+/**
+ * The Month frame (owner decision 2026-11-04): this month with Sable Calendar's busy rings on the
+ * left (the arc is how much of 08:00–20:00 is booked; a thin outer ring marks an all-day event) and
+ * the next three events of the coming week on the right. Enter opens Calendar. It reads only the
+ * calendars the user shows in Calendar (L); without Calendar access it shows the month and a hint.
+ */
+@Composable
+private fun MonthGlanceFrame(
+    snapshot: LiveSurfaceSnapshot,
+    onOpen: () -> Unit,
+    modifier: Modifier,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(4.dp)
+    Box(
+        modifier =
+            modifier
+                .onFocusChanged { focused = it.isFocused }
+                .clip(shape)
+                .background(Bb10Card)
+                .border(if (focused) 3.dp else 1.dp, if (focused) Bb10Blue else Bb10Line, shape)
+                .clickable(onClick = onOpen),
+    ) {
+        Box(Modifier.fillMaxWidth().height(4.dp).background(SableBlue))
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(start = 8.dp, end = 10.dp, top = 8.dp, bottom = FRAME_LABEL_HEIGHT + 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            MiniMonth(snapshot, Modifier.weight(1.1f))
+            UpcomingList(snapshot, Modifier.weight(1f))
+        }
+        Text(
+            text = YearMonth.now().format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault())),
+            modifier =
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(FRAME_LABEL_HEIGHT)
+                    .background(if (focused) Bb10Blue else Color(0xE6000000))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = if (focused) Bb10OnBlue else Color.White,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun MiniMonth(
+    snapshot: LiveSurfaceSnapshot,
+    modifier: Modifier,
+) {
+    val today = LocalDate.now()
+    val busy = remember(snapshot.calendarMonth) { snapshot.calendarMonth.associateBy { it.date } }
+    val initials =
+        remember {
+            val format = DateTimeFormatter.ofPattern("EEEEE", Locale.getDefault())
+            (0L until StartMonth.DAYS_PER_WEEK).map { LocalDate.of(2024, 1, 1).plusDays(it).format(format) }
+        }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            initials.forEach {
+                Text(
+                    text = it,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Bb10Muted,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+        StartMonth.cells(YearMonth.from(today)).chunked(StartMonth.DAYS_PER_WEEK).forEach { week ->
+            Row(Modifier.fillMaxWidth()) {
+                week.forEach { date ->
+                    Box(Modifier.weight(1f).height(20.dp), contentAlignment = Alignment.Center) {
+                        if (date != null) MiniDay(date, busy[date], date == today)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniDay(
+    date: LocalDate,
+    day: CalendarBusyDay?,
+    today: Boolean,
+) {
+    val arc = SableBlue
+    val track = Bb10Line
+    val sweep = StartMonth.sweepDegrees(day?.busyMinutes ?: 0)
+    Box(Modifier.size(19.dp), contentAlignment = Alignment.Center) {
+        ComposeCanvas(Modifier.size(17.dp)) {
+            val stroke = 2.dp.toPx()
+            val inset = stroke / 2
+            val arcSize = Size(size.width - stroke, size.height - stroke)
+            if (day != null) drawArc(track, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
+            if (sweep > 0f) {
+                drawArc(arc, -90f, sweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+            }
+            if (day?.allDay == true) drawCircle(arc, radius = size.minDimension / 2 + stroke, style = Stroke(stroke / 2))
+        }
+        Text(
+            text = date.dayOfMonth.toString(),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (today) FontWeight.Bold else FontWeight.Normal,
+            color = if (today) arc else Bb10Text,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun UpcomingList(
+    snapshot: LiveSurfaceSnapshot,
+    modifier: Modifier,
+) {
+    val context = LocalContext.current
+    val today = LocalDate.now()
+    val zone = ZoneId.systemDefault()
+    val weekday = DateTimeFormatter.ofPattern("EEE", Locale.getDefault())
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (snapshot.calendarNext.isEmpty()) {
+            Text(
+                text =
+                    if (snapshot.calendar.availability == LiveAvailability.PERMISSION_REQUIRED) {
+                        snapshot.calendar.detail
+                    } else {
+                        t("month_free")
+                    },
+                style = MaterialTheme.typography.bodySmall,
+                color = Bb10Muted,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        snapshot.calendarNext.forEach { event ->
+            val start = Instant.ofEpochMilli(event.beginMillis)
+            // All-day events are stored at UTC midnight.
+            val day = start.atZone(if (event.allDay) ZoneOffset.UTC else zone).toLocalDate()
+            val dayText = StartMonth.dayWord(day, today, { it.format(weekday) }, t("month_today") to t("month_tomorrow"))
+            val time =
+                if (event.allDay) {
+                    t("month_all_day")
+                } else {
+                    android.text.format.DateFormat.getTimeFormat(context).format(Date(event.beginMillis))
+                }
+            Column {
+                Text(
+                    text = "$dayText · $time",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SableBlue,
+                    maxLines = 1,
+                )
+                Text(
+                    text = event.title,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Bb10Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 
@@ -2033,6 +2366,7 @@ private fun HubPage(
                 appFor = { personalApps[it] },
                 onOpen = ::openBarItem,
             )
+            HubUpcoming(snapshot = snapshot, onOpen = { findLiveApp(apps, CALENDAR_PACKAGE)?.let(onLaunchApp) })
             Spacer(Modifier.height(8.dp))
             HubTabs(filter = filter, firstTab = tabFocus, onFilter = onFilter)
         }
@@ -2047,6 +2381,12 @@ private fun HubPage(
                 actions = actions,
             )
         } else {
+            hubMessageItems(
+                filter = filter,
+                rows = snapshot.hubMessages,
+                appFor = { pkg -> pkg?.let { personalApps[it] } ?: messagesApp },
+                onStartIntent = onStartIntent,
+            )
             hubSummaryItems(
                 filter = filter,
                 snapshot = snapshot,
@@ -2055,6 +2395,64 @@ private fun HubPage(
                 mailApp = mailApp,
                 actions = actions,
             )
+        }
+    }
+}
+
+/**
+ * The Hub page's Upcoming strip: today's and tomorrow's events from Calendar's snapshot, one line
+ * each, or "Nothing today or tomorrow". Hidden while Calendar is missing or has no permission (the
+ * Month widget asks for it). A tap opens Calendar; it takes no key focus, so the tabs stay first.
+ */
+@Composable
+private fun HubUpcoming(
+    snapshot: LiveSurfaceSnapshot,
+    onOpen: () -> Unit,
+) {
+    val availability = snapshot.calendar.availability
+    if (availability != LiveAvailability.LIVE && availability != LiveAvailability.EMPTY) return
+    val context = LocalContext.current
+    val today = LocalDate.now()
+    val zone = ZoneId.systemDefault()
+    fun dayOf(event: UpcomingEvent): LocalDate =
+        Instant.ofEpochMilli(event.beginMillis).atZone(if (event.allDay) ZoneOffset.UTC else zone).toLocalDate()
+    val soon = StartMonth.todayAndTomorrow(snapshot.calendarNext, today, ::dayOf)
+    Column(
+        Modifier
+            .padding(top = 8.dp)
+            .fillMaxWidth()
+            .focusProperties { canFocus = false }
+            .clickable(onClick = onOpen)
+            .semantics(mergeDescendants = true) {},
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            text = t("hub_upcoming"),
+            style = MaterialTheme.typography.labelSmall,
+            color = Bb10Muted,
+            modifier = Modifier.semantics { heading() },
+        )
+        if (soon.isEmpty()) {
+            Text(text = t("hub_upcoming_none"), style = MaterialTheme.typography.bodySmall, color = Bb10Muted, maxLines = 1)
+        }
+        soon.forEach { event ->
+            val day = StartMonth.dayWord(dayOf(event), today, { it.toString() }, t("month_today") to t("month_tomorrow"))
+            val time =
+                if (event.allDay) {
+                    t("month_all_day")
+                } else {
+                    android.text.format.DateFormat.getTimeFormat(context).format(Date(event.beginMillis))
+                }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "$day $time", style = MaterialTheme.typography.labelSmall, color = SableBlue, maxLines = 1)
+                Text(
+                    text = event.title,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Bb10Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -2241,6 +2639,137 @@ private fun HubTabs(
  * The All, Messages and Calls tabs: Messages and Mail, Missed calls, and on All the notification
  * summary ([summary] is null when Sable Hub is absent, which also hides Hub settings).
  */
+/**
+ * The Hub page's message list (owner decision 2026-11-04, as BB10 and TenSeven): Hub's newest
+ * inbox rows, newest first, on All and Messages. Enter or a tap opens the thread in Hub; Menu,
+ * Alt+Enter or a long press opens Hub with that row's BB10 menu (Mark read, Snooze, Dismiss and
+ * the app's own actions run in Hub, which holds the notifications). Hub sends no rows while the
+ * phone is locked or in Sable private mode, and the cards stay.
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.hubMessageItems(
+    filter: HubFilter,
+    rows: List<HubMessageRow>,
+    appFor: (String?) -> AppEntry?,
+    onStartIntent: (Intent) -> Unit,
+) {
+    if (rows.isEmpty() || (filter != HubFilter.All && filter != HubFilter.Messages)) return
+    items(items = rows, key = { "hub-row:" + it.threadId }) { row ->
+        HubMessageRowItem(
+            row = row,
+            app = appFor(row.packageName),
+            onOpen = { onStartIntent(hubThreadIntent(row.threadId, menu = false)) },
+            onActions = { onStartIntent(hubThreadIntent(row.threadId, menu = true)) },
+        )
+    }
+}
+
+private fun hubThreadIntent(
+    threadId: Long,
+    menu: Boolean,
+): Intent =
+    Intent(HUB_ACTION_OPEN_THREAD)
+        .setPackage(HUB_PACKAGE)
+        .putExtra(HUB_EXTRA_THREAD_ID, threadId)
+        .putExtra(HUB_EXTRA_ROW_MENU, menu)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+/** One Hub message: app icon, sender or subject, a one-line preview, the time; unread has a blue edge. */
+@Composable
+private fun HubMessageRowItem(
+    row: HubMessageRow,
+    app: AppEntry?,
+    onOpen: () -> Unit,
+    onActions: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(6.dp)
+    val text = if (focused) Bb10OnBlue else Bb10Text
+    val time = remember(row.dateMillis) { hubRowTime(row.dateMillis) }
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .onFocusChanged { focused = it.isFocused }
+                .clip(shape)
+                .background(if (focused) Bb10Blue else Bb10Card)
+                .border(1.dp, Bb10Line, shape)
+                .onPreviewKeyEvent { event ->
+                    val native = event.nativeKeyEvent
+                    val alt = native.metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) != 0
+                    val menu =
+                        native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
+                            (native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && alt)
+                    if (menu && event.type == KeyEventType.KeyDown && native.repeatCount == 0) onActions()
+                    menu
+                }.combinedClickable(onClick = onOpen, onLongClick = onActions)
+                .semantics {
+                    contentDescription =
+                        listOfNotNull(row.title, row.preview.takeIf { it.isNotBlank() }, time).joinToString(", ") +
+                        if (row.unread > 0) ", " + t("hub_unread") else ""
+                },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .width(HUB_ROW_EDGE_DP.dp)
+                .height(40.dp)
+                .background(if (row.unread > 0) Bb10Blue else Color.Transparent),
+        )
+        Spacer(Modifier.width(8.dp))
+        if (app != null) AppMark(app = app, size = HUB_ROW_ICON_DP) else HubLockMark()
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f).padding(vertical = 6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = row.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = if (row.unread > 0) FontWeight.Bold else FontWeight.Medium,
+                    color = text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = time,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = text,
+                    maxLines = 1,
+                )
+            }
+            if (row.preview.isNotBlank()) {
+                Text(
+                    text = row.preview,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+    }
+}
+
+/** Today's rows show the time, older ones the short date, in the phone's own format. */
+private fun hubRowTime(epochMillis: Long): String {
+    if (epochMillis <= 0L) return ""
+    val now = java.util.Calendar.getInstance()
+    val then = java.util.Calendar.getInstance().apply { timeInMillis = epochMillis }
+    val sameDay =
+        now.get(java.util.Calendar.YEAR) == then.get(java.util.Calendar.YEAR) &&
+            now.get(java.util.Calendar.DAY_OF_YEAR) == then.get(java.util.Calendar.DAY_OF_YEAR)
+    val skeleton = if (sameDay) "jm" else "MMMd"
+    val pattern = android.text.format.DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), skeleton)
+    return android.text.format.DateFormat.format(pattern, epochMillis).toString()
+}
+
+private const val HUB_ROW_EDGE_DP = 3
+private const val HUB_ROW_ICON_DP = 28
+private const val HUB_ACTION_OPEN_THREAD = "org.sableos.hub.action.OPEN_THREAD"
+private const val HUB_EXTRA_THREAD_ID = "org.sableos.hub.extra.THREAD_ID"
+private const val HUB_EXTRA_ROW_MENU = "org.sableos.hub.extra.ROW_MENU"
+
 private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
     filter: HubFilter,
     snapshot: LiveSurfaceSnapshot,
@@ -2249,7 +2778,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
     mailApp: AppEntry?,
     actions: HubActions,
 ) {
-    val showMessages = filter != HubFilter.Calls
+    // The message list replaces the Messages and Mail cards when Hub sends rows (hubMessageItems).
+    val showMessages = filter != HubFilter.Calls && snapshot.hubMessages.isEmpty()
     val showCalls = filter != HubFilter.Messages
     if (showMessages) {
         item(key = "messages") {
@@ -2481,20 +3011,38 @@ private fun SlotOptionsScreen(
 }
 
 /**
- * The BB10 bar under Active Frames and the app grid: Phone · Search · Camera
- * by default, icon only, white on the dark bar, the focused slot BB10 blue.
- * Enter or a tap opens a slot; long press, Menu or Alt+Enter (Fn+Enter) opens
- * the slot's options; Space on a Hub slot peeks at the Hub page; digits typed
- * while Phone is focused go to the dialer (handled by [StartStrip]).
+ * The BB10 bottom bar under Active Frames and the app grid (owner decision
+ * 2026-11-04): the first slot at the left end (Hub by default, with a dot when
+ * Hub has unread items), the page dots in the middle and the second slot at
+ * the right end (Camera by default). Icon only, white on the dark bar, the
+ * focused slot BB10 blue; the Hub slot is white-outlined while the Hub page is
+ * shown. Enter or a tap opens a slot; long press, Menu or Alt+Enter (Fn+Enter)
+ * opens the slot's options; Space on a Hub slot peeks at the Hub page; digits
+ * typed while a Phone slot is focused go to the dialer (handled by [StartStrip]).
  */
 @Composable
-private fun Bb10ActionBar(
+private fun Bb10BottomBar(
+    current: Int,
+    pageCount: Int,
     slots: List<QuickSlot>,
+    hubUnread: Boolean,
+    onShowPage: (Int) -> Unit,
     onSlot: (QuickSlot) -> Unit,
     onOptions: (QuickSlot) -> Unit,
     onHubPeek: () -> Unit,
     onPhoneFocusChanged: (Boolean) -> Unit,
 ) {
+    if (slots.isEmpty()) {
+        // The default: only the page dots, no launcher-style bar.
+        Bb10PageIndicator(
+            current = current,
+            count = pageCount,
+            showHubMark = true,
+            onShowPage = onShowPage,
+            modifier = Modifier.fillMaxWidth().height(DOTS_ROW_DP.dp),
+        )
+        return
+    }
     Row(
         modifier =
             Modifier
@@ -2502,45 +3050,89 @@ private fun Bb10ActionBar(
                 .height(BAR_HEIGHT_DP.dp)
                 .background(Brush.verticalGradient(listOf(Bb10BarTop, Bb10BarBottom)))
                 .border(1.dp, Bb10Line)
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        slots.forEachIndexed { index, slot ->
-            var focused by remember { mutableStateOf(false) }
-            Box(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (focused) Bb10Blue else Color.Transparent)
-                        .onFocusChanged { state ->
-                            focused = state.isFocused
-                            if (slot.token == QuickBar.PHONE) onPhoneFocusChanged(state.isFocused)
-                        }.onPreviewKeyEvent { event ->
-                            val native = event.nativeKeyEvent
-                            val alt = native.metaState and (QuickBar.META_FUNCTION_ON or QuickBar.META_ALT_ON) != 0
-                            val action: (() -> Unit)? =
-                                when {
-                                    native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
-                                        (native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && alt) -> {
-                                        { onOptions(slot) }
-                                    }
-                                    native.keyCode == AllAppsKeyPolicy.KEYCODE_SPACE && !alt && slot.token == QuickBar.HUB -> onHubPeek
-                                    else -> null
-                                }
-                            if (action != null && event.type == KeyEventType.KeyDown && native.repeatCount == 0) action()
-                            action != null
-                        }.combinedClickable(
-                            onClick = { onSlot(slot) },
-                            onLongClick = { onOptions(slot) },
-                        ).semantics {
-                            contentDescription = "${slot.label}, ${QuickBar.shortcutLabel(index)}"
-                        },
-                contentAlignment = Alignment.Center,
-            ) {
-                CompositionLocalProvider(LocalContentColor provides if (focused) Bb10OnBlue else Bb10Text) {
-                    QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
+        val left = slots.getOrNull(0)
+        val right = slots.getOrNull(1)
+        val slot: @Composable (QuickSlot?, Int) -> Unit = { quick, index ->
+            Box(Modifier.width(BAR_SLOT_DP.dp).fillMaxHeight()) {
+                quick?.let { Bb10BarSlot(it, index, current, hubUnread, onSlot, onOptions, onHubPeek, onPhoneFocusChanged) }
+            }
+        }
+        slot(left, 0)
+        Bb10PageIndicator(
+            current = current,
+            count = pageCount,
+            showHubMark = slots.none { it.token == QuickBar.HUB },
+            onShowPage = onShowPage,
+            modifier = Modifier.weight(1f),
+        )
+        slot(right, 1)
+    }
+}
+
+/** One end slot of [Bb10BottomBar]. */
+@Composable
+private fun Bb10BarSlot(
+    slot: QuickSlot,
+    index: Int,
+    current: Int,
+    hubUnread: Boolean,
+    onSlot: (QuickSlot) -> Unit,
+    onOptions: (QuickSlot) -> Unit,
+    onHubPeek: () -> Unit,
+    onPhoneFocusChanged: (Boolean) -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val isHub = slot.token == QuickBar.HUB
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(6.dp))
+                .background(if (focused) Bb10Blue else Color.Transparent)
+                .then(
+                    if (isHub && current == StartPages.HUB && !focused) {
+                        Modifier.border(1.dp, Bb10Text, RoundedCornerShape(6.dp))
+                    } else {
+                        Modifier
+                    },
+                ).onFocusChanged { state ->
+                    focused = state.isFocused
+                    if (slot.token == QuickBar.PHONE) onPhoneFocusChanged(state.isFocused)
+                }.onPreviewKeyEvent { event ->
+                    val native = event.nativeKeyEvent
+                    val alt = native.metaState and (QuickBar.META_FUNCTION_ON or QuickBar.META_ALT_ON) != 0
+                    val action: (() -> Unit)? =
+                        when {
+                            native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU ||
+                                (native.keyCode == AllAppsKeyPolicy.KEYCODE_ENTER && alt) -> {
+                                { onOptions(slot) }
+                            }
+                            native.keyCode == AllAppsKeyPolicy.KEYCODE_SPACE && !alt && isHub -> onHubPeek
+                            else -> null
+                        }
+                    if (action != null && event.type == KeyEventType.KeyDown && native.repeatCount == 0) action()
+                    action != null
+                }.combinedClickable(
+                    onClick = { onSlot(slot) },
+                    onLongClick = { onOptions(slot) },
+                ).semantics {
+                    val unread = if (isHub && hubUnread) ", " + t("hub_unread") else ""
+                    contentDescription = "${slot.label}$unread, ${QuickBar.shortcutLabel(index)}"
+                },
+        contentAlignment = Alignment.Center,
+    ) {
+        CompositionLocalProvider(LocalContentColor provides if (focused) Bb10OnBlue else Bb10Text) {
+            Box {
+                QuickSlotMark(slot = slot, size = BAR_GLYPH_DP, monochrome = true)
+                if (isHub && hubUnread) {
+                    // BB10's unread splat: a filled dot at the envelope's top right.
+                    val dot = LocalContentColor.current
+                    ComposeCanvas(Modifier.size(HUB_DOT_DP.dp).align(Alignment.TopEnd)) {
+                        drawCircle(color = dot, radius = size.minDimension / 2f)
+                    }
                 }
             }
         }
@@ -2604,12 +3196,22 @@ private fun QuickSlotMark(
                     )
                 }
             }
-            QuickBar.HUB ->
-                // Hub: three short lines, as on the page indicator.
-                for (line in 0..2) {
-                    val y = unit * (0.25f + line * 0.25f)
-                    drawLine(color, Offset(unit * 0.12f, y), Offset(unit * 0.88f, y), strokeWidth = stroke, cap = StrokeCap.Round)
+            QuickBar.HUB -> {
+                // Hub: a BB10 envelope, the body and its flap.
+                val top = unit * 0.26f
+                val bottom = unit * 0.78f
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(unit * 0.1f, top),
+                    size = Size(unit * 0.8f, bottom - top),
+                    cornerRadius = CornerRadius(unit * 0.06f),
+                    style = Stroke(stroke),
+                )
+                val fold = Offset(unit * 0.5f, unit * 0.54f)
+                listOf(0.12f, 0.88f).forEach { x ->
+                    drawLine(color, Offset(unit * x, top + stroke), fold, strokeWidth = stroke, cap = StrokeCap.Round)
                 }
+            }
             QuickBar.CAMERA -> {
                 // Camera body, viewfinder bump and lens.
                 drawRoundRect(
@@ -3467,9 +4069,20 @@ private fun AppsScreen(
     onOpenAppInfo: (AppEntry) -> Unit,
     privateSpaceLocked: Boolean?,
     onTogglePrivateSpace: () -> Unit,
+    workPaused: Boolean? = null,
+    onToggleWork: () -> Unit = {},
 ) {
+    // Balance: with a work profile, All Apps shows Personal or Work (BB10's switch).
+    val spaces = Balance.spaces(hasWorkProfile = workPaused != null)
+    var chosen by rememberSaveable { mutableStateOf(BalanceSpace.Personal) }
+    val space = if (chosen in spaces) chosen else BalanceSpace.Personal
+    val inWork = space == BalanceSpace.Work
     // Private Space apps live in their own section at the end, never in the A-Z list.
-    val (privateApps, listedApps) = remember(apps) { apps.partition { it.profileLabel == PROFILE_PRIVATE_LABEL } }
+    val (privateApps, allListed) = remember(apps) { apps.partition { it.profileLabel == PROFILE_PRIVATE_LABEL } }
+    val listedApps =
+        remember(allListed, space, spaces) {
+            if (spaces.isEmpty()) allListed else allListed.filter { Balance.inSpace(it.profileLabel, space) }
+        }
     var filter by remember { mutableStateOf(PrivacyFilter.All) }
     val rows = remember(listedApps, filter) { buildRailRows(listedApps.filter { filter.matches(it.privacy) }) }
     val keys = remember(rows) { rows.map { it.app.stableKey() } }
@@ -3580,10 +4193,17 @@ private fun AppsScreen(
             Spacer(Modifier.height(8.dp))
             SearchLaunchButton(onClick = onSearch)
             Spacer(Modifier.height(6.dp))
+            if (spaces.isNotEmpty()) {
+                BalanceSwitch(spaces = spaces, selected = space, onSelect = { chosen = it })
+                if (inWork) WorkPauseLine(paused = workPaused == true, onToggle = onToggleWork)
+                Spacer(Modifier.height(6.dp))
+            }
             PrivacyFilterChips(selected = filter, onSelect = { filter = it })
             Spacer(Modifier.height(8.dp))
 
-            if (rows.isEmpty() && filter != PrivacyFilter.All) {
+            if (rows.isEmpty() && inWork && workPaused != true && filter == PrivacyFilter.All) {
+                EmptyState(t("no_work_apps"))
+            } else if (rows.isEmpty() && filter != PrivacyFilter.All) {
                 EmptyState(t("no_apps_match", filter.label))
             } else if (rows.isEmpty() && privateSpaceLocked == null) {
                 EmptyState(t("no_launchable_apps_are_available"))
@@ -3628,7 +4248,7 @@ private fun AppsScreen(
                                     }.onPreviewKeyEvent { event -> onRowKey(index, event) },
                         )
                     }
-                    if (privateSpaceLocked != null) {
+                    if (privateSpaceLocked != null && !inWork) {
                         item(key = "private-space") {
                             PrivateSpaceSection(
                                 locked = privateSpaceLocked,
@@ -3654,6 +4274,65 @@ private fun AppsScreen(
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
         }
+    }
+}
+
+/** BB10 Balance: Personal · Work, as chips like the privacy filters. */
+@Composable
+private fun BalanceSwitch(
+    spaces: List<BalanceSpace>,
+    selected: BalanceSpace,
+    onSelect: (BalanceSpace) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        spaces.forEach { space ->
+            val on = space == selected
+            val label = if (space == BalanceSpace.Work) t("work") else t("balance_personal")
+            Text(
+                text = label,
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                        .sableFocusRing()
+                        .clickable { onSelect(space) }
+                        .semantics { contentDescription = t("balance_space", label) + if (on) t("applied") else "" }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+/** In Work: pause work apps (Android's quiet mode), or say they are paused and turn them on. */
+@Composable
+private fun WorkPauseLine(
+    paused: Boolean,
+    onToggle: () -> Unit,
+) {
+    Column(Modifier.padding(top = 6.dp)) {
+        if (paused) {
+            Text(
+                text = t("work_paused"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = t(if (paused) "resume_work" else "pause_work"),
+            modifier =
+                Modifier
+                    .padding(top = 4.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                    .sableFocusRing()
+                    .clickable(onClick = onToggle)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 
@@ -3861,12 +4540,17 @@ private fun SearchScreen(
     val settingsResults = if (parsed.profileScope) emptyList() else settingsResults(parsed, onStartIntent, onOpenSettings)
     val peopleResults = if (parsed.profileScope) emptyList() else peopleResults(parsed, onStartIntent, onHub)
     val hubResults = if (parsed.profileScope) emptyList() else hubResults(parsed, onHub)
+    val instantRows =
+        if (parsed.profileScope || !parsed.includes(CommandScope.Actions)) emptyList() else InstantActions.forTerm(term)
+    val instantResults = instantRows.map { row -> instantResult(row, onStartIntent) }
+    // A typed keyword ("note …", "remind me …") makes its Instant Action the best match.
+    val chosenInstant = instantResults.firstOrNull()?.takeIf { instantRows.first().chosen }
     val firstOther =
         (filteredCommands.takeIf { term.isNotEmpty() }.orEmpty() + settingsResults + peopleResults + hubResults)
             .firstOrNull()
     val bestIsApp = CommandBestMatch.appWins(filteredApps.firstOrNull()?.label, firstOther?.title, term)
-    val bestApp = filteredApps.firstOrNull()?.takeIf { bestIsApp == true }
-    val bestOther = firstOther?.takeIf { bestIsApp == false }
+    val bestApp = filteredApps.firstOrNull()?.takeIf { bestIsApp == true && chosenInstant == null }
+    val bestOther = chosenInstant ?: firstOther?.takeIf { bestIsApp == false }
     val lockedPrivate = privateSpaceLocked == true && (parsed.scope == CommandScope.Private || term.isNotEmpty())
 
     fun appActions(app: AppEntry): List<Pair<String, () -> Unit>> =
@@ -3941,6 +4625,7 @@ private fun SearchScreen(
                     ?: bestOther?.onClick?.invoke()
                     ?: filteredApps.firstOrNull()?.let(onLaunchApp)
                     ?: firstOther?.onClick?.invoke()
+                    ?: instantResults.firstOrNull()?.onClick?.invoke()
             },
             onGroupDelta = ::moveChip,
         )
@@ -4000,6 +4685,7 @@ private fun SearchScreen(
                 "settings" to settingsResults,
                 "hub" to hubResults,
                 (if (term.isEmpty()) t("quick_actions") else "actions") to filteredCommands,
+                t("instant_actions") to instantResults,
             ).forEach { (label, rows) ->
                 val shown = rows.filterNot { it == bestOther }
                 if (shown.isNotEmpty()) {
@@ -4009,7 +4695,7 @@ private fun SearchScreen(
                 }
             }
             if (filteredApps.isEmpty() && privacyMatches.isEmpty() && filteredCommands.isEmpty() && settingsResults.isEmpty() &&
-                peopleResults.isEmpty() && hubResults.isEmpty() && !lockedPrivate
+                peopleResults.isEmpty() && hubResults.isEmpty() && instantResults.isEmpty() && !lockedPrivate
             ) {
                 item {
                     EmptyState(
@@ -4027,6 +4713,50 @@ private fun SearchScreen(
         }
     }
 }
+
+/**
+ * One Instant Action row: Remind me into Sable Tasks and Note into Sable Notes (their own share
+ * entry), Call to the dialer, Text and Email to the user's apps, Map to a maps app, Web search to
+ * the browser. Nothing is sent from here: each app opens with the text filled in.
+ */
+private fun instantResult(
+    row: InstantRow,
+    onStartIntent: (Intent) -> Unit,
+): SearchCommand {
+    val text = row.payload
+    val intent =
+        when (row.action) {
+            InstantAction.RemindMe -> shareText(TASKS_PACKAGE, text)
+            InstantAction.Note -> shareText(NOTES_PACKAGE, text)
+            InstantAction.Call -> Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(CommandQuery.dialable(text) ?: text)))
+            InstantAction.Text -> {
+                val number = CommandQuery.dialable(text)
+                Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(number.orEmpty()))).apply {
+                    if (number == null) putExtra("sms_body", text)
+                }
+            }
+            InstantAction.Email -> {
+                val address = InstantActions.emailAddress(text)
+                Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(address.orEmpty(), "@"))).apply {
+                    if (address == null) putExtra(Intent.EXTRA_TEXT, text)
+                }
+            }
+            InstantAction.Map -> Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(text)))
+            InstantAction.WebSearch -> Intent(Intent.ACTION_WEB_SEARCH).putExtra(SearchManager.QUERY, text)
+        }
+    return SearchCommand(
+        title = row.action.label,
+        subtitle = "“$text”",
+        mark = row.action.mark,
+        source = t("instant_action"),
+        onClick = { onStartIntent(intent) },
+    )
+}
+
+private fun shareText(
+    packageName: String,
+    text: String,
+): Intent = Intent(Intent.ACTION_SEND).setType("text/plain").setPackage(packageName).putExtra(Intent.EXTRA_TEXT, text)
 
 /** The group chips over the results; the current scope is filled. */
 @Composable
@@ -5345,6 +6075,8 @@ private val HUB_BAR_ITEM_HEIGHT = 32.dp
 private const val HUB_JUMP_BLOCKING_META = 0x02 or 0x04 or 0x08 or 0x1000 or 0x10000
 private const val MAIL_PACKAGE = "org.sableos.mail"
 private const val CALENDAR_PACKAGE = "org.sableos.calendar"
+private const val TASKS_PACKAGE = "org.sableos.tasks"
+private const val NOTES_PACKAGE = "org.sableos.notes"
 private const val WEATHER_PACKAGE = "org.sableos.weather"
 private const val MEDIA_PACKAGE = "org.sableos.media"
 private const val DIALER_PACKAGE = "com.android.dialer"
@@ -5382,6 +6114,12 @@ private const val FRAME_STRIP_ICON_DP = 18
 /** Two rows of frames always fit under the dials and the weather on a 411dp square. */
 private val FRAME_MIN_HEIGHT = 72.dp
 private const val FRAME_ICON_DP = 40
+private val FRAME_SCRIM = Color(0xCC0F1114)
+private val FRAME_MEDIA_BUTTON = 36.dp
+
+// The scrim sits over an app's picture, whatever Start's theme: always light on dark.
+private val FRAME_ON_SCRIM = Color(0xFFF2F4F7)
+private val FRAME_ON_SCRIM_DIM = Color(0x80F2F4F7)
 private val STATUS_RING_SIZE = 34.dp
 
 /** A grid cell is at least this tall: a 40dp icon, its one-line label and the focus padding. */
@@ -5399,11 +6137,16 @@ private const val GRID_CELL_CHROME_DP = 2 * 2 + 4 * 2 + 3
 private const val INDICATOR_HEIGHT_DP = 16
 private const val INDICATOR_SLOT_DP = 18
 private const val BAR_HEIGHT_DP = 48
+
+/** The page dots alone, when the bar has no slots (the default). */
+private const val DOTS_ROW_DP = 28
 private const val BAR_GLYPH_DP = 26
+private const val BAR_SLOT_DP = 64
+private const val HUB_DOT_DP = 8
 
 /** Before the window is measured: the status bar the configuration's height still includes. */
 private const val STATUS_BAR_FALLBACK_DP = 24
 
 /** Page indicator, bar and the grid's own padding: what the grid rows do not get. */
-private const val START_CHROME_DP = INDICATOR_HEIGHT_DP + BAR_HEIGHT_DP + 2 * 4
+private const val START_CHROME_DP = BAR_HEIGHT_DP + 2 * 4
 private const val NANOS_PER_MILLI = 1_000_000L

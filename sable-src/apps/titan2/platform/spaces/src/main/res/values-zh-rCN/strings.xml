@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chinese (Simplified). Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">工作空间</string>
+    <string name="work">工作</string>
+    <string name="intro">将工作应用与个人应用分开：各自的数据和账号、工作标志，以及 Start 上可暂停它们的个人 · 工作切换。</string>
+    <string name="make">创建工作空间</string>
+    <string name="making">Android 正在创建工作空间，大约需要一分钟。</string>
+    <string name="not_allowed">此手机目前无法创建工作空间，可能已有工作空间或手机管理程序。</string>
+    <string name="cancelled">未创建工作空间。</string>
+    <string name="ready">工作空间已就绪。添加你工作中使用的应用：每个应用都会有一份带独立数据的副本。</string>
+    <string name="paused">工作应用已暂停。要添加应用，请在 Start（所有应用，工作）中开启它们。</string>
+    <string name="in_work">%1$s · 在工作中</string>
+    <string name="no_apps">你的所有应用都已在工作中。</string>
+    <string name="could_not_open">工作空间没有响应，请稍后再试。</string>
+    <string name="remove">移除工作空间</string>
+    <string name="add_confirm">将 %1$s（%2$s）添加到工作？Enter 添加，返回取消。</string>
+    <string name="added">%1$s 现已在工作中。</string>
+    <string name="add_failed">无法将 %1$s 添加到工作。</string>
+    <string name="remove_confirm">移除工作空间及其所有工作应用和数据？Y 移除，N 保留。</string>
+    <string name="yes">是</string>
+    <string name="no">否</string>
+    <string name="hint">上下选择应用 · Enter 添加 · O 选项 · R 移除工作空间 · 返回退出</string>
+    <string name="options">工作空间选项</string>
+    <string name="options_intro">这些设置只在工作空间内生效。每项一开始都是允许。</string>
+    <string name="option_copy">从工作应用复制到个人应用</string>
+    <string name="option_share">从个人应用分享到工作应用</string>
+    <string name="option_screenshots">工作应用的屏幕截图</string>
+    <string name="allowed">允许</string>
+    <string name="blocked">阻止</string>
+    <string name="option_line">%1$s：%2$s</string>
+    <string name="work_lock">工作锁</string>
+    <string name="work_lock_about">工作应用单独的 PIN、图案或密码，手机锁定后打开它们时需要输入。</string>
+    <string name="options_hint">上下键选择 · Enter 切换 · L 设置工作锁 · Back 退出</string>
+    <string name="options_failed">Android 未接受此更改。</string>
+</resources>

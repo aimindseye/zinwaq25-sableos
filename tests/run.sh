@@ -45,6 +45,8 @@ check_pin kernel/xelex/mt6789 "$SABLE_Q25_KERNEL_REV"
 check_pin hardware/mediatek "$SABLE_Q25_HARDWARE_MEDIATEK_REV"
 check_pin device/mediatek/sepolicy_vndr "$SABLE_Q25_SEPOLICY_VNDR_REV"
 check_pin vendor/xelex/Q25 "$SABLE_Q25_VENDOR_BLOBS_REV"
+check_pin device/xelex/mt6789-common "$SABLE_Q25_DEVICE_COMMON_REV"
+check_pin vendor/xelex/mt6789-common "$SABLE_Q25_VENDOR_COMMON_BLOBS_REV"
 
 # 4. apps.tsv: 9 columns, unique module names, known enums.
 if awk -F'\t' '
@@ -270,6 +272,55 @@ if grep -q 'user-type="android.os.usertype.profile.PRIVATE"' product/q25/sysconf
 else
     fail "Secure Vault manifest or window policy"
 fi
+# Sable Spaces (Balance): main user and work profiles only, no network, no backup; it sets no policy beyond
+# naming the profile, forwarding its own three actions, adding apps, removing the Work space and the three
+# options the user switches on its in-Work options screen (block copy out of Work, block sharing into
+# Work, block screenshots in Work; all Allowed until then); the in-profile screens are off in the main
+# user, every add or remove request is confirmed there, and only the options screen sets restrictions.
+sm=sable-src/apps/titan2/platform/spaces/src/main
+sx=product/q25/sysconfig/preinstalled-packages-sable-spaces.xml
+if grep -q 'user-type="android.os.usertype.profile.MANAGED"' "$sx" && grep -q 'user-type="FULL"' "$sx" &&
+    ! grep -q 'PRIVATE\|CLONE\|SYSTEM' "$sx" &&
+    ! grep -q '<uses-permission' "$sm/AndroidManifest.xml" &&
+    grep -q 'android:allowBackup="false"' "$sm/AndroidManifest.xml" &&
+    grep -A1 'name=".android.InWorkActivity"' "$sm/AndroidManifest.xml" | grep -q 'android:enabled="false"' &&
+    grep -A1 'name=".android.WorkOptionsActivity"' "$sm/AndroidManifest.xml" | grep -q 'android:enabled="false"' &&
+    ! grep -rqE 'setPasswordQuality|setKeyguardDisabled|setGlobalProxy|setAlwaysOnVpn|setNetworkLogging|setSecurityLogging|setPermissionGrantState' "$sm/java" &&
+    ! grep -rlE 'addUserRestriction|clearUserRestriction|setScreenCaptureDisabled' "$sm/java" | grep -qv '/WorkOptionsActivity.kt$' &&
+    [ "$(grep -oE 'UserManager\.DISALLOW_[A-Z_]+' "$sm/java/org/sableos/titan2/spaces/android/WorkOptionsActivity.kt" | sort -u | tr '\n' ' ')" = "UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE UserManager.DISALLOW_SHARE_INTO_MANAGED_PROFILE " ] &&
+    grep -q 'KEYCODE_Y -> confirm()' "$sm/java/org/sableos/titan2/spaces/android/InWorkActivity.kt" &&
+    grep -q 'WorkSpace.isPackageName(pkg)' "$sm/java/org/sableos/titan2/spaces/android/InWorkActivity.kt"; then
+    pass "Sable Spaces: main user and work profiles only, no permissions, only the user's three Work options, requests confirmed in Work"
+else
+    fail "Sable Spaces install scope or policy"
+fi
+# Sable Print To Go (BB10 Print To Go): a printer on the Wi-Fi only while the user turns it on. It binds the
+# Wi-Fi address, never all interfaces; runs as a visible foreground service with Stop; turns itself off when
+# idle; saves through MediaStore without storage permissions; no backup.
+pm=sable-src/apps/titan2/platform/printtogo/src/main
+if grep -q 'ServerSocket(PrintToGo.PORT, BACKLOG, address)' "$pm/java/org/sableos/titan2/printtogo/android/PrintServer.kt" &&
+    grep -q 'TRANSPORT_WIFI' "$pm/java/org/sableos/titan2/printtogo/android/PrintToGoService.kt" &&
+    grep -q 'shutDown(Phase.IdleOff)' "$pm/java/org/sableos/titan2/printtogo/android/PrintToGoService.kt" &&
+    grep -q 'IDLE_MS = 10 \* 60 \* 1000L' "$pm/java/org/sableos/titan2/printtogo/core/PrintToGo.kt" &&
+    grep -q 'android:foregroundServiceType="dataSync"' "$pm/AndroidManifest.xml" &&
+    grep -q 'android:allowBackup="false"' "$pm/AndroidManifest.xml" &&
+    ! grep -qE 'STORAGE|MANAGE_EXTERNAL|RECEIVE_BOOT_COMPLETED' "$pm/AndroidManifest.xml"; then
+    pass "Sable Print To Go: Wi-Fi address only, visible while on, turns itself off, no storage permission"
+else
+    fail "Sable Print To Go listening or permission policy"
+fi
+# Sable Compass: sensors on the phone only. Location is coarse, asked only when the user turns true north
+# on, and used only for the declination; no internet, no background or fine location, no backup.
+cm=sable-src/apps/titan2/platform/compass/src/main
+if grep -q 'android.permission.ACCESS_COARSE_LOCATION' "$cm/AndroidManifest.xml" &&
+    grep -q 'android:allowBackup="false"' "$cm/AndroidManifest.xml" &&
+    ! grep -qE 'INTERNET|ACCESS_FINE_LOCATION|ACCESS_BACKGROUND_LOCATION|RECEIVE_BOOT_COMPLETED' "$cm/AndroidManifest.xml" &&
+    grep -q 'if (trueNorth) locate()' "$cm/java/org/sableos/titan2/compass/android/CompassActivity.kt" &&
+    grep -q 'getBoolean(KEY_TRUE_NORTH, false)' "$cm/java/org/sableos/titan2/compass/android/CompassActivity.kt"; then
+    pass "Sable Compass: no internet, coarse location only once true north is turned on"
+else
+    fail "Sable Compass permission policy"
+fi
 # 6b1b. microG (SABLE_Q25_MICROG, docs/MICROG.md): off by default at Q4 but spoofing allowed for the
 # add-on, built in with YES, never before Q4, refused when an APK does not match its pin; the fetcher
 # never keeps a bad file.
@@ -385,7 +436,12 @@ done
 sp=(patches/framework/frameworks/base/0550-*.patch)
 grep -qF '+    private static final String SABLE_MICROG_SPOOFING_PROP = "ro.sable.microg.spoofing";' "${sp[0]}" || mg_bad="$mg_bad 0550:prop"
 grep -qF '+        return isDebuggable() || SystemProperties.getBoolean(SABLE_MICROG_SPOOFING_PROP, false);' "${sp[0]}" || mg_bad="$mg_bad 0550:gate"
-grep -E '^[-+]' "${sp[0]}" | grep -v '^+++\|^---' | grep -q 'MICROG_REAL_SIGNATURE\|MICROG_FAKE_SIGNATURE\|getPackageName' && mg_bad="$mg_bad 0550:touches-checks"
+# 24.0 (MicrogUtils): the one changed check line swaps isDebuggable() for the gate and keeps the rest.
+grep -qxF -- '-        return isDebuggable() && isMicrogPackageName(pkg.getPackageName())' "${sp[0]}" &&
+    grep -qxF -- '+        return isMicrogSpoofingAllowedOnBuild() && isMicrogPackageName(pkg.getPackageName())' "${sp[0]}" ||
+    mg_bad="$mg_bad 0550:gate-line"
+grep -E '^[-+]' "${sp[0]}" | grep -v '^+++\|^---' | grep -v 'isMicrogPackageName(pkg.getPackageName())' |
+    grep -q 'REAL_SIGNATURE\|FAKE_SIGNATURE\|getPackageName\|areExactMatch' && mg_bad="$mg_bad 0550:touches-checks"
 if [[ -z "$mg_bad" ]]; then pass "microG pins, battery and location defaults, permissions and spoofing gate"; else fail "microG product files:$mg_bad"; fi
 
 # 6b1. Q4 device review fixes: Sable apps replace their LineageOS twins, Start hides AudioFX, Weather
@@ -559,6 +615,25 @@ else
     printf 'SKIP  javac not installed (Settings policy test)\n'
 fi
 
+# 6e2. Settings size tiles (1601 SableTextSize, 1603 SableSizes), compiled on the host.
+if command -v javac >/dev/null 2>&1; then
+    sz="$tmp/settings-sizes"
+    mkdir -p "$sz"
+    for p in patches/framework/packages/apps/Settings/1601-*.patch patches/framework/packages/apps/Settings/1603-*.patch; do
+        (cd "$sz" && git apply --include='src/com/android/settings/sable/SableTextSize.java' \
+            --include='src/com/android/settings/sable/SableSizes.java' "$ROOT/$p")
+    done
+    if javac -d "$sz/out" "$sz"/src/com/android/settings/sable/*.java \
+        tests/java/settings/com/android/settings/sable/SableSizesTest.java tests/java/junit-shim/org/junit/*.java 2>"$tmp/err" &&
+        java -cp "$sz/out" org.junit.Run com.android.settings.sable.SableSizesTest >"$tmp/out" 2>&1; then
+        pass "Settings size tiles ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+    else
+        fail "Settings size tiles test: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (Settings size tiles test)\n'
+fi
+
 # 6f. Sable Applications model (Settings patches 0601, 1101 and 12xx) host tests, and the Sable
 # Tools Settings actions the Settings patches must export (settings-ui5).
 if command -v javac >/dev/null 2>&1; then
@@ -689,7 +764,7 @@ if [[ -f "${pb[0]}" ]] &&
     grep -qF '+            loadBooleanSetting(stmt, LineageSettings.Secure.BERRY_BLACK_THEME,' "${pb[0]}"; then
     pass "pure black dark theme is the first-boot default (lineage-sdk 0150)"
     pb2=(patches/framework/frameworks/base/0103-*.patch)
-    if [[ -f "${pb2[0]}" ]] && grep -qF '+            reevaluateSystemTheme(isSableBlackThemeWanted() /* forceReload */);' "${pb2[0]}"; then
+    if [[ -f "${pb2[0]}" ]] && grep -qF '+            reevaluateSystemTheme(shouldForceReloadForVersion() || isSableBlackThemeWanted());' "${pb2[0]}"; then
         pass "pure black overlay applied at boot and after setup (frameworks/base 0103)"
     else fail "pure black overlay: frameworks/base 0103 missing or changed"; fi
 else fail "pure black default: lineage-sdk 0150 missing or changed"; fi
@@ -730,7 +805,7 @@ grep -q 'PLATFORM_ENFORCEMENT = Enforcement.NOT_ENFORCED' patches/framework/pack
 if [[ -z "$missing" ]]; then pass "Mobile Manager actions, Focus receiver and App lock status"; else fail "Mobile Manager:$missing"; fi
 
 # Display and App info (Settings patch 1001) open the action App display compatibility declares;
-# Settings > Sable (1103) opens Sable Setup's launcher activity and nothing else.
+# Settings > Sable (1103) opens Sable Setup's launcher activity; 1604 adds the rest of the list.
 sable_links=(patches/framework/packages/apps/Settings/1001-*.patch)
 missing=""
 action=org.sableos.titan2.displaycompat.action.APP_PROFILE
@@ -745,6 +820,18 @@ grep -q '<category android:name="android.intent.category.LAUNCHER" />' \
     sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml || missing="$missing app:setup-launcher"
 grep -q '^+        android:key="sable_setup"' "${setup_page[@]}" &&
     grep -q '^-        android:key="sable_hub"' "${setup_page[@]}" || missing="$missing settings:setup-row-only"
+# Settings > Sable as one list (1604): its Start and Hub rows open actions those apps declare.
+sable_page=(patches/framework/packages/apps/Settings/1604-*.patch)
+for action in org.sableos.start.action.EDIT_HOME org.sableos.start.action.CHOOSE_HOME_STYLE; do
+    grep -q "\"$action\"" "${sable_page[@]}" || missing="$missing settings:$action"
+    grep -q "<action android:name=\"$action\" />" sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml ||
+        missing="$missing start:$action"
+done
+for action in org.sableos.hub.action.CONNECTED_APPS org.sableos.hub.action.ATTENTION_SETTINGS; do
+    grep -q "\"$action\"" "${sable_page[@]}" || missing="$missing settings:$action"
+    grep -q "<action android:name=\"$action\" />" sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml ||
+        missing="$missing hub:$action"
+done
 if [[ -z "$missing" ]]; then pass "Settings Sable entries land on actions the Sable apps declare"; else fail "Sable entry actions missing:$missing"; fi
 
 # 6h. Stock app keyboard model (Files, Photos, Browser patches 1001-1099): the pure sable/
@@ -800,7 +887,7 @@ fi
 all_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_BUILD_ROOT=/nonexistent/sable bash build/sable.sh q25 all 2>&1 || true)"
 [[ "$all_out" == *"add --yes"* ]] && pass "all explains --yes" || fail "all without --yes"
 tree_t="$(mktemp -d)"
-mkdir -p "$tree_t/.repo" "$tree_t/build" "$tree_t/device/xelex/Q25" "$tree_t/kernel/xelex/mt6789" "$tree_t/hardware/mediatek" "$tree_t/device/mediatek/sepolicy_vndr" "$tree_t/vendor/xelex/Q25"
+mkdir -p "$tree_t/.repo" "$tree_t/build" "$tree_t/device/xelex/Q25" "$tree_t/device/xelex/mt6789-common" "$tree_t/vendor/xelex/mt6789-common" "$tree_t/kernel/xelex/mt6789" "$tree_t/hardware/mediatek" "$tree_t/device/mediatek/sepolicy_vndr" "$tree_t/vendor/xelex/Q25"
 touch "$tree_t/build/envsetup.sh"
 boot_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_ANDROID_ROOT="$tree_t" bash build/sable.sh q25 bootstrap 2>&1 || true)"
 [[ "$boot_out" == *"not downloading again"* ]] && pass "bootstrap skips a finished download" || fail "bootstrap re-downloads"
@@ -1058,6 +1145,33 @@ grep -q '"org.sableos.terminal" to AppGlyph.TERMINAL' sable-src/src/android/pack
 grep -q 'root: flavor:connectbot' .github/workflows/android.yml || term_bad="$term_bad ci"
 if [[ -z "$term_bad" ]]; then pass "Sable Terminal: pinned ConnectBot 1.10.9 flavor, Menu is Ctrl, Start glyph, CI"; else fail "terminal:$term_bad"; fi
 
+# 19. Sable Speech (sable-src 0093): eSpeak NG 1.52.0 built from source, no permission, no launcher, CI.
+es=sable-src/apps/r8/espeak
+speech_bad=""
+grep -qP '^SableSpeech\tcommon\tflavor:espeak\t:assembleRelease\tbuild/outputs/apk/release/\*-unsigned\.apk\torg\.sableos\.speech\tunsigned\t-\tyes$' product/q25/apps.tsv || speech_bad="$speech_bad apps.tsv"
+grep -qx 'ESPEAK_NG_COMMIT=4870adfa25b1a32b4361592f1be8a40337c58d6c' "$es/upstream.env" || speech_bad="$speech_bad pin"
+grep -qx 'ESPEAK_NG_GRADLE_DIR=android' "$es/upstream.env" || speech_bad="$speech_bad gradle-dir"
+for f in "$es/apply_sable_flavor.py" "$es/verify_sable_speech.py"; do
+    grep -q 'EXPECTED_COMMIT = "4870adfa25b1a32b4361592f1be8a40337c58d6c"' "$f" || speech_bad="$speech_bad script-pin"
+done
+grep -q '"uses-permission" in manifest' "$es/verify_sable_speech.py" || speech_bad="$speech_bad permission-check"
+grep -q '_GRADLE_DIR=' scripts/build-apps.sh || speech_bad="$speech_bad build-apps"
+grep -q 'root: flavor:espeak' .github/workflows/android.yml || speech_bad="$speech_bad ci"
+grep -q "'ndk;26.1.10909125' 'cmake;3.22.1'" .github/workflows/android.yml || speech_bad="$speech_bad ci-ndk"
+grep -q 'espeak-ng/espeak-ng' THIRD_PARTY_NOTICES.md || speech_bad="$speech_bad notice"
+if [[ -z "$speech_bad" ]]; then pass "Sable Speech: pinned eSpeak NG 1.52.0 from source, no permission, no launcher, CI, GPL notice"; else fail "speech:$speech_bad"; fi
+
+# 20. Speak what's focused (sable-src 0094) in the Text Reader flavor: focus speech only, quiet locked.
+tr=sable-src/apps/r8/textreader
+focus_bad=""
+grep -q 'if (facts.locked) return null' "$tr/speak/main/org/sableos/textreader/speak/FocusSpeech.kt" || focus_bad="$focus_bad locked"
+grep -q 'words.password' "$tr/speak/main/org/sableos/textreader/speak/FocusSpeech.kt" || focus_bad="$focus_bad password"
+[[ -f "$tr/speak/test/org/sableos/textreader/speak/FocusSpeechTest.kt" ]] || focus_bad="$focus_bad test"
+grep -q 'copy_speak_focus(root)' "$tr/apply_sable_flavor.py" || focus_bad="$focus_bad applicator"
+grep -q 'BIND_ACCESSIBILITY_SERVICE' "$tr/apply_sable_flavor.py" || focus_bad="$focus_bad manifest"
+grep -Eq 'flagRequestTouchExplorationMode|FilterKeyEvents' "$tr/res/xml/sable_speak_focus_service.xml" && focus_bad="$focus_bad takes-input"
+if [[ -z "$focus_bad" ]]; then pass "Speak what's focused: focus only, no touch or key capture, quiet while locked, passwords never read"; else fail "speak focus:$focus_bad"; fi
+
 # 19. Translatable Sable apps (sable-src 0085, docs/LANGUAGES.md): every app keeps its English in one
 #     table, repeats it in values/strings.xml, binds the table to the resources and tests the two equal.
 i18n_bad=""
@@ -1076,11 +1190,16 @@ sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt sable-src
 sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaText.kt sable-src/apps/r8/android/media/src/main/res/values/strings.xml sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApplication.kt sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaTextTest.kt
 sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/MessagesText.kt sable-src/apps/r8/android/messages/src/main/res/values/strings.xml sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/MessagesApplication.kt sable-src/apps/r8/android/messages/src/test/java/org/sableos/messages/MessagesTextTest.kt
 sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesText.kt sable-src/apps/r8/android/notes/src/main/res/values/strings.xml sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesApplication.kt sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/NotesTextTest.kt
+sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TasksText.kt sable-src/apps/r8/android/tasks/src/main/res/values/strings.xml sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/TasksApplication.kt sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/TasksTextTest.kt
+sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/BrowserText.kt sable-src/apps/r8/android/browser/src/main/res/values/strings.xml sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/BrowserApplication.kt sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/BrowserTextTest.kt
 sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherText.kt sable-src/apps/r8/android/weather/src/main/res/values/strings.xml sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherApplication.kt sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherTextTest.kt
 sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CameraText.kt sable-src/apps/titan2/platform/camera/src/main/res/values/strings.xml sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/CameraApplication.kt sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/CameraTextTest.kt
 sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/DisplayCompatTextTest.kt
 sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyboardText.kt sable-src/apps/titan2/platform/keyboard/src/main/res/values/strings.xml sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/KeyboardApplication.kt sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/KeyboardTextTest.kt
 sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/ProfilesApplication.kt sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/ProfilesTextTest.kt
+sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/SpacesApplication.kt sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/SpacesTextTest.kt
+sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/PrintToGoText.kt sable-src/apps/titan2/platform/printtogo/src/main/res/values/strings.xml sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/PrintToGoApplication.kt sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/PrintToGoTextTest.kt
+sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/core/CompassText.kt sable-src/apps/titan2/platform/compass/src/main/res/values/strings.xml sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/CompassApplication.kt sable-src/apps/titan2/platform/compass/src/test/java/org/sableos/titan2/compass/CompassTextTest.kt
 sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupTextTest.kt
 sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ToolsApplication.kt sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/ToolsTextTest.kt
 sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultLines.kt sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/VaultApplication.kt sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/VaultLinesTest.kt

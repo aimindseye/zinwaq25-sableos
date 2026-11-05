@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">مساحة العمل</string>
+    <string name="work">العمل</string>
+    <string name="intro">افصل تطبيقات العمل عن تطبيقاتك: بياناتها وحساباتها الخاصة، وشارة العمل، ومبدّل شخصي · عمل في Start يمكنه إيقافها مؤقتًا.</string>
+    <string name="make">إنشاء مساحة عمل</string>
+    <string name="making">يُنشئ Android مساحة العمل. يستغرق ذلك دقيقة.</string>
+    <string name="not_allowed">لا يمكن لهذا الهاتف إنشاء مساحة عمل الآن. ربما توجد مساحة عمل أو مدير للهاتف بالفعل.</string>
+    <string name="cancelled">لم يتم إنشاء مساحة عمل.</string>
+    <string name="ready">مساحة العمل جاهزة. أضف التطبيقات التي تستخدمها للعمل: يحصل كل منها على نسخة خاصة ببياناتها.</string>
+    <string name="paused">تطبيقات العمل متوقفة مؤقتًا. شغّلها من Start (كل التطبيقات، العمل) لإضافة تطبيقات.</string>
+    <string name="in_work">%1$s · في العمل</string>
+    <string name="no_apps">كل تطبيقاتك موجودة بالفعل في العمل.</string>
+    <string name="could_not_open">لم تستجب مساحة العمل. حاول مرة أخرى بعد قليل.</string>
+    <string name="remove">إزالة مساحة العمل</string>
+    <string name="add_confirm">إضافة %1$s (%2$s) إلى العمل؟ Enter يضيفه، ورجوع يلغي.</string>
+    <string name="added">أصبح %1$s في العمل.</string>
+    <string name="add_failed">تعذّرت إضافة %1$s إلى العمل.</string>
+    <string name="remove_confirm">إزالة مساحة العمل مع كل تطبيقات العمل وبياناتها؟ Y يزيلها، وN يبقيها.</string>
+    <string name="yes">نعم</string>
+    <string name="no">لا</string>
+    <string name="hint">أعلى وأسفل لاختيار تطبيق · Enter يضيفه · O الخيارات · R يزيل مساحة العمل · رجوع للخروج</string>
+    <string name="options">خيارات مساحة العمل</string>
+    <string name="options_intro">تنطبق داخل مساحة العمل فقط. يبدأ كل منها مسموحًا.</string>
+    <string name="option_copy">النسخ من تطبيقات العمل إلى التطبيقات الشخصية</string>
+    <string name="option_share">المشاركة من التطبيقات الشخصية إلى تطبيقات العمل</string>
+    <string name="option_screenshots">لقطات شاشة تطبيقات العمل</string>
+    <string name="allowed">مسموح</string>
+    <string name="blocked">محظور</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">قفل العمل</string>
+    <string name="work_lock_about">رقم PIN أو نمط أو كلمة مرور منفصلة لتطبيقات العمل، تُطلب عند فتحها بعد قفل الهاتف.</string>
+    <string name="options_hint">أعلى وأسفل للاختيار · Enter يغيّر · L يضبط قفل العمل · رجوع للخروج</string>
+    <string name="options_failed">لم يقبل Android هذا التغيير.</string>
+</resources>

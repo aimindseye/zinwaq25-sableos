@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">सिर्फ कॉल बजती हैं; संदेश और अलर्ट शांत रहते हैं</string>
     <string name="all_alerts_off">सभी अलर्ट बंद</string>
     <string name="nothing_rings_or_vibrates_alarms">कोई घंटी या कंपन नहीं; अलार्म फिर भी बजते हैं</string>
+    <string name="bedside">बेडसाइड</string>
+    <string name="alarms_only_and_the_dimmest">सिर्फ़ अलार्म, स्क्रीन सबसे धीमी</string>
 </resources>

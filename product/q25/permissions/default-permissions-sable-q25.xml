@@ -13,6 +13,8 @@
       SableFrameworkOverlay); the SMS role grants the same, these make the first boot not depend
       on when the role is assigned. Exception grants also exempt the hard-restricted SMS
       permissions (DefaultPermissionGrantPolicy whitelists them as system).
+    Sable Tasks (org.sableos.tasks): reminder notifications, so a reminder set before the app was
+      ever opened still alerts (and shows in Hub). Reminders also show in the app without it.
     Sable Weather (org.sableos.weather): approximate location only, so Start's weather line is for
       where the phone is ("Use current location", on by default). Revoking it, or choosing a city in
       Sable Weather, shows the chosen city instead. Precise location is never requested.
@@ -33,6 +35,9 @@
         <permission name="android.permission.RECEIVE_MMS" fixed="false" />
         <permission name="android.permission.RECEIVE_WAP_PUSH" fixed="false" />
         <permission name="android.permission.READ_CONTACTS" fixed="false" />
+        <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
+    </exception>
+    <exception package="org.sableos.tasks">
         <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
     </exception>
     <exception package="org.sableos.weather">

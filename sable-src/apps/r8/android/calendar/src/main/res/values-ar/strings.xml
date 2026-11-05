@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">لا أحداث هذا الأسبوع. C ينشئ حدثاً.</string>
     <string name="selected">المحدد: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] فتح  [E] تعديل  [Del] حذف  [T] اليوم"</string>
+    <string name="calendars">التقويمات</string>
+    <string name="calendars_hint">التقويمات المعروضة تملأ جدول الأعمال وحلقات الانشغال وشهر Start.</string>
+    <string name="no_calendars">لا توجد تقويمات على هذا الهاتف بعد. أضف حسابًا من الإعدادات > الحسابات.</string>
+    <string name="l_calendars">" · L التقويمات"</string>
+    <string name="day_events">%1$s، %2$s أحداث</string>
 </resources>

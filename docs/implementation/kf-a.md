@@ -26,9 +26,13 @@ concept and rejects delivery-like field names (importance, sound, vibration, hea
 lockscreen, snooze, DND, channel). Every Android-owned concept resolves to an Android Settings
 deep link (`policy/AndroidSettingsRoutes.kt`), with fallbacks that always exist.
 
-**No delivery or DND ownership in Hub.** The listener only reads. `tests/kf-a-notification-policy-check.sh`
-(run by `tests/run.sh`) fails if Hub code calls cancel/snooze/notify/channel/interruption-filter
-APIs or its manifest asks for a notification-policy permission. Hub priority (`favorite`) is now
+**No delivery or DND ownership in Hub.** The listener only reads, except for one user command on
+one row. `tests/kf-a-notification-policy-check.sh` (run by `tests/run.sh`) fails if Hub code calls
+cancel-all/notify/channel/interruption-filter APIs or its manifest asks for a notification-policy
+permission. From SableOS 2.0 (owner decision, 2026-11-04: BB10 row menu) the row menu's Snooze
+(1 hour) and Dismiss act on that row's notification by key, unlocked, and only from
+`notifications/HubNotificationCommands.kt`; Mark read and the app's own actions send the source's
+own PendingIntent (`policy/HubMessageMenu.kt`). The check enforces the single file. Hub priority (`favorite`) is now
 labelled and documented as ordering only and is not an input to attention decisions.
 
 **Connected-apps parity with notification access.** `policy/ConnectedAppsParity.kt`: when Android

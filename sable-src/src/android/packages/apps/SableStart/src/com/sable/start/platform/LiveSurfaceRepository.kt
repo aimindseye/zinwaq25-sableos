@@ -11,9 +11,13 @@ import com.sable.start.model.StartText.t
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.sableos.start.live.AppUnreadCount
+import org.sableos.start.live.CalendarBusyDay
+import org.sableos.start.live.HubMessageRow
 import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
+import org.sableos.start.live.UpcomingEvent
+import java.time.LocalDate
 import java.util.Date
 
 class LiveSurfaceRepository(
@@ -100,8 +104,44 @@ class LiveSurfaceRepository(
                     ),
                 observedAtEpochMs = nowEpochMs,
                 hubApps = hubAppCounts(),
+                hubMessages = hubMessages(),
+                calendarMonth = calendarMonth(),
+                calendarNext = calendarNext(),
             )
         }
+
+    /** Sable Calendar's busy days of this month for Start's Month widget; empty when Calendar cannot say. */
+    private fun calendarMonth(): List<CalendarBusyDay> =
+        runCatching {
+            resolver.query(CALENDAR_MONTH_URI, null, null, null, null)?.use { cursor ->
+                val date = cursor.getColumnIndexOrThrow("date")
+                val minutes = cursor.getColumnIndexOrThrow("busy_minutes")
+                val allDay = cursor.getColumnIndexOrThrow("all_day")
+                val count = cursor.getColumnIndexOrThrow("count")
+                buildList {
+                    while (cursor.moveToNext() && size < MAX_MONTH_DAYS) {
+                        val day = runCatching { LocalDate.parse(cursor.getString(date)) }.getOrNull() ?: continue
+                        add(CalendarBusyDay(day, cursor.getInt(minutes), cursor.getInt(allDay) != 0, cursor.getInt(count)))
+                    }
+                }
+            }
+        }.getOrNull().orEmpty()
+
+    /** Sable Calendar's next events of the coming week (title, start, all day). */
+    private fun calendarNext(): List<UpcomingEvent> =
+        runCatching {
+            resolver.query(CALENDAR_NEXT_URI, null, null, null, null)?.use { cursor ->
+                val title = cursor.getColumnIndexOrThrow("title")
+                val begin = cursor.getColumnIndexOrThrow("begin")
+                val allDay = cursor.getColumnIndexOrThrow("all_day")
+                buildList {
+                    while (cursor.moveToNext() && size < MAX_NEXT_EVENTS) {
+                        val name = cursor.getString(title)?.trim().orEmpty()
+                        if (name.isNotEmpty()) add(UpcomingEvent(name, cursor.getLong(begin), cursor.getInt(allDay) != 0))
+                    }
+                }
+            }
+        }.getOrNull().orEmpty()
 
     /** Sable Hub's per-app unread counts (package and count only); empty when Hub cannot say. */
     private fun hubAppCounts(): List<AppUnreadCount> =
@@ -114,6 +154,37 @@ class LiveSurfaceRepository(
                         val name = cursor.getString(pkg)?.trim().orEmpty()
                         val value = cursor.getInt(count)
                         if (name.isNotEmpty() && value > 0) add(AppUnreadCount(name, value))
+                    }
+                }
+            }
+        }.getOrNull().orEmpty()
+
+    /** Sable Hub's newest inbox rows for the Hub page; empty while locked or when Hub cannot say. */
+    private fun hubMessages(): List<HubMessageRow> =
+        runCatching {
+            resolver.query(HUB_MESSAGES_URI, HUB_MESSAGE_COLUMNS, null, null, null)?.use { cursor ->
+                val id = cursor.getColumnIndexOrThrow("thread_id")
+                val title = cursor.getColumnIndexOrThrow("title")
+                val preview = cursor.getColumnIndexOrThrow("preview")
+                val date = cursor.getColumnIndexOrThrow("date")
+                val unread = cursor.getColumnIndexOrThrow("unread")
+                val sms = cursor.getColumnIndexOrThrow("sms")
+                val pkg = cursor.getColumnIndexOrThrow("package")
+                buildList {
+                    while (cursor.moveToNext() && size < MAX_HUB_MESSAGES) {
+                        val name = cursor.getString(title)?.trim().orEmpty()
+                        if (name.isEmpty()) continue
+                        add(
+                            HubMessageRow(
+                                threadId = cursor.getLong(id),
+                                title = name,
+                                preview = cursor.getString(preview)?.trim().orEmpty(),
+                                dateMillis = cursor.getLong(date),
+                                unread = cursor.getInt(unread).coerceAtLeast(0),
+                                sms = cursor.getInt(sms) != 0,
+                                packageName = cursor.getString(pkg)?.takeIf { it.isNotBlank() },
+                            ),
+                        )
                     }
                 }
             }
@@ -251,6 +322,14 @@ class LiveSurfaceRepository(
             Uri.parse("content://org.sableos.weather.snapshot/current")
         val CALENDAR_URI: Uri =
             Uri.parse("content://org.sableos.calendar.snapshot/current")
+
+        /** The Month widget's busy days and next events; Calendar notifies [CALENDAR_URI]. */
+        val CALENDAR_MONTH_URI: Uri =
+            Uri.parse("content://org.sableos.calendar.snapshot/month")
+        val CALENDAR_NEXT_URI: Uri =
+            Uri.parse("content://org.sableos.calendar.snapshot/next")
+        private const val MAX_MONTH_DAYS = 31
+        private const val MAX_NEXT_EVENTS = 3
         val MESSAGES_URI: Uri =
             Uri.parse("content://org.sableos.hub.snapshot/current")
 
@@ -258,6 +337,13 @@ class LiveSurfaceRepository(
         val HUB_APPS_URI: Uri =
             Uri.parse("content://org.sableos.hub.snapshot/apps")
         private const val MAX_HUB_APPS = 32
+        private const val MAX_HUB_MESSAGES = 30
+
+        /** The Hub page's message rows; Hub notifies [MESSAGES_URI] when they change. */
+        val HUB_MESSAGES_URI: Uri =
+            Uri.parse("content://org.sableos.hub.snapshot/messages")
+        private val HUB_MESSAGE_COLUMNS =
+            arrayOf("thread_id", "title", "preview", "date", "unread", "sms", "package")
         val MAIL_URI: Uri =
             Uri.parse("content://org.sableos.mail.snapshot/current")
         val MEDIA_URI: Uri =

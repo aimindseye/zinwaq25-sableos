@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">Alleen oproepen gaan over; berichten en meldingen blijven stil</string>
     <string name="all_alerts_off">Alle meldingen uit</string>
     <string name="nothing_rings_or_vibrates_alarms">Geen geluid of trilling; wekkers blijven afgaan</string>
+    <string name="bedside">Nachtkastje</string>
+    <string name="alarms_only_and_the_dimmest">Alleen wekkers, scherm op zijn donkerst</string>
 </resources>

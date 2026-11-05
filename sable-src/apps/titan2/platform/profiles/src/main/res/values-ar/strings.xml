@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">المكالمات وحدها ترن؛ الرسائل والتنبيهات صامتة</string>
     <string name="all_alerts_off">تعطيل جميع التنبيهات</string>
     <string name="nothing_rings_or_vibrates_alarms">لا رنين ولا اهتزاز؛ تظل المنبهات تصدر صوتًا</string>
+    <string name="bedside">بجانب السرير</string>
+    <string name="alarms_only_and_the_dimmest">المنبهات فقط، والشاشة بأقل سطوع</string>
 </resources>

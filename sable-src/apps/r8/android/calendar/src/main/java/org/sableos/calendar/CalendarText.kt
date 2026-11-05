@@ -72,6 +72,11 @@ object CalendarText {
             "no_event_this_week_c" to "No event this week. C creates one.",
             "selected" to "Selected: %1\$s",
             "enter_open_e_edit_del_2" to "[Enter] open  [E] edit  [Del] delete  [T] today",
+            "calendars" to "Calendars",
+            "calendars_hint" to "Shown calendars fill the agenda, the busy rings and Start's month.",
+            "no_calendars" to "No calendars on this phone yet. Add an account in Settings > Accounts.",
+            "l_calendars" to " · L calendars",
+            "day_events" to "%1\$s, %2\$s events",
         )
 
     val t = SableTexts(EN)

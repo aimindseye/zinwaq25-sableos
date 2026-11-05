@@ -185,4 +185,21 @@
     <string name="personal">Personal</string>
     <string name="private_space">Private space</string>
     <string name="profile_2">Profile %1$s</string>
+    <string name="mark_read">Mark read</string>
+    <string name="snooze_1_hour">Snooze 1 hour</string>
+    <string name="dismiss_notification">Dismiss notification</string>
+    <string name="snoozed_for_an_hour">Snoozed for an hour.</string>
+    <string name="notification_dismissed">Notification dismissed.</string>
+    <string name="sent_to_the_app">Sent to the app.</string>
+    <string name="the_notification_is_gone">The notification is no longer there.</string>
+    <string name="mark_prior_read">Mark prior read</string>
+    <string name="marked_prior_read">Asked the apps to mark %1$s older notifications read.</string>
+    <string name="each_message_on_its_own">Each message on its own</string>
+    <string name="one_row_per_received_message">One row per received message. Turns off Combine conversations.</string>
+    <string name="remind_me">Remind me</string>
+    <string name="tasks_unavailable">Sable Tasks is not installed.</string>
+    <string name="row_menu_snooze">Snooze in the row menu</string>
+    <string name="row_menu_snooze_detail">Adds Snooze 1 hour and the Z key for a live notification.</string>
+    <string name="row_menu_remind_me">Remind me in the row menu</string>
+    <string name="row_menu_remind_me_detail">Adds a follow-up in Sable Tasks for tomorrow morning. Only the app is saved, never the message.</string>
 </resources>

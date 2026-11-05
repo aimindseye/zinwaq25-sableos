@@ -42,7 +42,13 @@ The standalone application provides:
 - user-directed live camera OCR;
 - user-directed gallery/image OCR;
 - Latin and Devanagari OCR;
-- Sable global Light/Dark/accent appearance.
+- Sable global Light/Dark/accent appearance;
+- "Speak what's focused", an accessibility service (off until turned on in
+  Settings > Accessibility) that speaks the item focus moves to with the
+  trackpad or keys. Sources in `speak/`, config and strings in `res/`.
+  It is quiet while the phone is locked, names password fields without
+  reading them, and never takes over touch (no explore by touch) or keys
+  (no key filtering).
 
 The product API floor is Android 11 / API 30, matching the current SableOS
 application baseline.

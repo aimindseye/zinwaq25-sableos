@@ -1,0 +1,658 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+index 756a9fc..1c8368f 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+@@ -56,6 +56,7 @@ val canonicalPresentationSources =
+         "com/sable/start/model/HomeLayout.kt",
+         "com/sable/start/model/HubBar.kt",
+         "com/sable/start/model/HubPeople.kt",
++        "com/sable/start/model/InstantActions.kt",
+         "com/sable/start/model/LetterShortcuts.kt",
+         "com/sable/start/model/QuickBar.kt",
+         "com/sable/start/model/SpeedDial.kt",
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/InstantActionsTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/InstantActionsTest.kt
+new file mode 100644
+index 0000000..bf97397
+--- /dev/null
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/InstantActionsTest.kt
+@@ -0,0 +1,52 @@
++package org.sableos.start.model
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class InstantActionsTest {
++    private fun rows(term: String) = InstantActions.forTerm(term)
++
++    private fun actions(term: String) = rows(term).map { it.action }
++
++    @Test
++    fun wordsGetRemindNoteSearchMapTextAndEmail() {
++        assertEquals(
++            listOf(
++                InstantAction.RemindMe,
++                InstantAction.Note,
++                InstantAction.WebSearch,
++                InstantAction.Map,
++                InstantAction.Text,
++                InstantAction.Email,
++            ),
++            actions("buy milk"),
++        )
++        assertTrue(InstantActions.forTerm(" buy milk ").all { it.payload == "buy milk" && !it.chosen })
++        assertEquals(emptyList<InstantRow>(), InstantActions.forTerm("  "))
++    }
++
++    @Test
++    fun numbersCallFirstAndAddressesEmailFirst() {
++        assertEquals(InstantAction.Call, actions("+1 555 0100").first())
++        assertTrue(InstantAction.Map !in actions("5550100"))
++        assertEquals(InstantAction.Email, actions("maya@example.org").first())
++        assertTrue(InstantAction.Call !in actions("buy milk"))
++        assertEquals("maya@example.org", InstantActions.emailAddress(" maya@example.org "))
++        assertNull(InstantActions.emailAddress("maya at example"))
++    }
++
++    @Test
++    fun aKeywordPicksOneActionForEnter() {
++        assertEquals(listOf(InstantRow(InstantAction.RemindMe, "call mum", true)), rows("remind me call mum"))
++        assertEquals(listOf(InstantRow(InstantAction.Note, "gate code 4512", true)), rows("Note gate code 4512"))
++        assertEquals(listOf(InstantRow(InstantAction.WebSearch, "q25 battery", true)), rows("g q25 battery"))
++        assertEquals(listOf(InstantRow(InstantAction.Call, "555 0100", true)), rows("call 555 0100"))
++        // "call mum" is not a number, and a bare keyword has nothing to act on: every action shows.
++        assertTrue(InstantActions.forTerm("call mum").none { it.chosen })
++        assertTrue(InstantActions.forTerm("note").none { it.chosen })
++        // An app name that starts like a keyword is not one.
++        assertTrue(InstantActions.forTerm("notes").none { it.chosen })
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/Android.bp b/sable-src/src/android/packages/apps/SableStart/Android.bp
+index 0a68852..753edab 100644
+--- a/sable-src/src/android/packages/apps/SableStart/Android.bp
++++ b/sable-src/src/android/packages/apps/SableStart/Android.bp
+@@ -16,6 +16,7 @@ filegroup {
+         "src/com/sable/start/model/HomeLayout.kt",
+         "src/com/sable/start/model/HubBar.kt",
+         "src/com/sable/start/model/HubPeople.kt",
++        "src/com/sable/start/model/InstantActions.kt",
+         "src/com/sable/start/model/LetterShortcuts.kt",
+         "src/com/sable/start/model/QuickBar.kt",
+         "src/com/sable/start/model/SpeedDial.kt",
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index 647f6d7..6803e6c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">طوال اليوم</string>
+     <string name="hub_upcoming">القادم</string>
+     <string name="hub_upcoming_none">لا شيء اليوم أو غدًا</string>
++    <string name="instant_actions">إجراءات فورية</string>
++    <string name="instant_action">إجراء فوري</string>
++    <string name="instant_remind_me">ذكّرني</string>
++    <string name="instant_note">ملاحظة</string>
++    <string name="instant_call">اتصال</string>
++    <string name="instant_text">رسالة</string>
++    <string name="instant_email">بريد إلكتروني</string>
++    <string name="instant_map">خريطة</string>
++    <string name="instant_web_search">البحث في الويب</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index aababc3..1ef1ed0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">ganztägig</string>
+     <string name="hub_upcoming">Demnächst</string>
+     <string name="hub_upcoming_none">Nichts heute oder morgen</string>
++    <string name="instant_actions">Sofortaktionen</string>
++    <string name="instant_action">Sofortaktion</string>
++    <string name="instant_remind_me">Erinnere mich</string>
++    <string name="instant_note">Notiz</string>
++    <string name="instant_call">Anrufen</string>
++    <string name="instant_text">SMS</string>
++    <string name="instant_email">E-Mail</string>
++    <string name="instant_map">Karte</string>
++    <string name="instant_web_search">Im Web suchen</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index fd694e3..7b445e1 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">ολοήμερο</string>
+     <string name="hub_upcoming">Επερχόμενα</string>
+     <string name="hub_upcoming_none">Τίποτα σήμερα ή αύριο</string>
++    <string name="instant_actions">άμεσες ενέργειες</string>
++    <string name="instant_action">Άμεση ενέργεια</string>
++    <string name="instant_remind_me">Υπενθύμισέ μου</string>
++    <string name="instant_note">Σημείωση</string>
++    <string name="instant_call">Κλήση</string>
++    <string name="instant_text">Μήνυμα</string>
++    <string name="instant_email">Email</string>
++    <string name="instant_map">Χάρτης</string>
++    <string name="instant_web_search">Αναζήτηση στον ιστό</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index ba7af68..7b64a0b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">todo el día</string>
+     <string name="hub_upcoming">Próximo</string>
+     <string name="hub_upcoming_none">Nada hoy ni mañana</string>
++    <string name="instant_actions">acciones rápidas</string>
++    <string name="instant_action">Acción rápida</string>
++    <string name="instant_remind_me">Recordarme</string>
++    <string name="instant_note">Nota</string>
++    <string name="instant_call">Llamar</string>
++    <string name="instant_text">Mensaje</string>
++    <string name="instant_email">Correo</string>
++    <string name="instant_map">Mapa</string>
++    <string name="instant_web_search">Buscar en la web</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index 848b760..fc1a5cc 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">toute la journée</string>
+     <string name="hub_upcoming">À venir</string>
+     <string name="hub_upcoming_none">Rien aujourd\'hui ni demain</string>
++    <string name="instant_actions">actions instantanées</string>
++    <string name="instant_action">Action instantanée</string>
++    <string name="instant_remind_me">Me rappeler</string>
++    <string name="instant_note">Note</string>
++    <string name="instant_call">Appeler</string>
++    <string name="instant_text">SMS</string>
++    <string name="instant_email">E-mail</string>
++    <string name="instant_map">Carte</string>
++    <string name="instant_web_search">Rechercher sur le Web</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index 90524dc..f68c22d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">पूरे दिन</string>
+     <string name="hub_upcoming">आगामी</string>
+     <string name="hub_upcoming_none">आज या कल कुछ नहीं</string>
++    <string name="instant_actions">तुरंत कार्रवाइयाँ</string>
++    <string name="instant_action">तुरंत कार्रवाई</string>
++    <string name="instant_remind_me">मुझे याद दिलाएँ</string>
++    <string name="instant_note">नोट</string>
++    <string name="instant_call">कॉल करें</string>
++    <string name="instant_text">मैसेज</string>
++    <string name="instant_email">ईमेल</string>
++    <string name="instant_map">मैप</string>
++    <string name="instant_web_search">वेब पर खोजें</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index 5eeea82..466f527 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">tutto il giorno</string>
+     <string name="hub_upcoming">In arrivo</string>
+     <string name="hub_upcoming_none">Niente oggi o domani</string>
++    <string name="instant_actions">azioni immediate</string>
++    <string name="instant_action">Azione immediata</string>
++    <string name="instant_remind_me">Ricordami</string>
++    <string name="instant_note">Nota</string>
++    <string name="instant_call">Chiama</string>
++    <string name="instant_text">SMS</string>
++    <string name="instant_email">Email</string>
++    <string name="instant_map">Mappa</string>
++    <string name="instant_web_search">Cerca sul web</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index d6f8bdc..08ebcf0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">כל היום</string>
+     <string name="hub_upcoming">בקרוב</string>
+     <string name="hub_upcoming_none">אין כלום היום או מחר</string>
++    <string name="instant_actions">פעולות מיידיות</string>
++    <string name="instant_action">פעולה מיידית</string>
++    <string name="instant_remind_me">הזכר לי</string>
++    <string name="instant_note">פתק</string>
++    <string name="instant_call">התקשר</string>
++    <string name="instant_text">הודעה</string>
++    <string name="instant_email">אימייל</string>
++    <string name="instant_map">מפה</string>
++    <string name="instant_web_search">חיפוש באינטרנט</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index f62de4e..167ad70 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">終日</string>
+     <string name="hub_upcoming">予定</string>
+     <string name="hub_upcoming_none">今日と明日の予定はありません</string>
++    <string name="instant_actions">インスタントアクション</string>
++    <string name="instant_action">インスタントアクション</string>
++    <string name="instant_remind_me">リマインド</string>
++    <string name="instant_note">メモ</string>
++    <string name="instant_call">電話</string>
++    <string name="instant_text">SMS</string>
++    <string name="instant_email">メール</string>
++    <string name="instant_map">地図</string>
++    <string name="instant_web_search">ウェブで検索</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 083ae4f..3ad8ffb 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">종일</string>
+     <string name="hub_upcoming">다가오는 일정</string>
+     <string name="hub_upcoming_none">오늘과 내일 일정 없음</string>
++    <string name="instant_actions">즉시 실행</string>
++    <string name="instant_action">즉시 실행</string>
++    <string name="instant_remind_me">알림 설정</string>
++    <string name="instant_note">메모</string>
++    <string name="instant_call">전화</string>
++    <string name="instant_text">문자</string>
++    <string name="instant_email">이메일</string>
++    <string name="instant_map">지도</string>
++    <string name="instant_web_search">웹 검색</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 110002d..423b6e2 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">hele dag</string>
+     <string name="hub_upcoming">Binnenkort</string>
+     <string name="hub_upcoming_none">Niets vandaag of morgen</string>
++    <string name="instant_actions">directe acties</string>
++    <string name="instant_action">Directe actie</string>
++    <string name="instant_remind_me">Herinner me</string>
++    <string name="instant_note">Notitie</string>
++    <string name="instant_call">Bellen</string>
++    <string name="instant_text">Sms</string>
++    <string name="instant_email">E-mail</string>
++    <string name="instant_map">Kaart</string>
++    <string name="instant_web_search">Zoeken op internet</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index 543d9d0..f8ec065 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">cały dzień</string>
+     <string name="hub_upcoming">Nadchodzące</string>
+     <string name="hub_upcoming_none">Nic dzisiaj ani jutro</string>
++    <string name="instant_actions">szybkie akcje</string>
++    <string name="instant_action">Szybka akcja</string>
++    <string name="instant_remind_me">Przypomnij mi</string>
++    <string name="instant_note">Notatka</string>
++    <string name="instant_call">Zadzwoń</string>
++    <string name="instant_text">SMS</string>
++    <string name="instant_email">E-mail</string>
++    <string name="instant_map">Mapa</string>
++    <string name="instant_web_search">Szukaj w sieci</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index faca1b6..a655c6d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">dia inteiro</string>
+     <string name="hub_upcoming">Próximos</string>
+     <string name="hub_upcoming_none">Nada hoje ou amanhã</string>
++    <string name="instant_actions">ações instantâneas</string>
++    <string name="instant_action">Ação instantânea</string>
++    <string name="instant_remind_me">Lembrar-me</string>
++    <string name="instant_note">Nota</string>
++    <string name="instant_call">Ligar</string>
++    <string name="instant_text">SMS</string>
++    <string name="instant_email">E-mail</string>
++    <string name="instant_map">Mapa</string>
++    <string name="instant_web_search">Pesquisar na web</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 0185275..ec650bd 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">весь день</string>
+     <string name="hub_upcoming">Скоро</string>
+     <string name="hub_upcoming_none">Ничего сегодня и завтра</string>
++    <string name="instant_actions">быстрые действия</string>
++    <string name="instant_action">Быстрое действие</string>
++    <string name="instant_remind_me">Напомнить</string>
++    <string name="instant_note">Заметка</string>
++    <string name="instant_call">Позвонить</string>
++    <string name="instant_text">SMS</string>
++    <string name="instant_email">Эл. почта</string>
++    <string name="instant_map">Карта</string>
++    <string name="instant_web_search">Искать в интернете</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index f278461..876071b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">heldag</string>
+     <string name="hub_upcoming">Kommande</string>
+     <string name="hub_upcoming_none">Inget i dag eller i morgon</string>
++    <string name="instant_actions">snabbåtgärder</string>
++    <string name="instant_action">Snabbåtgärd</string>
++    <string name="instant_remind_me">Påminn mig</string>
++    <string name="instant_note">Anteckning</string>
++    <string name="instant_call">Ring</string>
++    <string name="instant_text">Sms</string>
++    <string name="instant_email">E-post</string>
++    <string name="instant_map">Karta</string>
++    <string name="instant_web_search">Sök på webben</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index b80c13a..9e36d7b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">tüm gün</string>
+     <string name="hub_upcoming">Yaklaşan</string>
+     <string name="hub_upcoming_none">Bugün veya yarın bir şey yok</string>
++    <string name="instant_actions">anlık işlemler</string>
++    <string name="instant_action">Anlık işlem</string>
++    <string name="instant_remind_me">Bana hatırlat</string>
++    <string name="instant_note">Not</string>
++    <string name="instant_call">Ara</string>
++    <string name="instant_text">SMS</string>
++    <string name="instant_email">E-posta</string>
++    <string name="instant_map">Harita</string>
++    <string name="instant_web_search">Web\'de ara</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index e82cc1b..ec7a3af 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">پورا دن</string>
+     <string name="hub_upcoming">آنے والا</string>
+     <string name="hub_upcoming_none">آج یا کل کچھ نہیں</string>
++    <string name="instant_actions">فوری کارروائیاں</string>
++    <string name="instant_action">فوری کارروائی</string>
++    <string name="instant_remind_me">مجھے یاد دلائیں</string>
++    <string name="instant_note">نوٹ</string>
++    <string name="instant_call">کال کریں</string>
++    <string name="instant_text">پیغام</string>
++    <string name="instant_email">ای میل</string>
++    <string name="instant_map">نقشہ</string>
++    <string name="instant_web_search">ویب پر تلاش کریں</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 76d76f0..e989152 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -255,4 +255,13 @@
+     <string name="month_all_day">全天</string>
+     <string name="hub_upcoming">即将到来</string>
+     <string name="hub_upcoming_none">今天和明天没有安排</string>
++    <string name="instant_actions">即时操作</string>
++    <string name="instant_action">即时操作</string>
++    <string name="instant_remind_me">提醒我</string>
++    <string name="instant_note">记事</string>
++    <string name="instant_call">拨打</string>
++    <string name="instant_text">短信</string>
++    <string name="instant_email">电子邮件</string>
++    <string name="instant_map">地图</string>
++    <string name="instant_web_search">网页搜索</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index ae68968..90bace8 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -259,4 +259,13 @@
+     <string name="month_all_day">all day</string>
+     <string name="hub_upcoming">Upcoming</string>
+     <string name="hub_upcoming_none">Nothing today or tomorrow</string>
++    <string name="instant_actions">instant actions</string>
++    <string name="instant_action">Instant action</string>
++    <string name="instant_remind_me">Remind me</string>
++    <string name="instant_note">Note</string>
++    <string name="instant_call">Call</string>
++    <string name="instant_text">Text</string>
++    <string name="instant_email">Email</string>
++    <string name="instant_map">Map</string>
++    <string name="instant_web_search">Search the web</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/InstantActions.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/InstantActions.kt
+new file mode 100644
+index 0000000..5b1ad17
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/InstantActions.kt
+@@ -0,0 +1,89 @@
++package org.sableos.start.model
++
++import com.sable.start.model.StartText.t
++
++/** One Instant Action Command offers for typed text (owner plan 2026-11-05, item 4). */
++enum class InstantAction(
++    private val labelKey: String,
++    val mark: String,
++    /** The power-user keywords that pick this action ("remind buy milk"). */
++    val keywords: List<String>,
++) {
++    RemindMe("instant_remind_me", "✓", listOf("remind")),
++    Note("instant_note", "✎", listOf("note")),
++    Call("instant_call", "☎", listOf("call", "dial")),
++    Text("instant_text", "✉", listOf("text", "sms")),
++    Email("instant_email", "@", listOf("email", "mail")),
++    Map("instant_map", "⌖", listOf("map")),
++    WebSearch("instant_web_search", "⌕", listOf("web", "g")),
++    ;
++
++    val label: String get() = t(labelKey)
++}
++
++/** An Instant Action with the text it acts on, the typed keyword already taken off. */
++data class InstantRow(
++    val action: InstantAction,
++    val payload: String,
++    /** True when the user typed the action's keyword: Enter runs it. */
++    val chosen: Boolean = false,
++)
++
++/**
++ * Instant Actions (BB10 style): rows under any typed text that act on it. Remind me puts it into
++ * Sable Tasks, Note into Sable Notes; Call shows only for a number; Text, Email, Map and Web search
++ * hand it to the user's own apps. A leading keyword ("note ", "remind me ", "call ") puts that
++ * action first and makes it the one Enter runs; the other prefixes (`?`, `@`, `/settings`…) are
++ * unchanged. Pure policy, unit tested in apps/r8/android/sablestart-presentation-check/src/test.
++ */
++object InstantActions {
++    private val WORDS =
++        listOf(
++            InstantAction.RemindMe,
++            InstantAction.Note,
++            InstantAction.WebSearch,
++            InstantAction.Map,
++            InstantAction.Text,
++            InstantAction.Email,
++        )
++    private val NUMBER =
++        listOf(
++            InstantAction.Call,
++            InstantAction.Text,
++            InstantAction.Note,
++            InstantAction.RemindMe,
++            InstantAction.WebSearch,
++        )
++    private val ADDRESS =
++        listOf(InstantAction.Email, InstantAction.Note, InstantAction.RemindMe, InstantAction.WebSearch)
++
++    fun forTerm(term: String): List<InstantRow> {
++        val text = term.trim()
++        if (text.isEmpty()) return emptyList()
++        keyword(text)?.let { (action, rest) ->
++            if (rest.isNotEmpty() && (action != InstantAction.Call || CommandQuery.dialable(rest) != null)) {
++                return listOf(InstantRow(action, rest, chosen = true))
++            }
++        }
++        val actions =
++            when {
++                CommandQuery.dialable(text) != null -> NUMBER
++                emailAddress(text) != null -> ADDRESS
++                else -> WORDS
++            }
++        return actions.map { InstantRow(it, text) }
++    }
++
++    /** The action a leading keyword names and the text after it ("remind me to call" → "to call"). */
++    fun keyword(text: String): Pair<InstantAction, String>? {
++        val first = text.substringBefore(' ').lowercase()
++        val action = InstantAction.entries.firstOrNull { first in it.keywords } ?: return null
++        var rest = text.substringAfter(' ', "").trim()
++        if (action == InstantAction.RemindMe && rest.startsWith("me ", ignoreCase = true)) rest = rest.drop(3).trim()
++        return action to rest
++    }
++
++    /** A typed email address, for Email's recipient; null sends the text as the message instead. */
++    fun emailAddress(text: String): String? =
++        text.trim().takeIf { it.matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 3b4b209..f0f56fb 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -70,6 +70,15 @@ object StartText {
+             "month_all_day" to "all day",
+             "hub_upcoming" to "Upcoming",
+             "hub_upcoming_none" to "Nothing today or tomorrow",
++            "instant_actions" to "instant actions",
++            "instant_action" to "Instant action",
++            "instant_remind_me" to "Remind me",
++            "instant_note" to "Note",
++            "instant_call" to "Call",
++            "instant_text" to "Text",
++            "instant_email" to "Email",
++            "instant_map" to "Map",
++            "instant_web_search" to "Search the web",
+             "media" to "Media",
+             "mail" to "Mail",
+             "photos" to "Photos",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 171694c..949814a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -156,6 +156,9 @@ import org.sableos.start.model.HubBar
+ import org.sableos.start.model.HubFilter
+ import org.sableos.start.model.HubPeople
+ import org.sableos.start.model.HubPerson
++import org.sableos.start.model.InstantAction
++import org.sableos.start.model.InstantActions
++import org.sableos.start.model.InstantRow
+ import org.sableos.start.model.QuickBar
+ import org.sableos.start.model.SpeedDialKeys
+ import org.sableos.start.model.StartMonth
+@@ -4306,12 +4309,17 @@ private fun SearchScreen(
+     val settingsResults = if (parsed.profileScope) emptyList() else settingsResults(parsed, onStartIntent, onOpenSettings)
+     val peopleResults = if (parsed.profileScope) emptyList() else peopleResults(parsed, onStartIntent, onHub)
+     val hubResults = if (parsed.profileScope) emptyList() else hubResults(parsed, onHub)
++    val instantRows =
++        if (parsed.profileScope || !parsed.includes(CommandScope.Actions)) emptyList() else InstantActions.forTerm(term)
++    val instantResults = instantRows.map { row -> instantResult(row, onStartIntent) }
++    // A typed keyword ("note …", "remind me …") makes its Instant Action the best match.
++    val chosenInstant = instantResults.firstOrNull()?.takeIf { instantRows.first().chosen }
+     val firstOther =
+         (filteredCommands.takeIf { term.isNotEmpty() }.orEmpty() + settingsResults + peopleResults + hubResults)
+             .firstOrNull()
+     val bestIsApp = CommandBestMatch.appWins(filteredApps.firstOrNull()?.label, firstOther?.title, term)
+-    val bestApp = filteredApps.firstOrNull()?.takeIf { bestIsApp == true }
+-    val bestOther = firstOther?.takeIf { bestIsApp == false }
++    val bestApp = filteredApps.firstOrNull()?.takeIf { bestIsApp == true && chosenInstant == null }
++    val bestOther = chosenInstant ?: firstOther?.takeIf { bestIsApp == false }
+     val lockedPrivate = privateSpaceLocked == true && (parsed.scope == CommandScope.Private || term.isNotEmpty())
+ 
+     fun appActions(app: AppEntry): List<Pair<String, () -> Unit>> =
+@@ -4386,6 +4394,7 @@ private fun SearchScreen(
+                     ?: bestOther?.onClick?.invoke()
+                     ?: filteredApps.firstOrNull()?.let(onLaunchApp)
+                     ?: firstOther?.onClick?.invoke()
++                    ?: instantResults.firstOrNull()?.onClick?.invoke()
+             },
+             onGroupDelta = ::moveChip,
+         )
+@@ -4445,6 +4454,7 @@ private fun SearchScreen(
+                 "settings" to settingsResults,
+                 "hub" to hubResults,
+                 (if (term.isEmpty()) t("quick_actions") else "actions") to filteredCommands,
++                t("instant_actions") to instantResults,
+             ).forEach { (label, rows) ->
+                 val shown = rows.filterNot { it == bestOther }
+                 if (shown.isNotEmpty()) {
+@@ -4454,7 +4464,7 @@ private fun SearchScreen(
+                 }
+             }
+             if (filteredApps.isEmpty() && privacyMatches.isEmpty() && filteredCommands.isEmpty() && settingsResults.isEmpty() &&
+-                peopleResults.isEmpty() && hubResults.isEmpty() && !lockedPrivate
++                peopleResults.isEmpty() && hubResults.isEmpty() && instantResults.isEmpty() && !lockedPrivate
+             ) {
+                 item {
+                     EmptyState(
+@@ -4473,6 +4483,50 @@ private fun SearchScreen(
+     }
+ }
+ 
++/**
++ * One Instant Action row: Remind me into Sable Tasks and Note into Sable Notes (their own share
++ * entry), Call to the dialer, Text and Email to the user's apps, Map to a maps app, Web search to
++ * the browser. Nothing is sent from here: each app opens with the text filled in.
++ */
++private fun instantResult(
++    row: InstantRow,
++    onStartIntent: (Intent) -> Unit,
++): SearchCommand {
++    val text = row.payload
++    val intent =
++        when (row.action) {
++            InstantAction.RemindMe -> shareText(TASKS_PACKAGE, text)
++            InstantAction.Note -> shareText(NOTES_PACKAGE, text)
++            InstantAction.Call -> Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(CommandQuery.dialable(text) ?: text)))
++            InstantAction.Text -> {
++                val number = CommandQuery.dialable(text)
++                Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(number.orEmpty()))).apply {
++                    if (number == null) putExtra("sms_body", text)
++                }
++            }
++            InstantAction.Email -> {
++                val address = InstantActions.emailAddress(text)
++                Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(address.orEmpty(), "@"))).apply {
++                    if (address == null) putExtra(Intent.EXTRA_TEXT, text)
++                }
++            }
++            InstantAction.Map -> Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(text)))
++            InstantAction.WebSearch -> Intent(Intent.ACTION_WEB_SEARCH).putExtra(SearchManager.QUERY, text)
++        }
++    return SearchCommand(
++        title = row.action.label,
++        subtitle = "“$text”",
++        mark = row.action.mark,
++        source = t("instant_action"),
++        onClick = { onStartIntent(intent) },
++    )
++}
++
++private fun shareText(
++    packageName: String,
++    text: String,
++): Intent = Intent(Intent.ACTION_SEND).setType("text/plain").setPackage(packageName).putExtra(Intent.EXTRA_TEXT, text)
++
+ /** The group chips over the results; the current scope is filled. */
+ @Composable
+ private fun CommandChips(
+@@ -5790,6 +5844,8 @@ private val HUB_BAR_ITEM_HEIGHT = 32.dp
+ private const val HUB_JUMP_BLOCKING_META = 0x02 or 0x04 or 0x08 or 0x1000 or 0x10000
+ private const val MAIL_PACKAGE = "org.sableos.mail"
+ private const val CALENDAR_PACKAGE = "org.sableos.calendar"
++private const val TASKS_PACKAGE = "org.sableos.tasks"
++private const val NOTES_PACKAGE = "org.sableos.notes"
+ private const val WEATHER_PACKAGE = "org.sableos.weather"
+ private const val MEDIA_PACKAGE = "org.sableos.media"
+ private const val DIALER_PACKAGE = "com.android.dialer"

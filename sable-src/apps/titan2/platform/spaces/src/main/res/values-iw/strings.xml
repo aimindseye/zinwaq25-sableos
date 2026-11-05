@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hebrew. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">מרחב העבודה</string>
+    <string name="work">עבודה</string>
+    <string name="intro">הפרד את אפליקציות העבודה מהאפליקציות שלך: נתונים וחשבונות משלהן, תג עבודה ומתג אישי · עבודה ב-Start שיכול להשהות אותן.</string>
+    <string name="make">יצירת מרחב עבודה</string>
+    <string name="making">Android יוצר את מרחב העבודה. זה לוקח דקה.</string>
+    <string name="not_allowed">הטלפון לא יכול ליצור מרחב עבודה כרגע. ייתכן שכבר קיים מרחב עבודה או מנהל טלפון.</string>
+    <string name="cancelled">לא נוצר מרחב עבודה.</string>
+    <string name="ready">מרחב העבודה שלך מוכן. הוסף את האפליקציות שאתה משתמש בהן לעבודה: כל אחת מקבלת עותק משלה עם נתונים משלה.</string>
+    <string name="paused">אפליקציות העבודה מושהות. הפעל אותן מ-Start (כל האפליקציות, עבודה) כדי להוסיף אפליקציות.</string>
+    <string name="in_work">%1$s · בעבודה</string>
+    <string name="no_apps">כל האפליקציות שלך כבר בעבודה.</string>
+    <string name="could_not_open">מרחב העבודה לא הגיב. נסה שוב בעוד רגע.</string>
+    <string name="remove">הסרת מרחב העבודה</string>
+    <string name="add_confirm">להוסיף את %1$s (%2$s) לעבודה? Enter מוסיף, חזרה מבטל.</string>
+    <string name="added">%1$s נמצאת עכשיו בעבודה.</string>
+    <string name="add_failed">לא ניתן היה להוסיף את %1$s לעבודה.</string>
+    <string name="remove_confirm">להסיר את מרחב העבודה עם כל אפליקציות העבודה והנתונים שלהן? Y מסיר, N משאיר.</string>
+    <string name="yes">כן</string>
+    <string name="no">לא</string>
+    <string name="hint">למעלה ולמטה בוחרים אפליקציה · Enter מוסיף · O אפשרויות · R מסיר את מרחב העבודה · חזרה יוצא</string>
+    <string name="options">אפשרויות מרחב העבודה</string>
+    <string name="options_intro">הן חלות רק בתוך מרחב העבודה. כל אחת מתחילה כמותרת.</string>
+    <string name="option_copy">העתקה מאפליקציות עבודה לאפליקציות אישיות</string>
+    <string name="option_share">שיתוף מאפליקציות אישיות לאפליקציות עבודה</string>
+    <string name="option_screenshots">צילומי מסך של אפליקציות עבודה</string>
+    <string name="allowed">מותר</string>
+    <string name="blocked">חסום</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">נעילת עבודה</string>
+    <string name="work_lock_about">קוד, תבנית או סיסמה נפרדים לאפליקציות עבודה, שנדרשים כשפותחים אותן אחרי שהטלפון ננעל.</string>
+    <string name="options_hint">למעלה ולמטה בוחרים · Enter משנה · L מגדיר את נעילת העבודה · חזרה יוצאת</string>
+    <string name="options_failed">Android לא קיבל את השינוי.</string>
+</resources>

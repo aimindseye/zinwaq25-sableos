@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">ابحث أو اكتب عنوان ويب</string>
+    <string name="keys_hint">L العنوان · Space صفحة · T الأعلى · B الأسفل · R إعادة تحميل · M المؤشر</string>
+    <string name="pointer_on">مؤشر لوحة التتبع مفعّل</string>
+    <string name="pointer_off">المؤشر متوقف · لوحة التتبع تمرّر الصفحة</string>
+    <string name="page_failed">تعذّر تحميل هذه الصفحة. اضغط R للمحاولة مجددًا.</string>
+    <string name="no_app_for_link">لا يوجد تطبيق يفتح هذا الرابط.</string>
+    <string name="share_page">مشاركة الصفحة</string>
+    <string name="downloading">جارٍ تنزيل %1$s</string>
+    <string name="download_failed">تعذّر بدء هذا التنزيل.</string>
+    <string name="choose_file">اختر ملفًا</string>
+</resources>

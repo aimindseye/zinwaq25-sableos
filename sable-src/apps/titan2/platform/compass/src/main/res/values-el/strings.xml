@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">Βορράς</string>
+    <string name="ne">Βορειοανατολικά</string>
+    <string name="e">Ανατολή</string>
+    <string name="se">Νοτιοανατολικά</string>
+    <string name="s">Νότος</string>
+    <string name="sw">Νοτιοδυτικά</string>
+    <string name="w">Δύση</string>
+    <string name="nw">Βορειοδυτικά</string>
+    <string name="dial_n">Β</string>
+    <string name="dial_e">Α</string>
+    <string name="dial_s">Ν</string>
+    <string name="dial_w">Δ</string>
+    <string name="true_mark">Γ</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">Μαγνητικός βορράς</string>
+    <string name="true_north">Γεωγραφικός βορράς</string>
+    <string name="true_waiting">Αναζήτηση της κατά προσέγγιση τοποθεσίας σας για τον γεωγραφικό βορρά. Μέχρι τότε εμφανίζεται ο μαγνητικός βορράς.</string>
+    <string name="true_denied">Ο γεωγραφικός βορράς χρειάζεται την κατά προσέγγιση τοποθεσία σας. Εμφανίζεται ο μαγνητικός βορράς.</string>
+    <string name="accuracy_high">Ακρίβεια: υψηλή</string>
+    <string name="accuracy_medium">Ακρίβεια: μέτρια</string>
+    <string name="accuracy_low">Ακρίβεια: χαμηλή. Πατήστε C για βαθμονόμηση.</string>
+    <string name="accuracy_unreliable">Ακρίβεια: αναξιόπιστη. Πατήστε C για βαθμονόμηση.</string>
+    <string name="no_sensor">Αυτό το τηλέφωνο δεν έχει αισθητήρα πυξίδας.</string>
+    <string name="flat_or_upright">Κρατήστε το τηλέφωνο επίπεδο ή όρθιο προς την κατεύθυνση που κοιτάτε.</string>
+    <string name="held">Κλειδώθηκε. Το H ξεκλειδώνει.</string>
+    <string name="calibrate">Βαθμονόμηση</string>
+    <string name="calibrate_body">Κινήστε το τηλέφωνο σε σχήμα 8 μερικές φορές, γυρίζοντάς το. Μείνετε μακριά από μέταλλα, μαγνήτες και ηχεία.</string>
+    <string name="calibrate_done">Βαθμονομήθηκε.</string>
+    <string name="hint">T γεωγραφικός βορράς · C βαθμονόμηση · H κλείδωμα · Πίσω έξοδος</string>
+    <string name="calibrate_hint">Το C ή το Πίσω επιστρέφει στην πυξίδα</string>
+</resources>

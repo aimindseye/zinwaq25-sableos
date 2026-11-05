@@ -33,7 +33,7 @@ unchanged.
 
 diff --git a/packages/SystemUI/res/values/sable_qs_config.xml b/packages/SystemUI/res/values/sable_qs_config.xml
 new file mode 100644
-index 00000000..6ff75bb1
+index 0000000..6ff75bb
 --- /dev/null
 +++ b/packages/SystemUI/res/values/sable_qs_config.xml
 @@ -0,0 +1,13 @@
@@ -51,7 +51,7 @@ index 00000000..6ff75bb1
 +    <bool name="config_sableQsSmallTileLabels">false</bool>
 +</resources>
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QuickQuickSettingsRowRepository.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QuickQuickSettingsRowRepository.kt
-index 636f703a..fe773601 100644
+index 636f703..fe77360 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QuickQuickSettingsRowRepository.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QuickQuickSettingsRowRepository.kt
 @@ -36,4 +36,13 @@ constructor(
@@ -69,7 +69,7 @@ index 636f703a..fe773601 100644
 +        }
  }
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/domain/interactor/QuickQuickSettingsRowInteractor.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/domain/interactor/QuickQuickSettingsRowInteractor.kt
-index 5f001df7..2682ef18 100644
+index 5f001df..2682ef1 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/domain/interactor/QuickQuickSettingsRowInteractor.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/domain/interactor/QuickQuickSettingsRowInteractor.kt
 @@ -28,5 +28,8 @@ constructor(
@@ -82,10 +82,10 @@ index 5f001df7..2682ef18 100644
      val defaultRows = 2
  }
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
-index f01c47a2..7f924385 100644
+index 6db03f5..379bbd6 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
-@@ -83,6 +83,7 @@ import androidx.compose.ui.semantics.semantics
+@@ -85,6 +85,7 @@ import androidx.compose.ui.semantics.semantics
  import androidx.compose.ui.semantics.stateDescription
  import androidx.compose.ui.semantics.toggleableState
  import androidx.compose.ui.text.TextStyle
@@ -93,7 +93,7 @@ index f01c47a2..7f924385 100644
  import androidx.compose.ui.unit.Dp
  import androidx.compose.ui.unit.LayoutDirection
  import androidx.compose.ui.unit.dp
-@@ -197,6 +198,41 @@ fun LargeTileContent(
+@@ -198,6 +199,41 @@ fun LargeTileContent(
      }
  }
  
@@ -135,44 +135,44 @@ index f01c47a2..7f924385 100644
  @OptIn(ExperimentalMaterial3ExpressiveApi::class)
  @Composable
  fun LargeTileLabels(
-@@ -413,6 +449,8 @@ object TileBounceMotionTestKeys {
- object CommonTileDefaults {
-     val IconSize = 32.dp
-     val LargeTileIconSize = 28.dp
+@@ -414,6 +450,8 @@ object CommonTileDefaults {
+         @Composable
+         @ReadOnlyComposable
+         get() = dimensionResource(id = R.dimen.common_tile_default_active_icon_corner_radius)
 +    /** Sable: icon of a labeled small tile (icon over label). */
 +    val SableLabeledIconSize = 24.dp
-     val SideIconWidth = 32.dp
-     val SideIconHeight = 20.dp
-     val ChevronSize = 14.dp
+ 
+     val ActiveTileCornerRadius: Dp
+         @Composable
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
-index a586e056..3627457a 100644
+index 84be1b9..fd48cc8 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
-@@ -326,7 +326,18 @@ fun ContentScope.Tile(
-                     ),
-             ) {
-                 val iconProvider: Context.() -> Icon = { getTileIcon(icon = icon) }
--                if (iconOnly) {
-+                if (iconOnly && resources.getBoolean(R.bool.config_sableQsSmallTileLabels)) {
-+                    SableLabeledSmallTileContent(
-+                        label = uiState.label,
-+                        iconProvider = iconProvider,
-+                        colors = colors,
-+                        isVisible = isVisible,
-+                        modifier =
-+                            Modifier.align(Alignment.Center).bounceScale {
-+                                contentBounceable.iconBounceScale
-+                            },
-+                    )
-+                } else if (iconOnly) {
-                     SmallTileContent(
-                         iconProvider = iconProvider,
-                         color = colors.icon,
+@@ -330,7 +330,18 @@ fun ContentScope.Tile(
+                         ),
+                 ) {
+                     val iconProvider: Context.() -> Icon = { getTileIcon(icon = icon) }
+-                    if (iconOnly) {
++                    if (iconOnly && resources.getBoolean(R.bool.config_sableQsSmallTileLabels)) {
++                        SableLabeledSmallTileContent(
++                            label = uiState.label,
++                            iconProvider = iconProvider,
++                            colors = colors,
++                            isVisible = isVisible,
++                            modifier =
++                                Modifier.align(Alignment.Center).bounceScale {
++                                    currentBounceableInfo.bounceable.iconBounceScale
++                                },
++                        )
++                    } else if (iconOnly) {
+                         SmallTileContent(
+                             iconProvider = iconProvider,
+                             color = colors.icon,
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt
-index 55155108..ad7efb47 100644
+index f814fce..bc842f4 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt
-@@ -54,8 +54,22 @@ constructor(
+@@ -50,8 +50,22 @@ constructor(
      private val mediaInRowViewModel =
          mediaInRowInLandscapeViewModelFactory.create(LOCATION_QQS, mediaUiBehavior)
  
@@ -194,8 +194,8 @@ index 55155108..ad7efb47 100644
 +                qsColumnsViewModel.columns
 +            }
  
-     private val largeTiles by
-         hydrator.hydratedStateOf(traceName = "largeTiles", source = iconTilesViewModel.largeTiles)
+     private val largeTiles by iconTilesViewModel.largeTiles.hydratedStateOf()
+ 
 -- 
 2.43.0
 

@@ -3,8 +3,9 @@
 #
 #   NOTIFICATION_POLICY_ANDROID_OWNED / HUB_DELIVERY_POLICY_OWNERSHIP=PASS_ABSENT
 #   HUB_DND_BYPASS=PASS_ABSENT / SHADE_IS_NOTIFICATION_CENTER
-#     Hub never cancels, snoozes, posts or re-ranks notifications, never edits channels or
-#     interruption filters, and holds no permission that would let it.
+#     Hub never posts, re-ranks or bulk-clears notifications, never edits channels or
+#     interruption filters, and holds no permission that would let it. It snoozes or dismisses
+#     one notification only from a user's row command, in HubNotificationCommands.kt alone.
 #   HUB_HISTORY_BOUNDED_DERIVED: the history store prunes through HubHistoryBounds and no
 #     unbounded retention option exists.
 #   HUB_CONNECTED_APPS_PARITY: the hidden-apps provider goes through ConnectedAppsParity.
@@ -29,11 +30,22 @@ fi
 # Code lines only: drop KDoc/line comments so documentation may name the forbidden APIs.
 code() { grep -rhv -E '^\s*(\*|//|/\*)' "$HUB/java" --include='*.kt' --include='*.java'; }
 
-forbidden_calls='cancelNotification|cancelAllNotifications|snoozeNotification|requestInterruptionFilter|setInterruptionFilter|setNotificationPolicy|requestListenerHints|createNotificationChannel|updateNotificationChannel|NotificationChannel\(|setBypassDnd|setNotificationListenerAccessGranted|NotificationManagerCompat|\.notify\(|startForeground\('
+forbidden_calls='cancelAllNotifications|requestInterruptionFilter|setInterruptionFilter|setNotificationPolicy|requestListenerHints|createNotificationChannel|updateNotificationChannel|NotificationChannel\(|setBypassDnd|setNotificationListenerAccessGranted|NotificationManagerCompat|\.notify\(|startForeground\('
 if hits="$(code | grep -E "$forbidden_calls" || true)" && [[ -z "$hits" ]]; then
     pass "KF-A: Hub owns no notification delivery, DND or channel policy"
 else
     fail "KF-A: Hub calls Android delivery/DND APIs: $hits"
+fi
+
+# Snooze and Dismiss of one notification by key: only HubNotificationCommands may call them.
+commands="$HUB/java/org/sableos/hub/notifications/HubNotificationCommands.kt"
+others="$(grep -rlE 'cancelNotification|snoozeNotification' "$HUB/java" --include='*.kt' --include='*.java' | grep -v "/HubNotificationCommands.kt$" || true)"
+if [[ -f "$commands" && -z "$others" ]] &&
+    [[ "$(grep -cE '\.(cancelNotification|snoozeNotification)\(notificationKey' "$commands")" == 2 ]] &&
+    grep -q 'deviceLocked()' "$commands"; then
+    pass "KF-A: only a user's row command snoozes or dismisses one notification, by key, unlocked"
+else
+    fail "KF-A: snooze/dismiss outside HubNotificationCommands or not by one key: $others"
 fi
 
 forbidden_perms='ACCESS_NOTIFICATION_POLICY|POST_NOTIFICATIONS|MANAGE_NOTIFICATIONS|STATUS_BAR_SERVICE|MANAGE_NOTIFICATION_LISTENERS'
@@ -122,6 +134,20 @@ if [[ -n "$clock" ]] && grep -q 'mKeyguardUpdateMonitor.dispatchTimeUpdateNow();
     pass "Lock screen clock: the doze tick, time zone and 12/24h format reach the keyguard clock"
 else
     fail "Lock screen clock patch 0306 missing"
+fi
+
+# Lock screen Peek (0314): counts per app; a sender (the title) only with Show all content and no
+# redaction, never the notification text.
+peek="$(compgen -G "$shade/0314-*.patch" || true)"
+if [[ -n "$peek" ]] &&
+    grep -q 'name="sable_keyguard_peek_title">Peek · Notifications' "$peek" &&
+    grep -q 'name="sable_keyguard_peek_unlock">Unlock to read message details' "$peek" &&
+    grep -q '+        if (privateMode) return null' "$peek" &&
+    grep -q 'REDACTION_TYPE_NONE' "$peek" &&
+    ! grep -E '^\+' "$peek" | grep -q -E 'EXTRA_TEXT|EXTRA_BIG_TEXT|EXTRA_MESSAGES|tickerText|verifyCredential|keyguardDone'; then
+    pass "Lock screen Peek: one row per app; the newest sender only with Show all content, never the text"
+else
+    fail "Lock screen Peek patch 0314 missing or reads notification text"
 fi
 
 glance="$(compgen -G "$shade/0307-*.patch" || true)"

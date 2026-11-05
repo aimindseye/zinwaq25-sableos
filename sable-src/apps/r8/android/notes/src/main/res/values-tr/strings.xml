@@ -53,4 +53,5 @@
     <string name="will_be_deleted_from_this">“%1$s” bu telefondan silinecek.</string>
     <string name="delete">Sil</string>
     <string name="keep">Sakla</string>
+    <string name="r_remind_in_tasks">" · R Görevler\'de hatırlat"</string>
 </resources>

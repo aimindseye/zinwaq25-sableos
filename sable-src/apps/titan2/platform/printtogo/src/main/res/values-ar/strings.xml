@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">اطبع من حاسوبك إلى هذا الهاتف. ما دام Print To Go مفعّلًا، يكون الهاتف طابعة على شبكة Wi-Fi لديك، وتُحفظ كل طباعة بصيغة PDF في Documents/Print To Go.</string>
+    <string name="start">بدء الاستقبال</string>
+    <string name="stop">إيقاف</string>
+    <string name="off">متوقف. لا يمكن لأي شيء الطباعة على هذا الهاتف.</string>
+    <string name="ready">جاهز باسم %1$s. اختره في نافذة الطباعة على الحاسوب. يتوقف بعد 10 دقائق دون طباعة.</string>
+    <string name="no_wifi">اتصل بشبكة Wi-Fi أولًا. يستمع Print To Go عبر Wi-Fi فقط، ولا يستخدم بيانات الجوال أبدًا.</string>
+    <string name="start_failed">تعذّر بدء Print To Go. حاول مرة أخرى.</string>
+    <string name="saved">تم الحفظ: %1$s</string>
+    <string name="save_failed">تعذّر حفظ %1$s.</string>
+    <string name="open_folder">فتح المطبوعات المحفوظة</string>
+    <string name="running">Print To Go مفعّل</string>
+    <string name="channel_running">Print To Go قيد التشغيل</string>
+    <string name="channel_saved">المطبوعات المحفوظة</string>
+    <string name="idle_off">توقف Print To Go بعد 10 دقائق دون طباعة.</string>
+    <string name="hint">Enter يبدأ أو يوقف · O يفتح المطبوعات المحفوظة · رجوع للخروج</string>
+</resources>

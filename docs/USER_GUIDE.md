@@ -57,10 +57,14 @@ The keyboard does almost everything. Typing on the home screen searches, arrows 
 
 | Page | What it shows | Keys |
 | --- | --- | --- |
-| Hub (left) | All · Messages · Calls · Contacts, and an unread bar per app | T/B top and bottom, Enter opens |
-| Active Frames (home) | Your recent apps as live frames | Arrows move, Enter resumes, × closes |
+| Hub (left) | All · Messages · Calls · Contacts, an unread bar per app, and your newest messages (sender, one line, time; unread ones have a blue edge). Locked or in private mode it shows counts only | T/B top and bottom, Enter opens the message in Hub, Menu (or Alt+Enter, or a long press) opens its BB10 menu |
+| Active Frames (home) | Your recent apps as live frames. With no apps open, widgets: Month (this month with busy rings and your next three events), Weather, Battery and Media; Edit Home adds Calendar, Hub, Mail and Photos | Arrows move, Enter resumes or opens, × closes |
 | App pages (right) | 5-column grid of every app | Arrows move, a letter jumps |
-| Bottom bar | Phone · Search · Camera | Alt+1 to Alt+3 |
+| Bottom row | Page dots only; Edit Home can add up to two slots around them, such as Hub (a dot shows unread items) and Camera | Alt+1, Alt+2 open the slots; the call key opens Phone, typing or Alt+Space opens Search |
+
+In the Hub app (H or Enter from Start), Menu, Alt+Enter or a long press on a message opens its menu on the right edge, as on BB10: Open, Reply, Mark read (when the app offers it), Dismiss notification, then the app's own actions such as Archive or Delete. On a focused message R replies, U marks read and Del dismisses without opening the menu. They need the phone unlocked; an SMS can be opened, replied to or called back.
+
+Two more entries are off until you turn them on in Hub > Connected apps (Sable Setup's Hub row menu line opens that page): **Snooze in the row menu** adds Snooze 1 hour and the Z key, and Android brings the notification back after an hour; **Remind me in the row menu** adds Remind me, which opens Sable Tasks with a follow-up for tomorrow morning named after the app ("Follow up in Gmail"). Only the app is saved, never the message, and asking again for the same message moves that task instead of adding another.
 
 Alt+Left and Alt+Right move between pages. Alt+Space opens Command, and any letter starts a search of apps, contacts and commands. Menu opens Edit Home, where you choose Home apps, the quick bar and widgets. The status dials at the top show Wi-Fi, Mobile, CPU, RAM, battery and Cell.
 
@@ -72,9 +76,13 @@ Alt+Left and Alt+Right move between pages. Alt+Space opens Command, and any lett
 
 - The banner shows the status dials, the date, the weather and the Hub unread count. The status bar shows the time.
 - Swipe right or press Alt+Left to open Hub. Swipe left or press Alt+Right to open All apps.
+- On Sable Start, a quick sideways flick on the trackpad turns one page; slow strokes move between tiles. A light touch at the bottom of the screen right after a trackpad stroke is ignored, so brushing the glass does not open an app.
+- Settings > System > Keyboard > Trackpad switches the trackpad between Keys (moves between items, the default) and Pointer (moves a cursor; a click taps where it points).
 - The tray at the bottom shows one to three rows of Favorites. Drag it up or down to change the rows. Up opens the whole tray and Esc closes it.
-- Space switches panels (Favorites, All, Downloads), and typing searches apps.
-- Menu on an app: Open, Add to Favorites or Remove from Favorites, Move (arrows carry it, Enter drops it) and App Info. Then Hub, Home Screen Style, Settings and Close.
+- Space switches panels (Favorites, All, Downloads), and typing searches apps. Search ignores accents, so "cafe" finds "Café" (in Start's search too).
+- Menu on an app: Open, Add to Favorites or Remove from Favorites, Move (arrows carry it, Enter drops it), Add to or Remove from each of your own tabs, Hold-key shortcut (press the letter to hold on Home to open the app; Backspace removes it), App Info and, for an app you installed, Delete. Then New tab, Delete tab (on one of your tabs), Tray view (Grid or List), Grid columns (Auto or 4 to 8), Icon size (Small, Medium or Large), Hub, Home Screen Style, Settings and Close. Each of the three tray rows shows its current value and steps to the next one when chosen; Start remembers them.
+- Your own tabs come after Favorites, All and Downloads (up to five). New tab asks for a name in the tray title: type it and press Enter, or Esc to cancel.
+- Holding a letter on the BlackBerry 7 home opens the app set to it, or calls the speed dial on it, as on the BlackBerry 10 home. A short press still searches.
 
 ### Keys that work everywhere
 
@@ -98,14 +106,18 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Sable Messages | Default SMS app: sends SMS, receives SMS and MMS (no MMS sending yet) | T/B, N/P, Space pages |
 | Hub (in Start) | One inbox for messages, calls and notifications | H on a notification opens it in Hub |
 | Mail | Email; Gmail sign-in is covered in [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |
-| Calendar | Week view with a NOW line | C, T, V, J, K, R |
+| Calendar | The month with busy rings over the day's agenda, a week view with a NOW line, and every calendar on the phone. A ring fills with how much of 8:00 to 20:00 is booked; a thin outer ring marks an all-day event. L lists your calendars to show or hide each one | C, T, V, J, K, R, L |
 | Notes | Notes and checklists with colour labels, kept on the phone | See [Notes](#notes) below; C new, S find, K tasks |
-| Text Reader | Reads text aloud: paste text, open a file, scan a page with the camera (OCR, English or Spanish) or pick an image from the Gallery. An upstream app with the Sable name and icon | Play and stop buttons on screen |
+| Tasks | Tasks with due dates, reminders and repeats, kept on the phone. A reminder shows in Hub with Done and Snooze 1 hour | See [Tasks](#tasks) below; C new, Space done, Z tomorrow |
+| Text Reader | Reads text aloud: paste text, open a file, scan a page with the camera (OCR, English or Spanish) or pick an image from the Gallery. An upstream app with the Sable name and icon. It speaks with eSpeak NG, the offline speech engine SableOS ships (voice, rate and pitch in Settings > Accessibility > Text-to-speech output; see [Accessibility](ACCESSIBILITY.md#speech)). It also adds Speak what's focused (Settings > Accessibility), which speaks the item you move to with the trackpad or keys | Play and stop buttons on screen |
 | Terminal | SSH, Telnet and a local shell (ConnectBot) | See [Terminal](#terminal) below; Menu is Ctrl |
 | Weather | Forecast for your city, refreshed in the background | Feeds Start's header |
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |
 | Media | Music, photos, FM radio | E shares |
 | Sound Profiles | Normal, Loud, Vibrate only, Phone calls only, All alerts off | Enter uses, E edits, Menu for more; Quick Settings tile |
+| Sable Compass | Which way you face, in degrees and words, on a card that leans with the phone. Read it flat, or upright looking the way the back of the phone points | T true north (asks for your rough location the first time; magnetic north otherwise), C calibration guide, H holds the reading. The number turns orange when accuracy is low: press C |
+| Sable Print To Go | Print from a computer to the phone: each print is saved as a PDF in Documents/Print To Go | Enter switches it on or off, O opens the folder. While on, the phone appears as a printer on the same Wi-Fi (Windows: Add a printer; Mac: System Settings > Printers; Linux: it appears by itself). It turns off after 10 minutes with nothing printed |
+| Sable Spaces | Make a Work space, add apps you already have to it, remove it | Opened from Sable Setup > Work space. Up and Down pick an app, Enter adds it (confirm with Enter in the Work screen), R removes the Work space (confirm with Y). O opens the Work space options, inside Work: copying from work apps into personal apps, sharing from personal apps into work apps, and screenshots of work apps each start as Allowed and Enter switches one to Blocked; L sets a separate Work lock |
 | Reader | Books (EPUB), PDF, comics and audiobooks, all stored on the phone | See [Comics and audiobooks](#comics-and-audiobooks) below; B bookmark, T contents, A view settings |
 | Calculator | Keyboard-first | Digits and operators from the keys |
 | Games | Ten games, each its own app: Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words | See [Games](#games) below |
@@ -169,7 +181,7 @@ The first line of a note is its title. The list shows the latest-edited note fir
 | --- | --- | --- |
 | List | C (or Ctrl+N) | New note |
 | List | S or / | Find in every note; Enter opens the first match |
-| List | K | Tasks: the open checklist items from every note. Enter ticks one, O opens its note, H shows the done ones |
+| List | K | Tasks: the open checklist items from every note. Enter ticks one, O opens its note, H shows the done ones, R hands it to Sable Tasks to set a due date or reminder |
 | List | L | Change the focused note's colour |
 | List | D | Delete the focused note (asks first) |
 | List | I | Import a text file as a note |
@@ -180,6 +192,42 @@ The first line of a note is its title. The list shows the latest-edited note fir
 | Note | Back | Saves and goes back to the list. A note left empty is not kept |
 
 Notes save themselves as you type. On a keyboard with Ctrl, Ctrl+S, Ctrl+F, Ctrl+G, Ctrl+T, Ctrl+L, Ctrl+E and Ctrl+Enter do the same as the menu letters, and Esc goes back. A checklist item is a line that starts with `- [ ] `, or `- [x] ` once it's done, so an exported note reads the same in any text editor.
+
+### Tasks
+
+Sable Tasks (ported from TenSeven Tasks) keeps a to-do list with due dates, reminders and repeats. Tasks stay on the phone: there is no account and no sync. The list groups them as Overdue, Today, Tomorrow, This week, Later and No date.
+
+| Where | Key | What it does |
+| --- | --- | --- |
+| List | C | New task |
+| List | Enter | Edit the focused task |
+| List | Space | Done, or not done again. A repeating task moves to its next date instead |
+| List | Z | Remind tomorrow at 9:00 |
+| List | D or Del | Delete (asks first) |
+| List | H | Show or hide done tasks |
+| Editor | Later today, This evening, Tomorrow morning | Quick reminder times; Pick a time chooses any date and time |
+
+A reminder is a notification, so it also shows in Hub, whose menu offers Done and Snooze 1 hour. The lock screen shows only "Task reminder". Reminders are not exact alarms: in deep sleep one can come a few minutes late. Text shared to Sable Tasks becomes a new task, and in Notes' Tasks view R sends a checklist item there.
+
+### Browser
+
+Sable Browser opens web pages with Android's own web engine, the one Chrome uses, and adds a
+trackpad pointer. Stroke the trackpad and the pointer appears. Slow strokes move it a little for
+careful aiming, and a quick run of strokes sends it across the screen. Over a link or button it
+slows down and a ring shows around it. Push it past an edge and the page scrolls. Click the
+trackpad to press where it points; hold the click for a link's menu, or hold it and move to
+select text. When you click into a search box or form field, the keyboard types into it until
+you press Esc or Back.
+
+Keys: **L** address bar, **Space** next page (**Shift+Space** back up), **T** top, **B** bottom,
+**R** reload, **Backspace** back (**Shift+Backspace** forward), **I** and **O** zoom, **S**
+share, **M** pointer on or off (with it off, the trackpad scrolls the page). The address bar opens
+web addresses and searches anything else with DuckDuckGo.
+
+The browser asks for nothing but the internet: pages can't use your location, camera or
+microphone, and other sites can't follow you with third-party cookies. Downloads go to Downloads.
+Jelly, LineageOS's browser, is still installed; pick your default in Settings > Apps > Default
+apps > Browser app.
 
 ### Terminal
 
@@ -235,6 +283,9 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Where | What you find |
 | --- | --- |
 | Display > Accent | Choose the Sable accent. Settings, Quick Settings, Start and the Sable apps all follow it. Dark theme is next to it |
+| Security > Lock screen peek | What the lock screen's Peek shows under the clock: Counts (each app and its number, the default) or Messages (each app with its newest sender, when Notifications on lock screen is set to show all content). The row opens the Lock screen page, where you change it |
+| Display > Text size | Small, Medium, Large or Larger text. Larger is the biggest size SableOS lays out for the square screen. Display size and text, next to it, has Android's Font size slider, bold text and high contrast text for anything bigger; a size set there shows as custom. Setup's Theme step has the same choice |
+| Accessibility | Android's own options: magnification, colour correction, colour inversion, extra dim, remove animations, caption preferences, mono audio, time to take action, and for the keyboard sticky, slow and bounce keys. TalkBack, Select to Speak and Switch Access are Google apps and are not included; see [ACCESSIBILITY.md](ACCESSIBILITY.md) for adding a screen reader |
 | Display > App display compatibility | A taller canvas per app, and **Sable app style**: compact corners (default) or rounded. Open Sable apps restyle at once |
 | About phone > SableOS version | Release number, release name, the LineageOS base and the source commit, for example `1.0 · full · lineage-23.2 · 0afdeef1c2d3`. LineageOS legal information stays under Legal information |
 | Battery > Battery health | Cycle count, capacity health, temperature and voltage, each with its source. A value the phone cannot read says "Not reported", never a guess. A chart below shows Today, 24 hours and 7 days |
@@ -262,6 +313,7 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Where | What it does |
 | --- | --- |
 | Apps > All apps | Under each app's name, the sensitive access it has, for example `permissions · Location · Contacts · +1`. "See app info" means the phone could not tell, which is never shown as "none" |
+| All apps > Personal · Work | With a work profile on the phone, a switch above the filters shows your own apps or your work apps. In Work, Pause work apps stops every work app and its notifications until you turn them back on. Without a work profile the switch is not shown; Sable Setup > Work space makes one with Sable Spaces |
 | Apps > Network access | One switch per app to block all networks. Wi-Fi, mobile data and VPN limits you set in App info are kept. Blocking a messaging, mail or phone app asks first. It does not filter websites |
 | Apps > App security & privacy | A read-only page per app: where it came from and who signed it, what it can do, how many entry points it exposes to other apps, packaged native code, and whether it has a known tracker library. **Changes seen on this phone** lists updates and signer changes since you first opened the page |
 | Apps > Mobile Manager | The home of the controls below, plus a plain list of what is not available yet |
@@ -322,6 +374,7 @@ Do these once after setup. The first group protects you; the second makes the Q2
 
 - [ ] Pick a home style in Sable Setup (BlackBerry 10 or 7) and add your apps: Edit Home on BB10, Menu > Add to Favorites on BB7.
 - [ ] Keep the Dark theme: from PR #38 a fresh install has Pure black on (Settings > Display > Dark theme), and Start's pages, Hub and All Apps are pure black too, which suits the Q25.
+- [ ] Pick a text size in Settings > Display > Text size if Medium is too small or too large for you.
 - [ ] Set your Weather city in Sable Setup, so Start's header shows it.
 - [ ] Assign speed dial letters in Phone > Menu > Speed dial, then hold a letter on the home screen to call.
 - [ ] Add your own AutoText shortcuts (Keyboard settings > AutoText entries), such as `addr` for your address.

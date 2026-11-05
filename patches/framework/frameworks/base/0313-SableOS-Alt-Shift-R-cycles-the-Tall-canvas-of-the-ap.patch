@@ -26,18 +26,18 @@ Right Alt, so Sym+Shift+R too). Android 16 has no system shortcut on it.
  create mode 100644 services/core/java/com/android/server/policy/sable/SableDisplayKeys.java
 
 diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
-index e5b1da34..97010c1a 100644
+index f27f93d..7b6ae07 100644
 --- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
 +++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
-@@ -265,6 +265,7 @@ import com.android.server.pm.UserManagerInternal;
+@@ -265,6 +265,7 @@ import com.android.server.inputmethod.InputMethodManagerInternal;
+ import com.android.server.pm.UserManagerInternal;
  import com.android.server.policy.keyguard.KeyguardServiceDelegate;
- import com.android.server.policy.keyguard.KeyguardServiceDelegate.DrawnListener;
- import com.android.server.policy.keyguard.KeyguardStateMonitor.StateCallback;
+ import com.android.server.statusbar.StatusBarManagerInternal;
 +import com.android.server.policy.sable.SableDisplayKeys;
  import com.android.server.policy.sable.SableShadeKeys;
- import com.android.server.statusbar.StatusBarManagerInternal;
  import com.android.server.vr.VrManagerInternal;
-@@ -4007,6 +4008,19 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+ import com.android.server.wallpaper.WallpaperManagerInternal;
+@@ -4056,6 +4057,19 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                  }
                  return true;
              }
@@ -57,7 +57,7 @@ index e5b1da34..97010c1a 100644
          }
          if (isValidGlobalKey(keyCode)
                  && mGlobalKeyManager.handleGlobalKey(mContext, keyCode, event)) {
-@@ -4019,6 +4033,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -4068,6 +4082,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
          return false;
      }
  
@@ -74,7 +74,7 @@ index e5b1da34..97010c1a 100644
          List<Integer> supportedGestures = new ArrayList<>(List.of(
 diff --git a/services/core/java/com/android/server/policy/sable/SableDisplayKeys.java b/services/core/java/com/android/server/policy/sable/SableDisplayKeys.java
 new file mode 100644
-index 00000000..e836b670
+index 0000000..e836b67
 --- /dev/null
 +++ b/services/core/java/com/android/server/policy/sable/SableDisplayKeys.java
 @@ -0,0 +1,60 @@

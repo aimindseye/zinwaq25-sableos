@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">Apenas as chamadas tocam; mensagens e alertas ficam silenciosos</string>
     <string name="all_alerts_off">Todos os alertas desativados</string>
     <string name="nothing_rings_or_vibrates_alarms">Nada toca nem vibra; os alarmes continuam tocando</string>
+    <string name="bedside">Mesa de cabeceira</string>
+    <string name="alarms_only_and_the_dimmest">Só alarmes, ecrã no mínimo</string>
 </resources>

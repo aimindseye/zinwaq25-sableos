@@ -1,6 +1,7 @@
 package org.sableos.start
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -18,6 +19,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.UserHandle
 import android.provider.Settings
+import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -35,7 +38,10 @@ import org.sableos.design.writeGlobalSableAppearance
 import org.sableos.start.model.ActiveFrame
 import org.sableos.start.model.AppEntry
 import org.sableos.start.model.Bb7Detour
+import org.sableos.start.model.Bb7Layout
+import org.sableos.start.model.Bb7Tab
 import org.sableos.start.model.HomeStyle
+import org.sableos.start.model.TrackpadTouchGuard
 import org.sableos.start.platform.LauncherAppsRepository
 import org.sableos.start.platform.LetterShortcutRepository
 import org.sableos.start.platform.LiveSurfaceRepository
@@ -70,6 +76,13 @@ class SableStartActivity : ComponentActivity() {
 
     /** null: no private space; true: locked; false: unlocked. */
     private val privateSpaceLockedState = mutableStateOf<Boolean?>(null)
+
+    /** null: no work profile; true: work apps paused; false: on. */
+    private val workPausedState = mutableStateOf<Boolean?>(null)
+
+    /** When the trackpad last sent a key, and whether the current touch is a stray one it caused. */
+    private var lastTrackpadKeyMs: Long? = null
+    private var strayTouch = false
     private val liveRefreshGeneration = mutableStateOf(0)
     private val homeGeneration = mutableStateOf(0)
     private val backGeneration = mutableStateOf(0)
@@ -93,6 +106,8 @@ class SableStartActivity : ComponentActivity() {
     /** The BlackBerry 7 home's favourites (the Home apps) and its rows of icons, read in onCreate. */
     private val bb7Favorites = mutableStateOf<List<String>?>(null)
     private val bb7HomeRows = mutableStateOf(1)
+    private val bb7Layout = mutableStateOf(Bb7Layout())
+    private val bb7Tabs = mutableStateOf<List<Bb7Tab>>(emptyList())
     private var opaqueWindowBackground: Drawable? = null
 
     private var callbackRegistered = false
@@ -192,6 +207,8 @@ class SableStartActivity : ComponentActivity() {
         startStateRepository = StartStateRepository(this)
         bb7Favorites.value = startStateRepository.loadHomeApps()
         bb7HomeRows.value = startStateRepository.loadBb7HomeRows()
+        bb7Layout.value = startStateRepository.loadBb7Layout()
+        bb7Tabs.value = startStateRepository.loadBb7Tabs()
         recentTasksRepository = RecentTasksRepository(this)
         homeStyle.value = startStateRepository.loadHomeStyle()
         opaqueWindowBackground = window.decorView.background
@@ -257,12 +274,14 @@ class SableStartActivity : ComponentActivity() {
                     apps = appsState.value,
                     favoriteKeys = bb7Favorites.value,
                     homeRows = bb7HomeRows.value,
+                    layout = bb7Layout.value,
                     liveSurfaceRepository = liveSurfaceRepository,
                     appearance = appearance,
                     refreshGeneration = liveRefreshGeneration.value,
                     homeGeneration = homeGeneration.value,
                     onLaunchApp = { entry -> launcherAppsRepository.launch(entry) },
                     onOpenAppInfo = { entry -> launcherAppsRepository.openAppDetails(entry) },
+                    onUninstallApp = { entry -> launcherAppsRepository.requestUninstall(entry) },
                     onOpenHub = {
                         hubRequestFilter.value = null
                         hubGeneration.value += 1
@@ -276,6 +295,17 @@ class SableStartActivity : ComponentActivity() {
                         bb7HomeRows.value = rows
                         startStateRepository.saveBb7HomeRows(rows)
                     },
+                    onLayoutChanged = { layout ->
+                        bb7Layout.value = layout
+                        startStateRepository.saveBb7Layout(layout)
+                    },
+                    tabs = bb7Tabs.value,
+                    onTabsChanged = { tabs ->
+                        bb7Tabs.value = tabs
+                        startStateRepository.saveBb7Tabs(tabs)
+                    },
+                    speedDial = speedDialRepository,
+                    letterShortcuts = letterShortcutRepository,
                     onOpenMenu = ::showBb7Menu,
                 )
                 return@setContent
@@ -289,6 +319,8 @@ class SableStartActivity : ComponentActivity() {
                     letterShortcuts = letterShortcutRepository,
                     privateSpaceLocked = privateSpaceLockedState.value,
                     onTogglePrivateSpace = ::togglePrivateSpace,
+                    workPaused = workPausedState.value,
+                    onToggleWork = ::toggleWork,
                     liveSurfaceRepository = liveSurfaceRepository,
                     appearance = appearance,
                     refreshGeneration = liveRefreshGeneration.value,
@@ -359,6 +391,25 @@ class SableStartActivity : ComponentActivity() {
             callbackRegistered = true
         }
         scheduleInventoryRefresh()
+    }
+
+    @SuppressLint("RestrictedApi")
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (TrackpadTouchGuard.isTrackpadKey(event.keyCode)) lastTrackpadKeyMs = event.eventTime
+        return super.dispatchKeyEvent(event)
+    }
+
+    /** A thumb stroking up the trackpad brushes the bottom of the screen: drop that touch whole. */
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            strayTouch =
+                TrackpadTouchGuard.ignores(event.y, window.decorView.height, event.eventTime, lastTrackpadKeyMs)
+        }
+        if (!strayTouch) return super.dispatchTouchEvent(event)
+        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            strayTouch = false
+        }
+        return true
     }
 
     override fun onResume() {
@@ -452,6 +503,7 @@ class SableStartActivity : ComponentActivity() {
                 val apps = launcherAppsRepository.loadApps()
                 val privateSpaceLocked =
                     launcherAppsRepository.privateSpace()?.let(launcherAppsRepository::isLocked)
+                val workPaused = launcherAppsRepository.workProfile()?.let(launcherAppsRepository::isLocked)
                 runOnUiThread {
                     if (
                         !isDestroyed &&
@@ -459,6 +511,7 @@ class SableStartActivity : ComponentActivity() {
                     ) {
                         appsState.value = apps
                         privateSpaceLockedState.value = privateSpaceLocked
+                        workPausedState.value = workPaused
                     }
                 }
             }
@@ -557,6 +610,16 @@ class SableStartActivity : ComponentActivity() {
         inventoryExecutor.execute {
             val user = launcherAppsRepository.privateSpace() ?: return@execute
             launcherAppsRepository.setLocked(user, !locked)
+            runOnUiThread { scheduleInventoryRefresh() }
+        }
+    }
+
+    /** Balance: pause or turn on work apps (Android's quiet mode for the work profile). */
+    private fun toggleWork() {
+        val paused = workPausedState.value ?: return
+        inventoryExecutor.execute {
+            val user = launcherAppsRepository.workProfile() ?: return@execute
+            launcherAppsRepository.setLocked(user, !paused)
             runOnUiThread { scheduleInventoryRefresh() }
         }
     }

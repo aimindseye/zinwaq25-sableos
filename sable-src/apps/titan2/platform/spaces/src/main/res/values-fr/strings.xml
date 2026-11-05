@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">Espace professionnel</string>
+    <string name="work">Travail</string>
+    <string name="intro">Gardez les applis professionnelles à part des vôtres : leurs propres données et comptes, un badge Travail et un sélecteur Personnel · Travail dans Start qui peut les mettre en pause.</string>
+    <string name="make">Créer un espace professionnel</string>
+    <string name="making">Android crée l\'espace professionnel. Cela prend une minute.</string>
+    <string name="not_allowed">Ce téléphone ne peut pas créer d\'espace professionnel pour le moment. Un espace professionnel ou un gestionnaire d\'appareil est peut-être déjà en place.</string>
+    <string name="cancelled">Aucun espace professionnel n\'a été créé.</string>
+    <string name="ready">Votre espace professionnel est prêt. Ajoutez les applis que vous utilisez pour le travail : chacune a sa propre copie avec ses propres données.</string>
+    <string name="paused">Les applis professionnelles sont en pause. Activez-les depuis Start (Toutes les applis, Travail) pour ajouter des applis.</string>
+    <string name="in_work">%1$s · dans Travail</string>
+    <string name="no_apps">Toutes vos applis sont déjà dans Travail.</string>
+    <string name="could_not_open">L\'espace professionnel n\'a pas répondu. Réessayez dans un instant.</string>
+    <string name="remove">Supprimer l\'espace professionnel</string>
+    <string name="add_confirm">Ajouter %1$s (%2$s) à Travail ? Entrée l\'ajoute, Retour annule.</string>
+    <string name="added">%1$s est maintenant dans Travail.</string>
+    <string name="add_failed">Impossible d\'ajouter %1$s à Travail.</string>
+    <string name="remove_confirm">Supprimer l\'espace professionnel avec toutes les applis professionnelles et leurs données ? Y le supprime, N le garde.</string>
+    <string name="yes">Oui</string>
+    <string name="no">Non</string>
+    <string name="hint">Haut et Bas choisissent une appli · Entrée l\'ajoute · O options · R supprime l\'espace professionnel · Retour quitte</string>
+    <string name="options">Options de l\'espace professionnel</string>
+    <string name="options_intro">Elles ne s\'appliquent que dans l\'espace professionnel. Chacune est d\'abord autorisée.</string>
+    <string name="option_copy">Copier des applis professionnelles vers les applis personnelles</string>
+    <string name="option_share">Partager des applis personnelles vers les applis professionnelles</string>
+    <string name="option_screenshots">Captures d\'écran des applis professionnelles</string>
+    <string name="allowed">Autorisé</string>
+    <string name="blocked">Bloqué</string>
+    <string name="option_line">%1$s : %2$s</string>
+    <string name="work_lock">Verrouillage professionnel</string>
+    <string name="work_lock_about">Un code, schéma ou mot de passe distinct pour les applis professionnelles, demandé à leur ouverture après le verrouillage du téléphone.</string>
+    <string name="options_hint">Haut et Bas choisissent · Entrée change · L règle le verrouillage professionnel · Retour quitte</string>
+    <string name="options_failed">Android n\'a pas accepté ce changement.</string>
+</resources>

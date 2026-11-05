@@ -21,6 +21,8 @@
         <provider android:authorities="org.sableos.appearance" />
         <provider android:authorities="org.sableos.mail.snapshot" />
         <package android:name="org.sableos.mail" />
+        <!-- Remind me (row menu, off unless turned on): Sable Tasks' follow-up entry. -->
+        <package android:name="org.sableos.tasks" />
         <!-- DESIGN-KF-A Settings handoff: Android owns these pages; Hub only links to them. -->
         <intent>
             <action android:name="android.settings.NOTIFICATION_SETTINGS" />
@@ -98,6 +100,11 @@
             <!-- Contacts' Hub route chip (patches/framework/packages/apps/Contacts 0754). -->
             <intent-filter>
                 <action android:name="org.sableos.hub.action.OPEN_CONVERSATION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- Sable Start's Hub page: a message row opens its thread, Menu its row menu. -->
+            <intent-filter>
+                <action android:name="org.sableos.hub.action.OPEN_THREAD" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

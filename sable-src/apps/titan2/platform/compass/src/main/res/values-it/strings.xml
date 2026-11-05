@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">Nord</string>
+    <string name="ne">Nord-est</string>
+    <string name="e">Est</string>
+    <string name="se">Sud-est</string>
+    <string name="s">Sud</string>
+    <string name="sw">Sud-ovest</string>
+    <string name="w">Ovest</string>
+    <string name="nw">Nord-ovest</string>
+    <string name="dial_n">N</string>
+    <string name="dial_e">E</string>
+    <string name="dial_s">S</string>
+    <string name="dial_w">O</string>
+    <string name="true_mark">G</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">Nord magnetico</string>
+    <string name="true_north">Nord geografico</string>
+    <string name="true_waiting">Ricerca della posizione approssimativa per il nord geografico. Nel frattempo viene mostrato il nord magnetico.</string>
+    <string name="true_denied">Il nord geografico richiede la tua posizione approssimativa. Viene mostrato il nord magnetico.</string>
+    <string name="accuracy_high">Precisione: alta</string>
+    <string name="accuracy_medium">Precisione: media</string>
+    <string name="accuracy_low">Precisione: bassa. Premi C per calibrare.</string>
+    <string name="accuracy_unreliable">Precisione: inaffidabile. Premi C per calibrare.</string>
+    <string name="no_sensor">Questo telefono non ha un sensore bussola.</string>
+    <string name="flat_or_upright">Tieni il telefono piatto, o in verticale rivolto dove guardi.</string>
+    <string name="held">Bloccato. H lo sblocca.</string>
+    <string name="calibrate">Calibra</string>
+    <string name="calibrate_body">Muovi il telefono disegnando un 8 alcune volte, ruotandolo mentre lo fai. Stai lontano da metalli, magneti e altoparlanti.</string>
+    <string name="calibrate_done">Calibrato.</string>
+    <string name="hint">T nord geografico · C calibra · H blocca · Indietro esce</string>
+    <string name="calibrate_hint">C o Indietro torna alla bussola</string>
+</resources>

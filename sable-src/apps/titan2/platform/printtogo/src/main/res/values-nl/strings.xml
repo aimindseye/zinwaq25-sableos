@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dutch. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">Print vanaf je computer naar deze telefoon. Zolang Print To Go aan staat, is de telefoon een printer op je wifi en wordt elke afdruk als pdf bewaard in Documents/Print To Go.</string>
+    <string name="start">Ontvangen starten</string>
+    <string name="stop">Stoppen</string>
+    <string name="off">Uit. Niets kan naar deze telefoon printen.</string>
+    <string name="ready">Klaar als %1$s. Kies hem in het printvenster van je computer. Na 10 minuten zonder afdruk gaat hij uit.</string>
+    <string name="no_wifi">Maak eerst verbinding met wifi. Print To Go luistert alleen via wifi, nooit via mobiele data.</string>
+    <string name="start_failed">Print To Go kon niet starten. Probeer het opnieuw.</string>
+    <string name="saved">Bewaard: %1$s</string>
+    <string name="save_failed">%1$s kon niet worden bewaard.</string>
+    <string name="open_folder">Bewaarde afdrukken openen</string>
+    <string name="running">Print To Go staat aan</string>
+    <string name="channel_running">Print To Go actief</string>
+    <string name="channel_saved">Bewaarde afdrukken</string>
+    <string name="idle_off">Print To Go is uitgegaan na 10 minuten zonder afdruk.</string>
+    <string name="hint">Enter start of stopt · O opent bewaarde afdrukken · Terug sluit</string>
+</resources>

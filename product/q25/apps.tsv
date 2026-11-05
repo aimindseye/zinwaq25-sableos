@@ -37,6 +37,9 @@ SableDisplayCompat	platform	apps/titan2/platform	:displaycompat:assembleRelease	
 SableSetup	platform	apps/titan2/platform	:setup:assembleRelease	setup/build/outputs/apk/release/*.apk	org.sableos.titan2.setup	unsigned	-	yes
 SableVault	platform	apps/titan2/platform	:vault:assembleRelease	vault/build/outputs/apk/release/*.apk	org.sableos.titan2.vault	privileged	-	yes
 SableProfiles	platform	apps/titan2/platform	:profiles:assembleRelease	profiles/build/outputs/apk/release/*.apk	org.sableos.titan2.profiles	unsigned	-	yes
+SableSpaces	platform	apps/titan2/platform	:spaces:assembleRelease	spaces/build/outputs/apk/release/*.apk	org.sableos.titan2.spaces	unsigned	-	yes
+SablePrintToGo	platform	apps/titan2/platform	:printtogo:assembleRelease	printtogo/build/outputs/apk/release/*.apk	org.sableos.titan2.printtogo	unsigned	-	yes
+SableCompass	platform	apps/titan2/platform	:compass:assembleRelease	compass/build/outputs/apk/release/*.apk	org.sableos.titan2.compass	unsigned	-	yes
 SableRadioDiag	platform	apps/titan2/platform	:radiodiag:assembleRelease	radiodiag/build/outputs/apk/release/*.apk	org.sableos.titan2.radiodiag	unsigned	-	no
 SableTools	platform	apps/titan2/platform	:tools:assembleRelease	tools/build/outputs/apk/release/*.apk	org.sableos.tools	unsigned	SableRadioDiag	yes
 # Sable Calculator ships as a shrunk release build for the same reason: Q4 with microG overflowed the
@@ -65,6 +68,14 @@ SableCalendar	common	apps/r8/android	:calendar:assembleDebug	calendar/build/outp
 # Sable Notes (BlackBerry Remember / Color Notes): local notes, checklists and colour labels, typed on
 # the keyboard; no account and no sync. Shrunk release build like Messages.
 SableNotes	common	apps/r8/android	:notes:assembleRelease	notes/build/outputs/apk/release/*.apk	org.sableos.notes	unsigned	-	yes
+# Sable Tasks (ported from TenSeven Tasks/Remind, owner decision 2026-11-04): tasks with due dates,
+# reminders and repeats, kept on the phone; a reminder is a notification, so it shows in Hub with Done
+# and Snooze 1 hour. Shrunk release build like Notes. One of the optional apps for the setup choice.
+SableTasks	common	apps/r8/android	:tasks:assembleRelease	tasks/build/outputs/apk/release/*.apk	org.sableos.tasks	unsigned	-	yes
+# Sable Browser (owner request 2026-11-05, after the BB10 browser): Android's WebView with a trackpad
+# pointer that speeds up on long strokes, slows over links and scrolls at the edges, and BB10 keys.
+# Shrunk release build like Notes. Jelly stays installed; the user picks the default browser.
+SableBrowser	common	apps/r8/android	:browser:assembleRelease	browser/build/outputs/apk/release/*.apk	org.sableos.browser	unsigned	-	yes
 SableMessages	common	apps/r8/android	:messages:assembleRelease	messages/build/outputs/apk/release/*.apk	org.sableos.messages	unsigned	messaging	yes
 SableReader	common	apps/common/reader	:leisure:assembleSableDebug	leisure/build/outputs/apk/sable/debug/*.apk	org.sableos.reader	presigned	-	yes
 # Sable Mail (Thunderbird flavor) is off from 2.0 (owner decision 2026-11-04: account setup was
@@ -73,3 +84,6 @@ SableReader	common	apps/common/reader	:leisure:assembleSableDebug	leisure/build/
 SableMail	common	flavor:mail	:app-thunderbird:assembleFossRelease -Pci=true	app-thunderbird/build/outputs/apk/foss/release/*.apk	org.sableos.mail	unsigned	-	no
 SableTextReader	common	flavor:textreader	:app:assembleDebug	app/build/outputs/apk/debug/SableTextReader-*.apk	org.sableos.textreader	presigned	-	yes
 SableTerminal	common	flavor:connectbot	:app:assembleOssRelease	app/build/outputs/apk/oss/release/*.apk	org.sableos.terminal	unsigned	-	yes
+# Sable Speech: the eSpeak NG 1.52.0 text-to-speech engine, built from source (sable-src/apps/r8/espeak,
+# GPL-3.0). The only engine on the phone, so Android uses it by default; no launcher entry.
+SableSpeech	common	flavor:espeak	:assembleRelease	build/outputs/apk/release/*-unsigned.apk	org.sableos.speech	unsigned	-	yes

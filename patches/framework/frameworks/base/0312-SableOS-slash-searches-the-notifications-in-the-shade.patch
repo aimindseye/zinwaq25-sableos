@@ -43,7 +43,7 @@ unlocked shade, open on its notifications, "/" from a physical keyboard
  create mode 100644 packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearchKeys.kt
 
 diff --git a/packages/SystemUI/multivalentTests/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandlerTest.kt b/packages/SystemUI/multivalentTests/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandlerTest.kt
-index af00a48d..cd31d51e 100644
+index 643859a..eac0929 100644
 --- a/packages/SystemUI/multivalentTests/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandlerTest.kt
 +++ b/packages/SystemUI/multivalentTests/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandlerTest.kt
 @@ -23,6 +23,9 @@ import com.android.systemui.SysuiTestCase
@@ -56,7 +56,7 @@ index af00a48d..cd31d51e 100644
  import com.android.systemui.util.mockito.eq
  import com.android.systemui.util.mockito.whenever
  import com.google.common.truth.Truth.assertThat
-@@ -44,6 +47,7 @@ class SysUIKeyEventHandlerTest : SysuiTestCase() {
+@@ -47,6 +50,7 @@ class SysUIKeyEventHandlerTest : SysuiTestCase() {
          KeyguardInteractorFactory.WithDependencies
      @Mock private lateinit var keyguardKeyEventInteractor: KeyguardKeyEventInteractor
      @Mock private lateinit var backActionInteractor: BackActionInteractor
@@ -64,16 +64,22 @@ index af00a48d..cd31d51e 100644
  
      private lateinit var underTest: SysUIKeyEventHandler
  
-@@ -54,6 +58,7 @@ class SysUIKeyEventHandlerTest : SysuiTestCase() {
-             SysUIKeyEventHandler(
-                 backActionInteractor,
-                 keyguardKeyEventInteractor,
-+                SableShadeSearchKeys(SableShadeState(), statusBarStateController),
+@@ -58,7 +62,12 @@ class SysUIKeyEventHandlerTest : SysuiTestCase() {
+                 backgroundDispatcher = testDisptacher,
+                 context = context,
              )
+-        underTest = SysUIKeyEventHandler(backActionInteractor, keyguardKeyEventInteractor)
++        underTest =
++            SysUIKeyEventHandler(
++                backActionInteractor,
++                keyguardKeyEventInteractor,
++                SableShadeSearchKeys(SableShadeState(), statusBarStateController),
++            )
      }
  
+     @Test
 diff --git a/packages/SystemUI/res/values/sable_shade_strings.xml b/packages/SystemUI/res/values/sable_shade_strings.xml
-index 61902ffc..fcabcfd1 100644
+index 61902ff..fcabcfd 100644
 --- a/packages/SystemUI/res/values/sable_shade_strings.xml
 +++ b/packages/SystemUI/res/values/sable_shade_strings.xml
 @@ -35,7 +35,13 @@
@@ -92,7 +98,7 @@ index 61902ffc..fcabcfd1 100644
 +    <string name="sable_shade_search_kept">Filter: <xliff:g id="query" example="mom">%s</xliff:g> · / edits · Esc clears</string>
  </resources>
 diff --git a/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt b/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt
-index 25ae6a50..998c1d71 100644
+index 25ae6a5..998c1d7 100644
 --- a/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt
 +++ b/packages/SystemUI/src/com/android/systemui/keyevent/domain/interactor/SysUIKeyEventHandler.kt
 @@ -20,6 +20,7 @@ import android.view.KeyEvent
@@ -130,10 +136,10 @@ index 25ae6a50..998c1d71 100644
          // closed), exactly like Back. It is the design's Fn+Up on keyboards without Fn (Q25).
          // Pre-IME, so focus navigation inside the shade never takes it first. The shade window
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
-index 9f3e21ae..133c9794 100644
+index 180c0fd..4ab6d0b 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
-@@ -148,6 +148,7 @@ import com.android.systemui.qs.composefragment.ui.NotificationScrimClipParams
+@@ -147,6 +147,7 @@ import com.android.systemui.qs.composefragment.ui.NotificationScrimClipParams
  import com.android.systemui.qs.composefragment.ui.SableHubSummaryRow
  import com.android.systemui.qs.composefragment.ui.SableShadeHeader
  import com.android.systemui.qs.composefragment.ui.SableShadeKeyHint
@@ -141,7 +147,7 @@ index 9f3e21ae..133c9794 100644
  import com.android.systemui.qs.composefragment.ui.quickQuickSettingsToQuickSettings
  import com.android.systemui.qs.composefragment.ui.toEditMode
  import com.android.systemui.qs.composefragment.viewmodel.QSFragmentComposeViewModel
-@@ -238,6 +239,20 @@ constructor(
+@@ -230,6 +231,20 @@ constructor(
  
          setListenerCollections()
          lifecycleScope.launch { viewModel.activate() }
@@ -162,7 +168,7 @@ index 9f3e21ae..133c9794 100644
      }
  
      override fun onCreateView(
-@@ -861,6 +876,9 @@ constructor(
+@@ -835,6 +850,9 @@ constructor(
              hubInstalled = hubInstalled,
              onOpenHub = { openSableHub(context) },
          )
@@ -173,7 +179,7 @@ index 9f3e21ae..133c9794 100644
      }
  
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt
-index c9b48ea4..42a3e681 100644
+index c9b48ea..42a3e68 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableShadeExtras.kt
 @@ -38,8 +38,10 @@ import androidx.compose.ui.draw.clip
@@ -225,7 +231,7 @@ index c9b48ea4..42a3e681 100644
  @Composable
  fun SableShadeKeyHint(expanded: Boolean, modifier: Modifier = Modifier) {
 diff --git a/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootView.kt b/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootView.kt
-index fe850ff6..df2d7125 100644
+index fe850ff..df2d712 100644
 --- a/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootView.kt
 +++ b/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootView.kt
 @@ -153,7 +153,9 @@ open class WindowRootView(context: Context, attrs: AttributeSet?) : FrameLayout(
@@ -240,7 +246,7 @@ index fe850ff6..df2d7125 100644
  
      /** Controller responsible for calculating insets for the shade window. */
 diff --git a/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootViewKeyEventHandler.kt b/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootViewKeyEventHandler.kt
-index 863af92a..61518ef9 100644
+index 863af92..61518ef 100644
 --- a/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootViewKeyEventHandler.kt
 +++ b/packages/SystemUI/src/com/android/systemui/scene/ui/view/WindowRootViewKeyEventHandler.kt
 @@ -34,8 +34,8 @@ constructor(
@@ -256,7 +262,7 @@ index 863af92a..61518ef9 100644
      fun interceptMediaKey(event: KeyEvent): Boolean {
 diff --git a/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearch.java b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearch.java
 new file mode 100644
-index 00000000..f8dfe5e0
+index 0000000..f8dfe5e
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearch.java
 @@ -0,0 +1,165 @@
@@ -427,7 +433,7 @@ index 00000000..f8dfe5e0
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearchKeys.kt b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearchKeys.kt
 new file mode 100644
-index 00000000..3faa3771
+index 0000000..3faa377
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeSearchKeys.kt
 @@ -0,0 +1,101 @@
@@ -533,7 +539,7 @@ index 00000000..3faa3771
 +    }
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeState.kt b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeState.kt
-index b0ae7e1f..e4ddf175 100644
+index b0ae7e1..e4ddf17 100644
 --- a/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeState.kt
 +++ b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeState.kt
 @@ -37,4 +37,56 @@ class SableShadeState @Inject constructor() {
@@ -594,7 +600,7 @@ index b0ae7e1f..e4ddf175 100644
 +    }
  }
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt
-index 8a211bfd..5522d770 100644
+index 8a211bf..5522d77 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt
 @@ -16,13 +16,19 @@

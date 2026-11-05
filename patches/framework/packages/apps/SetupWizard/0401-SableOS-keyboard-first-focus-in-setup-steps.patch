@@ -15,73 +15,82 @@ any failure falls back to it, so no step can be blocked.
 The decisions live in a pure SableKeyPolicy class (no android.* types),
 ported from the SableOS keyboard-first setup flow reference (IR-014).
 ---
- .../setupwizard/BaseSetupWizardActivity.java  |  30 +++
- .../setupwizard/sable/SableKeyFocus.java      | 121 ++++++++++++
- .../setupwizard/sable/SableKeyPolicy.java     | 174 ++++++++++++++++++
- 3 files changed, 325 insertions(+)
- create mode 100644 src/org/lineageos/setupwizard/sable/SableKeyFocus.java
- create mode 100644 src/org/lineageos/setupwizard/sable/SableKeyPolicy.java
+ app/Android.bp                                                  |   6 +-
+ .../org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt   |  23 ++++
+ .../java/org/lineageos/setupwizard/sable/SableKeyFocus.java     | 121 +++++++++++++++++++
+ .../java/org/lineageos/setupwizard/sable/SableKeyPolicy.java    | 174 ++++++++++++++++++++++++++++
+ 4 files changed, 323 insertions(+), 1 deletion(-)
 
-diff --git a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
-index 828f12f8..96bd6054 100644
---- a/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
-+++ b/src/org/lineageos/setupwizard/BaseSetupWizardActivity.java
-@@ -23,6 +23,7 @@ import android.net.wifi.WifiManager;
- import android.os.Bundle;
- import android.text.TextUtils;
- import android.util.Log;
-+import android.view.KeyEvent;
- import android.view.View;
- import android.widget.Button;
+diff --git a/app/Android.bp b/app/Android.bp
+index 636155a..19f18c1 100644
+--- a/app/Android.bp
++++ b/app/Android.bp
+@@ -6,7 +6,11 @@
+ android_app {
+     name: "LineageSetupWizard",
  
-@@ -40,6 +41,7 @@ import com.google.android.setupdesign.transition.TransitionHelper;
- import com.google.android.setupdesign.util.ThemeHelper;
+-    srcs: ["src/main/java/**/*.kt"],
++    srcs: [
++        "src/main/java/**/*.kt",
++        // SableOS: the Sable setup steps and their pure helpers are Java.
++        "src/main/java/**/*.java",
++    ],
+     resource_dirs: ["src/main/res"],
+     manifest: "src/main/AndroidManifest.xml",
  
- import org.lineageos.setupwizard.NavigationLayout.NavigationBarListener;
-+import org.lineageos.setupwizard.sable.SableKeyFocus;
- import org.lineageos.setupwizard.util.SetupWizardUtils;
+diff --git a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt b/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
+index 9c3e5ef..466ed1c 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
++++ b/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
+@@ -12,6 +12,7 @@ import android.net.wifi.WifiManager
+ import android.os.Bundle
+ import android.text.TextUtils
+ import android.util.Log
++import android.view.KeyEvent
+ import android.view.View
+ import android.widget.Button
+ import androidx.activity.OnBackPressedCallback
+@@ -33,6 +34,7 @@ import org.lineageos.setupwizard.EXTRA_SCRIPT_URI
+ import org.lineageos.setupwizard.EXTRA_WIZARD_BUNDLE
+ import org.lineageos.setupwizard.LOGV
+ import org.lineageos.setupwizard.R
++import org.lineageos.setupwizard.sable.SableKeyFocus
+ import org.lineageos.setupwizard.util.SetupWizardUtils
+ import org.lineageos.setupwizard.wizardmanager.WizardManager
  
- public abstract class BaseSetupWizardActivity extends AppCompatActivity implements
-@@ -161,6 +163,34 @@ public abstract class BaseSetupWizardActivity extends AppCompatActivity implemen
-         }
+@@ -105,6 +107,27 @@ abstract class BaseSetupWizardActivity : AppCompatActivity() {
+         super.onAttachedToWindow()
      }
  
-+    @Override
-+    public boolean dispatchKeyEvent(KeyEvent event) {
++    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
 +        // SableOS IR-014: keyboard-first focus for hardware keyboards. Never blocks a step:
 +        // unclaimed keys and any failure fall through to the platform.
-+        final View primary = getSablePrimaryView();
-+        if (SableKeyFocus.dispatch(this, event, primary,
-+                primary == null ? null : primary::performClick)) {
-+            return true;
++        val primary = sablePrimaryView
++        val onPrimary = primary?.let { Runnable { it.performClick() } }
++        if (SableKeyFocus.dispatch(this, event, primary, onPrimary)) {
++            return true
 +        }
-+        return super.dispatchKeyEvent(event);
++        return super.dispatchKeyEvent(event)
 +    }
 +
 +    /**
 +     * The step's forward action for keyboard focus: the Welcome screen's Start button, else
-+     * the navigation bar's Next button when it is shown.
++     * the footer bar's Next button when it is shown.
 +     */
-+    protected View getSablePrimaryView() {
-+        final View start = findViewById(R.id.start);
-+        if (start != null && start.isShown()) {
-+            return start;
++    protected open val sablePrimaryView: View?
++        get() {
++            findViewById<View>(R.id.start)?.takeIf { it.isShown }?.let { return it }
++            return nextButton?.takeIf { it.isShown }
 +        }
-+        final NavigationLayout bar = mNavigationBar;
-+        if (bar != null && bar.getNextButton().isShown()) {
-+            return bar.getNextButton();
-+        }
-+        return null;
-+    }
 +
-     /**
-      * @return The navigation bar instance in the layout, or null if the layout does not have a
-      * navigation bar.
-diff --git a/src/org/lineageos/setupwizard/sable/SableKeyFocus.java b/src/org/lineageos/setupwizard/sable/SableKeyFocus.java
+     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+         if (LOGV) {
+             Log.v(TAG, "onRestoreInstanceState($savedInstanceState)")
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyFocus.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyFocus.java
 new file mode 100644
-index 00000000..c008bf25
+index 0000000..c008bf2
 --- /dev/null
-+++ b/src/org/lineageos/setupwizard/sable/SableKeyFocus.java
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyFocus.java
 @@ -0,0 +1,121 @@
 +/*
 + * SPDX-FileCopyrightText: The SableOS Project
@@ -204,11 +213,11 @@ index 00000000..c008bf25
 +        return out;
 +    }
 +}
-diff --git a/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java b/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyPolicy.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyPolicy.java
 new file mode 100644
-index 00000000..5382b6b4
+index 0000000..5382b6b
 --- /dev/null
-+++ b/src/org/lineageos/setupwizard/sable/SableKeyPolicy.java
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyPolicy.java
 @@ -0,0 +1,174 @@
 +/*
 + * SPDX-FileCopyrightText: The SableOS Project

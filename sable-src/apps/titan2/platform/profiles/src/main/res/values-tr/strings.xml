@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">Yalnızca aramalar çalar; mesajlar ve uyarılar sessizdir</string>
     <string name="all_alerts_off">Tüm uyarılar kapalı</string>
     <string name="nothing_rings_or_vibrates_alarms">Hiçbir ses veya titreşim olmaz; alarmlar çalmaya devam eder</string>
+    <string name="bedside">Başucu</string>
+    <string name="alarms_only_and_the_dimmest">Yalnızca alarmlar, ekran en karanlıkta</string>
 </resources>

@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">No hay eventos esta semana. C crea uno.</string>
     <string name="selected">Seleccionado: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] abrir  [E] editar  [Del] eliminar  [T] hoy"</string>
+    <string name="calendars">Calendarios</string>
+    <string name="calendars_hint">Los calendarios visibles llenan la agenda, los anillos de ocupación y el mes de Start.</string>
+    <string name="no_calendars">Aún no hay calendarios en este teléfono. Añade una cuenta en Ajustes > Cuentas.</string>
+    <string name="l_calendars">" · L calendarios"</string>
+    <string name="day_events">%1$s, %2$s eventos</string>
 </resources>

@@ -1,0 +1,522 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 5 Nov 2026 01:30:00 +0000
+Subject: [PATCH] SableOS: compact PIN pad and Lock screen size
+
+On a window under 560 dp tall (the Q25's 411 dp square screen) the PIN
+bouncer's 72 dp round keys do not fit under the message and above the
+emergency button. KeyguardPINView now gives the pad wide, short keys
+(44 dp high at the Default size, up to 2.2 times as wide), a 40 dp PIN
+row, 6 dp gaps and 6 dp emergency button margins, on both the legacy
+ConstraintLayout pad and the MotionLayout pad that the released
+lockscreen.enable_landscape flag uses (each ConstraintSet is updated).
+
+Settings > Display > Lock screen size (Settings.Secure
+sable_lock_screen_size: 0 Small, 1 Default, 2 Large, 3 Larger) scales
+the keys and digits, read each time the bouncer appears; keys stop
+growing where the window is full. The locked glance's text and peek
+icons scale with it too. Sizes in keyguard/sable/SableLockSize (pure).
+
+The software keyboard fallback line (0307) was only in the legacy
+layouts; the motion layouts now carry it under the bouncer message.
+Taller windows keep Android's pad. No authentication code changes.
+---
+ .../keyguard_password_motion_layout.xml       |  13 ++
+ .../layout/keyguard_pin_motion_layout.xml     |  13 ++
+ .../res/values/sable_keyguard_strings.xml     |   2 +-
+ .../com/android/keyguard/KeyguardPINView.java | 104 +++++++++++++
+ .../src/com/android/keyguard/NumPadKey.java   |   9 ++
+ .../android/keyguard/sable/SableLockSize.java | 138 ++++++++++++++++++
+ .../layout/sections/SableLockGlanceSection.kt |  42 +++++-
+ 7 files changed, 315 insertions(+), 6 deletions(-)
+
+diff --git a/packages/SystemUI/res-keyguard/layout/keyguard_password_motion_layout.xml b/packages/SystemUI/res-keyguard/layout/keyguard_password_motion_layout.xml
+index c7f320c..b96b610 100644
+--- a/packages/SystemUI/res-keyguard/layout/keyguard_password_motion_layout.xml
++++ b/packages/SystemUI/res-keyguard/layout/keyguard_password_motion_layout.xml
+@@ -72,6 +72,19 @@
+                 android:layout_height="wrap_content"
+                 android:orientation="vertical" />
+ 
++            <!-- SableOS: shown with a hardware keyboard (KeyguardPinBasedInputViewController,
++                 KeyguardPasswordViewController); under the message, so the compact pad and the
++                 constraint sets need no change. -->
++            <TextView
++                android:id="@+id/sable_keyboard_fallback"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:gravity="center_horizontal"
++                android:text="@string/sable_keyguard_fallback_password"
++                android:textColor="?android:attr/textColorSecondary"
++                android:textSize="12sp"
++                android:visibility="gone" />
++
+         </LinearLayout>
+ 
+         <FrameLayout
+diff --git a/packages/SystemUI/res-keyguard/layout/keyguard_pin_motion_layout.xml b/packages/SystemUI/res-keyguard/layout/keyguard_pin_motion_layout.xml
+index 33eab17..1802751 100644
+--- a/packages/SystemUI/res-keyguard/layout/keyguard_pin_motion_layout.xml
++++ b/packages/SystemUI/res-keyguard/layout/keyguard_pin_motion_layout.xml
+@@ -80,6 +80,19 @@
+                 android:layout_height="wrap_content"
+                 android:orientation="vertical" />
+ 
++            <!-- SableOS: shown with a hardware keyboard (KeyguardPinBasedInputViewController,
++                 KeyguardPasswordViewController); under the message, so the compact pad and the
++                 constraint sets need no change. -->
++            <TextView
++                android:id="@+id/sable_keyboard_fallback"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:gravity="center_horizontal"
++                android:text="@string/sable_keyguard_fallback_pin"
++                android:textColor="?android:attr/textColorSecondary"
++                android:textSize="12sp"
++                android:visibility="gone" />
++
+         </LinearLayout>
+ 
+         <!-- Set this to be just above key1. It would be better to introduce a barrier above
+diff --git a/packages/SystemUI/res/values/sable_keyguard_strings.xml b/packages/SystemUI/res/values/sable_keyguard_strings.xml
+index 81ad2e5..040d5f0 100644
+--- a/packages/SystemUI/res/values/sable_keyguard_strings.xml
++++ b/packages/SystemUI/res/values/sable_keyguard_strings.xml
+@@ -24,7 +24,7 @@
+     <!-- Second line of the PIN or password bouncer when a hardware keyboard is present. [CHAR LIMIT=40] -->
+     <string name="sable_keyguard_bouncer_keyboard_active">Physical keyboard active · Enter submits</string>
+     <!-- Under the on-screen PIN keys with a hardware keyboard: the on-screen keys still work. [CHAR LIMIT=50] -->
+-    <string name="sable_keyguard_fallback_pin">Software keyboard fallback · tap the keys above</string>
++    <string name="sable_keyguard_fallback_pin">Software keyboard fallback · tap the on-screen keys</string>
+     <!-- Under the password field with a hardware keyboard: the on-screen keyboard shows when the keyboard setting allows it. [CHAR LIMIT=60] -->
+     <string name="sable_keyguard_fallback_password">Software keyboard fallback · on-screen keyboard setting</string>
+ 
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
+index 4bfb3b3..2a8909d 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
+@@ -30,17 +30,23 @@ import android.animation.ValueAnimator;
+ import android.annotation.Nullable;
+ import android.content.Context;
+ import android.content.res.Configuration;
++import android.os.UserHandle;
++import android.provider.Settings;
+ import android.util.AttributeSet;
+ import android.util.MathUtils;
+ import android.view.View;
++import android.view.ViewGroup;
+ import android.view.animation.AnimationUtils;
+ import android.view.animation.Interpolator;
+ 
++import androidx.constraintlayout.helper.widget.Flow;
+ import androidx.constraintlayout.motion.widget.MotionLayout;
+ import androidx.constraintlayout.widget.ConstraintLayout;
+ import androidx.constraintlayout.widget.ConstraintSet;
+ 
+ import com.android.app.animation.Interpolators;
++import com.android.internal.policy.SystemBarUtils;
++import com.android.keyguard.sable.SableLockSize;
+ import com.android.settingslib.animation.DisappearAnimationUtils;
+ import com.android.systemui.res.R;
+ import com.android.systemui.statusbar.policy.DevicePostureController.DevicePostureInt;
+@@ -184,6 +190,102 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
+         } else {
+             updateHalfFoldedGuideline();
+         }
++        applySableCompactPad();
++    }
++
++    /**
++     * SableOS: on a short window (the Q25's 411 dp square screen) the PIN pad gets wide, short keys
++     * sized by Settings > Display > Lock screen size, so the message, PIN row, keys and emergency
++     * button all fit. Sizes come from {@link SableLockSize}; taller windows keep Android's pad.
++     */
++    private void applySableCompactPad() {
++        if (mViews == null) {
++            return;
++        }
++        Configuration config = getResources().getConfiguration();
++        View fallbackLine = findViewById(R.id.sable_keyboard_fallback);
++        boolean fallback = fallbackLine != null
++                && config.keyboard == Configuration.KEYBOARD_QWERTY;
++        float density = getResources().getDisplayMetrics().density;
++        int level = Settings.Secure.getIntForUser(mContext.getContentResolver(),
++                SableLockSize.SETTING, SableLockSize.DEFAULT_LEVEL, UserHandle.USER_CURRENT);
++        SableLockSize.Pad pad = SableLockSize.compactPad(level, config.screenWidthDp,
++                config.screenHeightDp, Math.round(SystemBarUtils.getStatusBarHeight(mContext)
++                        / density), config.fontScale, fallback);
++        if (pad == null) {
++            return;
++        }
++        int keyWidth = px(pad.keyWidth, density);
++        int keyHeight = px(pad.keyHeight, density);
++        int gap = px(pad.gap, density);
++        for (int row = 1; row < 5; row++) {
++            for (int column = 0; column < 3; column++) {
++                View key = mViews[row][column];
++                if (key == null) {
++                    continue;
++                }
++                ViewGroup.LayoutParams params = key.getLayoutParams();
++                if (params instanceof ConstraintLayout.LayoutParams) {
++                    ConstraintLayout.LayoutParams lp = (ConstraintLayout.LayoutParams) params;
++                    lp.dimensionRatio = null;
++                    lp.matchConstraintMaxWidth = 0;
++                    lp.width = keyWidth;
++                    lp.height = keyHeight;
++                    lp.bottomMargin = 0;
++                    lp.rightMargin = 0;
++                    key.setLayoutParams(lp);
++                }
++                if (key instanceof NumPadKey) {
++                    ((NumPadKey) key).setSableDigitSize(pad.digitSize);
++                }
++            }
++        }
++        View flow = findViewById(R.id.flow1);
++        if (flow instanceof Flow) {
++            ((Flow) flow).setHorizontalGap(gap);
++            ((Flow) flow).setVerticalGap(gap);
++        }
++        View entry = findViewById(R.id.pinEntry);
++        if (entry != null) {
++            ViewGroup.LayoutParams lp = entry.getLayoutParams();
++            lp.height = px(pad.entryHeight, density);
++            entry.setLayoutParams(lp);
++            View row0 = findViewById(R.id.row0);
++            if (row0 != null) {
++                row0.setPadding(row0.getPaddingLeft(), row0.getPaddingTop(),
++                        row0.getPaddingRight(), gap);
++            }
++        }
++        if (mContainerMotionLayout != null) {
++            int ecaMargin = px(pad.ecaMargin, density);
++            for (int id : new int[] {R.id.single_constraints,
++                    R.id.half_folded_single_constraints, R.id.split_constraints}) {
++                ConstraintSet set = mContainerMotionLayout.getConstraintSet(id);
++                if (set == null) {
++                    continue;
++                }
++                for (int row = 1; row < 5; row++) {
++                    for (int column = 0; column < 3; column++) {
++                        View key = mViews[row][column];
++                        if (key == null) {
++                            continue;
++                        }
++                        set.setDimensionRatio(key.getId(), null);
++                        set.constrainMaxWidth(key.getId(), 0);
++                        set.constrainWidth(key.getId(), keyWidth);
++                        set.constrainHeight(key.getId(), keyHeight);
++                    }
++                }
++                set.setMargin(R.id.keyguard_selector_fade_container, ConstraintSet.TOP, ecaMargin);
++                set.setMargin(R.id.keyguard_selector_fade_container, ConstraintSet.BOTTOM,
++                        ecaMargin);
++                mContainerMotionLayout.updateState(id, set);
++            }
++        }
++    }
++
++    private static int px(int dp, float density) {
++        return Math.round(dp * density);
+     }
+ 
+     private void updateHalfFoldedConstraints() {
+@@ -318,6 +420,8 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
+ 
+     @Override
+     public void startAppearAnimation() {
++        // SableOS: pick up a Lock screen size changed since the bouncer last showed.
++        applySableCompactPad();
+         setAlpha(1f);
+         setTranslationY(0);
+         if (mAppearAnimator.isRunning()) {
+diff --git a/packages/SystemUI/src/com/android/keyguard/NumPadKey.java b/packages/SystemUI/src/com/android/keyguard/NumPadKey.java
+index 68589d3..91c272f 100644
+--- a/packages/SystemUI/src/com/android/keyguard/NumPadKey.java
++++ b/packages/SystemUI/src/com/android/keyguard/NumPadKey.java
+@@ -28,6 +28,7 @@ import android.graphics.drawable.GradientDrawable;
+ import android.os.PowerManager;
+ import android.os.SystemClock;
+ import android.util.AttributeSet;
++import android.util.TypedValue;
+ import android.view.LayoutInflater;
+ import android.view.MotionEvent;
+ import android.view.View;
+@@ -138,6 +139,14 @@ public class NumPadKey extends ViewGroup implements NumPadAnimationListener, Num
+         }
+     }
+ 
++    /** SableOS: the digit's size in dp for the compact PIN pad (KeyguardPINView). */
++    public void setSableDigitSize(int dp) {
++        if (dp > 0) {
++            mDigitText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, dp);
++            mDigitText.setPadding(0, 0, 0, 0);
++        }
++    }
++
+     public void setDigit(int digit) {
+         mDigit = digit;
+         updateText();
+diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableLockSize.java b/packages/SystemUI/src/com/android/keyguard/sable/SableLockSize.java
+new file mode 100644
+index 0000000..9b20a8e
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/keyguard/sable/SableLockSize.java
+@@ -0,0 +1,138 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.keyguard.sable;
++
++/**
++ * Lock screen size and the compact PIN pad. Pure Java.
++ *
++ * <p>Settings > Display > Lock screen size stores a level in {@link #SETTING}: 0 Small, 1 Default,
++ * 2 Large, 3 Larger. The level scales the locked glance's text and the PIN pad's keys and digits.
++ *
++ * <p>On a short window (under {@link #COMPACT_BELOW_DP} tall, such as the Q25's 411 dp square
++ * screen) the PIN pad is compact: wide, short keys instead of 72 dp circles, a shorter PIN row and
++ * tighter gaps, so the message, the PIN row, all four rows of keys and the emergency button fit
++ * without clipping. Keys take the level's height unless that would overflow the window; then they
++ * take the tallest height that fits, never under {@link #MIN_KEY_DP}.
++ */
++public final class SableLockSize {
++    /** Settings.Secure key Settings writes and SystemUI reads. */
++    public static final String SETTING = "sable_lock_screen_size";
++
++    public static final int DEFAULT_LEVEL = 1;
++
++    /** Scale per level: Small, Default, Large, Larger. Same values as Settings' SableSizes. */
++    private static final float[] SCALES = {0.85f, 1.0f, 1.15f, 1.3f};
++
++    /** Windows shorter than this get the compact PIN pad. */
++    public static final int COMPACT_BELOW_DP = 560;
++
++    static final int KEY_DP = 44;
++    static final int MIN_KEY_DP = 32;
++    static final int GAP_DP = 6;
++    static final int ENTRY_DP = 40;
++    static final int MIN_ENTRY_DP = 32;
++    static final int DIGIT_DP = 22;
++    static final int SIDE_DP = 16;
++    static final int SECURITY_WIDTH_DP = 420;
++    static final float KEY_WIDTH_RATIO = 2.2f;
++    static final int ECA_DP = 40;
++    static final int ECA_MARGIN_DP = 6;
++    static final int FLOW_BOTTOM_DP = 8;
++    static final int MESSAGE_LINE_DP = 20;
++    static final int MESSAGE_PADDING_DP = 12;
++    static final int FALLBACK_LINE_DP = 18;
++
++    private SableLockSize() {}
++
++    /** A stored level, or Default when it is out of range. */
++    public static int clampLevel(int level) {
++        return level >= 0 && level < SCALES.length ? level : DEFAULT_LEVEL;
++    }
++
++    public static float scale(int level) {
++        return SCALES[clampLevel(level)];
++    }
++
++    public static boolean isCompact(int windowHeightDp) {
++        return windowHeightDp > 0 && windowHeightDp < COMPACT_BELOW_DP;
++    }
++
++    /** The PIN pad's sizes in dp. */
++    public static final class Pad {
++        public final int keyWidth;
++        public final int keyHeight;
++        public final int gap;
++        public final int entryHeight;
++        public final int digitSize;
++        public final int ecaMargin;
++
++        Pad(int keyWidth, int keyHeight, int gap, int entryHeight, int digitSize, int ecaMargin) {
++            this.keyWidth = keyWidth;
++            this.keyHeight = keyHeight;
++            this.gap = gap;
++            this.entryHeight = entryHeight;
++            this.digitSize = digitSize;
++            this.ecaMargin = ecaMargin;
++        }
++
++        /** Height the pad and what sits around it take, for a check against the window. */
++        public int totalHeight(float fontScale, boolean fallbackLine) {
++            return fixedHeight(fontScale, fallbackLine) + entryHeight + gap + 4 * keyHeight + 3 * gap;
++        }
++    }
++
++    /**
++     * The compact PIN pad for a window, or null when the window is tall enough for Android's own.
++     *
++     * @param level the Lock screen size level
++     * @param widthDp the window width
++     * @param heightDp the window height
++     * @param statusBarDp the status bar's height, which the bouncer does not draw over
++     * @param fontScale the text scale, which grows the message lines
++     * @param fallbackLine whether the "Software keyboard fallback" line shows (hardware keyboard)
++     */
++    public static Pad compactPad(int level, int widthDp, int heightDp, int statusBarDp,
++            float fontScale, boolean fallbackLine) {
++        if (!isCompact(heightDp)) {
++            return null;
++        }
++        float scale = scale(level);
++        int available = heightDp - Math.max(0, statusBarDp) - fixedHeight(fontScale, fallbackLine);
++        int entry = ENTRY_DP;
++        int wanted = Math.round(KEY_DP * scale);
++        int fits = (available - entry - GAP_DP - 3 * GAP_DP) / 4;
++        if (fits < MIN_KEY_DP) {
++            entry = MIN_ENTRY_DP;
++            fits = (available - entry - GAP_DP - 3 * GAP_DP) / 4;
++        }
++        int keyHeight = Math.max(MIN_KEY_DP, Math.min(wanted, fits));
++        int usable = Math.min(widthDp, SECURITY_WIDTH_DP) - 2 * SIDE_DP;
++        int fitWidth = (usable - 2 * GAP_DP) / 3;
++        int keyWidth = Math.max(keyHeight, Math.min(fitWidth, Math.round(keyHeight * KEY_WIDTH_RATIO)));
++        int digit = Math.min(Math.round(DIGIT_DP * scale), Math.round(keyHeight * 0.62f));
++        return new Pad(keyWidth, keyHeight, GAP_DP, entry, digit, ECA_MARGIN_DP);
++    }
++
++    /** The message lines, the emergency button and its margins, and the fallback line. */
++    static int fixedHeight(float fontScale, boolean fallbackLine) {
++        float text = Float.isNaN(fontScale) || fontScale <= 0f ? 1f : fontScale;
++        int message = Math.round(2 * MESSAGE_LINE_DP * text) + MESSAGE_PADDING_DP;
++        int eca = ECA_DP + 2 * ECA_MARGIN_DP;
++        int fallback = fallbackLine ? Math.round(FALLBACK_LINE_DP * text) : 0;
++        return message + eca + FLOW_BOTTOM_DP + fallback;
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+index 8bd9998..1666d14 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+@@ -19,6 +19,8 @@ package com.android.systemui.keyguard.ui.view.layout.sections
+ import android.app.Notification
+ import android.content.Context
+ import android.graphics.drawable.Drawable
++import android.provider.Settings
++import android.util.TypedValue
+ import android.view.Gravity
+ import android.view.LayoutInflater
+ import android.view.View
+@@ -34,6 +36,7 @@ import androidx.constraintlayout.widget.ConstraintSet.PARENT_ID
+ import androidx.constraintlayout.widget.ConstraintSet.START
+ import androidx.constraintlayout.widget.ConstraintSet.TOP
+ import com.android.keyguard.sable.SableLockGlance
++import com.android.keyguard.sable.SableLockSize
+ import com.android.systemui.dagger.SysUISingleton
+ import com.android.systemui.keyguard.shared.model.KeyguardSection
+ import com.android.systemui.keyguard.ui.viewmodel.KeyguardClockViewModel
+@@ -80,6 +83,7 @@ constructor(
+     private val statusBarStateController: StatusBarStateController,
+ ) : KeyguardSection() {
+     private var glanceView: View? = null
++    private var textScale = 1f
+     private val notifPipeline
+         get() = notifPipelineLazy.get()
+ 
+@@ -204,6 +208,19 @@ constructor(
+         val glance =
+             SableLockGlance.Glance(statusBarStateController.isDozing, locked, privateMode, counts)
+ 
++        // Settings > Display > Lock screen size scales the glance's text and peek icons.
++        val scale =
++            SableLockSize.scale(
++                Settings.Secure.getIntForUser(
++                    context.contentResolver,
++                    SableLockSize.SETTING,
++                    SableLockSize.DEFAULT_LEVEL,
++                    userId,
++                )
++            )
++        textScale = scale
++        for (id in SCALED_TEXT) view.findViewById<TextView>(id)?.scaleText(scale)
++
+         view.findViewById<View>(R.id.sable_keyguard_locked).visibleIf(glance.lockedLabel)
+         view.findViewById<View>(R.id.sable_keyguard_peek).apply {
+             visibleIf(glance.countRow)
+@@ -250,8 +267,9 @@ constructor(
+         val res = context.resources
+         val rowsView = container.findViewById<LinearLayout>(R.id.sable_keyguard_peek_rows)
+         rowsView.removeAllViews()
+-        val iconSize = res.getDimensionPixelSize(R.dimen.sable_keyguard_peek_icon)
+-        val rowHeight = res.getDimensionPixelSize(R.dimen.sable_keyguard_peek_row_height)
++        val iconSize = (res.getDimension(R.dimen.sable_keyguard_peek_icon) * textScale).toInt()
++        val rowHeight =
++            (res.getDimension(R.dimen.sable_keyguard_peek_row_height) * textScale).toInt()
+         val gap = res.getDimensionPixelSize(R.dimen.sable_keyguard_card_gap) * 2
+         val primary = context.getColor(R.color.sable_keyguard_text_primary)
+         val secondary = context.getColor(R.color.sable_keyguard_text_secondary)
+@@ -273,7 +291,7 @@ constructor(
+                 TextView(context).apply {
+                     text = labelFor(row.packageName)
+                     setTextColor(primary)
+-                    textSize = 15f
++                    textSize = 15f * textScale
+                     maxLines = 1
+                     ellipsize = android.text.TextUtils.TruncateAt.END
+                 }
+@@ -284,7 +302,7 @@ constructor(
+                         row.sender
+                             ?: res.getQuantityString(R.plurals.sable_keyguard_peek_count, row.count, row.count)
+                     setTextColor(secondary)
+-                    textSize = 12f
++                    textSize = 12f * textScale
+                     maxLines = 1
+                     ellipsize = android.text.TextUtils.TruncateAt.END
+                 }
+@@ -294,7 +312,7 @@ constructor(
+                 TextView(context).apply {
+                     text = row.count.toString()
+                     setTextColor(primary)
+-                    textSize = 15f
++                    textSize = 15f * textScale
+                 }
+             )
+             rowsView.addView(
+@@ -320,6 +338,14 @@ constructor(
+             pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0))
+         }.getOrDefault(packageName)
+ 
++    /** Sets this text to [scale] times its inflated size, which the first call remembers. */
++    private fun TextView.scaleText(scale: Float) {
++        val base =
++            (getTag(R.id.sable_keyguard_glance) as? Float)
++                ?: textSize.also { setTag(R.id.sable_keyguard_glance, it) }
++        setTextSize(TypedValue.COMPLEX_UNIT_PX, base * scale)
++    }
++
+     private fun View.visibleIf(show: Boolean) {
+         val wanted = if (show) View.VISIBLE else View.GONE
+         if (visibility != wanted) visibility = wanted
+@@ -327,5 +353,11 @@ constructor(
+ 
+     private companion object {
+         val ID = R.id.sable_keyguard_glance
++        val SCALED_TEXT =
++            intArrayOf(
++                R.id.sable_keyguard_locked,
++                R.id.sable_keyguard_requires_unlock,
++                R.id.sable_keyguard_peek_more,
++            )
+     }
+ }
+-- 
+2.43.0
+

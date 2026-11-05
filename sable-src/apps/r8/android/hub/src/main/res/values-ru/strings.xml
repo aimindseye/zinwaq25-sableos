@@ -183,4 +183,21 @@
     <string name="personal">Личные</string>
     <string name="private_space">Частное пространство</string>
     <string name="profile_2">Профиль %1$s</string>
+    <string name="mark_read">Отметить как прочитанное</string>
+    <string name="snooze_1_hour">Отложить на 1 час</string>
+    <string name="dismiss_notification">Закрыть уведомление</string>
+    <string name="snoozed_for_an_hour">Отложено на час.</string>
+    <string name="notification_dismissed">Уведомление закрыто.</string>
+    <string name="sent_to_the_app">Отправлено в приложение.</string>
+    <string name="the_notification_is_gone">Уведомления больше нет.</string>
+    <string name="mark_prior_read">Отметить предыдущие прочитанными</string>
+    <string name="marked_prior_read">Приложения попросили отметить прочитанными %1$s более старых уведомлений.</string>
+    <string name="each_message_on_its_own">Каждое сообщение отдельно</string>
+    <string name="one_row_per_received_message">Одна строка на каждое полученное сообщение. Отключает объединение бесед.</string>
+    <string name="remind_me">Напомнить</string>
+    <string name="tasks_unavailable">Sable Tasks не установлено.</string>
+    <string name="row_menu_snooze">Отложить в меню строки</string>
+    <string name="row_menu_snooze_detail">Добавляет «Отложить на 1 час» и клавишу Z для активного уведомления.</string>
+    <string name="row_menu_remind_me">«Напомнить» в меню строки</string>
+    <string name="row_menu_remind_me_detail">Добавляет в Sable Tasks напоминание на завтра утром. Сохраняется только приложение, не сообщение.</string>
 </resources>

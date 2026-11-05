@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">صرف کالوں کی گھنٹی بجتی ہے؛ پیغامات اور انتباہات خاموش رہتے ہیں</string>
     <string name="all_alerts_off">تمام انتباہات بند</string>
     <string name="nothing_rings_or_vibrates_alarms">نہ آواز آتی ہے نہ وائبریشن ہوتی ہے؛ الارم بجتے رہتے ہیں</string>
+    <string name="bedside">بستر کے پاس</string>
+    <string name="alarms_only_and_the_dimmest">صرف الارم، اسکرین سب سے مدھم</string>
 </resources>

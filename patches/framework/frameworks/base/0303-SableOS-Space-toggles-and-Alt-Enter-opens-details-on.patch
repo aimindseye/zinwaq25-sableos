@@ -25,10 +25,10 @@ tile's click lambda is only moved into a val so both paths share it.
  create mode 100644 packages/SystemUI/src/com/android/systemui/qs/sable/SableTileKeys.java
 
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
-index 447878cba6af..a586e0563ed7 100644
+index 2d6145d..84be1b9 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
-@@ -60,6 +60,7 @@ import androidx.compose.ui.draw.clip
+@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.clip
  import androidx.compose.ui.geometry.Size
  import androidx.compose.ui.graphics.Color
  import androidx.compose.ui.graphics.Shape
@@ -44,112 +44,103 @@ index 447878cba6af..a586e0563ed7 100644
  import com.android.systemui.qs.tileimpl.QSTileImpl
  import com.android.systemui.qs.ui.composable.QuickSettingsShade
  import com.android.systemui.qs.ui.compose.borderOnFocus
-@@ -259,50 +261,69 @@ fun ContentScope.Tile(
-                 remember(currentBounceableInfo) {
-                     currentBounceableInfo?.bounceable ?: BounceableTileViewModel()
-                 }
--            TileContainer(
--                interactionSource = interactionSource.takeIf { bounceContainer },
--                onClick = onClick@{
--                        if (!isClickable) return@onClick
--
--                        val hasDetails =
--                            QsDetailedView.isEnabled &&
--                                detailsViewModel?.onTileClicked(tile.spec) == true
--                        if (hasDetails) return@onClick
--
--                        // For those tile's who doesn't have a detailed view, process with
--                        // their `onClick` behavior.
--                        if (iconOnly && isDualTarget) {
--                            tile.toggleClick()
-+            val onTileClick: () -> Unit =
-+                onClick@{
-+                    if (!isClickable) return@onClick
+@@ -267,46 +269,65 @@ fun ContentScope.Tile(
+                 // Bounce the tile's container if it is toggleable and is not a large
+                 // dual target tile. These don't toggle on main click.
+                 val bounceContainer = uiState.isToggleable && (iconOnly || !isDualTarget)
+-                TileContainer(
+-                    interactionSource = interactionSource.takeIf { bounceContainer },
+-                    onClick = onClick@{
+-                            if (!isClickable) return@onClick
++                val onTileClick: () -> Unit =
++                    onClick@{
++                        if (!isClickable) return@onClick
 +
-+                    val hasDetails =
-+                        QsDetailedView.isEnabled &&
-+                            detailsViewModel?.onTileClicked(tile.spec) == true
-+                    if (hasDetails) return@onClick
++                        if (iconOnly && isDualTarget) {
++                            tile.toggleClick()
++                        } else {
++                            val hasDetails =
++                                QsDetailedView.isEnabled &&
++                                    detailsViewModel?.onTileClicked(tile.spec) == true
++                            if (hasDetails) return@onClick
 +
-+                    // For those tile's who doesn't have a detailed view, process with
-+                    // their `onClick` behavior.
-+                    if (iconOnly && isDualTarget) {
-+                        tile.toggleClick()
-+                    } else {
-+                        tile.mainClick(expandable)
-+                    }
-+
-+                    // Side effects of the click
-+                    hapticsViewModel?.setTileInteractionState(
-+                        TileHapticsViewModel.TileInteractionState.CLICKED
-+                    )
-+
-+                    coroutineScope.launch {
-+                        // Bounce the tile's container if it is toggleable and is not a large
-+                        // dual target tile. These don't toggle on main click. Otherwise bounce
-+                        // the content of the tile.
-+                        if (bounceContainer) {
-+                            // Only bounce the container ourselves if a BounceableInfo was given
-+                            currentBounceableInfo?.bounceable?.animateContainerBounce()
-                         } else {
--                            tile.mainClick(expandable)
-+                            contentBounceable.animateContentBounce(iconOnly)
-                         }
--
--                        // Side effects of the click
-+                    }
-+                    if (uiState.isToggleable && iconOnly) {
-+                        // And show footer text feedback for icons
-+                        requestToggleTextFeedback(tile.spec)
-+                    }
-+                }
-+            // Sable: Space toggles, Alt+Enter (Menu / Fn+Enter) opens details or settings.
-+            val onTileToggle: () -> Unit = {
-+                if (isClickable) {
-+                    if (isDualTarget) {
-                         hapticsViewModel?.setTileInteractionState(
-                             TileHapticsViewModel.TileInteractionState.CLICKED
-                         )
--
--                        coroutineScope.launch {
--                            // Bounce the tile's container if it is toggleable and is not a large
--                            // dual target tile. These don't toggle on main click. Otherwise bounce
--                            // the content of the tile.
--                            if (bounceContainer) {
--                                // Only bounce the container ourselves if a BounceableInfo was given
--                                currentBounceableInfo?.bounceable?.animateContainerBounce()
++                            // For those tile's who doesn't have a detailed view, process with
++                            // their `onClick` behavior.
++                            tile.mainClick(expandable)
++                        }
+ 
+-                            if (iconOnly && isDualTarget) {
+-                                tile.toggleClick()
 -                            } else {
--                                contentBounceable.animateContentBounce(iconOnly)
+-                                val hasDetails =
+-                                    QsDetailedView.isEnabled &&
+-                                        detailsViewModel?.onTileClicked(tile.spec) == true
+-                                if (hasDetails) return@onClick
++                        // Side effects of the click
++                        hapticsViewModel.setTileInteractionState(
++                            TileHapticsViewModel.TileInteractionState.CLICKED
++                        )
+ 
+-                                // For those tile's who doesn't have a detailed view, process with
+-                                // their `onClick` behavior.
+-                                tile.mainClick(expandable)
++                        coroutineScope.launch {
++                            // Bounce the content of the tile if we're not animating the
++                            // container.
++                            if (!bounceContainer) {
++                                currentBounceableInfo.bounceable.animateContentBounce(iconOnly)
+                             }
+-
+-                            // Side effects of the click
++                        }
++                        if (uiState.isToggleable && iconOnly) {
++                            // And show footer text feedback for icons
++                            requestToggleTextFeedback(tile.spec)
++                        }
++                    }
++                // Sable: Space toggles, Alt+Enter (Menu / Fn+Enter) opens details or settings.
++                val onTileToggle: () -> Unit = {
++                    if (isClickable) {
++                        if (isDualTarget) {
+                             hapticsViewModel.setTileInteractionState(
+                                 TileHapticsViewModel.TileInteractionState.CLICKED
+                             )
+-
+-                            coroutineScope.launch {
+-                                // Bounce the content of the tile if we're not animating the
+-                                // container.
+-                                if (!bounceContainer) {
+-                                    currentBounceableInfo.bounceable.animateContentBounce(iconOnly)
+-                                }
 -                            }
--                        }
--                        if (uiState.isToggleable && iconOnly) {
--                            // And show footer text feedback for icons
--                            requestToggleTextFeedback(tile.spec)
--                        }
--                    },
-+                        tile.toggleClick()
-+                    } else {
-+                        onTileClick()
+-                            if (uiState.isToggleable && iconOnly) {
+-                                // And show footer text feedback for icons
+-                                requestToggleTextFeedback(tile.spec)
+-                            }
+-                        },
++                            tile.toggleClick()
++                        } else {
++                            onTileClick()
++                        }
 +                    }
 +                }
-+            }
-+            TileContainer(
-+                interactionSource = interactionSource.takeIf { bounceContainer },
-+                onClick = onTileClick,
-                 onLongClick = longClick,
-                 accessibilityUiState = uiState.accessibilityUiState,
-                 iconOnly = iconOnly,
-                 isDualTarget = isDualTarget,
--                modifier = contentRevealModifier,
-+                modifier =
-+                    contentRevealModifier.sableTileKeys(
-+                        onToggle = onTileToggle,
-+                        onDetails = { longClick?.invoke() },
-+                    ),
-             ) {
-                 val iconProvider: Context.() -> Icon = { getTileIcon(icon = icon) }
-                 if (iconOnly) {
-@@ -346,6 +367,30 @@ fun ContentScope.Tile(
++                TileContainer(
++                    interactionSource = interactionSource.takeIf { bounceContainer },
++                    onClick = onTileClick,
+                     onLongClick = longClick,
+                     accessibilityUiState = uiState.accessibilityUiState,
+                     iconOnly = iconOnly,
+                     isDualTarget = isDualTarget,
+-                    modifier = contentRevealModifier,
++                    modifier =
++                        contentRevealModifier.sableTileKeys(
++                            onToggle = onTileToggle,
++                            onDetails = { longClick?.invoke() },
++                        ),
+                 ) {
+                     val iconProvider: Context.() -> Icon = { getTileIcon(icon = icon) }
+                     if (iconOnly) {
+@@ -353,6 +374,30 @@ fun ContentScope.Tile(
      }
  }
  
@@ -179,10 +170,10 @@ index 447878cba6af..a586e0563ed7 100644
 +
  @Composable
  private fun TileExpandable(
-     color: () -> Color,
+     expandable: Expandable,
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/sable/SableTileKeys.java b/packages/SystemUI/src/com/android/systemui/qs/sable/SableTileKeys.java
 new file mode 100644
-index 000000000000..1980f4230ab9
+index 0000000..1980f42
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/qs/sable/SableTileKeys.java
 @@ -0,0 +1,79 @@

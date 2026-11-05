@@ -1,5 +1,7 @@
 package org.sableos.start.live
 
+import java.time.LocalDate
+
 enum class LiveAvailability {
     LOADING,
     LIVE,
@@ -31,6 +33,35 @@ data class AppUnreadCount(
     }
 }
 
+/**
+ * One message on the Hub page (`content://org.sableos.hub.snapshot/messages`): Hub's own inbox
+ * row after its redaction. Hub sends none while the device is locked or in Sable private mode.
+ */
+data class HubMessageRow(
+    val threadId: Long,
+    val title: String,
+    val preview: String,
+    val dateMillis: Long,
+    val unread: Int,
+    val sms: Boolean,
+    val packageName: String?,
+)
+
+/** One busy day of this month from Sable Calendar (booked minutes between 08:00 and 20:00). */
+data class CalendarBusyDay(
+    val date: LocalDate,
+    val busyMinutes: Int,
+    val allDay: Boolean,
+    val count: Int,
+)
+
+/** One of the next events of the coming week, for Start's Month widget. */
+data class UpcomingEvent(
+    val title: String,
+    val beginMillis: Long,
+    val allDay: Boolean,
+)
+
 data class LiveSurfaceSnapshot(
     val dateText: String,
     val timeText: String,
@@ -43,6 +74,11 @@ data class LiveSurfaceSnapshot(
     val observedAtEpochMs: Long,
     /** The Hub page's unread bar, most unread first; empty when Hub has nothing or is missing. */
     val hubApps: List<AppUnreadCount> = emptyList(),
+    /** The Hub page's message list, newest first; empty when Hub sends none. */
+    val hubMessages: List<HubMessageRow> = emptyList(),
+    /** Start's Month widget: this month's busy days and the next events; empty without Calendar. */
+    val calendarMonth: List<CalendarBusyDay> = emptyList(),
+    val calendarNext: List<UpcomingEvent> = emptyList(),
 ) {
     init {
         require(dateText.isNotBlank())

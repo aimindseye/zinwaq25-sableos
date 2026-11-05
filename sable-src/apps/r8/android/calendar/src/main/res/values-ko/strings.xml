@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">이번 주 일정이 없습니다. C로 만듭니다.</string>
     <string name="selected">선택됨: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] 열기  [E] 편집  [Del] 삭제  [T] 오늘"</string>
+    <string name="calendars">캘린더</string>
+    <string name="calendars_hint">표시된 캘린더가 일정 목록, 바쁨 링, Start의 월 보기에 사용됩니다.</string>
+    <string name="no_calendars">이 휴대전화에 아직 캘린더가 없습니다. 설정 > 계정에서 계정을 추가하세요.</string>
+    <string name="l_calendars">" · L 캘린더"</string>
+    <string name="day_events">%1$s, 일정 %2$s개</string>
 </resources>

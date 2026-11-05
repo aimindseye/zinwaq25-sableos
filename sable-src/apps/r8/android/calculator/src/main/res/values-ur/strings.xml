@@ -8,9 +8,9 @@
     <string name="exact_result">بالکل درست نتیجہ</string>
     <string name="choose_an_operation_first">پہلے کوئی عمل منتخب کریں۔</string>
     <string name="degrees_for_trigonometry">%1$s · مثلثی حساب کے لیے درجے</string>
-    <string name="scientific_operations_and_the_core">سائنسی عمل اور بنیادی حساب کتاب کیلکولیٹر کے مقامی انجن میں انجام پاتے ہیں۔</string>
+    <string name="scientific_operations_and_the_core">سائنسی فنکشنز اور درست حساب فون پر آف لائن چلتے ہیں۔</string>
     <string name="results_are_not_silently_rounded">نتائج کو خودکار طور پر فلوٹنگ پوائنٹ اعداد میں گول نہیں کیا جاتا۔</string>
     <string name="scientific_functions_use_degrees">سائنسی افعال درجے استعمال کرتے ہیں۔</string>
     <string name="exact_decimal_results_never_rounded">بالکل درست اعشاری نتائج، بغیر گول کیے۔</string>
-    <string name="native_bridge_failure">مقامی انٹرفیس ناکام ہو گیا</string>
+    <string name="native_bridge_failure">حساب ناکام رہا</string>
 </resources>

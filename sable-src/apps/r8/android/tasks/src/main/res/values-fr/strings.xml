@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">tâches</string>
+    <string name="tasks_hint">C nouvelle · Entrée modifier · Espace faite · Z demain · D supprimer · H faites</string>
+    <string name="no_tasks">Aucune tâche. C en ajoute une.</string>
+    <string name="group_overdue">En retard</string>
+    <string name="group_today">Aujourd’hui</string>
+    <string name="group_tomorrow">Demain</string>
+    <string name="group_this_week">Cette semaine</string>
+    <string name="group_later">Plus tard</string>
+    <string name="group_no_date">Sans date</string>
+    <string name="group_done">Faites</string>
+    <string name="due_at">Échéance %1$s</string>
+    <string name="remind_at">Rappel %1$s</string>
+    <string name="from_app">De %1$s</string>
+    <string name="every_day">Chaque jour</string>
+    <string name="every_week">Chaque semaine</string>
+    <string name="every_month">Chaque mois</string>
+    <string name="new_task">Nouvelle tâche</string>
+    <string name="edit_task">Modifier la tâche</string>
+    <string name="title">Titre</string>
+    <string name="details">Détails</string>
+    <string name="due">Échéance</string>
+    <string name="remind">Rappel</string>
+    <string name="none">Aucun</string>
+    <string name="pick_time">Choisir l’heure</string>
+    <string name="later_today">Plus tard aujourd’hui</string>
+    <string name="this_evening">Ce soir</string>
+    <string name="tomorrow_morning">Demain matin</string>
+    <string name="repeat">Répéter : %1$s</string>
+    <string name="never">Jamais</string>
+    <string name="save">Enregistrer</string>
+    <string name="cancel">Annuler</string>
+    <string name="delete">Supprimer</string>
+    <string name="delete_task">Supprimer « %1$s » ?</string>
+    <string name="deleted">« %1$s » supprimée</string>
+    <string name="add_a_title">Ajoutez un titre.</string>
+    <string name="reminders">Rappels</string>
+    <string name="task_reminder">Rappel de tâche</string>
+    <string name="done">Faite</string>
+    <string name="snooze_1_hour">Reporter d’1 heure</string>
+    <string name="reminders_off">Les alertes de rappel sont désactivées. Entrée les autorise ; les rappels restent visibles ici.</string>
+    <string name="follow_up_in">Relancer dans %1$s</string>
+    <string name="show_done">Afficher les faites (H)</string>
+    <string name="hide_done">Masquer les faites (H)</string>
+</resources>

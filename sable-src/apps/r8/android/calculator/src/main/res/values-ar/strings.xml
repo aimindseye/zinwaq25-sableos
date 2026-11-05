@@ -8,9 +8,9 @@
     <string name="exact_result">نتيجة دقيقة</string>
     <string name="choose_an_operation_first">اختر عملية أولًا.</string>
     <string name="degrees_for_trigonometry">%1$s · الدرجات للحسابات المثلثية</string>
-    <string name="scientific_operations_and_the_core">تُنفَّذ العمليات العلمية والحسابات الأساسية عبر محرّك الآلة الحاسبة الأصلي.</string>
+    <string name="scientific_operations_and_the_core">تعمل الدوال العلمية والحساب الدقيق على الهاتف دون اتصال.</string>
     <string name="results_are_not_silently_rounded">لا تُقرَّب النتائج تلقائيًا إلى قيم الفاصلة العائمة.</string>
     <string name="scientific_functions_use_degrees">تستخدم الدوال العلمية الدرجات.</string>
     <string name="exact_decimal_results_never_rounded">نتائج عشرية دقيقة دون تقريب.</string>
-    <string name="native_bridge_failure">فشل الواجهة الأصلية</string>
+    <string name="native_bridge_failure">تعذّر الحساب</string>
 </resources>

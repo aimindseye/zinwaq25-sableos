@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Japanese. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">パソコンからこの電話に印刷します。Print To Go がオンの間、電話は Wi-Fi 上のプリンターになり、印刷物は Documents/Print To Go に PDF として保存されます。</string>
+    <string name="start">受信を開始</string>
+    <string name="stop">停止</string>
+    <string name="off">オフ。この電話には何も印刷できません。</string>
+    <string name="ready">%1$s として準備完了。パソコンの印刷画面で選んでください。10 分間印刷がないとオフになります。</string>
+    <string name="no_wifi">まず Wi-Fi に接続してください。Print To Go は Wi-Fi だけで待ち受け、モバイルデータでは待ち受けません。</string>
+    <string name="start_failed">Print To Go を開始できませんでした。もう一度お試しください。</string>
+    <string name="saved">保存しました: %1$s</string>
+    <string name="save_failed">%1$s を保存できませんでした。</string>
+    <string name="open_folder">保存した印刷物を開く</string>
+    <string name="running">Print To Go はオンです</string>
+    <string name="channel_running">Print To Go 実行中</string>
+    <string name="channel_saved">保存した印刷物</string>
+    <string name="idle_off">10 分間印刷がなかったため Print To Go をオフにしました。</string>
+    <string name="hint">Enter で開始または停止 · O で保存した印刷物を開く · Back で終了</string>
+</resources>

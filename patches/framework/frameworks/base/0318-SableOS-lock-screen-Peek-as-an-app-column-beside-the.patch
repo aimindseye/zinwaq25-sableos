@@ -1,0 +1,322 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 5 Nov 2026 06:00:00 +0000
+Subject: [PATCH] SableOS: lock screen Peek as an app column beside the newest
+ notification
+
+The Peek is laid out as BB10 shows it (owner pick from the JL10 review):
+a column of app icons, each over its count, with a line beside the
+column marked in the accent at the app with the newest notification, and
+that notification on the right: the app and time, then its sender when
+the lock screen shows all content and the notification needs no
+redaction, else "N notifications". Never the message text. The newest
+app always has a place in the column (SableLockGlance.Peek.newest).
+---
+ .../res/layout/sable_keyguard_glance.xml      |  51 +++++++--
+ .../res/values/sable_keyguard_glance.xml      |   6 +-
+ .../keyguard/sable/SableLockGlance.java       |  27 ++++-
+ .../layout/sections/SableLockGlanceSection.kt | 101 +++++++++++-------
+ 4 files changed, 137 insertions(+), 48 deletions(-)
+
+diff --git a/packages/SystemUI/res/layout/sable_keyguard_glance.xml b/packages/SystemUI/res/layout/sable_keyguard_glance.xml
+index df5ccbf..7d7e1c5 100644
+--- a/packages/SystemUI/res/layout/sable_keyguard_glance.xml
++++ b/packages/SystemUI/res/layout/sable_keyguard_glance.xml
+@@ -15,7 +15,7 @@
+      limitations under the License.
+ -->
+ <!-- Sable locked glance under the lock screen clock (sable-lockscreen-titan2): "Locked", the
+-     next calendar event, the Peek rows (one per app), the private mode card and the unlock line. Counts only unless the
++     next calendar event, the Peek (an app column and the newest notification), the private mode card and the unlock line. Counts only unless the
+      user lets the lock screen show notification content. -->
+ <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+     android:id="@+id/sable_keyguard_glance"
+@@ -48,8 +48,10 @@
+         android:textSize="15sp"
+         android:visibility="gone" />
+ 
+-    <!-- Peek: one row per app (icon, name, "N notifications" or the newest sender, count).
+-         Rows are added in code (SableLockGlanceSection). -->
++    <!-- Peek, as on BB10 (owner pick from the JL10 review): a column of app icons with their
++         counts on the left, a line beside it marked at the newest app, and that app's newest
++         notification on the right (app, time, and the sender only when the lock screen shows
++         all content). Tiles and lines are set in code (SableLockGlanceSection). -->
+     <LinearLayout
+         android:id="@+id/sable_keyguard_peek"
+         android:layout_width="match_parent"
+@@ -59,6 +61,7 @@
+         android:accessibilityLiveRegion="polite"
+         android:visibility="gone">
+ 
++        <!-- Read by TalkBack only; the column and preview say the rest. -->
+         <TextView
+             android:id="@+id/sable_keyguard_peek_title"
+             android:layout_width="match_parent"
+@@ -66,19 +69,53 @@
+             android:text="@string/sable_keyguard_peek_title"
+             android:textColor="@color/sable_keyguard_text_primary"
+             android:textSize="16sp"
+-            android:textStyle="bold" />
++            android:textStyle="bold"
++            android:visibility="gone" />
+ 
+         <LinearLayout
+-            android:id="@+id/sable_keyguard_peek_rows"
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+-            android:orientation="vertical" />
++            android:orientation="horizontal">
++
++            <LinearLayout
++                android:id="@+id/sable_keyguard_peek_rows"
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:orientation="vertical" />
++
++            <LinearLayout
++                android:id="@+id/sable_keyguard_peek_newest"
++                android:layout_width="0dp"
++                android:layout_height="wrap_content"
++                android:layout_weight="1"
++                android:layout_gravity="center_vertical"
++                android:orientation="vertical"
++                android:paddingStart="@dimen/sable_keyguard_card_padding_horizontal">
++
++                <TextView
++                    android:id="@+id/sable_keyguard_peek_newest_app"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:maxLines="1"
++                    android:ellipsize="end"
++                    android:textColor="@color/sable_keyguard_text_secondary"
++                    android:textSize="12sp" />
++
++                <TextView
++                    android:id="@+id/sable_keyguard_peek_newest_line"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:maxLines="2"
++                    android:ellipsize="end"
++                    android:textColor="@color/sable_keyguard_text_primary"
++                    android:textSize="16sp" />
++            </LinearLayout>
++        </LinearLayout>
+ 
+         <TextView
+             android:id="@+id/sable_keyguard_peek_more"
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+-            android:paddingStart="@dimen/sable_keyguard_peek_text_start"
+             android:textColor="@color/sable_keyguard_text_secondary"
+             android:textSize="12sp"
+             android:visibility="gone" />
+diff --git a/packages/SystemUI/res/values/sable_keyguard_glance.xml b/packages/SystemUI/res/values/sable_keyguard_glance.xml
+index d28a75f..1462efe 100644
+--- a/packages/SystemUI/res/values/sable_keyguard_glance.xml
++++ b/packages/SystemUI/res/values/sable_keyguard_glance.xml
+@@ -30,8 +30,10 @@
+     <dimen name="sable_keyguard_card_padding_horizontal">14dp</dimen>
+     <dimen name="sable_keyguard_card_padding_vertical">8dp</dimen>
+     <dimen name="sable_keyguard_card_gap">6dp</dimen>
+-    <!-- Peek rows: app icon size, row height and where the text starts (icon + gap). -->
++    <!-- Peek column: app icon size, tile height, and the line beside it (its newest-app mark
++         uses the system accent). -->
+     <dimen name="sable_keyguard_peek_icon">32dp</dimen>
+     <dimen name="sable_keyguard_peek_row_height">48dp</dimen>
+-    <dimen name="sable_keyguard_peek_text_start">44dp</dimen>
++    <dimen name="sable_keyguard_peek_line">2dp</dimen>
++    <dimen name="sable_keyguard_peek_mark">3dp</dimen>
+ </resources>
+diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+index e361d01..d40d5ae 100644
+--- a/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
++++ b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+@@ -191,10 +191,33 @@ public final class SableLockGlance {
+             }
+         }
+ 
+-        /** The rows to show, most notifications first, then the newest; at most {@link #MAX_ROWS}. */
++        /**
++         * The rows to show, most notifications first, then the newest; at most {@link #MAX_ROWS},
++         * and always with the {@link #newest()} app, which takes the last place when it would not
++         * fit (the column beside the newest notification marks it).
++         */
+         public List<Row> rows() {
+             List<Row> sorted = sortedRows();
+-            return sorted.size() > MAX_ROWS ? sorted.subList(0, MAX_ROWS) : sorted;
++            if (sorted.size() <= MAX_ROWS) {
++                return sorted;
++            }
++            List<Row> shown = new ArrayList<>(sorted.subList(0, MAX_ROWS));
++            Row newest = newest();
++            if (!shown.contains(newest)) {
++                shown.set(MAX_ROWS - 1, newest);
++            }
++            return shown;
++        }
++
++        /** The app with the newest notification (the latest when wins a tie), or null. */
++        public Row newest() {
++            Row newest = null;
++            for (Row row : rows.values()) {
++                if (newest == null || row.newestWhen >= newest.newestWhen) {
++                    newest = row;
++                }
++            }
++            return newest;
+         }
+ 
+         /** How many apps did not fit ("+N more apps"). */
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+index 5a7433d..053ff4e 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+@@ -78,6 +78,10 @@ import javax.inject.Inject
+  * or profile setting, silent ones when hidden, lock screen notifications off) are not counted, so
+  * with lock screen notifications off the count row stays hidden.
+  *
++ * Laid out as BB10 shows it (owner pick from the JL10 review, 2026-11-05): the app icons in a
++ * column with their counts, a line beside them marked at the app with the newest notification,
++ * and that notification on the right with its app, time and, as above, the sender or the count.
++ *
+  * Above the peek, the next event from Sable Calendar's snapshot ("Today 9:30 · Standup", "Now ·
+  * Standup", "Tomorrow all day · Trip"), today's or tomorrow's only; while the lock screen hides
+  * notification content its name is "Event". Sable Calendar answers only SystemUI and Start, from
+@@ -350,67 +354,66 @@ constructor(
+             ?.toString()
+     }
+ 
++    /**
++     * The Peek, BB10 style: a column of app tiles (icon over its count) with a line beside it,
++     * marked in the accent at the app with the newest notification, and that notification on the
++     * right: the app and time, then its sender when content may show, else "N notifications".
++     */
+     private fun bindPeek(
+         container: View,
+         peek: SableLockGlance.Peek,
+         notifications: Map<String, Notification>,
+     ) {
+         val res = context.resources
+-        val rowsView = container.findViewById<LinearLayout>(R.id.sable_keyguard_peek_rows)
+-        rowsView.removeAllViews()
++        val column = container.findViewById<LinearLayout>(R.id.sable_keyguard_peek_rows)
++        column.removeAllViews()
+         val iconSize = (res.getDimension(R.dimen.sable_keyguard_peek_icon) * textScale).toInt()
+-        val rowHeight =
++        val tileHeight =
+             (res.getDimension(R.dimen.sable_keyguard_peek_row_height) * textScale).toInt()
+-        val gap = res.getDimensionPixelSize(R.dimen.sable_keyguard_card_gap) * 2
++        val gap = res.getDimensionPixelSize(R.dimen.sable_keyguard_card_gap)
++        val line = res.getDimensionPixelSize(R.dimen.sable_keyguard_peek_line)
++        val mark = res.getDimensionPixelSize(R.dimen.sable_keyguard_peek_mark)
+         val primary = context.getColor(R.color.sable_keyguard_text_primary)
+-        val secondary = context.getColor(R.color.sable_keyguard_text_secondary)
++        val lineColor = context.getColor(R.color.sable_keyguard_card_stroke)
++        val accent = context.getColor(android.R.color.system_accent1_300)
++        val newest = peek.newest()
+         for (row in peek.rows()) {
+-            val line =
++            val isNewest = row === newest
++            val tile =
+                 LinearLayout(context).apply {
+                     orientation = LinearLayout.HORIZONTAL
+-                    gravity = Gravity.CENTER_VERTICAL
+-                    minimumHeight = rowHeight
++                    minimumHeight = tileHeight
++                    contentDescription = "${labelFor(row.packageName)}, ${row.count}"
++                }
++            val stack =
++                LinearLayout(context).apply {
++                    orientation = LinearLayout.VERTICAL
++                    gravity = Gravity.CENTER_HORIZONTAL
++                    setPaddingRelative(0, gap / 2, gap * 2, gap / 2)
++                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                 }
+-            line.addView(
++            stack.addView(
+                 ImageView(context).apply {
+                     setImageDrawable(iconFor(row.packageName, notifications[row.packageName]))
+                 },
+-                LinearLayout.LayoutParams(iconSize, iconSize).apply { marginEnd = gap },
+-            )
+-            val texts = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+-            texts.addView(
+-                TextView(context).apply {
+-                    text = labelFor(row.packageName)
+-                    setTextColor(primary)
+-                    textSize = 15f * textScale
+-                    maxLines = 1
+-                    ellipsize = android.text.TextUtils.TruncateAt.END
+-                }
++                LinearLayout.LayoutParams(iconSize, iconSize),
+             )
+-            texts.addView(
+-                TextView(context).apply {
+-                    text =
+-                        row.sender
+-                            ?: res.getQuantityString(R.plurals.sable_keyguard_peek_count, row.count, row.count)
+-                    setTextColor(secondary)
+-                    textSize = 12f * textScale
+-                    maxLines = 1
+-                    ellipsize = android.text.TextUtils.TruncateAt.END
+-                }
+-            )
+-            line.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+-            line.addView(
++            stack.addView(
+                 TextView(context).apply {
+                     text = row.count.toString()
+                     setTextColor(primary)
+-                    textSize = 15f * textScale
++                    textSize = 12f * textScale
++                    gravity = Gravity.CENTER_HORIZONTAL
+                 }
+             )
+-            rowsView.addView(
+-                line,
+-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
++            tile.addView(stack)
++            tile.addView(
++                View(context).apply { setBackgroundColor(if (isNewest) accent else lineColor) },
++                LinearLayout.LayoutParams(if (isNewest) mark else line, ViewGroup.LayoutParams.MATCH_PARENT),
+             )
++            column.addView(tile)
+         }
++        bindNewest(container, newest)
+         container.findViewById<TextView>(R.id.sable_keyguard_peek_more).apply {
+             val more = peek.moreApps()
+             visibleIf(more > 0)
+@@ -418,6 +421,30 @@ constructor(
+         }
+     }
+ 
++    /** The newest notification beside the column: app and time, then its sender or the count. */
++    private fun bindNewest(container: View, newest: SableLockGlance.Peek.Row?) {
++        val app = container.findViewById<TextView>(R.id.sable_keyguard_peek_newest_app)
++        val line = container.findViewById<TextView>(R.id.sable_keyguard_peek_newest_line)
++        app.scaleText(textScale)
++        line.scaleText(textScale)
++        if (newest == null) {
++            app.text = null
++            line.text = null
++            return
++        }
++        val time =
++            if (newest.newestWhen > 0) DateFormat.getTimeFormat(context).format(Date(newest.newestWhen)) else null
++        val label = labelFor(newest.packageName)
++        app.text = if (time == null) label else "$label · $time"
++        line.text =
++            newest.sender
++                ?: context.resources.getQuantityString(
++                    R.plurals.sable_keyguard_peek_count,
++                    newest.count,
++                    newest.count,
++                )
++    }
++
+     /** The app's icon, else the notification's small icon. */
+     private fun iconFor(packageName: String, notification: Notification?): Drawable? =
+         runCatching { context.packageManager.getApplicationIcon(packageName) }.getOrNull()
+-- 
+2.43.0
+

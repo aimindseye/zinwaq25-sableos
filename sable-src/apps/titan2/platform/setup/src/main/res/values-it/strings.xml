@@ -74,4 +74,10 @@
     <string name="weather_row_city">Previsioni per %1$s; nessun permesso di posizione</string>
     <string name="weather_row_none">Scegli la città mostrata dal Meteo; nessun permesso di posizione</string>
     <string name="weather_row_failed">Impossibile leggere la città del Meteo</string>
+    <string name="row_hub_menu_title">Menu della riga di Hub</string>
+    <string name="row_hub_menu_detail">Posticipa e Ricordamelo sono disattivati finché non li attivi in Hub</string>
+    <string name="action_hub_row_menu">Impostazioni di Hub</string>
+    <string name="row_work_space_title">Spazio di lavoro</string>
+    <string name="row_work_space_detail">Facoltativo: tieni separate le app di lavoro, con un selettore Personale · Lavoro in Start</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

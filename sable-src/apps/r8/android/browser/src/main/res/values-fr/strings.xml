@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">Rechercher ou saisir une adresse web</string>
+    <string name="keys_hint">L adresse · Space page · T haut · B bas · R recharger · M pointeur</string>
+    <string name="pointer_on">Pointeur du trackpad activé</string>
+    <string name="pointer_off">Pointeur désactivé · le trackpad fait défiler la page</string>
+    <string name="page_failed">Impossible de charger cette page. R réessaie.</string>
+    <string name="no_app_for_link">Aucune appli ne peut ouvrir ce lien.</string>
+    <string name="share_page">Partager la page</string>
+    <string name="downloading">Téléchargement de %1$s</string>
+    <string name="download_failed">Ce téléchargement n’a pas pu démarrer.</string>
+    <string name="choose_file">Choisir un fichier</string>
+</resources>

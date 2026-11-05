@@ -53,4 +53,5 @@
     <string name="will_be_deleted_from_this">„%1$s” תימחק מהטלפון הזה.</string>
     <string name="delete">מחיקה</string>
     <string name="keep">שמירה</string>
+    <string name="r_remind_in_tasks">" · R תזכורת במשימות"</string>
 </resources>

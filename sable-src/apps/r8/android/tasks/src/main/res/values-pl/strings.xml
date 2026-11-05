@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">zadania</string>
+    <string name="tasks_hint">C nowe · Enter edytuj · Spacja zrobione · Z jutro · D usuń · H zrobione</string>
+    <string name="no_tasks">Brak zadań. C dodaje zadanie.</string>
+    <string name="group_overdue">Zaległe</string>
+    <string name="group_today">Dziś</string>
+    <string name="group_tomorrow">Jutro</string>
+    <string name="group_this_week">W tym tygodniu</string>
+    <string name="group_later">Później</string>
+    <string name="group_no_date">Bez daty</string>
+    <string name="group_done">Zrobione</string>
+    <string name="due_at">Termin %1$s</string>
+    <string name="remind_at">Przypomnij %1$s</string>
+    <string name="from_app">Z %1$s</string>
+    <string name="every_day">Codziennie</string>
+    <string name="every_week">Co tydzień</string>
+    <string name="every_month">Co miesiąc</string>
+    <string name="new_task">Nowe zadanie</string>
+    <string name="edit_task">Edytuj zadanie</string>
+    <string name="title">Tytuł</string>
+    <string name="details">Szczegóły</string>
+    <string name="due">Termin</string>
+    <string name="remind">Przypomnij</string>
+    <string name="none">Brak</string>
+    <string name="pick_time">Wybierz godzinę</string>
+    <string name="later_today">Później dziś</string>
+    <string name="this_evening">Wieczorem</string>
+    <string name="tomorrow_morning">Jutro rano</string>
+    <string name="repeat">Powtarzaj: %1$s</string>
+    <string name="never">Nigdy</string>
+    <string name="save">Zapisz</string>
+    <string name="cancel">Anuluj</string>
+    <string name="delete">Usuń</string>
+    <string name="delete_task">Usunąć „%1$s”?</string>
+    <string name="deleted">Usunięto „%1$s”</string>
+    <string name="add_a_title">Dodaj tytuł.</string>
+    <string name="reminders">Przypomnienia</string>
+    <string name="task_reminder">Przypomnienie o zadaniu</string>
+    <string name="done">Zrobione</string>
+    <string name="snooze_1_hour">Odłóż o 1 godzinę</string>
+    <string name="reminders_off">Powiadomienia o przypomnieniach są wyłączone. Enter je włącza; przypomnienia nadal są tutaj.</string>
+    <string name="follow_up_in">Wróć do %1$s</string>
+    <string name="show_done">Pokaż zrobione (H)</string>
+    <string name="hide_done">Ukryj zrobione (H)</string>
+</resources>

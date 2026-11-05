@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Keep equal to TasksText.EN (TasksTextTest checks); translations go in values-<lang>/. -->
+<resources>
+    <string name="app_name" translatable="false">Sable Tasks</string>
+    <string name="tasks">tasks</string>
+    <string name="tasks_hint">C new · Enter edit · Space done · Z tomorrow · D delete · H done list</string>
+    <string name="no_tasks">No tasks. C adds one.</string>
+    <string name="group_overdue">Overdue</string>
+    <string name="group_today">Today</string>
+    <string name="group_tomorrow">Tomorrow</string>
+    <string name="group_this_week">This week</string>
+    <string name="group_later">Later</string>
+    <string name="group_no_date">No date</string>
+    <string name="group_done">Done</string>
+    <string name="due_at">Due %1$s</string>
+    <string name="remind_at">Remind %1$s</string>
+    <string name="from_app">From %1$s</string>
+    <string name="every_day">Every day</string>
+    <string name="every_week">Every week</string>
+    <string name="every_month">Every month</string>
+    <string name="new_task">New task</string>
+    <string name="edit_task">Edit task</string>
+    <string name="title">Title</string>
+    <string name="details">Details</string>
+    <string name="due">Due</string>
+    <string name="remind">Remind</string>
+    <string name="none">None</string>
+    <string name="pick_time">Pick a time</string>
+    <string name="later_today">Later today</string>
+    <string name="this_evening">This evening</string>
+    <string name="tomorrow_morning">Tomorrow morning</string>
+    <string name="repeat">Repeat: %1$s</string>
+    <string name="never">Never</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="delete_task">Delete “%1$s”?</string>
+    <string name="deleted">Deleted “%1$s”</string>
+    <string name="add_a_title">Add a title.</string>
+    <string name="reminders">Reminders</string>
+    <string name="task_reminder">Task reminder</string>
+    <string name="done">Done</string>
+    <string name="snooze_1_hour">Snooze 1 hour</string>
+    <string name="reminders_off">Reminder alerts are off. Enter allows them; reminders still show here.</string>
+    <string name="follow_up_in">Follow up in %1$s</string>
+    <string name="show_done">Show done (H)</string>
+    <string name="hide_done">Hide done (H)</string>
+</resources>

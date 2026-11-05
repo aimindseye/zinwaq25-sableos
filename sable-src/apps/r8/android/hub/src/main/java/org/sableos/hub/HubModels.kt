@@ -41,6 +41,8 @@ data class HubConversation(
     val hubPriority: Boolean = false,
     /** Connected apps: the source notification's category (e.g. "email"), when known. */
     val category: String? = null,
+    /** Each message on its own: the message this row shows, or null for a conversation row. */
+    val messageId: Long? = null,
 )
 
 data class HubPerson(

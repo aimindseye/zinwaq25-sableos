@@ -76,7 +76,9 @@ class SableLockGlanceTest {
         val counts = SableLockGlance.Counts()
         counts.add(SableLockGlance.BUCKET_MAIL)
         val glance = SableLockGlance.Glance(false, true, true, counts)
-        assertTrue(glance.privateCard)
+        // The peek shows, with its "Unlock to read message details" footer instead of the card.
+        assertTrue(glance.countRow)
+        assertFalse(glance.privateCard)
         assertTrue(glance.requiresUnlockLine)
         // No notifications: the card stays, the unlock line goes.
         val empty = SableLockGlance.Glance(false, true, true, SableLockGlance.Counts())
@@ -115,5 +117,69 @@ class SableLockGlanceTest {
         // Alt+Space: the Q25 key map gives a private-use character, not a digit.
         assertEquals(-1, SableKeyguardKeys.pinDigitFor(keySpace, 0xef01, ' '.code, altLeft))
         assertFalse(SableKeyguardKeys.isTypeAheadKey(keySpace, altLeft, 0, 0xef01, ' '.code))
+    }
+
+    @Test
+    fun peekGroupsByAppMostFirstThenNewest() {
+        val peek = SableLockGlance.Peek()
+        peek.add("org.sableos.messages", SableLockGlance.BUCKET_MESSAGES, 10L, null)
+        peek.add("org.sableos.messages", SableLockGlance.BUCKET_MESSAGES, 30L, null)
+        peek.add("com.whatsapp", SableLockGlance.BUCKET_MESSAGES, 50L, "Maya")
+        peek.add("org.thoughtcrime.securesms", SableLockGlance.BUCKET_MESSAGES, 40L, " ")
+        peek.add("com.android.calendar", SableLockGlance.BUCKET_NONE, 60L, "Lunch")
+        val rows = peek.rows()
+        assertEquals(listOf("org.sableos.messages", "com.whatsapp", "org.thoughtcrime.securesms"), rows.map { it.packageName })
+        assertEquals(2, rows[0].count)
+        assertEquals("Maya", rows[1].sender)
+        assertEquals(null, rows[2].sender)
+        assertEquals(0, peek.moreApps())
+    }
+
+    @Test
+    fun peekShowsTheNewestSenderAndCapsRows() {
+        val peek = SableLockGlance.Peek()
+        peek.add("com.whatsapp", SableLockGlance.BUCKET_MESSAGES, 5L, "Old")
+        peek.add("com.whatsapp", SableLockGlance.BUCKET_MESSAGES, 9L, "New")
+        peek.add("com.whatsapp", SableLockGlance.BUCKET_MESSAGES, 7L, "Middle")
+        assertEquals("New", peek.rows()[0].sender)
+        (1..6).forEach { peek.add("app.$it", SableLockGlance.BUCKET_MAIL, it.toLong(), null) }
+        assertEquals(SableLockGlance.Peek.MAX_ROWS, peek.rows().size)
+        assertEquals(3, peek.moreApps())
+        assertTrue(SableLockGlance.Peek().isEmpty())
+    }
+
+    @Test
+    fun peekMarksTheNewestAppAndAlwaysShowsIt() {
+        val peek = SableLockGlance.Peek()
+        assertEquals(null, peek.newest())
+        (1..5).forEach { app -> repeat(3) { peek.add("busy.$app", SableLockGlance.BUCKET_MAIL, app.toLong(), null) } }
+        peek.add("com.whatsapp", SableLockGlance.BUCKET_MESSAGES, 99L, "Maya")
+        assertEquals("com.whatsapp", peek.newest()?.packageName)
+        val rows = peek.rows()
+        assertEquals(SableLockGlance.Peek.MAX_ROWS, rows.size)
+        assertEquals("com.whatsapp", rows.last().packageName)
+        assertEquals("Maya", rows.last().sender)
+        assertEquals(2, peek.moreApps())
+        peek.add("busy.1", SableLockGlance.BUCKET_MAIL, 120L, null)
+        assertEquals("busy.1", peek.newest()?.packageName)
+        assertEquals(listOf("busy.1", "busy.5", "busy.4", "busy.3"), peek.rows().map { it.packageName })
+    }
+
+    @Test
+    fun nextEventShowsTodayTomorrowOrNowAndHidesItsName() {
+        val zone = java.time.ZoneId.of("America/Toronto")
+        val now = java.time.ZonedDateTime.of(2026, 11, 5, 8, 0, 0, 0, zone).toInstant().toEpochMilli()
+        val hour = 3_600_000L
+        assertEquals(SableLockGlance.EVENT_NOW, SableLockGlance.eventDay(now - hour, false, now, zone))
+        assertEquals(0, SableLockGlance.eventDay(now + hour, false, now, zone))
+        assertEquals(1, SableLockGlance.eventDay(now + 20 * hour, false, now, zone))
+        assertEquals(SableLockGlance.EVENT_LATER, SableLockGlance.eventDay(now + 48 * hour, false, now, zone))
+        // All-day events are stored at UTC midnight.
+        val todayUtc = java.time.LocalDate.of(2026, 11, 5).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        assertEquals(0, SableLockGlance.eventDay(todayUtc, true, now, zone))
+        assertEquals(1, SableLockGlance.eventDay(todayUtc + 24 * hour, true, now, zone))
+        assertEquals("Today 9:30 · Standup", SableLockGlance.eventLine("Today 9:30", " Standup ", false, "Event"))
+        assertEquals("Today 9:30 · Event", SableLockGlance.eventLine("Today 9:30", "Standup", true, "Event"))
+        assertEquals("Now · Event", SableLockGlance.eventLine("Now", " ", false, "Event"))
     }
 }

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">Norte</string>
+    <string name="ne">Noreste</string>
+    <string name="e">Este</string>
+    <string name="se">Sureste</string>
+    <string name="s">Sur</string>
+    <string name="sw">Suroeste</string>
+    <string name="w">Oeste</string>
+    <string name="nw">Noroeste</string>
+    <string name="dial_n">N</string>
+    <string name="dial_e">E</string>
+    <string name="dial_s">S</string>
+    <string name="dial_w">O</string>
+    <string name="true_mark">V</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">Norte magnético</string>
+    <string name="true_north">Norte verdadero</string>
+    <string name="true_waiting">Buscando tu ubicación aproximada para el norte verdadero. Hasta entonces se muestra el norte magnético.</string>
+    <string name="true_denied">El norte verdadero necesita tu ubicación aproximada. Se muestra el norte magnético.</string>
+    <string name="accuracy_high">Precisión: alta</string>
+    <string name="accuracy_medium">Precisión: media</string>
+    <string name="accuracy_low">Precisión: baja. Pulsa C para calibrar.</string>
+    <string name="accuracy_unreliable">Precisión: poco fiable. Pulsa C para calibrar.</string>
+    <string name="no_sensor">Este teléfono no tiene sensor de brújula.</string>
+    <string name="flat_or_upright">Sostén el teléfono plano, o vertical mirando hacia donde miras.</string>
+    <string name="held">Fijado. H lo suelta.</string>
+    <string name="calibrate">Calibrar</string>
+    <string name="calibrate_body">Mueve el teléfono trazando un 8 varias veces, girándolo a la vez. Aléjate de metales, imanes y altavoces.</string>
+    <string name="calibrate_done">Calibrado.</string>
+    <string name="hint">T norte verdadero · C calibrar · H fijar · Atrás sale</string>
+    <string name="calibrate_hint">C o Atrás vuelve a la brújula</string>
+</resources>

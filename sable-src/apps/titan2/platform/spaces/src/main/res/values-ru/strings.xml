@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">Рабочее пространство</string>
+    <string name="work">Работа</string>
+    <string name="intro">Держите рабочие приложения отдельно от своих: свои данные и аккаунты, значок «Работа» и переключатель «Личное · Работа» в Start, который может их приостановить.</string>
+    <string name="make">Создать рабочее пространство</string>
+    <string name="making">Android создаёт рабочее пространство. Это займёт минуту.</string>
+    <string name="not_allowed">Этот телефон сейчас не может создать рабочее пространство. Возможно, уже есть рабочее пространство или менеджер устройства.</string>
+    <string name="cancelled">Рабочее пространство не создано.</string>
+    <string name="ready">Рабочее пространство готово. Добавьте приложения для работы: у каждого будет своя копия со своими данными.</string>
+    <string name="paused">Рабочие приложения приостановлены. Включите их в Start (Все приложения, Работа), чтобы добавить приложения.</string>
+    <string name="in_work">%1$s · в «Работе»</string>
+    <string name="no_apps">Все ваши приложения уже в «Работе».</string>
+    <string name="could_not_open">Рабочее пространство не ответило. Повторите попытку чуть позже.</string>
+    <string name="remove">Удалить рабочее пространство</string>
+    <string name="add_confirm">Добавить %1$s (%2$s) в «Работу»? Enter — добавить, Назад — отмена.</string>
+    <string name="added">%1$s теперь в «Работе».</string>
+    <string name="add_failed">Не удалось добавить %1$s в «Работу».</string>
+    <string name="remove_confirm">Удалить рабочее пространство со всеми рабочими приложениями и их данными? Y — удалить, N — оставить.</string>
+    <string name="yes">Да</string>
+    <string name="no">Нет</string>
+    <string name="hint">Вверх и Вниз — выбор приложения · Enter — добавить · O параметры · R — удалить рабочее пространство · Назад — выход</string>
+    <string name="options">Параметры рабочего пространства</string>
+    <string name="options_intro">Они действуют только в рабочем пространстве. Сначала всё разрешено.</string>
+    <string name="option_copy">Копирование из рабочих приложений в личные</string>
+    <string name="option_share">Отправка из личных приложений в рабочие</string>
+    <string name="option_screenshots">Снимки экрана рабочих приложений</string>
+    <string name="allowed">Разрешено</string>
+    <string name="blocked">Запрещено</string>
+    <string name="option_line">%1$s: %2$s</string>
+    <string name="work_lock">Блокировка рабочих приложений</string>
+    <string name="work_lock_about">Отдельный PIN-код, графический ключ или пароль для рабочих приложений, который запрашивается при их открытии после блокировки телефона.</string>
+    <string name="options_hint">Вверх и Вниз выбирают · Enter меняет · L задаёт блокировку · Назад — выход</string>
+    <string name="options_failed">Android не принял это изменение.</string>
+</resources>

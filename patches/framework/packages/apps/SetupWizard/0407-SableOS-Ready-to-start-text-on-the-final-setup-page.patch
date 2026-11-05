@@ -20,17 +20,17 @@ Q25 has no Fn key, so no Fn shortcuts are mentioned.
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01FqvfFQhAvko2gkqcxM25Aa
 ---
- res/layout/finish_activity.xml | 44 ++++++++++++++++++++++++++++++++++
- res/values/sable_strings.xml   |  8 +++++++
+ app/src/main/res/layout/finish_activity.xml | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ app/src/main/res/values/sable_strings.xml   |  8 ++++++++
  2 files changed, 52 insertions(+)
 
-diff --git a/res/layout/finish_activity.xml b/res/layout/finish_activity.xml
-index d6444c8f..2446f165 100644
---- a/res/layout/finish_activity.xml
-+++ b/res/layout/finish_activity.xml
-@@ -39,6 +39,50 @@
-             android:gravity="center"
-             android:padding="@dimen/content_margin_left"/>
+diff --git a/app/src/main/res/layout/finish_activity.xml b/app/src/main/res/layout/finish_activity.xml
+index 648960e..8cbd6f3 100644
+--- a/app/src/main/res/layout/finish_activity.xml
++++ b/app/src/main/res/layout/finish_activity.xml
+@@ -34,6 +34,50 @@
+             android:scaleType="fitCenter"
+             android:src="@drawable/logo" />
  
 +        <!-- SableOS Ready screen: how the phone works after setup. The text scrolls with the
 +             arrow keys when focused; Start stays the first focus. -->
@@ -76,13 +76,13 @@ index d6444c8f..2446f165 100644
 +            </LinearLayout>
 +        </ScrollView>
 +
-         <org.lineageos.setupwizard.NavigationLayout
-             android:id="@+id/navigation_bar"
+         <LinearLayout
+             android:id="@+id/swipe_hint"
              android:layout_width="match_parent"
-diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
-index 7fd07865..6d7d7c29 100644
---- a/res/values/sable_strings.xml
-+++ b/res/values/sable_strings.xml
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
+index b4999aa..44a150b 100644
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
 @@ -65,4 +65,12 @@
          <item>Orange</item>
          <item>Slate</item>

@@ -8,9 +8,9 @@
     <string name="exact_result">Exaktes Ergebnis</string>
     <string name="choose_an_operation_first">Wähle zuerst eine Rechenoperation.</string>
     <string name="degrees_for_trigonometry">%1$s · Grad für trigonometrische Funktionen</string>
-    <string name="scientific_operations_and_the_core">Wissenschaftliche Funktionen und grundlegende Rechenoperationen werden in der nativen Rechnerkomponente ausgeführt.</string>
+    <string name="scientific_operations_and_the_core">Wissenschaftliche Funktionen und exakte Arithmetik laufen offline auf dem Telefon.</string>
     <string name="results_are_not_silently_rounded">Ergebnisse werden nicht unbemerkt in Gleitkommawerte gerundet.</string>
     <string name="scientific_functions_use_degrees">Wissenschaftliche Funktionen verwenden Grad.</string>
     <string name="exact_decimal_results_never_rounded">Exakte Dezimalergebnisse ohne Rundung.</string>
-    <string name="native_bridge_failure">Fehler der nativen Schnittstelle</string>
+    <string name="native_bridge_failure">Berechnung fehlgeschlagen</string>
 </resources>

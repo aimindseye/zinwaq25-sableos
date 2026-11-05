@@ -53,4 +53,5 @@
     <string name="will_be_deleted_from_this">Το «%1$s» θα διαγραφεί από αυτό το τηλέφωνο.</string>
     <string name="delete">Διαγραφή</string>
     <string name="keep">Διατήρηση</string>
+    <string name="r_remind_in_tasks">" · R υπενθύμιση στις Εργασίες"</string>
 </resources>

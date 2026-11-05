@@ -6,9 +6,9 @@ Fill from `adb shell getevent -lt` on a real Q25. Leave `?` until measured.
 |---|---|---|---|
 | Call (green) | ? | ? | kl maps 169 and 231 to CALL |
 | End / Power (red) | ? | ? | |
-| Menu (BlackBerry) | ? | ? | kl maps 139 and 127 to MENU |
+| Menu | ? | ? | kl maps 139 and 127 to MENU (the BlackBerry key itself sends HOME, see below) |
 | Back | ? | ? | kl maps 158 to BACK |
-| Trackpad move | ? | ? | DPAD keys or REL events? |
+| Trackpad move | KEY_UP / KEY_DOWN / KEY_LEFT / KEY_RIGHT on `Q25_keyboard` (event2) | DPAD_UP / DOWN / LEFT / RIGHT | Measured 2026-11-04 on LineageOS 24.0 (owner capture): no REL or ABS events. Each step is a DOWN and UP in the same report, about 20-40 ms apart in a fast swipe. Chrome scrolls with it. |
 | Trackpad click | ? | ? | |
 | Alt | ? | ALT_LEFT? | |
 | Shift (left/right) | ? | ? | |
@@ -16,6 +16,7 @@ Fill from `adb shell getevent -lt` on a real Q25. Leave `?` until measured.
 | Speaker / mic key (0) | ? | ? | kcm gives alt 0 |
 | Volume up / down / mute | ? | ? | side keys |
 | Convenience key | ? | ? | |
+| BlackBerry key | KEY_HOMEPAGE (MSC_SCAN 0x12, `Q25_keyboard`) | HOME | Owner capture on LineageOS 24.0, 2026-11-04. 2.0 behaviour (owner decision 2026-11-04): tap = Home (Active Frames), hold = the app's menu (MENU). On BB10 Classic this key was Menu only. |
 
 ## Leads from q25toolbox (LineageOS 23, not verified here)
 

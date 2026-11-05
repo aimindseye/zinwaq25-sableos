@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">Sök eller skriv en webbadress</string>
+    <string name="keys_hint">L adress · Space sida · T överst · B nederst · R ladda om · M pekare</string>
+    <string name="pointer_on">Styrplattans pekare på</string>
+    <string name="pointer_off">Pekaren av · styrplattan rullar sidan</string>
+    <string name="page_failed">Sidan kunde inte laddas. R försöker igen.</string>
+    <string name="no_app_for_link">Ingen app kan öppna länken.</string>
+    <string name="share_page">Dela sida</string>
+    <string name="downloading">Laddar ned %1$s</string>
+    <string name="download_failed">Nedladdningen kunde inte starta.</string>
+    <string name="choose_file">Välj en fil</string>
+</resources>

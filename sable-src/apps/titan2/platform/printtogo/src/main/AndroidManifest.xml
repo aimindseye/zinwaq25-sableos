@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sable Print To Go (BlackBerry 10's Print To Go): while the user turns it on, the phone is a network
+     printer on the Wi-Fi, found by computers over DNS-SD (IPP Everywhere, AirPrint), and saves every print
+     as a PDF in Documents/Print To Go through MediaStore. It listens on the Wi-Fi address only, never on
+     mobile data, shows a notification with Stop while on, and turns itself off after 10 minutes without a
+     print. No storage permission, no backup, no cleartext traffic of its own: the IPP connection is the
+     computer's, on the local network. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.wifi" android:required="false" />
+
+    <!-- The IPP server socket on the Wi-Fi address, and DNS-SD to announce it. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Running while on, with a notification that says so and has Stop. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <queries>
+        <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
+        <provider android:authorities="org.sableos.appearance" />
+        <!-- Opening a saved print, and the Files app on its folder. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/pdf" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="vnd.android.document/directory" />
+        </intent>
+    </queries>
+
+    <application
+        android:name="org.sableos.titan2.printtogo.PrintToGoApplication"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        android:icon="@mipmap/ic_sable_printtogo"
+        android:roundIcon="@mipmap/ic_sable_printtogo_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+
+        <activity
+            android:name=".android.PrintToGoActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".android.PrintToGoService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+    </application>
+</manifest>

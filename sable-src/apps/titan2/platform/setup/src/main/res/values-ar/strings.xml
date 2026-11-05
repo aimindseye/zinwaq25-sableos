@@ -74,4 +74,10 @@
     <string name="weather_row_city">توقعات %1$s؛ بلا إذن موقع</string>
     <string name="weather_row_none">اختر المدينة التي يعرضها الطقس؛ بلا إذن موقع</string>
     <string name="weather_row_failed">تعذّرت قراءة مدينة الطقس</string>
+    <string name="row_hub_menu_title">قائمة الصف في Hub</string>
+    <string name="row_hub_menu_detail">الغفوة وذكّرني متوقفان حتى تشغّلهما في Hub</string>
+    <string name="action_hub_row_menu">إعدادات Hub</string>
+    <string name="row_work_space_title">مساحة العمل</string>
+    <string name="row_work_space_detail">اختياري: افصل تطبيقات العمل، مع مبدّل شخصي · عمل في Start</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

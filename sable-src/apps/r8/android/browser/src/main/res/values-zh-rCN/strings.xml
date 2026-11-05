@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">搜索或输入网址</string>
+    <string name="keys_hint">L 地址 · Space 翻页 · T 顶部 · B 底部 · R 刷新 · M 指针</string>
+    <string name="pointer_on">触控板指针已开启</string>
+    <string name="pointer_off">指针已关闭 · 触控板滚动页面</string>
+    <string name="page_failed">无法加载此页面。按 R 重试。</string>
+    <string name="no_app_for_link">没有应用可以打开此链接。</string>
+    <string name="share_page">分享页面</string>
+    <string name="downloading">正在下载 %1$s</string>
+    <string name="download_failed">无法开始此下载。</string>
+    <string name="choose_file">选择文件</string>
+</resources>

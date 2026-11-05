@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">Bu hafta etkinlik yok. C bir tane oluşturur.</string>
     <string name="selected">Seçili: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] aç  [E] düzenle  [Del] sil  [T] bugün"</string>
+    <string name="calendars">Takvimler</string>
+    <string name="calendars_hint">Gösterilen takvimler ajandayı, yoğunluk halkalarını ve Start\'taki ayı doldurur.</string>
+    <string name="no_calendars">Bu telefonda henüz takvim yok. Ayarlar > Hesaplar\'dan bir hesap ekleyin.</string>
+    <string name="l_calendars">" · L takvimler"</string>
+    <string name="day_events">%1$s, %2$s etkinlik</string>
 </resources>

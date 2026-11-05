@@ -183,4 +183,21 @@
     <string name="personal">Personnel</string>
     <string name="private_space">Espace privé</string>
     <string name="profile_2">Profil %1$s</string>
+    <string name="mark_read">Marquer comme lu</string>
+    <string name="snooze_1_hour">Reporter d’une heure</string>
+    <string name="dismiss_notification">Ignorer la notification</string>
+    <string name="snoozed_for_an_hour">Reporté d’une heure.</string>
+    <string name="notification_dismissed">Notification ignorée.</string>
+    <string name="sent_to_the_app">Envoyé à l’application.</string>
+    <string name="the_notification_is_gone">La notification n’est plus là.</string>
+    <string name="mark_prior_read">Marquer les précédents comme lus</string>
+    <string name="marked_prior_read">Les applis ont été invitées à marquer %1$s notifications plus anciennes comme lues.</string>
+    <string name="each_message_on_its_own">Chaque message séparément</string>
+    <string name="one_row_per_received_message">Une ligne par message reçu. Désactive Regrouper les conversations.</string>
+    <string name="remind_me">Me le rappeler</string>
+    <string name="tasks_unavailable">Sable Tasks n’est pas installé.</string>
+    <string name="row_menu_snooze">Reporter dans le menu de ligne</string>
+    <string name="row_menu_snooze_detail">Ajoute Reporter d’1 heure et la touche Z pour une notification active.</string>
+    <string name="row_menu_remind_me">Me le rappeler dans le menu de ligne</string>
+    <string name="row_menu_remind_me_detail">Ajoute une relance dans Sable Tasks pour demain matin. Seule l’app est enregistrée, jamais le message.</string>
 </resources>

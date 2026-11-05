@@ -183,4 +183,21 @@
     <string name="personal">Osobiste</string>
     <string name="private_space">Przestrzeń prywatna</string>
     <string name="profile_2">Profil %1$s</string>
+    <string name="mark_read">Oznacz jako przeczytane</string>
+    <string name="snooze_1_hour">Odłóż o 1 godzinę</string>
+    <string name="dismiss_notification">Odrzuć powiadomienie</string>
+    <string name="snoozed_for_an_hour">Odłożono o godzinę.</string>
+    <string name="notification_dismissed">Powiadomienie odrzucone.</string>
+    <string name="sent_to_the_app">Wysłano do aplikacji.</string>
+    <string name="the_notification_is_gone">Powiadomienia już nie ma.</string>
+    <string name="mark_prior_read">Oznacz wcześniejsze jako przeczytane</string>
+    <string name="marked_prior_read">Poproszono aplikacje o oznaczenie %1$s starszych powiadomień jako przeczytanych.</string>
+    <string name="each_message_on_its_own">Każda wiadomość osobno</string>
+    <string name="one_row_per_received_message">Jeden wiersz na każdą odebraną wiadomość. Wyłącza łączenie rozmów.</string>
+    <string name="remind_me">Przypomnij mi</string>
+    <string name="tasks_unavailable">Sable Tasks nie jest zainstalowany.</string>
+    <string name="row_menu_snooze">Odłóż w menu wiersza</string>
+    <string name="row_menu_snooze_detail">Dodaje Odłóż o 1 godzinę i klawisz Z dla aktywnego powiadomienia.</string>
+    <string name="row_menu_remind_me">Przypomnij mi w menu wiersza</string>
+    <string name="row_menu_remind_me_detail">Dodaje w Sable Tasks zadanie na jutro rano. Zapisywana jest tylko aplikacja, nigdy wiadomość.</string>
 </resources>

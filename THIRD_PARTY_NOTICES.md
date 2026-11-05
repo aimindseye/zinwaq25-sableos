@@ -36,3 +36,4 @@ licence text next to each before a public release.
 | Gradle and Android/Maven dependencies of the Sable apps | per dependency |
 | microG GmsCore and Companion APKs (`SABLE_Q25_MICROG`, pinned in `product/q25/microg/prebuilts.tsv`, shipped unmodified as microG signed them) | Apache-2.0 (https://github.com/microg/GmsCore) |
 | Aurora Store APK (same flag and pin file, unmodified) | GPL-3.0 (https://gitlab.com/AuroraOSS/AuroraStore); its source is at the pinned release tag |
+| eSpeak NG 1.52.0, built from source as Sable Speech (`sable-src/apps/r8/espeak`; application id, ABI and launcher entry changed by `apply_sable_flavor.py`) | GPL-3.0-or-later (https://github.com/espeak-ng/espeak-ng); its source is the pinned commit `4870adfa` plus that folder |

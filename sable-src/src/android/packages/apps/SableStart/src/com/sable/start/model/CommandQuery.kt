@@ -1,6 +1,8 @@
 package org.sableos.start.model
 
 import com.sable.start.model.StartText.t
+import java.text.Normalizer
+import java.util.Locale
 
 /**
  * Command layer query model (platform_sable SABLE_COMMAND_LAYER.md "Prefix
@@ -149,13 +151,14 @@ object CommandRanking {
         if (t.isEmpty()) {
             return items.sortedWith(compareBy({ recentRank(it) ?: Int.MAX_VALUE }, { label(it).lowercase() }))
         }
+        val f = SearchFold.fold(t)
         return items.mapNotNull { item ->
-            val l = label(item)
+            val l = SearchFold.fold(label(item))
             val tier =
                 when {
-                    l.startsWith(t, ignoreCase = true) -> 0
-                    l.split(' ', '-', '.').any { it.startsWith(t, ignoreCase = true) } -> 1
-                    l.contains(t, ignoreCase = true) -> 2
+                    l.startsWith(f) -> 0
+                    l.split(' ', '-', '.').any { it.startsWith(f) } -> 1
+                    l.contains(f) -> 2
                     else -> null
                 }
             tier?.let { Triple(item, it, recentRank(item) ?: Int.MAX_VALUE) }
@@ -223,12 +226,13 @@ object CommandBestMatch {
         title: String,
         term: String,
     ): Int {
-        val t = term.trim()
+        val t = SearchFold.fold(term.trim())
+        val folded = SearchFold.fold(title)
         return when {
             t.isEmpty() -> NO_MATCH
-            title.startsWith(t, ignoreCase = true) -> 0
-            title.split(' ', '-', '.').any { it.startsWith(t, ignoreCase = true) } -> 1
-            title.contains(t, ignoreCase = true) -> 2
+            folded.startsWith(t) -> 0
+            folded.split(' ', '-', '.').any { it.startsWith(t) } -> 1
+            folded.contains(t) -> 2
             else -> NO_MATCH
         }
     }
@@ -246,4 +250,21 @@ object CommandBestMatch {
     }
 
     const val NO_MATCH = 3
+}
+
+/**
+ * Search text without case or accents, so "cafe" finds "Café" and "ky vuong" finds "Kỳ Vương":
+ * letters are decomposed and their marks dropped, and the few letters that do not decompose
+ * (đ, ø, ł, ı) are mapped by hand.
+ */
+object SearchFold {
+    private val MARKS = Regex("\\p{Mn}+")
+    private val LETTERS = mapOf('đ' to 'd', 'ø' to 'o', 'ł' to 'l', 'ı' to 'i')
+
+    fun fold(text: String): String =
+        Normalizer
+            .normalize(text.lowercase(Locale.ROOT), Normalizer.Form.NFD)
+            .replace(MARKS, "")
+            .map { LETTERS[it] ?: it }
+            .joinToString("")
 }

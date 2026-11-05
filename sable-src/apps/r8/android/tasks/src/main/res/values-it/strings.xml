@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">attività</string>
+    <string name="tasks_hint">C nuova · Invio modifica · Spazio fatta · Z domani · D elimina · H fatte</string>
+    <string name="no_tasks">Nessuna attività. C ne aggiunge una.</string>
+    <string name="group_overdue">In ritardo</string>
+    <string name="group_today">Oggi</string>
+    <string name="group_tomorrow">Domani</string>
+    <string name="group_this_week">Questa settimana</string>
+    <string name="group_later">Più avanti</string>
+    <string name="group_no_date">Senza data</string>
+    <string name="group_done">Fatte</string>
+    <string name="due_at">Scade %1$s</string>
+    <string name="remind_at">Promemoria %1$s</string>
+    <string name="from_app">Da %1$s</string>
+    <string name="every_day">Ogni giorno</string>
+    <string name="every_week">Ogni settimana</string>
+    <string name="every_month">Ogni mese</string>
+    <string name="new_task">Nuova attività</string>
+    <string name="edit_task">Modifica attività</string>
+    <string name="title">Titolo</string>
+    <string name="details">Dettagli</string>
+    <string name="due">Scadenza</string>
+    <string name="remind">Promemoria</string>
+    <string name="none">Nessuno</string>
+    <string name="pick_time">Scegli orario</string>
+    <string name="later_today">Più tardi oggi</string>
+    <string name="this_evening">Stasera</string>
+    <string name="tomorrow_morning">Domattina</string>
+    <string name="repeat">Ripeti: %1$s</string>
+    <string name="never">Mai</string>
+    <string name="save">Salva</string>
+    <string name="cancel">Annulla</string>
+    <string name="delete">Elimina</string>
+    <string name="delete_task">Eliminare «%1$s»?</string>
+    <string name="deleted">«%1$s» eliminata</string>
+    <string name="add_a_title">Aggiungi un titolo.</string>
+    <string name="reminders">Promemoria</string>
+    <string name="task_reminder">Promemoria attività</string>
+    <string name="done">Fatta</string>
+    <string name="snooze_1_hour">Rimanda di 1 ora</string>
+    <string name="reminders_off">Gli avvisi dei promemoria sono disattivati. Invio li consente; i promemoria restano qui.</string>
+    <string name="follow_up_in">Ricontatta in %1$s</string>
+    <string name="show_done">Mostra fatte (H)</string>
+    <string name="hide_done">Nascondi fatte (H)</string>
+</resources>

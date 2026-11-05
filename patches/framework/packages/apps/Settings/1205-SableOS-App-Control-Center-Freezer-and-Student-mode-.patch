@@ -82,10 +82,10 @@ Mobile Manager pages on the 1204 model (MOBILE_MANAGER_APP_CONTROLS_UX):
  create mode 100644 src/com/android/settings/applications/sable/SableStudentModeReceiver.java
 
 diff --git a/AndroidManifest.xml b/AndroidManifest.xml
-index 57955e6..fb3e5af 100644
+index 65b594a..807c672 100644
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
-@@ -2065,25 +2065,68 @@
+@@ -2074,25 +2074,68 @@
                  android:value="@string/menu_key_apps"/>
          </activity>
  
@@ -436,7 +436,7 @@ index b39e648..37b7186 100644
 +    <string name="sable_spaces_boundary_note">Use Private Space to keep apps behind your screen lock, and Private Space or Dual Apps when data must stay apart. This build has no app lock.</string>
  </resources>
 diff --git a/res/xml/more_security_privacy_settings.xml b/res/xml/more_security_privacy_settings.xml
-index 0068872..3f264ce 100644
+index af3b5ec..96405fe 100644
 --- a/res/xml/more_security_privacy_settings.xml
 +++ b/res/xml/more_security_privacy_settings.xml
 @@ -70,6 +70,14 @@
@@ -455,7 +455,7 @@ index 0068872..3f264ce 100644
          <Preference
              android:key="privacy_accessibility_usage"
 diff --git a/res/xml/privacy_dashboard_settings.xml b/res/xml/privacy_dashboard_settings.xml
-index 22fe002..8075f7b 100644
+index a430e00..38b8195 100644
 --- a/res/xml/privacy_dashboard_settings.xml
 +++ b/res/xml/privacy_dashboard_settings.xml
 @@ -36,6 +36,15 @@
@@ -785,10 +785,10 @@ index 0000000..c02b4a1
 +
 +</PreferenceScreen>
 diff --git a/src/com/android/settings/Settings.java b/src/com/android/settings/Settings.java
-index 0924844..17ebf69 100644
+index 232a5d7..21ae48e 100644
 --- a/src/com/android/settings/Settings.java
 +++ b/src/com/android/settings/Settings.java
-@@ -166,6 +166,10 @@ public class Settings extends SettingsActivity {
+@@ -185,6 +185,10 @@ public class Settings extends SettingsActivity {
      public static class SableMobileManagerActivity extends SettingsActivity { /* empty */ }
      /** SableOS: org.sableos.settings.FOCUS_MODE and the Focus mode configuration page. */
      public static class SableFocusModeActivity extends SettingsActivity { /* empty */ }
@@ -2898,7 +2898,7 @@ index 0000000..5a16856
 +    }
 +}
 diff --git a/src/com/android/settings/core/gateway/SettingsGateway.java b/src/com/android/settings/core/gateway/SettingsGateway.java
-index 364bb8d..26b326f 100644
+index 9e382ae..39cc509 100644
 --- a/src/com/android/settings/core/gateway/SettingsGateway.java
 +++ b/src/com/android/settings/core/gateway/SettingsGateway.java
 @@ -74,12 +74,14 @@ import com.android.settings.applications.specialaccess.pictureinpicture.PictureI

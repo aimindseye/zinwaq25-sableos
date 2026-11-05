@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">Arayın veya web adresi yazın</string>
+    <string name="keys_hint">L adres · Space sayfa · T üst · B alt · R yenile · M işaretçi</string>
+    <string name="pointer_on">Dokunmatik yüzey işaretçisi açık</string>
+    <string name="pointer_off">İşaretçi kapalı · dokunmatik yüzey sayfayı kaydırır</string>
+    <string name="page_failed">Sayfa yüklenemedi. R yeniden dener.</string>
+    <string name="no_app_for_link">Bu bağlantıyı açabilecek uygulama yok.</string>
+    <string name="share_page">Sayfayı paylaş</string>
+    <string name="downloading">%1$s indiriliyor</string>
+    <string name="download_failed">İndirme başlatılamadı.</string>
+    <string name="choose_file">Dosya seçin</string>
+</resources>

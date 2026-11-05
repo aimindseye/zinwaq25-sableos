@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Urdu. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">شمال</string>
+    <string name="ne">شمال مشرق</string>
+    <string name="e">مشرق</string>
+    <string name="se">جنوب مشرق</string>
+    <string name="s">جنوب</string>
+    <string name="sw">جنوب مغرب</string>
+    <string name="w">مغرب</string>
+    <string name="nw">شمال مغرب</string>
+    <string name="dial_n">ش</string>
+    <string name="dial_e">مش</string>
+    <string name="dial_s">ج</string>
+    <string name="dial_w">مغ</string>
+    <string name="true_mark">ح</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">مقناطیسی شمال</string>
+    <string name="true_north">حقیقی شمال</string>
+    <string name="true_waiting">حقیقی شمال کے لیے آپ کا تقریبی مقام تلاش کیا جا رہا ہے۔ تب تک مقناطیسی شمال دکھایا جا رہا ہے۔</string>
+    <string name="true_denied">حقیقی شمال کے لیے آپ کا تقریبی مقام درکار ہے۔ مقناطیسی شمال دکھایا جا رہا ہے۔</string>
+    <string name="accuracy_high">درستگی: زیادہ</string>
+    <string name="accuracy_medium">درستگی: درمیانی</string>
+    <string name="accuracy_low">درستگی: کم۔ کیلیبریٹ کرنے کے لیے C دبائیں۔</string>
+    <string name="accuracy_unreliable">درستگی: ناقابلِ اعتماد۔ کیلیبریٹ کرنے کے لیے C دبائیں۔</string>
+    <string name="no_sensor">اس فون میں کمپاس سینسر نہیں ہے۔</string>
+    <string name="flat_or_upright">فون کو سیدھا لٹائیں، یا کھڑا کر کے اس سمت رکھیں جدھر آپ دیکھ رہے ہیں۔</string>
+    <string name="held">روکا گیا۔ H چھوڑتا ہے۔</string>
+    <string name="calibrate">کیلیبریٹ کریں</string>
+    <string name="calibrate_body">فون کو چند بار 8 کی شکل میں حرکت دیں اور ساتھ گھماتے رہیں۔ دھات، مقناطیس اور اسپیکر سے دور رہیں۔</string>
+    <string name="calibrate_done">کیلیبریٹ ہو گیا۔</string>
+    <string name="hint">T حقیقی شمال · C کیلیبریٹ · H روکیں · Back باہر جاتا ہے</string>
+    <string name="calibrate_hint">C یا Back کمپاس پر واپس لاتا ہے</string>
+</resources>

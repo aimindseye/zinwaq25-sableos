@@ -49,7 +49,7 @@ internal fun Game2048Screen() {
 
     fun slide(direction: Int) {
         val result =
-            NativeBridge.game2048Slide(
+            GamesCore.game2048Slide(
                 board,
                 direction,
             )

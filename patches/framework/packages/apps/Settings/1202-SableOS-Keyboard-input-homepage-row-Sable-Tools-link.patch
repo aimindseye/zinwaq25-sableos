@@ -186,10 +186,10 @@ index 0000000..2baba33
 +    <string name="sable_privacy_security_title">Privacy &amp; security</string>
 +</resources>
 diff --git a/res/xml/keyboard_settings.xml b/res/xml/keyboard_settings.xml
-index 2214e7c..d2463f7 100644
+index 1190779..74c5013 100644
 --- a/res/xml/keyboard_settings.xml
 +++ b/res/xml/keyboard_settings.xml
-@@ -21,16 +21,17 @@
+@@ -21,17 +21,18 @@
      android:title="@string/keyboard_settings">
      <PreferenceCategory
          android:key="keyboards_category">
@@ -201,18 +201,19 @@ index 2214e7c..d2463f7 100644
 +
          <Preference
              android:key="virtual_keyboard_pref"
-             android:title="@string/virtual_keyboard_category"
+             android:title="@string/keyboard_apps_category"
              android:fragment="com.android.settings.inputmethod.AvailableVirtualKeyboardFragment"
-             settings:keywords="@string/keywords_virtual_keyboard"/>
--
+             settings:keywords="@string/keywords_keyboard_apps"/>
+ 
 -        <Preference
 -            android:key="physical_keyboard_pref"
 -            android:title="@string/physical_keyboard_title"
 -            android:summary="@string/summary_placeholder"/>
-     </PreferenceCategory>
- 
-     <PreferenceCategory
-@@ -65,6 +66,27 @@
+-
+         <SwitchPreferenceCompat
+             android:key="ime_switcher_button_in_navbar_enabled"
+             android:title="@string/ime_switcher_button_in_navbar_title"
+@@ -71,6 +72,27 @@
          settings:keywords="@string/keywords_sable_keyboard_backlight"
          settings:controller="com.android.settings.sable.SableKeyboardBacklightPreferenceController" />
  
@@ -241,7 +242,7 @@ index 2214e7c..d2463f7 100644
          android:key="feature_touch_hovering"
          android:title="@string/touchscreen_hovering_title"
 diff --git a/res/xml/top_level_settings.xml b/res/xml/top_level_settings.xml
-index d2327ff..4a105db 100644
+index 1bd6e47..ba3900a 100644
 --- a/res/xml/top_level_settings.xml
 +++ b/res/xml/top_level_settings.xml
 @@ -121,6 +121,17 @@
@@ -271,7 +272,7 @@ index d2327ff..4a105db 100644
              android:summary="@string/safety_center_summary"
              settings:highlightableMenuKey="@string/menu_key_safety_center"
              settings:controller="com.android.settings.safetycenter.TopLevelSafetyCenterEntryPreferenceController"/>
-@@ -274,6 +285,15 @@
+@@ -285,6 +296,15 @@
              android:summary="@string/support_summary"
              settings:highlightableMenuKey="@string/menu_key_support"
              settings:controller="com.android.settings.support.SupportPreferenceController"/>
@@ -289,7 +290,7 @@ index d2327ff..4a105db 100644
  </PreferenceScreen>
 \ No newline at end of file
 diff --git a/res/xml/top_level_settings_expressive.xml b/res/xml/top_level_settings_expressive.xml
-index 019d14b..d54981e 100644
+index 81d14e9..1bdc40c 100644
 --- a/res/xml/top_level_settings_expressive.xml
 +++ b/res/xml/top_level_settings_expressive.xml
 @@ -113,6 +113,17 @@
@@ -319,7 +320,7 @@ index 019d14b..d54981e 100644
              android:summary="@string/safety_center_summary"
              settings:highlightableMenuKey="@string/menu_key_safety_center"
              settings:controller="com.android.settings.safetycenter.TopLevelSafetyCenterEntryPreferenceController"/>
-@@ -270,6 +281,15 @@
+@@ -281,6 +292,15 @@
              android:summary="@string/support_summary"
              settings:highlightableMenuKey="@string/menu_key_support"
              settings:controller="com.android.settings.support.SupportPreferenceController"/>

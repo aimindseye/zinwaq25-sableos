@@ -183,4 +183,21 @@
     <string name="personal">व्यक्तिगत</string>
     <string name="private_space">निजी स्पेस</string>
     <string name="profile_2">प्रोफ़ाइल %1$s</string>
+    <string name="mark_read">पढ़ा हुआ चिह्नित करें</string>
+    <string name="snooze_1_hour">1 घंटे के लिए स्नूज़ करें</string>
+    <string name="dismiss_notification">सूचना हटाएँ</string>
+    <string name="snoozed_for_an_hour">एक घंटे के लिए स्नूज़ किया गया।</string>
+    <string name="notification_dismissed">सूचना हटा दी गई।</string>
+    <string name="sent_to_the_app">ऐप को भेजा गया।</string>
+    <string name="the_notification_is_gone">सूचना अब मौजूद नहीं है।</string>
+    <string name="mark_prior_read">पिछले को पढ़ा हुआ चिह्नित करें</string>
+    <string name="marked_prior_read">ऐप्स से %1$s पुरानी सूचनाओं को पढ़ा हुआ चिह्नित करने को कहा गया।</string>
+    <string name="each_message_on_its_own">हर संदेश अलग</string>
+    <string name="one_row_per_received_message">हर प्राप्त संदेश के लिए एक पंक्ति। बातचीत जोड़ना बंद करता है।</string>
+    <string name="remind_me">मुझे याद दिलाएँ</string>
+    <string name="tasks_unavailable">Sable Tasks इंस्टॉल नहीं है।</string>
+    <string name="row_menu_snooze">पंक्ति मेनू में स्नूज़</string>
+    <string name="row_menu_snooze_detail">सक्रिय सूचना के लिए 1 घंटा स्नूज़ और Z कुंजी जोड़ता है।</string>
+    <string name="row_menu_remind_me">पंक्ति मेनू में मुझे याद दिलाएँ</string>
+    <string name="row_menu_remind_me_detail">Sable Tasks में कल सुबह के लिए फ़ॉलो-अप जोड़ता है। केवल ऐप सहेजा जाता है, संदेश कभी नहीं।</string>
 </resources>

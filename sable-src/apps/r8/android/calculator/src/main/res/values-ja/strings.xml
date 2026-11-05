@@ -8,9 +8,9 @@
     <string name="exact_result">正確な結果</string>
     <string name="choose_an_operation_first">先に計算方法を選択してください。</string>
     <string name="degrees_for_trigonometry">%1$s · 三角関数には度数法を使用</string>
-    <string name="scientific_operations_and_the_core">関数計算と基本的な四則演算は、電卓のネイティブエンジンで実行されます。</string>
+    <string name="scientific_operations_and_the_core">関数電卓と正確な計算は、オフラインで端末上で動作します。</string>
     <string name="results_are_not_silently_rounded">計算結果が浮動小数点数に自動的に丸められることはありません。</string>
     <string name="scientific_functions_use_degrees">関数計算には度数法を使用します。</string>
     <string name="exact_decimal_results_never_rounded">丸め処理を行わない正確な小数結果です。</string>
-    <string name="native_bridge_failure">ネイティブ連携エラー</string>
+    <string name="native_bridge_failure">計算できませんでした</string>
 </resources>

@@ -389,9 +389,10 @@ report(
 )
 patch0102 = next(SYSTEMUI_PATCHES.glob("0102-*.patch")).read_text(encoding="utf-8")
 report(
-    f"+    val ActiveTileCornerRadius = {card}.dp" in patch0102
-    and f"+    val InactiveCornerRadius = {card}.dp" in patch0102
-    and f"+    val ActiveIconCornerRadius = {small}.dp" in patch0102,
+    # LineageOS 24.0 keeps the tile radii as dimens in SystemUI res/values/shade_dimens.xml.
+    f'+    <dimen name="common_tile_default_active_tile_corner_radius">{card}dp</dimen>' in patch0102
+    and f'+    <dimen name="common_tile_default_inactive_icon_corner_radius">{card}dp</dimen>' in patch0102
+    and f'+    <dimen name="common_tile_default_active_icon_corner_radius">{small}dp</dimen>' in patch0102,
     "SystemUI patch 0102 tile radii equal the shape tokens",
 )
 security = re.findall(r"^\+\+\+ b/(\S+)", patch0101 + patch0102, re.M)
@@ -476,7 +477,7 @@ report(
 suw = {f.name[:4]: f.read_text(encoding="utf-8") for f in SETUPWIZARD_PATCHES.glob("04*.patch")}
 p0408 = suw.get("0408", "")
 report(
-    '-        id="lineage_settings">' in p0408
+    '-        id="lineage_settings"' in p0408
     and '-        <result wizard:action="lineage_settings" />' in p0408
     and '<result wizard:action="biometric_settings" />' in p0408
     and "lineage_settings" not in "".join(l for l in p0408.splitlines(True) if l.startswith("+")),
@@ -524,11 +525,24 @@ report(
 ready = (
     "Home is Sable Start: Active Frames shows your open apps, with Hub to the left and your app grid"
     " to the right (Alt+Left / Alt+Right).",
-    "The bar is Phone · Search · Camera (Alt+1..3); start typing anywhere to search.",
+    "The bar is Hub · page dots · Camera (Alt+1, Alt+2); start typing anywhere to search.",
 )
 report(
     all(suw_added("0413", r) for r in ready) and not suw_added("0413", "Command, All Apps"),
-    "Ready screen describes the BB10 Sable Start (Active Frames, Hub left, grid right, Phone · Search · Camera)",
+    "Ready screen describes the BB10 Sable Start (Active Frames, Hub left, grid right, Hub · page dots · Camera)",
+)
+# Text size: setup's Theme step (SetupWizard 0415) and Settings > Display (Settings 1601) offer
+# the same four font scales, and Larger (1.3) is the biggest Sable lays out (SableResponsive).
+text_size_settings = "".join(f.read_text(encoding="utf-8") for f in SETTINGS_PATCHES.glob("1601-*.patch"))
+scales_line = "+    public static final float[] SCALES = {0.9f, 1.0f, 1.15f, 1.3f};"
+report(
+    suw_added("0415", scales_line[1:])
+    and scales_line in text_size_settings
+    and suw_added("0415", "Settings.System.FONT_SCALE")
+    and "+            android:key=\"sable_text_size\"" in text_size_settings
+    and all(f">{w}</" in suw.get("0415", "") and f"<item>{w}</item>" in text_size_settings
+            for w in ("Small", "Medium", "Large", "Larger")),
+    "Text size is Small · Medium · Large · Larger (0.9, 1.0, 1.15, 1.3) in setup and Settings > Display",
 )
 lock = [l for n, l in added if 'name="sable_privacy_lock_screen"' in l]
 report(

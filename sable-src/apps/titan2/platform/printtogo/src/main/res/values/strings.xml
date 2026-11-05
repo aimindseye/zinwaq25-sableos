@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Single capital letters in hints (O open) name keyboard keys: keep them as the key, translate the word.
+     Keep equal to PrintToGoText.EN (PrintToGoTextTest checks); translations go in values-<lang>/. -->
+<resources>
+    <string name="app_name" translatable="false">Sable Print To Go</string>
+    <string name="intro">Print from your computer to this phone. While Print To Go is on, the phone is a printer on your Wi-Fi, and each print is saved as a PDF in Documents/Print To Go.</string>
+    <string name="start">Start receiving</string>
+    <string name="stop">Stop</string>
+    <string name="off">Off. Nothing can print to this phone.</string>
+    <string name="ready">Ready as %1$s. Choose it in your computer\'s print dialog. It turns off after 10 minutes without a print.</string>
+    <string name="no_wifi">Connect to Wi-Fi first. Print To Go only listens on Wi-Fi, never on mobile data.</string>
+    <string name="start_failed">Print To Go could not start. Try again.</string>
+    <string name="saved">Saved: %1$s</string>
+    <string name="save_failed">%1$s could not be saved.</string>
+    <string name="open_folder">Open saved prints</string>
+    <string name="running">Print To Go is on</string>
+    <string name="channel_running">Print To Go running</string>
+    <string name="channel_saved">Saved prints</string>
+    <string name="idle_off">Print To Go turned off after 10 minutes without a print.</string>
+    <string name="hint">Enter starts or stops · O opens saved prints · Back leaves</string>
+</resources>

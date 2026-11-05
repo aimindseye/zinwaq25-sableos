@@ -30,5 +30,5 @@
     <string name="convert_convert">تحويل</string>
     <string name="convert_enter_a_number_with_up">أدخل رقمًا يحتوي على ثلاثة منازل عشرية كحد أقصى</string>
     <string name="convert_length_mass_temperature_and_volume">تُجرى تحويلات الطول والكتلة ودرجة الحرارة والحجم محليًا دون اتصال بالإنترنت.</string>
-    <string name="convert_native_bridge_failure">فشل الواجهة الأصلية</string>
+    <string name="convert_native_bridge_failure">تعذّر التحويل</string>
 </resources>

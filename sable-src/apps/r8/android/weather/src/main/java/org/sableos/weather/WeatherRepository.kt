@@ -55,7 +55,7 @@ internal class WeatherRepository(
 
         val availability =
             availabilityFromNative(
-                WeatherNative.providerState(
+                WeatherCore.providerState(
                     hasCachedSnapshot = true,
                     lastSuccessEpochSeconds = observed,
                     nowEpochSeconds = nowEpochSeconds,
@@ -99,7 +99,7 @@ internal class WeatherRepository(
     ): WeatherUiState {
         val cached = load(location, nowEpochSeconds)
         val url =
-            WeatherNative.buildForecastUrl(
+            WeatherCore.buildForecastUrl(
                 latitude = location.latitude,
                 longitude = location.longitude,
                 timezone = location.timezone,
@@ -110,7 +110,7 @@ internal class WeatherRepository(
             runCatching {
                 fetchHttps(url)
             }.mapCatching { json ->
-                WeatherNative.parseForecast(json)
+                WeatherCore.parseForecast(json)
             }.getOrNull()
 
         if (protocol.isNullOrBlank() || !protocol.startsWith("OK\n")) {

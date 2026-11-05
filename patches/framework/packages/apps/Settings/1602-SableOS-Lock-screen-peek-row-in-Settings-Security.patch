@@ -1,0 +1,131 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 4 Nov 2026 20:30:00 +0000
+Subject: [PATCH] SableOS: Lock screen peek row in Settings > Security
+
+Settings > Security > Lock screen peek says what the lock screen's Peek
+shows, read from Android's own lock screen notification setting: Counts
+while sensitive content is hidden (the Sable default), Messages with Show
+all content, Off with lock screen notifications off. The row opens the
+Lock screen page, where that setting is changed; it writes nothing.
+---
+ res/values/strings_sable_lock_peek.xml        | 16 +++++
+ res/xml/security_dashboard_settings.xml       |  8 +++
+ .../SableLockPeekPreferenceController.java    | 65 +++++++++++++++++++
+ 3 files changed, 89 insertions(+)
+
+diff --git a/res/values/strings_sable_lock_peek.xml b/res/values/strings_sable_lock_peek.xml
+new file mode 100644
+index 0000000..e30b36b
+--- /dev/null
++++ b/res/values/strings_sable_lock_peek.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <!-- SableOS Settings > Security > Lock screen peek. -->
++    <string name="sable_lock_peek_title">Lock screen peek</string>
++    <string name="sable_lock_peek_keywords">peek, lock screen, notifications, counts, preview, sender</string>
++    <!-- Summary while sensitive content is hidden on the lock screen. -->
++    <string name="sable_lock_peek_counts">Counts: each app and its number. Change it under Notifications on lock screen</string>
++    <!-- Summary with Show all content. -->
++    <string name="sable_lock_peek_messages">Messages: each app with its newest sender. Change it under Notifications on lock screen</string>
++    <!-- Summary with lock screen notifications off. -->
++    <string name="sable_lock_peek_off">Off: lock screen notifications are off</string>
++</resources>
+diff --git a/res/xml/security_dashboard_settings.xml b/res/xml/security_dashboard_settings.xml
+index 3bb7d69..7738163 100644
+--- a/res/xml/security_dashboard_settings.xml
++++ b/res/xml/security_dashboard_settings.xml
+@@ -43,6 +43,14 @@
+             android:summary="@string/summary_placeholder"
+             settings:keywords="@string/keywords_lockscreen" />
+ 
++        <!-- SableOS: what the lock screen's Peek shows; opens the Lock screen page. -->
++        <Preference
++            android:key="sable_lock_screen_peek"
++            android:title="@string/sable_lock_peek_title"
++            android:fragment="com.android.settings.security.LockscreenDashboardFragment"
++            settings:keywords="@string/sable_lock_peek_keywords"
++            settings:controller="com.android.settings.sable.SableLockPeekPreferenceController" />
++
+         <com.android.settingslib.RestrictedPreference
+             android:key="fingerprint_settings"
+             android:title="@string/security_settings_fingerprint_preference_title"
+diff --git a/src/com/android/settings/sable/SableLockPeekPreferenceController.java b/src/com/android/settings/sable/SableLockPeekPreferenceController.java
+new file mode 100644
+index 0000000..618011a
+--- /dev/null
++++ b/src/com/android/settings/sable/SableLockPeekPreferenceController.java
+@@ -0,0 +1,65 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++import android.os.UserHandle;
++import android.provider.Settings;
++
++import androidx.preference.Preference;
++
++import com.android.settings.R;
++import com.android.settings.core.BasePreferenceController;
++
++/**
++ * Settings > Security > Lock screen peek: what the lock screen's Peek shows, read from Android's
++ * own lock screen notification setting (one source: the Peek and the notifications below it
++ * always agree). Counts while sensitive content is hidden, Messages (the newest sender for each
++ * app) with "Show all content", Off when lock screen notifications are off. The row opens the
++ * Lock screen page, where that setting is changed; it never writes the setting itself.
++ */
++public class SableLockPeekPreferenceController extends BasePreferenceController {
++
++    public SableLockPeekPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return AVAILABLE;
++    }
++
++    @Override
++    public CharSequence getSummary() {
++        final int user = UserHandle.myUserId();
++        final boolean show = Settings.Secure.getIntForUser(mContext.getContentResolver(),
++                Settings.Secure.LOCK_SCREEN_SHOW_NOTIFICATIONS, 1, user) != 0;
++        if (!show) {
++            return mContext.getString(R.string.sable_lock_peek_off);
++        }
++        final boolean content = Settings.Secure.getIntForUser(mContext.getContentResolver(),
++                Settings.Secure.LOCK_SCREEN_ALLOW_PRIVATE_NOTIFICATIONS, 1, user) != 0;
++        return mContext.getString(content ? R.string.sable_lock_peek_messages
++                : R.string.sable_lock_peek_counts);
++    }
++
++    @Override
++    public void updateState(Preference preference) {
++        super.updateState(preference);
++        preference.setSummary(getSummary());
++    }
++}
+-- 
+2.43.0
+

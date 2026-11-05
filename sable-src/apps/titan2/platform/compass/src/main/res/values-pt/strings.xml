@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Portuguese. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">Norte</string>
+    <string name="ne">Nordeste</string>
+    <string name="e">Leste</string>
+    <string name="se">Sudeste</string>
+    <string name="s">Sul</string>
+    <string name="sw">Sudoeste</string>
+    <string name="w">Oeste</string>
+    <string name="nw">Noroeste</string>
+    <string name="dial_n">N</string>
+    <string name="dial_e">L</string>
+    <string name="dial_s">S</string>
+    <string name="dial_w">O</string>
+    <string name="true_mark">V</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">Norte magnético</string>
+    <string name="true_north">Norte verdadeiro</string>
+    <string name="true_waiting">Procurando sua localização aproximada para o norte verdadeiro. Até lá, o norte magnético é mostrado.</string>
+    <string name="true_denied">O norte verdadeiro precisa da sua localização aproximada. Mostrando o norte magnético.</string>
+    <string name="accuracy_high">Precisão: alta</string>
+    <string name="accuracy_medium">Precisão: média</string>
+    <string name="accuracy_low">Precisão: baixa. Pressione C para calibrar.</string>
+    <string name="accuracy_unreliable">Precisão: não confiável. Pressione C para calibrar.</string>
+    <string name="no_sensor">Este telefone não tem sensor de bússola.</string>
+    <string name="flat_or_upright">Segure o telefone na horizontal, ou em pé voltado para onde você olha.</string>
+    <string name="held">Fixado. H solta.</string>
+    <string name="calibrate">Calibrar</string>
+    <string name="calibrate_body">Mova o telefone em forma de 8 algumas vezes, girando-o enquanto isso. Fique longe de metais, ímãs e alto-falantes.</string>
+    <string name="calibrate_done">Calibrado.</string>
+    <string name="hint">T norte verdadeiro · C calibrar · H fixar · Voltar sai</string>
+    <string name="calibrate_hint">C ou Voltar retorna à bússola</string>
+</resources>

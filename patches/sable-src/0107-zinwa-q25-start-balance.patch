@@ -1,0 +1,585 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
+index 5cc1f67..6435e99 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
+@@ -129,4 +129,18 @@ class Bb10HomeTest {
+         assertEquals("Dual", AppProfiles.badge(AppProfiles.DUAL))
+         assertEquals("Work", AppProfiles.badge(AppProfiles.WORK))
+     }
++
++    @Test
++    fun balanceSplitsWorkAppsFromPersonalOnes() {
++        assertEquals(emptyList<BalanceSpace>(), Balance.spaces(hasWorkProfile = false))
++        assertEquals(listOf(BalanceSpace.Personal, BalanceSpace.Work), Balance.spaces(hasWorkProfile = true))
++        assertTrue(Balance.inSpace(null, BalanceSpace.Personal))
++        assertTrue(Balance.inSpace(AppProfiles.DUAL, BalanceSpace.Personal))
++        assertTrue(Balance.inSpace(AppProfiles.PRIVATE, BalanceSpace.Personal))
++        assertFalse(Balance.inSpace(AppProfiles.WORK, BalanceSpace.Personal))
++        assertTrue(Balance.inSpace(AppProfiles.WORK, BalanceSpace.Work))
++        assertFalse(Balance.inSpace(null, BalanceSpace.Work))
++        assertEquals(BalanceSpace.Work, Balance.next(BalanceSpace.Personal))
++        assertEquals(BalanceSpace.Personal, Balance.next(BalanceSpace.Work))
++    }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index 8bd3bcb..c4033d3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">تشغيل</string>
+     <string name="frame_pause">إيقاف مؤقت</string>
+     <string name="frame_next">التالي</string>
++    <string name="balance_personal">شخصي</string>
++    <string name="balance_space">المساحة: %1$s</string>
++    <string name="work_paused">تطبيقات العمل متوقفة مؤقتًا. تنتظر إشعاراتها حتى تشغّلها.</string>
++    <string name="pause_work">إيقاف تطبيقات العمل مؤقتًا</string>
++    <string name="resume_work">تشغيل تطبيقات العمل</string>
++    <string name="no_work_apps">لا توجد تطبيقات عمل بعد. يمكن لـ Sable Setup إنشاء مساحة عمل.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index b2d0040..bd32f41 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">Wiedergabe</string>
+     <string name="frame_pause">Pause</string>
+     <string name="frame_next">Weiter</string>
++    <string name="balance_personal">Privat</string>
++    <string name="balance_space">Bereich: %1$s</string>
++    <string name="work_paused">Arbeits-Apps sind pausiert. Ihre Benachrichtigungen warten, bis du sie einschaltest.</string>
++    <string name="pause_work">Arbeits-Apps pausieren</string>
++    <string name="resume_work">Arbeits-Apps einschalten</string>
++    <string name="no_work_apps">Noch keine Arbeits-Apps. Sable Setup kann einen Arbeitsbereich anlegen.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index 3588272..fdc822b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">Αναπαραγωγή</string>
+     <string name="frame_pause">Παύση</string>
+     <string name="frame_next">Επόμενο</string>
++    <string name="balance_personal">Προσωπικά</string>
++    <string name="balance_space">Χώρος: %1$s</string>
++    <string name="work_paused">Οι εφαρμογές εργασίας είναι σε παύση. Οι ειδοποιήσεις τους περιμένουν μέχρι να τις ενεργοποιήσετε.</string>
++    <string name="pause_work">Παύση εφαρμογών εργασίας</string>
++    <string name="resume_work">Ενεργοποίηση εφαρμογών εργασίας</string>
++    <string name="no_work_apps">Δεν υπάρχουν ακόμη εφαρμογές εργασίας. Το Sable Setup μπορεί να φτιάξει χώρο εργασίας.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index 18a06d0..f6e113d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">Reproducir</string>
+     <string name="frame_pause">Pausar</string>
+     <string name="frame_next">Siguiente</string>
++    <string name="balance_personal">Personal</string>
++    <string name="balance_space">Espacio: %1$s</string>
++    <string name="work_paused">Las apps de trabajo están en pausa. Sus notificaciones esperan hasta que las actives.</string>
++    <string name="pause_work">Pausar apps de trabajo</string>
++    <string name="resume_work">Activar apps de trabajo</string>
++    <string name="no_work_apps">Aún no hay apps de trabajo. Sable Setup puede crear un espacio de trabajo.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index c76a6f6..b669e7e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">Lecture</string>
+     <string name="frame_pause">Pause</string>
+     <string name="frame_next">Suivant</string>
++    <string name="balance_personal">Personnel</string>
++    <string name="balance_space">Espace : %1$s</string>
++    <string name="work_paused">Les apps professionnelles sont en pause. Leurs notifications attendent que vous les réactiviez.</string>
++    <string name="pause_work">Mettre en pause les apps pro</string>
++    <string name="resume_work">Activer les apps pro</string>
++    <string name="no_work_apps">Aucune app pro pour l’instant. Sable Setup peut créer un espace pro.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index f893939..54e07a8 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">चलाएँ</string>
+     <string name="frame_pause">रोकें</string>
+     <string name="frame_next">अगला</string>
++    <string name="balance_personal">व्यक्तिगत</string>
++    <string name="balance_space">स्पेस: %1$s</string>
++    <string name="work_paused">कार्य ऐप्स रुके हुए हैं। उनकी सूचनाएँ तब तक रुकी रहेंगी जब तक आप उन्हें चालू नहीं करते।</string>
++    <string name="pause_work">कार्य ऐप्स रोकें</string>
++    <string name="resume_work">कार्य ऐप्स चालू करें</string>
++    <string name="no_work_apps">अभी कोई कार्य ऐप नहीं। Sable Setup एक कार्य स्पेस बना सकता है।</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index 533796e..b7472c2 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">Riproduci</string>
+     <string name="frame_pause">Pausa</string>
+     <string name="frame_next">Successivo</string>
++    <string name="balance_personal">Personale</string>
++    <string name="balance_space">Spazio: %1$s</string>
++    <string name="work_paused">Le app di lavoro sono in pausa. Le loro notifiche attendono finché non le riattivi.</string>
++    <string name="pause_work">Metti in pausa le app di lavoro</string>
++    <string name="resume_work">Attiva le app di lavoro</string>
++    <string name="no_work_apps">Ancora nessuna app di lavoro. Sable Setup può creare uno spazio di lavoro.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index bf40749..ee1f5f8 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">הפעל</string>
+     <string name="frame_pause">השהה</string>
+     <string name="frame_next">הבא</string>
++    <string name="balance_personal">אישי</string>
++    <string name="balance_space">מרחב: %1$s</string>
++    <string name="work_paused">אפליקציות העבודה מושהות. ההתראות שלהן ימתינו עד שתפעיל אותן.</string>
++    <string name="pause_work">השהיית אפליקציות העבודה</string>
++    <string name="resume_work">הפעלת אפליקציות העבודה</string>
++    <string name="no_work_apps">אין עדיין אפליקציות עבודה. Sable Setup יכול ליצור מרחב עבודה.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index bc4548d..59a4458 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">再生</string>
+     <string name="frame_pause">一時停止</string>
+     <string name="frame_next">次へ</string>
++    <string name="balance_personal">個人用</string>
++    <string name="balance_space">スペース: %1$s</string>
++    <string name="work_paused">仕事用アプリは一時停止中です。オンにするまで通知は届きません。</string>
++    <string name="pause_work">仕事用アプリを一時停止</string>
++    <string name="resume_work">仕事用アプリをオンにする</string>
++    <string name="no_work_apps">仕事用アプリはまだありません。Sable Setup で仕事用スペースを作れます。</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index b315b25..4ae2180 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">재생</string>
+     <string name="frame_pause">일시중지</string>
+     <string name="frame_next">다음</string>
++    <string name="balance_personal">개인</string>
++    <string name="balance_space">공간: %1$s</string>
++    <string name="work_paused">업무용 앱이 일시중지되었습니다. 켤 때까지 알림이 대기합니다.</string>
++    <string name="pause_work">업무용 앱 일시중지</string>
++    <string name="resume_work">업무용 앱 켜기</string>
++    <string name="no_work_apps">아직 업무용 앱이 없습니다. Sable Setup에서 업무 공간을 만들 수 있습니다.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 3564f1e..9104b33 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">Afspelen</string>
+     <string name="frame_pause">Pauzeren</string>
+     <string name="frame_next">Volgende</string>
++    <string name="balance_personal">Persoonlijk</string>
++    <string name="balance_space">Ruimte: %1$s</string>
++    <string name="work_paused">Werk-apps zijn gepauzeerd. Hun meldingen wachten tot je ze aanzet.</string>
++    <string name="pause_work">Werk-apps pauzeren</string>
++    <string name="resume_work">Werk-apps aanzetten</string>
++    <string name="no_work_apps">Nog geen werk-apps. Sable Setup kan een werkruimte maken.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index dee162c..100a162 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">Odtwórz</string>
+     <string name="frame_pause">Wstrzymaj</string>
+     <string name="frame_next">Następny</string>
++    <string name="balance_personal">Osobiste</string>
++    <string name="balance_space">Przestrzeń: %1$s</string>
++    <string name="work_paused">Aplikacje służbowe są wstrzymane. Ich powiadomienia czekają, aż je włączysz.</string>
++    <string name="pause_work">Wstrzymaj aplikacje służbowe</string>
++    <string name="resume_work">Włącz aplikacje służbowe</string>
++    <string name="no_work_apps">Brak aplikacji służbowych. Sable Setup może utworzyć przestrzeń służbową.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index 9cb6a4b..b866724 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">Reproduzir</string>
+     <string name="frame_pause">Pausar</string>
+     <string name="frame_next">Seguinte</string>
++    <string name="balance_personal">Pessoal</string>
++    <string name="balance_space">Espaço: %1$s</string>
++    <string name="work_paused">As apps de trabalho estão em pausa. As notificações esperam até as ativar.</string>
++    <string name="pause_work">Pausar apps de trabalho</string>
++    <string name="resume_work">Ativar apps de trabalho</string>
++    <string name="no_work_apps">Ainda sem apps de trabalho. O Sable Setup pode criar um espaço de trabalho.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index e1f6473..68bec89 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">Играть</string>
+     <string name="frame_pause">Пауза</string>
+     <string name="frame_next">Далее</string>
++    <string name="balance_personal">Личное</string>
++    <string name="balance_space">Пространство: %1$s</string>
++    <string name="work_paused">Рабочие приложения приостановлены. Их уведомления ждут, пока вы их не включите.</string>
++    <string name="pause_work">Приостановить рабочие приложения</string>
++    <string name="resume_work">Включить рабочие приложения</string>
++    <string name="no_work_apps">Рабочих приложений пока нет. Sable Setup может создать рабочее пространство.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 17dd186..2d6569b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">Spela</string>
+     <string name="frame_pause">Pausa</string>
+     <string name="frame_next">Nästa</string>
++    <string name="balance_personal">Privat</string>
++    <string name="balance_space">Utrymme: %1$s</string>
++    <string name="work_paused">Jobbappar är pausade. Deras aviseringar väntar tills du slår på dem.</string>
++    <string name="pause_work">Pausa jobbappar</string>
++    <string name="resume_work">Slå på jobbappar</string>
++    <string name="no_work_apps">Inga jobbappar än. Sable Setup kan skapa ett jobbutrymme.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 679f2c6..648fbaf 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">Oynat</string>
+     <string name="frame_pause">Duraklat</string>
+     <string name="frame_next">Sonraki</string>
++    <string name="balance_personal">Kişisel</string>
++    <string name="balance_space">Alan: %1$s</string>
++    <string name="work_paused">İş uygulamaları duraklatıldı. Bildirimleri, siz açana kadar bekler.</string>
++    <string name="pause_work">İş uygulamalarını duraklat</string>
++    <string name="resume_work">İş uygulamalarını aç</string>
++    <string name="no_work_apps">Henüz iş uygulaması yok. Sable Setup bir İş alanı oluşturabilir.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index 47f8ba4..17f778f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">چلائیں</string>
+     <string name="frame_pause">روکیں</string>
+     <string name="frame_next">اگلا</string>
++    <string name="balance_personal">ذاتی</string>
++    <string name="balance_space">اسپیس: %1$s</string>
++    <string name="work_paused">کام کی ایپس رکی ہوئی ہیں۔ ان کی اطلاعات آپ کے آن کرنے تک رکی رہیں گی۔</string>
++    <string name="pause_work">کام کی ایپس روکیں</string>
++    <string name="resume_work">کام کی ایپس آن کریں</string>
++    <string name="no_work_apps">ابھی کام کی کوئی ایپ نہیں۔ Sable Setup کام کی اسپیس بنا سکتا ہے۔</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 02f1b5e..bd207d8 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -268,4 +268,10 @@
+     <string name="frame_play">播放</string>
+     <string name="frame_pause">暂停</string>
+     <string name="frame_next">下一个</string>
++    <string name="balance_personal">个人</string>
++    <string name="balance_space">空间：%1$s</string>
++    <string name="work_paused">工作应用已暂停。开启前其通知会等待。</string>
++    <string name="pause_work">暂停工作应用</string>
++    <string name="resume_work">开启工作应用</string>
++    <string name="no_work_apps">还没有工作应用。Sable Setup 可以创建工作空间。</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 2d4f52a..f2c8937 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -272,4 +272,10 @@
+     <string name="frame_play">Play</string>
+     <string name="frame_pause">Pause</string>
+     <string name="frame_next">Next</string>
++    <string name="balance_personal">Personal</string>
++    <string name="balance_space">Space: %1$s</string>
++    <string name="work_paused">Work apps are paused. Their notifications wait until you turn them on.</string>
++    <string name="pause_work">Pause work apps</string>
++    <string name="resume_work">Turn on work apps</string>
++    <string name="no_work_apps">No work apps yet. Sable Setup can make a Work space.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index 62371c4..d60205f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -70,6 +70,9 @@ class SableStartActivity : ComponentActivity() {
+ 
+     /** null: no private space; true: locked; false: unlocked. */
+     private val privateSpaceLockedState = mutableStateOf<Boolean?>(null)
++
++    /** null: no work profile; true: work apps paused; false: on. */
++    private val workPausedState = mutableStateOf<Boolean?>(null)
+     private val liveRefreshGeneration = mutableStateOf(0)
+     private val homeGeneration = mutableStateOf(0)
+     private val backGeneration = mutableStateOf(0)
+@@ -289,6 +292,8 @@ class SableStartActivity : ComponentActivity() {
+                     letterShortcuts = letterShortcutRepository,
+                     privateSpaceLocked = privateSpaceLockedState.value,
+                     onTogglePrivateSpace = ::togglePrivateSpace,
++                    workPaused = workPausedState.value,
++                    onToggleWork = ::toggleWork,
+                     liveSurfaceRepository = liveSurfaceRepository,
+                     appearance = appearance,
+                     refreshGeneration = liveRefreshGeneration.value,
+@@ -452,6 +457,7 @@ class SableStartActivity : ComponentActivity() {
+                 val apps = launcherAppsRepository.loadApps()
+                 val privateSpaceLocked =
+                     launcherAppsRepository.privateSpace()?.let(launcherAppsRepository::isLocked)
++                val workPaused = launcherAppsRepository.workProfile()?.let(launcherAppsRepository::isLocked)
+                 runOnUiThread {
+                     if (
+                         !isDestroyed &&
+@@ -459,6 +465,7 @@ class SableStartActivity : ComponentActivity() {
+                     ) {
+                         appsState.value = apps
+                         privateSpaceLockedState.value = privateSpaceLocked
++                        workPausedState.value = workPaused
+                     }
+                 }
+             }
+@@ -561,6 +568,16 @@ class SableStartActivity : ComponentActivity() {
+         }
+     }
+ 
++    /** Balance: pause or turn on work apps (Android's quiet mode for the work profile). */
++    private fun toggleWork() {
++        val paused = workPausedState.value ?: return
++        inventoryExecutor.execute {
++            val user = launcherAppsRepository.workProfile() ?: return@execute
++            launcherAppsRepository.setLocked(user, !paused)
++            runOnUiThread { scheduleInventoryRefresh() }
++        }
++    }
++
+     /** The BlackBerry 7 home draws on the wallpaper; the BlackBerry 10 screen paints its own. */
+     private fun showWallpaper(show: Boolean) {
+         if (show) {
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+index 2696300..87317c0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+@@ -246,3 +246,20 @@ object AppProfiles {
+         return apps.firstOrNull { it !== app && componentOf(it) == component && profileOf(it) == wanted }
+     }
+ }
++
++/** BB10 Balance: the space All Apps shows. Private Space keeps its own section in Personal. */
++enum class BalanceSpace { Personal, Work }
++
++object Balance {
++    /** Personal and Work when the phone has a work profile; nothing to switch otherwise. */
++    fun spaces(hasWorkProfile: Boolean): List<BalanceSpace> = if (hasWorkProfile) BalanceSpace.entries else emptyList()
++
++    /** Whether an app with [profileLabel] belongs in [space]: Work apps only in Work, the rest in Personal. */
++    fun inSpace(
++        profileLabel: String?,
++        space: BalanceSpace,
++    ): Boolean = (profileLabel == AppProfiles.WORK) == (space == BalanceSpace.Work)
++
++    fun next(space: BalanceSpace): BalanceSpace =
++        if (space == BalanceSpace.Personal) BalanceSpace.Work else BalanceSpace.Personal
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 5e53607..03b1843 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -283,6 +283,12 @@ object StartText {
+             "action_uninstall" to "uninstall",
+             "action_disable" to "disable",
+             "letter_shortcut" to "Hold-key shortcut",
++            "balance_personal" to "Personal",
++            "balance_space" to "Space: %1\$s",
++            "work_paused" to "Work apps are paused. Their notifications wait until you turn them on.",
++            "pause_work" to "Pause work apps",
++            "resume_work" to "Turn on work apps",
++            "no_work_apps" to "No work apps yet. Sable Setup can make a Work space.",
+             "letter_shortcut_current" to "Hold-key shortcut: %1\$s",
+             "letter_shortcut_press" to
+                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt
+index 6f62014..78ff4fe 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt
+@@ -134,12 +134,16 @@ class LauncherAppsRepository(
+     fun privateSpace(): UserHandle? =
+         runCatching { userManager.userProfiles.firstOrNull { profileLabelFor(it) == PROFILE_PRIVATE } }.getOrNull()
+ 
++    /** The work profile (Balance), when the phone has one; null otherwise. */
++    fun workProfile(): UserHandle? =
++        runCatching { userManager.userProfiles.firstOrNull { profileLabelFor(it) == PROFILE_WORK } }.getOrNull()
++
+     /** Locked means quiet mode: its apps cannot run and are not listed. */
+     fun isLocked(user: UserHandle): Boolean = runCatching { userManager.isQuietModeEnabled(user) }.getOrDefault(true)
+ 
+     /**
+-     * Locks or unlocks the private space. Unlocking may first show the
+-     * system's own credential screen; the profile broadcasts then refresh.
++     * Locks or unlocks the private space, or pauses or turns on work apps. Unlocking may first
++     * show the system's own credential screen; the profile broadcasts then refresh.
+      */
+     fun setLocked(
+         user: UserHandle,
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 617013c..b9b26d9 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -74,6 +74,7 @@ import androidx.compose.runtime.produceState
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.rememberCoroutineScope
+ import androidx.compose.runtime.rememberUpdatedState
++import androidx.compose.runtime.saveable.rememberSaveable
+ import androidx.compose.runtime.setValue
+ import androidx.compose.runtime.staticCompositionLocalOf
+ import androidx.compose.runtime.withFrameNanos
+@@ -144,6 +145,8 @@ import org.sableos.start.model.AppEntry
+ import org.sableos.start.model.AppGlyphs
+ import org.sableos.start.model.AppGrid
+ import org.sableos.start.model.AppProfiles
++import org.sableos.start.model.Balance
++import org.sableos.start.model.BalanceSpace
+ import org.sableos.start.model.CommandBestMatch
+ import org.sableos.start.model.CommandGroups
+ import org.sableos.start.model.CommandQuery
+@@ -393,6 +396,9 @@ fun SableStartScreen(
+     /** null: no private space on this device; true: locked; false: unlocked. */
+     privateSpaceLocked: Boolean? = null,
+     onTogglePrivateSpace: () -> Unit = {},
++    /** Balance. null: no work profile; true: work apps paused; false: on. */
++    workPaused: Boolean? = null,
++    onToggleWork: () -> Unit = {},
+     /** Counts up for each "show the Hub page" request (org.sableos.start.action.SHOW_HUB). */
+     hubGeneration: Int = 0,
+     /** The tab that request asked for ([HubFilter] by name), or null for All. */
+@@ -797,6 +803,8 @@ fun SableStartScreen(
+                             onOpenAppInfo = onOpenAppInfo,
+                             privateSpaceLocked = privateSpaceLocked,
+                             onTogglePrivateSpace = onTogglePrivateSpace,
++                            workPaused = workPaused,
++                            onToggleWork = onToggleWork,
+                         )
+ 
+                     SableStartDestination.Search ->
+@@ -4034,9 +4042,20 @@ private fun AppsScreen(
+     onOpenAppInfo: (AppEntry) -> Unit,
+     privateSpaceLocked: Boolean?,
+     onTogglePrivateSpace: () -> Unit,
++    workPaused: Boolean? = null,
++    onToggleWork: () -> Unit = {},
+ ) {
++    // Balance: with a work profile, All Apps shows Personal or Work (BB10's switch).
++    val spaces = Balance.spaces(hasWorkProfile = workPaused != null)
++    var chosen by rememberSaveable { mutableStateOf(BalanceSpace.Personal) }
++    val space = if (chosen in spaces) chosen else BalanceSpace.Personal
++    val inWork = space == BalanceSpace.Work
+     // Private Space apps live in their own section at the end, never in the A-Z list.
+-    val (privateApps, listedApps) = remember(apps) { apps.partition { it.profileLabel == PROFILE_PRIVATE_LABEL } }
++    val (privateApps, allListed) = remember(apps) { apps.partition { it.profileLabel == PROFILE_PRIVATE_LABEL } }
++    val listedApps =
++        remember(allListed, space, spaces) {
++            if (spaces.isEmpty()) allListed else allListed.filter { Balance.inSpace(it.profileLabel, space) }
++        }
+     var filter by remember { mutableStateOf(PrivacyFilter.All) }
+     val rows = remember(listedApps, filter) { buildRailRows(listedApps.filter { filter.matches(it.privacy) }) }
+     val keys = remember(rows) { rows.map { it.app.stableKey() } }
+@@ -4147,10 +4166,17 @@ private fun AppsScreen(
+             Spacer(Modifier.height(8.dp))
+             SearchLaunchButton(onClick = onSearch)
+             Spacer(Modifier.height(6.dp))
++            if (spaces.isNotEmpty()) {
++                BalanceSwitch(spaces = spaces, selected = space, onSelect = { chosen = it })
++                if (inWork) WorkPauseLine(paused = workPaused == true, onToggle = onToggleWork)
++                Spacer(Modifier.height(6.dp))
++            }
+             PrivacyFilterChips(selected = filter, onSelect = { filter = it })
+             Spacer(Modifier.height(8.dp))
+ 
+-            if (rows.isEmpty() && filter != PrivacyFilter.All) {
++            if (rows.isEmpty() && inWork && workPaused != true && filter == PrivacyFilter.All) {
++                EmptyState(t("no_work_apps"))
++            } else if (rows.isEmpty() && filter != PrivacyFilter.All) {
+                 EmptyState(t("no_apps_match", filter.label))
+             } else if (rows.isEmpty() && privateSpaceLocked == null) {
+                 EmptyState(t("no_launchable_apps_are_available"))
+@@ -4195,7 +4221,7 @@ private fun AppsScreen(
+                                     }.onPreviewKeyEvent { event -> onRowKey(index, event) },
+                         )
+                     }
+-                    if (privateSpaceLocked != null) {
++                    if (privateSpaceLocked != null && !inWork) {
+                         item(key = "private-space") {
+                             PrivateSpaceSection(
+                                 locked = privateSpaceLocked,
+@@ -4224,6 +4250,65 @@ private fun AppsScreen(
+     }
+ }
+ 
++/** BB10 Balance: Personal · Work, as chips like the privacy filters. */
++@Composable
++private fun BalanceSwitch(
++    spaces: List<BalanceSpace>,
++    selected: BalanceSpace,
++    onSelect: (BalanceSpace) -> Unit,
++) {
++    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++        spaces.forEach { space ->
++            val on = space == selected
++            val label = if (space == BalanceSpace.Work) t("work") else t("balance_personal")
++            Text(
++                text = label,
++                modifier =
++                    Modifier
++                        .clip(RoundedCornerShape(6.dp))
++                        .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
++                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
++                        .sableFocusRing()
++                        .clickable { onSelect(space) }
++                        .semantics { contentDescription = t("balance_space", label) + if (on) t("applied") else "" }
++                        .padding(horizontal = 12.dp, vertical = 6.dp),
++                style = MaterialTheme.typography.labelLarge,
++                color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
++            )
++        }
++    }
++}
++
++/** In Work: pause work apps (Android's quiet mode), or say they are paused and turn them on. */
++@Composable
++private fun WorkPauseLine(
++    paused: Boolean,
++    onToggle: () -> Unit,
++) {
++    Column(Modifier.padding(top = 6.dp)) {
++        if (paused) {
++            Text(
++                text = t("work_paused"),
++                style = MaterialTheme.typography.bodySmall,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        }
++        Text(
++            text = t(if (paused) "resume_work" else "pause_work"),
++            modifier =
++                Modifier
++                    .padding(top = 4.dp)
++                    .clip(RoundedCornerShape(6.dp))
++                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
++                    .sableFocusRing()
++                    .clickable(onClick = onToggle)
++                    .padding(horizontal = 12.dp, vertical = 6.dp),
++            style = MaterialTheme.typography.labelLarge,
++            color = MaterialTheme.colorScheme.primary,
++        )
++    }
++}
++
+ /**
+  * All Apps privacy filters (Sensitive · All · No sensitive): Left/Right move
+  * between the chips, Enter applies; the applied chip is filled.

@@ -74,4 +74,10 @@
     <string name="weather_row_city">Vorhersagen für %1$s; keine Standortberechtigung</string>
     <string name="weather_row_none">Wähle die in Weather angezeigte Stadt; keine Standortberechtigung</string>
     <string name="weather_row_failed">Weather-Stadt konnte nicht gelesen werden</string>
+    <string name="row_hub_menu_title">Hub-Zeilenmenü</string>
+    <string name="row_hub_menu_detail">Schlummern und Erinnern sind aus, bis du sie in Hub einschaltest</string>
+    <string name="action_hub_row_menu">Hub-Einstellungen</string>
+    <string name="row_work_space_title">Arbeitsbereich</string>
+    <string name="row_work_space_detail">Optional: Arbeits-Apps getrennt halten, mit einem Schalter Privat · Arbeit in Start</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

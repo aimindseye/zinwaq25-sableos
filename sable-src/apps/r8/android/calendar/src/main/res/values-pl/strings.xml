@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">Brak wydarzeń w tym tygodniu. C tworzy nowe.</string>
     <string name="selected">Wybrano: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] otwórz  [E] edytuj  [Del] usuń  [T] dziś"</string>
+    <string name="calendars">Kalendarze</string>
+    <string name="calendars_hint">Widoczne kalendarze wypełniają agendę, pierścienie zajętości i miesiąc w Start.</string>
+    <string name="no_calendars">Na tym telefonie nie ma jeszcze kalendarzy. Dodaj konto w Ustawienia > Konta.</string>
+    <string name="l_calendars">" · L kalendarze"</string>
+    <string name="day_events">%1$s, wydarzenia: %2$s</string>
 </resources>

@@ -7,7 +7,6 @@ plugins {
 android {
     namespace = "org.sableos.weather"
     compileSdk = 36
-    ndkVersion = "30.0.16248370"
 
     defaultConfig {
         applicationId = "org.sableos.weather"
@@ -15,9 +14,6 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
-        ndk {
-            abiFilters += "arm64-v8a"
-        }
     }
 
     buildTypes {
@@ -42,19 +38,6 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
-
-    sourceSets {
-        getByName("main") {
-            jniLibs.setSrcDirs(
-                listOf(
-                    layout.buildDirectory
-                        .dir("generated/rustJni")
-                        .get()
-                        .asFile,
-                ),
-            )
-        }
-    }
 }
 
 dependencies {
@@ -68,11 +51,3 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation(libs.junit)
 }
-
-tasks
-    .matching {
-        it.name.startsWith("merge") &&
-            it.name.endsWith("JniLibFolders")
-    }.configureEach {
-        dependsOn(rootProject.tasks.named("stageWeatherRustJni"))
-    }

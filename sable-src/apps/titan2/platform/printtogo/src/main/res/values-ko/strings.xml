@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Korean. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (PrintToGoTextTest checks). -->
+<resources>
+    <string name="intro">컴퓨터에서 이 휴대전화로 인쇄합니다. Print To Go가 켜져 있는 동안 휴대전화는 Wi-Fi의 프린터가 되고, 인쇄물은 Documents/Print To Go에 PDF로 저장됩니다.</string>
+    <string name="start">수신 시작</string>
+    <string name="stop">중지</string>
+    <string name="off">꺼짐. 이 휴대전화로 아무것도 인쇄할 수 없습니다.</string>
+    <string name="ready">%1$s(으)로 준비됨. 컴퓨터의 인쇄 창에서 선택하세요. 10분 동안 인쇄가 없으면 꺼집니다.</string>
+    <string name="no_wifi">먼저 Wi-Fi에 연결하세요. Print To Go는 Wi-Fi에서만 수신하며 모바일 데이터에서는 수신하지 않습니다.</string>
+    <string name="start_failed">Print To Go를 시작할 수 없습니다. 다시 시도하세요.</string>
+    <string name="saved">저장됨: %1$s</string>
+    <string name="save_failed">%1$s을(를) 저장할 수 없습니다.</string>
+    <string name="open_folder">저장된 인쇄물 열기</string>
+    <string name="running">Print To Go 켜짐</string>
+    <string name="channel_running">Print To Go 실행 중</string>
+    <string name="channel_saved">저장된 인쇄물</string>
+    <string name="idle_off">10분 동안 인쇄가 없어 Print To Go가 꺼졌습니다.</string>
+    <string name="hint">Enter 시작 또는 중지 · O 저장된 인쇄물 열기 · Back 나가기</string>
+</resources>

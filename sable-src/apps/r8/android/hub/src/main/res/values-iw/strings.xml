@@ -183,4 +183,21 @@
     <string name="personal">אישי</string>
     <string name="private_space">מרחב פרטי</string>
     <string name="profile_2">פרופיל %1$s</string>
+    <string name="mark_read">סימון כנקרא</string>
+    <string name="snooze_1_hour">נודניק לשעה</string>
+    <string name="dismiss_notification">סגירת ההתראה</string>
+    <string name="snoozed_for_an_hour">נדחה לשעה.</string>
+    <string name="notification_dismissed">ההתראה נסגרה.</string>
+    <string name="sent_to_the_app">נשלח לאפליקציה.</string>
+    <string name="the_notification_is_gone">ההתראה כבר לא קיימת.</string>
+    <string name="mark_prior_read">סמן קודמות כנקראו</string>
+    <string name="marked_prior_read">האפליקציות התבקשו לסמן %1$s התראות ישנות יותר כנקראו.</string>
+    <string name="each_message_on_its_own">כל הודעה בנפרד</string>
+    <string name="one_row_per_received_message">שורה לכל הודעה שהתקבלה. מכבה את איחוד השיחות.</string>
+    <string name="remind_me">תזכיר לי</string>
+    <string name="tasks_unavailable">Sable Tasks אינה מותקנת.</string>
+    <string name="row_menu_snooze">נודניק בתפריט השורה</string>
+    <string name="row_menu_snooze_detail">מוסיף נודניק לשעה ואת המקש Z להתראה פעילה.</string>
+    <string name="row_menu_remind_me">תזכיר לי בתפריט השורה</string>
+    <string name="row_menu_remind_me_detail">מוסיף מעקב ב-Sable Tasks למחר בבוקר. נשמרת רק האפליקציה, אף פעם לא ההודעה.</string>
 </resources>

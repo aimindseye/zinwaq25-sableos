@@ -37,6 +37,7 @@ object NotesText {
             "c_new_s_find_k" to "C new · S find · K tasks · L colour · D delete",
             "menu_list_item_tick_find" to "Menu: list item, tick, find, colour, share · Back saves",
             "enter_tick_o_open_note" to "Enter tick · O open note · H done items · Back",
+            "r_remind_in_tasks" to " · R remind in Tasks",
             "type_your_note_the_first" to "Type your note. The first line is its title.",
             "change_colour_now" to "Change colour, now %1\$s",
             "edited" to "Edited %1\$s%2\$s",

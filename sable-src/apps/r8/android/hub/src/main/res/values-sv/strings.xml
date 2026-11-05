@@ -183,4 +183,21 @@
     <string name="personal">Personlig</string>
     <string name="private_space">Privat utrymme</string>
     <string name="profile_2">Profil %1$s</string>
+    <string name="mark_read">Markera som läst</string>
+    <string name="snooze_1_hour">Snooza 1 timme</string>
+    <string name="dismiss_notification">Stäng aviseringen</string>
+    <string name="snoozed_for_an_hour">Snoozad i en timme.</string>
+    <string name="notification_dismissed">Aviseringen stängdes.</string>
+    <string name="sent_to_the_app">Skickat till appen.</string>
+    <string name="the_notification_is_gone">Aviseringen finns inte längre.</string>
+    <string name="mark_prior_read">Markera tidigare som lästa</string>
+    <string name="marked_prior_read">Apparna ombads markera %1$s äldre aviseringar som lästa.</string>
+    <string name="each_message_on_its_own">Varje meddelande för sig</string>
+    <string name="one_row_per_received_message">En rad per mottaget meddelande. Stänger av Slå ihop konversationer.</string>
+    <string name="remind_me">Påminn mig</string>
+    <string name="tasks_unavailable">Sable Tasks är inte installerat.</string>
+    <string name="row_menu_snooze">Snooza i radmenyn</string>
+    <string name="row_menu_snooze_detail">Lägger till Snooza 1 timme och tangenten Z för en aktiv avisering.</string>
+    <string name="row_menu_remind_me">Påminn mig i radmenyn</string>
+    <string name="row_menu_remind_me_detail">Lägger till en uppföljning i Sable Tasks till i morgon bitti. Bara appen sparas, aldrig meddelandet.</string>
 </resources>

@@ -24,17 +24,70 @@ SableOS keeps no copy of your data."
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01UvjoefgeNVBxmkGXzTTNYS
 ---
- res/values/sable_config.xml                   | 11 ++++++++
- res/values/sable_strings.xml                  |  2 +-
- .../backup/RestoreIntroActivity.java          | 26 +++++++++++++++++++
- 3 files changed, 38 insertions(+), 1 deletion(-)
- create mode 100644 res/values/sable_config.xml
+ .../java/org/lineageos/setupwizard/backup/RestoreIntroActivity.kt    | 24 ++++++++++++++++++++++++
+ app/src/main/res/values/sable_config.xml                             | 11 +++++++++++
+ app/src/main/res/values/sable_strings.xml                            |  2 +-
+ 3 files changed, 36 insertions(+), 1 deletion(-)
 
-diff --git a/res/values/sable_config.xml b/res/values/sable_config.xml
+diff --git a/app/src/main/java/org/lineageos/setupwizard/backup/RestoreIntroActivity.kt b/app/src/main/java/org/lineageos/setupwizard/backup/RestoreIntroActivity.kt
+index e496ace..9e77359 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/backup/RestoreIntroActivity.kt
++++ b/app/src/main/java/org/lineageos/setupwizard/backup/RestoreIntroActivity.kt
+@@ -10,14 +10,24 @@ import android.content.Intent
+ import android.os.Bundle
+ import androidx.activity.result.ActivityResult
+ import com.google.android.setupcompat.util.ResultCodes.RESULT_ACTIVITY_NOT_FOUND
++import com.google.android.setupcompat.util.ResultCodes.RESULT_SKIP
+ import org.lineageos.setupwizard.ACTION_RESTORE_FROM_BACKUP
+ import org.lineageos.setupwizard.R
+ import org.lineageos.setupwizard.base.SubBaseActivity
+ 
+ class RestoreIntroActivity : SubBaseActivity() {
+ 
++    /** SableOS: fail-closed; set by sable_restore_validated, never by the user. */
++    private var sableRestoreHidden = true
++
+     override fun onCreate(savedInstanceState: Bundle?) {
++        sableRestoreHidden = !isSableRestoreValidated()
+         super.onCreate(savedInstanceState)
++        if (sableRestoreHidden) {
++            // Restore and import stay hidden until validated; setup continues clean.
++            finishAction(RESULT_SKIP)
++            return
++        }
+         setDescriptionText(getString(R.string.intro_restore_subtitle, getString(R.string.os_name)))
+         setNextText(R.string.intro_restore_button)
+     }
+@@ -33,10 +43,24 @@ class RestoreIntroActivity : SubBaseActivity() {
+     }
+ 
+     override fun onStartSubactivity() {
++        if (sableRestoreHidden) return
+         setNextAllowed(true)
+     }
+ 
++    override fun onNextIntentResult(activityResult: ActivityResult) {
++        // Never reopen the restore screen on the way back while it is hidden.
++        if (!sableRestoreHidden) super.onNextIntentResult(activityResult)
++    }
++
++    private fun isSableRestoreValidated(): Boolean =
++        try {
++            resources.getBoolean(R.bool.sable_restore_validated)
++        } catch (e: RuntimeException) {
++            false
++        }
++
+     override fun onNextPressed() {
++        if (sableRestoreHidden) return
+         launchRestore()
+     }
+ 
+diff --git a/app/src/main/res/values/sable_config.xml b/app/src/main/res/values/sable_config.xml
 new file mode 100644
 index 0000000..3017d14
 --- /dev/null
-+++ b/res/values/sable_config.xml
++++ b/app/src/main/res/values/sable_config.xml
 @@ -0,0 +1,11 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!--
@@ -47,10 +100,10 @@ index 0000000..3017d14
 +         QUALIFICATION pass. -->
 +    <bool name="sable_restore_validated">false</bool>
 +</resources>
-diff --git a/res/values/sable_strings.xml b/res/values/sable_strings.xml
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
 index f9425d7..b4ab399 100644
---- a/res/values/sable_strings.xml
-+++ b/res/values/sable_strings.xml
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
 @@ -69,7 +69,7 @@
      <string name="sable_privacy_network_link">Network access</string>
      <string name="sable_privacy_lock_screen"><b>Lock screen.</b> While the phone is locked, notifications show only their app and count. Their content stays hidden until you unlock, unless you choose to show it.</string>
@@ -60,65 +113,6 @@ index f9425d7..b4ab399 100644
      <string name="sable_privacy_settings_link">Privacy settings</string>
  
      <!-- SableOS Sable accent on the Theme step (KF-B). Labels match Settings > Display > Accent. -->
-diff --git a/src/org/lineageos/setupwizard/backup/RestoreIntroActivity.java b/src/org/lineageos/setupwizard/backup/RestoreIntroActivity.java
-index 442baa5..2bff4cf 100644
---- a/src/org/lineageos/setupwizard/backup/RestoreIntroActivity.java
-+++ b/src/org/lineageos/setupwizard/backup/RestoreIntroActivity.java
-@@ -7,6 +7,7 @@
- package org.lineageos.setupwizard.backup;
- 
- import static com.google.android.setupcompat.util.ResultCodes.RESULT_ACTIVITY_NOT_FOUND;
-+import static com.google.android.setupcompat.util.ResultCodes.RESULT_SKIP;
- 
- import static org.lineageos.setupwizard.SetupWizardApp.ACTION_RESTORE_FROM_BACKUP;
- 
-@@ -20,9 +21,18 @@ import org.lineageos.setupwizard.SubBaseActivity;
- 
- public class RestoreIntroActivity extends SubBaseActivity {
- 
-+    /** SableOS: fail-closed; set by sable_restore_validated, never by the user. */
-+    private boolean mSableRestoreHidden;
-+
-     @Override
-     protected void onCreate(Bundle savedInstanceState) {
-+        mSableRestoreHidden = !isSableRestoreValidated();
-         super.onCreate(savedInstanceState);
-+        if (mSableRestoreHidden) {
-+            // Restore and import stay hidden until validated; setup continues clean.
-+            finishAction(RESULT_SKIP);
-+            return;
-+        }
-         getGlifLayout().setDescriptionText(getString(R.string.intro_restore_subtitle,
-                 getString(R.string.os_name)));
-     }
-@@ -42,11 +52,27 @@ public class RestoreIntroActivity extends SubBaseActivity {
- 
-     @Override
-     protected void onStartSubactivity() {
-+        if (mSableRestoreHidden) return;
-         setNextAllowed(true);
-     }
- 
-+    @Override
-+    protected void onNextIntentResult(ActivityResult activityResult) {
-+        // Never reopen the restore screen on the way back while it is hidden.
-+        if (!mSableRestoreHidden) super.onNextIntentResult(activityResult);
-+    }
-+
-+    private boolean isSableRestoreValidated() {
-+        try {
-+            return getResources().getBoolean(R.bool.sable_restore_validated);
-+        } catch (RuntimeException e) {
-+            return false;
-+        }
-+    }
-+
-     @Override
-     protected void onNextPressed() {
-+        if (mSableRestoreHidden) return;
-         launchRestore();
-     }
- 
 -- 
 2.43.0
 

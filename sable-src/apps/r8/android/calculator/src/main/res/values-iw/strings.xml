@@ -8,9 +8,9 @@
     <string name="exact_result">תוצאה מדויקת</string>
     <string name="choose_an_operation_first">יש לבחור תחילה פעולה.</string>
     <string name="degrees_for_trigonometry">%1$s · מעלות לחישובים טריגונומטריים</string>
-    <string name="scientific_operations_and_the_core">פעולות מדעיות וחישובים בסיסיים מתבצעים במנוע המובנה של המחשבון.</string>
+    <string name="scientific_operations_and_the_core">פונקציות מדעיות וחשבון מדויק פועלים בטלפון, ללא חיבור.</string>
     <string name="results_are_not_silently_rounded">התוצאות אינן מעוגלות אוטומטית לערכי נקודה צפה.</string>
     <string name="scientific_functions_use_degrees">הפונקציות המדעיות משתמשות במעלות.</string>
     <string name="exact_decimal_results_never_rounded">תוצאות עשרוניות מדויקות, ללא עיגול.</string>
-    <string name="native_bridge_failure">כשל בממשק המקומי</string>
+    <string name="native_bridge_failure">החישוב נכשל</string>
 </resources>

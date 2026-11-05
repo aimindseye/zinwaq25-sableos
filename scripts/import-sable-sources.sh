@@ -56,7 +56,7 @@ fi
 PATHS=(
     apps/titan2/platform
     apps/r8/android
-    apps/r8/rust
+    apps/r8/rust  # removed again by sable-src patch 0097 (the apps are Kotlin now)
     apps/r8/mail
     apps/r8/textreader
     src/android/shared/sabledesign

@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">Dzwonią tylko połączenia; wiadomości i alerty są wyciszone</string>
     <string name="all_alerts_off">Wszystkie alerty wyłączone</string>
     <string name="nothing_rings_or_vibrates_alarms">Brak dźwięków i wibracji; alarmy nadal dzwonią</string>
+    <string name="bedside">Przy łóżku</string>
+    <string name="alarms_only_and_the_dimmest">Tylko alarmy, ekran najciemniejszy</string>
 </resources>

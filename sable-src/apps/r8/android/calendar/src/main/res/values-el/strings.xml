@@ -57,4 +57,9 @@
     <string name="no_event_this_week_c">Κανένα συμβάν αυτή την εβδομάδα. Το C δημιουργεί ένα.</string>
     <string name="selected">Επιλεγμένο: %1$s</string>
     <string name="enter_open_e_edit_del_2">"[Enter] άνοιγμα  [E] επεξεργασία  [Del] διαγραφή  [T] σήμερα"</string>
+    <string name="calendars">Ημερολόγια</string>
+    <string name="calendars_hint">Τα εμφανιζόμενα ημερολόγια γεμίζουν την ατζέντα, τους δακτυλίους φόρτου και τον μήνα του Start.</string>
+    <string name="no_calendars">Δεν υπάρχουν ακόμη ημερολόγια σε αυτό το τηλέφωνο. Προσθέστε λογαριασμό στις Ρυθμίσεις > Λογαριασμοί.</string>
+    <string name="l_calendars">" · L ημερολόγια"</string>
+    <string name="day_events">%1$s, %2$s συμβάντα</string>
 </resources>

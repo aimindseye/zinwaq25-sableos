@@ -26,7 +26,7 @@ INTERACTION=keyboard-first
 DISPLAY_CLASS=SQUARE_KEYBOARD_LCD (720x720, 3.5", density 280 (vendor 193); see DISPLAY.md)
 PANEL=LCD (no AOD expected)
 KEYBOARD_PROFILE=zinwa-q25 (Q25_keyboard kl/kcm; Sable KeyLayout.ZinwaQ25Kcm), NOT_VERIFIED
-POINTER_PROFILE=optical trackpad, event type UNKNOWN
+POINTER_PROFILE=optical trackpad, DPAD key events on Q25_keyboard (measured 2026-11-04, KEYMAP.md)
 CRITICAL_TEXT_ENTRY=required, NOT_RUN
 CAMERA_PROFILE=zinwa-q25 (Sable CameraDeviceProfile.ZinwaQ25), EvidenceLevel.None
 TELEPHONY=LTE + MTK IMS (VoLTE/VoWiFi via hardware/mediatek), NOT_RUN
@@ -44,7 +44,7 @@ PUBLIC_FLASH=NO
 | Boots LineageOS 23.2 | PASS upstream (official LineageOS device) | LineageOS builds; not re-run by this project |
 | Boots SableOS | NOT_RUN | |
 | Hardware keyboard | NOT_RUN | |
-| Trackpad navigation | NOT_RUN | |
+| Trackpad navigation | PASS on LineageOS 24.0 (owner, 2026-11-04: scrolls Chrome) | DPAD keys, [`KEYMAP.md`](KEYMAP.md) |
 | Calls / SMS / data | NOT_RUN | |
 | VoLTE | NOT_RUN | |
 | Camera (rear 50 MP, front 8 MP) | NOT_RUN | |

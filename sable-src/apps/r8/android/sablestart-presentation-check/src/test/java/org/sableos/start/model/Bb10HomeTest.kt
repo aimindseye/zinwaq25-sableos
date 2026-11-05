@@ -14,6 +14,20 @@ class Bb10HomeTest {
     ) = ActiveFrame(taskId = id, packageName = pkg, className = null, userId = 0, running = true)
 
     @Test
+    fun aPlayingAppGetsControlsOnItsOwnFrame() {
+        val frame = frame(1, "com.pod")
+        val pod = FrameMedia("com.pod", "Ep 1", playing = true, canPrevious = true, canNext = false)
+        val other = FrameMedia("com.music", "Song", playing = false, canPrevious = true, canNext = true)
+        assertEquals(pod, ActiveFrames.mediaFor(frame, listOf(other, pod, pod.copy(title = "older")), 0))
+        assertNull(ActiveFrames.mediaFor(frame, listOf(other), 0))
+        // A work-profile frame: Android lists only the current user's sessions.
+        assertNull(ActiveFrames.mediaFor(frame.copy(userId = 10), listOf(pod), 0))
+        assertTrue(ActiveFrames.isPlayPauseKey(62, 0))
+        assertTrue(ActiveFrames.isPlayPauseKey(85, 0))
+        assertFalse(ActiveFrames.isPlayPauseKey(62, 0x2))
+    }
+
+    @Test
     fun framesAreTheEightMostRecentTasksWithoutStartOrRecents() {
         val tasks =
             listOf(frame(1, "org.sableos.launcher"), frame(2, "a"), frame(2, "a"), frame(3, "com.android.launcher3")) +
@@ -114,5 +128,19 @@ class Bb10HomeTest {
         assertNull(AppProfiles.secondInstance(apps[3], apps, { it.component }, { it.profile }))
         assertEquals("Dual", AppProfiles.badge(AppProfiles.DUAL))
         assertEquals("Work", AppProfiles.badge(AppProfiles.WORK))
+    }
+
+    @Test
+    fun balanceSplitsWorkAppsFromPersonalOnes() {
+        assertEquals(emptyList<BalanceSpace>(), Balance.spaces(hasWorkProfile = false))
+        assertEquals(listOf(BalanceSpace.Personal, BalanceSpace.Work), Balance.spaces(hasWorkProfile = true))
+        assertTrue(Balance.inSpace(null, BalanceSpace.Personal))
+        assertTrue(Balance.inSpace(AppProfiles.DUAL, BalanceSpace.Personal))
+        assertTrue(Balance.inSpace(AppProfiles.PRIVATE, BalanceSpace.Personal))
+        assertFalse(Balance.inSpace(AppProfiles.WORK, BalanceSpace.Personal))
+        assertTrue(Balance.inSpace(AppProfiles.WORK, BalanceSpace.Work))
+        assertFalse(Balance.inSpace(null, BalanceSpace.Work))
+        assertEquals(BalanceSpace.Work, Balance.next(BalanceSpace.Personal))
+        assertEquals(BalanceSpace.Personal, Balance.next(BalanceSpace.Work))
     }
 }

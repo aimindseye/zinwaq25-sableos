@@ -74,4 +74,10 @@
     <string name="weather_row_city">Προγνώσεις για %1$s· χωρίς άδεια τοποθεσίας</string>
     <string name="weather_row_none">Επιλέξτε την πόλη που εμφανίζει ο Καιρός· χωρίς άδεια τοποθεσίας</string>
     <string name="weather_row_failed">Δεν ήταν δυνατή η ανάγνωση της πόλης του Καιρού</string>
+    <string name="row_hub_menu_title">Μενού γραμμής του Hub</string>
+    <string name="row_hub_menu_detail">Η Αναβολή και το Υπενθύμισέ μου είναι ανενεργά μέχρι να τα ενεργοποιήσετε στο Hub</string>
+    <string name="action_hub_row_menu">Ρυθμίσεις Hub</string>
+    <string name="row_work_space_title">Χώρος εργασίας</string>
+    <string name="row_work_space_detail">Προαιρετικό: κρατήστε χωριστά τις εφαρμογές εργασίας, με διακόπτη Προσωπικά · Εργασία στο Start</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

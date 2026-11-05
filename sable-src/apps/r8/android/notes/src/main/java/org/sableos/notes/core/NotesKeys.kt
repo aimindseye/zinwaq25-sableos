@@ -36,7 +36,7 @@ enum class EditorMenu(
 }
 
 /** Tasks screen keys. */
-enum class TasksKey { OpenNote, History }
+enum class TasksKey { OpenNote, History, Remind }
 
 /**
  * The Notes keymap (UTILITIES_NOTES_RECORDER_UX: Ctrl+N new, Ctrl+S save, Ctrl+F find, Ctrl+Enter
@@ -46,7 +46,7 @@ enum class TasksKey { OpenNote, History }
 object NotesKeys {
     val LIST_HINT: String get() = t("c_new_s_find_k")
     val EDITOR_HINT: String get() = t("menu_list_item_tick_find")
-    val TASKS_HINT: String get() = t("enter_tick_o_open_note")
+    val TASKS_HINT: String get() = t("enter_tick_o_open_note") + t("r_remind_in_tasks")
 
     fun list(
         keyCode: Int,
@@ -117,6 +117,7 @@ object NotesKeys {
             chord -> null
             keyCode == KeyEvent.KEYCODE_O -> TasksKey.OpenNote
             keyCode == KeyEvent.KEYCODE_H -> TasksKey.History
+            keyCode == KeyEvent.KEYCODE_R -> TasksKey.Remind
             else -> null
         }
 }

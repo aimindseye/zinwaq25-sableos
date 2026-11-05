@@ -1,3 +1,1 @@
-# Rust JNI (sable-calculator-jni, sable-convert-jni) binds Java_org_sableos_*_NativeBridge_* by name.
--keep class org.sableos.calculator.NativeBridge { *; }
--keep class org.sableos.convert.NativeBridge { *; }
+# No keep rules: since the Kotlin port the app has no native (JNI) code.

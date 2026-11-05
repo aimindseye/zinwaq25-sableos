@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tasks">משימות</string>
+    <string name="tasks_hint">C חדשה · Enter עריכה · רווח בוצע · Z מחר · D מחיקה · H שבוצעו</string>
+    <string name="no_tasks">אין משימות. C מוסיף אחת.</string>
+    <string name="group_overdue">באיחור</string>
+    <string name="group_today">היום</string>
+    <string name="group_tomorrow">מחר</string>
+    <string name="group_this_week">השבוע</string>
+    <string name="group_later">מאוחר יותר</string>
+    <string name="group_no_date">ללא תאריך</string>
+    <string name="group_done">בוצעו</string>
+    <string name="due_at">יעד %1$s</string>
+    <string name="remind_at">תזכורת %1$s</string>
+    <string name="from_app">מ-%1$s</string>
+    <string name="every_day">כל יום</string>
+    <string name="every_week">כל שבוע</string>
+    <string name="every_month">כל חודש</string>
+    <string name="new_task">משימה חדשה</string>
+    <string name="edit_task">עריכת משימה</string>
+    <string name="title">כותרת</string>
+    <string name="details">פרטים</string>
+    <string name="due">יעד</string>
+    <string name="remind">תזכורת</string>
+    <string name="none">ללא</string>
+    <string name="pick_time">בחירת שעה</string>
+    <string name="later_today">מאוחר יותר היום</string>
+    <string name="this_evening">הערב</string>
+    <string name="tomorrow_morning">מחר בבוקר</string>
+    <string name="repeat">חזרה: %1$s</string>
+    <string name="never">אף פעם</string>
+    <string name="save">שמירה</string>
+    <string name="cancel">ביטול</string>
+    <string name="delete">מחיקה</string>
+    <string name="delete_task">למחוק את „%1$s”?</string>
+    <string name="deleted">„%1$s” נמחקה</string>
+    <string name="add_a_title">יש להוסיף כותרת.</string>
+    <string name="reminders">תזכורות</string>
+    <string name="task_reminder">תזכורת למשימה</string>
+    <string name="done">בוצע</string>
+    <string name="snooze_1_hour">נודניק לשעה</string>
+    <string name="reminders_off">התראות התזכורת כבויות. Enter מאפשר אותן; התזכורות עדיין מופיעות כאן.</string>
+    <string name="follow_up_in">מעקב ב-%1$s</string>
+    <string name="show_done">הצגת שבוצעו (H)</string>
+    <string name="hide_done">הסתרת שבוצעו (H)</string>
+</resources>

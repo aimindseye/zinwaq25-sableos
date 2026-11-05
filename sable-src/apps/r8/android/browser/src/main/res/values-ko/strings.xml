@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="address_hint">검색하거나 웹 주소 입력</string>
+    <string name="keys_hint">L 주소 · Space 페이지 · T 맨 위 · B 맨 아래 · R 새로고침 · M 포인터</string>
+    <string name="pointer_on">트랙패드 포인터 켜짐</string>
+    <string name="pointer_off">포인터 꺼짐 · 트랙패드로 페이지 스크롤</string>
+    <string name="page_failed">페이지를 불러올 수 없습니다. R로 다시 시도합니다.</string>
+    <string name="no_app_for_link">이 링크를 열 수 있는 앱이 없습니다.</string>
+    <string name="share_page">페이지 공유</string>
+    <string name="downloading">%1$s 다운로드 중</string>
+    <string name="download_failed">다운로드를 시작할 수 없습니다.</string>
+    <string name="choose_file">파일 선택</string>
+</resources>

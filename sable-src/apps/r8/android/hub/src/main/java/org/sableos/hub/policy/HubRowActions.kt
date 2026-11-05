@@ -11,6 +11,11 @@ enum class HubRowAction(
 ) {
     Open("open"),
     Reply("reply"),
+    MarkRead("mark_read"),
+    MarkPriorRead("mark_prior_read"),
+    Snooze("snooze_1_hour"),
+    Dismiss("dismiss_notification"),
+    RemindMe("remind_me"),
     CallBack("call_back"),
     Text("text"),
     OpenInMessages("open_in_messages"),

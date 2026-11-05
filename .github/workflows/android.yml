@@ -50,17 +50,17 @@ jobs:
             extra: >-
               :design:testDebugUnitTest :hub:testDebugUnitTest :messages:testDebugUnitTest :media:testDebugUnitTest
               :weather:testDebugUnitTest :notes:testDebugUnitTest :calculator:testDebugUnitTest :sablestart-presentation-check:testDebugUnitTest
-              :calendar:testDebugUnitTest :games:testSudokuDebugUnitTest
+              :calendar:testDebugUnitTest :tasks:testDebugUnitTest :browser:testDebugUnitTest :games:testSudokuDebugUnitTest
               :sablestart-visual-review:assembleDebug
               :design:lintDebug :calculator:lintDebug :convert:lintDebug
               :games:lintSudokuDebug :games:lintMinesweeperDebug :games:lintGame2048Debug
               :media:lintDebug :hub:lintDebug :messages:lintDebug :weather:lintDebug
-              :calendar:lintDebug :notes:lintDebug :sablestart-presentation-check:lintDebug
+              :calendar:lintDebug :notes:lintDebug :tasks:lintDebug :browser:lintDebug :sablestart-presentation-check:lintDebug
               :design:detekt :calculator:detekt :convert:detekt :games:detekt :media:detekt
-              :hub:detekt :messages:detekt :weather:detekt :calendar:detekt :notes:detekt
+              :hub:detekt :messages:detekt :weather:detekt :calendar:detekt :notes:detekt :tasks:detekt :browser:detekt
               :design:ktlintCheck :calculator:ktlintCheck :convert:ktlintCheck
               :games:ktlintCheck :media:ktlintCheck :hub:ktlintCheck :messages:ktlintCheck
-              :weather:ktlintCheck :calendar:ktlintCheck :notes:ktlintCheck
+              :weather:ktlintCheck :calendar:ktlintCheck :notes:ktlintCheck :tasks:ktlintCheck :browser:ktlintCheck
               :design:koverXmlReportDebug :design:koverHtmlReportDebug
           - name: reader
             root: apps/common/reader
@@ -83,6 +83,10 @@ jobs:
             root: flavor:connectbot
             java: '21'
             extra: ":app:testOssDebugUnitTest --tests org.connectbot.sable.* :app:lintOssRelease"
+          - name: speech engine
+            root: flavor:espeak
+            java: '17'
+            extra: lintRelease
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -95,19 +99,16 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
-      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # master
-        if: matrix.root == 'apps/r8/android'
-        with:
-          toolchain: '1.98.1'
-          targets: aarch64-linux-android
-      - name: Android SDK 36 (and NDK for the r8 apps)
+      - name: Android SDK 36
         run: |
           set -euo pipefail
           sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
           test -n "$sdkmanager"
           yes | "$sdkmanager" --licenses > /dev/null || true
           pkgs=('platforms;android-36' 'build-tools;36.0.0')
-          [[ '${{ matrix.root }}' != apps/r8/android ]] || pkgs+=('ndk;30.0.16248370')
+          # eSpeak NG 1.52.0 pins its own NDK, CMake and build-tools (sable-src/apps/r8/espeak).
+          [[ '${{ matrix.root }}' != flavor:espeak ]] ||
+            pkgs+=('platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' 'cmake;3.22.1')
           "$sdkmanager" "${pkgs[@]}"
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
       - name: Build, test and check
