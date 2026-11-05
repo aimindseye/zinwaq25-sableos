@@ -1,0 +1,12 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+index f658753..89a2ba1 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+@@ -60,6 +60,7 @@ val canonicalPresentationSources =
+         "com/sable/start/model/LetterShortcuts.kt",
+         "com/sable/start/model/QuickBar.kt",
+         "com/sable/start/model/SpeedDial.kt",
++        "com/sable/start/model/StartLook.kt",
+         "com/sable/start/model/StartMonth.kt",
+         "com/sable/start/model/StartText.kt",
+         "com/sable/start/platform/DeviceStatsSampler.kt",
