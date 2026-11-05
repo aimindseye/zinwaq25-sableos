@@ -274,4 +274,5 @@
     <string name="pause_work">کام کی ایپس روکیں</string>
     <string name="resume_work">کام کی ایپس آن کریں</string>
     <string name="no_work_apps">ابھی کام کی کوئی ایپ نہیں۔ Sable Setup کام کی اسپیس بنا سکتا ہے۔</string>
+    <string name="delete_app">حذف کریں</string>
 </resources>

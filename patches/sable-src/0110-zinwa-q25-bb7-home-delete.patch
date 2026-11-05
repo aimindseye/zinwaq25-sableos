@@ -1,0 +1,235 @@
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index c4033d3..d11f1e7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">إيقاف تطبيقات العمل مؤقتًا</string>
+     <string name="resume_work">تشغيل تطبيقات العمل</string>
+     <string name="no_work_apps">لا توجد تطبيقات عمل بعد. يمكن لـ Sable Setup إنشاء مساحة عمل.</string>
++    <string name="delete_app">حذف</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index bd32f41..2ffb817 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">Arbeits-Apps pausieren</string>
+     <string name="resume_work">Arbeits-Apps einschalten</string>
+     <string name="no_work_apps">Noch keine Arbeits-Apps. Sable Setup kann einen Arbeitsbereich anlegen.</string>
++    <string name="delete_app">Löschen</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index fdc822b..3e33f12 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">Παύση εφαρμογών εργασίας</string>
+     <string name="resume_work">Ενεργοποίηση εφαρμογών εργασίας</string>
+     <string name="no_work_apps">Δεν υπάρχουν ακόμη εφαρμογές εργασίας. Το Sable Setup μπορεί να φτιάξει χώρο εργασίας.</string>
++    <string name="delete_app">Διαγραφή</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index f6e113d..4e6a854 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">Pausar apps de trabajo</string>
+     <string name="resume_work">Activar apps de trabajo</string>
+     <string name="no_work_apps">Aún no hay apps de trabajo. Sable Setup puede crear un espacio de trabajo.</string>
++    <string name="delete_app">Eliminar</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index b669e7e..c384502 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">Mettre en pause les apps pro</string>
+     <string name="resume_work">Activer les apps pro</string>
+     <string name="no_work_apps">Aucune app pro pour l’instant. Sable Setup peut créer un espace pro.</string>
++    <string name="delete_app">Supprimer</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index 54e07a8..9f3799a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">कार्य ऐप्स रोकें</string>
+     <string name="resume_work">कार्य ऐप्स चालू करें</string>
+     <string name="no_work_apps">अभी कोई कार्य ऐप नहीं। Sable Setup एक कार्य स्पेस बना सकता है।</string>
++    <string name="delete_app">हटाएं</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index b7472c2..5df331d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">Metti in pausa le app di lavoro</string>
+     <string name="resume_work">Attiva le app di lavoro</string>
+     <string name="no_work_apps">Ancora nessuna app di lavoro. Sable Setup può creare uno spazio di lavoro.</string>
++    <string name="delete_app">Elimina</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index ee1f5f8..53c1c88 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">השהיית אפליקציות העבודה</string>
+     <string name="resume_work">הפעלת אפליקציות העבודה</string>
+     <string name="no_work_apps">אין עדיין אפליקציות עבודה. Sable Setup יכול ליצור מרחב עבודה.</string>
++    <string name="delete_app">מחיקה</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index 59a4458..0d19251 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">仕事用アプリを一時停止</string>
+     <string name="resume_work">仕事用アプリをオンにする</string>
+     <string name="no_work_apps">仕事用アプリはまだありません。Sable Setup で仕事用スペースを作れます。</string>
++    <string name="delete_app">削除</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 4ae2180..9b2dcec 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">업무용 앱 일시중지</string>
+     <string name="resume_work">업무용 앱 켜기</string>
+     <string name="no_work_apps">아직 업무용 앱이 없습니다. Sable Setup에서 업무 공간을 만들 수 있습니다.</string>
++    <string name="delete_app">삭제</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 9104b33..20dd5dc 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">Werk-apps pauzeren</string>
+     <string name="resume_work">Werk-apps aanzetten</string>
+     <string name="no_work_apps">Nog geen werk-apps. Sable Setup kan een werkruimte maken.</string>
++    <string name="delete_app">Verwijderen</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index 100a162..e5d700e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">Wstrzymaj aplikacje służbowe</string>
+     <string name="resume_work">Włącz aplikacje służbowe</string>
+     <string name="no_work_apps">Brak aplikacji służbowych. Sable Setup może utworzyć przestrzeń służbową.</string>
++    <string name="delete_app">Usuń</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index b866724..f8942cb 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">Pausar apps de trabalho</string>
+     <string name="resume_work">Ativar apps de trabalho</string>
+     <string name="no_work_apps">Ainda sem apps de trabalho. O Sable Setup pode criar um espaço de trabalho.</string>
++    <string name="delete_app">Excluir</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 68bec89..f46de30 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">Приостановить рабочие приложения</string>
+     <string name="resume_work">Включить рабочие приложения</string>
+     <string name="no_work_apps">Рабочих приложений пока нет. Sable Setup может создать рабочее пространство.</string>
++    <string name="delete_app">Удалить</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 2d6569b..a243874 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">Pausa jobbappar</string>
+     <string name="resume_work">Slå på jobbappar</string>
+     <string name="no_work_apps">Inga jobbappar än. Sable Setup kan skapa ett jobbutrymme.</string>
++    <string name="delete_app">Ta bort</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 648fbaf..4eecc97 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">İş uygulamalarını duraklat</string>
+     <string name="resume_work">İş uygulamalarını aç</string>
+     <string name="no_work_apps">Henüz iş uygulaması yok. Sable Setup bir İş alanı oluşturabilir.</string>
++    <string name="delete_app">Sil</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index 17f778f..d19c8b9 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">کام کی ایپس روکیں</string>
+     <string name="resume_work">کام کی ایپس آن کریں</string>
+     <string name="no_work_apps">ابھی کام کی کوئی ایپ نہیں۔ Sable Setup کام کی اسپیس بنا سکتا ہے۔</string>
++    <string name="delete_app">حذف کریں</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index bd207d8..2326119 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -274,4 +274,5 @@
+     <string name="pause_work">暂停工作应用</string>
+     <string name="resume_work">开启工作应用</string>
+     <string name="no_work_apps">还没有工作应用。Sable Setup 可以创建工作空间。</string>
++    <string name="delete_app">删除</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index f2c8937..faf8ae6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -278,4 +278,5 @@
+     <string name="pause_work">Pause work apps</string>
+     <string name="resume_work">Turn on work apps</string>
+     <string name="no_work_apps">No work apps yet. Sable Setup can make a Work space.</string>
++    <string name="delete_app">Delete</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index eb4d2a7..95fddd9 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -274,6 +274,7 @@ class SableStartActivity : ComponentActivity() {
+                     homeGeneration = homeGeneration.value,
+                     onLaunchApp = { entry -> launcherAppsRepository.launch(entry) },
+                     onOpenAppInfo = { entry -> launcherAppsRepository.openAppDetails(entry) },
++                    onUninstallApp = { entry -> launcherAppsRepository.requestUninstall(entry) },
+                     onOpenHub = {
+                         hubRequestFilter.value = null
+                         hubGeneration.value += 1
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 03b1843..a49d0b4 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -289,6 +289,7 @@ object StartText {
+             "pause_work" to "Pause work apps",
+             "resume_work" to "Turn on work apps",
+             "no_work_apps" to "No work apps yet. Sable Setup can make a Work space.",
++            "delete_app" to "Delete",
+             "letter_shortcut_current" to "Hold-key shortcut: %1\$s",
+             "letter_shortcut_press" to
+                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+index 21469a4..1022710 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+@@ -96,6 +96,8 @@ fun Bb7HomeScreen(
+     onLaunchApp: (AppEntry) -> Boolean,
+     onOpenAppInfo: (AppEntry) -> Unit,
+     onOpenHub: () -> Unit,
++    /** BlackBerry 7's Delete: the system uninstaller asks before anything is removed. */
++    onUninstallApp: (AppEntry) -> Unit = {},
+     onFavoritesChanged: (List<String>) -> Unit,
+     onHomeRowsChanged: (Int) -> Unit,
+     onOpenMenu: (List<Pair<String, () -> Unit>>) -> Unit,
+@@ -167,6 +169,7 @@ fun Bb7HomeScreen(
+                     add(t("add_to_favorites") to { onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key)) })
+                 }
+                 add(t("app_info") to { onOpenAppInfo(app) })
++                if (app.canUninstall && app.inLauncherUser) add(t("delete_app") to { onUninstallApp(app) })
+             }
+             if (!open && !searching && homeRows < Bb7Home.MAX_HOME_ROWS) {
+                 add(t("show_more_rows") to { onHomeRowsChanged(homeRows + 1) })

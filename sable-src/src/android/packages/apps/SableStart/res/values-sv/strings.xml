@@ -274,4 +274,5 @@
     <string name="pause_work">Pausa jobbappar</string>
     <string name="resume_work">Slå på jobbappar</string>
     <string name="no_work_apps">Inga jobbappar än. Sable Setup kan skapa ett jobbutrymme.</string>
+    <string name="delete_app">Ta bort</string>
 </resources>

@@ -274,4 +274,5 @@
     <string name="pause_work">Werk-apps pauzeren</string>
     <string name="resume_work">Werk-apps aanzetten</string>
     <string name="no_work_apps">Nog geen werk-apps. Sable Setup kan een werkruimte maken.</string>
+    <string name="delete_app">Verwijderen</string>
 </resources>

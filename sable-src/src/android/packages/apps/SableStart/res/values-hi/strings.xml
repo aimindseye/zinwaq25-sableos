@@ -274,4 +274,5 @@
     <string name="pause_work">कार्य ऐप्स रोकें</string>
     <string name="resume_work">कार्य ऐप्स चालू करें</string>
     <string name="no_work_apps">अभी कोई कार्य ऐप नहीं। Sable Setup एक कार्य स्पेस बना सकता है।</string>
+    <string name="delete_app">हटाएं</string>
 </resources>

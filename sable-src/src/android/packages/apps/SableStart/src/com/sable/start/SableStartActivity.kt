@@ -274,6 +274,7 @@ class SableStartActivity : ComponentActivity() {
                     homeGeneration = homeGeneration.value,
                     onLaunchApp = { entry -> launcherAppsRepository.launch(entry) },
                     onOpenAppInfo = { entry -> launcherAppsRepository.openAppDetails(entry) },
+                    onUninstallApp = { entry -> launcherAppsRepository.requestUninstall(entry) },
                     onOpenHub = {
                         hubRequestFilter.value = null
                         hubGeneration.value += 1

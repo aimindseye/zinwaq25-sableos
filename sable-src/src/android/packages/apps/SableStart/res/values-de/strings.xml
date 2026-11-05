@@ -274,4 +274,5 @@
     <string name="pause_work">Arbeits-Apps pausieren</string>
     <string name="resume_work">Arbeits-Apps einschalten</string>
     <string name="no_work_apps">Noch keine Arbeits-Apps. Sable Setup kann einen Arbeitsbereich anlegen.</string>
+    <string name="delete_app">Löschen</string>
 </resources>

@@ -274,4 +274,5 @@
     <string name="pause_work">仕事用アプリを一時停止</string>
     <string name="resume_work">仕事用アプリをオンにする</string>
     <string name="no_work_apps">仕事用アプリはまだありません。Sable Setup で仕事用スペースを作れます。</string>
+    <string name="delete_app">削除</string>
 </resources>

@@ -274,4 +274,5 @@
     <string name="pause_work">השהיית אפליקציות העבודה</string>
     <string name="resume_work">הפעלת אפליקציות העבודה</string>
     <string name="no_work_apps">אין עדיין אפליקציות עבודה. Sable Setup יכול ליצור מרחב עבודה.</string>
+    <string name="delete_app">מחיקה</string>
 </resources>

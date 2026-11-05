@@ -96,6 +96,8 @@ fun Bb7HomeScreen(
     onLaunchApp: (AppEntry) -> Boolean,
     onOpenAppInfo: (AppEntry) -> Unit,
     onOpenHub: () -> Unit,
+    /** BlackBerry 7's Delete: the system uninstaller asks before anything is removed. */
+    onUninstallApp: (AppEntry) -> Unit = {},
     onFavoritesChanged: (List<String>) -> Unit,
     onHomeRowsChanged: (Int) -> Unit,
     onOpenMenu: (List<Pair<String, () -> Unit>>) -> Unit,
@@ -167,6 +169,7 @@ fun Bb7HomeScreen(
                     add(t("add_to_favorites") to { onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key)) })
                 }
                 add(t("app_info") to { onOpenAppInfo(app) })
+                if (app.canUninstall && app.inLauncherUser) add(t("delete_app") to { onUninstallApp(app) })
             }
             if (!open && !searching && homeRows < Bb7Home.MAX_HOME_ROWS) {
                 add(t("show_more_rows") to { onHomeRowsChanged(homeRows + 1) })

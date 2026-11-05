@@ -274,4 +274,5 @@
     <string name="pause_work">Приостановить рабочие приложения</string>
     <string name="resume_work">Включить рабочие приложения</string>
     <string name="no_work_apps">Рабочих приложений пока нет. Sable Setup может создать рабочее пространство.</string>
+    <string name="delete_app">Удалить</string>
 </resources>

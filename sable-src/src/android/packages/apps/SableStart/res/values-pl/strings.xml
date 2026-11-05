@@ -274,4 +274,5 @@
     <string name="pause_work">Wstrzymaj aplikacje służbowe</string>
     <string name="resume_work">Włącz aplikacje służbowe</string>
     <string name="no_work_apps">Brak aplikacji służbowych. Sable Setup może utworzyć przestrzeń służbową.</string>
+    <string name="delete_app">Usuń</string>
 </resources>
