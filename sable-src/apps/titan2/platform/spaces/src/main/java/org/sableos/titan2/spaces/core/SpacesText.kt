@@ -45,7 +45,8 @@ object SpacesText {
             "option_line" to "%1\$s: %2\$s",
             "work_lock" to "Work lock",
             "work_lock_about" to
-                "A separate PIN, pattern or password for work apps, asked when you open them after the phone was locked.",
+                "A separate PIN, pattern or password for work apps, asked when you open them " +
+                "after the phone was locked.",
             "options_hint" to
                 "Up and Down choose · Enter changes it · L sets the Work lock · Back leaves",
             "options_failed" to "Android did not accept that change.",

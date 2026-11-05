@@ -30,7 +30,12 @@ class DocumentSaver(private val context: Context) {
         val head = ByteArray(SNIFF)
         val read = input.readNBytes(head, 0, SNIFF)
         input.reset()
-        val format = PrintToGo.sniff(head.copyOf(read), declared) ?: return null
+        val format = PrintToGo.sniff(head.copyOf(read), declared)
+        return format?.let { write(job, it, input) }
+    }
+
+    /** Into a new pending MediaStore file, published only once it is complete; removed if writing fails. */
+    private fun write(job: PrintJob, format: String, input: InputStream): Saved? {
         val name = PrintToGo.fileName(job.name, System.currentTimeMillis(), ZoneId.systemDefault())
         val resolver = context.contentResolver
         val values =
@@ -48,19 +53,20 @@ class DocumentSaver(private val context: Context) {
                     if (format == IppPrinter.PDF) input.copyTo(out) else rasterToPdf(input, out)
                 } ?: error("no output")
             }.isSuccess
-        if (!ok) {
+        return if (ok) {
+            resolver.update(
+                uri,
+                ContentValues().apply {
+                    put(MediaStore.MediaColumns.IS_PENDING, 0)
+                },
+                null,
+                null
+            )
+            Saved(name, uri)
+        } else {
             runCatching { resolver.delete(uri, null, null) }
-            return null
-        }
-        resolver.update(
-            uri,
-            ContentValues().apply {
-                put(MediaStore.MediaColumns.IS_PENDING, 0)
-            },
-            null,
             null
-        )
-        return Saved(name, uri)
+        }
     }
 
     private fun rasterToPdf(input: InputStream, out: OutputStream) {

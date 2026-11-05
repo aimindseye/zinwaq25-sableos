@@ -138,41 +138,46 @@ class CompassActivity :
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        when (event.sensor.type) {
-            Sensor.TYPE_ROTATION_VECTOR -> SensorManager.getRotationMatrixFromVector(
-                rotation,
-                event.values
-            )
+        if (updateRotation(event) && !held) turn()
+    }
 
-            Sensor.TYPE_ACCELEROMETER -> {
-                gravity = event.values.clone()
-                if (!fromParts()) return
-            }
-
-            Sensor.TYPE_MAGNETIC_FIELD -> {
-                setAccuracy(event.accuracy)
-                field = event.values.clone()
-                if (usesVector || !fromParts()) return
-            }
-
-            else -> return
+    /** Takes in one reading; true when the rotation is new and the card should follow it. */
+    private fun updateRotation(event: SensorEvent): Boolean = when (event.sensor.type) {
+        Sensor.TYPE_ROTATION_VECTOR -> {
+            SensorManager.getRotationMatrixFromVector(rotation, event.values)
+            true
         }
-        if (held) return
+
+        Sensor.TYPE_ACCELEROMETER -> {
+            gravity = event.values.clone()
+            fromParts()
+        }
+
+        Sensor.TYPE_MAGNETIC_FIELD -> {
+            setAccuracy(event.accuracy)
+            field = event.values.clone()
+            !usesVector && fromParts()
+        }
+
+        else -> false
+    }
+
+    private fun turn() {
         val facing = Heading.facing(rotation)
         dial.squash = Heading.squash(Heading.tilt(rotation))
         if (facing == null) {
             status.text = t("flat_or_upright")
-            return
+        } else {
+            shown = Heading.smooth(shown, facing, SMOOTHING)
+            show()
         }
-        shown = Heading.smooth(shown, facing, SMOOTHING)
-        show()
     }
 
     /** Without a rotation vector: the rotation from gravity and the magnetic field, when both are in. */
     private fun fromParts(): Boolean {
-        val g = gravity ?: return false
-        val m = field ?: return false
-        return SensorManager.getRotationMatrix(rotation, null, g, m)
+        val g = gravity
+        val m = field
+        return g != null && m != null && SensorManager.getRotationMatrix(rotation, null, g, m)
     }
 
     override fun onAccuracyChanged(sensor: Sensor, status: Int) {
@@ -187,33 +192,25 @@ class CompassActivity :
     }
 
     private fun show() {
-        val magnetic = shown
         val trueOffset = declination.takeIf { trueNorth }
-        val heading = magnetic?.let {
-            if (trueOffset !=
-                null
-            ) {
-                Heading.toTrue(it, trueOffset)
-            } else {
-                it
-            }
-        }
+        val heading = shown?.let { if (trueOffset != null) Heading.toTrue(it, trueOffset) else it }
         number.text = heading?.let { t("degrees", Heading.degrees(it)) } ?: "--"
         number.setTextColor(if (accuracy.needsCalibration) palette.warn else palette.text)
         word.text = heading?.let { t(Heading.word(it)) }.orEmpty()
-        mode.text =
-            (if (trueOffset != null) t("true_north") else t("magnetic")) + " · " + t(accuracy.key)
+        val north = if (trueOffset != null) t("true_north") else t("magnetic")
+        mode.text = north + " · " + t(accuracy.key)
         dial.trueNorth = trueOffset != null
         if (heading != null) dial.heading = heading
-        status.text =
-            when {
-                held -> t("held")
-                trueNorth && locationDenied -> t("true_denied")
-                trueNorth && trueOffset == null -> t("true_waiting")
-                else -> ""
-            }
+        status.text = statusLine(trueOffset != null)
         calibrationStatus.text =
             if (accuracy == Accuracy.HIGH) t("calibrate_done") else t(accuracy.key)
+    }
+
+    private fun statusLine(trueKnown: Boolean): String = when {
+        held -> t("held")
+        trueNorth && locationDenied -> t("true_denied")
+        trueNorth && !trueKnown -> t("true_waiting")
+        else -> ""
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
@@ -256,27 +253,32 @@ class CompassActivity :
                 arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
                 REQUEST_LOCATION
             )
-            return
+        } else {
+            locationDenied = false
+            getSystemService(LocationManager::class.java)?.let(::locateWith)
         }
-        locationDenied = false
-        val manager = getSystemService(LocationManager::class.java) ?: return
+    }
+
+    private fun locateWith(manager: LocationManager) {
         try {
             val known =
                 manager.getProviders(true)
                     .mapNotNull { manager.getLastKnownLocation(it) }
                     .maxByOrNull { it.time }
-            if (known != null) {
-                useLocation(known)
-                return
-            }
             val provider =
                 listOf(
                     LocationManager.FUSED_PROVIDER,
                     LocationManager.NETWORK_PROVIDER,
                     LocationManager.GPS_PROVIDER
                 )
-                    .firstOrNull { manager.isProviderEnabled(it) } ?: return
-            manager.getCurrentLocation(provider, null, mainExecutor) { it?.let(::useLocation) }
+                    .firstOrNull { manager.isProviderEnabled(it) }
+            when {
+                known != null -> useLocation(known)
+
+                provider != null -> manager.getCurrentLocation(provider, null, mainExecutor) {
+                    it?.let(::useLocation)
+                }
+            }
         } catch (_: SecurityException) {
             locationDenied = true
         }

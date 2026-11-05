@@ -33,7 +33,7 @@ class HttpTest {
     @Test
     fun responsesCarryLengthAndConnection() {
         val out = ByteArrayOutputStream()
-        Http.respond(out, 200, "OK", "application/ipp", byteArrayOf(1, 2, 3), keepAlive = true)
+        Http.respond(out, HttpStatus.OK, "application/ipp", byteArrayOf(1, 2, 3), keepAlive = true)
         val text = String(out.toByteArray(), Charsets.ISO_8859_1)
         assertTrue(text.startsWith("HTTP/1.1 200 OK\r\n"))
         assertTrue("Content-Length: 3\r\n" in text)

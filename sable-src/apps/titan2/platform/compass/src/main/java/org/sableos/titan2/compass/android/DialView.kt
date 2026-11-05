@@ -112,8 +112,8 @@ class DialView(context: Context, private val palette: SablePalette) : View(conte
                 when (deg) {
                     0 -> if (trueNorth) t("true_mark") else t("dial_n")
                     QUARTER -> t("dial_e")
-                    2 * QUARTER -> t("dial_s")
-                    3 * QUARTER -> t("dial_w")
+                    HALF -> t("dial_s")
+                    THREE_QUARTERS -> t("dial_w")
                     else -> deg.toString()
                 }
             label.textSize = r * if (cardinal) CARDINAL_TEXT else NUMBER_TEXT
@@ -150,6 +150,8 @@ class DialView(context: Context, private val palette: SablePalette) : View(conte
         const val MID = 10
         const val MAJOR = 30
         const val QUARTER = 90
+        const val HALF = 180
+        const val THREE_QUARTERS = 270
         const val INSET = 0.98f
         const val LONG = 0.14f
         const val MEDIUM = 0.09f

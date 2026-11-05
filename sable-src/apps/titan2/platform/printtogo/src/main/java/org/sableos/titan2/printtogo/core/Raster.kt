@@ -3,6 +3,7 @@ package org.sableos.titan2.printtogo.core
 import java.io.DataInputStream
 import java.io.EOFException
 import java.io.InputStream
+import java.nio.ByteBuffer
 
 /** One raster page's size and pixel layout. */
 data class RasterPage(
@@ -47,14 +48,17 @@ class RasterReader(input: InputStream) {
 
     /** The next page's header, or null after the last page. Call [readRows] before asking again. */
     fun nextPage(): RasterPage? {
-        if (pagesLeft <= 0) return null
         val page =
-            try {
-                if (kind == Kind.Pwg) pwgHeader() else urfHeader()
-            } catch (_: EOFException) {
-                return null
+            if (pagesLeft <= 0) {
+                null
+            } else {
+                try {
+                    if (kind == Kind.Pwg) pwgHeader() else urfHeader()
+                } catch (_: EOFException) {
+                    null
+                }
             }
-        pagesLeft--
+        if (page != null) pagesLeft--
         current = page
         return page
     }
@@ -147,18 +151,21 @@ class RasterReader(input: InputStream) {
             out[x] =
                 if (bpp == 1) {
                     val g = line[i].toInt() and BYTE
-                    OPAQUE or (g shl 16) or (g shl 8) or g
+                    rgb(g, g, g)
                 } else {
-                    OPAQUE or (line[i].toInt() and BYTE shl 16) or
-                        (line[i + 1].toInt() and BYTE shl 8) or
-                        (line[i + 2].toInt() and BYTE)
+                    rgb(
+                        line[i].toInt() and BYTE,
+                        line[i + 1].toInt() and BYTE,
+                        line[i + 2].toInt() and BYTE
+                    )
                 }
         }
     }
 
-    private fun ByteArray.int(at: Int): Int =
-        (this[at].toInt() and BYTE shl 24) or (this[at + 1].toInt() and BYTE shl 16) or
-            (this[at + 2].toInt() and BYTE shl 8) or (this[at + 3].toInt() and BYTE)
+    private fun rgb(r: Int, g: Int, b: Int): Int =
+        OPAQUE or (r shl RED_SHIFT) or (g shl GREEN_SHIFT) or b
+
+    private fun ByteArray.int(at: Int): Int = ByteBuffer.wrap(this, at, Int.SIZE_BYTES).int
 
     companion object {
         val PWG_SYNC = "RaS2".toByteArray(Charsets.US_ASCII)
@@ -185,6 +192,8 @@ class RasterReader(input: InputStream) {
         private const val RGB = 3
         private const val BYTE = 0xFF
         private const val OPAQUE = -0x1000000
+        private const val RED_SHIFT = 16
+        private const val GREEN_SHIFT = 8
         private const val MAX_SIDE = 20_000
         private const val MIN_DPI = 72
         private const val MAX_DPI = 1200

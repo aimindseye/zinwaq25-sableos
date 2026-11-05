@@ -20,6 +20,15 @@ class HttpRequest(
     val expectsContinue: Boolean get() = header("expect")?.lowercase() == "100-continue"
 }
 
+/** An HTTP status line's code and reason. */
+class HttpStatus(val code: Int, val reason: String) {
+    companion object {
+        val OK = HttpStatus(200, "OK")
+        val BAD_REQUEST = HttpStatus(400, "Bad Request")
+        val NOT_ALLOWED = HttpStatus(405, "Method Not Allowed")
+    }
+}
+
 /**
  * The little HTTP/1.1 that IPP rides on: request heads, Content-Length and chunked bodies (CUPS and macOS send
  * chunked jobs), "Expect: 100-continue", and plain responses. Nothing else is served.
@@ -30,13 +39,33 @@ object Http {
     private const val CR = '\r'.code
     private const val LF = '\n'.code
     private const val HEX = 16
+    private const val REQUEST_LINE_PARTS = 3
+    private const val BYTE_MASK = 0xFF
 
     /** Reads the next request head from [input], or null when the client closed the connection first. */
     fun read(input: InputStream): HttpRequest? {
-        var requestLine = line(input) ?: return null
-        while (requestLine.isEmpty()) requestLine = line(input) ?: return null
-        val parts = requestLine.split(' ')
-        if (parts.size < 3) throw IOException("bad request line")
+        val parts = requestLine(input) ?: return null
+        val headers = headers(input)
+        val chunked = headers["transfer-encoding"]?.lowercase()?.contains("chunked") == true
+        val body =
+            if (chunked) {
+                ChunkedInput(input)
+            } else {
+                LimitedInput(input, headers["content-length"]?.toLongOrNull() ?: 0L)
+            }
+        return HttpRequest(parts[0], parts[1], headers, body)
+    }
+
+    /** Method, target and version; blank lines before it are skipped. Null when the client closed first. */
+    private fun requestLine(input: InputStream): List<String>? {
+        var text = line(input)
+        while (text != null && text.isEmpty()) text = line(input)
+        val parts = text?.split(' ')
+        if (parts != null && parts.size < REQUEST_LINE_PARTS) throw IOException("bad request line")
+        return parts
+    }
+
+    private fun headers(input: InputStream): Map<String, String> {
         val headers = mutableMapOf<String, String>()
         while (true) {
             val header = line(input) ?: throw EOFException()
@@ -50,15 +79,7 @@ object Http {
                     header.substring(colon + 1).trim()
             }
         }
-        val body =
-            when {
-                headers["transfer-encoding"]?.lowercase()?.contains(
-                    "chunked"
-                ) == true -> ChunkedInput(input)
-
-                else -> LimitedInput(input, headers["content-length"]?.toLongOrNull() ?: 0L)
-            }
-        return HttpRequest(parts[0], parts[1], headers, body)
+        return headers
     }
 
     fun writeContinue(output: OutputStream) {
@@ -68,14 +89,13 @@ object Http {
 
     fun respond(
         output: OutputStream,
-        status: Int,
-        reason: String,
+        status: HttpStatus,
         type: String,
         body: ByteArray,
         keepAlive: Boolean
     ) {
         val head =
-            "HTTP/1.1 $status $reason\r\n" +
+            "HTTP/1.1 ${status.code} ${status.reason}\r\n" +
                 "Content-Type: $type\r\n" +
                 "Content-Length: ${body.size}\r\n" +
                 "Connection: ${if (keepAlive) "keep-alive" else "close"}\r\n" +
@@ -130,9 +150,9 @@ object Http {
         private var left = 0L
         private var done = false
 
+        /** Moves to the next chunk when this one is used up; false once the last (empty) chunk is read. */
         private fun nextChunk(): Boolean {
-            if (done) return false
-            if (left == 0L) {
+            if (!done && left == 0L) {
                 val size = line(`in`) ?: throw EOFException()
                 left =
                     size.substringBefore(';').trim().toLongOrNull(HEX)
@@ -141,20 +161,23 @@ object Http {
                     // Trailers, then the blank line that ends the body.
                     while ((line(`in`) ?: "").isNotEmpty()) Unit
                     done = true
-                    return false
                 }
             }
-            return true
+            return !done
         }
 
         override fun read(): Int {
             val one = ByteArray(1)
-            return if (read(one, 0, 1) < 0) -1 else one[0].toInt() and 0xFF
+            return if (read(one, 0, 1) < 0) -1 else one[0].toInt() and BYTE_MASK
         }
 
-        override fun read(b: ByteArray, off: Int, len: Int): Int {
-            if (len == 0) return 0
-            if (!nextChunk()) return -1
+        override fun read(b: ByteArray, off: Int, len: Int): Int = when {
+            len == 0 -> 0
+            !nextChunk() -> -1
+            else -> readChunk(b, off, len)
+        }
+
+        private fun readChunk(b: ByteArray, off: Int, len: Int): Int {
             val n = `in`.read(b, off, minOf(len.toLong(), left).toInt())
             if (n < 0) throw EOFException()
             left -= n

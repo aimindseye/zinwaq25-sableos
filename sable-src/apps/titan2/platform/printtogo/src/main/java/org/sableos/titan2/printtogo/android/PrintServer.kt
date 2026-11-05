@@ -9,6 +9,7 @@ import java.net.Socket
 import java.util.concurrent.Executors
 import org.sableos.titan2.printtogo.core.Http
 import org.sableos.titan2.printtogo.core.HttpRequest
+import org.sableos.titan2.printtogo.core.HttpStatus
 import org.sableos.titan2.printtogo.core.Ipp
 import org.sableos.titan2.printtogo.core.IppPrinter
 import org.sableos.titan2.printtogo.core.PrintJob
@@ -58,10 +59,11 @@ class PrintServer(
             client.use {
                 val input = BufferedInputStream(it.getInputStream())
                 val output = BufferedOutputStream(it.getOutputStream())
-                while (true) {
-                    val request = Http.read(input) ?: break
-                    answer(request, output)
-                    if (!request.keepAlive) break
+                var open = true
+                while (open) {
+                    val request = Http.read(input)
+                    request?.let { r -> answer(r, output) }
+                    open = request?.keepAlive == true
                 }
             }
         }
@@ -77,15 +79,14 @@ class PrintServer(
 
             request.method == "GET" || request.method == "HEAD" -> {
                 Http.drain(request.body)
-                Http.respond(output, OK, "OK", "text/plain", PAGE, request.keepAlive)
+                Http.respond(output, HttpStatus.OK, "text/plain", PAGE, request.keepAlive)
             }
 
             else -> {
                 Http.drain(request.body)
                 Http.respond(
                     output,
-                    NOT_ALLOWED,
-                    "Method Not Allowed",
+                    HttpStatus.NOT_ALLOWED,
                     "text/plain",
                     ByteArray(0),
                     request.keepAlive
@@ -99,8 +100,7 @@ class PrintServer(
             Http.drain(request.body)
             Http.respond(
                 output,
-                BAD_REQUEST,
-                "Bad Request",
+                HttpStatus.BAD_REQUEST,
                 "text/plain",
                 ByteArray(0),
                 request.keepAlive
@@ -114,16 +114,19 @@ class PrintServer(
                 printer.handle(message) { job, format -> receive(job, format, request.body) }
             }
         Http.drain(request.body)
-        Http.respond(output, OK, "OK", "application/ipp", Ipp.encode(response), request.keepAlive)
+        Http.respond(
+            output,
+            HttpStatus.OK,
+            "application/ipp",
+            Ipp.encode(response),
+            request.keepAlive
+        )
     }
 
     private companion object {
         const val MAX_CLIENTS = 4
         const val BACKLOG = 8
         const val READ_TIMEOUT_MS = 60_000
-        const val OK = 200
-        const val BAD_REQUEST = 400
-        const val NOT_ALLOWED = 405
         val PAGE = "Sable Print To Go\n".toByteArray(Charsets.UTF_8)
     }
 }

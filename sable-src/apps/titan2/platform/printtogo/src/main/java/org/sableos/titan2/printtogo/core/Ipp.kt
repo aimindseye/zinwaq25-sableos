@@ -3,6 +3,7 @@ package org.sableos.titan2.printtogo.core
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.InputStream
+import java.nio.ByteBuffer
 
 /** One IPP attribute value (RFC 8010 section 3.5). */
 sealed interface IppValue {
@@ -243,17 +244,12 @@ object Ipp {
         write(value)
     }
 
-    private fun ByteArrayOutputStream.short(v: Int) {
-        write(v shr 8 and 0xFF)
-        write(v and 0xFF)
-    }
+    private fun ByteArrayOutputStream.short(v: Int) =
+        write(ByteBuffer.allocate(Short.SIZE_BYTES).putShort(v.toShort()).array())
 
     private fun ByteArrayOutputStream.int(v: Int) = write(intBytes(v))
 
-    private fun intBytes(v: Int) =
-        byteArrayOf((v shr 24).toByte(), (v shr 16).toByte(), (v shr 8).toByte(), v.toByte())
+    private fun intBytes(v: Int) = ByteBuffer.allocate(Int.SIZE_BYTES).putInt(v).array()
 
-    private fun ByteArray.int(at: Int): Int =
-        (this[at].toInt() and 0xFF shl 24) or (this[at + 1].toInt() and 0xFF shl 16) or
-            (this[at + 2].toInt() and 0xFF shl 8) or (this[at + 3].toInt() and 0xFF)
+    private fun ByteArray.int(at: Int): Int = ByteBuffer.wrap(this, at, Int.SIZE_BYTES).int
 }

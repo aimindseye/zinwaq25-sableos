@@ -130,16 +130,23 @@ class PrintToGoService : Service() {
 
     /** The Wi-Fi network and its IPv4 address; null when the phone is not on Wi-Fi. */
     private fun wifi(): Pair<Network, InetAddress>? {
-        val cm = getSystemService(ConnectivityManager::class.java) ?: return null
-        val network = cm.activeNetwork ?: return null
-        val caps = cm.getNetworkCapabilities(network) ?: return null
-        if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return null
+        val cm = getSystemService(ConnectivityManager::class.java)
+        val network = cm?.activeNetwork
+        val onWifi =
+            network != null &&
+                cm.getNetworkCapabilities(
+                    network
+                )?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ==
+                true
         val address =
-            cm.getLinkProperties(network)?.linkAddresses?.map {
-                it.address
-            }?.firstOrNull { it is Inet4Address }
-                ?: return null
-        return network to address
+            if (onWifi) {
+                cm.getLinkProperties(network)?.linkAddresses?.map {
+                    it.address
+                }?.firstOrNull { it is Inet4Address }
+            } else {
+                null
+            }
+        return if (network != null && address != null) network to address else null
     }
 
     private fun announce(name: String, network: Network) {

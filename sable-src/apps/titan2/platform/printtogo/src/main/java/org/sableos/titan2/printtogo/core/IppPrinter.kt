@@ -53,26 +53,30 @@ class IppPrinter(private val info: PrinterInfo, private val upTimeSeconds: () ->
      * follows the request and returns the name it was saved as, or null when it could not be saved.
      */
     fun handle(request: IppMessage, receive: (PrintJob, String) -> String?): IppMessage {
-        if (request.version shr 8 !in 1..2) return reply(request, Status.VERSION_NOT_SUPPORTED)
-        if (request.requestId <= 0 ||
-            !wellFormed(request)
-        ) {
-            return reply(request, Status.BAD_REQUEST)
-        }
-        return when (request.code) {
-            Operation.GET_PRINTER_ATTRIBUTES -> reply(
-                request,
-                Status.OK,
-                IppGroup(GROUP_PRINTER, requested(request, printerAttributes()))
-            )
+        val refused = refusal(request)
+        return if (refused != null) reply(request, refused) else dispatch(request, receive)
+    }
 
-            Operation.VALIDATE_JOB -> format(request)?.let { reply(request, Status.OK) }
-                ?: badFormat(request)
+    /** A request this printer cannot even read: an IPP version it does not speak, or a malformed one. */
+    private fun refusal(request: IppMessage): Int? = when {
+        request.version shr MAJOR_SHIFT !in SUPPORTED_MAJOR -> Status.VERSION_NOT_SUPPORTED
+        request.requestId <= 0 || !wellFormed(request) -> Status.BAD_REQUEST
+        else -> null
+    }
 
-            Operation.PRINT_JOB -> {
-                val format = format(request) ?: return badFormat(request)
-                finish(request, receive(create(request, format), format), create = true)
-            }
+    private fun dispatch(request: IppMessage, receive: (PrintJob, String) -> String?): IppMessage =
+        when (request.code) {
+            Operation.GET_PRINTER_ATTRIBUTES ->
+                reply(
+                    request,
+                    Status.OK,
+                    IppGroup(GROUP_PRINTER, requested(request, printerAttributes()))
+                )
+
+            Operation.VALIDATE_JOB ->
+                if (format(request) != null) reply(request, Status.OK) else badFormat(request)
+
+            Operation.PRINT_JOB -> printJob(request, receive)
 
             Operation.CREATE_JOB -> reply(
                 request,
@@ -80,42 +84,75 @@ class IppPrinter(private val info: PrinterInfo, private val upTimeSeconds: () ->
                 jobGroup(create(request, DEFAULT_FORMAT))
             )
 
-            Operation.SEND_DOCUMENT -> {
-                val job = job(request) ?: return reply(request, Status.NOT_FOUND)
-                // RFC 8011 4.3.1: last-document is required. Each job here holds one document.
-                if (request.group(GROUP_OPERATION)?.find("last-document") == null) {
-                    return reply(request, Status.BAD_REQUEST)
-                }
-                val format = format(request) ?: return badFormat(request)
-                val updated = job.copy(format = format)
-                jobs[job.id] = updated
-                finish(request, receive(updated, format), create = false, job = updated)
-            }
+            Operation.SEND_DOCUMENT -> sendDocument(request, receive)
 
-            Operation.CANCEL_JOB, Operation.CLOSE_JOB -> {
-                val job = job(request) ?: return reply(request, Status.NOT_FOUND)
-                when {
-                    request.code == Operation.CLOSE_JOB -> reply(request, Status.OK)
+            Operation.CANCEL_JOB, Operation.CLOSE_JOB -> cancelOrClose(request)
 
-                    // A finished job cannot be cancelled (RFC 8011 4.3.3).
-                    job.state >= JobState.CANCELED -> reply(request, Status.NOT_POSSIBLE)
-
-                    else -> {
-                        jobs[job.id] = job.copy(state = JobState.CANCELED)
-                        reply(request, Status.OK)
-                    }
+            Operation.GET_JOB_ATTRIBUTES -> {
+                val job = job(request)
+                if (job !=
+                    null
+                ) {
+                    reply(request, Status.OK, jobGroup(job))
+                } else {
+                    reply(request, Status.NOT_FOUND)
                 }
             }
 
-            Operation.GET_JOB_ATTRIBUTES ->
-                job(request)?.let { reply(request, Status.OK, jobGroup(it)) }
-                    ?: reply(request, Status.NOT_FOUND)
-
-            Operation.GET_JOBS -> reply(request, Status.OK, *listJobs(request).toTypedArray())
+            Operation.GET_JOBS -> replyAll(request, Status.OK, listJobs(request))
 
             Operation.IDENTIFY_PRINTER -> reply(request, Status.OK)
 
             else -> reply(request, Status.OPERATION_NOT_SUPPORTED)
+        }
+
+    private fun printJob(request: IppMessage, receive: (PrintJob, String) -> String?): IppMessage {
+        val format = format(request)
+        return if (format == null) {
+            badFormat(request)
+        } else {
+            finish(request, receive(create(request, format), format), create = true)
+        }
+    }
+
+    private fun sendDocument(
+        request: IppMessage,
+        receive: (PrintJob, String) -> String?
+    ): IppMessage {
+        val job = job(request)
+        val format = format(request)
+        return when {
+            job == null -> reply(request, Status.NOT_FOUND)
+
+            // RFC 8011 4.3.1: last-document is required. Each job here holds one document.
+            request.group(
+                GROUP_OPERATION
+            )?.find("last-document") == null -> reply(request, Status.BAD_REQUEST)
+
+            format == null -> badFormat(request)
+
+            else -> {
+                val updated = job.copy(format = format)
+                jobs[job.id] = updated
+                finish(request, receive(updated, format), create = false, job = updated)
+            }
+        }
+    }
+
+    private fun cancelOrClose(request: IppMessage): IppMessage {
+        val job = job(request)
+        return when {
+            job == null -> reply(request, Status.NOT_FOUND)
+
+            request.code == Operation.CLOSE_JOB -> reply(request, Status.OK)
+
+            // A finished job cannot be cancelled (RFC 8011 4.3.3).
+            job.state >= JobState.CANCELED -> reply(request, Status.NOT_POSSIBLE)
+
+            else -> {
+                jobs[job.id] = job.copy(state = JobState.CANCELED)
+                reply(request, Status.OK)
+            }
         }
     }
 
@@ -229,7 +266,10 @@ class IppPrinter(private val info: PrinterInfo, private val upTimeSeconds: () ->
     private fun badFormat(request: IppMessage) =
         reply(request, Status.DOCUMENT_FORMAT_NOT_SUPPORTED)
 
-    private fun reply(request: IppMessage, status: Int, vararg groups: IppGroup): IppMessage {
+    private fun reply(request: IppMessage, status: Int, vararg groups: IppGroup): IppMessage =
+        replyAll(request, status, groups.toList())
+
+    private fun replyAll(request: IppMessage, status: Int, groups: List<IppGroup>): IppMessage {
         val operation =
             IppGroup(
                 GROUP_OPERATION,
@@ -272,7 +312,7 @@ class IppPrinter(private val info: PrinterInfo, private val upTimeSeconds: () ->
         else -> "none"
     }
 
-    private fun printerAttributes(): List<IppAttribute> = identity() + paper()
+    private fun printerAttributes(): List<IppAttribute> = identity() + paper() + options()
 
     /** Who the printer is, what it speaks and takes. */
     private fun identity(): List<IppAttribute> = listOf(
@@ -321,7 +361,7 @@ class IppPrinter(private val info: PrinterInfo, private val upTimeSeconds: () ->
         int("copies-default", 1)
     )
 
-    /** Paper, margins, resolution and the rest of what a print dialog offers. */
+    /** Paper sizes and margins. */
     private fun paper(): List<IppAttribute> = listOf(
         texts("media-supported", MEDIA.map { it.keyword }, TAG_KEYWORD),
         text("media-default", MEDIA.first().keyword, TAG_KEYWORD),
@@ -346,7 +386,11 @@ class IppPrinter(private val info: PrinterInfo, private val upTimeSeconds: () ->
         int("media-left-margin-supported", 0),
         int("media-right-margin-supported", 0),
         text("media-source-supported", "auto", TAG_KEYWORD),
-        text("media-type-supported", "stationery", TAG_KEYWORD),
+        text("media-type-supported", "stationery", TAG_KEYWORD)
+    )
+
+    /** Resolution, quality and the rest of what a print dialog offers. */
+    private fun options(): List<IppAttribute> = listOf(
         text("output-bin-supported", "face-up", TAG_KEYWORD),
         text("output-bin-default", "face-up", TAG_KEYWORD),
         IppAttribute(
@@ -454,6 +498,10 @@ class IppPrinter(private val info: PrinterInfo, private val upTimeSeconds: () ->
         /** Raster pages come at this resolution; PDF keeps its own. */
         const val DPI = 300
         const val KEEP_JOBS = 20
+
+        /** IPP/1.x and 2.x; the minor version is not checked. */
+        private val SUPPORTED_MAJOR = 1..2
+        private const val MAJOR_SHIFT = 8
 
         private val GROUP_NAMES =
             setOf("all", "printer-description", "job-template", "media-col-database")
