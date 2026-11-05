@@ -264,4 +264,8 @@
     <string name="instant_email">אימייל</string>
     <string name="instant_map">מפה</string>
     <string name="instant_web_search">חיפוש באינטרנט</string>
+    <string name="frame_previous">הקודם</string>
+    <string name="frame_play">הפעל</string>
+    <string name="frame_pause">השהה</string>
+    <string name="frame_next">הבא</string>
 </resources>

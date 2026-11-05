@@ -61,12 +61,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -148,6 +150,8 @@ import org.sableos.start.model.CommandQuery
 import org.sableos.start.model.CommandRanking
 import org.sableos.start.model.CommandScope
 import org.sableos.start.model.CoreAppIdentity
+import org.sableos.start.model.FrameMedia
+import org.sableos.start.model.FrameMediaCommand
 import org.sableos.start.model.GlanceWidgets
 import org.sableos.start.model.HomeApps
 import org.sableos.start.model.HomeHeader
@@ -166,6 +170,7 @@ import org.sableos.start.model.StartPages
 import org.sableos.start.model.StartTypeToSearch
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
+import org.sableos.start.platform.FrameMediaRepository
 import org.sableos.start.platform.LetterShortcutRepository
 import org.sableos.start.platform.LiveSurfaceRepository
 import org.sableos.start.platform.PeopleRepository
@@ -1327,6 +1332,27 @@ private fun ColumnScope.ActiveFramesGrid(
     onRequestPermissions: () -> Unit,
     onShowHub: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val mediaRepository = remember(context) { FrameMediaRepository(context) }
+    val currentUser = remember { android.os.Process.myUserHandle().hashCode() }
+    var mediaGeneration by remember { mutableIntStateOf(0) }
+    // Only while frames show: sessions coming, going, playing or pausing redraw the controls.
+    DisposableEffect(mediaRepository, frames.isEmpty()) {
+        val stop = if (frames.isEmpty()) ({}) else mediaRepository.watch { mediaGeneration++ }
+        onDispose { stop() }
+    }
+    val media by
+        produceState(initialValue = emptyList<FrameMedia>(), mediaGeneration, framesGeneration, frames.isEmpty()) {
+            value = if (frames.isEmpty()) emptyList() else withContext(Dispatchers.IO) { mediaRepository.sessions() }
+        }
+    val scope = rememberCoroutineScope()
+
+    fun control(
+        packageName: String,
+        command: FrameMediaCommand,
+    ) {
+        scope.launch(Dispatchers.IO) { mediaRepository.control(packageName, command) }
+    }
     BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
         val cardHeight =
             ((maxHeight - FRAME_PADDING * 2 - FRAME_GAP) / ActiveFrames.ROWS_PER_SCREEN).coerceAtLeast(FRAME_MIN_HEIGHT)
@@ -1357,6 +1383,8 @@ private fun ColumnScope.ActiveFramesGrid(
                             frame = frame,
                             app = appForFrame(frame, apps),
                             live = appForFrame(frame, apps)?.let { liveDatumForApp(it, snapshot) },
+                            media = ActiveFrames.mediaFor(frame, media, currentUser),
+                            onMedia = { command -> control(frame.packageName, command) },
                             framesGeneration = framesGeneration,
                             frameSnapshot = frameSnapshot,
                             onResume = { onResume(frame) },
@@ -1395,6 +1423,8 @@ private fun FrameCard(
     frame: ActiveFrame,
     app: AppEntry?,
     live: LiveDatum?,
+    media: FrameMedia?,
+    onMedia: (FrameMediaCommand) -> Unit,
     framesGeneration: Int,
     frameSnapshot: (ActiveFrame) -> Bitmap?,
     onResume: () -> Unit,
@@ -1417,8 +1447,15 @@ private fun FrameCard(
                 .border(if (focused) 2.dp else 1.dp, if (focused) Bb10Blue else Bb10Line, shape)
                 .onPreviewKeyEvent { event ->
                     val native = event.nativeKeyEvent
-                    if (!ActiveFrames.isCloseKey(native.keyCode, native.metaState)) return@onPreviewKeyEvent false
-                    if (event.type == KeyEventType.KeyDown && native.repeatCount == 0) onClose()
+                    val action =
+                        when {
+                            ActiveFrames.isCloseKey(native.keyCode, native.metaState) -> onClose
+                            media != null && ActiveFrames.isPlayPauseKey(native.keyCode, native.metaState) -> {
+                                { onMedia(FrameMediaCommand.PlayPause) }
+                            }
+                            else -> return@onPreviewKeyEvent false
+                        }
+                    if (event.type == KeyEventType.KeyDown && native.repeatCount == 0) action()
                     true
                 }.combinedClickable(onClick = onResume, onLongClick = onClose)
                 .semantics { contentDescription = t("active_frame_enter_resumes_x", label) },
@@ -1433,6 +1470,14 @@ private fun FrameCard(
                     contentScale = ContentScale.FillWidth,
                     alignment = Alignment.TopCenter,
                 )
+                // Live frames: Sable apps say what is new over their picture; a playing app gets controls.
+                if (media != null) {
+                    FrameMediaBar(media, onMedia, Modifier.align(Alignment.BottomCenter))
+                } else {
+                    live?.takeIf { it.availability == LiveAvailability.LIVE && it.detail.isNotBlank() }?.let {
+                        FrameLiveLine(it.detail, Modifier.align(Alignment.BottomCenter))
+                    }
+                }
             } else {
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -1490,6 +1535,80 @@ private fun FrameCard(
                 )
             }
         }
+    }
+}
+
+/** One line of an app's live state over the bottom of its frame. */
+@Composable
+private fun FrameLiveLine(
+    text: String,
+    modifier: Modifier,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = FRAME_ON_SCRIM,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.fillMaxWidth().background(FRAME_SCRIM).padding(horizontal = 8.dp, vertical = 4.dp),
+    )
+}
+
+/**
+ * Previous, play or pause, and next over a frame whose app is playing, through the app's own
+ * media session; its title above them. The buttons take touch only: on the keyboard, Space
+ * plays or pauses the focused frame, so arrow keys keep moving between frames.
+ */
+@Composable
+private fun FrameMediaBar(
+    media: FrameMedia,
+    onMedia: (FrameMediaCommand) -> Unit,
+    modifier: Modifier,
+) {
+    Column(modifier.fillMaxWidth().background(FRAME_SCRIM).padding(vertical = 4.dp)) {
+        media.title?.takeIf { it.isNotBlank() }?.let { title ->
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                color = FRAME_ON_SCRIM,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FrameMediaButton("⏮", t("frame_previous"), media.canPrevious) { onMedia(FrameMediaCommand.Previous) }
+            FrameMediaButton(
+                if (media.playing) "⏸" else "▶",
+                if (media.playing) t("frame_pause") else t("frame_play"),
+                true,
+            ) { onMedia(FrameMediaCommand.PlayPause) }
+            FrameMediaButton("⏭", t("frame_next"), media.canNext) { onMedia(FrameMediaCommand.Next) }
+        }
+    }
+}
+
+@Composable
+private fun FrameMediaButton(
+    glyph: String,
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size(FRAME_MEDIA_BUTTON)
+                .focusProperties { canFocus = false }
+                .clickable(enabled = enabled, onClick = onClick)
+                .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = glyph, fontSize = 18.sp, color = if (enabled) FRAME_ON_SCRIM else FRAME_ON_SCRIM_DIM)
     }
 }
 
@@ -5883,6 +6002,12 @@ private const val FRAME_STRIP_ICON_DP = 18
 /** Two rows of frames always fit under the dials and the weather on a 411dp square. */
 private val FRAME_MIN_HEIGHT = 72.dp
 private const val FRAME_ICON_DP = 40
+private val FRAME_SCRIM = Color(0xCC0F1114)
+private val FRAME_MEDIA_BUTTON = 36.dp
+
+// The scrim sits over an app's picture, whatever Start's theme: always light on dark.
+private val FRAME_ON_SCRIM = Color(0xFFF2F4F7)
+private val FRAME_ON_SCRIM_DIM = Color(0x80F2F4F7)
 private val STATUS_RING_SIZE = 34.dp
 
 /** A grid cell is at least this tall: a 40dp icon, its one-line label and the focus padding. */

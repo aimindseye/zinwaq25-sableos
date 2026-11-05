@@ -268,4 +268,8 @@
     <string name="instant_email">Email</string>
     <string name="instant_map">Map</string>
     <string name="instant_web_search">Search the web</string>
+    <string name="frame_previous">Previous</string>
+    <string name="frame_play">Play</string>
+    <string name="frame_pause">Pause</string>
+    <string name="frame_next">Next</string>
 </resources>

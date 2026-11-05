@@ -264,4 +264,8 @@
     <string name="instant_email">E-mail</string>
     <string name="instant_map">Mapa</string>
     <string name="instant_web_search">Szukaj w sieci</string>
+    <string name="frame_previous">Poprzedni</string>
+    <string name="frame_play">Odtwórz</string>
+    <string name="frame_pause">Wstrzymaj</string>
+    <string name="frame_next">Następny</string>
 </resources>

@@ -264,4 +264,8 @@
     <string name="instant_email">メール</string>
     <string name="instant_map">地図</string>
     <string name="instant_web_search">ウェブで検索</string>
+    <string name="frame_previous">前へ</string>
+    <string name="frame_play">再生</string>
+    <string name="frame_pause">一時停止</string>
+    <string name="frame_next">次へ</string>
 </resources>

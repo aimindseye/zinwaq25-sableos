@@ -19,6 +19,18 @@ data class ActiveFrame(
     val running: Boolean,
 )
 
+/** What a frame's app is playing, from its media session (Android's own transport controls). */
+data class FrameMedia(
+    val packageName: String,
+    val title: String?,
+    val playing: Boolean,
+    val canPrevious: Boolean,
+    val canNext: Boolean,
+)
+
+/** The transport buttons on a frame. */
+enum class FrameMediaCommand { Previous, PlayPause, Next }
+
 object ActiveFrames {
     /** "Up to 8 recent/running apps." */
     const val MAX = 8
@@ -51,6 +63,26 @@ object ActiveFrames {
         keyCode: Int,
         metaState: Int,
     ): Boolean = (keyCode == KEYCODE_X || keyCode == KEYCODE_DEL) && metaState and MODIFIERS == 0
+
+    private const val KEYCODE_SPACE = 62
+    private const val KEYCODE_MEDIA_PLAY_PAUSE = 85
+
+    /**
+     * The media session a frame shows controls for: the newest session of the frame's app, and
+     * only for a frame of [currentUser] (Android lists the current user's sessions only).
+     */
+    fun mediaFor(
+        frame: ActiveFrame,
+        sessions: List<FrameMedia>,
+        currentUser: Int,
+    ): FrameMedia? =
+        if (frame.userId != currentUser) null else sessions.firstOrNull { it.packageName == frame.packageName }
+
+    /** Space or the play/pause key, with no modifier, plays or pauses the focused frame's media. */
+    fun isPlayPauseKey(
+        keyCode: Int,
+        metaState: Int,
+    ): Boolean = (keyCode == KEYCODE_SPACE || keyCode == KEYCODE_MEDIA_PLAY_PAUSE) && metaState and MODIFIERS == 0
 
     /** The frame that takes focus after the one at [closed] goes: the next, else the previous, else none. */
     fun focusAfterClose(

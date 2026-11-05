@@ -14,6 +14,20 @@ class Bb10HomeTest {
     ) = ActiveFrame(taskId = id, packageName = pkg, className = null, userId = 0, running = true)
 
     @Test
+    fun aPlayingAppGetsControlsOnItsOwnFrame() {
+        val frame = frame(1, "com.pod")
+        val pod = FrameMedia("com.pod", "Ep 1", playing = true, canPrevious = true, canNext = false)
+        val other = FrameMedia("com.music", "Song", playing = false, canPrevious = true, canNext = true)
+        assertEquals(pod, ActiveFrames.mediaFor(frame, listOf(other, pod, pod.copy(title = "older")), 0))
+        assertNull(ActiveFrames.mediaFor(frame, listOf(other), 0))
+        // A work-profile frame: Android lists only the current user's sessions.
+        assertNull(ActiveFrames.mediaFor(frame.copy(userId = 10), listOf(pod), 0))
+        assertTrue(ActiveFrames.isPlayPauseKey(62, 0))
+        assertTrue(ActiveFrames.isPlayPauseKey(85, 0))
+        assertFalse(ActiveFrames.isPlayPauseKey(62, 0x2))
+    }
+
+    @Test
     fun framesAreTheEightMostRecentTasksWithoutStartOrRecents() {
         val tasks =
             listOf(frame(1, "org.sableos.launcher"), frame(2, "a"), frame(2, "a"), frame(3, "com.android.launcher3")) +

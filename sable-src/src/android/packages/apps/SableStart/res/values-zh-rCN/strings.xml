@@ -264,4 +264,8 @@
     <string name="instant_email">电子邮件</string>
     <string name="instant_map">地图</string>
     <string name="instant_web_search">网页搜索</string>
+    <string name="frame_previous">上一个</string>
+    <string name="frame_play">播放</string>
+    <string name="frame_pause">暂停</string>
+    <string name="frame_next">下一个</string>
 </resources>

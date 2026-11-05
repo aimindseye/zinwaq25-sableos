@@ -264,4 +264,8 @@
     <string name="instant_email">Email</string>
     <string name="instant_map">Χάρτης</string>
     <string name="instant_web_search">Αναζήτηση στον ιστό</string>
+    <string name="frame_previous">Προηγούμενο</string>
+    <string name="frame_play">Αναπαραγωγή</string>
+    <string name="frame_pause">Παύση</string>
+    <string name="frame_next">Επόμενο</string>
 </resources>

@@ -264,4 +264,8 @@
     <string name="instant_email">ईमेल</string>
     <string name="instant_map">मैप</string>
     <string name="instant_web_search">वेब पर खोजें</string>
+    <string name="frame_previous">पिछला</string>
+    <string name="frame_play">चलाएँ</string>
+    <string name="frame_pause">रोकें</string>
+    <string name="frame_next">अगला</string>
 </resources>

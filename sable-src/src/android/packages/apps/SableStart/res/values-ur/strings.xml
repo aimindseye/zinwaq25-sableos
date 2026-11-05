@@ -264,4 +264,8 @@
     <string name="instant_email">ای میل</string>
     <string name="instant_map">نقشہ</string>
     <string name="instant_web_search">ویب پر تلاش کریں</string>
+    <string name="frame_previous">پچھلا</string>
+    <string name="frame_play">چلائیں</string>
+    <string name="frame_pause">روکیں</string>
+    <string name="frame_next">اگلا</string>
 </resources>

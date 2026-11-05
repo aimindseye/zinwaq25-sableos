@@ -264,4 +264,8 @@
     <string name="instant_email">بريد إلكتروني</string>
     <string name="instant_map">خريطة</string>
     <string name="instant_web_search">البحث في الويب</string>
+    <string name="frame_previous">السابق</string>
+    <string name="frame_play">تشغيل</string>
+    <string name="frame_pause">إيقاف مؤقت</string>
+    <string name="frame_next">التالي</string>
 </resources>

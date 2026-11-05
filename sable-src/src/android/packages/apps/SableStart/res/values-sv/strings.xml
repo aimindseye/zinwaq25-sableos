@@ -264,4 +264,8 @@
     <string name="instant_email">E-post</string>
     <string name="instant_map">Karta</string>
     <string name="instant_web_search">Sök på webben</string>
+    <string name="frame_previous">Föregående</string>
+    <string name="frame_play">Spela</string>
+    <string name="frame_pause">Pausa</string>
+    <string name="frame_next">Nästa</string>
 </resources>

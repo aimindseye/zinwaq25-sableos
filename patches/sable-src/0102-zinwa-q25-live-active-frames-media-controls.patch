@@ -1,0 +1,689 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+index 1c8368f..f658753 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+@@ -63,6 +63,7 @@ val canonicalPresentationSources =
+         "com/sable/start/model/StartMonth.kt",
+         "com/sable/start/model/StartText.kt",
+         "com/sable/start/platform/DeviceStatsSampler.kt",
++        "com/sable/start/platform/FrameMediaRepository.kt",
+         "com/sable/start/platform/LetterShortcutRepository.kt",
+         "com/sable/start/platform/LiveSurfaceRepository.kt",
+         "com/sable/start/platform/PeopleRepository.kt",
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
+index ebcd238..5cc1f67 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
+@@ -13,6 +13,20 @@ class Bb10HomeTest {
+         pkg: String,
+     ) = ActiveFrame(taskId = id, packageName = pkg, className = null, userId = 0, running = true)
+ 
++    @Test
++    fun aPlayingAppGetsControlsOnItsOwnFrame() {
++        val frame = frame(1, "com.pod")
++        val pod = FrameMedia("com.pod", "Ep 1", playing = true, canPrevious = true, canNext = false)
++        val other = FrameMedia("com.music", "Song", playing = false, canPrevious = true, canNext = true)
++        assertEquals(pod, ActiveFrames.mediaFor(frame, listOf(other, pod, pod.copy(title = "older")), 0))
++        assertNull(ActiveFrames.mediaFor(frame, listOf(other), 0))
++        // A work-profile frame: Android lists only the current user's sessions.
++        assertNull(ActiveFrames.mediaFor(frame.copy(userId = 10), listOf(pod), 0))
++        assertTrue(ActiveFrames.isPlayPauseKey(62, 0))
++        assertTrue(ActiveFrames.isPlayPauseKey(85, 0))
++        assertFalse(ActiveFrames.isPlayPauseKey(62, 0x2))
++    }
++
+     @Test
+     fun framesAreTheEightMostRecentTasksWithoutStartOrRecents() {
+         val tasks =
+diff --git a/sable-src/src/android/packages/apps/SableStart/Android.bp b/sable-src/src/android/packages/apps/SableStart/Android.bp
+index 753edab..4a7e37a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/Android.bp
++++ b/sable-src/src/android/packages/apps/SableStart/Android.bp
+@@ -23,6 +23,7 @@ filegroup {
+         "src/com/sable/start/model/StartMonth.kt",
+         "src/com/sable/start/model/StartText.kt",
+         "src/com/sable/start/platform/DeviceStatsSampler.kt",
++        "src/com/sable/start/platform/FrameMediaRepository.kt",
+         "src/com/sable/start/platform/LetterShortcutRepository.kt",
+         "src/com/sable/start/platform/LiveSurfaceRepository.kt",
+         "src/com/sable/start/platform/PeopleRepository.kt",
+diff --git a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+index 2c39fda..1e99a0b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
++++ b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+@@ -37,6 +37,9 @@
+     <uses-permission android:name="android.permission.REMOVE_TASKS" />
+     <uses-permission android:name="android.permission.START_TASKS_FROM_RECENTS" />
+     <uses-permission android:name="android.permission.READ_FRAME_BUFFER" />
++    <!-- Media controls on Active Frames: the active media sessions and their own transport
++         controls, as the shade's media player uses. Signature permission (platform-signed). -->
++    <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" />
+     <!-- Phone's speed dial: which letters are assigned, and asking Phone to call one. -->
+     <uses-permission android:name="org.sableos.permission.SPEED_DIAL" />
+ 
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index 6803e6c..8bd3bcb 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">بريد إلكتروني</string>
+     <string name="instant_map">خريطة</string>
+     <string name="instant_web_search">البحث في الويب</string>
++    <string name="frame_previous">السابق</string>
++    <string name="frame_play">تشغيل</string>
++    <string name="frame_pause">إيقاف مؤقت</string>
++    <string name="frame_next">التالي</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index 1ef1ed0..b2d0040 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">E-Mail</string>
+     <string name="instant_map">Karte</string>
+     <string name="instant_web_search">Im Web suchen</string>
++    <string name="frame_previous">Zurück</string>
++    <string name="frame_play">Wiedergabe</string>
++    <string name="frame_pause">Pause</string>
++    <string name="frame_next">Weiter</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index 7b445e1..3588272 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">Email</string>
+     <string name="instant_map">Χάρτης</string>
+     <string name="instant_web_search">Αναζήτηση στον ιστό</string>
++    <string name="frame_previous">Προηγούμενο</string>
++    <string name="frame_play">Αναπαραγωγή</string>
++    <string name="frame_pause">Παύση</string>
++    <string name="frame_next">Επόμενο</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index 7b64a0b..18a06d0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">Correo</string>
+     <string name="instant_map">Mapa</string>
+     <string name="instant_web_search">Buscar en la web</string>
++    <string name="frame_previous">Anterior</string>
++    <string name="frame_play">Reproducir</string>
++    <string name="frame_pause">Pausar</string>
++    <string name="frame_next">Siguiente</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index fc1a5cc..c76a6f6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">E-mail</string>
+     <string name="instant_map">Carte</string>
+     <string name="instant_web_search">Rechercher sur le Web</string>
++    <string name="frame_previous">Précédent</string>
++    <string name="frame_play">Lecture</string>
++    <string name="frame_pause">Pause</string>
++    <string name="frame_next">Suivant</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index f68c22d..f893939 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">ईमेल</string>
+     <string name="instant_map">मैप</string>
+     <string name="instant_web_search">वेब पर खोजें</string>
++    <string name="frame_previous">पिछला</string>
++    <string name="frame_play">चलाएँ</string>
++    <string name="frame_pause">रोकें</string>
++    <string name="frame_next">अगला</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index 466f527..533796e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">Email</string>
+     <string name="instant_map">Mappa</string>
+     <string name="instant_web_search">Cerca sul web</string>
++    <string name="frame_previous">Precedente</string>
++    <string name="frame_play">Riproduci</string>
++    <string name="frame_pause">Pausa</string>
++    <string name="frame_next">Successivo</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index 08ebcf0..bf40749 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">אימייל</string>
+     <string name="instant_map">מפה</string>
+     <string name="instant_web_search">חיפוש באינטרנט</string>
++    <string name="frame_previous">הקודם</string>
++    <string name="frame_play">הפעל</string>
++    <string name="frame_pause">השהה</string>
++    <string name="frame_next">הבא</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index 167ad70..bc4548d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">メール</string>
+     <string name="instant_map">地図</string>
+     <string name="instant_web_search">ウェブで検索</string>
++    <string name="frame_previous">前へ</string>
++    <string name="frame_play">再生</string>
++    <string name="frame_pause">一時停止</string>
++    <string name="frame_next">次へ</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 3ad8ffb..b315b25 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">이메일</string>
+     <string name="instant_map">지도</string>
+     <string name="instant_web_search">웹 검색</string>
++    <string name="frame_previous">이전</string>
++    <string name="frame_play">재생</string>
++    <string name="frame_pause">일시중지</string>
++    <string name="frame_next">다음</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 423b6e2..3564f1e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">E-mail</string>
+     <string name="instant_map">Kaart</string>
+     <string name="instant_web_search">Zoeken op internet</string>
++    <string name="frame_previous">Vorige</string>
++    <string name="frame_play">Afspelen</string>
++    <string name="frame_pause">Pauzeren</string>
++    <string name="frame_next">Volgende</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index f8ec065..dee162c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">E-mail</string>
+     <string name="instant_map">Mapa</string>
+     <string name="instant_web_search">Szukaj w sieci</string>
++    <string name="frame_previous">Poprzedni</string>
++    <string name="frame_play">Odtwórz</string>
++    <string name="frame_pause">Wstrzymaj</string>
++    <string name="frame_next">Następny</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index a655c6d..9cb6a4b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">E-mail</string>
+     <string name="instant_map">Mapa</string>
+     <string name="instant_web_search">Pesquisar na web</string>
++    <string name="frame_previous">Anterior</string>
++    <string name="frame_play">Reproduzir</string>
++    <string name="frame_pause">Pausar</string>
++    <string name="frame_next">Seguinte</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index ec650bd..e1f6473 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">Эл. почта</string>
+     <string name="instant_map">Карта</string>
+     <string name="instant_web_search">Искать в интернете</string>
++    <string name="frame_previous">Назад</string>
++    <string name="frame_play">Играть</string>
++    <string name="frame_pause">Пауза</string>
++    <string name="frame_next">Далее</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 876071b..17dd186 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">E-post</string>
+     <string name="instant_map">Karta</string>
+     <string name="instant_web_search">Sök på webben</string>
++    <string name="frame_previous">Föregående</string>
++    <string name="frame_play">Spela</string>
++    <string name="frame_pause">Pausa</string>
++    <string name="frame_next">Nästa</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 9e36d7b..679f2c6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">E-posta</string>
+     <string name="instant_map">Harita</string>
+     <string name="instant_web_search">Web\'de ara</string>
++    <string name="frame_previous">Önceki</string>
++    <string name="frame_play">Oynat</string>
++    <string name="frame_pause">Duraklat</string>
++    <string name="frame_next">Sonraki</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index ec7a3af..47f8ba4 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">ای میل</string>
+     <string name="instant_map">نقشہ</string>
+     <string name="instant_web_search">ویب پر تلاش کریں</string>
++    <string name="frame_previous">پچھلا</string>
++    <string name="frame_play">چلائیں</string>
++    <string name="frame_pause">روکیں</string>
++    <string name="frame_next">اگلا</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index e989152..02f1b5e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -264,4 +264,8 @@
+     <string name="instant_email">电子邮件</string>
+     <string name="instant_map">地图</string>
+     <string name="instant_web_search">网页搜索</string>
++    <string name="frame_previous">上一个</string>
++    <string name="frame_play">播放</string>
++    <string name="frame_pause">暂停</string>
++    <string name="frame_next">下一个</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 90bace8..2d4f52a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -268,4 +268,8 @@
+     <string name="instant_email">Email</string>
+     <string name="instant_map">Map</string>
+     <string name="instant_web_search">Search the web</string>
++    <string name="frame_previous">Previous</string>
++    <string name="frame_play">Play</string>
++    <string name="frame_pause">Pause</string>
++    <string name="frame_next">Next</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+index 95da198..2696300 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+@@ -19,6 +19,18 @@ data class ActiveFrame(
+     val running: Boolean,
+ )
+ 
++/** What a frame's app is playing, from its media session (Android's own transport controls). */
++data class FrameMedia(
++    val packageName: String,
++    val title: String?,
++    val playing: Boolean,
++    val canPrevious: Boolean,
++    val canNext: Boolean,
++)
++
++/** The transport buttons on a frame. */
++enum class FrameMediaCommand { Previous, PlayPause, Next }
++
+ object ActiveFrames {
+     /** "Up to 8 recent/running apps." */
+     const val MAX = 8
+@@ -52,6 +64,26 @@ object ActiveFrames {
+         metaState: Int,
+     ): Boolean = (keyCode == KEYCODE_X || keyCode == KEYCODE_DEL) && metaState and MODIFIERS == 0
+ 
++    private const val KEYCODE_SPACE = 62
++    private const val KEYCODE_MEDIA_PLAY_PAUSE = 85
++
++    /**
++     * The media session a frame shows controls for: the newest session of the frame's app, and
++     * only for a frame of [currentUser] (Android lists the current user's sessions only).
++     */
++    fun mediaFor(
++        frame: ActiveFrame,
++        sessions: List<FrameMedia>,
++        currentUser: Int,
++    ): FrameMedia? =
++        if (frame.userId != currentUser) null else sessions.firstOrNull { it.packageName == frame.packageName }
++
++    /** Space or the play/pause key, with no modifier, plays or pauses the focused frame's media. */
++    fun isPlayPauseKey(
++        keyCode: Int,
++        metaState: Int,
++    ): Boolean = (keyCode == KEYCODE_SPACE || keyCode == KEYCODE_MEDIA_PLAY_PAUSE) && metaState and MODIFIERS == 0
++
+     /** The frame that takes focus after the one at [closed] goes: the next, else the previous, else none. */
+     fun focusAfterClose(
+         closed: Int,
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index f0f56fb..5e53607 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -79,6 +79,10 @@ object StartText {
+             "instant_email" to "Email",
+             "instant_map" to "Map",
+             "instant_web_search" to "Search the web",
++            "frame_previous" to "Previous",
++            "frame_play" to "Play",
++            "frame_pause" to "Pause",
++            "frame_next" to "Next",
+             "media" to "Media",
+             "mail" to "Mail",
+             "photos" to "Photos",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/FrameMediaRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/FrameMediaRepository.kt
+new file mode 100644
+index 0000000..ff5715c
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/FrameMediaRepository.kt
+@@ -0,0 +1,99 @@
++package org.sableos.start.platform
++
++import android.content.Context
++import android.media.MediaMetadata
++import android.media.session.MediaController
++import android.media.session.MediaSessionManager
++import android.media.session.PlaybackState
++import android.os.Handler
++import android.os.Looper
++import android.util.Log
++import org.sableos.start.model.FrameMedia
++import org.sableos.start.model.FrameMediaCommand
++
++/**
++ * Media controls on Active Frames: the active media sessions, newest first, and their own
++ * transport controls. SableLauncher is platform-signed, so it holds MEDIA_CONTENT_CONTROL, the
++ * permission Android's own media controls in the shade use; without it every call is empty.
++ * Start never reads what a session plays beyond its title, and never starts playback by itself.
++ */
++class FrameMediaRepository(
++    context: Context,
++) {
++    private val manager = context.getSystemService(MediaSessionManager::class.java)
++    private val main = Handler(Looper.getMainLooper())
++
++    private fun controllers(): List<MediaController> =
++        try {
++            manager?.getActiveSessions(null).orEmpty()
++        } catch (e: SecurityException) {
++            Log.i(TAG, "no media control permission", e)
++            emptyList()
++        }
++
++    fun sessions(): List<FrameMedia> =
++        controllers().map { controller ->
++            val state = controller.playbackState
++            val actions = state?.actions ?: 0L
++            FrameMedia(
++                packageName = controller.packageName,
++                title = controller.metadata?.description?.title?.toString(),
++                playing = state?.state == PlaybackState.STATE_PLAYING,
++                canPrevious = actions and PlaybackState.ACTION_SKIP_TO_PREVIOUS != 0L,
++                canNext = actions and PlaybackState.ACTION_SKIP_TO_NEXT != 0L,
++            )
++        }
++
++    fun control(
++        packageName: String,
++        command: FrameMediaCommand,
++    ) {
++        val controller = controllers().firstOrNull { it.packageName == packageName } ?: return
++        val controls = controller.transportControls
++        val playing = controller.playbackState?.state == PlaybackState.STATE_PLAYING
++        when (command) {
++            FrameMediaCommand.Previous -> controls.skipToPrevious()
++            FrameMediaCommand.Next -> controls.skipToNext()
++            FrameMediaCommand.PlayPause -> if (playing) controls.pause() else controls.play()
++        }
++    }
++
++    /**
++     * Calls [onChange] on the main thread when sessions come or go, or one starts, pauses or
++     * changes track. Returns the call that stops listening.
++     */
++    fun watch(onChange: () -> Unit): () -> Unit {
++        val watched = mutableListOf<Pair<MediaController, MediaController.Callback>>()
++        fun follow(list: List<MediaController>?) {
++            watched.forEach { (controller, callback) -> controller.unregisterCallback(callback) }
++            watched.clear()
++            list.orEmpty().forEach { controller ->
++                val callback =
++                    object : MediaController.Callback() {
++                        override fun onPlaybackStateChanged(state: PlaybackState?) = onChange()
++
++                        override fun onMetadataChanged(metadata: MediaMetadata?) = onChange()
++                    }
++                controller.registerCallback(callback, main)
++                watched += controller to callback
++            }
++            onChange()
++        }
++        val listener = MediaSessionManager.OnActiveSessionsChangedListener { follow(it) }
++        try {
++            manager?.addOnActiveSessionsChangedListener(listener, null, main)
++            follow(controllers())
++        } catch (e: SecurityException) {
++            Log.i(TAG, "no media control permission", e)
++        }
++        return {
++            runCatching { manager?.removeOnActiveSessionsChangedListener(listener) }
++            watched.forEach { (controller, callback) -> controller.unregisterCallback(callback) }
++            watched.clear()
++        }
++    }
++
++    private companion object {
++        const val TAG = "FrameMedia"
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 949814a..617013c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -61,12 +61,14 @@ import androidx.compose.material3.Text
+ import androidx.compose.material3.TextButton
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.CompositionLocalProvider
++import androidx.compose.runtime.DisposableEffect
+ import androidx.compose.runtime.Immutable
+ import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.ReadOnlyComposable
+ import androidx.compose.runtime.derivedStateOf
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.key
++import androidx.compose.runtime.mutableIntStateOf
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.produceState
+ import androidx.compose.runtime.remember
+@@ -148,6 +150,8 @@ import org.sableos.start.model.CommandQuery
+ import org.sableos.start.model.CommandRanking
+ import org.sableos.start.model.CommandScope
+ import org.sableos.start.model.CoreAppIdentity
++import org.sableos.start.model.FrameMedia
++import org.sableos.start.model.FrameMediaCommand
+ import org.sableos.start.model.GlanceWidgets
+ import org.sableos.start.model.HomeApps
+ import org.sableos.start.model.HomeHeader
+@@ -166,6 +170,7 @@ import org.sableos.start.model.StartPages
+ import org.sableos.start.model.StartTypeToSearch
+ import org.sableos.start.model.inLauncherUser
+ import org.sableos.start.model.stableKey
++import org.sableos.start.platform.FrameMediaRepository
+ import org.sableos.start.platform.LetterShortcutRepository
+ import org.sableos.start.platform.LiveSurfaceRepository
+ import org.sableos.start.platform.PeopleRepository
+@@ -1327,6 +1332,27 @@ private fun ColumnScope.ActiveFramesGrid(
+     onRequestPermissions: () -> Unit,
+     onShowHub: () -> Unit,
+ ) {
++    val context = LocalContext.current
++    val mediaRepository = remember(context) { FrameMediaRepository(context) }
++    val currentUser = remember { android.os.Process.myUserHandle().hashCode() }
++    var mediaGeneration by remember { mutableIntStateOf(0) }
++    // Only while frames show: sessions coming, going, playing or pausing redraw the controls.
++    DisposableEffect(mediaRepository, frames.isEmpty()) {
++        val stop = if (frames.isEmpty()) ({}) else mediaRepository.watch { mediaGeneration++ }
++        onDispose { stop() }
++    }
++    val media by
++        produceState(initialValue = emptyList<FrameMedia>(), mediaGeneration, framesGeneration, frames.isEmpty()) {
++            value = if (frames.isEmpty()) emptyList() else withContext(Dispatchers.IO) { mediaRepository.sessions() }
++        }
++    val scope = rememberCoroutineScope()
++
++    fun control(
++        packageName: String,
++        command: FrameMediaCommand,
++    ) {
++        scope.launch(Dispatchers.IO) { mediaRepository.control(packageName, command) }
++    }
+     BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+         val cardHeight =
+             ((maxHeight - FRAME_PADDING * 2 - FRAME_GAP) / ActiveFrames.ROWS_PER_SCREEN).coerceAtLeast(FRAME_MIN_HEIGHT)
+@@ -1357,6 +1383,8 @@ private fun ColumnScope.ActiveFramesGrid(
+                             frame = frame,
+                             app = appForFrame(frame, apps),
+                             live = appForFrame(frame, apps)?.let { liveDatumForApp(it, snapshot) },
++                            media = ActiveFrames.mediaFor(frame, media, currentUser),
++                            onMedia = { command -> control(frame.packageName, command) },
+                             framesGeneration = framesGeneration,
+                             frameSnapshot = frameSnapshot,
+                             onResume = { onResume(frame) },
+@@ -1395,6 +1423,8 @@ private fun FrameCard(
+     frame: ActiveFrame,
+     app: AppEntry?,
+     live: LiveDatum?,
++    media: FrameMedia?,
++    onMedia: (FrameMediaCommand) -> Unit,
+     framesGeneration: Int,
+     frameSnapshot: (ActiveFrame) -> Bitmap?,
+     onResume: () -> Unit,
+@@ -1417,8 +1447,15 @@ private fun FrameCard(
+                 .border(if (focused) 2.dp else 1.dp, if (focused) Bb10Blue else Bb10Line, shape)
+                 .onPreviewKeyEvent { event ->
+                     val native = event.nativeKeyEvent
+-                    if (!ActiveFrames.isCloseKey(native.keyCode, native.metaState)) return@onPreviewKeyEvent false
+-                    if (event.type == KeyEventType.KeyDown && native.repeatCount == 0) onClose()
++                    val action =
++                        when {
++                            ActiveFrames.isCloseKey(native.keyCode, native.metaState) -> onClose
++                            media != null && ActiveFrames.isPlayPauseKey(native.keyCode, native.metaState) -> {
++                                { onMedia(FrameMediaCommand.PlayPause) }
++                            }
++                            else -> return@onPreviewKeyEvent false
++                        }
++                    if (event.type == KeyEventType.KeyDown && native.repeatCount == 0) action()
+                     true
+                 }.combinedClickable(onClick = onResume, onLongClick = onClose)
+                 .semantics { contentDescription = t("active_frame_enter_resumes_x", label) },
+@@ -1433,6 +1470,14 @@ private fun FrameCard(
+                     contentScale = ContentScale.FillWidth,
+                     alignment = Alignment.TopCenter,
+                 )
++                // Live frames: Sable apps say what is new over their picture; a playing app gets controls.
++                if (media != null) {
++                    FrameMediaBar(media, onMedia, Modifier.align(Alignment.BottomCenter))
++                } else {
++                    live?.takeIf { it.availability == LiveAvailability.LIVE && it.detail.isNotBlank() }?.let {
++                        FrameLiveLine(it.detail, Modifier.align(Alignment.BottomCenter))
++                    }
++                }
+             } else {
+                 Column(
+                     modifier = Modifier.fillMaxSize(),
+@@ -1493,6 +1538,80 @@ private fun FrameCard(
+     }
+ }
+ 
++/** One line of an app's live state over the bottom of its frame. */
++@Composable
++private fun FrameLiveLine(
++    text: String,
++    modifier: Modifier,
++) {
++    Text(
++        text = text,
++        style = MaterialTheme.typography.labelMedium,
++        color = FRAME_ON_SCRIM,
++        maxLines = 1,
++        overflow = TextOverflow.Ellipsis,
++        modifier = modifier.fillMaxWidth().background(FRAME_SCRIM).padding(horizontal = 8.dp, vertical = 4.dp),
++    )
++}
++
++/**
++ * Previous, play or pause, and next over a frame whose app is playing, through the app's own
++ * media session; its title above them. The buttons take touch only: on the keyboard, Space
++ * plays or pauses the focused frame, so arrow keys keep moving between frames.
++ */
++@Composable
++private fun FrameMediaBar(
++    media: FrameMedia,
++    onMedia: (FrameMediaCommand) -> Unit,
++    modifier: Modifier,
++) {
++    Column(modifier.fillMaxWidth().background(FRAME_SCRIM).padding(vertical = 4.dp)) {
++        media.title?.takeIf { it.isNotBlank() }?.let { title ->
++            Text(
++                text = title,
++                style = MaterialTheme.typography.labelMedium,
++                color = FRAME_ON_SCRIM,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++                modifier = Modifier.padding(horizontal = 8.dp),
++            )
++        }
++        Row(
++            modifier = Modifier.fillMaxWidth(),
++            horizontalArrangement = Arrangement.SpaceEvenly,
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
++            FrameMediaButton("⏮", t("frame_previous"), media.canPrevious) { onMedia(FrameMediaCommand.Previous) }
++            FrameMediaButton(
++                if (media.playing) "⏸" else "▶",
++                if (media.playing) t("frame_pause") else t("frame_play"),
++                true,
++            ) { onMedia(FrameMediaCommand.PlayPause) }
++            FrameMediaButton("⏭", t("frame_next"), media.canNext) { onMedia(FrameMediaCommand.Next) }
++        }
++    }
++}
++
++@Composable
++private fun FrameMediaButton(
++    glyph: String,
++    label: String,
++    enabled: Boolean,
++    onClick: () -> Unit,
++) {
++    Box(
++        modifier =
++            Modifier
++                .size(FRAME_MEDIA_BUTTON)
++                .focusProperties { canFocus = false }
++                .clickable(enabled = enabled, onClick = onClick)
++                .semantics { contentDescription = label },
++        contentAlignment = Alignment.Center,
++    ) {
++        Text(text = glyph, fontSize = 18.sp, color = if (enabled) FRAME_ON_SCRIM else FRAME_ON_SCRIM_DIM)
++    }
++}
++
+ /**
+  * No frames: the Glance widgets as frames, in the user's order (Weather,
+  * Calendar, Battery, Media by default). No ambient polling: values refresh
+@@ -5883,6 +6002,12 @@ private const val FRAME_STRIP_ICON_DP = 18
+ /** Two rows of frames always fit under the dials and the weather on a 411dp square. */
+ private val FRAME_MIN_HEIGHT = 72.dp
+ private const val FRAME_ICON_DP = 40
++private val FRAME_SCRIM = Color(0xCC0F1114)
++private val FRAME_MEDIA_BUTTON = 36.dp
++
++// The scrim sits over an app's picture, whatever Start's theme: always light on dark.
++private val FRAME_ON_SCRIM = Color(0xFFF2F4F7)
++private val FRAME_ON_SCRIM_DIM = Color(0x80F2F4F7)
+ private val STATUS_RING_SIZE = 34.dp
+ 
+ /** A grid cell is at least this tall: a 40dp icon, its one-line label and the focus padding. */

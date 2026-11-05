@@ -264,4 +264,8 @@
     <string name="instant_email">E-posta</string>
     <string name="instant_map">Harita</string>
     <string name="instant_web_search">Web\'de ara</string>
+    <string name="frame_previous">Önceki</string>
+    <string name="frame_play">Oynat</string>
+    <string name="frame_pause">Duraklat</string>
+    <string name="frame_next">Sonraki</string>
 </resources>

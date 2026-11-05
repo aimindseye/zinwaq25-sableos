@@ -63,6 +63,7 @@ val canonicalPresentationSources =
         "com/sable/start/model/StartMonth.kt",
         "com/sable/start/model/StartText.kt",
         "com/sable/start/platform/DeviceStatsSampler.kt",
+        "com/sable/start/platform/FrameMediaRepository.kt",
         "com/sable/start/platform/LetterShortcutRepository.kt",
         "com/sable/start/platform/LiveSurfaceRepository.kt",
         "com/sable/start/platform/PeopleRepository.kt",
