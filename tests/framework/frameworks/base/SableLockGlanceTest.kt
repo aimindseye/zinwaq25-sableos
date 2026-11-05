@@ -149,6 +149,23 @@ class SableLockGlanceTest {
     }
 
     @Test
+    fun peekMarksTheNewestAppAndAlwaysShowsIt() {
+        val peek = SableLockGlance.Peek()
+        assertEquals(null, peek.newest())
+        (1..5).forEach { app -> repeat(3) { peek.add("busy.$app", SableLockGlance.BUCKET_MAIL, app.toLong(), null) } }
+        peek.add("com.whatsapp", SableLockGlance.BUCKET_MESSAGES, 99L, "Maya")
+        assertEquals("com.whatsapp", peek.newest()?.packageName)
+        val rows = peek.rows()
+        assertEquals(SableLockGlance.Peek.MAX_ROWS, rows.size)
+        assertEquals("com.whatsapp", rows.last().packageName)
+        assertEquals("Maya", rows.last().sender)
+        assertEquals(2, peek.moreApps())
+        peek.add("busy.1", SableLockGlance.BUCKET_MAIL, 120L, null)
+        assertEquals("busy.1", peek.newest()?.packageName)
+        assertEquals(listOf("busy.1", "busy.5", "busy.4", "busy.3"), peek.rows().map { it.packageName })
+    }
+
+    @Test
     fun nextEventShowsTodayTomorrowOrNowAndHidesItsName() {
         val zone = java.time.ZoneId.of("America/Toronto")
         val now = java.time.ZonedDateTime.of(2026, 11, 5, 8, 0, 0, 0, zone).toInstant().toEpochMilli()
