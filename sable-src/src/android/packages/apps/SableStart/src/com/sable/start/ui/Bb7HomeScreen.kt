@@ -62,8 +62,11 @@ import org.sableos.design.SableTheme
 import org.sableos.start.live.LiveAvailability
 import org.sableos.start.model.AppEntry
 import org.sableos.start.model.Bb7Home
+import org.sableos.start.model.Bb7IconSize
+import org.sableos.start.model.Bb7Layout
 import org.sableos.start.model.Bb7Panel
 import org.sableos.start.model.Bb7Swipe
+import org.sableos.start.model.Bb7TrayView
 import org.sableos.start.model.HomeApps
 import org.sableos.start.model.HomeHeader
 import org.sableos.start.model.stableKey
@@ -90,6 +93,8 @@ fun Bb7HomeScreen(
     favoriteKeys: List<String>?,
     homeRows: Int,
     liveSurfaceRepository: LiveSurfaceRepository,
+    /** The tray's view, grid columns and icon size, set from the home menu. */
+    layout: Bb7Layout = Bb7Layout(),
     appearance: SableAppearance,
     refreshGeneration: Int,
     homeGeneration: Int,
@@ -100,6 +105,7 @@ fun Bb7HomeScreen(
     onUninstallApp: (AppEntry) -> Unit = {},
     onFavoritesChanged: (List<String>) -> Unit,
     onHomeRowsChanged: (Int) -> Unit,
+    onLayoutChanged: (Bb7Layout) -> Unit = {},
     onOpenMenu: (List<Pair<String, () -> Unit>>) -> Unit,
 ) {
     var panel by remember { mutableStateOf(Bb7Panel.Favorites) }
@@ -176,6 +182,20 @@ fun Bb7HomeScreen(
             }
             if (!open && !searching && homeRows > Bb7Home.MIN_HOME_ROWS) {
                 add(t("show_fewer_rows") to { onHomeRowsChanged(homeRows - 1) })
+            }
+            if (!searching) {
+                // Each line shows its current value; choosing it moves to the next one.
+                val nextView = if (layout.view == Bb7TrayView.Grid) Bb7TrayView.List else Bb7TrayView.Grid
+                add(t("tray_view", layout.view.title) to { onLayoutChanged(layout.copy(view = nextView)) })
+                val auto = layout.columns == Bb7Layout.AUTO
+                val shownColumns = if (auto) t("columns_auto") else layout.columns.toString()
+                add(
+                    t("grid_columns", shownColumns) to
+                        { onLayoutChanged(layout.copy(columns = Bb7Home.nextColumns(layout.columns))) },
+                )
+                val sizes = Bb7IconSize.entries
+                val nextSize = sizes[(layout.iconSize.ordinal + 1) % sizes.size]
+                add(t("icon_size", layout.iconSize.title) to { onLayoutChanged(layout.copy(iconSize = nextSize)) })
             }
         }
     }
@@ -268,7 +288,7 @@ fun Bb7HomeScreen(
                             true
                         },
             ) {
-                val columns = Bb7Home.columns(maxWidth.value.toInt())
+                val columns = Bb7Home.columns(maxWidth.value.toInt(), layout, open = open || searching)
                 SideEffect { keyColumns = columns }
                 val swipe = with(LocalDensity.current) { SWIPE_DP.dp.toPx() }
                 val rowPx = with(LocalDensity.current) { ROW_DP.dp.toPx() }
@@ -304,6 +324,8 @@ fun Bb7HomeScreen(
                         title = trayTitle,
                         apps = if (open || searching) shown else shown.take(columns * homeRows),
                         columns = columns,
+                        list = (open || searching) && layout.view == Bb7TrayView.List,
+                        iconDp = layout.iconSize.dp,
                         open = open || searching,
                         moving = moving,
                         onResize = { dragged ->
@@ -411,6 +433,8 @@ private fun Bb7Tray(
     title: String,
     apps: List<AppEntry>,
     columns: Int,
+    list: Boolean,
+    iconDp: Int,
     open: Boolean,
     moving: Boolean,
     selected: Int,
@@ -478,34 +502,58 @@ private fun Bb7Tray(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            itemsIndexed(apps, key = { _, app -> app.component.flattenToString() + app.user.hashCode() }) { index, app ->
+            itemsIndexed(
+                apps,
+                key = { _, app -> app.component.flattenToString() + app.user.hashCode() },
+            ) { index, app ->
                 val isSelected = index == selected
                 val outline = if (moving && isSelected) Color.White else MaterialTheme.colorScheme.primary
-                Column(
-                    modifier =
-                        Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else Color.Transparent)
-                            .border(
-                                if (isSelected) 2.dp else 0.dp,
-                                if (isSelected) outline else Color.Transparent,
-                                RoundedCornerShape(8.dp),
-                            )
-                            .combinedClickable(onClick = { onLaunch(app) }, onLongClick = { onInfo(app) })
-                            .padding(vertical = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    AppMark(app = app, size = ICON_DP)
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = app.label,
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 2.dp),
-                    )
+                val cell =
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else Color.Transparent,
+                        ).border(
+                            if (isSelected) 2.dp else 0.dp,
+                            if (isSelected) outline else Color.Transparent,
+                            RoundedCornerShape(8.dp),
+                        ).combinedClickable(
+                            onClick = { onLaunch(app) },
+                            onLongClick = { onInfo(app) },
+                        )
+                if (list) {
+                    // BlackBerry 7's list: icon and name on one row.
+                    Row(
+                        modifier = cell.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AppMark(app = app, size = iconDp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = app.label,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = cell.padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        AppMark(app = app, size = iconDp)
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = app.label,
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 2.dp),
+                        )
+                    }
                 }
             }
         }
@@ -531,7 +579,6 @@ private const val SWIPE_DP = 72
 
 /** A tray row's height, the drag that shows one more or one fewer row. */
 private const val ROW_DP = 64
-private const val ICON_DP = 40
 private val BANNER_SCRIM = Color(0x99000000)
 private val TRAY_SCRIM = Color(0xE6000000)
 private val BANNER_MUTED = Color(0xFFC9D1DA)

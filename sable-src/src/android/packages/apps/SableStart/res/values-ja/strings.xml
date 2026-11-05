@@ -275,4 +275,13 @@
     <string name="resume_work">仕事用アプリをオンにする</string>
     <string name="no_work_apps">仕事用アプリはまだありません。Sable Setup で仕事用スペースを作れます。</string>
     <string name="delete_app">削除</string>
+    <string name="tray_view">トレイの表示: %1$s</string>
+    <string name="view_grid">グリッド</string>
+    <string name="view_list">リスト</string>
+    <string name="grid_columns">列数: %1$s</string>
+    <string name="columns_auto">自動</string>
+    <string name="icon_size">アイコンのサイズ: %1$s</string>
+    <string name="icon_small">小</string>
+    <string name="icon_medium">中</string>
+    <string name="icon_large">大</string>
 </resources>

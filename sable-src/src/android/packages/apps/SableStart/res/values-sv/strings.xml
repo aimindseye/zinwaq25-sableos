@@ -275,4 +275,13 @@
     <string name="resume_work">Slå på jobbappar</string>
     <string name="no_work_apps">Inga jobbappar än. Sable Setup kan skapa ett jobbutrymme.</string>
     <string name="delete_app">Ta bort</string>
+    <string name="tray_view">Fältvy: %1$s</string>
+    <string name="view_grid">Rutnät</string>
+    <string name="view_list">Lista</string>
+    <string name="grid_columns">Kolumner: %1$s</string>
+    <string name="columns_auto">Auto</string>
+    <string name="icon_size">Ikonstorlek: %1$s</string>
+    <string name="icon_small">Liten</string>
+    <string name="icon_medium">Mellan</string>
+    <string name="icon_large">Stor</string>
 </resources>

@@ -79,8 +79,8 @@ Alt+Left and Alt+Right move between pages. Alt+Space opens Command, and any lett
 - On Sable Start, a quick sideways flick on the trackpad turns one page; slow strokes move between tiles. A light touch at the bottom of the screen right after a trackpad stroke is ignored, so brushing the glass does not open an app.
 - Settings > System > Keyboard > Trackpad switches the trackpad between Keys (moves between items, the default) and Pointer (moves a cursor; a click taps where it points).
 - The tray at the bottom shows one to three rows of Favorites. Drag it up or down to change the rows. Up opens the whole tray and Esc closes it.
-- Space switches panels (Favorites, All, Downloads), and typing searches apps.
-- Menu on an app: Open, Add to Favorites or Remove from Favorites, Move (arrows carry it, Enter drops it) and App Info. Then Hub, Home Screen Style, Settings and Close.
+- Space switches panels (Favorites, All, Downloads), and typing searches apps. Search ignores accents, so "cafe" finds "Café" (in Start's search too).
+- Menu on an app: Open, Add to Favorites or Remove from Favorites, Move (arrows carry it, Enter drops it), App Info and, for an app you installed, Delete. Then Tray view (Grid or List), Grid columns (Auto or 4 to 8), Icon size (Small, Medium or Large), Hub, Home Screen Style, Settings and Close. Each of the three tray rows shows its current value and steps to the next one when chosen; Start remembers them.
 
 ### Keys that work everywhere
 

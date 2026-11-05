@@ -275,4 +275,13 @@
     <string name="resume_work">Включить рабочие приложения</string>
     <string name="no_work_apps">Рабочих приложений пока нет. Sable Setup может создать рабочее пространство.</string>
     <string name="delete_app">Удалить</string>
+    <string name="tray_view">Вид панели: %1$s</string>
+    <string name="view_grid">Сетка</string>
+    <string name="view_list">Список</string>
+    <string name="grid_columns">Столбцы: %1$s</string>
+    <string name="columns_auto">Авто</string>
+    <string name="icon_size">Размер значков: %1$s</string>
+    <string name="icon_small">Мелкий</string>
+    <string name="icon_medium">Средний</string>
+    <string name="icon_large">Крупный</string>
 </resources>

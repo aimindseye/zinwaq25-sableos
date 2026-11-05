@@ -275,4 +275,13 @@
     <string name="resume_work">Activar apps de trabajo</string>
     <string name="no_work_apps">Aún no hay apps de trabajo. Sable Setup puede crear un espacio de trabajo.</string>
     <string name="delete_app">Eliminar</string>
+    <string name="tray_view">Vista de la bandeja: %1$s</string>
+    <string name="view_grid">Cuadrícula</string>
+    <string name="view_list">Lista</string>
+    <string name="grid_columns">Columnas: %1$s</string>
+    <string name="columns_auto">Auto</string>
+    <string name="icon_size">Tamaño de iconos: %1$s</string>
+    <string name="icon_small">Pequeño</string>
+    <string name="icon_medium">Mediano</string>
+    <string name="icon_large">Grande</string>
 </resources>

@@ -291,6 +291,15 @@ object StartText {
             "no_work_apps" to "No work apps yet. Sable Setup can make a Work space.",
             "delete_app" to "Delete",
             "letter_shortcut_current" to "Hold-key shortcut: %1\$s",
+            "tray_view" to "Tray view: %1\$s",
+            "view_grid" to "Grid",
+            "view_list" to "List",
+            "grid_columns" to "Grid columns: %1\$s",
+            "columns_auto" to "Auto",
+            "icon_size" to "Icon size: %1\$s",
+            "icon_small" to "Small",
+            "icon_medium" to "Medium",
+            "icon_large" to "Large",
             "letter_shortcut_press" to
                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",
         )

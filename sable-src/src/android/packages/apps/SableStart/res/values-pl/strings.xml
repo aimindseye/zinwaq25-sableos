@@ -275,4 +275,13 @@
     <string name="resume_work">Włącz aplikacje służbowe</string>
     <string name="no_work_apps">Brak aplikacji służbowych. Sable Setup może utworzyć przestrzeń służbową.</string>
     <string name="delete_app">Usuń</string>
+    <string name="tray_view">Widok szuflady: %1$s</string>
+    <string name="view_grid">Siatka</string>
+    <string name="view_list">Lista</string>
+    <string name="grid_columns">Kolumny: %1$s</string>
+    <string name="columns_auto">Auto</string>
+    <string name="icon_size">Rozmiar ikon: %1$s</string>
+    <string name="icon_small">Mały</string>
+    <string name="icon_medium">Średni</string>
+    <string name="icon_large">Duży</string>
 </resources>

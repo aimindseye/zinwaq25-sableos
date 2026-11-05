@@ -275,4 +275,13 @@
     <string name="resume_work">کام کی ایپس آن کریں</string>
     <string name="no_work_apps">ابھی کام کی کوئی ایپ نہیں۔ Sable Setup کام کی اسپیس بنا سکتا ہے۔</string>
     <string name="delete_app">حذف کریں</string>
+    <string name="tray_view">ٹرے کا منظر: %1$s</string>
+    <string name="view_grid">گرڈ</string>
+    <string name="view_list">فہرست</string>
+    <string name="grid_columns">کالم: %1$s</string>
+    <string name="columns_auto">خودکار</string>
+    <string name="icon_size">آئیکن کا سائز: %1$s</string>
+    <string name="icon_small">چھوٹا</string>
+    <string name="icon_medium">درمیانہ</string>
+    <string name="icon_large">بڑا</string>
 </resources>

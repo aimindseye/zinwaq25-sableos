@@ -275,4 +275,13 @@
     <string name="resume_work">업무용 앱 켜기</string>
     <string name="no_work_apps">아직 업무용 앱이 없습니다. Sable Setup에서 업무 공간을 만들 수 있습니다.</string>
     <string name="delete_app">삭제</string>
+    <string name="tray_view">트레이 보기: %1$s</string>
+    <string name="view_grid">격자</string>
+    <string name="view_list">목록</string>
+    <string name="grid_columns">열 수: %1$s</string>
+    <string name="columns_auto">자동</string>
+    <string name="icon_size">아이콘 크기: %1$s</string>
+    <string name="icon_small">작게</string>
+    <string name="icon_medium">중간</string>
+    <string name="icon_large">크게</string>
 </resources>

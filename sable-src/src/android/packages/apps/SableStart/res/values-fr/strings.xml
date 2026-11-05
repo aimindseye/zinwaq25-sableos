@@ -275,4 +275,13 @@
     <string name="resume_work">Activer les apps pro</string>
     <string name="no_work_apps">Aucune app pro pour l’instant. Sable Setup peut créer un espace pro.</string>
     <string name="delete_app">Supprimer</string>
+    <string name="tray_view">Vue du tiroir : %1$s</string>
+    <string name="view_grid">Grille</string>
+    <string name="view_list">Liste</string>
+    <string name="grid_columns">Colonnes : %1$s</string>
+    <string name="columns_auto">Auto</string>
+    <string name="icon_size">Taille des icônes : %1$s</string>
+    <string name="icon_small">Petite</string>
+    <string name="icon_medium">Moyenne</string>
+    <string name="icon_large">Grande</string>
 </resources>

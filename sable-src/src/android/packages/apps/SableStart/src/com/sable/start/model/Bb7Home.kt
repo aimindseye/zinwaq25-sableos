@@ -47,6 +47,61 @@ enum class Bb7Panel(
     val title: String get() = t(titleKey)
 }
 
+/** How the open tray lists apps: icons in a grid, or BlackBerry 7's list of icon and name rows. */
+enum class Bb7TrayView(
+    private val titleKey: String,
+) {
+    Grid("view_grid"),
+    List("view_list"),
+    ;
+
+    val title: String get() = t(titleKey)
+}
+
+/** Tray icon sizes, in dp. */
+enum class Bb7IconSize(
+    val dp: Int,
+    private val titleKey: String,
+) {
+    Small(32, "icon_small"),
+    Medium(40, "icon_medium"),
+    Large(48, "icon_large"),
+    ;
+
+    val title: String get() = t(titleKey)
+}
+
+/**
+ * The tray's look: [view] for the open tray (the closed tray on the home screen is always icons),
+ * [columns] for the grid ([AUTO] fits the screen) and [iconSize].
+ */
+data class Bb7Layout(
+    val view: Bb7TrayView = Bb7TrayView.Grid,
+    val columns: Int = AUTO,
+    val iconSize: Bb7IconSize = Bb7IconSize.Medium,
+) {
+    /** Saved as "view:columns:size"; anything unreadable gives the default. */
+    fun encode(): String = "${view.name}:$columns:${iconSize.name}"
+
+    companion object {
+        const val AUTO = 0
+
+        private val CHOSEN = Bb7Home.MIN_COLUMNS..Bb7Home.MAX_COLUMNS
+
+        private fun validColumns(columns: Int): Boolean = columns == AUTO || columns in CHOSEN
+
+        fun decode(saved: String?): Bb7Layout {
+            val parts = saved?.split(':').orEmpty()
+            if (parts.size != 3) return Bb7Layout()
+            return Bb7Layout(
+                view = Bb7TrayView.entries.firstOrNull { it.name == parts[0] } ?: Bb7TrayView.Grid,
+                columns = parts[1].toIntOrNull()?.takeIf(::validColumns) ?: AUTO,
+                iconSize = Bb7IconSize.entries.firstOrNull { it.name == parts[2] } ?: Bb7IconSize.Medium,
+            )
+        }
+    }
+}
+
 /** Where a horizontal swipe on the BlackBerry 7 home goes: Hub is to the left, the apps to the right. */
 enum class Bb7Swipe { Hub, Apps }
 
@@ -74,6 +129,29 @@ object Bb7Home {
         )
 
     fun columns(widthDp: Int): Int = (widthDp / CELL_DP).coerceIn(MIN_COLUMNS, MAX_COLUMNS)
+
+    /** Room around an icon in its cell; a Medium icon gives [CELL_DP]. */
+    private const val CELL_PAD_DP = CELL_DP - 40
+
+    /** Columns for [layout]: one in the open list view, the chosen number, or as many as fit. */
+    fun columns(
+        widthDp: Int,
+        layout: Bb7Layout,
+        open: Boolean,
+    ): Int =
+        when {
+            open && layout.view == Bb7TrayView.List -> 1
+            layout.columns != Bb7Layout.AUTO -> layout.columns.coerceIn(MIN_COLUMNS, MAX_COLUMNS)
+            else -> (widthDp / (layout.iconSize.dp + CELL_PAD_DP)).coerceIn(MIN_COLUMNS, MAX_COLUMNS)
+        }
+
+    /** The next choice in the home menu: Auto, 4 ... 8, then Auto again. */
+    fun nextColumns(columns: Int): Int =
+        when (columns) {
+            Bb7Layout.AUTO -> MIN_COLUMNS
+            in MIN_COLUMNS until MAX_COLUMNS -> columns + 1
+            else -> Bb7Layout.AUTO
+        }
 
     /**
      * The apps of one panel, in order. Favorites: the user's Home apps ([favoriteKeys], stable
@@ -116,12 +194,13 @@ object Bb7Home {
         apps: List<AppEntry>,
         query: String,
     ): List<AppEntry> {
-        val q = query.trim().lowercase()
+        val q = SearchFold.fold(query.trim())
         if (q.isEmpty()) return emptyList()
         val byName = apps.sortedBy { it.label.lowercase() }
-        val starts = byName.filter { it.label.lowercase().startsWith(q) }
-        val word = byName.filter { it !in starts && it.label.lowercase().split(' ').any { w -> w.startsWith(q) } }
-        val any = byName.filter { it !in starts && it !in word && q in it.label.lowercase() }
+        val name = byName.associateWith { SearchFold.fold(it.label) }
+        val starts = byName.filter { name.getValue(it).startsWith(q) }
+        val word = byName.filter { it !in starts && name.getValue(it).split(' ').any { w -> w.startsWith(q) } }
+        val any = byName.filter { it !in starts && it !in word && q in name.getValue(it) }
         return starts + word + any
     }
 

@@ -275,4 +275,13 @@
     <string name="resume_work">Ενεργοποίηση εφαρμογών εργασίας</string>
     <string name="no_work_apps">Δεν υπάρχουν ακόμη εφαρμογές εργασίας. Το Sable Setup μπορεί να φτιάξει χώρο εργασίας.</string>
     <string name="delete_app">Διαγραφή</string>
+    <string name="tray_view">Προβολή συρταριού: %1$s</string>
+    <string name="view_grid">Πλέγμα</string>
+    <string name="view_list">Λίστα</string>
+    <string name="grid_columns">Στήλες: %1$s</string>
+    <string name="columns_auto">Αυτόματα</string>
+    <string name="icon_size">Μέγεθος εικονιδίων: %1$s</string>
+    <string name="icon_small">Μικρό</string>
+    <string name="icon_medium">Μεσαίο</string>
+    <string name="icon_large">Μεγάλο</string>
 </resources>

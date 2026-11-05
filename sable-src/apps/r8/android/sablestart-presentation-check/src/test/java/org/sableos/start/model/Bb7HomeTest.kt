@@ -74,4 +74,25 @@ class Bb7HomeTest {
         val recents = Bb7Detour(returnOnHome = false).onCanNavigateBack(true).onCanNavigateBack(false)
         assertEquals(false, recents.endsAt(false))
     }
+
+    @Test
+    fun trayLayoutPicksColumnsAndListAndSurvivesSaving() {
+        val auto = Bb7Layout()
+        assertEquals(6, Bb7Home.columns(411, auto, open = false))
+        assertEquals(1, Bb7Home.columns(411, auto.copy(view = Bb7TrayView.List), open = true))
+        assertEquals(6, Bb7Home.columns(411, auto.copy(view = Bb7TrayView.List), open = false))
+        assertEquals(5, Bb7Home.columns(411, auto.copy(iconSize = Bb7IconSize.Large), open = false))
+        assertEquals(7, Bb7Home.columns(411, auto.copy(iconSize = Bb7IconSize.Small), open = false))
+        assertEquals(4, Bb7Home.columns(411, auto.copy(columns = 4), open = true))
+        val cycle =
+            generateSequence(Bb7Home.nextColumns(Bb7Layout.AUTO)) {
+                if (it == Bb7Layout.AUTO) null else Bb7Home.nextColumns(it)
+            }.toList()
+        assertEquals(listOf(4, 5, 6, 7, 8, Bb7Layout.AUTO), cycle)
+        val chosen = Bb7Layout(Bb7TrayView.List, 5, Bb7IconSize.Small)
+        assertEquals(chosen, Bb7Layout.decode(chosen.encode()))
+        assertEquals(Bb7Layout(), Bb7Layout.decode("nonsense"))
+        assertEquals(Bb7Layout(), Bb7Layout.decode(null))
+        assertEquals(Bb7Layout.AUTO, Bb7Layout.decode("Grid:42:Medium").columns)
+    }
 }

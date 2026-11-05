@@ -275,4 +275,13 @@
     <string name="resume_work">تشغيل تطبيقات العمل</string>
     <string name="no_work_apps">لا توجد تطبيقات عمل بعد. يمكن لـ Sable Setup إنشاء مساحة عمل.</string>
     <string name="delete_app">حذف</string>
+    <string name="tray_view">عرض الدرج: %1$s</string>
+    <string name="view_grid">شبكة</string>
+    <string name="view_list">قائمة</string>
+    <string name="grid_columns">الأعمدة: %1$s</string>
+    <string name="columns_auto">تلقائي</string>
+    <string name="icon_size">حجم الأيقونات: %1$s</string>
+    <string name="icon_small">صغير</string>
+    <string name="icon_medium">متوسط</string>
+    <string name="icon_large">كبير</string>
 </resources>

@@ -275,4 +275,13 @@
     <string name="resume_work">הפעלת אפליקציות העבודה</string>
     <string name="no_work_apps">אין עדיין אפליקציות עבודה. Sable Setup יכול ליצור מרחב עבודה.</string>
     <string name="delete_app">מחיקה</string>
+    <string name="tray_view">תצוגת המגש: %1$s</string>
+    <string name="view_grid">רשת</string>
+    <string name="view_list">רשימה</string>
+    <string name="grid_columns">עמודות: %1$s</string>
+    <string name="columns_auto">אוטומטי</string>
+    <string name="icon_size">גודל סמלים: %1$s</string>
+    <string name="icon_small">קטן</string>
+    <string name="icon_medium">בינוני</string>
+    <string name="icon_large">גדול</string>
 </resources>

@@ -275,4 +275,13 @@
     <string name="resume_work">İş uygulamalarını aç</string>
     <string name="no_work_apps">Henüz iş uygulaması yok. Sable Setup bir İş alanı oluşturabilir.</string>
     <string name="delete_app">Sil</string>
+    <string name="tray_view">Tepsi görünümü: %1$s</string>
+    <string name="view_grid">Izgara</string>
+    <string name="view_list">Liste</string>
+    <string name="grid_columns">Sütunlar: %1$s</string>
+    <string name="columns_auto">Otomatik</string>
+    <string name="icon_size">Simge boyutu: %1$s</string>
+    <string name="icon_small">Küçük</string>
+    <string name="icon_medium">Orta</string>
+    <string name="icon_large">Büyük</string>
 </resources>

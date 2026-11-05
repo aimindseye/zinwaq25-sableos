@@ -275,4 +275,13 @@
     <string name="resume_work">कार्य ऐप्स चालू करें</string>
     <string name="no_work_apps">अभी कोई कार्य ऐप नहीं। Sable Setup एक कार्य स्पेस बना सकता है।</string>
     <string name="delete_app">हटाएं</string>
+    <string name="tray_view">ट्रे दृश्य: %1$s</string>
+    <string name="view_grid">ग्रिड</string>
+    <string name="view_list">सूची</string>
+    <string name="grid_columns">कॉलम: %1$s</string>
+    <string name="columns_auto">स्वतः</string>
+    <string name="icon_size">आइकन आकार: %1$s</string>
+    <string name="icon_small">छोटा</string>
+    <string name="icon_medium">मध्यम</string>
+    <string name="icon_large">बड़ा</string>
 </resources>

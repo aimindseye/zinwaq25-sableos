@@ -1,0 +1,853 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb7HomeTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb7HomeTest.kt
+index f6eb20a..3457f47 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb7HomeTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb7HomeTest.kt
+@@ -74,4 +74,25 @@ class Bb7HomeTest {
+         val recents = Bb7Detour(returnOnHome = false).onCanNavigateBack(true).onCanNavigateBack(false)
+         assertEquals(false, recents.endsAt(false))
+     }
++
++    @Test
++    fun trayLayoutPicksColumnsAndListAndSurvivesSaving() {
++        val auto = Bb7Layout()
++        assertEquals(6, Bb7Home.columns(411, auto, open = false))
++        assertEquals(1, Bb7Home.columns(411, auto.copy(view = Bb7TrayView.List), open = true))
++        assertEquals(6, Bb7Home.columns(411, auto.copy(view = Bb7TrayView.List), open = false))
++        assertEquals(5, Bb7Home.columns(411, auto.copy(iconSize = Bb7IconSize.Large), open = false))
++        assertEquals(7, Bb7Home.columns(411, auto.copy(iconSize = Bb7IconSize.Small), open = false))
++        assertEquals(4, Bb7Home.columns(411, auto.copy(columns = 4), open = true))
++        val cycle =
++            generateSequence(Bb7Home.nextColumns(Bb7Layout.AUTO)) {
++                if (it == Bb7Layout.AUTO) null else Bb7Home.nextColumns(it)
++            }.toList()
++        assertEquals(listOf(4, 5, 6, 7, 8, Bb7Layout.AUTO), cycle)
++        val chosen = Bb7Layout(Bb7TrayView.List, 5, Bb7IconSize.Small)
++        assertEquals(chosen, Bb7Layout.decode(chosen.encode()))
++        assertEquals(Bb7Layout(), Bb7Layout.decode("nonsense"))
++        assertEquals(Bb7Layout(), Bb7Layout.decode(null))
++        assertEquals(Bb7Layout.AUTO, Bb7Layout.decode("Grid:42:Medium").columns)
++    }
+ }
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/CommandQueryTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/CommandQueryTest.kt
+index 974809a..2787f18 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/CommandQueryTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/CommandQueryTest.kt
+@@ -94,3 +94,16 @@ class CommandGroupsTest {
+         assertEquals(1, CommandBestMatch.tier("Sable Settings", "set"))
+     }
+ }
++
++class SearchFoldTest {
++    @Test
++    fun accentsAndCaseDoNotMatterWhenSearching() {
++        assertEquals("ky vuong", SearchFold.fold("Kỳ Vương"))
++        assertEquals("cafe", SearchFold.fold("Café"))
++        assertEquals("dien thoai", SearchFold.fold("Điện thoại"))
++        assertEquals(0, CommandBestMatch.tier("Kỳ Vương", "ky v"))
++        assertEquals(1, CommandBestMatch.tier("Le Café", "cafe"))
++        val apps = listOf("Mail", "Kỳ Vương", "Café Bar")
++        assertEquals(listOf("Kỳ Vương"), CommandRanking.apps(apps, { it }, { null }, "vuong"))
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index d11f1e7..ca6a513 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">تشغيل تطبيقات العمل</string>
+     <string name="no_work_apps">لا توجد تطبيقات عمل بعد. يمكن لـ Sable Setup إنشاء مساحة عمل.</string>
+     <string name="delete_app">حذف</string>
++    <string name="tray_view">عرض الدرج: %1$s</string>
++    <string name="view_grid">شبكة</string>
++    <string name="view_list">قائمة</string>
++    <string name="grid_columns">الأعمدة: %1$s</string>
++    <string name="columns_auto">تلقائي</string>
++    <string name="icon_size">حجم الأيقونات: %1$s</string>
++    <string name="icon_small">صغير</string>
++    <string name="icon_medium">متوسط</string>
++    <string name="icon_large">كبير</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index 2ffb817..5270da6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">Arbeits-Apps einschalten</string>
+     <string name="no_work_apps">Noch keine Arbeits-Apps. Sable Setup kann einen Arbeitsbereich anlegen.</string>
+     <string name="delete_app">Löschen</string>
++    <string name="tray_view">Ablage-Ansicht: %1$s</string>
++    <string name="view_grid">Raster</string>
++    <string name="view_list">Liste</string>
++    <string name="grid_columns">Rasterspalten: %1$s</string>
++    <string name="columns_auto">Auto</string>
++    <string name="icon_size">Symbolgröße: %1$s</string>
++    <string name="icon_small">Klein</string>
++    <string name="icon_medium">Mittel</string>
++    <string name="icon_large">Groß</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index 3e33f12..94118d0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">Ενεργοποίηση εφαρμογών εργασίας</string>
+     <string name="no_work_apps">Δεν υπάρχουν ακόμη εφαρμογές εργασίας. Το Sable Setup μπορεί να φτιάξει χώρο εργασίας.</string>
+     <string name="delete_app">Διαγραφή</string>
++    <string name="tray_view">Προβολή συρταριού: %1$s</string>
++    <string name="view_grid">Πλέγμα</string>
++    <string name="view_list">Λίστα</string>
++    <string name="grid_columns">Στήλες: %1$s</string>
++    <string name="columns_auto">Αυτόματα</string>
++    <string name="icon_size">Μέγεθος εικονιδίων: %1$s</string>
++    <string name="icon_small">Μικρό</string>
++    <string name="icon_medium">Μεσαίο</string>
++    <string name="icon_large">Μεγάλο</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index 4e6a854..2b3b035 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">Activar apps de trabajo</string>
+     <string name="no_work_apps">Aún no hay apps de trabajo. Sable Setup puede crear un espacio de trabajo.</string>
+     <string name="delete_app">Eliminar</string>
++    <string name="tray_view">Vista de la bandeja: %1$s</string>
++    <string name="view_grid">Cuadrícula</string>
++    <string name="view_list">Lista</string>
++    <string name="grid_columns">Columnas: %1$s</string>
++    <string name="columns_auto">Auto</string>
++    <string name="icon_size">Tamaño de iconos: %1$s</string>
++    <string name="icon_small">Pequeño</string>
++    <string name="icon_medium">Mediano</string>
++    <string name="icon_large">Grande</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index c384502..9b96bff 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">Activer les apps pro</string>
+     <string name="no_work_apps">Aucune app pro pour l’instant. Sable Setup peut créer un espace pro.</string>
+     <string name="delete_app">Supprimer</string>
++    <string name="tray_view">Vue du tiroir : %1$s</string>
++    <string name="view_grid">Grille</string>
++    <string name="view_list">Liste</string>
++    <string name="grid_columns">Colonnes : %1$s</string>
++    <string name="columns_auto">Auto</string>
++    <string name="icon_size">Taille des icônes : %1$s</string>
++    <string name="icon_small">Petite</string>
++    <string name="icon_medium">Moyenne</string>
++    <string name="icon_large">Grande</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index 9f3799a..e0de07f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">कार्य ऐप्स चालू करें</string>
+     <string name="no_work_apps">अभी कोई कार्य ऐप नहीं। Sable Setup एक कार्य स्पेस बना सकता है।</string>
+     <string name="delete_app">हटाएं</string>
++    <string name="tray_view">ट्रे दृश्य: %1$s</string>
++    <string name="view_grid">ग्रिड</string>
++    <string name="view_list">सूची</string>
++    <string name="grid_columns">कॉलम: %1$s</string>
++    <string name="columns_auto">स्वतः</string>
++    <string name="icon_size">आइकन आकार: %1$s</string>
++    <string name="icon_small">छोटा</string>
++    <string name="icon_medium">मध्यम</string>
++    <string name="icon_large">बड़ा</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index 5df331d..4e737ca 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">Attiva le app di lavoro</string>
+     <string name="no_work_apps">Ancora nessuna app di lavoro. Sable Setup può creare uno spazio di lavoro.</string>
+     <string name="delete_app">Elimina</string>
++    <string name="tray_view">Vista del cassetto: %1$s</string>
++    <string name="view_grid">Griglia</string>
++    <string name="view_list">Elenco</string>
++    <string name="grid_columns">Colonne: %1$s</string>
++    <string name="columns_auto">Auto</string>
++    <string name="icon_size">Dimensione icone: %1$s</string>
++    <string name="icon_small">Piccola</string>
++    <string name="icon_medium">Media</string>
++    <string name="icon_large">Grande</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index 53c1c88..c3e36f0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">הפעלת אפליקציות העבודה</string>
+     <string name="no_work_apps">אין עדיין אפליקציות עבודה. Sable Setup יכול ליצור מרחב עבודה.</string>
+     <string name="delete_app">מחיקה</string>
++    <string name="tray_view">תצוגת המגש: %1$s</string>
++    <string name="view_grid">רשת</string>
++    <string name="view_list">רשימה</string>
++    <string name="grid_columns">עמודות: %1$s</string>
++    <string name="columns_auto">אוטומטי</string>
++    <string name="icon_size">גודל סמלים: %1$s</string>
++    <string name="icon_small">קטן</string>
++    <string name="icon_medium">בינוני</string>
++    <string name="icon_large">גדול</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index 0d19251..52127ab 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">仕事用アプリをオンにする</string>
+     <string name="no_work_apps">仕事用アプリはまだありません。Sable Setup で仕事用スペースを作れます。</string>
+     <string name="delete_app">削除</string>
++    <string name="tray_view">トレイの表示: %1$s</string>
++    <string name="view_grid">グリッド</string>
++    <string name="view_list">リスト</string>
++    <string name="grid_columns">列数: %1$s</string>
++    <string name="columns_auto">自動</string>
++    <string name="icon_size">アイコンのサイズ: %1$s</string>
++    <string name="icon_small">小</string>
++    <string name="icon_medium">中</string>
++    <string name="icon_large">大</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 9b2dcec..3c1ba3f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">업무용 앱 켜기</string>
+     <string name="no_work_apps">아직 업무용 앱이 없습니다. Sable Setup에서 업무 공간을 만들 수 있습니다.</string>
+     <string name="delete_app">삭제</string>
++    <string name="tray_view">트레이 보기: %1$s</string>
++    <string name="view_grid">격자</string>
++    <string name="view_list">목록</string>
++    <string name="grid_columns">열 수: %1$s</string>
++    <string name="columns_auto">자동</string>
++    <string name="icon_size">아이콘 크기: %1$s</string>
++    <string name="icon_small">작게</string>
++    <string name="icon_medium">중간</string>
++    <string name="icon_large">크게</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 20dd5dc..5efe567 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">Werk-apps aanzetten</string>
+     <string name="no_work_apps">Nog geen werk-apps. Sable Setup kan een werkruimte maken.</string>
+     <string name="delete_app">Verwijderen</string>
++    <string name="tray_view">Ladeweergave: %1$s</string>
++    <string name="view_grid">Raster</string>
++    <string name="view_list">Lijst</string>
++    <string name="grid_columns">Kolommen: %1$s</string>
++    <string name="columns_auto">Auto</string>
++    <string name="icon_size">Pictogramgrootte: %1$s</string>
++    <string name="icon_small">Klein</string>
++    <string name="icon_medium">Middel</string>
++    <string name="icon_large">Groot</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index e5d700e..06c2fc7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">Włącz aplikacje służbowe</string>
+     <string name="no_work_apps">Brak aplikacji służbowych. Sable Setup może utworzyć przestrzeń służbową.</string>
+     <string name="delete_app">Usuń</string>
++    <string name="tray_view">Widok szuflady: %1$s</string>
++    <string name="view_grid">Siatka</string>
++    <string name="view_list">Lista</string>
++    <string name="grid_columns">Kolumny: %1$s</string>
++    <string name="columns_auto">Auto</string>
++    <string name="icon_size">Rozmiar ikon: %1$s</string>
++    <string name="icon_small">Mały</string>
++    <string name="icon_medium">Średni</string>
++    <string name="icon_large">Duży</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index f8942cb..873fc32 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">Ativar apps de trabalho</string>
+     <string name="no_work_apps">Ainda sem apps de trabalho. O Sable Setup pode criar um espaço de trabalho.</string>
+     <string name="delete_app">Excluir</string>
++    <string name="tray_view">Vista da bandeja: %1$s</string>
++    <string name="view_grid">Grade</string>
++    <string name="view_list">Lista</string>
++    <string name="grid_columns">Colunas: %1$s</string>
++    <string name="columns_auto">Auto</string>
++    <string name="icon_size">Tamanho dos ícones: %1$s</string>
++    <string name="icon_small">Pequeno</string>
++    <string name="icon_medium">Médio</string>
++    <string name="icon_large">Grande</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index f46de30..4c22ec3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">Включить рабочие приложения</string>
+     <string name="no_work_apps">Рабочих приложений пока нет. Sable Setup может создать рабочее пространство.</string>
+     <string name="delete_app">Удалить</string>
++    <string name="tray_view">Вид панели: %1$s</string>
++    <string name="view_grid">Сетка</string>
++    <string name="view_list">Список</string>
++    <string name="grid_columns">Столбцы: %1$s</string>
++    <string name="columns_auto">Авто</string>
++    <string name="icon_size">Размер значков: %1$s</string>
++    <string name="icon_small">Мелкий</string>
++    <string name="icon_medium">Средний</string>
++    <string name="icon_large">Крупный</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index a243874..8c2ec7c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">Slå på jobbappar</string>
+     <string name="no_work_apps">Inga jobbappar än. Sable Setup kan skapa ett jobbutrymme.</string>
+     <string name="delete_app">Ta bort</string>
++    <string name="tray_view">Fältvy: %1$s</string>
++    <string name="view_grid">Rutnät</string>
++    <string name="view_list">Lista</string>
++    <string name="grid_columns">Kolumner: %1$s</string>
++    <string name="columns_auto">Auto</string>
++    <string name="icon_size">Ikonstorlek: %1$s</string>
++    <string name="icon_small">Liten</string>
++    <string name="icon_medium">Mellan</string>
++    <string name="icon_large">Stor</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 4eecc97..390aa36 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">İş uygulamalarını aç</string>
+     <string name="no_work_apps">Henüz iş uygulaması yok. Sable Setup bir İş alanı oluşturabilir.</string>
+     <string name="delete_app">Sil</string>
++    <string name="tray_view">Tepsi görünümü: %1$s</string>
++    <string name="view_grid">Izgara</string>
++    <string name="view_list">Liste</string>
++    <string name="grid_columns">Sütunlar: %1$s</string>
++    <string name="columns_auto">Otomatik</string>
++    <string name="icon_size">Simge boyutu: %1$s</string>
++    <string name="icon_small">Küçük</string>
++    <string name="icon_medium">Orta</string>
++    <string name="icon_large">Büyük</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index d19c8b9..27b820e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">کام کی ایپس آن کریں</string>
+     <string name="no_work_apps">ابھی کام کی کوئی ایپ نہیں۔ Sable Setup کام کی اسپیس بنا سکتا ہے۔</string>
+     <string name="delete_app">حذف کریں</string>
++    <string name="tray_view">ٹرے کا منظر: %1$s</string>
++    <string name="view_grid">گرڈ</string>
++    <string name="view_list">فہرست</string>
++    <string name="grid_columns">کالم: %1$s</string>
++    <string name="columns_auto">خودکار</string>
++    <string name="icon_size">آئیکن کا سائز: %1$s</string>
++    <string name="icon_small">چھوٹا</string>
++    <string name="icon_medium">درمیانہ</string>
++    <string name="icon_large">بڑا</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 2326119..28f15ef 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -275,4 +275,13 @@
+     <string name="resume_work">开启工作应用</string>
+     <string name="no_work_apps">还没有工作应用。Sable Setup 可以创建工作空间。</string>
+     <string name="delete_app">删除</string>
++    <string name="tray_view">托盘视图：%1$s</string>
++    <string name="view_grid">网格</string>
++    <string name="view_list">列表</string>
++    <string name="grid_columns">列数：%1$s</string>
++    <string name="columns_auto">自动</string>
++    <string name="icon_size">图标大小：%1$s</string>
++    <string name="icon_small">小</string>
++    <string name="icon_medium">中</string>
++    <string name="icon_large">大</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index faf8ae6..3d87b13 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -279,4 +279,13 @@
+     <string name="resume_work">Turn on work apps</string>
+     <string name="no_work_apps">No work apps yet. Sable Setup can make a Work space.</string>
+     <string name="delete_app">Delete</string>
++    <string name="tray_view">Tray view: %1$s</string>
++    <string name="view_grid">Grid</string>
++    <string name="view_list">List</string>
++    <string name="grid_columns">Grid columns: %1$s</string>
++    <string name="columns_auto">Auto</string>
++    <string name="icon_size">Icon size: %1$s</string>
++    <string name="icon_small">Small</string>
++    <string name="icon_medium">Medium</string>
++    <string name="icon_large">Large</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index 95fddd9..dea0f02 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -38,6 +38,7 @@ import org.sableos.design.writeGlobalSableAppearance
+ import org.sableos.start.model.ActiveFrame
+ import org.sableos.start.model.AppEntry
+ import org.sableos.start.model.Bb7Detour
++import org.sableos.start.model.Bb7Layout
+ import org.sableos.start.model.HomeStyle
+ import org.sableos.start.model.TrackpadTouchGuard
+ import org.sableos.start.platform.LauncherAppsRepository
+@@ -104,6 +105,7 @@ class SableStartActivity : ComponentActivity() {
+     /** The BlackBerry 7 home's favourites (the Home apps) and its rows of icons, read in onCreate. */
+     private val bb7Favorites = mutableStateOf<List<String>?>(null)
+     private val bb7HomeRows = mutableStateOf(1)
++    private val bb7Layout = mutableStateOf(Bb7Layout())
+     private var opaqueWindowBackground: Drawable? = null
+ 
+     private var callbackRegistered = false
+@@ -203,6 +205,7 @@ class SableStartActivity : ComponentActivity() {
+         startStateRepository = StartStateRepository(this)
+         bb7Favorites.value = startStateRepository.loadHomeApps()
+         bb7HomeRows.value = startStateRepository.loadBb7HomeRows()
++        bb7Layout.value = startStateRepository.loadBb7Layout()
+         recentTasksRepository = RecentTasksRepository(this)
+         homeStyle.value = startStateRepository.loadHomeStyle()
+         opaqueWindowBackground = window.decorView.background
+@@ -268,6 +271,7 @@ class SableStartActivity : ComponentActivity() {
+                     apps = appsState.value,
+                     favoriteKeys = bb7Favorites.value,
+                     homeRows = bb7HomeRows.value,
++                    layout = bb7Layout.value,
+                     liveSurfaceRepository = liveSurfaceRepository,
+                     appearance = appearance,
+                     refreshGeneration = liveRefreshGeneration.value,
+@@ -288,6 +292,10 @@ class SableStartActivity : ComponentActivity() {
+                         bb7HomeRows.value = rows
+                         startStateRepository.saveBb7HomeRows(rows)
+                     },
++                    onLayoutChanged = { layout ->
++                        bb7Layout.value = layout
++                        startStateRepository.saveBb7Layout(layout)
++                    },
+                     onOpenMenu = ::showBb7Menu,
+                 )
+                 return@setContent
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
+index 77ea6dc..a315b2b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
+@@ -47,6 +47,61 @@ enum class Bb7Panel(
+     val title: String get() = t(titleKey)
+ }
+ 
++/** How the open tray lists apps: icons in a grid, or BlackBerry 7's list of icon and name rows. */
++enum class Bb7TrayView(
++    private val titleKey: String,
++) {
++    Grid("view_grid"),
++    List("view_list"),
++    ;
++
++    val title: String get() = t(titleKey)
++}
++
++/** Tray icon sizes, in dp. */
++enum class Bb7IconSize(
++    val dp: Int,
++    private val titleKey: String,
++) {
++    Small(32, "icon_small"),
++    Medium(40, "icon_medium"),
++    Large(48, "icon_large"),
++    ;
++
++    val title: String get() = t(titleKey)
++}
++
++/**
++ * The tray's look: [view] for the open tray (the closed tray on the home screen is always icons),
++ * [columns] for the grid ([AUTO] fits the screen) and [iconSize].
++ */
++data class Bb7Layout(
++    val view: Bb7TrayView = Bb7TrayView.Grid,
++    val columns: Int = AUTO,
++    val iconSize: Bb7IconSize = Bb7IconSize.Medium,
++) {
++    /** Saved as "view:columns:size"; anything unreadable gives the default. */
++    fun encode(): String = "${view.name}:$columns:${iconSize.name}"
++
++    companion object {
++        const val AUTO = 0
++
++        private val CHOSEN = Bb7Home.MIN_COLUMNS..Bb7Home.MAX_COLUMNS
++
++        private fun validColumns(columns: Int): Boolean = columns == AUTO || columns in CHOSEN
++
++        fun decode(saved: String?): Bb7Layout {
++            val parts = saved?.split(':').orEmpty()
++            if (parts.size != 3) return Bb7Layout()
++            return Bb7Layout(
++                view = Bb7TrayView.entries.firstOrNull { it.name == parts[0] } ?: Bb7TrayView.Grid,
++                columns = parts[1].toIntOrNull()?.takeIf(::validColumns) ?: AUTO,
++                iconSize = Bb7IconSize.entries.firstOrNull { it.name == parts[2] } ?: Bb7IconSize.Medium,
++            )
++        }
++    }
++}
++
+ /** Where a horizontal swipe on the BlackBerry 7 home goes: Hub is to the left, the apps to the right. */
+ enum class Bb7Swipe { Hub, Apps }
+ 
+@@ -75,6 +130,29 @@ object Bb7Home {
+ 
+     fun columns(widthDp: Int): Int = (widthDp / CELL_DP).coerceIn(MIN_COLUMNS, MAX_COLUMNS)
+ 
++    /** Room around an icon in its cell; a Medium icon gives [CELL_DP]. */
++    private const val CELL_PAD_DP = CELL_DP - 40
++
++    /** Columns for [layout]: one in the open list view, the chosen number, or as many as fit. */
++    fun columns(
++        widthDp: Int,
++        layout: Bb7Layout,
++        open: Boolean,
++    ): Int =
++        when {
++            open && layout.view == Bb7TrayView.List -> 1
++            layout.columns != Bb7Layout.AUTO -> layout.columns.coerceIn(MIN_COLUMNS, MAX_COLUMNS)
++            else -> (widthDp / (layout.iconSize.dp + CELL_PAD_DP)).coerceIn(MIN_COLUMNS, MAX_COLUMNS)
++        }
++
++    /** The next choice in the home menu: Auto, 4 ... 8, then Auto again. */
++    fun nextColumns(columns: Int): Int =
++        when (columns) {
++            Bb7Layout.AUTO -> MIN_COLUMNS
++            in MIN_COLUMNS until MAX_COLUMNS -> columns + 1
++            else -> Bb7Layout.AUTO
++        }
++
+     /**
+      * The apps of one panel, in order. Favorites: the user's Home apps ([favoriteKeys], stable
+      * keys) or, without any, [DEFAULT_FAVORITE_PACKAGES] that are installed; All: every app by
+@@ -116,12 +194,13 @@ object Bb7Home {
+         apps: List<AppEntry>,
+         query: String,
+     ): List<AppEntry> {
+-        val q = query.trim().lowercase()
++        val q = SearchFold.fold(query.trim())
+         if (q.isEmpty()) return emptyList()
+         val byName = apps.sortedBy { it.label.lowercase() }
+-        val starts = byName.filter { it.label.lowercase().startsWith(q) }
+-        val word = byName.filter { it !in starts && it.label.lowercase().split(' ').any { w -> w.startsWith(q) } }
+-        val any = byName.filter { it !in starts && it !in word && q in it.label.lowercase() }
++        val name = byName.associateWith { SearchFold.fold(it.label) }
++        val starts = byName.filter { name.getValue(it).startsWith(q) }
++        val word = byName.filter { it !in starts && name.getValue(it).split(' ').any { w -> w.startsWith(q) } }
++        val any = byName.filter { it !in starts && it !in word && q in name.getValue(it) }
+         return starts + word + any
+     }
+ 
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CommandQuery.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CommandQuery.kt
+index 0365dc2..9bbd8f6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CommandQuery.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CommandQuery.kt
+@@ -1,6 +1,8 @@
+ package org.sableos.start.model
+ 
+ import com.sable.start.model.StartText.t
++import java.text.Normalizer
++import java.util.Locale
+ 
+ /**
+  * Command layer query model (platform_sable SABLE_COMMAND_LAYER.md "Prefix
+@@ -149,13 +151,14 @@ object CommandRanking {
+         if (t.isEmpty()) {
+             return items.sortedWith(compareBy({ recentRank(it) ?: Int.MAX_VALUE }, { label(it).lowercase() }))
+         }
++        val f = SearchFold.fold(t)
+         return items.mapNotNull { item ->
+-            val l = label(item)
++            val l = SearchFold.fold(label(item))
+             val tier =
+                 when {
+-                    l.startsWith(t, ignoreCase = true) -> 0
+-                    l.split(' ', '-', '.').any { it.startsWith(t, ignoreCase = true) } -> 1
+-                    l.contains(t, ignoreCase = true) -> 2
++                    l.startsWith(f) -> 0
++                    l.split(' ', '-', '.').any { it.startsWith(f) } -> 1
++                    l.contains(f) -> 2
+                     else -> null
+                 }
+             tier?.let { Triple(item, it, recentRank(item) ?: Int.MAX_VALUE) }
+@@ -223,12 +226,13 @@ object CommandBestMatch {
+         title: String,
+         term: String,
+     ): Int {
+-        val t = term.trim()
++        val t = SearchFold.fold(term.trim())
++        val folded = SearchFold.fold(title)
+         return when {
+             t.isEmpty() -> NO_MATCH
+-            title.startsWith(t, ignoreCase = true) -> 0
+-            title.split(' ', '-', '.').any { it.startsWith(t, ignoreCase = true) } -> 1
+-            title.contains(t, ignoreCase = true) -> 2
++            folded.startsWith(t) -> 0
++            folded.split(' ', '-', '.').any { it.startsWith(t) } -> 1
++            folded.contains(t) -> 2
+             else -> NO_MATCH
+         }
+     }
+@@ -247,3 +251,20 @@ object CommandBestMatch {
+ 
+     const val NO_MATCH = 3
+ }
++
++/**
++ * Search text without case or accents, so "cafe" finds "Café" and "ky vuong" finds "Kỳ Vương":
++ * letters are decomposed and their marks dropped, and the few letters that do not decompose
++ * (đ, ø, ł, ı) are mapped by hand.
++ */
++object SearchFold {
++    private val MARKS = Regex("\\p{Mn}+")
++    private val LETTERS = mapOf('đ' to 'd', 'ø' to 'o', 'ł' to 'l', 'ı' to 'i')
++
++    fun fold(text: String): String =
++        Normalizer
++            .normalize(text.lowercase(Locale.ROOT), Normalizer.Form.NFD)
++            .replace(MARKS, "")
++            .map { LETTERS[it] ?: it }
++            .joinToString("")
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index a49d0b4..8c0b854 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -291,6 +291,15 @@ object StartText {
+             "no_work_apps" to "No work apps yet. Sable Setup can make a Work space.",
+             "delete_app" to "Delete",
+             "letter_shortcut_current" to "Hold-key shortcut: %1\$s",
++            "tray_view" to "Tray view: %1\$s",
++            "view_grid" to "Grid",
++            "view_list" to "List",
++            "grid_columns" to "Grid columns: %1\$s",
++            "columns_auto" to "Auto",
++            "icon_size" to "Icon size: %1\$s",
++            "icon_small" to "Small",
++            "icon_medium" to "Medium",
++            "icon_large" to "Large",
+             "letter_shortcut_press" to
+                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",
+         )
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
+index b62fabc..e3e9a47 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
+@@ -2,6 +2,7 @@ package org.sableos.start.platform
+ 
+ import android.content.Context
+ import org.sableos.start.model.Bb7Home
++import org.sableos.start.model.Bb7Layout
+ import org.sableos.start.model.HomeStyle
+ 
+ /**
+@@ -118,6 +119,13 @@ class StartStateRepository(
+         preferences.edit().putInt(KEY_BB7_HOME_ROWS, rows).apply()
+     }
+ 
++    /** The BlackBerry 7 tray's view, grid columns and icon size (Bb7Layout). */
++    fun loadBb7Layout(): Bb7Layout = Bb7Layout.decode(preferences.getString(KEY_BB7_LAYOUT, null))
++
++    fun saveBb7Layout(layout: Bb7Layout) {
++        preferences.edit().putString(KEY_BB7_LAYOUT, layout.encode()).apply()
++    }
++
+     /** The app grid order (AppGrid, the BB10 layout); null means never customised. */
+     fun loadGridOrder(): List<String>? = loadOrdered(KEY_GRID_ORDER)
+ 
+@@ -192,6 +200,7 @@ class StartStateRepository(
+         const val QUICK_BAR_SEPARATOR = "\n"
+         const val KEY_HOME_APPS = "home_apps"
+         const val KEY_BB7_HOME_ROWS = "bb7_home_rows"
++        const val KEY_BB7_LAYOUT = "bb7_layout"
+         const val KEY_GLANCE_WIDGETS = "glance_widgets"
+         // v2: the BB10 Home shows the status dials by default; sets saved by the
+         // three-page Home hid them without the user choosing, so they are not read.
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+index 1022710..349ab6a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+@@ -62,8 +62,11 @@ import org.sableos.design.SableTheme
+ import org.sableos.start.live.LiveAvailability
+ import org.sableos.start.model.AppEntry
+ import org.sableos.start.model.Bb7Home
++import org.sableos.start.model.Bb7IconSize
++import org.sableos.start.model.Bb7Layout
+ import org.sableos.start.model.Bb7Panel
+ import org.sableos.start.model.Bb7Swipe
++import org.sableos.start.model.Bb7TrayView
+ import org.sableos.start.model.HomeApps
+ import org.sableos.start.model.HomeHeader
+ import org.sableos.start.model.stableKey
+@@ -90,6 +93,8 @@ fun Bb7HomeScreen(
+     favoriteKeys: List<String>?,
+     homeRows: Int,
+     liveSurfaceRepository: LiveSurfaceRepository,
++    /** The tray's view, grid columns and icon size, set from the home menu. */
++    layout: Bb7Layout = Bb7Layout(),
+     appearance: SableAppearance,
+     refreshGeneration: Int,
+     homeGeneration: Int,
+@@ -100,6 +105,7 @@ fun Bb7HomeScreen(
+     onUninstallApp: (AppEntry) -> Unit = {},
+     onFavoritesChanged: (List<String>) -> Unit,
+     onHomeRowsChanged: (Int) -> Unit,
++    onLayoutChanged: (Bb7Layout) -> Unit = {},
+     onOpenMenu: (List<Pair<String, () -> Unit>>) -> Unit,
+ ) {
+     var panel by remember { mutableStateOf(Bb7Panel.Favorites) }
+@@ -177,6 +183,20 @@ fun Bb7HomeScreen(
+             if (!open && !searching && homeRows > Bb7Home.MIN_HOME_ROWS) {
+                 add(t("show_fewer_rows") to { onHomeRowsChanged(homeRows - 1) })
+             }
++            if (!searching) {
++                // Each line shows its current value; choosing it moves to the next one.
++                val nextView = if (layout.view == Bb7TrayView.Grid) Bb7TrayView.List else Bb7TrayView.Grid
++                add(t("tray_view", layout.view.title) to { onLayoutChanged(layout.copy(view = nextView)) })
++                val auto = layout.columns == Bb7Layout.AUTO
++                val shownColumns = if (auto) t("columns_auto") else layout.columns.toString()
++                add(
++                    t("grid_columns", shownColumns) to
++                        { onLayoutChanged(layout.copy(columns = Bb7Home.nextColumns(layout.columns))) },
++                )
++                val sizes = Bb7IconSize.entries
++                val nextSize = sizes[(layout.iconSize.ordinal + 1) % sizes.size]
++                add(t("icon_size", layout.iconSize.title) to { onLayoutChanged(layout.copy(iconSize = nextSize)) })
++            }
+         }
+     }
+ 
+@@ -268,7 +288,7 @@ fun Bb7HomeScreen(
+                             true
+                         },
+             ) {
+-                val columns = Bb7Home.columns(maxWidth.value.toInt())
++                val columns = Bb7Home.columns(maxWidth.value.toInt(), layout, open = open || searching)
+                 SideEffect { keyColumns = columns }
+                 val swipe = with(LocalDensity.current) { SWIPE_DP.dp.toPx() }
+                 val rowPx = with(LocalDensity.current) { ROW_DP.dp.toPx() }
+@@ -304,6 +324,8 @@ fun Bb7HomeScreen(
+                         title = trayTitle,
+                         apps = if (open || searching) shown else shown.take(columns * homeRows),
+                         columns = columns,
++                        list = (open || searching) && layout.view == Bb7TrayView.List,
++                        iconDp = layout.iconSize.dp,
+                         open = open || searching,
+                         moving = moving,
+                         onResize = { dragged ->
+@@ -411,6 +433,8 @@ private fun Bb7Tray(
+     title: String,
+     apps: List<AppEntry>,
+     columns: Int,
++    list: Boolean,
++    iconDp: Int,
+     open: Boolean,
+     moving: Boolean,
+     selected: Int,
+@@ -478,34 +502,58 @@ private fun Bb7Tray(
+             horizontalArrangement = Arrangement.spacedBy(2.dp),
+             verticalArrangement = Arrangement.spacedBy(4.dp),
+         ) {
+-            itemsIndexed(apps, key = { _, app -> app.component.flattenToString() + app.user.hashCode() }) { index, app ->
++            itemsIndexed(
++                apps,
++                key = { _, app -> app.component.flattenToString() + app.user.hashCode() },
++            ) { index, app ->
+                 val isSelected = index == selected
+                 val outline = if (moving && isSelected) Color.White else MaterialTheme.colorScheme.primary
+-                Column(
+-                    modifier =
+-                        Modifier
+-                            .clip(RoundedCornerShape(8.dp))
+-                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else Color.Transparent)
+-                            .border(
+-                                if (isSelected) 2.dp else 0.dp,
+-                                if (isSelected) outline else Color.Transparent,
+-                                RoundedCornerShape(8.dp),
+-                            )
+-                            .combinedClickable(onClick = { onLaunch(app) }, onLongClick = { onInfo(app) })
+-                            .padding(vertical = 4.dp),
+-                    horizontalAlignment = Alignment.CenterHorizontally,
+-                ) {
+-                    AppMark(app = app, size = ICON_DP)
+-                    Spacer(Modifier.height(2.dp))
+-                    Text(
+-                        text = app.label,
+-                        color = Color.White,
+-                        fontSize = 11.sp,
+-                        maxLines = 1,
+-                        overflow = TextOverflow.Ellipsis,
+-                        textAlign = TextAlign.Center,
+-                        modifier = Modifier.padding(horizontal = 2.dp),
+-                    )
++                val cell =
++                    Modifier
++                        .clip(RoundedCornerShape(8.dp))
++                        .background(
++                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else Color.Transparent,
++                        ).border(
++                            if (isSelected) 2.dp else 0.dp,
++                            if (isSelected) outline else Color.Transparent,
++                            RoundedCornerShape(8.dp),
++                        ).combinedClickable(
++                            onClick = { onLaunch(app) },
++                            onLongClick = { onInfo(app) },
++                        )
++                if (list) {
++                    // BlackBerry 7's list: icon and name on one row.
++                    Row(
++                        modifier = cell.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
++                        verticalAlignment = Alignment.CenterVertically,
++                    ) {
++                        AppMark(app = app, size = iconDp)
++                        Spacer(Modifier.width(12.dp))
++                        Text(
++                            text = app.label,
++                            color = Color.White,
++                            style = MaterialTheme.typography.bodyLarge,
++                            maxLines = 1,
++                            overflow = TextOverflow.Ellipsis,
++                        )
++                    }
++                } else {
++                    Column(
++                        modifier = cell.padding(vertical = 4.dp),
++                        horizontalAlignment = Alignment.CenterHorizontally,
++                    ) {
++                        AppMark(app = app, size = iconDp)
++                        Spacer(Modifier.height(2.dp))
++                        Text(
++                            text = app.label,
++                            color = Color.White,
++                            fontSize = 11.sp,
++                            maxLines = 1,
++                            overflow = TextOverflow.Ellipsis,
++                            textAlign = TextAlign.Center,
++                            modifier = Modifier.padding(horizontal = 2.dp),
++                        )
++                    }
+                 }
+             }
+         }
+@@ -531,7 +579,6 @@ private const val SWIPE_DP = 72
+ 
+ /** A tray row's height, the drag that shows one more or one fewer row. */
+ private const val ROW_DP = 64
+-private const val ICON_DP = 40
+ private val BANNER_SCRIM = Color(0x99000000)
+ private val TRAY_SCRIM = Color(0xE6000000)
+ private val BANNER_MUTED = Color(0xFFC9D1DA)

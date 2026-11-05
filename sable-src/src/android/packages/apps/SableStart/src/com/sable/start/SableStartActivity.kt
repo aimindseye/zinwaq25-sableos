@@ -38,6 +38,7 @@ import org.sableos.design.writeGlobalSableAppearance
 import org.sableos.start.model.ActiveFrame
 import org.sableos.start.model.AppEntry
 import org.sableos.start.model.Bb7Detour
+import org.sableos.start.model.Bb7Layout
 import org.sableos.start.model.HomeStyle
 import org.sableos.start.model.TrackpadTouchGuard
 import org.sableos.start.platform.LauncherAppsRepository
@@ -104,6 +105,7 @@ class SableStartActivity : ComponentActivity() {
     /** The BlackBerry 7 home's favourites (the Home apps) and its rows of icons, read in onCreate. */
     private val bb7Favorites = mutableStateOf<List<String>?>(null)
     private val bb7HomeRows = mutableStateOf(1)
+    private val bb7Layout = mutableStateOf(Bb7Layout())
     private var opaqueWindowBackground: Drawable? = null
 
     private var callbackRegistered = false
@@ -203,6 +205,7 @@ class SableStartActivity : ComponentActivity() {
         startStateRepository = StartStateRepository(this)
         bb7Favorites.value = startStateRepository.loadHomeApps()
         bb7HomeRows.value = startStateRepository.loadBb7HomeRows()
+        bb7Layout.value = startStateRepository.loadBb7Layout()
         recentTasksRepository = RecentTasksRepository(this)
         homeStyle.value = startStateRepository.loadHomeStyle()
         opaqueWindowBackground = window.decorView.background
@@ -268,6 +271,7 @@ class SableStartActivity : ComponentActivity() {
                     apps = appsState.value,
                     favoriteKeys = bb7Favorites.value,
                     homeRows = bb7HomeRows.value,
+                    layout = bb7Layout.value,
                     liveSurfaceRepository = liveSurfaceRepository,
                     appearance = appearance,
                     refreshGeneration = liveRefreshGeneration.value,
@@ -287,6 +291,10 @@ class SableStartActivity : ComponentActivity() {
                     onHomeRowsChanged = { rows ->
                         bb7HomeRows.value = rows
                         startStateRepository.saveBb7HomeRows(rows)
+                    },
+                    onLayoutChanged = { layout ->
+                        bb7Layout.value = layout
+                        startStateRepository.saveBb7Layout(layout)
                     },
                     onOpenMenu = ::showBb7Menu,
                 )

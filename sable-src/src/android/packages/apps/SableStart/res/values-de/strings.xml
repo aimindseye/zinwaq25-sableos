@@ -275,4 +275,13 @@
     <string name="resume_work">Arbeits-Apps einschalten</string>
     <string name="no_work_apps">Noch keine Arbeits-Apps. Sable Setup kann einen Arbeitsbereich anlegen.</string>
     <string name="delete_app">Löschen</string>
+    <string name="tray_view">Ablage-Ansicht: %1$s</string>
+    <string name="view_grid">Raster</string>
+    <string name="view_list">Liste</string>
+    <string name="grid_columns">Rasterspalten: %1$s</string>
+    <string name="columns_auto">Auto</string>
+    <string name="icon_size">Symbolgröße: %1$s</string>
+    <string name="icon_small">Klein</string>
+    <string name="icon_medium">Mittel</string>
+    <string name="icon_large">Groß</string>
 </resources>

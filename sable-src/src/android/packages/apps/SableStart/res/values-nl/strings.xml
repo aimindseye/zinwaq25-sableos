@@ -275,4 +275,13 @@
     <string name="resume_work">Werk-apps aanzetten</string>
     <string name="no_work_apps">Nog geen werk-apps. Sable Setup kan een werkruimte maken.</string>
     <string name="delete_app">Verwijderen</string>
+    <string name="tray_view">Ladeweergave: %1$s</string>
+    <string name="view_grid">Raster</string>
+    <string name="view_list">Lijst</string>
+    <string name="grid_columns">Kolommen: %1$s</string>
+    <string name="columns_auto">Auto</string>
+    <string name="icon_size">Pictogramgrootte: %1$s</string>
+    <string name="icon_small">Klein</string>
+    <string name="icon_medium">Middel</string>
+    <string name="icon_large">Groot</string>
 </resources>

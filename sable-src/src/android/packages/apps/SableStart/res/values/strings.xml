@@ -279,4 +279,13 @@
     <string name="resume_work">Turn on work apps</string>
     <string name="no_work_apps">No work apps yet. Sable Setup can make a Work space.</string>
     <string name="delete_app">Delete</string>
+    <string name="tray_view">Tray view: %1$s</string>
+    <string name="view_grid">Grid</string>
+    <string name="view_list">List</string>
+    <string name="grid_columns">Grid columns: %1$s</string>
+    <string name="columns_auto">Auto</string>
+    <string name="icon_size">Icon size: %1$s</string>
+    <string name="icon_small">Small</string>
+    <string name="icon_medium">Medium</string>
+    <string name="icon_large">Large</string>
 </resources>
