@@ -1,44 +1,44 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: SableOS <noreply@sableos.invalid>
 Date: Thu, 5 Nov 2026 15:00:00 +0000
-Subject: [PATCH] SableOS: Look step, BlackBerry 10 or 7 style, or Plain
+Subject: [PATCH] SableOS: Look step, BlackBerry 10 or BlackBerry 7 style
 
 Plan phase C, optional look: a step before Theme (part of step 5, so the
 count stays at 8; also in the secondary-user flow) offers BlackBerry 10
-style, BlackBerry 7 style or Plain. Next:
+style or BlackBerry 7 style. There is no Plain look (owner decision
+2026-11-05). Next:
 
-* asks Sable Start for the home style and its status dials with
-  org.sableos.start.action.SET_LOOK (extra look: bb10, bb7 or plain),
-  which Start accepts only from a sender holding WRITE_SECURE_SETTINGS;
-* sets pure black (on for both BlackBerry styles, off for Plain), which
-  the Theme step after it shows and can still change;
+* asks Sable Start for the home style with
+  org.sableos.start.action.SET_LOOK (extra look: bb10 or bb7), which
+  Start accepts only from a sender holding WRITE_SECURE_SETTINGS;
+* turns pure black on, which the Theme step after it shows and can
+  still change;
 * remembers the choice in Settings.Secure sable_look.
 
-Plain is Start's BlackBerry 10 layout without the status dials. Nothing
-restarts, and each part stays its own setting afterwards. Display
-density and the notification light are build settings and stay as they
-are. Pure policy: sable/SableLook.java.
+Nothing restarts, and each part stays its own setting afterwards.
+Display density and the notification light are build settings and stay
+as they are. Pure policy: sable/SableLook.java.
 ---
  app/src/main/AndroidManifest.xml                                | 14 +++++
  .../main/java/org/lineageos/setupwizard/SableLookActivity.java  | 79 +++++++++++++++++++++++++++++
- .../main/java/org/lineageos/setupwizard/sable/SableLook.java    | 50 ++++++++++++++++++
+ .../main/java/org/lineageos/setupwizard/sable/SableLook.java    | 44 ++++++++++++++++
  .../main/java/org/lineageos/setupwizard/sable/SableSteps.java   |  1 +
  app/src/main/res/drawable/ic_sable_look.xml                     | 15 ++++++
- app/src/main/res/layout/sable_look_page.xml                     | 70 +++++++++++++++++++++++++
+ app/src/main/res/layout/sable_look_page.xml                     | 62 ++++++++++++++++++++++
  app/src/main/res/raw/lineage_wizard_script.xml                  |  7 +++
  app/src/main/res/raw/lineage_wizard_script_user.xml             |  7 +++
- app/src/main/res/values/sable_strings.xml                       |  9 ++++
- 9 files changed, 252 insertions(+)
+ app/src/main/res/values/sable_strings.xml                       |  8 +++
+ 9 files changed, 237 insertions(+)
 
 diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
-index 49f3e78..36712cc 100644
+index 49f3e78..62fd047 100644
 --- a/app/src/main/AndroidManifest.xml
 +++ b/app/src/main/AndroidManifest.xml
 @@ -176,6 +176,20 @@
              </intent-filter>
          </activity>
  
-+        <!-- SableOS: BlackBerry 10 style, BlackBerry 7 style or Plain, before Theme. -->
++        <!-- SableOS: BlackBerry 10 style or BlackBerry 7 style, before Theme. -->
 +        <activity
 +            android:name=".SableLookActivity"
 +            android:label="@string/activity_label_empty"
@@ -57,7 +57,7 @@ index 49f3e78..36712cc 100644
              android:name=".SableAppsActivity"
 diff --git a/app/src/main/java/org/lineageos/setupwizard/SableLookActivity.java b/app/src/main/java/org/lineageos/setupwizard/SableLookActivity.java
 new file mode 100644
-index 0000000..765c908
+index 0000000..761dc90
 --- /dev/null
 +++ b/app/src/main/java/org/lineageos/setupwizard/SableLookActivity.java
 @@ -0,0 +1,79 @@
@@ -81,14 +81,14 @@ index 0000000..765c908
 +import org.lineageos.setupwizard.sable.SableLook;
 +
 +/**
-+ * SableOS Look step, before Theme: BlackBerry 10 style, BlackBerry 7 style or Plain
-+ * ({@link SableLook}). Next asks Sable Start for the home style and its status dials and sets
-+ * pure black, which the Theme step then shows. Nothing restarts; Start shows the look when setup
++ * SableOS Look step, before Theme: BlackBerry 10 style or BlackBerry 7 style
++ * ({@link SableLook}). Next asks Sable Start for the home style and turns pure black on, which
++ * the Theme step then shows and can change. Nothing restarts; Start shows the look when setup
 + * ends, and each part stays its own setting afterwards.
 + */
 +public class SableLookActivity extends BaseSetupWizardActivity {
 +    private static final int[] IDS = {
-+        R.id.sable_look_bb10, R.id.sable_look_bb7, R.id.sable_look_plain,
++        R.id.sable_look_bb10, R.id.sable_look_bb7,
 +    };
 +
 +    private RadioGroup group;
@@ -108,7 +108,7 @@ index 0000000..765c908
 +        final int look = lookChecked();
 +        Settings.Secure.putString(getContentResolver(), SableLook.SETTING, SableLook.valueOf(look));
 +        LineageSettings.Secure.putInt(getContentResolver(),
-+                LineageSettings.Secure.BERRY_BLACK_THEME, SableLook.pureBlack(look) ? 1 : 0);
++                LineageSettings.Secure.BERRY_BLACK_THEME, 1);
 +        sendBroadcastAsUser(new Intent(SableLook.ACTION_SET_LOOK)
 +                .setPackage(SableLook.START_PACKAGE)
 +                .putExtra(SableLook.EXTRA_LOOK, SableLook.valueOf(look))
@@ -142,10 +142,10 @@ index 0000000..765c908
 +}
 diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableLook.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableLook.java
 new file mode 100644
-index 0000000..7208caf
+index 0000000..f0687eb
 --- /dev/null
 +++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableLook.java
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,44 @@
 +/*
 + * SPDX-FileCopyrightText: The SableOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -154,17 +154,16 @@ index 0000000..7208caf
 +package org.lineageos.setupwizard.sable;
 +
 +/**
-+ * The Look step: BlackBerry 10 style, BlackBerry 7 style or Plain. Pure Java.
++ * The Look step: BlackBerry 10 style or BlackBerry 7 style. Pure Java.
 + *
-+ * <p>Sable Start takes the home style and its status dials (org.sableos.start.action.SET_LOOK,
-+ * StartLook in Start); setup itself sets pure black, which the Theme step after it shows and can
-+ * still change. Plain is Start's BlackBerry 10 layout without the status dials and without pure
-+ * black. Display density and the notification light are build settings and do not change here.
++ * <p>Sable Start takes the home style (org.sableos.start.action.SET_LOOK, StartLook in Start);
++ * setup itself turns pure black on, which the Theme step after it shows and can still change.
++ * There is no Plain look (owner decision 2026-11-05). Display density and the notification light
++ * are build settings and do not change here.
 + */
 +public final class SableLook {
 +    public static final int BB10 = 0;
 +    public static final int BB7 = 1;
-+    public static final int PLAIN = 2;
 +
 +    /** Sable Start's request and its receiver's package. */
 +    public static final String ACTION_SET_LOOK = "org.sableos.start.action.SET_LOOK";
@@ -174,7 +173,7 @@ index 0000000..7208caf
 +    /** Settings.Secure key that remembers the choice, so the step shows it when revisited. */
 +    public static final String SETTING = "sable_look";
 +
-+    private static final String[] VALUES = {"bb10", "bb7", "plain"};
++    private static final String[] VALUES = {"bb10", "bb7"};
 +
 +    private SableLook() {}
 +
@@ -189,11 +188,6 @@ index 0000000..7208caf
 +            if (VALUES[i].equals(stored)) return i;
 +        }
 +        return BB10;
-+    }
-+
-+    /** Whether the look turns pure black on (both BlackBerry styles) or off (Plain). */
-+    public static boolean pureBlack(int look) {
-+        return look != PLAIN;
 +    }
 +}
 diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableSteps.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableSteps.java
@@ -231,10 +225,10 @@ index 0000000..241a134
 +</vector>
 diff --git a/app/src/main/res/layout/sable_look_page.xml b/app/src/main/res/layout/sable_look_page.xml
 new file mode 100644
-index 0000000..ee82e98
+index 0000000..c4c61bb
 --- /dev/null
 +++ b/app/src/main/res/layout/sable_look_page.xml
-@@ -0,0 +1,70 @@
+@@ -0,0 +1,62 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!--
 +     SPDX-FileCopyrightText: The SableOS Project
@@ -287,14 +281,6 @@ index 0000000..ee82e98
 +                        android:paddingVertical="8dp"
 +                        android:text="@string/sable_look_bb7" />
 +
-+                    <RadioButton
-+                        android:id="@+id/sable_look_plain"
-+                        android:layout_width="match_parent"
-+                        android:layout_height="wrap_content"
-+                        android:minHeight="48dp"
-+                        android:paddingVertical="8dp"
-+                        android:text="@string/sable_look_plain" />
-+
 +                </RadioGroup>
 +
 +                <TextView
@@ -306,7 +292,7 @@ index 0000000..ee82e98
 +    </LinearLayout>
 +</com.google.android.setupdesign.GlifLayout>
 diff --git a/app/src/main/res/raw/lineage_wizard_script.xml b/app/src/main/res/raw/lineage_wizard_script.xml
-index e8ad6e3..bee247f 100644
+index e8ad6e3..65d0047 100644
 --- a/app/src/main/res/raw/lineage_wizard_script.xml
 +++ b/app/src/main/res/raw/lineage_wizard_script.xml
 @@ -58,6 +58,13 @@
@@ -316,7 +302,7 @@ index e8ad6e3..bee247f 100644
 +        <result wizard:action="sable_look" />
 +    </WizardAction>
 +
-+    <!-- SableOS: BlackBerry 10 style, BlackBerry 7 style or Plain (home, dials, pure black). -->
++    <!-- SableOS: BlackBerry 10 style or BlackBerry 7 style (home style, pure black). -->
 +    <WizardAction
 +        id="sable_look"
 +        wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_LOOK;end">
@@ -324,7 +310,7 @@ index e8ad6e3..bee247f 100644
      </WizardAction>
  
 diff --git a/app/src/main/res/raw/lineage_wizard_script_user.xml b/app/src/main/res/raw/lineage_wizard_script_user.xml
-index e7dca8a..2d9c5bf 100644
+index e7dca8a..850b0a7 100644
 --- a/app/src/main/res/raw/lineage_wizard_script_user.xml
 +++ b/app/src/main/res/raw/lineage_wizard_script_user.xml
 @@ -37,6 +37,13 @@
@@ -334,7 +320,7 @@ index e7dca8a..2d9c5bf 100644
 +        <result wizard:action="sable_look" />
 +    </WizardAction>
 +
-+    <!-- SableOS: BlackBerry 10 style, BlackBerry 7 style or Plain (home, dials, pure black). -->
++    <!-- SableOS: BlackBerry 10 style or BlackBerry 7 style (home style, pure black). -->
 +    <WizardAction
 +        id="sable_look"
 +        wizard:uri="intent:#Intent;action=org.sableos.setupwizard.SABLE_LOOK;end">
@@ -342,20 +328,19 @@ index e7dca8a..2d9c5bf 100644
      </WizardAction>
  
 diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
-index bee5a53..e51919b 100644
+index bee5a53..d6c5aca 100644
 --- a/app/src/main/res/values/sable_strings.xml
 +++ b/app/src/main/res/values/sable_strings.xml
-@@ -84,6 +84,15 @@
+@@ -84,6 +84,14 @@
          <item>Slate</item>
      </string-array>
  
 +    <!-- SableOS Look step (plan phase C), before Theme. "Style" because SableOS is not
 +         BlackBerry: it only follows the look. -->
 +    <string name="setup_sable_look">Look</string>
-+    <string name="sable_look_summary">Choose how the home screen looks. Each part stays its own setting.</string>
++    <string name="sable_look_summary">Choose how the home screen looks. You can change it later.</string>
 +    <string name="sable_look_bb10"><b>BlackBerry 10 style</b>\nHub on the left, your open apps as Active Frames, the app grid on the right, status dials on top and pure black.</string>
 +    <string name="sable_look_bb7"><b>BlackBerry 7 style</b>\nA banner with the clock and status over a tray of app icons, with pure black.</string>
-+    <string name="sable_look_plain"><b>Plain</b>\nThe same home as BlackBerry 10 style without the status dials, in the standard dark or light theme.</string>
 +    <string name="sable_look_note">Change the home later from Sable Setup or the home screen's menu, the dials in Edit Home, and pure black on the next step or in Settings, Display.</string>
 +
      <!-- SableOS Sable apps step (plan phase C), after Theme. Apps left out are disabled, never

@@ -115,7 +115,7 @@
             </intent-filter>
         </activity>
 
-        <!-- First-boot setup's Look step: home style and status dials. Only a sender holding
+        <!-- First-boot setup's Look step: the home style. Only a sender holding
              WRITE_SECURE_SETTINGS (setup, the system) can reach it. -->
         <receiver
             android:name="org.sableos.start.LookReceiver"
