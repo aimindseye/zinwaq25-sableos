@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">Nord</string>
+    <string name="ne">Nord-est</string>
+    <string name="e">Est</string>
+    <string name="se">Sud-est</string>
+    <string name="s">Sud</string>
+    <string name="sw">Sud-ouest</string>
+    <string name="w">Ouest</string>
+    <string name="nw">Nord-ouest</string>
+    <string name="dial_n">N</string>
+    <string name="dial_e">E</string>
+    <string name="dial_s">S</string>
+    <string name="dial_w">O</string>
+    <string name="true_mark">G</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">Nord magnétique</string>
+    <string name="true_north">Nord géographique</string>
+    <string name="true_waiting">Recherche de votre position approximative pour le nord géographique. Le nord magnétique est affiché en attendant.</string>
+    <string name="true_denied">Le nord géographique a besoin de votre position approximative. Le nord magnétique est affiché.</string>
+    <string name="accuracy_high">Précision : élevée</string>
+    <string name="accuracy_medium">Précision : moyenne</string>
+    <string name="accuracy_low">Précision : faible. Appuyez sur C pour calibrer.</string>
+    <string name="accuracy_unreliable">Précision : non fiable. Appuyez sur C pour calibrer.</string>
+    <string name="no_sensor">Ce téléphone n\'a pas de capteur de boussole.</string>
+    <string name="flat_or_upright">Tenez le téléphone à plat, ou debout face à la direction que vous regardez.</string>
+    <string name="held">Figé. H libère.</string>
+    <string name="calibrate">Calibrer</string>
+    <string name="calibrate_body">Décrivez un 8 avec le téléphone plusieurs fois en le tournant. Éloignez-vous du métal, des aimants et des haut-parleurs.</string>
+    <string name="calibrate_done">Calibré.</string>
+    <string name="hint">T nord géographique · C calibrer · H figer · Retour quitte</string>
+    <string name="calibrate_hint">C ou Retour revient à la boussole</string>
+</resources>

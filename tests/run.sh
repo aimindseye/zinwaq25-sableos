@@ -304,6 +304,18 @@ if grep -q 'ServerSocket(PrintToGo.PORT, BACKLOG, address)' "$pm/java/org/sableo
 else
     fail "Sable Print To Go listening or permission policy"
 fi
+# Sable Compass: sensors on the phone only. Location is coarse, asked only when the user turns true north
+# on, and used only for the declination; no internet, no background or fine location, no backup.
+cm=sable-src/apps/titan2/platform/compass/src/main
+if grep -q 'android.permission.ACCESS_COARSE_LOCATION' "$cm/AndroidManifest.xml" &&
+    grep -q 'android:allowBackup="false"' "$cm/AndroidManifest.xml" &&
+    ! grep -qE 'INTERNET|ACCESS_FINE_LOCATION|ACCESS_BACKGROUND_LOCATION|RECEIVE_BOOT_COMPLETED' "$cm/AndroidManifest.xml" &&
+    grep -q 'if (trueNorth) locate()' "$cm/java/org/sableos/titan2/compass/android/CompassActivity.kt" &&
+    grep -q 'getBoolean(KEY_TRUE_NORTH, false)' "$cm/java/org/sableos/titan2/compass/android/CompassActivity.kt"; then
+    pass "Sable Compass: no internet, coarse location only once true north is turned on"
+else
+    fail "Sable Compass permission policy"
+fi
 # 6b1b. microG (SABLE_Q25_MICROG, docs/MICROG.md): off by default at Q4 but spoofing allowed for the
 # add-on, built in with YES, never before Q4, refused when an APK does not match its pin; the fetcher
 # never keeps a bad file.
@@ -1182,6 +1194,7 @@ sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboar
 sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/ProfilesApplication.kt sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/ProfilesTextTest.kt
 sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/SpacesApplication.kt sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/SpacesTextTest.kt
 sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/PrintToGoText.kt sable-src/apps/titan2/platform/printtogo/src/main/res/values/strings.xml sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/PrintToGoApplication.kt sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/PrintToGoTextTest.kt
+sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/core/CompassText.kt sable-src/apps/titan2/platform/compass/src/main/res/values/strings.xml sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/CompassApplication.kt sable-src/apps/titan2/platform/compass/src/test/java/org/sableos/titan2/compass/CompassTextTest.kt
 sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupTextTest.kt
 sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ToolsApplication.kt sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/ToolsTextTest.kt
 sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultLines.kt sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/VaultApplication.kt sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/VaultLinesTest.kt

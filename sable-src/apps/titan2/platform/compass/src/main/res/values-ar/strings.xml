@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">شمال</string>
+    <string name="ne">شمال شرق</string>
+    <string name="e">شرق</string>
+    <string name="se">جنوب شرق</string>
+    <string name="s">جنوب</string>
+    <string name="sw">جنوب غرب</string>
+    <string name="w">غرب</string>
+    <string name="nw">شمال غرب</string>
+    <string name="dial_n">ش</string>
+    <string name="dial_e">ق</string>
+    <string name="dial_s">ج</string>
+    <string name="dial_w">غ</string>
+    <string name="true_mark">ح</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">الشمال المغناطيسي</string>
+    <string name="true_north">الشمال الحقيقي</string>
+    <string name="true_waiting">جارٍ تحديد موقعك التقريبي للشمال الحقيقي. يُعرض الشمال المغناطيسي حتى ذلك الحين.</string>
+    <string name="true_denied">يحتاج الشمال الحقيقي إلى موقعك التقريبي. يُعرض الشمال المغناطيسي.</string>
+    <string name="accuracy_high">الدقة: عالية</string>
+    <string name="accuracy_medium">الدقة: متوسطة</string>
+    <string name="accuracy_low">الدقة: منخفضة. اضغط C للمعايرة.</string>
+    <string name="accuracy_unreliable">الدقة: غير موثوقة. اضغط C للمعايرة.</string>
+    <string name="no_sensor">لا يحتوي هذا الهاتف على مستشعر بوصلة.</string>
+    <string name="flat_or_upright">أمسك الهاتف مسطحًا، أو قائمًا باتجاه نظرك.</string>
+    <string name="held">مثبّت. H يحرره.</string>
+    <string name="calibrate">معايرة</string>
+    <string name="calibrate_body">حرّك الهاتف على شكل الرقم 8 عدة مرات مع تدويره. ابتعد عن المعادن والمغناطيسات ومكبرات الصوت.</string>
+    <string name="calibrate_done">تمت المعايرة.</string>
+    <string name="hint">T الشمال الحقيقي · C معايرة · H تثبيت · رجوع للخروج</string>
+    <string name="calibrate_hint">C أو رجوع يعود إلى البوصلة</string>
+</resources>

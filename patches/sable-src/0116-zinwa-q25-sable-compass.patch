@@ -1,0 +1,1990 @@
+diff --git a/sable-src/apps/titan2/platform/compass/build.gradle.kts b/sable-src/apps/titan2/platform/compass/build.gradle.kts
+new file mode 100644
+index 0000000..a8252e5
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/build.gradle.kts
+@@ -0,0 +1,39 @@
++plugins {
++    alias(libs.plugins.android.application)
++    alias(libs.plugins.kotlin.android)
++}
++
++// Sable Compass: a keyboard-first compass with a dial that tilts with the phone, the heading in degrees
++// and words, optional true north from a rough location, and a calibration guide. Nothing leaves the phone.
++android {
++    // The Sable theme palette shared by the platform apps (one copy, see sable-theme/).
++    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
++    namespace = "org.sableos.titan2.compass"
++    compileSdk = 36
++    defaultConfig {
++        applicationId = "org.sableos.titan2.compass"
++        // Platform apps ship only on Android 16+ images.
++        minSdk = 36
++        targetSdk = 36
++        versionCode = 1
++        versionName = "0.1.0"
++    }
++    buildTypes {
++        release {
++            // R8 shrinks and obfuscates the shipped release APK.
++            isMinifyEnabled = true
++            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
++        }
++    }
++    compileOptions {
++        sourceCompatibility = JavaVersion.VERSION_17
++        targetCompatibility = JavaVersion.VERSION_17
++    }
++    kotlinOptions { jvmTarget = "17" }
++}
++
++dependencies {
++    implementation(libs.androidx.core.ktx)
++
++    testImplementation(libs.junit)
++}
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/compass/src/main/AndroidManifest.xml
+new file mode 100644
+index 0000000..8076a4b
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/AndroidManifest.xml
+@@ -0,0 +1,38 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Sable Compass: the heading from the phone's own sensors, on a dial that tilts with the phone. True north
++     is off until the user turns it on; then, and only then, it asks for a rough (coarse) location to correct
++     for magnetic declination, computed on the phone. No internet, no backup. -->
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
++    <uses-feature android:name="android.hardware.sensor.compass" android:required="false" />
++
++    <!-- Only for true north, asked when the user turns it on. -->
++    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
++
++    <queries>
++        <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
++        <provider android:authorities="org.sableos.appearance" />
++    </queries>
++
++    <application
++        android:name="org.sableos.titan2.compass.CompassApplication"
++        android:allowBackup="false"
++        android:icon="@mipmap/ic_sable_compass"
++        android:roundIcon="@mipmap/ic_sable_compass_round"
++        android:label="@string/app_name"
++        android:supportsRtl="true"
++        android:theme="@android:style/Theme.Material.NoActionBar">
++
++        <activity
++            android:name=".android.CompassActivity"
++            android:exported="true"
++            android:launchMode="singleTask"
++            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++                <category android:name="android.intent.category.LAUNCHER" />
++            </intent-filter>
++        </activity>
++    </application>
++</manifest>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/CompassApplication.kt b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/CompassApplication.kt
+new file mode 100644
+index 0000000..cce2935
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/CompassApplication.kt
+@@ -0,0 +1,13 @@
++package org.sableos.titan2.compass
++
++import android.app.Application
++import org.sableos.titan2.compass.core.CompassText
++import org.sableos.titan2.theme.bindTo
++
++/** Binds [CompassText] to the app's string resources once per process, so the phone's language is used. */
++class CompassApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        CompassText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/CompassActivity.kt b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/CompassActivity.kt
+new file mode 100644
+index 0000000..2b07012
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/CompassActivity.kt
+@@ -0,0 +1,333 @@
++package org.sableos.titan2.compass.android
++
++import android.Manifest
++import android.app.Activity
++import android.content.Context
++import android.content.pm.PackageManager
++import android.graphics.Typeface
++import android.hardware.GeomagneticField
++import android.hardware.Sensor
++import android.hardware.SensorEvent
++import android.hardware.SensorEventListener
++import android.hardware.SensorManager
++import android.location.Location
++import android.location.LocationManager
++import android.os.Bundle
++import android.view.Gravity
++import android.view.KeyEvent
++import android.view.View
++import android.view.WindowManager
++import android.widget.FrameLayout
++import android.widget.LinearLayout
++import android.widget.TextView
++import android.window.OnBackInvokedDispatcher
++import org.sableos.titan2.compass.core.Accuracy
++import org.sableos.titan2.compass.core.CompassText.t
++import org.sableos.titan2.compass.core.Heading
++import org.sableos.titan2.theme.SablePalette
++
++/**
++ * Sable Compass: the heading in degrees and words over a card that tilts with the phone. T turns true north on
++ * or off (it asks for a rough location the first time), C opens the calibration guide, H holds the reading,
++ * Back leaves. The screen stays on while it is open.
++ */
++class CompassActivity :
++    Activity(),
++    SensorEventListener {
++    private lateinit var palette: SablePalette
++    private lateinit var sensors: SensorManager
++    private lateinit var dial: DialView
++    private lateinit var number: TextView
++    private lateinit var word: TextView
++    private lateinit var mode: TextView
++    private lateinit var status: TextView
++    private lateinit var calibration: View
++    private lateinit var calibrationStatus: TextView
++
++    private val rotation = FloatArray(MATRIX)
++    private var gravity: FloatArray? = null
++    private var field: FloatArray? = null
++    private var shown: Double? = null
++    private var accuracy = Accuracy.UNRELIABLE
++    private var held = false
++    private var trueNorth = false
++    private var declination: Double? = null
++    private var locationDenied = false
++    private var usesVector = false
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        palette = SablePalette.read(this).also { it.applyTo(this) }
++        sensors = getSystemService(SensorManager::class.java)
++        trueNorth = prefs().getBoolean(KEY_TRUE_NORTH, false)
++        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
++        val pad = dp(PAD)
++        val body =
++            LinearLayout(this).apply {
++                orientation = LinearLayout.VERTICAL
++                setPadding(pad, pad, pad, pad)
++                setBackgroundColor(palette.window)
++            }
++        number = text(TITLE_SP, palette.text, bold = true).also(body::addView)
++        word = text(BODY_SP, palette.text).also(body::addView)
++        mode = text(SMALL_SP, palette.muted).also(body::addView)
++        dial = DialView(this, palette)
++        body.addView(dial, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
++        status = text(SMALL_SP, palette.muted).also(body::addView)
++        body.addView(text(SMALL_SP, palette.muted).apply { text = t("hint") })
++        calibration = calibrationScreen()
++        setContentView(
++            FrameLayout(this).apply {
++                addView(body)
++                addView(calibration)
++            }
++        )
++        onBackInvokedDispatcher.registerOnBackInvokedCallback(
++            OnBackInvokedDispatcher.PRIORITY_DEFAULT
++        ) {
++            back()
++        }
++        if (trueNorth) locate()
++        show()
++    }
++
++    private fun calibrationScreen(): View {
++        val pad = dp(PAD)
++        val box =
++            LinearLayout(this).apply {
++                orientation = LinearLayout.VERTICAL
++                setPadding(pad, pad, pad, pad)
++                setBackgroundColor(palette.window)
++                visibility = View.GONE
++            }
++        box.addView(text(HEADING_SP, palette.text, bold = true).apply { text = t("calibrate") })
++        box.addView(text(BODY_SP, palette.text).apply { text = t("calibrate_body") })
++        box.addView(
++            Figure8View(this, palette),
++            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
++        )
++        calibrationStatus = text(BODY_SP, palette.text, bold = true).also(box::addView)
++        box.addView(text(SMALL_SP, palette.muted).apply { text = t("calibrate_hint") })
++        return box
++    }
++
++    override fun onResume() {
++        super.onResume()
++        val vector = sensors.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
++        val magnet = sensors.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
++        if (magnet == null) {
++            status.text = t("no_sensor")
++            return
++        }
++        // The magnetometer is always listened to, for its accuracy; the fused rotation vector gives the
++        // steadier heading where the phone has one, otherwise gravity and the field are combined here.
++        sensors.registerListener(this, magnet, SensorManager.SENSOR_DELAY_UI)
++        if (vector != null) {
++            sensors.registerListener(this, vector, SensorManager.SENSOR_DELAY_UI)
++        } else {
++            sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
++                sensors.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
++            }
++        }
++        usesVector = vector != null
++    }
++
++    override fun onPause() {
++        sensors.unregisterListener(this)
++        super.onPause()
++    }
++
++    override fun onSensorChanged(event: SensorEvent) {
++        when (event.sensor.type) {
++            Sensor.TYPE_ROTATION_VECTOR -> SensorManager.getRotationMatrixFromVector(
++                rotation,
++                event.values
++            )
++
++            Sensor.TYPE_ACCELEROMETER -> {
++                gravity = event.values.clone()
++                if (!fromParts()) return
++            }
++
++            Sensor.TYPE_MAGNETIC_FIELD -> {
++                setAccuracy(event.accuracy)
++                field = event.values.clone()
++                if (usesVector || !fromParts()) return
++            }
++
++            else -> return
++        }
++        if (held) return
++        val facing = Heading.facing(rotation)
++        dial.squash = Heading.squash(Heading.tilt(rotation))
++        if (facing == null) {
++            status.text = t("flat_or_upright")
++            return
++        }
++        shown = Heading.smooth(shown, facing, SMOOTHING)
++        show()
++    }
++
++    /** Without a rotation vector: the rotation from gravity and the magnetic field, when both are in. */
++    private fun fromParts(): Boolean {
++        val g = gravity ?: return false
++        val m = field ?: return false
++        return SensorManager.getRotationMatrix(rotation, null, g, m)
++    }
++
++    override fun onAccuracyChanged(sensor: Sensor, status: Int) {
++        if (sensor.type == Sensor.TYPE_MAGNETIC_FIELD) setAccuracy(status)
++    }
++
++    private fun setAccuracy(status: Int) {
++        val next = Accuracy.of(status)
++        if (next == accuracy) return
++        accuracy = next
++        show()
++    }
++
++    private fun show() {
++        val magnetic = shown
++        val trueOffset = declination.takeIf { trueNorth }
++        val heading = magnetic?.let {
++            if (trueOffset !=
++                null
++            ) {
++                Heading.toTrue(it, trueOffset)
++            } else {
++                it
++            }
++        }
++        number.text = heading?.let { t("degrees", Heading.degrees(it)) } ?: "--"
++        number.setTextColor(if (accuracy.needsCalibration) palette.warn else palette.text)
++        word.text = heading?.let { t(Heading.word(it)) }.orEmpty()
++        mode.text =
++            (if (trueOffset != null) t("true_north") else t("magnetic")) + " · " + t(accuracy.key)
++        dial.trueNorth = trueOffset != null
++        if (heading != null) dial.heading = heading
++        status.text =
++            when {
++                held -> t("held")
++                trueNorth && locationDenied -> t("true_denied")
++                trueNorth && trueOffset == null -> t("true_waiting")
++                else -> ""
++            }
++        calibrationStatus.text =
++            if (accuracy == Accuracy.HIGH) t("calibrate_done") else t(accuracy.key)
++    }
++
++    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
++        when (keyCode) {
++            KeyEvent.KEYCODE_T -> toggleTrueNorth()
++
++            KeyEvent.KEYCODE_C ->
++                calibration.visibility =
++                    if (calibration.visibility == View.VISIBLE) View.GONE else View.VISIBLE
++
++            KeyEvent.KEYCODE_H -> {
++                held = !held
++                show()
++            }
++
++            KeyEvent.KEYCODE_ESCAPE -> back()
++
++            else -> return super.onKeyDown(keyCode, event)
++        }
++        return true
++    }
++
++    private fun back() {
++        if (calibration.visibility == View.VISIBLE) calibration.visibility = View.GONE else finish()
++    }
++
++    private fun toggleTrueNorth() {
++        trueNorth = !trueNorth
++        prefs().edit().putBoolean(KEY_TRUE_NORTH, trueNorth).apply()
++        if (trueNorth) locate()
++        show()
++    }
++
++    /** A rough location, only to work out the declination on the phone. Asked for the first time it is needed. */
++    private fun locate() {
++        if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) !=
++            PackageManager.PERMISSION_GRANTED
++        ) {
++            requestPermissions(
++                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
++                REQUEST_LOCATION
++            )
++            return
++        }
++        locationDenied = false
++        val manager = getSystemService(LocationManager::class.java) ?: return
++        try {
++            val known =
++                manager.getProviders(true)
++                    .mapNotNull { manager.getLastKnownLocation(it) }
++                    .maxByOrNull { it.time }
++            if (known != null) {
++                useLocation(known)
++                return
++            }
++            val provider =
++                listOf(
++                    LocationManager.FUSED_PROVIDER,
++                    LocationManager.NETWORK_PROVIDER,
++                    LocationManager.GPS_PROVIDER
++                )
++                    .firstOrNull { manager.isProviderEnabled(it) } ?: return
++            manager.getCurrentLocation(provider, null, mainExecutor) { it?.let(::useLocation) }
++        } catch (_: SecurityException) {
++            locationDenied = true
++        }
++    }
++
++    private fun useLocation(location: Location) {
++        declination =
++            GeomagneticField(
++                location.latitude.toFloat(),
++                location.longitude.toFloat(),
++                location.altitude.toFloat(),
++                System.currentTimeMillis()
++            ).declination.toDouble()
++        show()
++    }
++
++    override fun onRequestPermissionsResult(
++        requestCode: Int,
++        permissions: Array<String>,
++        results: IntArray
++    ) {
++        if (requestCode != REQUEST_LOCATION) return
++        if (results.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
++            locate()
++        } else {
++            locationDenied = true
++            show()
++        }
++    }
++
++    private fun prefs() = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
++
++    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
++
++    private fun text(sp: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
++        textSize = sp
++        setTextColor(color)
++        gravity = Gravity.CENTER_HORIZONTAL
++        if (bold) typeface = Typeface.DEFAULT_BOLD
++    }
++
++    private companion object {
++        const val MATRIX = 9
++        const val SMOOTHING = 0.2
++        const val REQUEST_LOCATION = 1
++        const val PREFS = "compass"
++        const val KEY_TRUE_NORTH = "true_north"
++        const val PAD = 12
++        const val TITLE_SP = 40f
++        const val HEADING_SP = 20f
++        const val BODY_SP = 16f
++        const val SMALL_SP = 12f
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/DialView.kt b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/DialView.kt
+new file mode 100644
+index 0000000..58277f9
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/DialView.kt
+@@ -0,0 +1,162 @@
++package org.sableos.titan2.compass.android
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Paint
++import android.graphics.Path
++import android.graphics.RectF
++import android.graphics.Typeface
++import android.view.View
++import kotlin.math.min
++import kotlin.math.sqrt
++import org.sableos.titan2.compass.core.CompassText.t
++import org.sableos.titan2.compass.core.Heading
++import org.sableos.titan2.theme.SablePalette
++
++/**
++ * The compass card: a disc that stays fixed to the world while the phone turns, with the direction faced
++ * under the mark at the top. Tilting the phone leans the disc, so held upright it is seen nearly edge-on with
++ * its rim showing, like a card in a liquid compass.
++ */
++class DialView(context: Context, private val palette: SablePalette) : View(context) {
++    private val density = resources.displayMetrics.density
++    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
++    private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++        style = Paint.Style.STROKE
++        strokeCap = Paint.Cap.ROUND
++    }
++    private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++        textAlign = Paint.Align.CENTER
++        typeface = Typeface.DEFAULT_BOLD
++    }
++    private val oval = RectF()
++    private val mark = Path()
++
++    /** Degrees clockwise from north that the user faces; the card turns the other way. */
++    var heading = 0.0
++        set(value) {
++            field = value
++            invalidate()
++        }
++
++    /** Height against width, from [Heading.squash]. */
++    var squash = 1.0
++        set(value) {
++            field = value
++            invalidate()
++        }
++
++    /** True north on: the north letter becomes the true-north mark. */
++    var trueNorth = false
++        set(value) {
++            field = value
++            invalidate()
++        }
++
++    override fun onDraw(canvas: Canvas) {
++        val cx = width / 2f
++        val cy = height / 2f
++        val r = min(width, height) / 2f * FACE
++        if (r <= 0f) return
++        val sq = squash.toFloat()
++        rim(canvas, cx, cy, r, sq)
++        canvas.save()
++        canvas.translate(cx, cy)
++        canvas.scale(1f, sq)
++        fill.color = palette.surface
++        canvas.drawCircle(0f, 0f, r, fill)
++        line.color = palette.muted
++        line.strokeWidth = density
++        canvas.drawCircle(0f, 0f, r, line)
++        canvas.rotate(-heading.toFloat())
++        ticks(canvas, r)
++        labels(canvas, r)
++        canvas.restore()
++        lubber(canvas, cx, cy - r * sq, r)
++    }
++
++    /** The disc's edge below its face, deeper the more it leans. */
++    private fun rim(canvas: Canvas, cx: Float, cy: Float, r: Float, sq: Float) {
++        val depth = r * RIM * sqrt(1f - sq * sq)
++        if (depth < 1f) return
++        fill.color = palette.focus
++        oval.set(cx - r, cy - r * sq + depth, cx + r, cy + r * sq + depth)
++        canvas.drawOval(oval, fill)
++        canvas.drawRect(cx - r, cy, cx + r, cy + depth, fill)
++    }
++
++    private fun ticks(canvas: Canvas, r: Float) {
++        for (deg in 0 until FULL step STEP) {
++            val major = deg % MAJOR == 0
++            val mid = deg % MID == 0
++            val len = r * if (major) {
++                LONG
++            } else if (mid) {
++                MEDIUM
++            } else {
++                SHORT
++            }
++            line.color = if (major) palette.text else palette.muted
++            line.strokeWidth = density * if (major) 2f else 1f
++            canvas.save()
++            canvas.rotate(deg.toFloat())
++            canvas.drawLine(0f, -r * INSET, 0f, -r * INSET + len, line)
++            canvas.restore()
++        }
++    }
++
++    private fun labels(canvas: Canvas, r: Float) {
++        for (deg in 0 until FULL step MAJOR) {
++            val cardinal = deg % QUARTER == 0
++            val text =
++                when (deg) {
++                    0 -> if (trueNorth) t("true_mark") else t("dial_n")
++                    QUARTER -> t("dial_e")
++                    2 * QUARTER -> t("dial_s")
++                    3 * QUARTER -> t("dial_w")
++                    else -> deg.toString()
++                }
++            label.textSize = r * if (cardinal) CARDINAL_TEXT else NUMBER_TEXT
++            label.color =
++                when {
++                    deg == 0 -> palette.danger
++                    cardinal -> palette.text
++                    else -> palette.muted
++                }
++            canvas.save()
++            canvas.rotate(deg.toFloat())
++            canvas.drawText(text, 0f, -r * LABEL_AT + label.textSize / 2, label)
++            canvas.restore()
++        }
++    }
++
++    /** The fixed mark at the top of the card that the heading is read against. */
++    private fun lubber(canvas: Canvas, x: Float, top: Float, r: Float) {
++        val w = r * MARK
++        mark.reset()
++        mark.moveTo(x - w, top - w * 2)
++        mark.lineTo(x + w, top - w * 2)
++        mark.lineTo(x, top + w / 2)
++        mark.close()
++        fill.color = palette.accent
++        canvas.drawPath(mark, fill)
++    }
++
++    private companion object {
++        const val FACE = 0.86f
++        const val RIM = 0.12f
++        const val FULL = 360
++        const val STEP = 5
++        const val MID = 10
++        const val MAJOR = 30
++        const val QUARTER = 90
++        const val INSET = 0.98f
++        const val LONG = 0.14f
++        const val MEDIUM = 0.09f
++        const val SHORT = 0.05f
++        const val LABEL_AT = 0.68f
++        const val CARDINAL_TEXT = 0.2f
++        const val NUMBER_TEXT = 0.11f
++        const val MARK = 0.06f
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/Figure8View.kt b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/Figure8View.kt
+new file mode 100644
+index 0000000..fbc9d53
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/Figure8View.kt
+@@ -0,0 +1,55 @@
++package org.sableos.titan2.compass.android
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Paint
++import android.graphics.Path
++import android.os.SystemClock
++import android.view.View
++import kotlin.math.min
++import org.sableos.titan2.compass.core.Figure8
++import org.sableos.titan2.theme.SablePalette
++
++/** The calibration guide: a figure 8 with a dot running along it, one loop every few seconds. */
++class Figure8View(context: Context, private val palette: SablePalette) : View(context) {
++    private val density = resources.displayMetrics.density
++    private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++        style = Paint.Style.STROKE
++        strokeWidth = TRACK_DP * density
++    }
++    private val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
++    private val path = Path()
++
++    override fun onDraw(canvas: Canvas) {
++        val cx = width / 2f
++        val cy = height / 2f
++        val half = min(width / 2f, height.toFloat()) * SIZE
++        path.reset()
++        for (i in 0..STEPS) {
++            val (x, y) = Figure8.point(i.toDouble() / STEPS)
++            val px = cx + (x * half).toFloat()
++            val py = cy + (y * half).toFloat()
++            if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
++        }
++        track.color = palette.muted
++        canvas.drawPath(path, track)
++        val phase = (SystemClock.uptimeMillis() % LOOP_MS).toDouble() / LOOP_MS
++        val (x, y) = Figure8.point(phase)
++        dot.color = palette.accent
++        canvas.drawCircle(
++            cx + (x * half).toFloat(),
++            cy + (y * half).toFloat(),
++            DOT_DP * density,
++            dot
++        )
++        if (isShown) postInvalidateOnAnimation()
++    }
++
++    private companion object {
++        const val SIZE = 0.9f
++        const val STEPS = 96
++        const val LOOP_MS = 3000L
++        const val TRACK_DP = 3f
++        const val DOT_DP = 8f
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/core/CompassText.kt b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/core/CompassText.kt
+new file mode 100644
+index 0000000..2c33c15
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/core/CompassText.kt
+@@ -0,0 +1,49 @@
++package org.sableos.titan2.compass.core
++
++import org.sableos.titan2.theme.SableTexts
++
++/**
++ * Every line Sable Compass shows, in English, by string resource name. res/values/strings.xml repeats
++ * them (CompassTextTest keeps the two equal) and res/values-<lang>/strings.xml translates them.
++ */
++object CompassText {
++    val EN: Map<String, String> =
++        mapOf(
++            "n" to "North",
++            "ne" to "Northeast",
++            "e" to "East",
++            "se" to "Southeast",
++            "s" to "South",
++            "sw" to "Southwest",
++            "w" to "West",
++            "nw" to "Northwest",
++            "dial_n" to "N",
++            "dial_e" to "E",
++            "dial_s" to "S",
++            "dial_w" to "W",
++            "true_mark" to "T",
++            "degrees" to "%1\$d°",
++            "magnetic" to "Magnetic north",
++            "true_north" to "True north",
++            "true_waiting" to
++                "Finding your rough location for true north. Showing magnetic north " +
++                "until then.",
++            "true_denied" to "True north needs your rough location. Showing magnetic north.",
++            "accuracy_high" to "Accuracy: high",
++            "accuracy_medium" to "Accuracy: medium",
++            "accuracy_low" to "Accuracy: low. Press C to calibrate.",
++            "accuracy_unreliable" to "Accuracy: unreliable. Press C to calibrate.",
++            "no_sensor" to "This phone has no compass sensor.",
++            "flat_or_upright" to "Hold the phone flat, or upright facing the way you look.",
++            "held" to "Held. H lets go.",
++            "calibrate" to "Calibrate",
++            "calibrate_body" to
++                "Move the phone in a figure 8 a few times, turning it as you go. Keep " +
++                "away from metal, magnets and speakers.",
++            "calibrate_done" to "Calibrated.",
++            "hint" to "T true north · C calibrate · H hold · Back leaves",
++            "calibrate_hint" to "C or Back returns to the compass"
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/core/Heading.kt b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/core/Heading.kt
+new file mode 100644
+index 0000000..ec1ac73
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/core/Heading.kt
+@@ -0,0 +1,129 @@
++package org.sableos.titan2.compass.core
++
++import kotlin.math.abs
++import kotlin.math.acos
++import kotlin.math.atan2
++import kotlin.math.cos
++import kotlin.math.hypot
++import kotlin.math.roundToInt
++import kotlin.math.sin
++
++/**
++ * The compass's arithmetic, kept free of Android so it can be tested on the JVM.
++ *
++ * Rotation matrices are 3 × 3, row-major, device to world, as SensorManager.getRotationMatrixFromVector gives
++ * them: world x points east, y north, z up; column 0 is the device's right edge, column 1 its top edge and
++ * column 2 the way the screen faces.
++ */
++object Heading {
++    const val FULL_TURN = 360.0
++    private const val HALF_TURN = 180.0
++    private const val QUARTER_TURN = 90.0
++    private const val POINTS = 8
++    private const val POINT_DEG = FULL_TURN / POINTS
++
++    // Matrix cells: top edge east/north, screen normal east/north/up.
++    private const val TOP_EAST = 1
++    private const val TOP_NORTH = 4
++    private const val SCREEN_EAST = 2
++    private const val SCREEN_NORTH = 5
++    private const val SCREEN_UP = 8
++    private const val MATRIX_SIZE = 9
++
++    /** Below this the facing direction has no usable horizontal part (the phone is edge-on to the ground). */
++    private const val MIN_HORIZONTAL = 0.2
++
++    /** The thinnest the dial is drawn when the phone stands upright, as a share of its height. */
++    const val MIN_SQUASH = 0.15
++
++    /** The eight directions, from north clockwise: string keys for the words under the heading. */
++    val WORDS = listOf("n", "ne", "e", "se", "s", "sw", "w", "nw")
++
++    /**
++     * The direction the user faces, in degrees clockwise from north, or null when it cannot be told.
++     *
++     * Lying flat, that is where the phone's top edge points; held upright, where its back looks. Adding the two
++     * (top edge plus the reverse of the screen normal) gives one direction that turns smoothly from one to the
++     * other as the phone is tilted, with no jump at 45°.
++     */
++    fun facing(rotation: FloatArray): Double? {
++        require(rotation.size >= MATRIX_SIZE) { "a 3 × 3 rotation matrix" }
++        val east = rotation[TOP_EAST] - rotation[SCREEN_EAST].toDouble()
++        val north = rotation[TOP_NORTH] - rotation[SCREEN_NORTH].toDouble()
++        if (hypot(east, north) < MIN_HORIZONTAL) return null
++        return normalize(Math.toDegrees(atan2(east, north)))
++    }
++
++    /** How far the screen is tilted from lying face up: 0 flat, 90 upright, 180 face down. */
++    fun tilt(rotation: FloatArray): Double =
++        Math.toDegrees(acos(rotation[SCREEN_UP].toDouble().coerceIn(-1.0, 1.0)))
++
++    /** How tall the dial is drawn against its width, so it leans with the phone like a disc seen at an angle. */
++    fun squash(tilt: Double): Double {
++        val lean = if (tilt > QUARTER_TURN) HALF_TURN - tilt else tilt
++        return cos(Math.toRadians(lean)).coerceIn(MIN_SQUASH, 1.0)
++    }
++
++    fun normalize(degrees: Double): Double = ((degrees % FULL_TURN) + FULL_TURN) % FULL_TURN
++
++    /** The shortest turn from [from] to [to], -180 up to 180. */
++    fun turn(from: Double, to: Double): Double {
++        val d = normalize(to - from)
++        return if (d > HALF_TURN) d - FULL_TURN else d
++    }
++
++    /**
++     * Low-pass smoothing that goes the short way round, so 359° to 1° moves 2°, not 358°. [share] is how much
++     * of the gap is closed per reading, 0 to 1.
++     */
++    fun smooth(previous: Double?, next: Double, share: Double): Double = if (previous ==
++        null
++    ) {
++        normalize(next)
++    } else {
++        normalize(previous + turn(previous, next) * share)
++    }
++
++    /** True north: magnetic heading plus the declination (east of true north is positive). */
++    fun toTrue(magnetic: Double, declination: Double): Double = normalize(magnetic + declination)
++
++    /** Whole degrees as shown: 0 to 359. */
++    fun degrees(heading: Double): Int = heading.roundToInt() % FULL_TURN.toInt()
++
++    /** The key in [WORDS] for a heading. */
++    fun word(heading: Double): String =
++        WORDS[((normalize(heading) + POINT_DEG / 2) / POINT_DEG).toInt() % POINTS]
++
++    /** Whether two headings differ by more than [degrees], the short way round (used to skip redraws). */
++    fun moved(a: Double, b: Double, degrees: Double): Boolean = abs(turn(a, b)) > degrees
++}
++
++/** SensorManager's magnetometer accuracy, with the line the screen shows for it. */
++enum class Accuracy(val key: String) {
++    UNRELIABLE("accuracy_unreliable"),
++    LOW("accuracy_low"),
++    MEDIUM("accuracy_medium"),
++    HIGH("accuracy_high");
++
++    /** Below medium the heading may be off by tens of degrees: the number turns to the warning colour. */
++    val needsCalibration: Boolean get() = this < MEDIUM
++
++    companion object {
++        /** SENSOR_STATUS_* is 0 unreliable to 3 high; anything else is treated as unreliable. */
++        fun of(status: Int): Accuracy = entries.getOrElse(status) { UNRELIABLE }
++    }
++}
++
++/** The figure 8 the calibration screen traces: a lemniscate inside -1..1 on both axes. */
++object Figure8 {
++    private const val HEIGHT = 0.5
++
++    /** Where the dot is at [phase], 0 to 1 for one full figure 8, as (x, y). */
++    fun point(phase: Double): Pair<Double, Double> {
++        val a = phase * 2 * Math.PI
++        val s = sin(a)
++        val c = cos(a)
++        val d = 1 + s * s
++        return c / d to HEIGHT * 2 * s * c / d
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/drawable/ic_sable_compass.xml b/sable-src/apps/titan2/platform/compass/src/main/res/drawable/ic_sable_compass.xml
+new file mode 100644
+index 0000000..5bc4002
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/drawable/ic_sable_compass.xml
+@@ -0,0 +1,21 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="48dp"
++    android:height="48dp"
++    android:viewportWidth="256"
++    android:viewportHeight="256">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M32,16h192c8.8,0 16,7.2 16,16v192c0,8.8 -7.2,16 -16,16H32c-8.8,0 -16,-7.2 -16,-16V32c0,-8.8 7.2,-16 16,-16z" />
++    <group
++        android:scaleX="0.70"
++        android:scaleY="0.70"
++        android:translateX="38.4"
++        android:translateY="34">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216ZM172.42,72.84l-64,32a8.05,8.05,0,0,0-3.58,3.58l-32,64A8,8,0,0,0,80,184a8.1,8.1,0,0,0,3.58-.84l64-32a8.05,8.05,0,0,0,3.58-3.58l32-64a8,8,0,0,0-10.74-10.74ZM138,138,97.89,158.11,118,118l40.15-20.07Z" />
++    </group>
++    <path
++        android:fillColor="#E0703A"
++        android:pathData="M28,226h200v6H28z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/drawable/ic_sable_compass_background.xml b/sable-src/apps/titan2/platform/compass/src/main/res/drawable/ic_sable_compass_background.xml
+new file mode 100644
+index 0000000..811854a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/drawable/ic_sable_compass_background.xml
+@@ -0,0 +1,10 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M0,0h108v108H0z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/drawable/ic_sable_compass_foreground.xml b/sable-src/apps/titan2/platform/compass/src/main/res/drawable/ic_sable_compass_foreground.xml
+new file mode 100644
+index 0000000..69f6897
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/drawable/ic_sable_compass_foreground.xml
+@@ -0,0 +1,19 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216ZM172.42,72.84l-64,32a8.05,8.05,0,0,0-3.58,3.58l-32,64A8,8,0,0,0,80,184a8.1,8.1,0,0,0,3.58-.84l64-32a8.05,8.05,0,0,0,3.58-3.58l32-64a8,8,0,0,0-10.74-10.74ZM138,138,97.89,158.11,118,118l40.15-20.07Z" />
++    </group>
++    <path
++        android:fillColor="#E0703A"
++        android:pathData="M38,76.5h32v1.5H38z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/drawable/ic_sable_compass_monochrome.xml b/sable-src/apps/titan2/platform/compass/src/main/res/drawable/ic_sable_compass_monochrome.xml
+new file mode 100644
+index 0000000..558514d
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/drawable/ic_sable_compass_monochrome.xml
+@@ -0,0 +1,16 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#FFFFFFFF"
++            android:pathData="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216ZM172.42,72.84l-64,32a8.05,8.05,0,0,0-3.58,3.58l-32,64A8,8,0,0,0,80,184a8.1,8.1,0,0,0,3.58-.84l64-32a8.05,8.05,0,0,0,3.58-3.58l32-64a8,8,0,0,0-10.74-10.74ZM138,138,97.89,158.11,118,118l40.15-20.07Z" />
++    </group>
++</vector>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/mipmap-anydpi-v26/ic_sable_compass.xml b/sable-src/apps/titan2/platform/compass/src/main/res/mipmap-anydpi-v26/ic_sable_compass.xml
+new file mode 100644
+index 0000000..df3f931
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/mipmap-anydpi-v26/ic_sable_compass.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_compass_background" />
++    <foreground android:drawable="@drawable/ic_sable_compass_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_compass_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/mipmap-anydpi-v26/ic_sable_compass_round.xml b/sable-src/apps/titan2/platform/compass/src/main/res/mipmap-anydpi-v26/ic_sable_compass_round.xml
+new file mode 100644
+index 0000000..df3f931
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/mipmap-anydpi-v26/ic_sable_compass_round.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_compass_background" />
++    <foreground android:drawable="@drawable/ic_sable_compass_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_compass_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/titan2/platform/compass/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-ar/strings.xml
+new file mode 100644
+index 0000000..382892f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-ar/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Arabic. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">شمال</string>
++    <string name="ne">شمال شرق</string>
++    <string name="e">شرق</string>
++    <string name="se">جنوب شرق</string>
++    <string name="s">جنوب</string>
++    <string name="sw">جنوب غرب</string>
++    <string name="w">غرب</string>
++    <string name="nw">شمال غرب</string>
++    <string name="dial_n">ش</string>
++    <string name="dial_e">ق</string>
++    <string name="dial_s">ج</string>
++    <string name="dial_w">غ</string>
++    <string name="true_mark">ح</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">الشمال المغناطيسي</string>
++    <string name="true_north">الشمال الحقيقي</string>
++    <string name="true_waiting">جارٍ تحديد موقعك التقريبي للشمال الحقيقي. يُعرض الشمال المغناطيسي حتى ذلك الحين.</string>
++    <string name="true_denied">يحتاج الشمال الحقيقي إلى موقعك التقريبي. يُعرض الشمال المغناطيسي.</string>
++    <string name="accuracy_high">الدقة: عالية</string>
++    <string name="accuracy_medium">الدقة: متوسطة</string>
++    <string name="accuracy_low">الدقة: منخفضة. اضغط C للمعايرة.</string>
++    <string name="accuracy_unreliable">الدقة: غير موثوقة. اضغط C للمعايرة.</string>
++    <string name="no_sensor">لا يحتوي هذا الهاتف على مستشعر بوصلة.</string>
++    <string name="flat_or_upright">أمسك الهاتف مسطحًا، أو قائمًا باتجاه نظرك.</string>
++    <string name="held">مثبّت. H يحرره.</string>
++    <string name="calibrate">معايرة</string>
++    <string name="calibrate_body">حرّك الهاتف على شكل الرقم 8 عدة مرات مع تدويره. ابتعد عن المعادن والمغناطيسات ومكبرات الصوت.</string>
++    <string name="calibrate_done">تمت المعايرة.</string>
++    <string name="hint">T الشمال الحقيقي · C معايرة · H تثبيت · رجوع للخروج</string>
++    <string name="calibrate_hint">C أو رجوع يعود إلى البوصلة</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-de/strings.xml
+new file mode 100644
+index 0000000..2cdbd50
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-de/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- German. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">Norden</string>
++    <string name="ne">Nordosten</string>
++    <string name="e">Osten</string>
++    <string name="se">Südosten</string>
++    <string name="s">Süden</string>
++    <string name="sw">Südwesten</string>
++    <string name="w">Westen</string>
++    <string name="nw">Nordwesten</string>
++    <string name="dial_n">N</string>
++    <string name="dial_e">O</string>
++    <string name="dial_s">S</string>
++    <string name="dial_w">W</string>
++    <string name="true_mark">G</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">Magnetisch Nord</string>
++    <string name="true_north">Geografisch Nord</string>
++    <string name="true_waiting">Ihr ungefährer Standort wird für geografisch Nord ermittelt. Bis dahin wird magnetisch Nord angezeigt.</string>
++    <string name="true_denied">Geografisch Nord braucht Ihren ungefähren Standort. Magnetisch Nord wird angezeigt.</string>
++    <string name="accuracy_high">Genauigkeit: hoch</string>
++    <string name="accuracy_medium">Genauigkeit: mittel</string>
++    <string name="accuracy_low">Genauigkeit: niedrig. C drücken zum Kalibrieren.</string>
++    <string name="accuracy_unreliable">Genauigkeit: unzuverlässig. C drücken zum Kalibrieren.</string>
++    <string name="no_sensor">Dieses Telefon hat keinen Kompasssensor.</string>
++    <string name="flat_or_upright">Halten Sie das Telefon flach oder aufrecht in Blickrichtung.</string>
++    <string name="held">Festgehalten. H gibt frei.</string>
++    <string name="calibrate">Kalibrieren</string>
++    <string name="calibrate_body">Bewegen Sie das Telefon einige Male in einer Acht und drehen Sie es dabei. Halten Sie Abstand zu Metall, Magneten und Lautsprechern.</string>
++    <string name="calibrate_done">Kalibriert.</string>
++    <string name="hint">T geografisch Nord · C kalibrieren · H festhalten · Zurück verlässt</string>
++    <string name="calibrate_hint">C oder Zurück führt zum Kompass</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-el/strings.xml
+new file mode 100644
+index 0000000..bc9f95b
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-el/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Greek. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">Βορράς</string>
++    <string name="ne">Βορειοανατολικά</string>
++    <string name="e">Ανατολή</string>
++    <string name="se">Νοτιοανατολικά</string>
++    <string name="s">Νότος</string>
++    <string name="sw">Νοτιοδυτικά</string>
++    <string name="w">Δύση</string>
++    <string name="nw">Βορειοδυτικά</string>
++    <string name="dial_n">Β</string>
++    <string name="dial_e">Α</string>
++    <string name="dial_s">Ν</string>
++    <string name="dial_w">Δ</string>
++    <string name="true_mark">Γ</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">Μαγνητικός βορράς</string>
++    <string name="true_north">Γεωγραφικός βορράς</string>
++    <string name="true_waiting">Αναζήτηση της κατά προσέγγιση τοποθεσίας σας για τον γεωγραφικό βορρά. Μέχρι τότε εμφανίζεται ο μαγνητικός βορράς.</string>
++    <string name="true_denied">Ο γεωγραφικός βορράς χρειάζεται την κατά προσέγγιση τοποθεσία σας. Εμφανίζεται ο μαγνητικός βορράς.</string>
++    <string name="accuracy_high">Ακρίβεια: υψηλή</string>
++    <string name="accuracy_medium">Ακρίβεια: μέτρια</string>
++    <string name="accuracy_low">Ακρίβεια: χαμηλή. Πατήστε C για βαθμονόμηση.</string>
++    <string name="accuracy_unreliable">Ακρίβεια: αναξιόπιστη. Πατήστε C για βαθμονόμηση.</string>
++    <string name="no_sensor">Αυτό το τηλέφωνο δεν έχει αισθητήρα πυξίδας.</string>
++    <string name="flat_or_upright">Κρατήστε το τηλέφωνο επίπεδο ή όρθιο προς την κατεύθυνση που κοιτάτε.</string>
++    <string name="held">Κλειδώθηκε. Το H ξεκλειδώνει.</string>
++    <string name="calibrate">Βαθμονόμηση</string>
++    <string name="calibrate_body">Κινήστε το τηλέφωνο σε σχήμα 8 μερικές φορές, γυρίζοντάς το. Μείνετε μακριά από μέταλλα, μαγνήτες και ηχεία.</string>
++    <string name="calibrate_done">Βαθμονομήθηκε.</string>
++    <string name="hint">T γεωγραφικός βορράς · C βαθμονόμηση · H κλείδωμα · Πίσω έξοδος</string>
++    <string name="calibrate_hint">Το C ή το Πίσω επιστρέφει στην πυξίδα</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-es/strings.xml
+new file mode 100644
+index 0000000..6581c88
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-es/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Spanish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">Norte</string>
++    <string name="ne">Noreste</string>
++    <string name="e">Este</string>
++    <string name="se">Sureste</string>
++    <string name="s">Sur</string>
++    <string name="sw">Suroeste</string>
++    <string name="w">Oeste</string>
++    <string name="nw">Noroeste</string>
++    <string name="dial_n">N</string>
++    <string name="dial_e">E</string>
++    <string name="dial_s">S</string>
++    <string name="dial_w">O</string>
++    <string name="true_mark">V</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">Norte magnético</string>
++    <string name="true_north">Norte verdadero</string>
++    <string name="true_waiting">Buscando tu ubicación aproximada para el norte verdadero. Hasta entonces se muestra el norte magnético.</string>
++    <string name="true_denied">El norte verdadero necesita tu ubicación aproximada. Se muestra el norte magnético.</string>
++    <string name="accuracy_high">Precisión: alta</string>
++    <string name="accuracy_medium">Precisión: media</string>
++    <string name="accuracy_low">Precisión: baja. Pulsa C para calibrar.</string>
++    <string name="accuracy_unreliable">Precisión: poco fiable. Pulsa C para calibrar.</string>
++    <string name="no_sensor">Este teléfono no tiene sensor de brújula.</string>
++    <string name="flat_or_upright">Sostén el teléfono plano, o vertical mirando hacia donde miras.</string>
++    <string name="held">Fijado. H lo suelta.</string>
++    <string name="calibrate">Calibrar</string>
++    <string name="calibrate_body">Mueve el teléfono trazando un 8 varias veces, girándolo a la vez. Aléjate de metales, imanes y altavoces.</string>
++    <string name="calibrate_done">Calibrado.</string>
++    <string name="hint">T norte verdadero · C calibrar · H fijar · Atrás sale</string>
++    <string name="calibrate_hint">C o Atrás vuelve a la brújula</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-fr/strings.xml
+new file mode 100644
+index 0000000..e518b96
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-fr/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- French. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">Nord</string>
++    <string name="ne">Nord-est</string>
++    <string name="e">Est</string>
++    <string name="se">Sud-est</string>
++    <string name="s">Sud</string>
++    <string name="sw">Sud-ouest</string>
++    <string name="w">Ouest</string>
++    <string name="nw">Nord-ouest</string>
++    <string name="dial_n">N</string>
++    <string name="dial_e">E</string>
++    <string name="dial_s">S</string>
++    <string name="dial_w">O</string>
++    <string name="true_mark">G</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">Nord magnétique</string>
++    <string name="true_north">Nord géographique</string>
++    <string name="true_waiting">Recherche de votre position approximative pour le nord géographique. Le nord magnétique est affiché en attendant.</string>
++    <string name="true_denied">Le nord géographique a besoin de votre position approximative. Le nord magnétique est affiché.</string>
++    <string name="accuracy_high">Précision : élevée</string>
++    <string name="accuracy_medium">Précision : moyenne</string>
++    <string name="accuracy_low">Précision : faible. Appuyez sur C pour calibrer.</string>
++    <string name="accuracy_unreliable">Précision : non fiable. Appuyez sur C pour calibrer.</string>
++    <string name="no_sensor">Ce téléphone n\'a pas de capteur de boussole.</string>
++    <string name="flat_or_upright">Tenez le téléphone à plat, ou debout face à la direction que vous regardez.</string>
++    <string name="held">Figé. H libère.</string>
++    <string name="calibrate">Calibrer</string>
++    <string name="calibrate_body">Décrivez un 8 avec le téléphone plusieurs fois en le tournant. Éloignez-vous du métal, des aimants et des haut-parleurs.</string>
++    <string name="calibrate_done">Calibré.</string>
++    <string name="hint">T nord géographique · C calibrer · H figer · Retour quitte</string>
++    <string name="calibrate_hint">C ou Retour revient à la boussole</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-hi/strings.xml
+new file mode 100644
+index 0000000..483c465
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-hi/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hindi. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">उत्तर</string>
++    <string name="ne">उत्तर-पूर्व</string>
++    <string name="e">पूर्व</string>
++    <string name="se">दक्षिण-पूर्व</string>
++    <string name="s">दक्षिण</string>
++    <string name="sw">दक्षिण-पश्चिम</string>
++    <string name="w">पश्चिम</string>
++    <string name="nw">उत्तर-पश्चिम</string>
++    <string name="dial_n">उ</string>
++    <string name="dial_e">पू</string>
++    <string name="dial_s">द</string>
++    <string name="dial_w">प</string>
++    <string name="true_mark">स</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">चुंबकीय उत्तर</string>
++    <string name="true_north">वास्तविक उत्तर</string>
++    <string name="true_waiting">वास्तविक उत्तर के लिए आपका अनुमानित स्थान खोजा जा रहा है। तब तक चुंबकीय उत्तर दिखाया जा रहा है।</string>
++    <string name="true_denied">वास्तविक उत्तर के लिए आपका अनुमानित स्थान चाहिए। चुंबकीय उत्तर दिखाया जा रहा है।</string>
++    <string name="accuracy_high">सटीकता: उच्च</string>
++    <string name="accuracy_medium">सटीकता: मध्यम</string>
++    <string name="accuracy_low">सटीकता: कम। कैलिब्रेट करने के लिए C दबाएँ।</string>
++    <string name="accuracy_unreliable">सटीकता: अविश्वसनीय। कैलिब्रेट करने के लिए C दबाएँ।</string>
++    <string name="no_sensor">इस फ़ोन में कंपास सेंसर नहीं है।</string>
++    <string name="flat_or_upright">फ़ोन को सपाट रखें, या सीधा उस दिशा में जिधर आप देख रहे हैं।</string>
++    <string name="held">रोका गया। H छोड़ता है।</string>
++    <string name="calibrate">कैलिब्रेट करें</string>
++    <string name="calibrate_body">फ़ोन को कुछ बार 8 के आकार में घुमाएँ, साथ में उसे मोड़ते रहें। धातु, चुंबक और स्पीकर से दूर रहें।</string>
++    <string name="calibrate_done">कैलिब्रेट हो गया।</string>
++    <string name="hint">T वास्तविक उत्तर · C कैलिब्रेट · H रोकें · Back बाहर जाता है</string>
++    <string name="calibrate_hint">C या Back कंपास पर लौटाता है</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-it/strings.xml
+new file mode 100644
+index 0000000..cd0a850
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-it/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Italian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">Nord</string>
++    <string name="ne">Nord-est</string>
++    <string name="e">Est</string>
++    <string name="se">Sud-est</string>
++    <string name="s">Sud</string>
++    <string name="sw">Sud-ovest</string>
++    <string name="w">Ovest</string>
++    <string name="nw">Nord-ovest</string>
++    <string name="dial_n">N</string>
++    <string name="dial_e">E</string>
++    <string name="dial_s">S</string>
++    <string name="dial_w">O</string>
++    <string name="true_mark">G</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">Nord magnetico</string>
++    <string name="true_north">Nord geografico</string>
++    <string name="true_waiting">Ricerca della posizione approssimativa per il nord geografico. Nel frattempo viene mostrato il nord magnetico.</string>
++    <string name="true_denied">Il nord geografico richiede la tua posizione approssimativa. Viene mostrato il nord magnetico.</string>
++    <string name="accuracy_high">Precisione: alta</string>
++    <string name="accuracy_medium">Precisione: media</string>
++    <string name="accuracy_low">Precisione: bassa. Premi C per calibrare.</string>
++    <string name="accuracy_unreliable">Precisione: inaffidabile. Premi C per calibrare.</string>
++    <string name="no_sensor">Questo telefono non ha un sensore bussola.</string>
++    <string name="flat_or_upright">Tieni il telefono piatto, o in verticale rivolto dove guardi.</string>
++    <string name="held">Bloccato. H lo sblocca.</string>
++    <string name="calibrate">Calibra</string>
++    <string name="calibrate_body">Muovi il telefono disegnando un 8 alcune volte, ruotandolo mentre lo fai. Stai lontano da metalli, magneti e altoparlanti.</string>
++    <string name="calibrate_done">Calibrato.</string>
++    <string name="hint">T nord geografico · C calibra · H blocca · Indietro esce</string>
++    <string name="calibrate_hint">C o Indietro torna alla bussola</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-iw/strings.xml
+new file mode 100644
+index 0000000..2bdee22
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-iw/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hebrew. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">צפון</string>
++    <string name="ne">צפון-מזרח</string>
++    <string name="e">מזרח</string>
++    <string name="se">דרום-מזרח</string>
++    <string name="s">דרום</string>
++    <string name="sw">דרום-מערב</string>
++    <string name="w">מערב</string>
++    <string name="nw">צפון-מערב</string>
++    <string name="dial_n">צ</string>
++    <string name="dial_e">מז</string>
++    <string name="dial_s">ד</string>
++    <string name="dial_w">מע</string>
++    <string name="true_mark">א</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">צפון מגנטי</string>
++    <string name="true_north">צפון אמיתי</string>
++    <string name="true_waiting">מאתר את מיקומך המשוער לצפון אמיתי. עד אז מוצג צפון מגנטי.</string>
++    <string name="true_denied">צפון אמיתי דורש את מיקומך המשוער. מוצג צפון מגנטי.</string>
++    <string name="accuracy_high">דיוק: גבוה</string>
++    <string name="accuracy_medium">דיוק: בינוני</string>
++    <string name="accuracy_low">דיוק: נמוך. לחצו C לכיול.</string>
++    <string name="accuracy_unreliable">דיוק: לא אמין. לחצו C לכיול.</string>
++    <string name="no_sensor">בטלפון הזה אין חיישן מצפן.</string>
++    <string name="flat_or_upright">החזיקו את הטלפון שטוח, או זקוף לכיוון שאליו אתם מביטים.</string>
++    <string name="held">מוחזק. H משחרר.</string>
++    <string name="calibrate">כיול</string>
++    <string name="calibrate_body">הזיזו את הטלפון בצורת 8 כמה פעמים תוך כדי סיבובו. התרחקו ממתכת, מגנטים ורמקולים.</string>
++    <string name="calibrate_done">כויל.</string>
++    <string name="hint">T צפון אמיתי · C כיול · H החזקה · חזרה יוצאת</string>
++    <string name="calibrate_hint">C או חזרה חוזרים למצפן</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-ja/strings.xml
+new file mode 100644
+index 0000000..e1de960
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-ja/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Japanese. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">北</string>
++    <string name="ne">北東</string>
++    <string name="e">東</string>
++    <string name="se">南東</string>
++    <string name="s">南</string>
++    <string name="sw">南西</string>
++    <string name="w">西</string>
++    <string name="nw">北西</string>
++    <string name="dial_n">北</string>
++    <string name="dial_e">東</string>
++    <string name="dial_s">南</string>
++    <string name="dial_w">西</string>
++    <string name="true_mark">真</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">磁北</string>
++    <string name="true_north">真北</string>
++    <string name="true_waiting">真北のためにおおよその現在地を取得しています。それまでは磁北を表示します。</string>
++    <string name="true_denied">真北にはおおよその現在地が必要です。磁北を表示しています。</string>
++    <string name="accuracy_high">精度: 高</string>
++    <string name="accuracy_medium">精度: 中</string>
++    <string name="accuracy_low">精度: 低。C を押して調整してください。</string>
++    <string name="accuracy_unreliable">精度: 不安定。C を押して調整してください。</string>
++    <string name="no_sensor">この電話にはコンパスセンサーがありません。</string>
++    <string name="flat_or_upright">電話を水平に置くか、見ている方向に向けて立ててください。</string>
++    <string name="held">固定中。H で解除。</string>
++    <string name="calibrate">調整</string>
++    <string name="calibrate_body">電話を回しながら 8 の字を数回描いてください。金属、磁石、スピーカーから離れてください。</string>
++    <string name="calibrate_done">調整しました。</string>
++    <string name="hint">T 真北 · C 調整 · H 固定 · Back で終了</string>
++    <string name="calibrate_hint">C または Back でコンパスに戻る</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-ko/strings.xml
+new file mode 100644
+index 0000000..dd171b4
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-ko/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Korean. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">북</string>
++    <string name="ne">북동</string>
++    <string name="e">동</string>
++    <string name="se">남동</string>
++    <string name="s">남</string>
++    <string name="sw">남서</string>
++    <string name="w">서</string>
++    <string name="nw">북서</string>
++    <string name="dial_n">북</string>
++    <string name="dial_e">동</string>
++    <string name="dial_s">남</string>
++    <string name="dial_w">서</string>
++    <string name="true_mark">진</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">자북</string>
++    <string name="true_north">진북</string>
++    <string name="true_waiting">진북을 위해 대략적인 위치를 찾는 중입니다. 그때까지 자북을 표시합니다.</string>
++    <string name="true_denied">진북에는 대략적인 위치가 필요합니다. 자북을 표시합니다.</string>
++    <string name="accuracy_high">정확도: 높음</string>
++    <string name="accuracy_medium">정확도: 보통</string>
++    <string name="accuracy_low">정확도: 낮음. C를 눌러 보정하세요.</string>
++    <string name="accuracy_unreliable">정확도: 불안정. C를 눌러 보정하세요.</string>
++    <string name="no_sensor">이 휴대전화에는 나침반 센서가 없습니다.</string>
++    <string name="flat_or_upright">휴대전화를 평평하게 두거나, 보는 방향으로 세워 드세요.</string>
++    <string name="held">고정됨. H로 해제.</string>
++    <string name="calibrate">보정</string>
++    <string name="calibrate_body">휴대전화를 돌리면서 8자를 몇 번 그리세요. 금속, 자석, 스피커에서 떨어지세요.</string>
++    <string name="calibrate_done">보정되었습니다.</string>
++    <string name="hint">T 진북 · C 보정 · H 고정 · Back 나가기</string>
++    <string name="calibrate_hint">C 또는 Back으로 나침반에 돌아가기</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-nl/strings.xml
+new file mode 100644
+index 0000000..aff50c6
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-nl/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Dutch. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">Noord</string>
++    <string name="ne">Noordoost</string>
++    <string name="e">Oost</string>
++    <string name="se">Zuidoost</string>
++    <string name="s">Zuid</string>
++    <string name="sw">Zuidwest</string>
++    <string name="w">West</string>
++    <string name="nw">Noordwest</string>
++    <string name="dial_n">N</string>
++    <string name="dial_e">O</string>
++    <string name="dial_s">Z</string>
++    <string name="dial_w">W</string>
++    <string name="true_mark">G</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">Magnetisch noorden</string>
++    <string name="true_north">Geografisch noorden</string>
++    <string name="true_waiting">Je globale locatie wordt gezocht voor het geografisch noorden. Tot dan wordt het magnetisch noorden getoond.</string>
++    <string name="true_denied">Het geografisch noorden heeft je globale locatie nodig. Het magnetisch noorden wordt getoond.</string>
++    <string name="accuracy_high">Nauwkeurigheid: hoog</string>
++    <string name="accuracy_medium">Nauwkeurigheid: gemiddeld</string>
++    <string name="accuracy_low">Nauwkeurigheid: laag. Druk op C om te kalibreren.</string>
++    <string name="accuracy_unreliable">Nauwkeurigheid: onbetrouwbaar. Druk op C om te kalibreren.</string>
++    <string name="no_sensor">Deze telefoon heeft geen kompassensor.</string>
++    <string name="flat_or_upright">Houd de telefoon plat, of rechtop in de richting waarin je kijkt.</string>
++    <string name="held">Vastgehouden. H laat los.</string>
++    <string name="calibrate">Kalibreren</string>
++    <string name="calibrate_body">Beweeg de telefoon een paar keer in een 8 en draai hem daarbij. Blijf uit de buurt van metaal, magneten en luidsprekers.</string>
++    <string name="calibrate_done">Gekalibreerd.</string>
++    <string name="hint">T geografisch noorden · C kalibreren · H vasthouden · Terug sluit</string>
++    <string name="calibrate_hint">C of Terug gaat terug naar het kompas</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-pl/strings.xml
+new file mode 100644
+index 0000000..23b47e9
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-pl/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Polish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">Północ</string>
++    <string name="ne">Północny wschód</string>
++    <string name="e">Wschód</string>
++    <string name="se">Południowy wschód</string>
++    <string name="s">Południe</string>
++    <string name="sw">Południowy zachód</string>
++    <string name="w">Zachód</string>
++    <string name="nw">Północny zachód</string>
++    <string name="dial_n">N</string>
++    <string name="dial_e">E</string>
++    <string name="dial_s">S</string>
++    <string name="dial_w">W</string>
++    <string name="true_mark">G</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">Północ magnetyczna</string>
++    <string name="true_north">Północ geograficzna</string>
++    <string name="true_waiting">Ustalanie przybliżonej lokalizacji dla północy geograficznej. Do tego czasu pokazywana jest północ magnetyczna.</string>
++    <string name="true_denied">Północ geograficzna wymaga przybliżonej lokalizacji. Pokazywana jest północ magnetyczna.</string>
++    <string name="accuracy_high">Dokładność: wysoka</string>
++    <string name="accuracy_medium">Dokładność: średnia</string>
++    <string name="accuracy_low">Dokładność: niska. Naciśnij C, aby skalibrować.</string>
++    <string name="accuracy_unreliable">Dokładność: niepewna. Naciśnij C, aby skalibrować.</string>
++    <string name="no_sensor">Ten telefon nie ma czujnika kompasu.</string>
++    <string name="flat_or_upright">Trzymaj telefon płasko albo pionowo w kierunku, w którym patrzysz.</string>
++    <string name="held">Zatrzymano. H zwalnia.</string>
++    <string name="calibrate">Kalibruj</string>
++    <string name="calibrate_body">Kilka razy zatocz telefonem ósemkę, obracając go przy tym. Trzymaj się z dala od metalu, magnesów i głośników.</string>
++    <string name="calibrate_done">Skalibrowano.</string>
++    <string name="hint">T północ geograficzna · C kalibruj · H zatrzymaj · Wstecz zamyka</string>
++    <string name="calibrate_hint">C lub Wstecz wraca do kompasu</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-pt/strings.xml
+new file mode 100644
+index 0000000..fa90b98
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-pt/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Portuguese. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">Norte</string>
++    <string name="ne">Nordeste</string>
++    <string name="e">Leste</string>
++    <string name="se">Sudeste</string>
++    <string name="s">Sul</string>
++    <string name="sw">Sudoeste</string>
++    <string name="w">Oeste</string>
++    <string name="nw">Noroeste</string>
++    <string name="dial_n">N</string>
++    <string name="dial_e">L</string>
++    <string name="dial_s">S</string>
++    <string name="dial_w">O</string>
++    <string name="true_mark">V</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">Norte magnético</string>
++    <string name="true_north">Norte verdadeiro</string>
++    <string name="true_waiting">Procurando sua localização aproximada para o norte verdadeiro. Até lá, o norte magnético é mostrado.</string>
++    <string name="true_denied">O norte verdadeiro precisa da sua localização aproximada. Mostrando o norte magnético.</string>
++    <string name="accuracy_high">Precisão: alta</string>
++    <string name="accuracy_medium">Precisão: média</string>
++    <string name="accuracy_low">Precisão: baixa. Pressione C para calibrar.</string>
++    <string name="accuracy_unreliable">Precisão: não confiável. Pressione C para calibrar.</string>
++    <string name="no_sensor">Este telefone não tem sensor de bússola.</string>
++    <string name="flat_or_upright">Segure o telefone na horizontal, ou em pé voltado para onde você olha.</string>
++    <string name="held">Fixado. H solta.</string>
++    <string name="calibrate">Calibrar</string>
++    <string name="calibrate_body">Mova o telefone em forma de 8 algumas vezes, girando-o enquanto isso. Fique longe de metais, ímãs e alto-falantes.</string>
++    <string name="calibrate_done">Calibrado.</string>
++    <string name="hint">T norte verdadeiro · C calibrar · H fixar · Voltar sai</string>
++    <string name="calibrate_hint">C ou Voltar retorna à bússola</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-ru/strings.xml
+new file mode 100644
+index 0000000..99f21bc
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-ru/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Russian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">Север</string>
++    <string name="ne">Северо-восток</string>
++    <string name="e">Восток</string>
++    <string name="se">Юго-восток</string>
++    <string name="s">Юг</string>
++    <string name="sw">Юго-запад</string>
++    <string name="w">Запад</string>
++    <string name="nw">Северо-запад</string>
++    <string name="dial_n">С</string>
++    <string name="dial_e">В</string>
++    <string name="dial_s">Ю</string>
++    <string name="dial_w">З</string>
++    <string name="true_mark">И</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">Магнитный север</string>
++    <string name="true_north">Истинный север</string>
++    <string name="true_waiting">Определяется ваше примерное местоположение для истинного севера. Пока показан магнитный север.</string>
++    <string name="true_denied">Для истинного севера нужно ваше примерное местоположение. Показан магнитный север.</string>
++    <string name="accuracy_high">Точность: высокая</string>
++    <string name="accuracy_medium">Точность: средняя</string>
++    <string name="accuracy_low">Точность: низкая. Нажмите C для калибровки.</string>
++    <string name="accuracy_unreliable">Точность: ненадёжная. Нажмите C для калибровки.</string>
++    <string name="no_sensor">В этом телефоне нет датчика компаса.</string>
++    <string name="flat_or_upright">Держите телефон горизонтально или вертикально в направлении взгляда.</string>
++    <string name="held">Зафиксировано. H отпускает.</string>
++    <string name="calibrate">Калибровка</string>
++    <string name="calibrate_body">Несколько раз проведите телефоном восьмёрку, поворачивая его. Держитесь подальше от металла, магнитов и динамиков.</string>
++    <string name="calibrate_done">Откалибровано.</string>
++    <string name="hint">T истинный север · C калибровка · H фиксация · Назад — выход</string>
++    <string name="calibrate_hint">C или Назад возвращает к компасу</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-sv/strings.xml
+new file mode 100644
+index 0000000..c8e3052
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-sv/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Swedish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">Norr</string>
++    <string name="ne">Nordost</string>
++    <string name="e">Öster</string>
++    <string name="se">Sydost</string>
++    <string name="s">Söder</string>
++    <string name="sw">Sydväst</string>
++    <string name="w">Väster</string>
++    <string name="nw">Nordväst</string>
++    <string name="dial_n">N</string>
++    <string name="dial_e">Ö</string>
++    <string name="dial_s">S</string>
++    <string name="dial_w">V</string>
++    <string name="true_mark">G</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">Magnetisk nord</string>
++    <string name="true_north">Geografisk nord</string>
++    <string name="true_waiting">Söker din ungefärliga plats för geografisk nord. Visar magnetisk nord tills dess.</string>
++    <string name="true_denied">Geografisk nord behöver din ungefärliga plats. Visar magnetisk nord.</string>
++    <string name="accuracy_high">Noggrannhet: hög</string>
++    <string name="accuracy_medium">Noggrannhet: medel</string>
++    <string name="accuracy_low">Noggrannhet: låg. Tryck C för att kalibrera.</string>
++    <string name="accuracy_unreliable">Noggrannhet: opålitlig. Tryck C för att kalibrera.</string>
++    <string name="no_sensor">Den här telefonen har ingen kompassensor.</string>
++    <string name="flat_or_upright">Håll telefonen platt, eller upprätt åt det håll du tittar.</string>
++    <string name="held">Låst. H släpper.</string>
++    <string name="calibrate">Kalibrera</string>
++    <string name="calibrate_body">Rör telefonen i en åtta några gånger och vrid den samtidigt. Håll avstånd till metall, magneter och högtalare.</string>
++    <string name="calibrate_done">Kalibrerad.</string>
++    <string name="hint">T geografisk nord · C kalibrera · H lås · Bakåt lämnar</string>
++    <string name="calibrate_hint">C eller Bakåt går tillbaka till kompassen</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-tr/strings.xml
+new file mode 100644
+index 0000000..11bf205
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-tr/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Turkish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">Kuzey</string>
++    <string name="ne">Kuzeydoğu</string>
++    <string name="e">Doğu</string>
++    <string name="se">Güneydoğu</string>
++    <string name="s">Güney</string>
++    <string name="sw">Güneybatı</string>
++    <string name="w">Batı</string>
++    <string name="nw">Kuzeybatı</string>
++    <string name="dial_n">K</string>
++    <string name="dial_e">D</string>
++    <string name="dial_s">G</string>
++    <string name="dial_w">B</string>
++    <string name="true_mark">C</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">Manyetik kuzey</string>
++    <string name="true_north">Coğrafi kuzey</string>
++    <string name="true_waiting">Coğrafi kuzey için yaklaşık konumunuz bulunuyor. O zamana kadar manyetik kuzey gösteriliyor.</string>
++    <string name="true_denied">Coğrafi kuzey için yaklaşık konumunuz gerekiyor. Manyetik kuzey gösteriliyor.</string>
++    <string name="accuracy_high">Doğruluk: yüksek</string>
++    <string name="accuracy_medium">Doğruluk: orta</string>
++    <string name="accuracy_low">Doğruluk: düşük. Kalibre etmek için C\'ye basın.</string>
++    <string name="accuracy_unreliable">Doğruluk: güvenilmez. Kalibre etmek için C\'ye basın.</string>
++    <string name="no_sensor">Bu telefonda pusula sensörü yok.</string>
++    <string name="flat_or_upright">Telefonu düz tutun ya da baktığınız yöne dik tutun.</string>
++    <string name="held">Sabitlendi. H bırakır.</string>
++    <string name="calibrate">Kalibre et</string>
++    <string name="calibrate_body">Telefonu birkaç kez 8 çizerek hareket ettirin ve bu sırada çevirin. Metal, mıknatıs ve hoparlörlerden uzak durun.</string>
++    <string name="calibrate_done">Kalibre edildi.</string>
++    <string name="hint">T coğrafi kuzey · C kalibre et · H sabitle · Geri çıkar</string>
++    <string name="calibrate_hint">C veya Geri pusulaya döner</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-ur/strings.xml
+new file mode 100644
+index 0000000..9da1137
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-ur/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Urdu. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">شمال</string>
++    <string name="ne">شمال مشرق</string>
++    <string name="e">مشرق</string>
++    <string name="se">جنوب مشرق</string>
++    <string name="s">جنوب</string>
++    <string name="sw">جنوب مغرب</string>
++    <string name="w">مغرب</string>
++    <string name="nw">شمال مغرب</string>
++    <string name="dial_n">ش</string>
++    <string name="dial_e">مش</string>
++    <string name="dial_s">ج</string>
++    <string name="dial_w">مغ</string>
++    <string name="true_mark">ح</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">مقناطیسی شمال</string>
++    <string name="true_north">حقیقی شمال</string>
++    <string name="true_waiting">حقیقی شمال کے لیے آپ کا تقریبی مقام تلاش کیا جا رہا ہے۔ تب تک مقناطیسی شمال دکھایا جا رہا ہے۔</string>
++    <string name="true_denied">حقیقی شمال کے لیے آپ کا تقریبی مقام درکار ہے۔ مقناطیسی شمال دکھایا جا رہا ہے۔</string>
++    <string name="accuracy_high">درستگی: زیادہ</string>
++    <string name="accuracy_medium">درستگی: درمیانی</string>
++    <string name="accuracy_low">درستگی: کم۔ کیلیبریٹ کرنے کے لیے C دبائیں۔</string>
++    <string name="accuracy_unreliable">درستگی: ناقابلِ اعتماد۔ کیلیبریٹ کرنے کے لیے C دبائیں۔</string>
++    <string name="no_sensor">اس فون میں کمپاس سینسر نہیں ہے۔</string>
++    <string name="flat_or_upright">فون کو سیدھا لٹائیں، یا کھڑا کر کے اس سمت رکھیں جدھر آپ دیکھ رہے ہیں۔</string>
++    <string name="held">روکا گیا۔ H چھوڑتا ہے۔</string>
++    <string name="calibrate">کیلیبریٹ کریں</string>
++    <string name="calibrate_body">فون کو چند بار 8 کی شکل میں حرکت دیں اور ساتھ گھماتے رہیں۔ دھات، مقناطیس اور اسپیکر سے دور رہیں۔</string>
++    <string name="calibrate_done">کیلیبریٹ ہو گیا۔</string>
++    <string name="hint">T حقیقی شمال · C کیلیبریٹ · H روکیں · Back باہر جاتا ہے</string>
++    <string name="calibrate_hint">C یا Back کمپاس پر واپس لاتا ہے</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values-zh-rCN/strings.xml
+new file mode 100644
+index 0000000..e4f7b4c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values-zh-rCN/strings.xml
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Chinese (Simplified). Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
++<resources>
++    <string name="n">北</string>
++    <string name="ne">东北</string>
++    <string name="e">东</string>
++    <string name="se">东南</string>
++    <string name="s">南</string>
++    <string name="sw">西南</string>
++    <string name="w">西</string>
++    <string name="nw">西北</string>
++    <string name="dial_n">北</string>
++    <string name="dial_e">东</string>
++    <string name="dial_s">南</string>
++    <string name="dial_w">西</string>
++    <string name="true_mark">真</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">磁北</string>
++    <string name="true_north">真北</string>
++    <string name="true_waiting">正在获取你的大致位置以显示真北。在此之前显示磁北。</string>
++    <string name="true_denied">真北需要你的大致位置。正在显示磁北。</string>
++    <string name="accuracy_high">精度：高</string>
++    <string name="accuracy_medium">精度：中</string>
++    <string name="accuracy_low">精度：低。按 C 校准。</string>
++    <string name="accuracy_unreliable">精度：不可靠。按 C 校准。</string>
++    <string name="no_sensor">这部手机没有指南针传感器。</string>
++    <string name="flat_or_upright">将手机平放，或竖起朝向你看的方向。</string>
++    <string name="held">已锁定。按 H 解除。</string>
++    <string name="calibrate">校准</string>
++    <string name="calibrate_body">一边转动手机一边画几次 8 字。远离金属、磁铁和扬声器。</string>
++    <string name="calibrate_done">已校准。</string>
++    <string name="hint">T 真北 · C 校准 · H 锁定 · Back 退出</string>
++    <string name="calibrate_hint">C 或 Back 返回指南针</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/compass/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..f950593
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/main/res/values/strings.xml
+@@ -0,0 +1,36 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (T true north, C calibrate, H hold) name keyboard keys: keep them as the key, translate the word.
++     Keep equal to CompassText.EN (CompassTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sable Compass</string>
++    <string name="n">North</string>
++    <string name="ne">Northeast</string>
++    <string name="e">East</string>
++    <string name="se">Southeast</string>
++    <string name="s">South</string>
++    <string name="sw">Southwest</string>
++    <string name="w">West</string>
++    <string name="nw">Northwest</string>
++    <string name="dial_n">N</string>
++    <string name="dial_e">E</string>
++    <string name="dial_s">S</string>
++    <string name="dial_w">W</string>
++    <string name="true_mark">T</string>
++    <string name="degrees">%1$d°</string>
++    <string name="magnetic">Magnetic north</string>
++    <string name="true_north">True north</string>
++    <string name="true_waiting">Finding your rough location for true north. Showing magnetic north until then.</string>
++    <string name="true_denied">True north needs your rough location. Showing magnetic north.</string>
++    <string name="accuracy_high">Accuracy: high</string>
++    <string name="accuracy_medium">Accuracy: medium</string>
++    <string name="accuracy_low">Accuracy: low. Press C to calibrate.</string>
++    <string name="accuracy_unreliable">Accuracy: unreliable. Press C to calibrate.</string>
++    <string name="no_sensor">This phone has no compass sensor.</string>
++    <string name="flat_or_upright">Hold the phone flat, or upright facing the way you look.</string>
++    <string name="held">Held. H lets go.</string>
++    <string name="calibrate">Calibrate</string>
++    <string name="calibrate_body">Move the phone in a figure 8 a few times, turning it as you go. Keep away from metal, magnets and speakers.</string>
++    <string name="calibrate_done">Calibrated.</string>
++    <string name="hint">T true north · C calibrate · H hold · Back leaves</string>
++    <string name="calibrate_hint">C or Back returns to the compass</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/compass/src/test/java/org/sableos/titan2/compass/CompassTextTest.kt b/sable-src/apps/titan2/platform/compass/src/test/java/org/sableos/titan2/compass/CompassTextTest.kt
+new file mode 100644
+index 0000000..e90e03f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/test/java/org/sableos/titan2/compass/CompassTextTest.kt
+@@ -0,0 +1,62 @@
++package org.sableos.titan2.compass
++
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.titan2.compass.core.CompassText
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class CompassTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map {
++        it.value
++    }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        CompassText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f ->
++            f.name.startsWith("values-") && File(f, "strings.xml").isFile
++        }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, CompassText.EN.keys, tr.keys.intersect(CompassText.EN.keys))
++            CompassText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/compass/src/test/java/org/sableos/titan2/compass/core/HeadingTest.kt b/sable-src/apps/titan2/platform/compass/src/test/java/org/sableos/titan2/compass/core/HeadingTest.kt
+new file mode 100644
+index 0000000..9caf617
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/compass/src/test/java/org/sableos/titan2/compass/core/HeadingTest.kt
+@@ -0,0 +1,123 @@
++package org.sableos.titan2.compass.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class HeadingTest {
++    private val delta = 1e-6
++
++    /** Row-major device-to-world matrix from the device's right edge, top edge and screen normal in world terms. */
++    private fun matrix(right: DoubleArray, top: DoubleArray, screen: DoubleArray) =
++        FloatArray(9) { i ->
++            val column = listOf(right, top, screen)[i % 3]
++            column[i / 3].toFloat()
++        }
++
++    private val flatNorth =
++        matrix(
++            doubleArrayOf(1.0, 0.0, 0.0),
++            doubleArrayOf(0.0, 1.0, 0.0),
++            doubleArrayOf(0.0, 0.0, 1.0)
++        )
++
++    @Test
++    fun flatThePhonesTopEdgeIsTheHeading() {
++        assertEquals(0.0, Heading.facing(flatNorth)!!, delta)
++        val flatEast =
++            matrix(
++                doubleArrayOf(0.0, -1.0, 0.0),
++                doubleArrayOf(1.0, 0.0, 0.0),
++                doubleArrayOf(0.0, 0.0, 1.0)
++            )
++        assertEquals(90.0, Heading.facing(flatEast)!!, delta)
++        assertEquals(0.0, Heading.tilt(flatNorth), delta)
++        assertEquals(1.0, Heading.squash(0.0), delta)
++    }
++
++    @Test
++    fun uprightTheBackOfThePhoneIsTheHeading() {
++        // Standing up, screen towards the user, back looking east.
++        val uprightEast =
++            matrix(
++                doubleArrayOf(0.0, -1.0, 0.0),
++                doubleArrayOf(0.0, 0.0, 1.0),
++                doubleArrayOf(-1.0, 0.0, 0.0)
++            )
++        assertEquals(90.0, Heading.facing(uprightEast)!!, delta)
++        assertEquals(90.0, Heading.tilt(uprightEast), delta)
++        assertEquals(Heading.MIN_SQUASH, Heading.squash(90.0), delta)
++    }
++
++    @Test
++    fun tiltingInBetweenKeepsTheSameHeading() {
++        for (deg in listOf(10.0, 45.0, 80.0)) {
++            val a = Math.toRadians(deg)
++            val m =
++                matrix(
++                    doubleArrayOf(1.0, 0.0, 0.0),
++                    doubleArrayOf(0.0, Math.cos(a), Math.sin(a)),
++                    doubleArrayOf(0.0, -Math.sin(a), Math.cos(a))
++                )
++            assertEquals(0.0, Heading.facing(m)!!, delta)
++            assertEquals(deg, Heading.tilt(m), 1e-4)
++        }
++        assertEquals(Math.cos(Math.toRadians(30.0)), Heading.squash(150.0), delta)
++    }
++
++    @Test
++    fun anEdgeOnPhoneHasNoHeading() {
++        // Top edge straight down, screen facing up-turned... both horizontal parts cancel.
++        val m =
++            matrix(
++                doubleArrayOf(1.0, 0.0, 0.0),
++                doubleArrayOf(0.0, 0.0, -1.0),
++                doubleArrayOf(0.0, 0.0, 0.0)
++            )
++        assertNull(Heading.facing(m))
++    }
++
++    @Test
++    fun smoothingGoesTheShortWayRound() {
++        assertEquals(1.0, Heading.smooth(359.0, 3.0, 0.5), delta)
++        assertEquals(358.0, Heading.smooth(2.0, 354.0, 0.5), delta)
++        assertEquals(10.0, Heading.smooth(null, 370.0, 0.1), delta)
++        assertEquals(-2.0, Heading.turn(1.0, 359.0), delta)
++        assertTrue(Heading.moved(350.0, 10.0, 15.0))
++        assertFalse(Heading.moved(355.0, 5.0, 15.0))
++    }
++
++    @Test
++    fun wordsDegreesAndTrueNorth() {
++        assertEquals("n", Heading.word(359.0))
++        assertEquals("n", Heading.word(22.0))
++        assertEquals("ne", Heading.word(23.0))
++        assertEquals("w", Heading.word(270.0))
++        assertEquals("nw", Heading.word(-40.0))
++        assertEquals(0, Heading.degrees(359.6))
++        assertEquals(45, Heading.degrees(45.2))
++        assertEquals(355.0, Heading.toTrue(5.0, -10.0), delta)
++        assertEquals(12.5, Heading.toTrue(10.0, 2.5), delta)
++    }
++
++    @Test
++    fun accuracyBelowMediumAsksForCalibration() {
++        assertTrue(Accuracy.of(0).needsCalibration)
++        assertTrue(Accuracy.of(1).needsCalibration)
++        assertFalse(Accuracy.of(2).needsCalibration)
++        assertEquals(Accuracy.HIGH, Accuracy.of(3))
++        assertEquals(Accuracy.UNRELIABLE, Accuracy.of(-1))
++    }
++
++    @Test
++    fun theFigure8StaysInsideItsBox() {
++        for (i in 0..100) {
++            val (x, y) = Figure8.point(i / 100.0)
++            assertTrue(x in -1.0..1.0 && y in -1.0..1.0)
++        }
++        assertEquals(1.0, Figure8.point(0.0).first, delta)
++        assertEquals(-1.0, Figure8.point(0.5).first, delta)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/settings.gradle.kts b/sable-src/apps/titan2/platform/settings.gradle.kts
+index 53d31c6..6cefad6 100644
+--- a/sable-src/apps/titan2/platform/settings.gradle.kts
++++ b/sable-src/apps/titan2/platform/settings.gradle.kts
+@@ -13,4 +13,4 @@ dependencyResolutionManagement {
+     }
+ }
+ rootProject.name = "sable-titan2-platform"
+-include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools", ":vault", ":profiles", ":spaces", ":printtogo")
++include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools", ":vault", ":profiles", ":spaces", ":printtogo", ":compass")
+diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+index 10f697e..282fa99 100644
+--- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
++++ b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+@@ -32,3 +32,4 @@ tasks	ic_sable_tasks	check-square	69fc9a39cab4af71874d4cc56eaa6d8943962f2619f5c9
+ browser	ic_sable_browser	globe	3b53d207c09fc72de699c8b2149892e065b570b3ae144412ae53244b0a0f7977	#4D9CFF	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/browser/src/main/res	none
+ spaces	ic_sable_spaces	briefcase	c908360aa8ffeff3b78be469066aa9faf7df2eda8f34a3596c44157dddc96453	#3FA7D6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/spaces/src/main/res	none
+ printtogo	ic_sable_printtogo	printer	398705192743d7ced5da5ca18f2b9e69759284276596f3dd3787720093d3f57e	#C77DDB	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/printtogo/src/main/res	none
++compass	ic_sable_compass	compass	00c7e42415f795fcea90bd9dc0b2c8266b4e9601d2937cb122cd03b7e9e9e198	#E0703A	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/compass/src/main/res	none
+diff --git a/sable-src/third_party/phosphor-icons/PROVENANCE.md b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+index 7b18ebd..9d3d879 100644
+--- a/sable-src/third_party/phosphor-icons/PROVENANCE.md
++++ b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+@@ -27,7 +27,7 @@ adaptive launcher icon (background, foreground, monochrome layers and `mipmap-an
+ 
+ Glyphs added for the Q25 adaptive-icon work (verbatim `assets/regular/<name>.svg` at the pinned commit, fetched
+ from raw.githubusercontent.com): bomb, book-open-text, calculator, calendar-dots, chat-circle-dots, chat-text,
+-cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench. Added for Sable Tasks: check-square. Added for Sable Spaces: briefcase. Added for Sable Print To Go: printer.
++cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench. Added for Sable Tasks: check-square. Added for Sable Spaces: briefcase. Added for Sable Print To Go: printer. Added for Sable Compass: compass.
+ Added for Secure Vault (Private Space file layer, `origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): vault.
+ Added for Sound Profiles (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): speaker-high.
+ Added for Sable Start's tile-free app glyphs on the Q25 (`model/AppGlyphs.kt`, drawn by `ui/SableGlyphIcon.kt` from
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/compass.svg b/sable-src/third_party/phosphor-icons/glyphs/compass.svg
+new file mode 100644
+index 0000000..ebea40b
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/compass.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216ZM172.42,72.84l-64,32a8.05,8.05,0,0,0-3.58,3.58l-32,64A8,8,0,0,0,80,184a8.1,8.1,0,0,0,3.58-.84l64-32a8.05,8.05,0,0,0,3.58-3.58l32-64a8,8,0,0,0-10.74-10.74ZM138,138,97.89,158.11,118,118l40.15-20.07Z"/></svg>
+\ No newline at end of file

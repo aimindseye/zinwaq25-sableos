@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">Kuzey</string>
+    <string name="ne">Kuzeydoğu</string>
+    <string name="e">Doğu</string>
+    <string name="se">Güneydoğu</string>
+    <string name="s">Güney</string>
+    <string name="sw">Güneybatı</string>
+    <string name="w">Batı</string>
+    <string name="nw">Kuzeybatı</string>
+    <string name="dial_n">K</string>
+    <string name="dial_e">D</string>
+    <string name="dial_s">G</string>
+    <string name="dial_w">B</string>
+    <string name="true_mark">C</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">Manyetik kuzey</string>
+    <string name="true_north">Coğrafi kuzey</string>
+    <string name="true_waiting">Coğrafi kuzey için yaklaşık konumunuz bulunuyor. O zamana kadar manyetik kuzey gösteriliyor.</string>
+    <string name="true_denied">Coğrafi kuzey için yaklaşık konumunuz gerekiyor. Manyetik kuzey gösteriliyor.</string>
+    <string name="accuracy_high">Doğruluk: yüksek</string>
+    <string name="accuracy_medium">Doğruluk: orta</string>
+    <string name="accuracy_low">Doğruluk: düşük. Kalibre etmek için C\'ye basın.</string>
+    <string name="accuracy_unreliable">Doğruluk: güvenilmez. Kalibre etmek için C\'ye basın.</string>
+    <string name="no_sensor">Bu telefonda pusula sensörü yok.</string>
+    <string name="flat_or_upright">Telefonu düz tutun ya da baktığınız yöne dik tutun.</string>
+    <string name="held">Sabitlendi. H bırakır.</string>
+    <string name="calibrate">Kalibre et</string>
+    <string name="calibrate_body">Telefonu birkaç kez 8 çizerek hareket ettirin ve bu sırada çevirin. Metal, mıknatıs ve hoparlörlerden uzak durun.</string>
+    <string name="calibrate_done">Kalibre edildi.</string>
+    <string name="hint">T coğrafi kuzey · C kalibre et · H sabitle · Geri çıkar</string>
+    <string name="calibrate_hint">C veya Geri pusulaya döner</string>
+</resources>

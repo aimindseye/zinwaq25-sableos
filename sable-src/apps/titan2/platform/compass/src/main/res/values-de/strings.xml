@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">Norden</string>
+    <string name="ne">Nordosten</string>
+    <string name="e">Osten</string>
+    <string name="se">Südosten</string>
+    <string name="s">Süden</string>
+    <string name="sw">Südwesten</string>
+    <string name="w">Westen</string>
+    <string name="nw">Nordwesten</string>
+    <string name="dial_n">N</string>
+    <string name="dial_e">O</string>
+    <string name="dial_s">S</string>
+    <string name="dial_w">W</string>
+    <string name="true_mark">G</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">Magnetisch Nord</string>
+    <string name="true_north">Geografisch Nord</string>
+    <string name="true_waiting">Ihr ungefährer Standort wird für geografisch Nord ermittelt. Bis dahin wird magnetisch Nord angezeigt.</string>
+    <string name="true_denied">Geografisch Nord braucht Ihren ungefähren Standort. Magnetisch Nord wird angezeigt.</string>
+    <string name="accuracy_high">Genauigkeit: hoch</string>
+    <string name="accuracy_medium">Genauigkeit: mittel</string>
+    <string name="accuracy_low">Genauigkeit: niedrig. C drücken zum Kalibrieren.</string>
+    <string name="accuracy_unreliable">Genauigkeit: unzuverlässig. C drücken zum Kalibrieren.</string>
+    <string name="no_sensor">Dieses Telefon hat keinen Kompasssensor.</string>
+    <string name="flat_or_upright">Halten Sie das Telefon flach oder aufrecht in Blickrichtung.</string>
+    <string name="held">Festgehalten. H gibt frei.</string>
+    <string name="calibrate">Kalibrieren</string>
+    <string name="calibrate_body">Bewegen Sie das Telefon einige Male in einer Acht und drehen Sie es dabei. Halten Sie Abstand zu Metall, Magneten und Lautsprechern.</string>
+    <string name="calibrate_done">Kalibriert.</string>
+    <string name="hint">T geografisch Nord · C kalibrieren · H festhalten · Zurück verlässt</string>
+    <string name="calibrate_hint">C oder Zurück führt zum Kompass</string>
+</resources>

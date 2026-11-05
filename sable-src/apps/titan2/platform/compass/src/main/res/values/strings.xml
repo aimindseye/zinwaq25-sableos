@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Single capital letters in hints (T true north, C calibrate, H hold) name keyboard keys: keep them as the key, translate the word.
+     Keep equal to CompassText.EN (CompassTextTest checks); translations go in values-<lang>/. -->
+<resources>
+    <string name="app_name" translatable="false">Sable Compass</string>
+    <string name="n">North</string>
+    <string name="ne">Northeast</string>
+    <string name="e">East</string>
+    <string name="se">Southeast</string>
+    <string name="s">South</string>
+    <string name="sw">Southwest</string>
+    <string name="w">West</string>
+    <string name="nw">Northwest</string>
+    <string name="dial_n">N</string>
+    <string name="dial_e">E</string>
+    <string name="dial_s">S</string>
+    <string name="dial_w">W</string>
+    <string name="true_mark">T</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">Magnetic north</string>
+    <string name="true_north">True north</string>
+    <string name="true_waiting">Finding your rough location for true north. Showing magnetic north until then.</string>
+    <string name="true_denied">True north needs your rough location. Showing magnetic north.</string>
+    <string name="accuracy_high">Accuracy: high</string>
+    <string name="accuracy_medium">Accuracy: medium</string>
+    <string name="accuracy_low">Accuracy: low. Press C to calibrate.</string>
+    <string name="accuracy_unreliable">Accuracy: unreliable. Press C to calibrate.</string>
+    <string name="no_sensor">This phone has no compass sensor.</string>
+    <string name="flat_or_upright">Hold the phone flat, or upright facing the way you look.</string>
+    <string name="held">Held. H lets go.</string>
+    <string name="calibrate">Calibrate</string>
+    <string name="calibrate_body">Move the phone in a figure 8 a few times, turning it as you go. Keep away from metal, magnets and speakers.</string>
+    <string name="calibrate_done">Calibrated.</string>
+    <string name="hint">T true north · C calibrate · H hold · Back leaves</string>
+    <string name="calibrate_hint">C or Back returns to the compass</string>
+</resources>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hebrew. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">צפון</string>
+    <string name="ne">צפון-מזרח</string>
+    <string name="e">מזרח</string>
+    <string name="se">דרום-מזרח</string>
+    <string name="s">דרום</string>
+    <string name="sw">דרום-מערב</string>
+    <string name="w">מערב</string>
+    <string name="nw">צפון-מערב</string>
+    <string name="dial_n">צ</string>
+    <string name="dial_e">מז</string>
+    <string name="dial_s">ד</string>
+    <string name="dial_w">מע</string>
+    <string name="true_mark">א</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">צפון מגנטי</string>
+    <string name="true_north">צפון אמיתי</string>
+    <string name="true_waiting">מאתר את מיקומך המשוער לצפון אמיתי. עד אז מוצג צפון מגנטי.</string>
+    <string name="true_denied">צפון אמיתי דורש את מיקומך המשוער. מוצג צפון מגנטי.</string>
+    <string name="accuracy_high">דיוק: גבוה</string>
+    <string name="accuracy_medium">דיוק: בינוני</string>
+    <string name="accuracy_low">דיוק: נמוך. לחצו C לכיול.</string>
+    <string name="accuracy_unreliable">דיוק: לא אמין. לחצו C לכיול.</string>
+    <string name="no_sensor">בטלפון הזה אין חיישן מצפן.</string>
+    <string name="flat_or_upright">החזיקו את הטלפון שטוח, או זקוף לכיוון שאליו אתם מביטים.</string>
+    <string name="held">מוחזק. H משחרר.</string>
+    <string name="calibrate">כיול</string>
+    <string name="calibrate_body">הזיזו את הטלפון בצורת 8 כמה פעמים תוך כדי סיבובו. התרחקו ממתכת, מגנטים ורמקולים.</string>
+    <string name="calibrate_done">כויל.</string>
+    <string name="hint">T צפון אמיתי · C כיול · H החזקה · חזרה יוצאת</string>
+    <string name="calibrate_hint">C או חזרה חוזרים למצפן</string>
+</resources>

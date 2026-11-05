@@ -39,6 +39,7 @@ SableVault	platform	apps/titan2/platform	:vault:assembleRelease	vault/build/outp
 SableProfiles	platform	apps/titan2/platform	:profiles:assembleRelease	profiles/build/outputs/apk/release/*.apk	org.sableos.titan2.profiles	unsigned	-	yes
 SableSpaces	platform	apps/titan2/platform	:spaces:assembleRelease	spaces/build/outputs/apk/release/*.apk	org.sableos.titan2.spaces	unsigned	-	yes
 SablePrintToGo	platform	apps/titan2/platform	:printtogo:assembleRelease	printtogo/build/outputs/apk/release/*.apk	org.sableos.titan2.printtogo	unsigned	-	yes
+SableCompass	platform	apps/titan2/platform	:compass:assembleRelease	compass/build/outputs/apk/release/*.apk	org.sableos.titan2.compass	unsigned	-	yes
 SableRadioDiag	platform	apps/titan2/platform	:radiodiag:assembleRelease	radiodiag/build/outputs/apk/release/*.apk	org.sableos.titan2.radiodiag	unsigned	-	no
 SableTools	platform	apps/titan2/platform	:tools:assembleRelease	tools/build/outputs/apk/release/*.apk	org.sableos.tools	unsigned	SableRadioDiag	yes
 # Sable Calculator ships as a shrunk release build for the same reason: Q4 with microG overflowed the

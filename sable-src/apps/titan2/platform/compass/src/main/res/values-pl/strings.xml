@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">Północ</string>
+    <string name="ne">Północny wschód</string>
+    <string name="e">Wschód</string>
+    <string name="se">Południowy wschód</string>
+    <string name="s">Południe</string>
+    <string name="sw">Południowy zachód</string>
+    <string name="w">Zachód</string>
+    <string name="nw">Północny zachód</string>
+    <string name="dial_n">N</string>
+    <string name="dial_e">E</string>
+    <string name="dial_s">S</string>
+    <string name="dial_w">W</string>
+    <string name="true_mark">G</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">Północ magnetyczna</string>
+    <string name="true_north">Północ geograficzna</string>
+    <string name="true_waiting">Ustalanie przybliżonej lokalizacji dla północy geograficznej. Do tego czasu pokazywana jest północ magnetyczna.</string>
+    <string name="true_denied">Północ geograficzna wymaga przybliżonej lokalizacji. Pokazywana jest północ magnetyczna.</string>
+    <string name="accuracy_high">Dokładność: wysoka</string>
+    <string name="accuracy_medium">Dokładność: średnia</string>
+    <string name="accuracy_low">Dokładność: niska. Naciśnij C, aby skalibrować.</string>
+    <string name="accuracy_unreliable">Dokładność: niepewna. Naciśnij C, aby skalibrować.</string>
+    <string name="no_sensor">Ten telefon nie ma czujnika kompasu.</string>
+    <string name="flat_or_upright">Trzymaj telefon płasko albo pionowo w kierunku, w którym patrzysz.</string>
+    <string name="held">Zatrzymano. H zwalnia.</string>
+    <string name="calibrate">Kalibruj</string>
+    <string name="calibrate_body">Kilka razy zatocz telefonem ósemkę, obracając go przy tym. Trzymaj się z dala od metalu, magnesów i głośników.</string>
+    <string name="calibrate_done">Skalibrowano.</string>
+    <string name="hint">T północ geograficzna · C kalibruj · H zatrzymaj · Wstecz zamyka</string>
+    <string name="calibrate_hint">C lub Wstecz wraca do kompasu</string>
+</resources>

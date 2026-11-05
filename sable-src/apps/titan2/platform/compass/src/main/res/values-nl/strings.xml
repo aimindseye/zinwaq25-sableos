@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dutch. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">Noord</string>
+    <string name="ne">Noordoost</string>
+    <string name="e">Oost</string>
+    <string name="se">Zuidoost</string>
+    <string name="s">Zuid</string>
+    <string name="sw">Zuidwest</string>
+    <string name="w">West</string>
+    <string name="nw">Noordwest</string>
+    <string name="dial_n">N</string>
+    <string name="dial_e">O</string>
+    <string name="dial_s">Z</string>
+    <string name="dial_w">W</string>
+    <string name="true_mark">G</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">Magnetisch noorden</string>
+    <string name="true_north">Geografisch noorden</string>
+    <string name="true_waiting">Je globale locatie wordt gezocht voor het geografisch noorden. Tot dan wordt het magnetisch noorden getoond.</string>
+    <string name="true_denied">Het geografisch noorden heeft je globale locatie nodig. Het magnetisch noorden wordt getoond.</string>
+    <string name="accuracy_high">Nauwkeurigheid: hoog</string>
+    <string name="accuracy_medium">Nauwkeurigheid: gemiddeld</string>
+    <string name="accuracy_low">Nauwkeurigheid: laag. Druk op C om te kalibreren.</string>
+    <string name="accuracy_unreliable">Nauwkeurigheid: onbetrouwbaar. Druk op C om te kalibreren.</string>
+    <string name="no_sensor">Deze telefoon heeft geen kompassensor.</string>
+    <string name="flat_or_upright">Houd de telefoon plat, of rechtop in de richting waarin je kijkt.</string>
+    <string name="held">Vastgehouden. H laat los.</string>
+    <string name="calibrate">Kalibreren</string>
+    <string name="calibrate_body">Beweeg de telefoon een paar keer in een 8 en draai hem daarbij. Blijf uit de buurt van metaal, magneten en luidsprekers.</string>
+    <string name="calibrate_done">Gekalibreerd.</string>
+    <string name="hint">T geografisch noorden · C kalibreren · H vasthouden · Terug sluit</string>
+    <string name="calibrate_hint">C of Terug gaat terug naar het kompas</string>
+</resources>

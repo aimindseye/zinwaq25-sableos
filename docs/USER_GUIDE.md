@@ -115,6 +115,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |
 | Media | Music, photos, FM radio | E shares |
 | Sound Profiles | Normal, Loud, Vibrate only, Phone calls only, All alerts off | Enter uses, E edits, Menu for more; Quick Settings tile |
+| Sable Compass | Which way you face, in degrees and words, on a card that leans with the phone. Read it flat, or upright looking the way the back of the phone points | T true north (asks for your rough location the first time; magnetic north otherwise), C calibration guide, H holds the reading. The number turns orange when accuracy is low: press C |
 | Sable Print To Go | Print from a computer to the phone: each print is saved as a PDF in Documents/Print To Go | Enter switches it on or off, O opens the folder. While on, the phone appears as a printer on the same Wi-Fi (Windows: Add a printer; Mac: System Settings > Printers; Linux: it appears by itself). It turns off after 10 minutes with nothing printed |
 | Sable Spaces | Make a Work space, add apps you already have to it, remove it | Opened from Sable Setup > Work space. Up and Down pick an app, Enter adds it (confirm with Enter in the Work screen), R removes the Work space (confirm with Y) |
 | Reader | Books (EPUB), PDF, comics and audiobooks, all stored on the phone | See [Comics and audiobooks](#comics-and-audiobooks) below; B bookmark, T contents, A view settings |

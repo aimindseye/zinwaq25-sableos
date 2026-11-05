@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Japanese. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">北</string>
+    <string name="ne">北東</string>
+    <string name="e">東</string>
+    <string name="se">南東</string>
+    <string name="s">南</string>
+    <string name="sw">南西</string>
+    <string name="w">西</string>
+    <string name="nw">北西</string>
+    <string name="dial_n">北</string>
+    <string name="dial_e">東</string>
+    <string name="dial_s">南</string>
+    <string name="dial_w">西</string>
+    <string name="true_mark">真</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">磁北</string>
+    <string name="true_north">真北</string>
+    <string name="true_waiting">真北のためにおおよその現在地を取得しています。それまでは磁北を表示します。</string>
+    <string name="true_denied">真北にはおおよその現在地が必要です。磁北を表示しています。</string>
+    <string name="accuracy_high">精度: 高</string>
+    <string name="accuracy_medium">精度: 中</string>
+    <string name="accuracy_low">精度: 低。C を押して調整してください。</string>
+    <string name="accuracy_unreliable">精度: 不安定。C を押して調整してください。</string>
+    <string name="no_sensor">この電話にはコンパスセンサーがありません。</string>
+    <string name="flat_or_upright">電話を水平に置くか、見ている方向に向けて立ててください。</string>
+    <string name="held">固定中。H で解除。</string>
+    <string name="calibrate">調整</string>
+    <string name="calibrate_body">電話を回しながら 8 の字を数回描いてください。金属、磁石、スピーカーから離れてください。</string>
+    <string name="calibrate_done">調整しました。</string>
+    <string name="hint">T 真北 · C 調整 · H 固定 · Back で終了</string>
+    <string name="calibrate_hint">C または Back でコンパスに戻る</string>
+</resources>

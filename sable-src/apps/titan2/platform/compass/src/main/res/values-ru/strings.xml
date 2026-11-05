@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (CompassTextTest checks). -->
+<resources>
+    <string name="n">Север</string>
+    <string name="ne">Северо-восток</string>
+    <string name="e">Восток</string>
+    <string name="se">Юго-восток</string>
+    <string name="s">Юг</string>
+    <string name="sw">Юго-запад</string>
+    <string name="w">Запад</string>
+    <string name="nw">Северо-запад</string>
+    <string name="dial_n">С</string>
+    <string name="dial_e">В</string>
+    <string name="dial_s">Ю</string>
+    <string name="dial_w">З</string>
+    <string name="true_mark">И</string>
+    <string name="degrees">%1$d°</string>
+    <string name="magnetic">Магнитный север</string>
+    <string name="true_north">Истинный север</string>
+    <string name="true_waiting">Определяется ваше примерное местоположение для истинного севера. Пока показан магнитный север.</string>
+    <string name="true_denied">Для истинного севера нужно ваше примерное местоположение. Показан магнитный север.</string>
+    <string name="accuracy_high">Точность: высокая</string>
+    <string name="accuracy_medium">Точность: средняя</string>
+    <string name="accuracy_low">Точность: низкая. Нажмите C для калибровки.</string>
+    <string name="accuracy_unreliable">Точность: ненадёжная. Нажмите C для калибровки.</string>
+    <string name="no_sensor">В этом телефоне нет датчика компаса.</string>
+    <string name="flat_or_upright">Держите телефон горизонтально или вертикально в направлении взгляда.</string>
+    <string name="held">Зафиксировано. H отпускает.</string>
+    <string name="calibrate">Калибровка</string>
+    <string name="calibrate_body">Несколько раз проведите телефоном восьмёрку, поворачивая его. Держитесь подальше от металла, магнитов и динамиков.</string>
+    <string name="calibrate_done">Откалибровано.</string>
+    <string name="hint">T истинный север · C калибровка · H фиксация · Назад — выход</string>
+    <string name="calibrate_hint">C или Назад возвращает к компасу</string>
+</resources>
