@@ -5763,33 +5763,14 @@ private fun SablePeekScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .onPreviewKeyEvent { event ->
-                    val native = event.nativeKeyEvent
                     val named = { name: String ->
                         pickingFolder = false
                         onNewFolder(name)
                     }
                     if (nameKey(event, naming, { naming = it }, named)) return@onPreviewKeyEvent true
-                    if (!capturing || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    val letter = SpeedDialKeys.letterFor(native.keyCode)
-                    val chord =
-                        native.metaState and
-                            (
-                                android.view.KeyEvent.META_ALT_ON or
-                                    android.view.KeyEvent.META_CTRL_ON or
-                                    android.view.KeyEvent.META_META_ON
-                            ) != 0
-                    when {
-                        native.keyCode == android.view.KeyEvent.KEYCODE_DEL -> {
-                            onSetLetterShortcut(null)
-                            capturing = false
-                            true
-                        }
-                        letter != null && !chord -> {
-                            onSetLetterShortcut(letter)
-                            capturing = false
-                            true
-                        }
-                        else -> false
+                    letterKey(event, capturing) { letter ->
+                        onSetLetterShortcut(letter)
+                        capturing = false
                     }
                 },
     ) {
@@ -5977,6 +5958,26 @@ private fun SablePeekScreen(
             )
         }
     }
+}
+
+/**
+ * Peek's hold-key capture: while [capturing], a letter (no Alt, Ctrl or Meta) is passed to
+ * [onLetter] and Backspace passes null. Returns whether the key was taken.
+ */
+private fun letterKey(
+    event: KeyEvent,
+    capturing: Boolean,
+    onLetter: (Char?) -> Unit,
+): Boolean {
+    if (!capturing || event.type != KeyEventType.KeyDown) return false
+    val native = event.nativeKeyEvent
+    val letter = SpeedDialKeys.letterFor(native.keyCode)
+    val chord =
+        native.metaState and
+            (android.view.KeyEvent.META_ALT_ON or android.view.KeyEvent.META_CTRL_ON or android.view.KeyEvent.META_META_ON) != 0
+    val taken = native.keyCode == android.view.KeyEvent.KEYCODE_DEL || (letter != null && !chord)
+    if (taken) onLetter(if (native.keyCode == android.view.KeyEvent.KEYCODE_DEL) null else letter)
+    return taken
 }
 
 /**
