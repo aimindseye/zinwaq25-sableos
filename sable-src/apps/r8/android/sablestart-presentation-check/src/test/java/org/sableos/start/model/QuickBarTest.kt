@@ -154,4 +154,56 @@ class QuickBarTest {
         assertEquals(listOf("app:0:com.example/.Main", "command"), added)
         assertEquals(one, QuickBar.toggleApp(added, "app:0:com.example/.Main", "0:com.example/.Main"))
     }
+
+    // Timings from getevent on the Q25 (2026-11-05): flick bursts 15-60 ms apart, slow strokes 100+ ms.
+    private fun TrackpadFlick.feed(vararg presses: Pair<Int, Long>): List<TrackpadFlick.Step> =
+        presses.map { (key, time) -> onKeyDown(key, 0, 0, time) }
+
+    @Test
+    fun aQuickSidewaysBurstTurnsOnePageAndSwallowsTheRest() {
+        val steps = TrackpadFlick().feed(21 to 1000L, 21 to 1054L, 21 to 1108L, 21 to 1150L)
+        assertEquals(TrackpadFlick.Step.Pass, steps[0])
+        assertEquals(TrackpadFlick.Step.Pass, steps[1])
+        assertEquals(TrackpadFlick.Step.Turn(-1), steps[2])
+        assertEquals(TrackpadFlick.Step.Swallow, steps[3])
+    }
+
+    @Test
+    fun slowStrokesAndUpDownOnlyMoveFocus() {
+        val slow = TrackpadFlick().feed(22 to 0L, 22 to 108L, 22 to 216L, 22 to 330L)
+        assertTrue(slow.all { it == TrackpadFlick.Step.Pass })
+        val vertical = TrackpadFlick().feed(20 to 0L, 20 to 20L, 20 to 40L, 20 to 60L)
+        assertTrue(vertical.all { it == TrackpadFlick.Step.Pass })
+        val mixed = TrackpadFlick().feed(21 to 0L, 22 to 20L, 21 to 40L)
+        assertTrue(mixed.all { it == TrackpadFlick.Step.Pass })
+    }
+
+    @Test
+    fun aSecondFlickWaitsForThePauseAndAltArrowsAreLeftToPageKeys() {
+        val flick = TrackpadFlick()
+        val first = flick.feed(22 to 0L, 22 to 40L, 22 to 80L)
+        val tooSoon = flick.feed(22 to 200L, 22 to 240L, 22 to 280L)
+        val later = flick.feed(22 to 600L, 22 to 640L, 22 to 680L)
+        assertEquals(TrackpadFlick.Step.Turn(1), first.last())
+        assertTrue(tooSoon.none { it is TrackpadFlick.Step.Turn })
+        assertEquals(TrackpadFlick.Step.Turn(1), later.last())
+        val alt = TrackpadFlick()
+        val altSteps = (0..3).map { alt.onKeyDown(22, QuickBar.META_ALT_ON, 0, it * 20L) }
+        assertTrue(altSteps.all { it == TrackpadFlick.Step.Pass })
+    }
+
+    @Test
+    fun bottomEdgeTouchesRightAfterATrackpadKeyAreIgnored() {
+        fun ignored(
+            y: Float,
+            time: Long,
+            lastKey: Long?,
+        ) = TrackpadTouchGuard.ignores(y, screenHeight = 720, touchTimeMs = time, lastTrackpadKeyMs = lastKey)
+        assertTrue(ignored(700f, 1100, 1000))
+        assertFalse(ignored(300f, 1100, 1000))
+        assertFalse(ignored(700f, 1300, 1000))
+        assertFalse(ignored(700f, 1100, null))
+        assertTrue(TrackpadTouchGuard.isTrackpadKey(19))
+        assertFalse(TrackpadTouchGuard.isTrackpadKey(66))
+    }
 }

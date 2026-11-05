@@ -1,0 +1,287 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
+index 1489b97..02ff356 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/QuickBarTest.kt
+@@ -154,4 +154,56 @@ class QuickBarTest {
+         assertEquals(listOf("app:0:com.example/.Main", "command"), added)
+         assertEquals(one, QuickBar.toggleApp(added, "app:0:com.example/.Main", "0:com.example/.Main"))
+     }
++
++    // Timings from getevent on the Q25 (2026-11-05): flick bursts 15-60 ms apart, slow strokes 100+ ms.
++    private fun TrackpadFlick.feed(vararg presses: Pair<Int, Long>): List<TrackpadFlick.Step> =
++        presses.map { (key, time) -> onKeyDown(key, 0, 0, time) }
++
++    @Test
++    fun aQuickSidewaysBurstTurnsOnePageAndSwallowsTheRest() {
++        val steps = TrackpadFlick().feed(21 to 1000L, 21 to 1054L, 21 to 1108L, 21 to 1150L)
++        assertEquals(TrackpadFlick.Step.Pass, steps[0])
++        assertEquals(TrackpadFlick.Step.Pass, steps[1])
++        assertEquals(TrackpadFlick.Step.Turn(-1), steps[2])
++        assertEquals(TrackpadFlick.Step.Swallow, steps[3])
++    }
++
++    @Test
++    fun slowStrokesAndUpDownOnlyMoveFocus() {
++        val slow = TrackpadFlick().feed(22 to 0L, 22 to 108L, 22 to 216L, 22 to 330L)
++        assertTrue(slow.all { it == TrackpadFlick.Step.Pass })
++        val vertical = TrackpadFlick().feed(20 to 0L, 20 to 20L, 20 to 40L, 20 to 60L)
++        assertTrue(vertical.all { it == TrackpadFlick.Step.Pass })
++        val mixed = TrackpadFlick().feed(21 to 0L, 22 to 20L, 21 to 40L)
++        assertTrue(mixed.all { it == TrackpadFlick.Step.Pass })
++    }
++
++    @Test
++    fun aSecondFlickWaitsForThePauseAndAltArrowsAreLeftToPageKeys() {
++        val flick = TrackpadFlick()
++        val first = flick.feed(22 to 0L, 22 to 40L, 22 to 80L)
++        val tooSoon = flick.feed(22 to 200L, 22 to 240L, 22 to 280L)
++        val later = flick.feed(22 to 600L, 22 to 640L, 22 to 680L)
++        assertEquals(TrackpadFlick.Step.Turn(1), first.last())
++        assertTrue(tooSoon.none { it is TrackpadFlick.Step.Turn })
++        assertEquals(TrackpadFlick.Step.Turn(1), later.last())
++        val alt = TrackpadFlick()
++        val altSteps = (0..3).map { alt.onKeyDown(22, QuickBar.META_ALT_ON, 0, it * 20L) }
++        assertTrue(altSteps.all { it == TrackpadFlick.Step.Pass })
++    }
++
++    @Test
++    fun bottomEdgeTouchesRightAfterATrackpadKeyAreIgnored() {
++        fun ignored(
++            y: Float,
++            time: Long,
++            lastKey: Long?,
++        ) = TrackpadTouchGuard.ignores(y, screenHeight = 720, touchTimeMs = time, lastTrackpadKeyMs = lastKey)
++        assertTrue(ignored(700f, 1100, 1000))
++        assertFalse(ignored(300f, 1100, 1000))
++        assertFalse(ignored(700f, 1300, 1000))
++        assertFalse(ignored(700f, 1100, null))
++        assertTrue(TrackpadTouchGuard.isTrackpadKey(19))
++        assertFalse(TrackpadTouchGuard.isTrackpadKey(66))
++    }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index d60205f..eb4d2a7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.start
+ 
+ import android.Manifest
++import android.annotation.SuppressLint
+ import android.app.AlertDialog
+ import android.content.BroadcastReceiver
+ import android.content.Context
+@@ -18,6 +19,8 @@ import android.os.Handler
+ import android.os.Looper
+ import android.os.UserHandle
+ import android.provider.Settings
++import android.view.KeyEvent
++import android.view.MotionEvent
+ import android.view.WindowManager
+ import androidx.activity.ComponentActivity
+ import androidx.activity.OnBackPressedCallback
+@@ -36,6 +39,7 @@ import org.sableos.start.model.ActiveFrame
+ import org.sableos.start.model.AppEntry
+ import org.sableos.start.model.Bb7Detour
+ import org.sableos.start.model.HomeStyle
++import org.sableos.start.model.TrackpadTouchGuard
+ import org.sableos.start.platform.LauncherAppsRepository
+ import org.sableos.start.platform.LetterShortcutRepository
+ import org.sableos.start.platform.LiveSurfaceRepository
+@@ -73,6 +77,10 @@ class SableStartActivity : ComponentActivity() {
+ 
+     /** null: no work profile; true: work apps paused; false: on. */
+     private val workPausedState = mutableStateOf<Boolean?>(null)
++
++    /** When the trackpad last sent a key, and whether the current touch is a stray one it caused. */
++    private var lastTrackpadKeyMs: Long? = null
++    private var strayTouch = false
+     private val liveRefreshGeneration = mutableStateOf(0)
+     private val homeGeneration = mutableStateOf(0)
+     private val backGeneration = mutableStateOf(0)
+@@ -366,6 +374,25 @@ class SableStartActivity : ComponentActivity() {
+         scheduleInventoryRefresh()
+     }
+ 
++    @SuppressLint("RestrictedApi")
++    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
++        if (TrackpadTouchGuard.isTrackpadKey(event.keyCode)) lastTrackpadKeyMs = event.eventTime
++        return super.dispatchKeyEvent(event)
++    }
++
++    /** A thumb stroking up the trackpad brushes the bottom of the screen: drop that touch whole. */
++    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
++        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
++            strayTouch =
++                TrackpadTouchGuard.ignores(event.y, window.decorView.height, event.eventTime, lastTrackpadKeyMs)
++        }
++        if (!strayTouch) return super.dispatchTouchEvent(event)
++        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
++            strayTouch = false
++        }
++        return true
++    }
++
+     override fun onResume() {
+         super.onResume()
+         val style = startStateRepository.loadHomeStyle()
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
+index 8976910..9eeba4d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/QuickBar.kt
+@@ -277,3 +277,114 @@ object StartPages {
+             else -> HOME
+         }
+ }
++
++/**
++ * Trackpad flicks on the Start pages. The Q25 trackpad sends plain arrow keys: a quick stroke
++ * is a burst of presses 15-60 ms apart, a slow one single presses 100 ms or more apart (getevent
++ * on the Q25, 2026-11-05). [FLICK_PRESSES] same-direction Left or Right presses within
++ * [FLICK_GAP_MS] of each other turn one page; the rest of that burst is swallowed so focus does
++ * not run on in the new page, and no second turn comes until [TURN_PAUSE_MS] later. Slower
++ * strokes and Up/Down keep moving focus. A flick never opens anything.
++ */
++class TrackpadFlick {
++    /** What to do with one key: pass it on, turn a page toward [Turn.delta], or swallow it. */
++    sealed interface Step {
++        data object Pass : Step
++
++        data class Turn(
++            val delta: Int,
++        ) : Step
++
++        data object Swallow : Step
++    }
++
++    private var direction = 0
++    private var presses = 0
++    private var lastPress = Long.MIN_VALUE / 2
++    private var lastTurn = Long.MIN_VALUE / 2
++    private var spent = false
++
++    /** One key down at [timeMs] (KeyEvent.getEventTime). Modified keys and repeats always pass. */
++    fun onKeyDown(
++        keyCode: Int,
++        metaState: Int,
++        repeat: Int,
++        timeMs: Long,
++    ): Step {
++        val delta = horizontal(keyCode)
++        if (delta == null || repeat > 0 || metaState and MODIFIERS != 0) {
++            presses = 0
++            return Step.Pass
++        }
++        val sameBurst = delta == direction && timeMs - lastPress <= FLICK_GAP_MS
++        lastPress = timeMs
++        if (!sameBurst) {
++            direction = delta
++            presses = 0
++            spent = false
++        }
++        presses++
++        return when {
++            spent -> {
++                Step.Swallow
++            }
++
++            presses >= FLICK_PRESSES && timeMs - lastTurn >= TURN_PAUSE_MS -> {
++                spent = true
++                lastTurn = timeMs
++                Step.Turn(delta)
++            }
++
++            else -> {
++                Step.Pass
++            }
++        }
++    }
++
++    private fun horizontal(keyCode: Int): Int? =
++        when (keyCode) {
++            KEYCODE_DPAD_LEFT -> -1
++            KEYCODE_DPAD_RIGHT -> 1
++            else -> null
++        }
++
++    companion object {
++        const val FLICK_PRESSES = 3
++        const val FLICK_GAP_MS = 70L
++        const val TURN_PAUSE_MS = 350L
++        private const val KEYCODE_DPAD_LEFT = 21
++        private const val KEYCODE_DPAD_RIGHT = 22
++        private const val META_SHIFT_ON = 0x1
++        private const val META_CTRL_ON = 0x1000
++        private const val MODIFIERS =
++            QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON or META_SHIFT_ON or META_CTRL_ON
++    }
++}
++
++/**
++ * Stray touches from the trackpad: a thumb stroking up the Q25 trackpad brushes the bottom of the
++ * screen (getevent shows a short touch at the bottom edge during most Up bursts). A touch that
++ * starts in the bottom [EDGE_FRACTION] of the screen within [GUARD_MS] of a trackpad key is
++ * ignored with the rest of its gesture.
++ */
++object TrackpadTouchGuard {
++    const val GUARD_MS = 150L
++    const val EDGE_FRACTION = 0.15f
++
++    fun ignores(
++        touchY: Float,
++        screenHeight: Int,
++        touchTimeMs: Long,
++        lastTrackpadKeyMs: Long?,
++    ): Boolean {
++        if (lastTrackpadKeyMs == null || screenHeight <= 0) return false
++        val nearKey = touchTimeMs - lastTrackpadKeyMs in 0..GUARD_MS
++        return nearKey && touchY >= screenHeight * (1f - EDGE_FRACTION)
++    }
++
++    /** The arrow keys and centre press the trackpad sends. */
++    fun isTrackpadKey(keyCode: Int): Boolean = keyCode in KEYCODE_DPAD_UP..KEYCODE_DPAD_CENTER
++
++    private const val KEYCODE_DPAD_UP = 19
++    private const val KEYCODE_DPAD_CENTER = 23
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index b9b26d9..e2a7822 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -171,6 +171,7 @@ import org.sableos.start.model.SpeedDialKeys
+ import org.sableos.start.model.StartMonth
+ import org.sableos.start.model.StartPages
+ import org.sableos.start.model.StartTypeToSearch
++import org.sableos.start.model.TrackpadFlick
+ import org.sableos.start.model.inLauncherUser
+ import org.sableos.start.model.stableKey
+ import org.sableos.start.platform.FrameMediaRepository
+@@ -985,6 +986,7 @@ private fun StartStrip(
+ ) {
+     var phoneSlotFocused by remember { mutableStateOf(false) }
+     val speedDialKeys = remember { SpeedDialKeys() }
++    val trackpadFlick = remember { TrackpadFlick() }
+     Column(
+         modifier =
+             Modifier
+@@ -992,6 +994,20 @@ private fun StartStrip(
+                 .background(Bb10Background)
+                 .onPreviewKeyEvent { event ->
+                     val native = event.nativeKeyEvent
++                    // A quick sideways trackpad stroke turns the page; slow strokes move focus.
++                    val flick =
++                        if (event.type == KeyEventType.KeyDown) {
++                            trackpadFlick.onKeyDown(
++                                keyCode = native.keyCode,
++                                metaState = native.metaState,
++                                repeat = native.repeatCount,
++                                timeMs = native.eventTime,
++                            )
++                        } else {
++                            TrackpadFlick.Step.Pass
++                        }
++                    if (flick is TrackpadFlick.Step.Turn) onMovePage(flick.delta)
++                    if (flick != TrackpadFlick.Step.Pass) return@onPreviewKeyEvent true
+                     val delta = StartPages.keyDelta(native.keyCode, native.metaState)
+                     val alt = native.metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) != 0
+                     val dial = if (phoneSlotFocused) QuickBar.dialChar(native.unicodeChar) else null

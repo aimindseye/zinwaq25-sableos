@@ -1,6 +1,7 @@
 package org.sableos.start
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -18,6 +19,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.UserHandle
 import android.provider.Settings
+import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -36,6 +39,7 @@ import org.sableos.start.model.ActiveFrame
 import org.sableos.start.model.AppEntry
 import org.sableos.start.model.Bb7Detour
 import org.sableos.start.model.HomeStyle
+import org.sableos.start.model.TrackpadTouchGuard
 import org.sableos.start.platform.LauncherAppsRepository
 import org.sableos.start.platform.LetterShortcutRepository
 import org.sableos.start.platform.LiveSurfaceRepository
@@ -73,6 +77,10 @@ class SableStartActivity : ComponentActivity() {
 
     /** null: no work profile; true: work apps paused; false: on. */
     private val workPausedState = mutableStateOf<Boolean?>(null)
+
+    /** When the trackpad last sent a key, and whether the current touch is a stray one it caused. */
+    private var lastTrackpadKeyMs: Long? = null
+    private var strayTouch = false
     private val liveRefreshGeneration = mutableStateOf(0)
     private val homeGeneration = mutableStateOf(0)
     private val backGeneration = mutableStateOf(0)
@@ -364,6 +372,25 @@ class SableStartActivity : ComponentActivity() {
             callbackRegistered = true
         }
         scheduleInventoryRefresh()
+    }
+
+    @SuppressLint("RestrictedApi")
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (TrackpadTouchGuard.isTrackpadKey(event.keyCode)) lastTrackpadKeyMs = event.eventTime
+        return super.dispatchKeyEvent(event)
+    }
+
+    /** A thumb stroking up the trackpad brushes the bottom of the screen: drop that touch whole. */
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            strayTouch =
+                TrackpadTouchGuard.ignores(event.y, window.decorView.height, event.eventTime, lastTrackpadKeyMs)
+        }
+        if (!strayTouch) return super.dispatchTouchEvent(event)
+        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+            strayTouch = false
+        }
+        return true
     }
 
     override fun onResume() {

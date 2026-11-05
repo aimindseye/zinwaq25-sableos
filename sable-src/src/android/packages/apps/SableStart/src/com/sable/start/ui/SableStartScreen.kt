@@ -171,6 +171,7 @@ import org.sableos.start.model.SpeedDialKeys
 import org.sableos.start.model.StartMonth
 import org.sableos.start.model.StartPages
 import org.sableos.start.model.StartTypeToSearch
+import org.sableos.start.model.TrackpadFlick
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
 import org.sableos.start.platform.FrameMediaRepository
@@ -985,6 +986,7 @@ private fun StartStrip(
 ) {
     var phoneSlotFocused by remember { mutableStateOf(false) }
     val speedDialKeys = remember { SpeedDialKeys() }
+    val trackpadFlick = remember { TrackpadFlick() }
     Column(
         modifier =
             Modifier
@@ -992,6 +994,20 @@ private fun StartStrip(
                 .background(Bb10Background)
                 .onPreviewKeyEvent { event ->
                     val native = event.nativeKeyEvent
+                    // A quick sideways trackpad stroke turns the page; slow strokes move focus.
+                    val flick =
+                        if (event.type == KeyEventType.KeyDown) {
+                            trackpadFlick.onKeyDown(
+                                keyCode = native.keyCode,
+                                metaState = native.metaState,
+                                repeat = native.repeatCount,
+                                timeMs = native.eventTime,
+                            )
+                        } else {
+                            TrackpadFlick.Step.Pass
+                        }
+                    if (flick is TrackpadFlick.Step.Turn) onMovePage(flick.delta)
+                    if (flick != TrackpadFlick.Step.Pass) return@onPreviewKeyEvent true
                     val delta = StartPages.keyDelta(native.keyCode, native.metaState)
                     val alt = native.metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) != 0
                     val dial = if (phoneSlotFocused) QuickBar.dialChar(native.unicodeChar) else null

@@ -277,3 +277,114 @@ object StartPages {
             else -> HOME
         }
 }
+
+/**
+ * Trackpad flicks on the Start pages. The Q25 trackpad sends plain arrow keys: a quick stroke
+ * is a burst of presses 15-60 ms apart, a slow one single presses 100 ms or more apart (getevent
+ * on the Q25, 2026-11-05). [FLICK_PRESSES] same-direction Left or Right presses within
+ * [FLICK_GAP_MS] of each other turn one page; the rest of that burst is swallowed so focus does
+ * not run on in the new page, and no second turn comes until [TURN_PAUSE_MS] later. Slower
+ * strokes and Up/Down keep moving focus. A flick never opens anything.
+ */
+class TrackpadFlick {
+    /** What to do with one key: pass it on, turn a page toward [Turn.delta], or swallow it. */
+    sealed interface Step {
+        data object Pass : Step
+
+        data class Turn(
+            val delta: Int,
+        ) : Step
+
+        data object Swallow : Step
+    }
+
+    private var direction = 0
+    private var presses = 0
+    private var lastPress = Long.MIN_VALUE / 2
+    private var lastTurn = Long.MIN_VALUE / 2
+    private var spent = false
+
+    /** One key down at [timeMs] (KeyEvent.getEventTime). Modified keys and repeats always pass. */
+    fun onKeyDown(
+        keyCode: Int,
+        metaState: Int,
+        repeat: Int,
+        timeMs: Long,
+    ): Step {
+        val delta = horizontal(keyCode)
+        if (delta == null || repeat > 0 || metaState and MODIFIERS != 0) {
+            presses = 0
+            return Step.Pass
+        }
+        val sameBurst = delta == direction && timeMs - lastPress <= FLICK_GAP_MS
+        lastPress = timeMs
+        if (!sameBurst) {
+            direction = delta
+            presses = 0
+            spent = false
+        }
+        presses++
+        return when {
+            spent -> {
+                Step.Swallow
+            }
+
+            presses >= FLICK_PRESSES && timeMs - lastTurn >= TURN_PAUSE_MS -> {
+                spent = true
+                lastTurn = timeMs
+                Step.Turn(delta)
+            }
+
+            else -> {
+                Step.Pass
+            }
+        }
+    }
+
+    private fun horizontal(keyCode: Int): Int? =
+        when (keyCode) {
+            KEYCODE_DPAD_LEFT -> -1
+            KEYCODE_DPAD_RIGHT -> 1
+            else -> null
+        }
+
+    companion object {
+        const val FLICK_PRESSES = 3
+        const val FLICK_GAP_MS = 70L
+        const val TURN_PAUSE_MS = 350L
+        private const val KEYCODE_DPAD_LEFT = 21
+        private const val KEYCODE_DPAD_RIGHT = 22
+        private const val META_SHIFT_ON = 0x1
+        private const val META_CTRL_ON = 0x1000
+        private const val MODIFIERS =
+            QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON or META_SHIFT_ON or META_CTRL_ON
+    }
+}
+
+/**
+ * Stray touches from the trackpad: a thumb stroking up the Q25 trackpad brushes the bottom of the
+ * screen (getevent shows a short touch at the bottom edge during most Up bursts). A touch that
+ * starts in the bottom [EDGE_FRACTION] of the screen within [GUARD_MS] of a trackpad key is
+ * ignored with the rest of its gesture.
+ */
+object TrackpadTouchGuard {
+    const val GUARD_MS = 150L
+    const val EDGE_FRACTION = 0.15f
+
+    fun ignores(
+        touchY: Float,
+        screenHeight: Int,
+        touchTimeMs: Long,
+        lastTrackpadKeyMs: Long?,
+    ): Boolean {
+        if (lastTrackpadKeyMs == null || screenHeight <= 0) return false
+        val nearKey = touchTimeMs - lastTrackpadKeyMs in 0..GUARD_MS
+        return nearKey && touchY >= screenHeight * (1f - EDGE_FRACTION)
+    }
+
+    /** The arrow keys and centre press the trackpad sends. */
+    fun isTrackpadKey(keyCode: Int): Boolean = keyCode in KEYCODE_DPAD_UP..KEYCODE_DPAD_CENTER
+
+    private const val KEYCODE_DPAD_UP = 19
+    private const val KEYCODE_DPAD_CENTER = 23
+}
