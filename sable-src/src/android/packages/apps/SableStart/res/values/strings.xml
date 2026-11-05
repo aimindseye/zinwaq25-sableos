@@ -288,4 +288,10 @@
     <string name="icon_small">Small</string>
     <string name="icon_medium">Medium</string>
     <string name="icon_large">Large</string>
+    <string name="new_tab">New tab</string>
+    <string name="new_tab_name">Tab name: %1$s</string>
+    <string name="add_to_tab">Add to %1$s</string>
+    <string name="remove_from_tab">Remove from %1$s</string>
+    <string name="delete_tab">Delete tab %1$s</string>
+    <string name="letter_press_for">%1$s: press a letter, Backspace removes</string>
 </resources>

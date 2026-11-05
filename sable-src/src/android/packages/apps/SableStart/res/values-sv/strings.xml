@@ -284,4 +284,10 @@
     <string name="icon_small">Liten</string>
     <string name="icon_medium">Mellan</string>
     <string name="icon_large">Stor</string>
+    <string name="new_tab">Ny flik</string>
+    <string name="new_tab_name">Fliknamn: %1$s</string>
+    <string name="add_to_tab">Lägg till i %1$s</string>
+    <string name="remove_from_tab">Ta bort från %1$s</string>
+    <string name="delete_tab">Ta bort fliken %1$s</string>
+    <string name="letter_press_for">%1$s: tryck på en bokstav, Backsteg tar bort</string>
 </resources>

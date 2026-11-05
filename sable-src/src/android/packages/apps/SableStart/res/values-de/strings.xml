@@ -284,4 +284,10 @@
     <string name="icon_small">Klein</string>
     <string name="icon_medium">Mittel</string>
     <string name="icon_large">Groß</string>
+    <string name="new_tab">Neuer Tab</string>
+    <string name="new_tab_name">Tab-Name: %1$s</string>
+    <string name="add_to_tab">Zu %1$s hinzufügen</string>
+    <string name="remove_from_tab">Aus %1$s entfernen</string>
+    <string name="delete_tab">Tab %1$s löschen</string>
+    <string name="letter_press_for">%1$s: Buchstaben drücken, Rücktaste entfernt</string>
 </resources>

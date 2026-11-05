@@ -284,4 +284,10 @@
     <string name="icon_small">छोटा</string>
     <string name="icon_medium">मध्यम</string>
     <string name="icon_large">बड़ा</string>
+    <string name="new_tab">नया टैब</string>
+    <string name="new_tab_name">टैब का नाम: %1$s</string>
+    <string name="add_to_tab">%1$s में जोड़ें</string>
+    <string name="remove_from_tab">%1$s से हटाएँ</string>
+    <string name="delete_tab">टैब %1$s हटाएँ</string>
+    <string name="letter_press_for">%1$s: एक अक्षर दबाएँ, Backspace हटाता है</string>
 </resources>

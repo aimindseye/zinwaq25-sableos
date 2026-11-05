@@ -3,6 +3,8 @@ package org.sableos.start.platform
 import android.content.Context
 import org.sableos.start.model.Bb7Home
 import org.sableos.start.model.Bb7Layout
+import org.sableos.start.model.Bb7Tab
+import org.sableos.start.model.Bb7Tabs
 import org.sableos.start.model.HomeStyle
 
 /**
@@ -126,6 +128,13 @@ class StartStateRepository(
         preferences.edit().putString(KEY_BB7_LAYOUT, layout.encode()).apply()
     }
 
+    /** The user's own BlackBerry 7 tray tabs (see Bb7Tabs). */
+    fun loadBb7Tabs(): List<Bb7Tab> = Bb7Tabs.decode(preferences.getString(KEY_BB7_TABS, null))
+
+    fun saveBb7Tabs(tabs: List<Bb7Tab>) {
+        preferences.edit().putString(KEY_BB7_TABS, Bb7Tabs.encode(tabs)).apply()
+    }
+
     /** The app grid order (AppGrid, the BB10 layout); null means never customised. */
     fun loadGridOrder(): List<String>? = loadOrdered(KEY_GRID_ORDER)
 
@@ -201,6 +210,7 @@ class StartStateRepository(
         const val KEY_HOME_APPS = "home_apps"
         const val KEY_BB7_HOME_ROWS = "bb7_home_rows"
         const val KEY_BB7_LAYOUT = "bb7_layout"
+        const val KEY_BB7_TABS = "bb7_tabs"
         const val KEY_GLANCE_WIDGETS = "glance_widgets"
         // v2: the BB10 Home shows the status dials by default; sets saved by the
         // three-page Home hid them without the user choosing, so they are not read.

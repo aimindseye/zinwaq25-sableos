@@ -284,4 +284,10 @@
     <string name="icon_small">小</string>
     <string name="icon_medium">中</string>
     <string name="icon_large">大</string>
+    <string name="new_tab">新建标签</string>
+    <string name="new_tab_name">标签名称：%1$s</string>
+    <string name="add_to_tab">添加到%1$s</string>
+    <string name="remove_from_tab">从%1$s移除</string>
+    <string name="delete_tab">删除标签%1$s</string>
+    <string name="letter_press_for">%1$s：按一个字母，退格键移除</string>
 </resources>

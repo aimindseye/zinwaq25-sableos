@@ -284,4 +284,10 @@
     <string name="icon_small">چھوٹا</string>
     <string name="icon_medium">درمیانہ</string>
     <string name="icon_large">بڑا</string>
+    <string name="new_tab">نیا ٹیب</string>
+    <string name="new_tab_name">ٹیب کا نام: %1$s</string>
+    <string name="add_to_tab">%1$s میں شامل کریں</string>
+    <string name="remove_from_tab">%1$s سے ہٹائیں</string>
+    <string name="delete_tab">ٹیب %1$s حذف کریں</string>
+    <string name="letter_press_for">%1$s: کوئی حرف دبائیں، Backspace ہٹاتا ہے</string>
 </resources>

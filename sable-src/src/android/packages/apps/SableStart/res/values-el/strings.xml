@@ -284,4 +284,10 @@
     <string name="icon_small">Μικρό</string>
     <string name="icon_medium">Μεσαίο</string>
     <string name="icon_large">Μεγάλο</string>
+    <string name="new_tab">Νέα καρτέλα</string>
+    <string name="new_tab_name">Όνομα καρτέλας: %1$s</string>
+    <string name="add_to_tab">Προσθήκη στο %1$s</string>
+    <string name="remove_from_tab">Αφαίρεση από %1$s</string>
+    <string name="delete_tab">Διαγραφή καρτέλας %1$s</string>
+    <string name="letter_press_for">%1$s: πατήστε ένα γράμμα, το Backspace αφαιρεί</string>
 </resources>

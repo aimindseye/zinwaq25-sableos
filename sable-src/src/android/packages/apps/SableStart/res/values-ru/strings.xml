@@ -284,4 +284,10 @@
     <string name="icon_small">Мелкий</string>
     <string name="icon_medium">Средний</string>
     <string name="icon_large">Крупный</string>
+    <string name="new_tab">Новая вкладка</string>
+    <string name="new_tab_name">Имя вкладки: %1$s</string>
+    <string name="add_to_tab">Добавить в %1$s</string>
+    <string name="remove_from_tab">Убрать из %1$s</string>
+    <string name="delete_tab">Удалить вкладку %1$s</string>
+    <string name="letter_press_for">%1$s: нажмите букву, Backspace удаляет</string>
 </resources>

@@ -284,4 +284,10 @@
     <string name="icon_small">小</string>
     <string name="icon_medium">中</string>
     <string name="icon_large">大</string>
+    <string name="new_tab">新しいタブ</string>
+    <string name="new_tab_name">タブ名: %1$s</string>
+    <string name="add_to_tab">%1$s に追加</string>
+    <string name="remove_from_tab">%1$s から外す</string>
+    <string name="delete_tab">タブ %1$s を削除</string>
+    <string name="letter_press_for">%1$s: 文字キーを押す（Backspace で解除）</string>
 </resources>

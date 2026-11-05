@@ -80,7 +80,9 @@ Alt+Left and Alt+Right move between pages. Alt+Space opens Command, and any lett
 - Settings > System > Keyboard > Trackpad switches the trackpad between Keys (moves between items, the default) and Pointer (moves a cursor; a click taps where it points).
 - The tray at the bottom shows one to three rows of Favorites. Drag it up or down to change the rows. Up opens the whole tray and Esc closes it.
 - Space switches panels (Favorites, All, Downloads), and typing searches apps. Search ignores accents, so "cafe" finds "Café" (in Start's search too).
-- Menu on an app: Open, Add to Favorites or Remove from Favorites, Move (arrows carry it, Enter drops it), App Info and, for an app you installed, Delete. Then Tray view (Grid or List), Grid columns (Auto or 4 to 8), Icon size (Small, Medium or Large), Hub, Home Screen Style, Settings and Close. Each of the three tray rows shows its current value and steps to the next one when chosen; Start remembers them.
+- Menu on an app: Open, Add to Favorites or Remove from Favorites, Move (arrows carry it, Enter drops it), Add to or Remove from each of your own tabs, Hold-key shortcut (press the letter to hold on Home to open the app; Backspace removes it), App Info and, for an app you installed, Delete. Then New tab, Delete tab (on one of your tabs), Tray view (Grid or List), Grid columns (Auto or 4 to 8), Icon size (Small, Medium or Large), Hub, Home Screen Style, Settings and Close. Each of the three tray rows shows its current value and steps to the next one when chosen; Start remembers them.
+- Your own tabs come after Favorites, All and Downloads (up to five). New tab asks for a name in the tray title: type it and press Enter, or Esc to cancel.
+- Holding a letter on the BlackBerry 7 home opens the app set to it, or calls the speed dial on it, as on the BlackBerry 10 home. A short press still searches.
 
 ### Keys that work everywhere
 

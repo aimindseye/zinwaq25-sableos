@@ -284,4 +284,10 @@
     <string name="icon_small">Pequeno</string>
     <string name="icon_medium">Médio</string>
     <string name="icon_large">Grande</string>
+    <string name="new_tab">Nova aba</string>
+    <string name="new_tab_name">Nome da aba: %1$s</string>
+    <string name="add_to_tab">Adicionar a %1$s</string>
+    <string name="remove_from_tab">Remover de %1$s</string>
+    <string name="delete_tab">Excluir aba %1$s</string>
+    <string name="letter_press_for">%1$s: pressione uma letra, Backspace remove</string>
 </resources>

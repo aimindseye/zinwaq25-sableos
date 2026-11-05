@@ -284,4 +284,10 @@
     <string name="icon_small">Pequeño</string>
     <string name="icon_medium">Mediano</string>
     <string name="icon_large">Grande</string>
+    <string name="new_tab">Nueva pestaña</string>
+    <string name="new_tab_name">Nombre de la pestaña: %1$s</string>
+    <string name="add_to_tab">Añadir a %1$s</string>
+    <string name="remove_from_tab">Quitar de %1$s</string>
+    <string name="delete_tab">Eliminar pestaña %1$s</string>
+    <string name="letter_press_for">%1$s: pulsa una letra, Retroceso la quita</string>
 </resources>

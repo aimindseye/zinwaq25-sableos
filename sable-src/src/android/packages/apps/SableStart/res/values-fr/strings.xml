@@ -284,4 +284,10 @@
     <string name="icon_small">Petite</string>
     <string name="icon_medium">Moyenne</string>
     <string name="icon_large">Grande</string>
+    <string name="new_tab">Nouvel onglet</string>
+    <string name="new_tab_name">Nom de l\'onglet : %1$s</string>
+    <string name="add_to_tab">Ajouter à %1$s</string>
+    <string name="remove_from_tab">Retirer de %1$s</string>
+    <string name="delete_tab">Supprimer l\'onglet %1$s</string>
+    <string name="letter_press_for">%1$s : appuyez sur une lettre, Retour arrière l\'enlève</string>
 </resources>

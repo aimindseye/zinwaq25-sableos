@@ -284,4 +284,10 @@
     <string name="icon_small">작게</string>
     <string name="icon_medium">중간</string>
     <string name="icon_large">크게</string>
+    <string name="new_tab">새 탭</string>
+    <string name="new_tab_name">탭 이름: %1$s</string>
+    <string name="add_to_tab">%1$s에 추가</string>
+    <string name="remove_from_tab">%1$s에서 제거</string>
+    <string name="delete_tab">%1$s 탭 삭제</string>
+    <string name="letter_press_for">%1$s: 글자를 누르세요, Backspace는 해제</string>
 </resources>

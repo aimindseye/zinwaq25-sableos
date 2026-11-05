@@ -1,0 +1,799 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb7HomeTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb7HomeTest.kt
+index 3457f47..379853d 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb7HomeTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb7HomeTest.kt
+@@ -95,4 +95,46 @@ class Bb7HomeTest {
+         assertEquals(Bb7Layout(), Bb7Layout.decode(null))
+         assertEquals(Bb7Layout.AUTO, Bb7Layout.decode("Grid:42:Medium").columns)
+     }
++
++    @Test
++    fun ownTabsAreNamedFilledAndSaved() {
++        var tabs = Bb7Tabs.add(emptyList(), "  Games\t ")
++        assertEquals(listOf(Bb7Tab("Games")), tabs)
++        assertEquals(tabs, Bb7Tabs.add(tabs, "games"))
++        assertEquals(tabs, Bb7Tabs.add(tabs, "   "))
++        tabs = Bb7Tabs.add(tabs, "Travel and maps for the weekend")
++        assertEquals("Travel and maps for", tabs[1].name)
++        tabs = Bb7Tabs.toggle(tabs, 0, "0:a/.A")
++        tabs = Bb7Tabs.toggle(tabs, 0, "0:b/.B")
++        assertEquals(listOf("0:a/.A", "0:b/.B"), tabs[0].keys)
++        assertEquals(listOf("0:b/.B"), Bb7Tabs.toggle(tabs, 0, "0:a/.A")[0].keys)
++        assertEquals(tabs, Bb7Tabs.decode(Bb7Tabs.encode(tabs)))
++        assertEquals(listOf(tabs[1]), Bb7Tabs.remove(tabs, 0))
++        val full = (1..9).fold(emptyList<Bb7Tab>()) { acc, i -> Bb7Tabs.add(acc, "Tab $i") }
++        assertEquals(Bb7Tabs.MAX, full.size)
++        assertEquals(emptyList<Bb7Tab>(), Bb7Tabs.decode(null))
++        assertEquals(listOf(Bb7Tab("Work", listOf("0:w/.W"))), Bb7Tabs.decode("\t0:x/.X\nWork\t0:w/.W,,0:w/.W"))
++    }
++
++    @Test
++    fun trayPlacesRunThroughThePanelsThenTheUsersTabs() {
++        assertEquals(5, Bb7Home.trayPlaces(2))
++        assertEquals(Bb7Panel.All, Bb7Home.panelAt(1))
++        assertEquals(null, Bb7Home.panelAt(3))
++        assertEquals(3, Bb7Home.stepPlace(2, 1, tabs = 2))
++        assertEquals(0, Bb7Home.stepPlace(4, 1, tabs = 2))
++        assertEquals(4, Bb7Home.stepPlace(0, -1, tabs = 2))
++        assertEquals(0, Bb7Home.stepPlace(2, 1, tabs = 0))
++    }
++
++    @Test
++    fun aTabNameIsTypedInTheTrayTitle() {
++        assertEquals("Ga", Bb7Naming.onKey(35, 'a'.code, "G"))
++        assertEquals("G", Bb7Naming.onKey(67, 0, "Ga"))
++        assertEquals("My ", Bb7Naming.onKey(62, ' '.code, "My"))
++        assertEquals(null, Bb7Naming.onKey(66, '\n'.code, "Games"))
++        assertEquals(null, Bb7Naming.onKey(111, 0, "Games"))
++        val long = "x".repeat(Bb7Tabs.MAX_NAME)
++        assertEquals(long, Bb7Naming.onKey(29, 'a'.code, long))
++    }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index ca6a513..a532722 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">صغير</string>
+     <string name="icon_medium">متوسط</string>
+     <string name="icon_large">كبير</string>
++    <string name="new_tab">علامة تبويب جديدة</string>
++    <string name="new_tab_name">اسم علامة التبويب: %1$s</string>
++    <string name="add_to_tab">إضافة إلى %1$s</string>
++    <string name="remove_from_tab">إزالة من %1$s</string>
++    <string name="delete_tab">حذف علامة التبويب %1$s</string>
++    <string name="letter_press_for">%1$s: اضغط حرفًا، ومسافة للخلف تزيله</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index 5270da6..77c3bbb 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">Klein</string>
+     <string name="icon_medium">Mittel</string>
+     <string name="icon_large">Groß</string>
++    <string name="new_tab">Neuer Tab</string>
++    <string name="new_tab_name">Tab-Name: %1$s</string>
++    <string name="add_to_tab">Zu %1$s hinzufügen</string>
++    <string name="remove_from_tab">Aus %1$s entfernen</string>
++    <string name="delete_tab">Tab %1$s löschen</string>
++    <string name="letter_press_for">%1$s: Buchstaben drücken, Rücktaste entfernt</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index 94118d0..fc6376f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">Μικρό</string>
+     <string name="icon_medium">Μεσαίο</string>
+     <string name="icon_large">Μεγάλο</string>
++    <string name="new_tab">Νέα καρτέλα</string>
++    <string name="new_tab_name">Όνομα καρτέλας: %1$s</string>
++    <string name="add_to_tab">Προσθήκη στο %1$s</string>
++    <string name="remove_from_tab">Αφαίρεση από %1$s</string>
++    <string name="delete_tab">Διαγραφή καρτέλας %1$s</string>
++    <string name="letter_press_for">%1$s: πατήστε ένα γράμμα, το Backspace αφαιρεί</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index 2b3b035..db8a28f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">Pequeño</string>
+     <string name="icon_medium">Mediano</string>
+     <string name="icon_large">Grande</string>
++    <string name="new_tab">Nueva pestaña</string>
++    <string name="new_tab_name">Nombre de la pestaña: %1$s</string>
++    <string name="add_to_tab">Añadir a %1$s</string>
++    <string name="remove_from_tab">Quitar de %1$s</string>
++    <string name="delete_tab">Eliminar pestaña %1$s</string>
++    <string name="letter_press_for">%1$s: pulsa una letra, Retroceso la quita</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index 9b96bff..2ee0be5 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">Petite</string>
+     <string name="icon_medium">Moyenne</string>
+     <string name="icon_large">Grande</string>
++    <string name="new_tab">Nouvel onglet</string>
++    <string name="new_tab_name">Nom de l\'onglet : %1$s</string>
++    <string name="add_to_tab">Ajouter à %1$s</string>
++    <string name="remove_from_tab">Retirer de %1$s</string>
++    <string name="delete_tab">Supprimer l\'onglet %1$s</string>
++    <string name="letter_press_for">%1$s : appuyez sur une lettre, Retour arrière l\'enlève</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index e0de07f..1261451 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">छोटा</string>
+     <string name="icon_medium">मध्यम</string>
+     <string name="icon_large">बड़ा</string>
++    <string name="new_tab">नया टैब</string>
++    <string name="new_tab_name">टैब का नाम: %1$s</string>
++    <string name="add_to_tab">%1$s में जोड़ें</string>
++    <string name="remove_from_tab">%1$s से हटाएँ</string>
++    <string name="delete_tab">टैब %1$s हटाएँ</string>
++    <string name="letter_press_for">%1$s: एक अक्षर दबाएँ, Backspace हटाता है</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index 4e737ca..ef9c1d6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">Piccola</string>
+     <string name="icon_medium">Media</string>
+     <string name="icon_large">Grande</string>
++    <string name="new_tab">Nuova scheda</string>
++    <string name="new_tab_name">Nome della scheda: %1$s</string>
++    <string name="add_to_tab">Aggiungi a %1$s</string>
++    <string name="remove_from_tab">Rimuovi da %1$s</string>
++    <string name="delete_tab">Elimina scheda %1$s</string>
++    <string name="letter_press_for">%1$s: premi una lettera, Backspace la toglie</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index c3e36f0..a589359 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">קטן</string>
+     <string name="icon_medium">בינוני</string>
+     <string name="icon_large">גדול</string>
++    <string name="new_tab">כרטיסייה חדשה</string>
++    <string name="new_tab_name">שם הכרטיסייה: %1$s</string>
++    <string name="add_to_tab">הוספה אל %1$s</string>
++    <string name="remove_from_tab">הסרה מ-%1$s</string>
++    <string name="delete_tab">מחיקת הכרטיסייה %1$s</string>
++    <string name="letter_press_for">%1$s: הקישו על אות, Backspace מסיר</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index 52127ab..380f979 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">小</string>
+     <string name="icon_medium">中</string>
+     <string name="icon_large">大</string>
++    <string name="new_tab">新しいタブ</string>
++    <string name="new_tab_name">タブ名: %1$s</string>
++    <string name="add_to_tab">%1$s に追加</string>
++    <string name="remove_from_tab">%1$s から外す</string>
++    <string name="delete_tab">タブ %1$s を削除</string>
++    <string name="letter_press_for">%1$s: 文字キーを押す（Backspace で解除）</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 3c1ba3f..75f729f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">작게</string>
+     <string name="icon_medium">중간</string>
+     <string name="icon_large">크게</string>
++    <string name="new_tab">새 탭</string>
++    <string name="new_tab_name">탭 이름: %1$s</string>
++    <string name="add_to_tab">%1$s에 추가</string>
++    <string name="remove_from_tab">%1$s에서 제거</string>
++    <string name="delete_tab">%1$s 탭 삭제</string>
++    <string name="letter_press_for">%1$s: 글자를 누르세요, Backspace는 해제</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 5efe567..4fb5a30 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">Klein</string>
+     <string name="icon_medium">Middel</string>
+     <string name="icon_large">Groot</string>
++    <string name="new_tab">Nieuw tabblad</string>
++    <string name="new_tab_name">Naam tabblad: %1$s</string>
++    <string name="add_to_tab">Toevoegen aan %1$s</string>
++    <string name="remove_from_tab">Verwijderen uit %1$s</string>
++    <string name="delete_tab">Tabblad %1$s verwijderen</string>
++    <string name="letter_press_for">%1$s: druk op een letter, Backspace verwijdert</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index 06c2fc7..50d0e78 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">Mały</string>
+     <string name="icon_medium">Średni</string>
+     <string name="icon_large">Duży</string>
++    <string name="new_tab">Nowa karta</string>
++    <string name="new_tab_name">Nazwa karty: %1$s</string>
++    <string name="add_to_tab">Dodaj do %1$s</string>
++    <string name="remove_from_tab">Usuń z %1$s</string>
++    <string name="delete_tab">Usuń kartę %1$s</string>
++    <string name="letter_press_for">%1$s: naciśnij literę, Backspace usuwa</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index 873fc32..c1597b3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">Pequeno</string>
+     <string name="icon_medium">Médio</string>
+     <string name="icon_large">Grande</string>
++    <string name="new_tab">Nova aba</string>
++    <string name="new_tab_name">Nome da aba: %1$s</string>
++    <string name="add_to_tab">Adicionar a %1$s</string>
++    <string name="remove_from_tab">Remover de %1$s</string>
++    <string name="delete_tab">Excluir aba %1$s</string>
++    <string name="letter_press_for">%1$s: pressione uma letra, Backspace remove</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 4c22ec3..860ded4 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">Мелкий</string>
+     <string name="icon_medium">Средний</string>
+     <string name="icon_large">Крупный</string>
++    <string name="new_tab">Новая вкладка</string>
++    <string name="new_tab_name">Имя вкладки: %1$s</string>
++    <string name="add_to_tab">Добавить в %1$s</string>
++    <string name="remove_from_tab">Убрать из %1$s</string>
++    <string name="delete_tab">Удалить вкладку %1$s</string>
++    <string name="letter_press_for">%1$s: нажмите букву, Backspace удаляет</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 8c2ec7c..a3c83ba 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">Liten</string>
+     <string name="icon_medium">Mellan</string>
+     <string name="icon_large">Stor</string>
++    <string name="new_tab">Ny flik</string>
++    <string name="new_tab_name">Fliknamn: %1$s</string>
++    <string name="add_to_tab">Lägg till i %1$s</string>
++    <string name="remove_from_tab">Ta bort från %1$s</string>
++    <string name="delete_tab">Ta bort fliken %1$s</string>
++    <string name="letter_press_for">%1$s: tryck på en bokstav, Backsteg tar bort</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 390aa36..8c2572f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">Küçük</string>
+     <string name="icon_medium">Orta</string>
+     <string name="icon_large">Büyük</string>
++    <string name="new_tab">Yeni sekme</string>
++    <string name="new_tab_name">Sekme adı: %1$s</string>
++    <string name="add_to_tab">%1$s sekmesine ekle</string>
++    <string name="remove_from_tab">%1$s sekmesinden kaldır</string>
++    <string name="delete_tab">%1$s sekmesini sil</string>
++    <string name="letter_press_for">%1$s: bir harfe basın, Geri silme kaldırır</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index 27b820e..0a9c129 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">چھوٹا</string>
+     <string name="icon_medium">درمیانہ</string>
+     <string name="icon_large">بڑا</string>
++    <string name="new_tab">نیا ٹیب</string>
++    <string name="new_tab_name">ٹیب کا نام: %1$s</string>
++    <string name="add_to_tab">%1$s میں شامل کریں</string>
++    <string name="remove_from_tab">%1$s سے ہٹائیں</string>
++    <string name="delete_tab">ٹیب %1$s حذف کریں</string>
++    <string name="letter_press_for">%1$s: کوئی حرف دبائیں، Backspace ہٹاتا ہے</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 28f15ef..5f9c806 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -284,4 +284,10 @@
+     <string name="icon_small">小</string>
+     <string name="icon_medium">中</string>
+     <string name="icon_large">大</string>
++    <string name="new_tab">新建标签</string>
++    <string name="new_tab_name">标签名称：%1$s</string>
++    <string name="add_to_tab">添加到%1$s</string>
++    <string name="remove_from_tab">从%1$s移除</string>
++    <string name="delete_tab">删除标签%1$s</string>
++    <string name="letter_press_for">%1$s：按一个字母，退格键移除</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 3d87b13..fab552a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -288,4 +288,10 @@
+     <string name="icon_small">Small</string>
+     <string name="icon_medium">Medium</string>
+     <string name="icon_large">Large</string>
++    <string name="new_tab">New tab</string>
++    <string name="new_tab_name">Tab name: %1$s</string>
++    <string name="add_to_tab">Add to %1$s</string>
++    <string name="remove_from_tab">Remove from %1$s</string>
++    <string name="delete_tab">Delete tab %1$s</string>
++    <string name="letter_press_for">%1$s: press a letter, Backspace removes</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index dea0f02..8fb52bf 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -39,6 +39,7 @@ import org.sableos.start.model.ActiveFrame
+ import org.sableos.start.model.AppEntry
+ import org.sableos.start.model.Bb7Detour
+ import org.sableos.start.model.Bb7Layout
++import org.sableos.start.model.Bb7Tab
+ import org.sableos.start.model.HomeStyle
+ import org.sableos.start.model.TrackpadTouchGuard
+ import org.sableos.start.platform.LauncherAppsRepository
+@@ -106,6 +107,7 @@ class SableStartActivity : ComponentActivity() {
+     private val bb7Favorites = mutableStateOf<List<String>?>(null)
+     private val bb7HomeRows = mutableStateOf(1)
+     private val bb7Layout = mutableStateOf(Bb7Layout())
++    private val bb7Tabs = mutableStateOf<List<Bb7Tab>>(emptyList())
+     private var opaqueWindowBackground: Drawable? = null
+ 
+     private var callbackRegistered = false
+@@ -206,6 +208,7 @@ class SableStartActivity : ComponentActivity() {
+         bb7Favorites.value = startStateRepository.loadHomeApps()
+         bb7HomeRows.value = startStateRepository.loadBb7HomeRows()
+         bb7Layout.value = startStateRepository.loadBb7Layout()
++        bb7Tabs.value = startStateRepository.loadBb7Tabs()
+         recentTasksRepository = RecentTasksRepository(this)
+         homeStyle.value = startStateRepository.loadHomeStyle()
+         opaqueWindowBackground = window.decorView.background
+@@ -296,6 +299,13 @@ class SableStartActivity : ComponentActivity() {
+                         bb7Layout.value = layout
+                         startStateRepository.saveBb7Layout(layout)
+                     },
++                    tabs = bb7Tabs.value,
++                    onTabsChanged = { tabs ->
++                        bb7Tabs.value = tabs
++                        startStateRepository.saveBb7Tabs(tabs)
++                    },
++                    speedDial = speedDialRepository,
++                    letterShortcuts = letterShortcutRepository,
+                     onOpenMenu = ::showBb7Menu,
+                 )
+                 return@setContent
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
+index a315b2b..0c0ccf7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
+@@ -102,6 +102,103 @@ data class Bb7Layout(
+     }
+ }
+ 
++/** A tray tab the user made, after BlackBerry 7's own folders in the tray: a name and its apps (stable keys). */
++data class Bb7Tab(
++    val name: String,
++    val keys: List<String> = emptyList(),
++)
++
++/**
++ * The user's tray tabs, shown after Favorites, All and Downloads. Saved as one line per tab, the name, a tab, then the
++ * apps' stable keys separated by commas; a damaged line is dropped, never thrown.
++ */
++object Bb7Tabs {
++    const val MAX = 5
++    const val MAX_NAME = 20
++
++    private const val TAB_SEPARATOR = "\n"
++    private const val NAME_SEPARATOR = "\t"
++    private const val KEY_SEPARATOR = ","
++
++    /** A usable tab name: control characters dropped, trimmed, at most [MAX_NAME]; null when nothing is left. */
++    fun cleanName(text: String): String? =
++        text
++            .filterNot { it.isISOControl() }
++            .trim()
++            .take(MAX_NAME)
++            .trim()
++            .ifEmpty { null }
++
++    /** [tabs] with a new empty tab called [name]; unchanged when full, the name is empty or already used. */
++    fun add(
++        tabs: List<Bb7Tab>,
++        name: String,
++    ): List<Bb7Tab> {
++        val clean = cleanName(name) ?: return tabs
++        val taken = tabs.any { it.name.equals(clean, ignoreCase = true) }
++        return if (tabs.size >= MAX || taken) tabs else tabs + Bb7Tab(clean)
++    }
++
++    /** [tabs] without the tab at [index]; its apps stay installed and in every other tab. */
++    fun remove(
++        tabs: List<Bb7Tab>,
++        index: Int,
++    ): List<Bb7Tab> = tabs.filterIndexed { i, _ -> i != index }
++
++    /** Adds [key] to the end of the tab at [index], or takes it out when it is already there. */
++    fun toggle(
++        tabs: List<Bb7Tab>,
++        index: Int,
++        key: String,
++    ): List<Bb7Tab> =
++        tabs.mapIndexed { i, tab ->
++            when {
++                i != index -> tab
++                key in tab.keys -> tab.copy(keys = tab.keys - key)
++                else -> tab.copy(keys = tab.keys + key)
++            }
++        }
++
++    fun encode(tabs: List<Bb7Tab>): String =
++        tabs.joinToString(TAB_SEPARATOR) { it.name + NAME_SEPARATOR + it.keys.joinToString(KEY_SEPARATOR) }
++
++    fun decode(text: String?): List<Bb7Tab> {
++        var tabs = emptyList<Bb7Tab>()
++        text.orEmpty().split(TAB_SEPARATOR).forEach { line ->
++            val keys =
++                line
++                    .substringAfter(NAME_SEPARATOR, "")
++                    .split(KEY_SEPARATOR)
++                    .filter { it.isNotBlank() && NAME_SEPARATOR !in it }
++                    .distinct()
++            val added = add(tabs, line.substringBefore(NAME_SEPARATOR))
++            tabs = if (added.size > tabs.size) added.dropLast(1) + added.last().copy(keys = keys) else added
++        }
++        return tabs
++    }
++}
++
++/** Typing a new tab's name in the tray title: Enter saves, Escape or Back cancels, Backspace deletes. */
++object Bb7Naming {
++    private const val KEYCODE_BACK = 4
++    private const val KEYCODE_ENTER = 66
++    private const val KEYCODE_DEL = 67
++    private const val KEYCODE_ESCAPE = 111
++
++    /** The name after one key: null when naming ends (Enter saves what [name] holds, Escape and Back drop it). */
++    fun onKey(
++        keyCode: Int,
++        unicode: Int,
++        name: String,
++    ): String? =
++        when {
++            keyCode == KEYCODE_ENTER || keyCode == KEYCODE_ESCAPE || keyCode == KEYCODE_BACK -> null
++            keyCode == KEYCODE_DEL -> name.dropLast(1)
++            unicode <= 0 || unicode.toChar().isISOControl() || name.length >= Bb7Tabs.MAX_NAME -> name
++            else -> name + unicode.toChar()
++        }
++}
++
+ /** Where a horizontal swipe on the BlackBerry 7 home goes: Hub is to the left, the apps to the right. */
+ enum class Bb7Swipe { Hub, Apps }
+ 
+@@ -177,6 +274,28 @@ object Bb7Home {
+         }
+     }
+ 
++    /** Tray places: the three panels in order, then the user's [tabs]. */
++    fun trayPlaces(tabs: Int): Int = Bb7Panel.entries.size + tabs
++
++    /** The panel at tray place [place], or null for a user tab. */
++    fun panelAt(place: Int): Bb7Panel? = Bb7Panel.entries.getOrNull(place)
++
++    /** The next tray place left ([step] -1) or right (+1), wrapping through the panels and [tabs] user tabs. */
++    fun stepPlace(
++        place: Int,
++        step: Int,
++        tabs: Int,
++    ): Int = (place + step).mod(trayPlaces(tabs))
++
++    /** A user tab's apps in the order they were added; uninstalled ones are skipped. */
++    fun tabApps(
++        tab: Bb7Tab,
++        apps: List<AppEntry>,
++    ): List<AppEntry> {
++        val byKey = apps.associateBy { it.stableKey() }
++        return tab.keys.mapNotNull { byKey[it] }
++    }
++
+     /** The next panel left ([step] -1) or right (+1), wrapping. */
+     fun step(
+         panel: Bb7Panel,
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 8c0b854..86708d3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -299,6 +299,12 @@ object StartText {
+             "icon_size" to "Icon size: %1\$s",
+             "icon_small" to "Small",
+             "icon_medium" to "Medium",
++            "new_tab" to "New tab",
++            "new_tab_name" to "Tab name: %1\$s",
++            "add_to_tab" to "Add to %1\$s",
++            "remove_from_tab" to "Remove from %1\$s",
++            "delete_tab" to "Delete tab %1\$s",
++            "letter_press_for" to "%1\$s: press a letter, Backspace removes",
+             "icon_large" to "Large",
+             "letter_shortcut_press" to
+                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
+index e3e9a47..f462b19 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
+@@ -3,6 +3,8 @@ package org.sableos.start.platform
+ import android.content.Context
+ import org.sableos.start.model.Bb7Home
+ import org.sableos.start.model.Bb7Layout
++import org.sableos.start.model.Bb7Tab
++import org.sableos.start.model.Bb7Tabs
+ import org.sableos.start.model.HomeStyle
+ 
+ /**
+@@ -126,6 +128,13 @@ class StartStateRepository(
+         preferences.edit().putString(KEY_BB7_LAYOUT, layout.encode()).apply()
+     }
+ 
++    /** The user's own BlackBerry 7 tray tabs (see Bb7Tabs). */
++    fun loadBb7Tabs(): List<Bb7Tab> = Bb7Tabs.decode(preferences.getString(KEY_BB7_TABS, null))
++
++    fun saveBb7Tabs(tabs: List<Bb7Tab>) {
++        preferences.edit().putString(KEY_BB7_TABS, Bb7Tabs.encode(tabs)).apply()
++    }
++
+     /** The app grid order (AppGrid, the BB10 layout); null means never customised. */
+     fun loadGridOrder(): List<String>? = loadOrdered(KEY_GRID_ORDER)
+ 
+@@ -201,6 +210,7 @@ class StartStateRepository(
+         const val KEY_HOME_APPS = "home_apps"
+         const val KEY_BB7_HOME_ROWS = "bb7_home_rows"
+         const val KEY_BB7_LAYOUT = "bb7_layout"
++        const val KEY_BB7_TABS = "bb7_tabs"
+         const val KEY_GLANCE_WIDGETS = "glance_widgets"
+         // v2: the BB10 Home shows the status dials by default; sets saved by the
+         // three-page Home hid them without the user choosing, so they are not read.
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+index 349ab6a..a2f3785 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+@@ -64,13 +64,20 @@ import org.sableos.start.model.AppEntry
+ import org.sableos.start.model.Bb7Home
+ import org.sableos.start.model.Bb7IconSize
+ import org.sableos.start.model.Bb7Layout
++import org.sableos.start.model.Bb7Naming
+ import org.sableos.start.model.Bb7Panel
+ import org.sableos.start.model.Bb7Swipe
++import org.sableos.start.model.Bb7Tab
++import org.sableos.start.model.Bb7Tabs
+ import org.sableos.start.model.Bb7TrayView
+ import org.sableos.start.model.HomeApps
+ import org.sableos.start.model.HomeHeader
++import org.sableos.start.model.SpeedDialKeys
++import org.sableos.start.model.StartTypeToSearch
+ import org.sableos.start.model.stableKey
++import org.sableos.start.platform.LetterShortcutRepository
+ import org.sableos.start.platform.LiveSurfaceRepository
++import org.sableos.start.platform.SpeedDialRepository
+ import java.text.DateFormat
+ import java.util.Date
+ 
+@@ -106,9 +113,30 @@ fun Bb7HomeScreen(
+     onFavoritesChanged: (List<String>) -> Unit,
+     onHomeRowsChanged: (Int) -> Unit,
+     onLayoutChanged: (Bb7Layout) -> Unit = {},
++    /** The user's own tray tabs, after Favorites, All and Downloads. */
++    tabs: List<Bb7Tab> = emptyList(),
++    onTabsChanged: (List<Bb7Tab>) -> Unit = {},
++    /** Holding a letter opens its app or calls its speed dial, as on the BlackBerry 10 home. */
++    speedDial: SpeedDialRepository? = null,
++    letterShortcuts: LetterShortcutRepository? = null,
+     onOpenMenu: (List<Pair<String, () -> Unit>>) -> Unit,
+ ) {
+-    var panel by remember { mutableStateOf(Bb7Panel.Favorites) }
++    // The tray place: the three panels, then the user's tabs (see Bb7Home.trayPlaces).
++    var place by remember { mutableIntStateOf(0) }
++    // A tab deleted elsewhere leaves the tray on Favorites.
++    val at = if (place < Bb7Home.trayPlaces(tabs.size)) place else 0
++    val panel = Bb7Home.panelAt(at)
++    val tabIndex = at - Bb7Panel.entries.size
++    val tab = tabs.getOrNull(tabIndex)
++    // A new tab's name while it is typed, and the app waiting for its hold-key letter.
++    var naming by remember { mutableStateOf<String?>(null) }
++    var lettering by remember { mutableStateOf<AppEntry?>(null) }
++    var shortcutVersion by remember { mutableIntStateOf(0) }
++    val speedDialKeys = remember { SpeedDialKeys() }
++    val heldLetters by
++        produceState(emptySet<Char>(), refreshGeneration, speedDial, shortcutVersion) {
++            value = speedDial?.assignedLetters() ?: emptySet()
++        }
+     var open by remember { mutableStateOf(false) }
+     var query by remember { mutableStateOf("") }
+     var selected by remember { mutableIntStateOf(0) }
+@@ -124,6 +152,8 @@ fun Bb7HomeScreen(
+         query = ""
+         selected = 0
+         moving = false
++        naming = null
++        lettering = null
+     }
+     val live by
+         produceState(liveSurfaceRepository.initialSnapshot(), refreshGeneration) {
+@@ -138,20 +168,27 @@ fun Bb7HomeScreen(
+         }
+     val openApps = {
+         query = ""
+-        panel = Bb7Panel.All
++        place = Bb7Panel.All.ordinal
+         open = true
+         selected = 0
+     }
+ 
+     val searching = query.isNotEmpty()
+     val shown =
+-        if (searching) Bb7Home.search(apps, query) else Bb7Home.panelApps(panel, apps, favoriteKeys)
++        when {
++            searching -> Bb7Home.search(apps, query)
++            panel != null -> Bb7Home.panelApps(panel, apps, favoriteKeys)
++            tab != null -> Bb7Home.tabApps(tab, apps)
++            else -> emptyList()
++        }
+     val favorites = Bb7Home.panelApps(Bb7Panel.Favorites, apps, favoriteKeys).map { it.stableKey() }
+     val trayTitle =
+         when {
++            naming != null -> t("new_tab_name", naming.orEmpty() + "_")
++            lettering != null -> t("letter_press_for", lettering?.label.orEmpty())
+             moving -> t("move") + shown.getOrNull(selected)?.label.orEmpty() + t("enter_to_drop")
+             searching -> t("search", query)
+-            else -> panel.title
++            else -> panel?.title ?: tab?.name.orEmpty()
+         }
+     // Moves the favourite being moved one place ([delta] -1/+1) or a row ([delta] ±columns).
+     val moveBy = { delta: Int ->
+@@ -174,9 +211,27 @@ fun Bb7HomeScreen(
+                 } else {
+                     add(t("add_to_favorites") to { onFavoritesChanged(Bb7Home.toggleFavorite(favorites, key)) })
+                 }
++                tabs.forEachIndexed { index, own ->
++                    val label = if (key in own.keys) t("remove_from_tab", own.name) else t("add_to_tab", own.name)
++                    add(label to { onTabsChanged(Bb7Tabs.toggle(tabs, index, key)) })
++                }
++                if (letterShortcuts != null && app.inLauncherUser) {
++                    val letter = letterShortcuts.load().letterOf(app.component.flattenToString())
++                    val label = letter?.let { t("letter_shortcut_current", it.uppercaseChar().toString()) }
++                    add((label ?: t("letter_shortcut")) to { lettering = app })
++                }
+                 add(t("app_info") to { onOpenAppInfo(app) })
+                 if (app.canUninstall && app.inLauncherUser) add(t("delete_app") to { onUninstallApp(app) })
+             }
++            if (!searching && tabs.size < Bb7Tabs.MAX) add(t("new_tab") to { naming = "" })
++            if (!searching && tab != null) {
++                add(
++                    t("delete_tab", tab.name) to {
++                        onTabsChanged(Bb7Tabs.remove(tabs, tabIndex))
++                        place = 0
++                    },
++                )
++            }
+             if (!open && !searching && homeRows < Bb7Home.MAX_HOME_ROWS) {
+                 add(t("show_more_rows") to { onHomeRowsChanged(homeRows + 1) })
+             }
+@@ -210,8 +265,60 @@ fun Bb7HomeScreen(
+                         .focusRequester(focus)
+                         .focusable()
+                         .onPreviewKeyEvent { event ->
+-                            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                             val native = event.nativeKeyEvent
++                            val down = event.type == KeyEventType.KeyDown
++                            if (naming != null || lettering != null) {
++                                if (down) {
++                                    naming?.let { name ->
++                                        naming = Bb7Naming.onKey(native.keyCode, native.unicodeChar, name)
++                                        if (naming == null && native.keyCode == KeyEvent.KEYCODE_ENTER) {
++                                            val next = Bb7Tabs.add(tabs, name)
++                                            if (next.size > tabs.size) {
++                                                onTabsChanged(next)
++                                                place = Bb7Home.trayPlaces(next.size) - 1
++                                                selected = 0
++                                            }
++                                        }
++                                    }
++                                    lettering?.let { app ->
++                                        lettering = null
++                                        val letter = SpeedDialKeys.letterFor(native.keyCode)
++                                        val plain = native.metaState and CHORD_META == 0
++                                        if (native.keyCode == KeyEvent.KEYCODE_DEL) {
++                                            letterShortcuts?.remove(app.component)
++                                        } else if (letter != null && plain) {
++                                            letterShortcuts?.assign(letter, app.component)
++                                        }
++                                        shortcutVersion++
++                                    }
++                                }
++                                return@onPreviewKeyEvent true
++                            }
++                            // Holding an assigned letter opens its app or calls; a short press still searches.
++                            if (!moving && !searching) {
++                                val seed =
++                                    if (down) {
++                                        StartTypeToSearch.seed(native.unicodeChar, native.metaState, native.repeatCount > 0)
++                                    } else {
++                                        null
++                                    }
++                                val step =
++                                    speedDialKeys.onKey(
++                                        native.keyCode,
++                                        down,
++                                        native.repeatCount,
++                                        native.metaState,
++                                        seed,
++                                        heldLetters,
++                                    )
++                                if (step is SpeedDialKeys.Step.Call) speedDial?.call(step.letter)
++                                if (step is SpeedDialKeys.Step.Search) {
++                                    query = step.seed
++                                    selected = 0
++                                }
++                                if (step != SpeedDialKeys.Step.Pass) return@onPreviewKeyEvent true
++                            }
++                            if (!down) return@onPreviewKeyEvent false
+                             val columns = keyColumns
+                             val visible = if (open || searching) shown.size else minOf(shown.size, columns * homeRows)
+                             if (moving) {
+@@ -227,14 +334,14 @@ fun Bb7HomeScreen(
+                             when {
+                                 native.keyCode == KeyEvent.KEYCODE_DPAD_LEFT && native.isAltPressed ->
+                                     if (open || searching) {
+-                                        panel = Bb7Home.step(panel, -1)
++                                        place = Bb7Home.stepPlace(at, -1, tabs.size)
+                                         selected = 0
+                                     } else {
+                                         onOpenHub()
+                                     }
+                                 native.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && native.isAltPressed ->
+                                     if (open || searching) {
+-                                        panel = Bb7Home.step(panel, 1)
++                                        place = Bb7Home.stepPlace(at, 1, tabs.size)
+                                         selected = 0
+                                     } else {
+                                         openApps()
+@@ -260,7 +367,7 @@ fun Bb7HomeScreen(
+                                     native.keyCode == KeyEvent.KEYCODE_DPAD_CENTER ->
+                                     shown.getOrNull(selected)?.let { onLaunchApp(it) }
+                                 native.keyCode == KeyEvent.KEYCODE_SPACE && !searching -> {
+-                                    panel = Bb7Home.step(panel, 1)
++                                    place = Bb7Home.stepPlace(at, 1, tabs.size)
+                                     selected = 0
+                                 }
+                                 native.keyCode == KeyEvent.KEYCODE_DEL && searching -> {
+@@ -345,7 +452,7 @@ fun Bb7HomeScreen(
+                         },
+                         onStep = { step ->
+                             query = ""
+-                            panel = Bb7Home.step(panel, step)
++                            place = Bb7Home.stepPlace(at, step, tabs.size)
+                             selected = 0
+                         },
+                         onLaunch = { onLaunchApp(it) },
+@@ -573,6 +680,9 @@ private fun TrayArrow(
+     }
+ }
+ 
++// Shift, Alt, Sym, Fn, Ctrl and Meta: a chord never sets a hold-key letter.
++private const val CHORD_META = 0xc1 or 0x32 or 0x4 or 0x8 or 0x7000 or 0x70000
++
+ private const val DATE_TICK_MS = 60_000L
+ private const val RING_DP = 34
+ private const val SWIPE_DP = 72

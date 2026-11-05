@@ -299,6 +299,12 @@ object StartText {
             "icon_size" to "Icon size: %1\$s",
             "icon_small" to "Small",
             "icon_medium" to "Medium",
+            "new_tab" to "New tab",
+            "new_tab_name" to "Tab name: %1\$s",
+            "add_to_tab" to "Add to %1\$s",
+            "remove_from_tab" to "Remove from %1\$s",
+            "delete_tab" to "Delete tab %1\$s",
+            "letter_press_for" to "%1\$s: press a letter, Backspace removes",
             "icon_large" to "Large",
             "letter_shortcut_press" to
                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",

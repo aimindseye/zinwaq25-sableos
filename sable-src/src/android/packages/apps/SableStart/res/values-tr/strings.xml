@@ -284,4 +284,10 @@
     <string name="icon_small">Küçük</string>
     <string name="icon_medium">Orta</string>
     <string name="icon_large">Büyük</string>
+    <string name="new_tab">Yeni sekme</string>
+    <string name="new_tab_name">Sekme adı: %1$s</string>
+    <string name="add_to_tab">%1$s sekmesine ekle</string>
+    <string name="remove_from_tab">%1$s sekmesinden kaldır</string>
+    <string name="delete_tab">%1$s sekmesini sil</string>
+    <string name="letter_press_for">%1$s: bir harfe basın, Geri silme kaldırır</string>
 </resources>

@@ -284,4 +284,10 @@
     <string name="icon_small">Mały</string>
     <string name="icon_medium">Średni</string>
     <string name="icon_large">Duży</string>
+    <string name="new_tab">Nowa karta</string>
+    <string name="new_tab_name">Nazwa karty: %1$s</string>
+    <string name="add_to_tab">Dodaj do %1$s</string>
+    <string name="remove_from_tab">Usuń z %1$s</string>
+    <string name="delete_tab">Usuń kartę %1$s</string>
+    <string name="letter_press_for">%1$s: naciśnij literę, Backspace usuwa</string>
 </resources>

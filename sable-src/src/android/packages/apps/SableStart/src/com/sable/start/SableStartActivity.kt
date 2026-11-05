@@ -39,6 +39,7 @@ import org.sableos.start.model.ActiveFrame
 import org.sableos.start.model.AppEntry
 import org.sableos.start.model.Bb7Detour
 import org.sableos.start.model.Bb7Layout
+import org.sableos.start.model.Bb7Tab
 import org.sableos.start.model.HomeStyle
 import org.sableos.start.model.TrackpadTouchGuard
 import org.sableos.start.platform.LauncherAppsRepository
@@ -106,6 +107,7 @@ class SableStartActivity : ComponentActivity() {
     private val bb7Favorites = mutableStateOf<List<String>?>(null)
     private val bb7HomeRows = mutableStateOf(1)
     private val bb7Layout = mutableStateOf(Bb7Layout())
+    private val bb7Tabs = mutableStateOf<List<Bb7Tab>>(emptyList())
     private var opaqueWindowBackground: Drawable? = null
 
     private var callbackRegistered = false
@@ -206,6 +208,7 @@ class SableStartActivity : ComponentActivity() {
         bb7Favorites.value = startStateRepository.loadHomeApps()
         bb7HomeRows.value = startStateRepository.loadBb7HomeRows()
         bb7Layout.value = startStateRepository.loadBb7Layout()
+        bb7Tabs.value = startStateRepository.loadBb7Tabs()
         recentTasksRepository = RecentTasksRepository(this)
         homeStyle.value = startStateRepository.loadHomeStyle()
         opaqueWindowBackground = window.decorView.background
@@ -296,6 +299,13 @@ class SableStartActivity : ComponentActivity() {
                         bb7Layout.value = layout
                         startStateRepository.saveBb7Layout(layout)
                     },
+                    tabs = bb7Tabs.value,
+                    onTabsChanged = { tabs ->
+                        bb7Tabs.value = tabs
+                        startStateRepository.saveBb7Tabs(tabs)
+                    },
+                    speedDial = speedDialRepository,
+                    letterShortcuts = letterShortcutRepository,
                     onOpenMenu = ::showBb7Menu,
                 )
                 return@setContent

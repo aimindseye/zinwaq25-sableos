@@ -284,4 +284,10 @@
     <string name="icon_small">Klein</string>
     <string name="icon_medium">Middel</string>
     <string name="icon_large">Groot</string>
+    <string name="new_tab">Nieuw tabblad</string>
+    <string name="new_tab_name">Naam tabblad: %1$s</string>
+    <string name="add_to_tab">Toevoegen aan %1$s</string>
+    <string name="remove_from_tab">Verwijderen uit %1$s</string>
+    <string name="delete_tab">Tabblad %1$s verwijderen</string>
+    <string name="letter_press_for">%1$s: druk op een letter, Backspace verwijdert</string>
 </resources>
