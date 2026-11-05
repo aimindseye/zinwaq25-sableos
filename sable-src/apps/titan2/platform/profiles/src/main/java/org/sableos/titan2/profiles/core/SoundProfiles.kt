@@ -61,61 +61,7 @@ object SoundProfiles {
     const val BEDSIDE_BRIGHTNESS = 8
 
     fun plan(profile: SoundProfile, settings: ProfileSettings = ProfileSettings()): ProfilePlan {
-        val base = when (profile) {
-            SoundProfile.NORMAL -> ProfilePlan(
-                Ringer.NORMAL,
-                Dnd.OFF,
-                NORMAL_VOLUME,
-                true,
-                true,
-                null,
-                null
-            )
-
-            SoundProfile.LOUD -> ProfilePlan(
-                Ringer.NORMAL,
-                Dnd.OFF,
-                FULL_VOLUME,
-                true,
-                true,
-                null,
-                null
-            )
-
-            SoundProfile.VIBRATE_ONLY -> ProfilePlan(
-                Ringer.VIBRATE,
-                Dnd.OFF,
-                null,
-                true,
-                true,
-                null,
-                null
-            )
-
-            SoundProfile.PHONE_CALLS_ONLY ->
-                ProfilePlan(Ringer.NORMAL, Dnd.CALLS_ONLY, NORMAL_VOLUME, true, false, null, null)
-
-            SoundProfile.ALL_ALERTS_OFF -> ProfilePlan(
-                Ringer.SILENT,
-                Dnd.ALARMS_ONLY,
-                null,
-                false,
-                false,
-                null,
-                null
-            )
-
-            SoundProfile.BEDSIDE -> ProfilePlan(
-                Ringer.SILENT,
-                Dnd.ALARMS_ONLY,
-                null,
-                false,
-                false,
-                null,
-                null,
-                dimScreen = true
-            )
-        }
+        val base = basePlan(profile)
         val silent = profile == SoundProfile.ALL_ALERTS_OFF || profile == SoundProfile.BEDSIDE
         // A silent or vibrating profile has no volume to set; the user's volume applies only where it rings.
         val volume = settings.volumePercent?.coerceIn(0, FULL_VOLUME)?.takeIf {
@@ -132,15 +78,44 @@ object SoundProfiles {
         )
     }
 
+    private fun basePlan(profile: SoundProfile): ProfilePlan = when (profile) {
+        SoundProfile.NORMAL ->
+            ProfilePlan(Ringer.NORMAL, Dnd.OFF, NORMAL_VOLUME, true, true, null, null)
+
+        SoundProfile.LOUD ->
+            ProfilePlan(Ringer.NORMAL, Dnd.OFF, FULL_VOLUME, true, true, null, null)
+
+        SoundProfile.VIBRATE_ONLY ->
+            ProfilePlan(Ringer.VIBRATE, Dnd.OFF, null, true, true, null, null)
+
+        SoundProfile.PHONE_CALLS_ONLY ->
+            ProfilePlan(Ringer.NORMAL, Dnd.CALLS_ONLY, NORMAL_VOLUME, true, false, null, null)
+
+        SoundProfile.ALL_ALERTS_OFF ->
+            ProfilePlan(Ringer.SILENT, Dnd.ALARMS_ONLY, null, false, false, null, null)
+
+        SoundProfile.BEDSIDE ->
+            ProfilePlan(
+                Ringer.SILENT,
+                Dnd.ALARMS_ONLY,
+                null,
+                false,
+                false,
+                null,
+                null,
+                dimScreen = true
+            )
+    }
+
     /**
      * The brightness to put back when leaving Bedside: what was saved on entering it, else null
      * (nothing to restore). [saved] is "mode,value" as [formatBrightness] wrote it.
      */
     fun restoreBrightness(saved: String?): Pair<Int, Int>? {
-        val parts = saved?.split(',') ?: return null
-        val mode = parts.getOrNull(0)?.toIntOrNull() ?: return null
-        val value = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, MAX_BRIGHTNESS) ?: return null
-        return mode to value
+        val parts = saved?.split(',').orEmpty()
+        val mode = parts.getOrNull(0)?.toIntOrNull()
+        val value = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, MAX_BRIGHTNESS)
+        return if (mode != null && value != null) mode to value else null
     }
 
     fun formatBrightness(mode: Int, value: Int): String = "$mode,$value"

@@ -88,7 +88,9 @@ class BrowserController(
                 true
             }
 
-            else -> false
+            else -> {
+                false
+            }
         }
 
     /** A real touch or mouse: the pointer hides until the next trackpad stroke. */
@@ -127,8 +129,7 @@ class BrowserController(
                 state.pointerY,
                 dx * step,
                 dy * step,
-                webView.width.toFloat(),
-                webView.height.toFloat(),
+                PointerPhysics.Area(webView.width.toFloat(), webView.height.toFloat()),
             )
         state.pointerX = moved.x
         state.pointerY = moved.y

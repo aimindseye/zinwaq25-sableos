@@ -58,18 +58,23 @@ object PointerPhysics {
         val scrollY: Int,
     )
 
+    /** The page's size in view pixels. */
+    data class Area(
+        val width: Float,
+        val height: Float,
+    )
+
     fun move(
         x: Float,
         y: Float,
         dx: Float,
         dy: Float,
-        width: Float,
-        height: Float,
+        area: Area,
     ): Move {
         val nx = x + dx
         val ny = y + dy
-        val cx = nx.coerceIn(0f, max(0f, width - 1f))
-        val cy = ny.coerceIn(0f, max(0f, height - 1f))
+        val cx = nx.coerceIn(0f, max(0f, area.width - 1f))
+        val cy = ny.coerceIn(0f, max(0f, area.height - 1f))
         return Move(cx, cy, edgeScroll(nx - cx, dx), edgeScroll(ny - cy, dy))
     }
 

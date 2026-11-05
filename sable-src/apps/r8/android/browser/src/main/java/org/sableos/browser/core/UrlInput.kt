@@ -32,7 +32,8 @@ object UrlInput {
 
     /** The address as the bar shows it while you are not typing: no scheme, no "www.", no last "/". */
     fun display(url: String?): String =
-        url.orEmpty()
+        url
+            .orEmpty()
             .removePrefix("https://")
             .removePrefix("http://")
             .removePrefix("www.")

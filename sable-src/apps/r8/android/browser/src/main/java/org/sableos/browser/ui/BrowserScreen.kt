@@ -1,3 +1,5 @@
+@file:Suppress("FunctionNaming") // Compose functions are named like types.
+
 package org.sableos.browser.ui
 
 import android.webkit.WebView

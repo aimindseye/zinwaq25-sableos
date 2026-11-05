@@ -22,14 +22,6 @@ import org.sableos.browser.core.BrowserText.t
 import org.sableos.browser.core.UrlInput
 import java.net.URISyntaxException
 
-/** Opens a page's file picker; the activity owns the result. */
-fun interface FileChooser {
-    fun choose(
-        intent: Intent,
-        callback: ValueCallback<Array<Uri>>,
-    ): Boolean
-}
-
 /**
  * The page: Android's WebView (the same Chromium engine as Chrome, updated by the system), set up
  * for privacy. No file or content access, no third-party cookies, no mixed content, Safe Browsing
@@ -63,7 +55,7 @@ fun createBrowserWebView(
         webViewClient = BrowserClient(state, onScale)
         webChromeClient = BrowserChrome(state, fileChooser)
         setDownloadListener { url, userAgent, disposition, mimeType, _ ->
-            download(context, state, url, userAgent, disposition, mimeType)
+            download(context, state, Download(url, userAgent, disposition, mimeType))
         }
     }
 
@@ -164,22 +156,29 @@ private fun openOutside(
     }
 }
 
+/** What the page asked to download, as WebView's DownloadListener gives it. */
+private data class Download(
+    val url: String,
+    val userAgent: String,
+    val disposition: String?,
+    val mimeType: String?,
+)
+
 private fun download(
     context: Context,
     state: BrowserState,
-    url: String,
-    userAgent: String,
-    disposition: String?,
-    mimeType: String?,
+    download: Download,
 ) {
-    val name = URLUtil.guessFileName(url, disposition, mimeType)
+    val url = download.url
+    val mimeType = download.mimeType
+    val name = URLUtil.guessFileName(url, download.disposition, mimeType)
     state.status =
         try {
             val request =
                 DownloadManager
                     .Request(Uri.parse(url))
                     .setMimeType(mimeType)
-                    .addRequestHeader("User-Agent", userAgent)
+                    .addRequestHeader("User-Agent", download.userAgent)
                     .addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url).orEmpty())
                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                     .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)

@@ -133,8 +133,11 @@ class SoundProfileApplier(private val context: Context) {
      */
     private fun setScreen(store: SoundProfileStore, plan: ProfilePlan): Boolean {
         val saved = store.brightnessBeforeBedside
-        if (!plan.dimScreen && saved == null) return true
-        if (!Settings.System.canWrite(context)) return false
+        val nothingToDo = !plan.dimScreen && saved == null
+        return nothingToDo || (Settings.System.canWrite(context) && writeScreen(store, plan, saved))
+    }
+
+    private fun writeScreen(store: SoundProfileStore, plan: ProfilePlan, saved: String?): Boolean {
         val cr = context.contentResolver
         return runCatching {
             if (plan.dimScreen) {
@@ -150,7 +153,11 @@ class SoundProfileApplier(private val context: Context) {
                     Settings.System.SCREEN_BRIGHTNESS_MODE,
                     Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
                 )
-                Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, SoundProfiles.BEDSIDE_BRIGHTNESS)
+                Settings.System.putInt(
+                    cr,
+                    Settings.System.SCREEN_BRIGHTNESS,
+                    SoundProfiles.BEDSIDE_BRIGHTNESS
+                )
             } else {
                 SoundProfiles.restoreBrightness(saved)?.let { (mode, value) ->
                     Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, value)

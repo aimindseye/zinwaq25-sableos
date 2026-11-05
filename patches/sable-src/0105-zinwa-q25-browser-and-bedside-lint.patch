@@ -1,0 +1,386 @@
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt
+index f9d45ab..29aa946 100644
+--- a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt
+@@ -160,8 +160,14 @@ class MainActivity : ComponentActivity() {
+     private inner class BackCallback : OnBackPressedCallback(true) {
+         override fun handleOnBackPressed() {
+             when {
+-                state.addressFocused -> leaveAddress()
+-                controller.back() -> Unit
++                state.addressFocused -> {
++                    leaveAddress()
++                }
++
++                controller.back() -> {
++                    Unit
++                }
++
+                 else -> {
+                     isEnabled = false
+                     onBackPressedDispatcher.onBackPressed()
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/PointerPhysics.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/PointerPhysics.kt
+index 34a1c77..39f2ebb 100644
+--- a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/PointerPhysics.kt
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/PointerPhysics.kt
+@@ -58,18 +58,23 @@ object PointerPhysics {
+         val scrollY: Int,
+     )
+ 
++    /** The page's size in view pixels. */
++    data class Area(
++        val width: Float,
++        val height: Float,
++    )
++
+     fun move(
+         x: Float,
+         y: Float,
+         dx: Float,
+         dy: Float,
+-        width: Float,
+-        height: Float,
++        area: Area,
+     ): Move {
+         val nx = x + dx
+         val ny = y + dy
+-        val cx = nx.coerceIn(0f, max(0f, width - 1f))
+-        val cy = ny.coerceIn(0f, max(0f, height - 1f))
++        val cx = nx.coerceIn(0f, max(0f, area.width - 1f))
++        val cy = ny.coerceIn(0f, max(0f, area.height - 1f))
+         return Move(cx, cy, edgeScroll(nx - cx, dx), edgeScroll(ny - cy, dy))
+     }
+ 
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/UrlInput.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/UrlInput.kt
+index aedc77c..f9b1ecb 100644
+--- a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/UrlInput.kt
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/UrlInput.kt
+@@ -32,7 +32,8 @@ object UrlInput {
+ 
+     /** The address as the bar shows it while you are not typing: no scheme, no "www.", no last "/". */
+     fun display(url: String?): String =
+-        url.orEmpty()
++        url
++            .orEmpty()
+             .removePrefix("https://")
+             .removePrefix("http://")
+             .removePrefix("www.")
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserController.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserController.kt
+index b9cbc5d..33b1403 100644
+--- a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserController.kt
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserController.kt
+@@ -88,7 +88,9 @@ class BrowserController(
+                 true
+             }
+ 
+-            else -> false
++            else -> {
++                false
++            }
+         }
+ 
+     /** A real touch or mouse: the pointer hides until the next trackpad stroke. */
+@@ -127,8 +129,7 @@ class BrowserController(
+                 state.pointerY,
+                 dx * step,
+                 dy * step,
+-                webView.width.toFloat(),
+-                webView.height.toFloat(),
++                PointerPhysics.Area(webView.width.toFloat(), webView.height.toFloat()),
+             )
+         state.pointerX = moved.x
+         state.pointerY = moved.y
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserScreen.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserScreen.kt
+index ed96994..3dde51f 100644
+--- a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserScreen.kt
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserScreen.kt
+@@ -1,3 +1,5 @@
++@file:Suppress("FunctionNaming") // Compose functions are named like types.
++
+ package org.sableos.browser.ui
+ 
+ import android.webkit.WebView
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt
+index 4e72227..4859baf 100644
+--- a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt
+@@ -22,14 +22,6 @@ import org.sableos.browser.core.BrowserText.t
+ import org.sableos.browser.core.UrlInput
+ import java.net.URISyntaxException
+ 
+-/** Opens a page's file picker; the activity owns the result. */
+-fun interface FileChooser {
+-    fun choose(
+-        intent: Intent,
+-        callback: ValueCallback<Array<Uri>>,
+-    ): Boolean
+-}
+-
+ /**
+  * The page: Android's WebView (the same Chromium engine as Chrome, updated by the system), set up
+  * for privacy. No file or content access, no third-party cookies, no mixed content, Safe Browsing
+@@ -63,7 +55,7 @@ fun createBrowserWebView(
+         webViewClient = BrowserClient(state, onScale)
+         webChromeClient = BrowserChrome(state, fileChooser)
+         setDownloadListener { url, userAgent, disposition, mimeType, _ ->
+-            download(context, state, url, userAgent, disposition, mimeType)
++            download(context, state, Download(url, userAgent, disposition, mimeType))
+         }
+     }
+ 
+@@ -164,22 +156,29 @@ private fun openOutside(
+     }
+ }
+ 
++/** What the page asked to download, as WebView's DownloadListener gives it. */
++private data class Download(
++    val url: String,
++    val userAgent: String,
++    val disposition: String?,
++    val mimeType: String?,
++)
++
+ private fun download(
+     context: Context,
+     state: BrowserState,
+-    url: String,
+-    userAgent: String,
+-    disposition: String?,
+-    mimeType: String?,
++    download: Download,
+ ) {
+-    val name = URLUtil.guessFileName(url, disposition, mimeType)
++    val url = download.url
++    val mimeType = download.mimeType
++    val name = URLUtil.guessFileName(url, download.disposition, mimeType)
+     state.status =
+         try {
+             val request =
+                 DownloadManager
+                     .Request(Uri.parse(url))
+                     .setMimeType(mimeType)
+-                    .addRequestHeader("User-Agent", userAgent)
++                    .addRequestHeader("User-Agent", download.userAgent)
+                     .addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url).orEmpty())
+                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                     .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/FileChooser.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/FileChooser.kt
+new file mode 100644
+index 0000000..32cbc29
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/FileChooser.kt
+@@ -0,0 +1,13 @@
++package org.sableos.browser.ui
++
++import android.content.Intent
++import android.net.Uri
++import android.webkit.ValueCallback
++
++/** Opens a page's file picker; the activity owns the result. */
++fun interface FileChooser {
++    fun choose(
++        intent: Intent,
++        callback: ValueCallback<Array<Uri>>,
++    ): Boolean
++}
+diff --git a/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/PointerPhysicsTest.kt b/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/PointerPhysicsTest.kt
+index 2368dd4..2af5910 100644
+--- a/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/PointerPhysicsTest.kt
++++ b/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/core/PointerPhysicsTest.kt
+@@ -25,12 +25,13 @@ class PointerPhysicsTest {
+ 
+     @Test
+     fun theEdgeScrollsThePage() {
+-        val inside = PointerPhysics.move(100f, 100f, 10f, 0f, 400f, 400f)
++        val page = PointerPhysics.Area(400f, 400f)
++        val inside = PointerPhysics.move(100f, 100f, 10f, 0f, page)
+         assertEquals(PointerPhysics.Move(110f, 100f, 0, 0), inside)
+-        val bottom = PointerPhysics.move(100f, 395f, 0f, 20f, 400f, 400f)
++        val bottom = PointerPhysics.move(100f, 395f, 0f, 20f, page)
+         assertEquals(399f, bottom.y, 0.01f)
+         assertEquals((20f * PointerPhysics.EDGE_SCROLL).toInt(), bottom.scrollY)
+-        val left = PointerPhysics.move(2f, 50f, -10f, 0f, 400f, 400f)
++        val left = PointerPhysics.move(2f, 50f, -10f, 0f, page)
+         assertEquals(0f, left.x, 0.01f)
+         assertTrue(left.scrollX < 0)
+     }
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileApplier.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileApplier.kt
+index 5e179a1..983c55e 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileApplier.kt
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileApplier.kt
+@@ -133,8 +133,11 @@ class SoundProfileApplier(private val context: Context) {
+      */
+     private fun setScreen(store: SoundProfileStore, plan: ProfilePlan): Boolean {
+         val saved = store.brightnessBeforeBedside
+-        if (!plan.dimScreen && saved == null) return true
+-        if (!Settings.System.canWrite(context)) return false
++        val nothingToDo = !plan.dimScreen && saved == null
++        return nothingToDo || (Settings.System.canWrite(context) && writeScreen(store, plan, saved))
++    }
++
++    private fun writeScreen(store: SoundProfileStore, plan: ProfilePlan, saved: String?): Boolean {
+         val cr = context.contentResolver
+         return runCatching {
+             if (plan.dimScreen) {
+@@ -150,7 +153,11 @@ class SoundProfileApplier(private val context: Context) {
+                     Settings.System.SCREEN_BRIGHTNESS_MODE,
+                     Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
+                 )
+-                Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, SoundProfiles.BEDSIDE_BRIGHTNESS)
++                Settings.System.putInt(
++                    cr,
++                    Settings.System.SCREEN_BRIGHTNESS,
++                    SoundProfiles.BEDSIDE_BRIGHTNESS
++                )
+             } else {
+                 SoundProfiles.restoreBrightness(saved)?.let { (mode, value) ->
+                     Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, value)
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt
+index 7b4cecc..543248a 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt
+@@ -61,51 +61,41 @@ object SoundProfiles {
+     const val BEDSIDE_BRIGHTNESS = 8
+ 
+     fun plan(profile: SoundProfile, settings: ProfileSettings = ProfileSettings()): ProfilePlan {
+-        val base = when (profile) {
+-            SoundProfile.NORMAL -> ProfilePlan(
+-                Ringer.NORMAL,
+-                Dnd.OFF,
+-                NORMAL_VOLUME,
+-                true,
+-                true,
+-                null,
++        val base = basePlan(profile)
++        val silent = profile == SoundProfile.ALL_ALERTS_OFF || profile == SoundProfile.BEDSIDE
++        // A silent or vibrating profile has no volume to set; the user's volume applies only where it rings.
++        val volume = settings.volumePercent?.coerceIn(0, FULL_VOLUME)?.takeIf {
++            base.volumePercent !=
+                 null
+-            )
++        }
++        return base.copy(
++            volumePercent = volume ?: base.volumePercent,
++            vibrateWhenRinging = settings.vibrate?.takeIf { !silent }
++                ?: base.vibrateWhenRinging,
++            light = settings.light ?: base.light,
++            ringtone = settings.ringtone,
++            notificationTone = settings.notificationTone
++        )
++    }
+ 
+-            SoundProfile.LOUD -> ProfilePlan(
+-                Ringer.NORMAL,
+-                Dnd.OFF,
+-                FULL_VOLUME,
+-                true,
+-                true,
+-                null,
+-                null
+-            )
++    private fun basePlan(profile: SoundProfile): ProfilePlan = when (profile) {
++        SoundProfile.NORMAL ->
++            ProfilePlan(Ringer.NORMAL, Dnd.OFF, NORMAL_VOLUME, true, true, null, null)
+ 
+-            SoundProfile.VIBRATE_ONLY -> ProfilePlan(
+-                Ringer.VIBRATE,
+-                Dnd.OFF,
+-                null,
+-                true,
+-                true,
+-                null,
+-                null
+-            )
++        SoundProfile.LOUD ->
++            ProfilePlan(Ringer.NORMAL, Dnd.OFF, FULL_VOLUME, true, true, null, null)
+ 
+-            SoundProfile.PHONE_CALLS_ONLY ->
+-                ProfilePlan(Ringer.NORMAL, Dnd.CALLS_ONLY, NORMAL_VOLUME, true, false, null, null)
++        SoundProfile.VIBRATE_ONLY ->
++            ProfilePlan(Ringer.VIBRATE, Dnd.OFF, null, true, true, null, null)
+ 
+-            SoundProfile.ALL_ALERTS_OFF -> ProfilePlan(
+-                Ringer.SILENT,
+-                Dnd.ALARMS_ONLY,
+-                null,
+-                false,
+-                false,
+-                null,
+-                null
+-            )
++        SoundProfile.PHONE_CALLS_ONLY ->
++            ProfilePlan(Ringer.NORMAL, Dnd.CALLS_ONLY, NORMAL_VOLUME, true, false, null, null)
++
++        SoundProfile.ALL_ALERTS_OFF ->
++            ProfilePlan(Ringer.SILENT, Dnd.ALARMS_ONLY, null, false, false, null, null)
+ 
+-            SoundProfile.BEDSIDE -> ProfilePlan(
++        SoundProfile.BEDSIDE ->
++            ProfilePlan(
+                 Ringer.SILENT,
+                 Dnd.ALARMS_ONLY,
+                 null,
+@@ -115,21 +105,6 @@ object SoundProfiles {
+                 null,
+                 dimScreen = true
+             )
+-        }
+-        val silent = profile == SoundProfile.ALL_ALERTS_OFF || profile == SoundProfile.BEDSIDE
+-        // A silent or vibrating profile has no volume to set; the user's volume applies only where it rings.
+-        val volume = settings.volumePercent?.coerceIn(0, FULL_VOLUME)?.takeIf {
+-            base.volumePercent !=
+-                null
+-        }
+-        return base.copy(
+-            volumePercent = volume ?: base.volumePercent,
+-            vibrateWhenRinging = settings.vibrate?.takeIf { !silent }
+-                ?: base.vibrateWhenRinging,
+-            light = settings.light ?: base.light,
+-            ringtone = settings.ringtone,
+-            notificationTone = settings.notificationTone
+-        )
+     }
+ 
+     /**
+@@ -137,10 +112,10 @@ object SoundProfiles {
+      * (nothing to restore). [saved] is "mode,value" as [formatBrightness] wrote it.
+      */
+     fun restoreBrightness(saved: String?): Pair<Int, Int>? {
+-        val parts = saved?.split(',') ?: return null
+-        val mode = parts.getOrNull(0)?.toIntOrNull() ?: return null
+-        val value = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, MAX_BRIGHTNESS) ?: return null
+-        return mode to value
++        val parts = saved?.split(',').orEmpty()
++        val mode = parts.getOrNull(0)?.toIntOrNull()
++        val value = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, MAX_BRIGHTNESS)
++        return if (mode != null && value != null) mode to value else null
+     }
+ 
+     fun formatBrightness(mode: Int, value: Int): String = "$mode,$value"
+diff --git a/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/core/SoundProfilesTest.kt b/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/core/SoundProfilesTest.kt
+index dd29c3d..99d639f 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/core/SoundProfilesTest.kt
++++ b/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/core/SoundProfilesTest.kt
+@@ -74,14 +74,20 @@ class SoundProfilesTest {
+ 
+     @Test
+     fun bedsideIsAlarmsOnlyOnADimScreenAndPutsBrightnessBack() {
+-        val bedside = SoundProfiles.plan(SoundProfile.BEDSIDE, ProfileSettings(vibrate = true, volumePercent = 80))
++        val bedside = SoundProfiles.plan(
++            SoundProfile.BEDSIDE,
++            ProfileSettings(vibrate = true, volumePercent = 80)
++        )
+         assertEquals(Ringer.SILENT, bedside.ringer)
+         assertEquals(Dnd.ALARMS_ONLY, bedside.dnd)
+         assertFalse("never vibrates", bedside.vibrateWhenRinging)
+         assertNull(bedside.volumePercent)
+         assertTrue(bedside.dimScreen)
+         assertFalse(SoundProfiles.plan(SoundProfile.ALL_ALERTS_OFF).dimScreen)
+-        assertEquals(1 to 120, SoundProfiles.restoreBrightness(SoundProfiles.formatBrightness(1, 120)))
++        assertEquals(
++            1 to 120,
++            SoundProfiles.restoreBrightness(SoundProfiles.formatBrightness(1, 120))
++        )
+         assertEquals(0 to 255, SoundProfiles.restoreBrightness("0,999"))
+         assertNull(SoundProfiles.restoreBrightness(null))
+         assertNull(SoundProfiles.restoreBrightness("junk"))

@@ -160,8 +160,14 @@ class MainActivity : ComponentActivity() {
     private inner class BackCallback : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
             when {
-                state.addressFocused -> leaveAddress()
-                controller.back() -> Unit
+                state.addressFocused -> {
+                    leaveAddress()
+                }
+
+                controller.back() -> {
+                    Unit
+                }
+
                 else -> {
                     isEnabled = false
                     onBackPressedDispatcher.onBackPressed()
