@@ -3032,6 +3032,17 @@ private fun Bb10BottomBar(
     onHubPeek: () -> Unit,
     onPhoneFocusChanged: (Boolean) -> Unit,
 ) {
+    if (slots.isEmpty()) {
+        // The default: only the page dots, no launcher-style bar.
+        Bb10PageIndicator(
+            current = current,
+            count = pageCount,
+            showHubMark = true,
+            onShowPage = onShowPage,
+            modifier = Modifier.fillMaxWidth().height(DOTS_ROW_DP.dp),
+        )
+        return
+    }
     Row(
         modifier =
             Modifier
@@ -6126,6 +6137,9 @@ private const val GRID_CELL_CHROME_DP = 2 * 2 + 4 * 2 + 3
 private const val INDICATOR_HEIGHT_DP = 16
 private const val INDICATOR_SLOT_DP = 18
 private const val BAR_HEIGHT_DP = 48
+
+/** The page dots alone, when the bar has no slots (the default). */
+private const val DOTS_ROW_DP = 28
 private const val BAR_GLYPH_DP = 26
 private const val BAR_SLOT_DP = 64
 private const val HUB_DOT_DP = 8

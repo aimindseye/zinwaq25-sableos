@@ -3,11 +3,11 @@ package org.sableos.start.model
 import com.sable.start.model.StartText.t
 
 /**
- * The bottom bar of Sable Start (BlackBerry 10 layout, owner decision
- * 2026-11-04): Hub at the left end, the page dots in the middle and Camera at
- * the right end, under Active Frames and the app grid. The Q25 has a call
- * key, so Phone is not in the bar by default; Search is reached by typing on
- * any page or Alt+Space, so it needs no slot. Pure policy, unit tested in
+ * The bottom row of Sable Start (BlackBerry 10 layout): by default only the
+ * page dots (owner request 2026-11-05: no launcher-style bar; the Q25 has its
+ * own call key, Hub is one page left, Search opens by typing or Alt+Space).
+ * Edit Home can still put up to two slots around the dots, such as Hub and
+ * Camera (the 2026-11-04 bar). Pure policy, unit tested in
  * apps/r8/android/sablestart-presentation-check/src/test.
  *
  * A slot is stored as a token:
@@ -28,8 +28,11 @@ object QuickBar {
     /** Two slots, one at each end of the bar around the page dots (Alt+1, Alt+2). */
     const val MAX_SLOTS = 2
 
-    /** Hub | page dots | Camera. */
-    val DEFAULT: List<String> = listOf(HUB, CAMERA)
+    /** Page dots only: no slots. */
+    val DEFAULT: List<String> = emptyList()
+
+    /** Hub | page dots | Camera, the default from 2026-11-04 to 2026-11-05. */
+    val HUB_CAMERA: List<String> = listOf(HUB, CAMERA)
 
     /** The bar of the Titan 2 three-page Start; a saved copy of it means "never customised". */
     val LEGACY_DEFAULT: List<String> = listOf(PHONE, HUB, COMMAND, ALL_APPS)
@@ -60,7 +63,7 @@ object QuickBar {
      * customised) and the earlier defaults give [DEFAULT].
      */
     fun normalize(tokens: List<String>?): List<String> {
-        if (tokens == null || tokens == LEGACY_DEFAULT || tokens == PHONE_SEARCH_CAMERA) return DEFAULT
+        if (tokens == null || tokens in listOf(LEGACY_DEFAULT, PHONE_SEARCH_CAMERA, HUB_CAMERA)) return DEFAULT
         val kept = tokens.filter(::isValid).distinct().toMutableList()
         REQUIRED.filterNot { it in kept }.forEach { kept += it }
         while (kept.size > MAX_SLOTS) {

@@ -6,16 +6,18 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The BB10 bottom bar (Hub · page dots · Camera) and the Start strip pages. */
+/** The BB10 bottom row (page dots, optional slots) and the Start strip pages. */
 class QuickBarTest {
-    private val default = QuickBar.DEFAULT
+    private val default = QuickBar.HUB_CAMERA
 
     @Test
-    fun neverCustomisedShowsHubAndCamera() {
-        assertEquals(listOf("hub", "camera"), QuickBar.normalize(null))
-        // The three-page default and the Phone · Search · Camera bar count as never customised.
-        assertEquals(default, QuickBar.normalize(listOf("phone", "hub", "command", "apps")))
-        assertEquals(default, QuickBar.normalize(listOf("phone", "command", "camera")))
+    fun neverCustomisedShowsOnlyThePageDots() {
+        assertEquals(emptyList<String>(), QuickBar.normalize(null))
+        // The earlier defaults (three-page, Phone · Search · Camera, Hub · Camera) count as never customised.
+        assertEquals(QuickBar.DEFAULT, QuickBar.normalize(listOf("phone", "hub", "command", "apps")))
+        assertEquals(QuickBar.DEFAULT, QuickBar.normalize(listOf("phone", "command", "camera")))
+        assertEquals(QuickBar.DEFAULT, QuickBar.normalize(listOf("hub", "camera")))
+        assertEquals(listOf("camera", "hub"), QuickBar.normalize(listOf("camera", "hub")))
     }
 
     @Test

@@ -34,7 +34,7 @@ Status words: **Done in code** (built and unit-tested, not yet seen on a device)
 
 | Area | What changed |
 |---|---|
-| Sable Start | BlackBerry 10 layout: Hub on the left, Active Frames (real recent apps, Private Space excluded) as home, app grid pages on the right, and a Hub · page dots · Camera bar (owner decision 2026-11-04; the call key opens Phone, typing or Alt+Space opens Search). Status dials stay at the top; weather and date replace the clock. |
+| Sable Start | BlackBerry 10 layout: Hub on the left, Active Frames (real recent apps, Private Space excluded) as home, app grid pages on the right, and a page dots (no bar by default since sable-src 0113; Hub · Camera slots optional) (owner decision 2026-11-04; the call key opens Phone, typing or Alt+Space opens Search). Status dials stay at the top; weather and date replace the clock. |
 | Lock screen | The clock follows the doze tick, time zone and 12/24h (the "wrong time" report). Count row, Locked label, private card, Alt+Space emergency shortcut. |
 | Notification LED | Amber blinks while charging; solid green only at 100 %. (Replaced in PR #32: the Q25 LED can't show amber.) |
 | Battery health | The kernel reports the fuel gauge's learned cycle count and capacity; Settings shows voltage. |
@@ -85,7 +85,7 @@ One difference from the contract: the Q25 has no Ctrl or Esc key, so the contrac
 
 | Artifact | Status | Still open |
 |---|---|---|
-| start-titan2-3page | Replaced by the BB10 layout | Hub, Active Frames and the app grid (5 columns, tile-free glyphs), with a Hub · page dots · Camera bar; dials stay at the top; weather and date replace the clock. No swipe-up peek. |
+| start-titan2-3page | Replaced by the BB10 layout | Hub, Active Frames and the app grid (5 columns, tile-free glyphs), with a page dots (no bar by default since sable-src 0113; Hub · Camera slots optional); dials stay at the top; weather and date replace the clock. No swipe-up peek. |
 | all-apps-titan2 | Done in code | |
 | command-titan2 | Done in code | Alt+Space works only while Start is showing, not from inside other apps. |
 | hub-titan2 | Done in code | Start's Hub page is the one Hub (PR #32): Contacts tab and Ripe-style unread bar. The Hub app's own inbox and dock are no longer reachable. |
