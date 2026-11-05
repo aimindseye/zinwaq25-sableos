@@ -1,5 +1,6 @@
 package org.sableos.browser
 
+import android.annotation.SuppressLint
 import android.app.SearchManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -75,6 +76,8 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    // ComponentActivity.dispatchKeyEvent is a public framework override; lint flags it as androidx-restricted.
+    @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean =
         (!state.addressFocused && controller.onKey(event)) || super.dispatchKeyEvent(event)
 

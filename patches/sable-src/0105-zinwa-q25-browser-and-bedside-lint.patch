@@ -1,8 +1,24 @@
 diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt
-index f9d45ab..29aa946 100644
+index f9d45ab..3536234 100644
 --- a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt
 +++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt
-@@ -160,8 +160,14 @@ class MainActivity : ComponentActivity() {
+@@ -1,5 +1,6 @@
+ package org.sableos.browser
+ 
++import android.annotation.SuppressLint
+ import android.app.SearchManager
+ import android.content.ActivityNotFoundException
+ import android.content.Intent
+@@ -75,6 +76,8 @@ class MainActivity : ComponentActivity() {
+         super.onDestroy()
+     }
+ 
++    // ComponentActivity.dispatchKeyEvent is a public framework override; lint flags it as androidx-restricted.
++    @SuppressLint("RestrictedApi")
+     override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+         (!state.addressFocused && controller.onKey(event)) || super.dispatchKeyEvent(event)
+ 
+@@ -160,8 +163,14 @@ class MainActivity : ComponentActivity() {
      private inner class BackCallback : OnBackPressedCallback(true) {
          override fun handleOnBackPressed() {
              when {
