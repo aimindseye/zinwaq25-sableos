@@ -194,4 +194,10 @@
     <string name="marked_prior_read">Приложения попросили отметить прочитанными %1$s более старых уведомлений.</string>
     <string name="each_message_on_its_own">Каждое сообщение отдельно</string>
     <string name="one_row_per_received_message">Одна строка на каждое полученное сообщение. Отключает объединение бесед.</string>
+    <string name="remind_me">Напомнить</string>
+    <string name="tasks_unavailable">Sable Tasks не установлено.</string>
+    <string name="row_menu_snooze">Отложить в меню строки</string>
+    <string name="row_menu_snooze_detail">Добавляет «Отложить на 1 час» и клавишу Z для активного уведомления.</string>
+    <string name="row_menu_remind_me">«Напомнить» в меню строки</string>
+    <string name="row_menu_remind_me_detail">Добавляет в Sable Tasks напоминание на завтра утром. Сохраняется только приложение, не сообщение.</string>
 </resources>

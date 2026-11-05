@@ -74,4 +74,7 @@
     <string name="weather_row_city">%1$s के पूर्वानुमान; स्थान की अनुमति नहीं</string>
     <string name="weather_row_none">वह शहर चुनें जो मौसम दिखाता है; स्थान की अनुमति नहीं</string>
     <string name="weather_row_failed">मौसम का शहर पढ़ा नहीं जा सका</string>
+    <string name="row_hub_menu_title">Hub पंक्ति मेनू</string>
+    <string name="row_hub_menu_detail">स्नूज़ और मुझे याद दिलाएँ तब तक बंद हैं जब तक आप उन्हें Hub में चालू नहीं करते</string>
+    <string name="action_hub_row_menu">Hub सेटिंग</string>
 </resources>

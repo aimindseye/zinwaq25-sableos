@@ -131,6 +131,7 @@ import org.sableos.hub.policy.HubInboxItem
 import org.sableos.hub.policy.HubInboxRow
 import org.sableos.hub.policy.HubInboxRowRole
 import org.sableos.hub.policy.HubMenuEntry
+import org.sableos.hub.policy.HubMenuOptions
 import org.sableos.hub.policy.HubMessageMenu
 import org.sableos.hub.policy.HubNewMessagePill
 import org.sableos.hub.policy.HubNotificationFacts
@@ -364,6 +365,8 @@ private class HubActions(
     val loadAppIcon: suspend (String, Long) -> ImageBitmap?,
     val notificationFacts: (String) -> HubNotificationFacts,
     val onNotificationCommand: (String, HubMenuEntry) -> String?,
+    val menuOptions: HubMenuOptions,
+    val onRemindMe: (HubConversation) -> String?,
 )
 
 @Composable
@@ -395,6 +398,8 @@ fun HubScreen(
     onNotificationCommand: (String, HubMenuEntry) -> String? = { _, _ -> null },
     pendingMenuThreadId: Long? = null,
     onPendingMenuConsumed: () -> Unit = {},
+    menuOptions: HubMenuOptions = HubMenuOptions(),
+    onRemindMe: (HubConversation) -> String? = { null },
 ) {
     val state = remember { HubUiState() }
 
@@ -455,6 +460,8 @@ fun HubScreen(
             loadAppIcon = loadAppIcon,
             notificationFacts = notificationFacts,
             onNotificationCommand = onNotificationCommand,
+            menuOptions = menuOptions,
+            onRemindMe = onRemindMe,
         )
 
     SableRefreshableSurface(
@@ -1287,9 +1294,17 @@ private fun ColumnScope.InboxPivot(
                                 .clusterKeys(row, rowActions)
                                 .rowActionsKey { state.actionsItem = row.item }
                                 .rowCommandKeys { key ->
-                                    val entries = menuFor(row.item, snapshot.privacy, actions)
+                                    val entries = menuFor(row.item, items, snapshot.privacy, actions)
                                     HubMessageMenu.forKey(key, entries)?.let { entry ->
-                                        runMenuEntry(entry, row.item, state, actions, onConversation, onTextCaller)
+                                        runMenuEntry(
+                                            entry,
+                                            row.item,
+                                            items,
+                                            state,
+                                            actions,
+                                            onConversation,
+                                            onTextCaller,
+                                        )
                                         true
                                     } ?: false
                                 },
@@ -1347,7 +1362,7 @@ private fun menuFor(
     val key = (item as? HubInboxItem.Conversation)?.conversation?.sourceNotificationKey
     val facts = key?.let(actions.notificationFacts) ?: HubNotificationFacts()
     val prior = HubMessageMenu.priorToMarkRead(item, items, actions.notificationFacts).size
-    return HubMessageMenu.entries(item, privacy, facts, prior)
+    return HubMessageMenu.entries(item, privacy, facts, prior, actions.menuOptions)
 }
 
 private fun runMenuEntry(
@@ -1362,21 +1377,25 @@ private fun runMenuEntry(
     val notificationCommand =
         entry is HubMenuEntry.App ||
             (entry is HubMenuEntry.Hub && entry.action in NOTIFICATION_COMMANDS)
-    if (entry == HubMenuEntry.Hub(HubRowAction.MarkPriorRead)) {
-        state.actionsItem = null
-        // Each older row's own Mark read, one notification by key (HubNotificationCommands).
-        val keys = HubMessageMenu.priorToMarkRead(item, items, actions.notificationFacts)
-        keys.forEach { key -> actions.onNotificationCommand(key, HubMenuEntry.Hub(HubRowAction.MarkRead)) }
-        state.statusMessage = t("marked_prior_read", keys.size.toString())
-        return
+    when {
+        entry == HubMenuEntry.Hub(HubRowAction.MarkPriorRead) -> {
+            state.actionsItem = null
+            // Each older row's own Mark read, one notification by key (HubNotificationCommands).
+            val keys = HubMessageMenu.priorToMarkRead(item, items, actions.notificationFacts)
+            keys.forEach { key -> actions.onNotificationCommand(key, HubMenuEntry.Hub(HubRowAction.MarkRead)) }
+            state.statusMessage = t("marked_prior_read", keys.size.toString())
+        }
+
+        !notificationCommand -> {
+            runRowAction((entry as HubMenuEntry.Hub).action, item, state, actions, onConversation, onTextCaller)
+        }
+
+        else -> {
+            state.actionsItem = null
+            val key = (item as? HubInboxItem.Conversation)?.conversation?.sourceNotificationKey
+            key?.let { actions.onNotificationCommand(it, entry) }?.let { state.statusMessage = it }
+        }
     }
-    if (!notificationCommand) {
-        runRowAction((entry as HubMenuEntry.Hub).action, item, state, actions, onConversation, onTextCaller)
-        return
-    }
-    state.actionsItem = null
-    val key = (item as? HubInboxItem.Conversation)?.conversation?.sourceNotificationKey ?: return
-    actions.onNotificationCommand(key, entry)?.let { state.statusMessage = it }
 }
 
 private val NOTIFICATION_COMMANDS = setOf(HubRowAction.MarkRead, HubRowAction.Snooze, HubRowAction.Dismiss)
@@ -1450,6 +1469,10 @@ private fun runConversationAction(
 
         HubRowAction.PrivacyOptions -> {
             actions.onOpenConnectedApps()
+        }
+
+        HubRowAction.RemindMe -> {
+            actions.onRemindMe(conversation)?.let { state.statusMessage = it }
         }
 
         HubRowAction.Text,

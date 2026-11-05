@@ -196,4 +196,10 @@
     <string name="marked_prior_read">Asked the apps to mark %1$s older notifications read.</string>
     <string name="each_message_on_its_own">Each message on its own</string>
     <string name="one_row_per_received_message">One row per received message. Turns off Combine conversations.</string>
+    <string name="remind_me">Remind me</string>
+    <string name="tasks_unavailable">Sable Tasks is not installed.</string>
+    <string name="row_menu_snooze">Snooze in the row menu</string>
+    <string name="row_menu_snooze_detail">Adds Snooze 1 hour and the Z key for a live notification.</string>
+    <string name="row_menu_remind_me">Remind me in the row menu</string>
+    <string name="row_menu_remind_me_detail">Adds a follow-up in Sable Tasks for tomorrow morning. Only the app is saved, never the message.</string>
 </resources>

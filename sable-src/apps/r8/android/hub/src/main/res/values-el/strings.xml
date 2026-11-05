@@ -194,4 +194,10 @@
     <string name="marked_prior_read">Ζητήθηκε από τις εφαρμογές να σημάνουν %1$s παλαιότερες ειδοποιήσεις ως αναγνωσμένες.</string>
     <string name="each_message_on_its_own">Κάθε μήνυμα χωριστά</string>
     <string name="one_row_per_received_message">Μία γραμμή ανά ληφθέν μήνυμα. Απενεργοποιεί τη Συνένωση συνομιλιών.</string>
+    <string name="remind_me">Υπενθύμισέ μου</string>
+    <string name="tasks_unavailable">Το Sable Tasks δεν είναι εγκατεστημένο.</string>
+    <string name="row_menu_snooze">Αναβολή στο μενού γραμμής</string>
+    <string name="row_menu_snooze_detail">Προσθέτει Αναβολή 1 ώρας και το πλήκτρο Z για ενεργή ειδοποίηση.</string>
+    <string name="row_menu_remind_me">Υπενθύμισέ μου στο μενού γραμμής</string>
+    <string name="row_menu_remind_me_detail">Προσθέτει υπενθύμιση στο Sable Tasks για αύριο το πρωί. Αποθηκεύεται μόνο η εφαρμογή, ποτέ το μήνυμα.</string>
 </resources>

@@ -194,4 +194,10 @@
     <string name="marked_prior_read">Uygulamalardan %1$s eski bildirimi okundu işaretlemeleri istendi.</string>
     <string name="each_message_on_its_own">Her mesaj ayrı</string>
     <string name="one_row_per_received_message">Alınan her mesaj için bir satır. Konuşmaları birleştir kapanır.</string>
+    <string name="remind_me">Bana hatırlat</string>
+    <string name="tasks_unavailable">Sable Tasks yüklü değil.</string>
+    <string name="row_menu_snooze">Satır menüsünde ertele</string>
+    <string name="row_menu_snooze_detail">Etkin bir bildirim için 1 saat ertele ve Z tuşunu ekler.</string>
+    <string name="row_menu_remind_me">Satır menüsünde bana hatırlat</string>
+    <string name="row_menu_remind_me_detail">Sable Tasks\'e yarın sabah için takip ekler. Yalnızca uygulama kaydedilir, mesaj asla.</string>
 </resources>

@@ -194,4 +194,10 @@
     <string name="marked_prior_read">古い通知 %1$s 件を既読にするようアプリに依頼しました。</string>
     <string name="each_message_on_its_own">メッセージごとに表示</string>
     <string name="one_row_per_received_message">受信メッセージごとに1行。会話をまとめるをオフにします。</string>
+    <string name="remind_me">リマインド</string>
+    <string name="tasks_unavailable">Sable Tasks がインストールされていません。</string>
+    <string name="row_menu_snooze">行メニューにスヌーズ</string>
+    <string name="row_menu_snooze_detail">表示中の通知に「1 時間スヌーズ」と Z キーを追加します。</string>
+    <string name="row_menu_remind_me">行メニューにリマインド</string>
+    <string name="row_menu_remind_me_detail">Sable Tasks に明日の朝のフォローアップを追加します。保存されるのはアプリだけで、メッセージは保存されません。</string>
 </resources>

@@ -34,6 +34,8 @@ class Launcher(private val activity: Activity) {
         )
 
         Action.RadioDiag -> activity.packageManager.getLaunchIntentForPackage(RADIO_PACKAGE)
+
+        Action.HubRowMenu -> Intent(HUB_SETTINGS_ACTION).setPackage(HUB_PACKAGE)
     }
 
     /**
@@ -88,5 +90,7 @@ class Launcher(private val activity: Activity) {
         const val HOME_STYLE_ACTION = "org.sableos.start.action.CHOOSE_HOME_STYLE"
         const val DISPLAY_PACKAGE = "org.sableos.titan2.displaycompat"
         const val RADIO_PACKAGE = "org.sableos.titan2.radiodiag"
+        const val HUB_SETTINGS_ACTION = "org.sableos.hub.action.CONNECTED_APPS"
+        const val HUB_PACKAGE = "org.sableos.hub"
     }
 }

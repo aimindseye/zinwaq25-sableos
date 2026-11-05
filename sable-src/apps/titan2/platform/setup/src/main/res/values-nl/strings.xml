@@ -74,4 +74,7 @@
     <string name="weather_row_city">Voorspellingen voor %1$s; geen locatietoestemming</string>
     <string name="weather_row_none">Kies de stad die Weer toont; geen locatietoestemming</string>
     <string name="weather_row_failed">Kan de stad van Weer niet lezen</string>
+    <string name="row_hub_menu_title">Hub-rijmenu</string>
+    <string name="row_hub_menu_detail">Uitstellen en Herinner me staan uit tot je ze aanzet in Hub</string>
+    <string name="action_hub_row_menu">Hub-instellingen</string>
 </resources>

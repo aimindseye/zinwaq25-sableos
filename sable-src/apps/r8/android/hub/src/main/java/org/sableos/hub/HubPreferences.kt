@@ -3,6 +3,7 @@ package org.sableos.hub
 import android.content.Context
 import org.sableos.hub.policy.AttentionSelection
 import org.sableos.hub.policy.AttentionSelectionCodec
+import org.sableos.hub.policy.HubMenuOptions
 
 /**
  * Hub preferences that are not per-app Hub policy: Sable Attention selections, Hub private
@@ -65,10 +66,30 @@ class HubPreferences(
         appContext.contentResolver.notifyChange(ConnectedAppsRepository.HISTORY_URI, null)
     }
 
+    /**
+     * Row menu extras (Snooze, Remind me): both off until the user turns them on in Hub's
+     * settings, which Sable Setup opens.
+     */
+    fun menuOptions(): HubMenuOptions =
+        HubMenuOptions(
+            snooze = preferences.getBoolean(KEY_MENU_SNOOZE, false),
+            remindMe = preferences.getBoolean(KEY_MENU_REMIND_ME, false),
+        )
+
+    fun setMenuOptions(options: HubMenuOptions) {
+        preferences
+            .edit()
+            .putBoolean(KEY_MENU_SNOOZE, options.snooze)
+            .putBoolean(KEY_MENU_REMIND_ME, options.remindMe)
+            .apply()
+    }
+
     private companion object {
         const val KEY_ATTENTION_RECORDS = "attention_records"
         const val KEY_PRIVATE_MODE = "private_mode"
         const val KEY_COMBINE_CONVERSATIONS = "combine_conversations"
         const val KEY_EACH_MESSAGE = "each_message"
+        const val KEY_MENU_SNOOZE = "menu_snooze"
+        const val KEY_MENU_REMIND_ME = "menu_remind_me"
     }
 }

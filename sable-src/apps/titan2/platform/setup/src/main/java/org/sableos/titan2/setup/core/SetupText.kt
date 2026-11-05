@@ -91,7 +91,10 @@ object SetupText {
         "weather_failed" to "Weather could not switch to %1\$s.",
         "weather_row_city" to "Forecasts for %1\$s; no location permission",
         "weather_row_none" to "Choose the city Weather shows; no location permission",
-        "weather_row_failed" to "Could not read the Weather city"
+        "weather_row_failed" to "Could not read the Weather city",
+        "row_hub_menu_title" to "Hub row menu",
+        "row_hub_menu_detail" to "Snooze and Remind me are off until you turn them on in Hub",
+        "action_hub_row_menu" to "Hub settings"
     )
 
     val t = SableTexts(EN)

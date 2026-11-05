@@ -77,7 +77,14 @@ object SetupRows {
             Readiness.Informational,
             Action.NetworkSettings
         ),
-        WeatherCityStep.row(snapshot.weatherCity)
+        WeatherCityStep.row(snapshot.weatherCity),
+        Item(
+            "hub_menu",
+            t("row_hub_menu_title"),
+            t("row_hub_menu_detail"),
+            Readiness.Informational,
+            Action.HubRowMenu
+        )
     ).map { applyTarget(it, targets(it.action)) }
 
     /** HOME is owned by the canonical lane (IR-003); this row never judges it. */

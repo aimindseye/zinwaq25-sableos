@@ -26,6 +26,8 @@
             <action android:name="android.intent.action.SENDTO" />
             <data android:scheme="smsto" />
         </intent>
+        <!-- Hub's settings page: Snooze and Remind me for Hub's row menu. -->
+        <intent><action android:name="org.sableos.hub.action.CONNECTED_APPS" /></intent>
         <package android:name="org.sableos.titan2.displaycompat" />
         <package android:name="org.sableos.titan2.radiodiag" />
         <!-- Sable Weather's city hand-off (ContentResolver.call); Weather allows only this package. -->

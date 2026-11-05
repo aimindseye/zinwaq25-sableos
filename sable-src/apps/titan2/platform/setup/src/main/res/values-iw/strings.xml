@@ -74,4 +74,7 @@
     <string name="weather_row_city">תחזיות עבור %1$s; ללא הרשאת מיקום</string>
     <string name="weather_row_none">בחרו את העיר שמזג האוויר מציג; ללא הרשאת מיקום</string>
     <string name="weather_row_failed">לא ניתן לקרוא את עיר מזג האוויר</string>
+    <string name="row_hub_menu_title">תפריט השורה ב-Hub</string>
+    <string name="row_hub_menu_detail">נודניק ותזכיר לי כבויים עד שתפעיל אותם ב-Hub</string>
+    <string name="action_hub_row_menu">הגדרות Hub</string>
 </resources>

@@ -74,4 +74,7 @@
     <string name="weather_row_city">Prognozy dla: %1$s; bez uprawnienia do lokalizacji</string>
     <string name="weather_row_none">Wybierz miasto, które pokazuje Pogoda; bez uprawnienia do lokalizacji</string>
     <string name="weather_row_failed">Nie udało się odczytać miasta Pogody</string>
+    <string name="row_hub_menu_title">Menu wiersza w Hub</string>
+    <string name="row_hub_menu_detail">Odłóż i Przypomnij mi są wyłączone, dopóki nie włączysz ich w Hub</string>
+    <string name="action_hub_row_menu">Ustawienia Hub</string>
 </resources>

@@ -1,6 +1,7 @@
 package org.sableos.hub
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.database.ContentObserver
 import android.os.Bundle
@@ -8,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.CallLog
 import android.provider.Telephony
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -30,6 +32,8 @@ import org.sableos.hub.notifications.HubNotificationCommands
 import org.sableos.hub.policy.HubDrafts
 import org.sableos.hub.policy.HubHandoffTarget
 import org.sableos.hub.policy.HubIntents
+import org.sableos.hub.policy.HubMenuOptions
+import org.sableos.hub.policy.HubRemindMe
 import org.sableos.hub.ui.HubScreen
 import kotlin.math.roundToInt
 
@@ -117,6 +121,9 @@ class MainActivity : ComponentActivity() {
             var eachMessage by remember {
                 mutableStateOf(false)
             }
+            var menuOptions by remember {
+                mutableStateOf(HubMenuOptions())
+            }
 
             LaunchedEffect(refreshGeneration) {
                 refreshing = refreshGeneration == userRefreshGeneration
@@ -127,6 +134,7 @@ class MainActivity : ComponentActivity() {
                 val preferences = withContext(Dispatchers.IO) { HubPreferences(applicationContext) }
                 combineConversations = preferences.combineConversations()
                 eachMessage = preferences.eachMessage()
+                menuOptions = preferences.menuOptions()
                 refreshing = false
             }
 
@@ -250,8 +258,29 @@ class MainActivity : ComponentActivity() {
                             refreshGeneration += 1
                         }
                     },
+                    menuOptions = menuOptions,
+                    onRemindMe = ::remindMe,
                 )
             }
+        }
+    }
+
+    /** Remind me: Sable Tasks opens its new follow-up; null status when it opened. */
+    private fun remindMe(conversation: HubConversation): String? {
+        val followUp =
+            HubRemindMe.followUp(conversation, packageName) ?: return t("the_source_app_is_unavailable")
+        val intent =
+            Intent(HubRemindMe.ACTION_FOLLOW_UP)
+                .setPackage(HubRemindMe.TASKS_PACKAGE)
+                .putExtra(HubRemindMe.EXTRA_SOURCE_PACKAGE, followUp.packageName)
+                .putExtra(HubRemindMe.EXTRA_SOURCE_KEY, followUp.key)
+                .putExtra(HubRemindMe.EXTRA_SOURCE_APP, followUp.appName)
+        return try {
+            startActivity(intent)
+            null
+        } catch (e: ActivityNotFoundException) {
+            Log.i(TAG, "no Sable Tasks for Remind me", e)
+            t("tasks_unavailable")
         }
     }
 
@@ -388,6 +417,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
+        const val TAG = "SableHub"
         const val PROVIDER_REFRESH_DELAY_MILLIS = 250L
         const val DOCK_ICON_SIZE_DP = 40f
         val PROVIDER_URIS =

@@ -21,6 +21,8 @@
         <provider android:authorities="org.sableos.appearance" />
         <provider android:authorities="org.sableos.mail.snapshot" />
         <package android:name="org.sableos.mail" />
+        <!-- Remind me (row menu, off unless turned on): Sable Tasks' follow-up entry. -->
+        <package android:name="org.sableos.tasks" />
         <!-- DESIGN-KF-A Settings handoff: Android owns these pages; Hub only links to them. -->
         <intent>
             <action android:name="android.settings.NOTIFICATION_SETTINGS" />

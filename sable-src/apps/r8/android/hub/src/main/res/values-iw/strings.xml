@@ -194,4 +194,10 @@
     <string name="marked_prior_read">האפליקציות התבקשו לסמן %1$s התראות ישנות יותר כנקראו.</string>
     <string name="each_message_on_its_own">כל הודעה בנפרד</string>
     <string name="one_row_per_received_message">שורה לכל הודעה שהתקבלה. מכבה את איחוד השיחות.</string>
+    <string name="remind_me">תזכיר לי</string>
+    <string name="tasks_unavailable">Sable Tasks אינה מותקנת.</string>
+    <string name="row_menu_snooze">נודניק בתפריט השורה</string>
+    <string name="row_menu_snooze_detail">מוסיף נודניק לשעה ואת המקש Z להתראה פעילה.</string>
+    <string name="row_menu_remind_me">תזכיר לי בתפריט השורה</string>
+    <string name="row_menu_remind_me_detail">מוסיף מעקב ב-Sable Tasks למחר בבוקר. נשמרת רק האפליקציה, אף פעם לא ההודעה.</string>
 </resources>

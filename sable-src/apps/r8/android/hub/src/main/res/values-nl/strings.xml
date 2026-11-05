@@ -194,4 +194,10 @@
     <string name="marked_prior_read">De apps is gevraagd %1$s oudere meldingen als gelezen te markeren.</string>
     <string name="each_message_on_its_own">Elk bericht apart</string>
     <string name="one_row_per_received_message">Eén rij per ontvangen bericht. Zet Gesprekken samenvoegen uit.</string>
+    <string name="remind_me">Herinner me</string>
+    <string name="tasks_unavailable">Sable Tasks is niet geïnstalleerd.</string>
+    <string name="row_menu_snooze">Uitstellen in het rijmenu</string>
+    <string name="row_menu_snooze_detail">Voegt 1 uur uitstellen en de toets Z toe voor een actieve melding.</string>
+    <string name="row_menu_remind_me">Herinner me in het rijmenu</string>
+    <string name="row_menu_remind_me_detail">Voegt een opvolgtaak toe in Sable Tasks voor morgenochtend. Alleen de app wordt bewaard, nooit het bericht.</string>
 </resources>

@@ -45,13 +45,24 @@ sealed interface HubMenuEntry {
     }
 }
 
+/**
+ * Row menu entries the user chooses in Sable Setup or Hub > Connected apps. Both are off unless
+ * turned on: [snooze] adds Snooze 1 hour (and its Z key), [remindMe] adds Remind me, which puts a
+ * follow-up into Sable Tasks with the row's source and key only, never the message text.
+ */
+data class HubMenuOptions(
+    val snooze: Boolean = false,
+    val remindMe: Boolean = false,
+)
+
 /** A key pressed on a focused row, as [HubMessageMenu.forKey] reads it. */
 enum class HubRowKey { R, U, Z, Delete }
 
 /**
  * The BB10 row menu of a Hub message (Menu, Alt+Enter or a long press; it opens on the right
- * edge): Open and Reply first, then Mark read, Snooze and Dismiss when the row's notification is
- * live, then the source's own actions under their own names, then the routes that leave Hub.
+ * edge): Open and Reply first, then Mark read, Snooze (when turned on) and Dismiss when the row's
+ * notification is live, then the source's own actions under their own names, then Mark prior read
+ * and Remind me (when turned on), then the routes that leave Hub.
  *
  * Mark read and the app actions run the source's own PendingIntent, so Hub still invents nothing
  * (`INVENT_UNSUPPORTED_ACTIONS=NO`): an SMS cannot be marked read from Hub and gets none of them.
@@ -68,13 +79,23 @@ object HubMessageMenu {
         privacy: HubPrivacyState = HubPrivacyState(),
         facts: HubNotificationFacts = HubNotificationFacts(),
         priorToMarkRead: Int = 0,
+        options: HubMenuOptions = HubMenuOptions(),
     ): List<HubMenuEntry> {
-        val entries = rowEntries(item, privacy, facts)
-        if (priorToMarkRead <= 0 || privacy.deviceLocked) return entries
-        // Mark prior read goes after the row's own commands, before the routes that leave Hub.
+        val entries = rowEntries(item, privacy, facts, options.snooze)
+        if (privacy.deviceLocked) return entries
+        val extra = mutableListOf<HubMenuEntry>()
+        if (priorToMarkRead > 0) extra += HubMenuEntry.Hub(HubRowAction.MarkPriorRead)
+        if (options.remindMe && canRemind(item)) extra += HubMenuEntry.Hub(HubRowAction.RemindMe)
+        // These go after the row's own commands, before the routes that leave Hub.
         val handOff = entries.indexOfFirst { it is HubMenuEntry.Hub && it.action in HAND_OFFS }
         val at = if (handOff >= 0) handOff else entries.size
-        return entries.take(at) + HubMenuEntry.Hub(HubRowAction.MarkPriorRead) + entries.drop(at)
+        return entries.take(at) + extra + entries.drop(at)
+    }
+
+    /** Remind me needs an app to come back to: the source app, or the phone's SMS app. */
+    fun canRemind(item: HubInboxItem): Boolean {
+        val conversation = (item as? HubInboxItem.Conversation)?.conversation ?: return false
+        return conversation.source == HubConversationSource.Sms || conversation.sourcePackage != null
     }
 
     /**
@@ -109,6 +130,7 @@ object HubMessageMenu {
         item: HubInboxItem,
         privacy: HubPrivacyState,
         facts: HubNotificationFacts,
+        snooze: Boolean,
     ): List<HubMenuEntry> {
         val base = HubRowActions.forItem(item, privacy)
         val conversation = (item as? HubInboxItem.Conversation)?.conversation
@@ -124,7 +146,7 @@ object HubMessageMenu {
         val tail = base.drop(head.size)
         val middle = mutableListOf<HubMenuEntry>()
         if (facts.markReadIndex >= 0) middle += HubMenuEntry.Hub(HubRowAction.MarkRead)
-        middle += HubMenuEntry.Hub(HubRowAction.Snooze)
+        if (snooze) middle += HubMenuEntry.Hub(HubRowAction.Snooze)
         if (facts.clearable) middle += HubMenuEntry.Hub(HubRowAction.Dismiss)
         facts.appActions
             .asSequence()

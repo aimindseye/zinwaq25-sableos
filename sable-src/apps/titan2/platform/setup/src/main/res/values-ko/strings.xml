@@ -74,4 +74,7 @@
     <string name="weather_row_city">%1$s 예보, 위치 권한 없음</string>
     <string name="weather_row_none">날씨가 보여 줄 도시를 선택하세요. 위치 권한 없음</string>
     <string name="weather_row_failed">날씨 도시를 읽을 수 없습니다</string>
+    <string name="row_hub_menu_title">Hub 행 메뉴</string>
+    <string name="row_hub_menu_detail">다시 알림과 나중에 알림은 Hub에서 켤 때까지 꺼져 있습니다</string>
+    <string name="action_hub_row_menu">Hub 설정</string>
 </resources>

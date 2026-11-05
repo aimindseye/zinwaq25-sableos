@@ -194,4 +194,10 @@
     <string name="marked_prior_read">已请应用将 %1$s 条较早的通知标为已读。</string>
     <string name="each_message_on_its_own">每条消息单独显示</string>
     <string name="one_row_per_received_message">每条收到的消息一行。会关闭合并对话。</string>
+    <string name="remind_me">提醒我</string>
+    <string name="tasks_unavailable">未安装 Sable Tasks。</string>
+    <string name="row_menu_snooze">行菜单中的稍后提醒</string>
+    <string name="row_menu_snooze_detail">为当前通知添加“1 小时后提醒”和 Z 键。</string>
+    <string name="row_menu_remind_me">行菜单中的提醒我</string>
+    <string name="row_menu_remind_me_detail">在 Sable Tasks 中添加明天早上的跟进。只保存应用，从不保存消息。</string>
 </resources>

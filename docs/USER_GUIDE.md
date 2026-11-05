@@ -62,7 +62,9 @@ The keyboard does almost everything. Typing on the home screen searches, arrows 
 | App pages (right) | 5-column grid of every app | Arrows move, a letter jumps |
 | Bottom bar | Hub (a dot shows unread items) · page dots · Camera | Alt+1, Alt+2; the call key opens Phone |
 
-In the Hub app (H or Enter from Start), Menu, Alt+Enter or a long press on a message opens its menu on the right edge, as on BB10: Open, Reply, Mark read (when the app offers it), Snooze 1 hour, Dismiss notification, then the app's own actions such as Archive or Delete. On a focused message R replies, U marks read, Z snoozes and Del dismisses without opening the menu. They need the phone unlocked; an SMS can be opened, replied to or called back.
+In the Hub app (H or Enter from Start), Menu, Alt+Enter or a long press on a message opens its menu on the right edge, as on BB10: Open, Reply, Mark read (when the app offers it), Dismiss notification, then the app's own actions such as Archive or Delete. On a focused message R replies, U marks read and Del dismisses without opening the menu. They need the phone unlocked; an SMS can be opened, replied to or called back.
+
+Two more entries are off until you turn them on in Hub > Connected apps (Sable Setup's Hub row menu line opens that page): **Snooze in the row menu** adds Snooze 1 hour and the Z key, and Android brings the notification back after an hour; **Remind me in the row menu** adds Remind me, which opens Sable Tasks with a follow-up for tomorrow morning named after the app ("Follow up in Gmail"). Only the app is saved, never the message, and asking again for the same message moves that task instead of adding another.
 
 Alt+Left and Alt+Right move between pages. Alt+Space opens Command, and any letter starts a search of apps, contacts and commands. Menu opens Edit Home, where you choose Home apps, the quick bar and widgets. The status dials at the top show Wi-Fi, Mobile, CPU, RAM, battery and Cell.
 

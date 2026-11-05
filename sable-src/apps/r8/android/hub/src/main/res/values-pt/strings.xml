@@ -194,4 +194,10 @@
     <string name="marked_prior_read">Foi pedido às apps que marquem %1$s notificações anteriores como lidas.</string>
     <string name="each_message_on_its_own">Cada mensagem separada</string>
     <string name="one_row_per_received_message">Uma linha por mensagem recebida. Desliga Combinar conversas.</string>
+    <string name="remind_me">Lembrar-me</string>
+    <string name="tasks_unavailable">O Sable Tasks não está instalado.</string>
+    <string name="row_menu_snooze">Adiar no menu da linha</string>
+    <string name="row_menu_snooze_detail">Adiciona Adiar 1 hora e a tecla Z para uma notificação ativa.</string>
+    <string name="row_menu_remind_me">Lembrar-me no menu da linha</string>
+    <string name="row_menu_remind_me_detail">Adiciona um acompanhamento no Sable Tasks para amanhã de manhã. Só a app é guardada, nunca a mensagem.</string>
 </resources>

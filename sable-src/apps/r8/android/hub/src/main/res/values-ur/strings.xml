@@ -194,4 +194,10 @@
     <string name="marked_prior_read">ایپس سے %1$s پرانی اطلاعات کو پڑھا ہوا نشان زد کرنے کو کہا گیا۔</string>
     <string name="each_message_on_its_own">ہر پیغام الگ</string>
     <string name="one_row_per_received_message">ہر موصول پیغام کے لیے ایک قطار۔ گفتگو یکجا کرنا بند کرتا ہے۔</string>
+    <string name="remind_me">مجھے یاد دلائیں</string>
+    <string name="tasks_unavailable">Sable Tasks انسٹال نہیں ہے۔</string>
+    <string name="row_menu_snooze">قطار کے مینو میں مؤخر</string>
+    <string name="row_menu_snooze_detail">فعال اطلاع کے لیے 1 گھنٹہ مؤخر اور Z کلید شامل کرتا ہے۔</string>
+    <string name="row_menu_remind_me">قطار کے مینو میں مجھے یاد دلائیں</string>
+    <string name="row_menu_remind_me_detail">Sable Tasks میں کل صبح کے لیے فالو اپ شامل کرتا ہے۔ صرف ایپ محفوظ ہوتی ہے، پیغام کبھی نہیں۔</string>
 </resources>

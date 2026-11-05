@@ -74,4 +74,7 @@
     <string name="weather_row_city">Прогнозы для: %1$s; без разрешения на геолокацию</string>
     <string name="weather_row_none">Выберите город для «Погоды»; без разрешения на геолокацию</string>
     <string name="weather_row_failed">Не удалось прочитать город «Погоды»</string>
+    <string name="row_hub_menu_title">Меню строки в Hub</string>
+    <string name="row_hub_menu_detail">«Отложить» и «Напомнить» выключены, пока вы не включите их в Hub</string>
+    <string name="action_hub_row_menu">Настройки Hub</string>
 </resources>

@@ -194,4 +194,10 @@
     <string name="marked_prior_read">Die Apps wurden gebeten, %1$s ältere Benachrichtigungen als gelesen zu markieren.</string>
     <string name="each_message_on_its_own">Jede Nachricht einzeln</string>
     <string name="one_row_per_received_message">Eine Zeile pro empfangener Nachricht. Schaltet „Unterhaltungen zusammenfassen“ aus.</string>
+    <string name="remind_me">Erinnern</string>
+    <string name="tasks_unavailable">Sable Tasks ist nicht installiert.</string>
+    <string name="row_menu_snooze">Schlummern im Zeilenmenü</string>
+    <string name="row_menu_snooze_detail">Fügt „1 Stunde schlummern“ und die Taste Z für eine aktive Benachrichtigung hinzu.</string>
+    <string name="row_menu_remind_me">Erinnern im Zeilenmenü</string>
+    <string name="row_menu_remind_me_detail">Legt in Sable Tasks eine Nachfass-Aufgabe für morgen früh an. Gespeichert wird nur die App, nie die Nachricht.</string>
 </resources>

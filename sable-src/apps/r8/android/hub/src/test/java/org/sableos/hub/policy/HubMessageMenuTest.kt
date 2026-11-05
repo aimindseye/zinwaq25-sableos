@@ -48,6 +48,8 @@ class HubMessageMenuTest {
                 ),
         )
 
+    private val snooze = HubMenuOptions(snooze = true)
+
     private fun labels(entries: List<HubMenuEntry>) =
         entries.map { (it as? HubMenuEntry.Hub)?.action?.name ?: "app:" + it.label }
 
@@ -66,8 +68,37 @@ class HubMessageMenuTest {
                 "SourceNotifications",
                 "PrivacyOptions",
             ),
-            labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail), facts = live)),
+            labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail), facts = live, options = snooze)),
         )
+    }
+
+    @Test
+    fun snoozeAndRemindMeAreOffUntilTurnedOn() {
+        val item = HubInboxItem.Conversation(gmail)
+        val plain = labels(HubMessageMenu.entries(item, facts = live))
+        assertTrue("Snooze" !in plain && "RemindMe" !in plain)
+        assertNull(HubMessageMenu.forKey(HubRowKey.Z, HubMessageMenu.entries(item, facts = live)))
+
+        val both = labels(HubMessageMenu.entries(item, facts = live, options = HubMenuOptions(true, true)))
+        assertEquals("RemindMe", both[both.indexOf("OpenSourceApp") - 1])
+        val smsMenu =
+            labels(HubMessageMenu.entries(HubInboxItem.Conversation(sms), options = HubMenuOptions(remindMe = true)))
+        assertEquals("RemindMe", smsMenu[smsMenu.indexOf("OpenInMessages") - 1])
+        val locked = HubPrivacyState(deviceLocked = true)
+        val lockedMenu = HubMessageMenu.entries(item, locked, live, options = HubMenuOptions(true, true))
+        assertTrue(lockedMenu.none { it == HubMenuEntry.Hub(HubRowAction.RemindMe) })
+    }
+
+    @Test
+    fun remindMeHandsTasksTheAppAndRowNeverTheMessage() {
+        val followUp = HubRemindMe.followUp(gmail, "org.sableos.hub")
+        assertEquals(HubFollowUp("com.google.android.gm", "hub:-7", "Gmail"), followUp)
+        assertEquals(
+            HubFollowUp("org.sableos.hub", "hub:3:9", HubRemindMe.HUB_NAME),
+            HubRemindMe.followUp(sms.copy(messageId = 9L), "org.sableos.hub"),
+        )
+        assertNull(HubRemindMe.followUp(gmail.copy(sourcePackage = null), "org.sableos.hub"))
+        assertTrue(followUp.toString().contains(gmail.lastBody).not())
     }
 
     @Test
@@ -75,7 +106,7 @@ class HubMessageMenuTest {
         val facts = live.copy(clearable = false, markReadIndex = -1, appActions = emptyList())
         assertEquals(
             listOf("Open", "Reply", "Snooze", "OpenSourceApp", "SourceNotifications", "PrivacyOptions"),
-            labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail), facts = facts)),
+            labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail), facts = facts, options = snooze)),
         )
     }
 
@@ -94,12 +125,12 @@ class HubMessageMenuTest {
 
     @Test
     fun rowKeysRunOnlyWhatTheMenuHas() {
-        val entries = HubMessageMenu.entries(HubInboxItem.Conversation(gmail), facts = live)
+        val entries = HubMessageMenu.entries(HubInboxItem.Conversation(gmail), facts = live, options = snooze)
         assertEquals(HubMenuEntry.Hub(HubRowAction.Reply), HubMessageMenu.forKey(HubRowKey.R, entries))
         assertEquals(HubMenuEntry.Hub(HubRowAction.MarkRead), HubMessageMenu.forKey(HubRowKey.U, entries))
         assertEquals(HubMenuEntry.Hub(HubRowAction.Snooze), HubMessageMenu.forKey(HubRowKey.Z, entries))
         assertEquals(HubMenuEntry.Hub(HubRowAction.Dismiss), HubMessageMenu.forKey(HubRowKey.Delete, entries))
-        val smsEntries = HubMessageMenu.entries(HubInboxItem.Conversation(sms), facts = live)
+        val smsEntries = HubMessageMenu.entries(HubInboxItem.Conversation(sms), facts = live, options = snooze)
         assertNull(HubMessageMenu.forKey(HubRowKey.Z, smsEntries))
         assertEquals("Del", HubMessageMenu.shortcutLabel(HubRowAction.Dismiss))
     }
@@ -107,6 +138,7 @@ class HubMessageMenuTest {
     @Test
     fun markPriorReadListsOlderLiveRowsTheSourceCanMarkRead() {
         val newest = HubInboxItem.Conversation(gmail.copy(lastDateMillis = 5_000L, sourceNotificationKey = "new"))
+
         fun row(
             thread: Long,
             at: Long,
