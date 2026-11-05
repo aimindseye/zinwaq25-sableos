@@ -20,7 +20,7 @@ text field has focus and no type-to-focus search is running:
 Pure Java; host tests in the SableOS Q25 repository
 (tests/java/stock-apps/DocumentsUI). Wired up by the next patch.
 ---
- .../documentsui/sable/SableFilesKeys.java     | 110 +++++++++++++++---
+ src/com/android/documentsui/sable/SableFilesKeys.java | 110 +++++++++++++++++++++++++++++++++-----
  1 file changed, 97 insertions(+), 13 deletions(-)
 
 diff --git a/src/com/android/documentsui/sable/SableFilesKeys.java b/src/com/android/documentsui/sable/SableFilesKeys.java

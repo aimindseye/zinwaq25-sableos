@@ -80,7 +80,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/Dialer/0709-SableOS-Phone-follows-the-system-Dark-theme.patch` | applies as is |
 | `packages/apps/Dialer/0710-SableOS-speed-dial-on-letter-keys.patch` | applies as is |
 | `packages/apps/DocumentsUI/1001-SableOS-pure-Files-keyboard-model.patch` | applies as is |
-| `packages/apps/DocumentsUI/1002-SableOS-Files-keys-for-copy-move-rename-new-folder-a.patch` | refreshed (context moved) |
+| `packages/apps/DocumentsUI/1002-SableOS-Files-keys-for-copy-move-rename-new-folder-a.patch` | refreshed (context moved); adds `androidx.annotation.Nullable`, which 24.0 FilesActivity no longer imports (first 24.0 build, 2026-11-05) |
 | `packages/apps/DocumentsUI/1003-SableOS-Files-single-letter-keys-per-the-design.patch` | applies as is |
 | `packages/apps/DocumentsUI/1004-SableOS-Files-letter-keys-and-the-hint-dock.patch` | refreshed (context moved) |
 | `packages/apps/FMRadio/1061-SableOS-pure-FM-bridge-protocol-for-Sable-Media.patch` | applies as is |

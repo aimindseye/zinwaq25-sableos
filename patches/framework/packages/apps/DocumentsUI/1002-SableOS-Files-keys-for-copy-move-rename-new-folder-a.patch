@@ -28,13 +28,13 @@ picker is unchanged):
 Focus stays visible through the Material 3 focus ring upstream already
 draws on list and grid items.
 ---
- src/com/android/documentsui/FocusManager.java |  7 ++
- .../documentsui/SharedInputHandler.java       |  3 +
- .../dirlist/DirectoryFragment.java            | 51 +++++++++++++
- .../documentsui/files/FilesActivity.java      | 74 +++++++++++++++++++
- .../documentsui/files/MenuManager.java        | 25 +++++++
- .../documentsui/SharedInputHandlerTest.java   |  5 +-
- 6 files changed, 163 insertions(+), 2 deletions(-)
+ src/com/android/documentsui/FocusManager.java                  |  7 +++
+ src/com/android/documentsui/SharedInputHandler.java            |  3 ++
+ src/com/android/documentsui/dirlist/DirectoryFragment.java     | 51 ++++++++++++++++++++
+ src/com/android/documentsui/files/FilesActivity.java           | 75 ++++++++++++++++++++++++++++++
+ src/com/android/documentsui/files/MenuManager.java             | 25 ++++++++++
+ tests/unit/com/android/documentsui/SharedInputHandlerTest.java |  5 +-
+ 6 files changed, 164 insertions(+), 2 deletions(-)
 
 diff --git a/src/com/android/documentsui/FocusManager.java b/src/com/android/documentsui/FocusManager.java
 index d353321..dadd6a5 100644
@@ -148,10 +148,18 @@ index 689cb9e..e346693 100644
       * Paste selection files from the primary clip into the current window.
       */
 diff --git a/src/com/android/documentsui/files/FilesActivity.java b/src/com/android/documentsui/files/FilesActivity.java
-index 07cc206..5c053ba 100644
+index 07cc206..5b3f1a0 100644
 --- a/src/com/android/documentsui/files/FilesActivity.java
 +++ b/src/com/android/documentsui/files/FilesActivity.java
-@@ -76,6 +76,7 @@ import com.android.documentsui.base.DocumentInfo;
+@@ -41,6 +41,7 @@ import android.view.MenuItem;
+ import android.view.View;
+ 
+ import androidx.annotation.CallSuper;
++import androidx.annotation.Nullable;
+ import androidx.annotation.RequiresApi;
+ import androidx.fragment.app.FragmentManager;
+ import androidx.lifecycle.LifecycleOwnerKt;
+@@ -76,6 +77,7 @@ import com.android.documentsui.base.DocumentInfo;
  import com.android.documentsui.base.Features;
  import com.android.documentsui.base.RootInfo;
  import com.android.documentsui.base.State;
@@ -159,7 +167,7 @@ index 07cc206..5c053ba 100644
  import com.android.documentsui.base.UserId;
  import com.android.documentsui.clipping.DocumentClipper;
  import com.android.documentsui.dirlist.AnimationView.AnimationType;
-@@ -519,6 +520,79 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
+@@ -519,6 +521,79 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
          mInjector.focusManager.focusDocument(idToFocus);
      }
  
