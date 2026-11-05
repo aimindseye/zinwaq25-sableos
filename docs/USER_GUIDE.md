@@ -355,7 +355,7 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 
 ### Picture Password
 
-Settings > Sable > Picture Password sets up a quicker unlock over one of your photos: pick a photo, a number (0 to 9) and a spot in the photo. To unlock, move the grid of numbers with the trackpad until your number sits on your spot, then press Enter. The numbers start in a different place and order every time, so watching or smudges give nothing away. **Stronger** adds a second number and spot (off unless you turn it on). Your PIN or password is still needed after a restart, after 72 hours and after 5 wrong pictures, and Esc always switches to it.
+Settings > Sable > Picture Password sets up a quicker unlock over a picture: pick one of your photos or one of the four built-in pictures, a number (0 to 9) and a spot in the photo. To unlock, move the grid of numbers with the trackpad until your number sits on your spot, then press Enter. The numbers start in a different place and order every time, so watching or smudges give nothing away. **Stronger** adds a second number and spot (off unless you turn it on). Your PIN or password is still needed after a restart, after 72 hours and after 5 wrong pictures, and Esc always switches to it.
 
 ## Privacy and security defaults
 
