@@ -255,4 +255,13 @@
     <string name="month_all_day">ganztägig</string>
     <string name="hub_upcoming">Demnächst</string>
     <string name="hub_upcoming_none">Nichts heute oder morgen</string>
+    <string name="instant_actions">Sofortaktionen</string>
+    <string name="instant_action">Sofortaktion</string>
+    <string name="instant_remind_me">Erinnere mich</string>
+    <string name="instant_note">Notiz</string>
+    <string name="instant_call">Anrufen</string>
+    <string name="instant_text">SMS</string>
+    <string name="instant_email">E-Mail</string>
+    <string name="instant_map">Karte</string>
+    <string name="instant_web_search">Im Web suchen</string>
 </resources>

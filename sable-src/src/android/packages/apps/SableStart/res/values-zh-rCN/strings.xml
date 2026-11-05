@@ -255,4 +255,13 @@
     <string name="month_all_day">全天</string>
     <string name="hub_upcoming">即将到来</string>
     <string name="hub_upcoming_none">今天和明天没有安排</string>
+    <string name="instant_actions">即时操作</string>
+    <string name="instant_action">即时操作</string>
+    <string name="instant_remind_me">提醒我</string>
+    <string name="instant_note">记事</string>
+    <string name="instant_call">拨打</string>
+    <string name="instant_text">短信</string>
+    <string name="instant_email">电子邮件</string>
+    <string name="instant_map">地图</string>
+    <string name="instant_web_search">网页搜索</string>
 </resources>

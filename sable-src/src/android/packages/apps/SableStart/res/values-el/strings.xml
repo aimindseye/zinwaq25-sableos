@@ -255,4 +255,13 @@
     <string name="month_all_day">ολοήμερο</string>
     <string name="hub_upcoming">Επερχόμενα</string>
     <string name="hub_upcoming_none">Τίποτα σήμερα ή αύριο</string>
+    <string name="instant_actions">άμεσες ενέργειες</string>
+    <string name="instant_action">Άμεση ενέργεια</string>
+    <string name="instant_remind_me">Υπενθύμισέ μου</string>
+    <string name="instant_note">Σημείωση</string>
+    <string name="instant_call">Κλήση</string>
+    <string name="instant_text">Μήνυμα</string>
+    <string name="instant_email">Email</string>
+    <string name="instant_map">Χάρτης</string>
+    <string name="instant_web_search">Αναζήτηση στον ιστό</string>
 </resources>

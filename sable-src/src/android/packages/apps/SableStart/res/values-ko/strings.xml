@@ -255,4 +255,13 @@
     <string name="month_all_day">종일</string>
     <string name="hub_upcoming">다가오는 일정</string>
     <string name="hub_upcoming_none">오늘과 내일 일정 없음</string>
+    <string name="instant_actions">즉시 실행</string>
+    <string name="instant_action">즉시 실행</string>
+    <string name="instant_remind_me">알림 설정</string>
+    <string name="instant_note">메모</string>
+    <string name="instant_call">전화</string>
+    <string name="instant_text">문자</string>
+    <string name="instant_email">이메일</string>
+    <string name="instant_map">지도</string>
+    <string name="instant_web_search">웹 검색</string>
 </resources>

@@ -255,4 +255,13 @@
     <string name="month_all_day">tüm gün</string>
     <string name="hub_upcoming">Yaklaşan</string>
     <string name="hub_upcoming_none">Bugün veya yarın bir şey yok</string>
+    <string name="instant_actions">anlık işlemler</string>
+    <string name="instant_action">Anlık işlem</string>
+    <string name="instant_remind_me">Bana hatırlat</string>
+    <string name="instant_note">Not</string>
+    <string name="instant_call">Ara</string>
+    <string name="instant_text">SMS</string>
+    <string name="instant_email">E-posta</string>
+    <string name="instant_map">Harita</string>
+    <string name="instant_web_search">Web\'de ara</string>
 </resources>

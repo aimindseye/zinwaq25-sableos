@@ -255,4 +255,13 @@
     <string name="month_all_day">כל היום</string>
     <string name="hub_upcoming">בקרוב</string>
     <string name="hub_upcoming_none">אין כלום היום או מחר</string>
+    <string name="instant_actions">פעולות מיידיות</string>
+    <string name="instant_action">פעולה מיידית</string>
+    <string name="instant_remind_me">הזכר לי</string>
+    <string name="instant_note">פתק</string>
+    <string name="instant_call">התקשר</string>
+    <string name="instant_text">הודעה</string>
+    <string name="instant_email">אימייל</string>
+    <string name="instant_map">מפה</string>
+    <string name="instant_web_search">חיפוש באינטרנט</string>
 </resources>

@@ -255,4 +255,13 @@
     <string name="month_all_day">hele dag</string>
     <string name="hub_upcoming">Binnenkort</string>
     <string name="hub_upcoming_none">Niets vandaag of morgen</string>
+    <string name="instant_actions">directe acties</string>
+    <string name="instant_action">Directe actie</string>
+    <string name="instant_remind_me">Herinner me</string>
+    <string name="instant_note">Notitie</string>
+    <string name="instant_call">Bellen</string>
+    <string name="instant_text">Sms</string>
+    <string name="instant_email">E-mail</string>
+    <string name="instant_map">Kaart</string>
+    <string name="instant_web_search">Zoeken op internet</string>
 </resources>

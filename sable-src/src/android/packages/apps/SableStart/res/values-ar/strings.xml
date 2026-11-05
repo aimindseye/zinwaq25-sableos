@@ -255,4 +255,13 @@
     <string name="month_all_day">طوال اليوم</string>
     <string name="hub_upcoming">القادم</string>
     <string name="hub_upcoming_none">لا شيء اليوم أو غدًا</string>
+    <string name="instant_actions">إجراءات فورية</string>
+    <string name="instant_action">إجراء فوري</string>
+    <string name="instant_remind_me">ذكّرني</string>
+    <string name="instant_note">ملاحظة</string>
+    <string name="instant_call">اتصال</string>
+    <string name="instant_text">رسالة</string>
+    <string name="instant_email">بريد إلكتروني</string>
+    <string name="instant_map">خريطة</string>
+    <string name="instant_web_search">البحث في الويب</string>
 </resources>

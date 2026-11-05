@@ -255,4 +255,13 @@
     <string name="month_all_day">весь день</string>
     <string name="hub_upcoming">Скоро</string>
     <string name="hub_upcoming_none">Ничего сегодня и завтра</string>
+    <string name="instant_actions">быстрые действия</string>
+    <string name="instant_action">Быстрое действие</string>
+    <string name="instant_remind_me">Напомнить</string>
+    <string name="instant_note">Заметка</string>
+    <string name="instant_call">Позвонить</string>
+    <string name="instant_text">SMS</string>
+    <string name="instant_email">Эл. почта</string>
+    <string name="instant_map">Карта</string>
+    <string name="instant_web_search">Искать в интернете</string>
 </resources>

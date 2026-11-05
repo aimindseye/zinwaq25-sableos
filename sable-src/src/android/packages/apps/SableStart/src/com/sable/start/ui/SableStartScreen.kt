@@ -156,6 +156,9 @@ import org.sableos.start.model.HubBar
 import org.sableos.start.model.HubFilter
 import org.sableos.start.model.HubPeople
 import org.sableos.start.model.HubPerson
+import org.sableos.start.model.InstantAction
+import org.sableos.start.model.InstantActions
+import org.sableos.start.model.InstantRow
 import org.sableos.start.model.QuickBar
 import org.sableos.start.model.SpeedDialKeys
 import org.sableos.start.model.StartMonth
@@ -4306,12 +4309,17 @@ private fun SearchScreen(
     val settingsResults = if (parsed.profileScope) emptyList() else settingsResults(parsed, onStartIntent, onOpenSettings)
     val peopleResults = if (parsed.profileScope) emptyList() else peopleResults(parsed, onStartIntent, onHub)
     val hubResults = if (parsed.profileScope) emptyList() else hubResults(parsed, onHub)
+    val instantRows =
+        if (parsed.profileScope || !parsed.includes(CommandScope.Actions)) emptyList() else InstantActions.forTerm(term)
+    val instantResults = instantRows.map { row -> instantResult(row, onStartIntent) }
+    // A typed keyword ("note …", "remind me …") makes its Instant Action the best match.
+    val chosenInstant = instantResults.firstOrNull()?.takeIf { instantRows.first().chosen }
     val firstOther =
         (filteredCommands.takeIf { term.isNotEmpty() }.orEmpty() + settingsResults + peopleResults + hubResults)
             .firstOrNull()
     val bestIsApp = CommandBestMatch.appWins(filteredApps.firstOrNull()?.label, firstOther?.title, term)
-    val bestApp = filteredApps.firstOrNull()?.takeIf { bestIsApp == true }
-    val bestOther = firstOther?.takeIf { bestIsApp == false }
+    val bestApp = filteredApps.firstOrNull()?.takeIf { bestIsApp == true && chosenInstant == null }
+    val bestOther = chosenInstant ?: firstOther?.takeIf { bestIsApp == false }
     val lockedPrivate = privateSpaceLocked == true && (parsed.scope == CommandScope.Private || term.isNotEmpty())
 
     fun appActions(app: AppEntry): List<Pair<String, () -> Unit>> =
@@ -4386,6 +4394,7 @@ private fun SearchScreen(
                     ?: bestOther?.onClick?.invoke()
                     ?: filteredApps.firstOrNull()?.let(onLaunchApp)
                     ?: firstOther?.onClick?.invoke()
+                    ?: instantResults.firstOrNull()?.onClick?.invoke()
             },
             onGroupDelta = ::moveChip,
         )
@@ -4445,6 +4454,7 @@ private fun SearchScreen(
                 "settings" to settingsResults,
                 "hub" to hubResults,
                 (if (term.isEmpty()) t("quick_actions") else "actions") to filteredCommands,
+                t("instant_actions") to instantResults,
             ).forEach { (label, rows) ->
                 val shown = rows.filterNot { it == bestOther }
                 if (shown.isNotEmpty()) {
@@ -4454,7 +4464,7 @@ private fun SearchScreen(
                 }
             }
             if (filteredApps.isEmpty() && privacyMatches.isEmpty() && filteredCommands.isEmpty() && settingsResults.isEmpty() &&
-                peopleResults.isEmpty() && hubResults.isEmpty() && !lockedPrivate
+                peopleResults.isEmpty() && hubResults.isEmpty() && instantResults.isEmpty() && !lockedPrivate
             ) {
                 item {
                     EmptyState(
@@ -4472,6 +4482,50 @@ private fun SearchScreen(
         }
     }
 }
+
+/**
+ * One Instant Action row: Remind me into Sable Tasks and Note into Sable Notes (their own share
+ * entry), Call to the dialer, Text and Email to the user's apps, Map to a maps app, Web search to
+ * the browser. Nothing is sent from here: each app opens with the text filled in.
+ */
+private fun instantResult(
+    row: InstantRow,
+    onStartIntent: (Intent) -> Unit,
+): SearchCommand {
+    val text = row.payload
+    val intent =
+        when (row.action) {
+            InstantAction.RemindMe -> shareText(TASKS_PACKAGE, text)
+            InstantAction.Note -> shareText(NOTES_PACKAGE, text)
+            InstantAction.Call -> Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(CommandQuery.dialable(text) ?: text)))
+            InstantAction.Text -> {
+                val number = CommandQuery.dialable(text)
+                Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(number.orEmpty()))).apply {
+                    if (number == null) putExtra("sms_body", text)
+                }
+            }
+            InstantAction.Email -> {
+                val address = InstantActions.emailAddress(text)
+                Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(address.orEmpty(), "@"))).apply {
+                    if (address == null) putExtra(Intent.EXTRA_TEXT, text)
+                }
+            }
+            InstantAction.Map -> Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(text)))
+            InstantAction.WebSearch -> Intent(Intent.ACTION_WEB_SEARCH).putExtra(SearchManager.QUERY, text)
+        }
+    return SearchCommand(
+        title = row.action.label,
+        subtitle = "“$text”",
+        mark = row.action.mark,
+        source = t("instant_action"),
+        onClick = { onStartIntent(intent) },
+    )
+}
+
+private fun shareText(
+    packageName: String,
+    text: String,
+): Intent = Intent(Intent.ACTION_SEND).setType("text/plain").setPackage(packageName).putExtra(Intent.EXTRA_TEXT, text)
 
 /** The group chips over the results; the current scope is filled. */
 @Composable
@@ -5790,6 +5844,8 @@ private val HUB_BAR_ITEM_HEIGHT = 32.dp
 private const val HUB_JUMP_BLOCKING_META = 0x02 or 0x04 or 0x08 or 0x1000 or 0x10000
 private const val MAIL_PACKAGE = "org.sableos.mail"
 private const val CALENDAR_PACKAGE = "org.sableos.calendar"
+private const val TASKS_PACKAGE = "org.sableos.tasks"
+private const val NOTES_PACKAGE = "org.sableos.notes"
 private const val WEATHER_PACKAGE = "org.sableos.weather"
 private const val MEDIA_PACKAGE = "org.sableos.media"
 private const val DIALER_PACKAGE = "com.android.dialer"

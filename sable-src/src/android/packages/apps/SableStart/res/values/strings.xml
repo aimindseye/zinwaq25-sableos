@@ -259,4 +259,13 @@
     <string name="month_all_day">all day</string>
     <string name="hub_upcoming">Upcoming</string>
     <string name="hub_upcoming_none">Nothing today or tomorrow</string>
+    <string name="instant_actions">instant actions</string>
+    <string name="instant_action">Instant action</string>
+    <string name="instant_remind_me">Remind me</string>
+    <string name="instant_note">Note</string>
+    <string name="instant_call">Call</string>
+    <string name="instant_text">Text</string>
+    <string name="instant_email">Email</string>
+    <string name="instant_map">Map</string>
+    <string name="instant_web_search">Search the web</string>
 </resources>

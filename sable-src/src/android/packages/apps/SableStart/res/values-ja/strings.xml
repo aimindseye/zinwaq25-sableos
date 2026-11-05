@@ -255,4 +255,13 @@
     <string name="month_all_day">終日</string>
     <string name="hub_upcoming">予定</string>
     <string name="hub_upcoming_none">今日と明日の予定はありません</string>
+    <string name="instant_actions">インスタントアクション</string>
+    <string name="instant_action">インスタントアクション</string>
+    <string name="instant_remind_me">リマインド</string>
+    <string name="instant_note">メモ</string>
+    <string name="instant_call">電話</string>
+    <string name="instant_text">SMS</string>
+    <string name="instant_email">メール</string>
+    <string name="instant_map">地図</string>
+    <string name="instant_web_search">ウェブで検索</string>
 </resources>

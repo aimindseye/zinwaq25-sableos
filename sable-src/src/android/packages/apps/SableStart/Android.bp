@@ -16,6 +16,7 @@ filegroup {
         "src/com/sable/start/model/HomeLayout.kt",
         "src/com/sable/start/model/HubBar.kt",
         "src/com/sable/start/model/HubPeople.kt",
+        "src/com/sable/start/model/InstantActions.kt",
         "src/com/sable/start/model/LetterShortcuts.kt",
         "src/com/sable/start/model/QuickBar.kt",
         "src/com/sable/start/model/SpeedDial.kt",

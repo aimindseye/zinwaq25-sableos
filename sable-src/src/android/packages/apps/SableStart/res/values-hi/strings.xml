@@ -255,4 +255,13 @@
     <string name="month_all_day">पूरे दिन</string>
     <string name="hub_upcoming">आगामी</string>
     <string name="hub_upcoming_none">आज या कल कुछ नहीं</string>
+    <string name="instant_actions">तुरंत कार्रवाइयाँ</string>
+    <string name="instant_action">तुरंत कार्रवाई</string>
+    <string name="instant_remind_me">मुझे याद दिलाएँ</string>
+    <string name="instant_note">नोट</string>
+    <string name="instant_call">कॉल करें</string>
+    <string name="instant_text">मैसेज</string>
+    <string name="instant_email">ईमेल</string>
+    <string name="instant_map">मैप</string>
+    <string name="instant_web_search">वेब पर खोजें</string>
 </resources>

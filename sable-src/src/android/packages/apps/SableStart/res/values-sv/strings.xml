@@ -255,4 +255,13 @@
     <string name="month_all_day">heldag</string>
     <string name="hub_upcoming">Kommande</string>
     <string name="hub_upcoming_none">Inget i dag eller i morgon</string>
+    <string name="instant_actions">snabbåtgärder</string>
+    <string name="instant_action">Snabbåtgärd</string>
+    <string name="instant_remind_me">Påminn mig</string>
+    <string name="instant_note">Anteckning</string>
+    <string name="instant_call">Ring</string>
+    <string name="instant_text">Sms</string>
+    <string name="instant_email">E-post</string>
+    <string name="instant_map">Karta</string>
+    <string name="instant_web_search">Sök på webben</string>
 </resources>

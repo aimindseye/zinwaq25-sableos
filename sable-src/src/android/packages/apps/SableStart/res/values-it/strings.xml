@@ -255,4 +255,13 @@
     <string name="month_all_day">tutto il giorno</string>
     <string name="hub_upcoming">In arrivo</string>
     <string name="hub_upcoming_none">Niente oggi o domani</string>
+    <string name="instant_actions">azioni immediate</string>
+    <string name="instant_action">Azione immediata</string>
+    <string name="instant_remind_me">Ricordami</string>
+    <string name="instant_note">Nota</string>
+    <string name="instant_call">Chiama</string>
+    <string name="instant_text">SMS</string>
+    <string name="instant_email">Email</string>
+    <string name="instant_map">Mappa</string>
+    <string name="instant_web_search">Cerca sul web</string>
 </resources>

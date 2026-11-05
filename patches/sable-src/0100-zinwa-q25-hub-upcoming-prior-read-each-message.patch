@@ -1,0 +1,1105 @@
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsActivity.kt
+index 338746f..f396e48 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsActivity.kt
+@@ -83,6 +83,9 @@ class ConnectedAppsActivity : ComponentActivity() {
+             var combineConversations by remember {
+                 mutableStateOf(true)
+             }
++            var eachMessage by remember {
++                mutableStateOf(false)
++            }
+ 
+             LaunchedEffect(refreshGeneration) {
+                 loading = true
+@@ -107,6 +110,7 @@ class ConnectedAppsActivity : ComponentActivity() {
+                     )
+                 privateMode = preferences.privateMode()
+                 combineConversations = preferences.combineConversations()
++                eachMessage = preferences.eachMessage()
+                 notificationAccessGranted = hasNotificationAccess()
+                 loading = false
+             }
+@@ -133,6 +137,11 @@ class ConnectedAppsActivity : ComponentActivity() {
+                         preferences.setCombineConversations(enabled)
+                         refreshGeneration += 1
+                     },
++                    eachMessage = eachMessage,
++                    onEachMessageChanged = { enabled ->
++                        preferences.setEachMessage(enabled)
++                        refreshGeneration += 1
++                    },
+                     onAttentionChanged = ::updateAttention,
+                     onOpenAndroidNotificationSettings = ::openAndroidNotificationSettings,
+                     onOpenAttentionSettings = {
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt
+index a2ce632..9dc65c1 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt
+@@ -41,6 +41,8 @@ data class HubConversation(
+     val hubPriority: Boolean = false,
+     /** Connected apps: the source notification's category (e.g. "email"), when known. */
+     val category: String? = null,
++    /** Each message on its own: the message this row shows, or null for a conversation row. */
++    val messageId: Long? = null,
+ )
+ 
+ data class HubPerson(
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt
+index afa482d..a16e0d6 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt
+@@ -57,9 +57,18 @@ class HubPreferences(
+         appContext.contentResolver.notifyChange(ConnectedAppsRepository.HISTORY_URI, null)
+     }
+ 
++    /** Each message on its own: one inbox row per received message (default off). */
++    fun eachMessage(): Boolean = preferences.getBoolean(KEY_EACH_MESSAGE, false)
++
++    fun setEachMessage(enabled: Boolean) {
++        preferences.edit().putBoolean(KEY_EACH_MESSAGE, enabled).apply()
++        appContext.contentResolver.notifyChange(ConnectedAppsRepository.HISTORY_URI, null)
++    }
++
+     private companion object {
+         const val KEY_ATTENTION_RECORDS = "attention_records"
+         const val KEY_PRIVATE_MODE = "private_mode"
+         const val KEY_COMBINE_CONVERSATIONS = "combine_conversations"
++        const val KEY_EACH_MESSAGE = "each_message"
+     }
+ }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
+index 2ccf1aa..4a5268b 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
+@@ -233,6 +233,10 @@ object HubText {
+             "notification_dismissed" to "Notification dismissed.",
+             "sent_to_the_app" to "Sent to the app.",
+             "the_notification_is_gone" to "The notification is no longer there.",
++            "mark_prior_read" to "Mark prior read",
++            "marked_prior_read" to "Asked the apps to mark %1\$s older notifications read.",
++            "each_message_on_its_own" to "Each message on its own",
++            "one_row_per_received_message" to "One row per received message. Turns off Combine conversations.",
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+index d9b60d6..538ad2f 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+@@ -114,6 +114,9 @@ class MainActivity : ComponentActivity() {
+             var combineConversations by remember {
+                 mutableStateOf(true)
+             }
++            var eachMessage by remember {
++                mutableStateOf(false)
++            }
+ 
+             LaunchedEffect(refreshGeneration) {
+                 refreshing = refreshGeneration == userRefreshGeneration
+@@ -121,10 +124,9 @@ class MainActivity : ComponentActivity() {
+                     withContext(Dispatchers.IO) {
+                         repository.snapshot()
+                     }
+-                combineConversations =
+-                    withContext(Dispatchers.IO) {
+-                        HubPreferences(applicationContext).combineConversations()
+-                    }
++                val preferences = withContext(Dispatchers.IO) { HubPreferences(applicationContext) }
++                combineConversations = preferences.combineConversations()
++                eachMessage = preferences.eachMessage()
+                 refreshing = false
+             }
+ 
+@@ -240,6 +242,7 @@ class MainActivity : ComponentActivity() {
+                         pendingAddress = null
+                     },
+                     combineConversations = combineConversations,
++                    eachMessage = eachMessage,
+                     loadAppIcon = ::loadAppIcon,
+                     notificationFacts = HubNotificationCommands::facts,
+                     onNotificationCommand = { key, entry ->
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt
+index 9e3aa7a..23eed94 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubInbox.kt
+@@ -3,6 +3,7 @@ package org.sableos.hub.policy
+ import org.sableos.hub.HubCall
+ import org.sableos.hub.HubConversation
+ import org.sableos.hub.HubConversationSource
++import org.sableos.hub.HubMessage
+ import org.sableos.hub.HubPerson
+ import org.sableos.hub.HubText.t
+ 
+@@ -50,7 +51,9 @@ sealed interface HubInboxItem {
+         val conversation: HubConversation,
+     ) : HubInboxItem {
+         override val key: String
+-            get() = "conversation:" + conversation.threadId + ":" + conversation.address
++            get() =
++                "conversation:" + conversation.threadId + ":" + conversation.address +
++                    (conversation.messageId?.let { ":$it" } ?: "")
+         override val dateMillis: Long
+             get() = conversation.lastDateMillis
+     }
+@@ -72,6 +75,35 @@ data class HubInboxContext(
+ )
+ 
+ object HubInbox {
++    /**
++     * Each message on its own (Hub setting): one row per received message, newest first,
++     * each still opening its conversation. A conversation with no received message in the
++     * snapshot keeps its one row. A conversation whose list preview is hidden (blank) keeps every
++     * message's text hidden too, so the setting never shows more than the conversation row would.
++     */
++    fun eachMessage(
++        conversations: List<HubConversation>,
++        messages: List<HubMessage>,
++    ): List<HubConversation> {
++        val received = messages.filter { it.incoming }.groupBy { it.source to it.threadId }
++        return conversations
++            .flatMap { conversation ->
++                val own = received[conversation.source to conversation.threadId].orEmpty()
++                if (own.isEmpty()) {
++                    listOf(conversation)
++                } else {
++                    own.map { message ->
++                        conversation.copy(
++                            lastBody = if (conversation.lastBody.isEmpty()) "" else message.body,
++                            lastDateMillis = message.dateMillis,
++                            unreadCount = if (message.read) 0 else 1,
++                            messageId = message.id,
++                        )
++                    }
++                }
++            }.sortedByDescending { it.lastDateMillis }
++    }
++
+     /**
+      * Rows for [filter] matching [query], newest first. The query is a [HubSearch] query: words
+      * match name, number, text or source; `unread`, `missed`, `today`, `from:` and `app:` narrow.
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMessageMenu.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMessageMenu.kt
+index 63c7d5e..c18716b 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMessageMenu.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMessageMenu.kt
+@@ -67,6 +67,48 @@ object HubMessageMenu {
+         item: HubInboxItem,
+         privacy: HubPrivacyState = HubPrivacyState(),
+         facts: HubNotificationFacts = HubNotificationFacts(),
++        priorToMarkRead: Int = 0,
++    ): List<HubMenuEntry> {
++        val entries = rowEntries(item, privacy, facts)
++        if (priorToMarkRead <= 0 || privacy.deviceLocked) return entries
++        // Mark prior read goes after the row's own commands, before the routes that leave Hub.
++        val handOff = entries.indexOfFirst { it is HubMenuEntry.Hub && it.action in HAND_OFFS }
++        val at = if (handOff >= 0) handOff else entries.size
++        return entries.take(at) + HubMenuEntry.Hub(HubRowAction.MarkPriorRead) + entries.drop(at)
++    }
++
++    /**
++     * Mark prior read (BB10): the live notifications of rows older than [item] whose source offers
++     * its own mark-as-read action, by key. Running it sends each source's own action once, like
++     * Mark read on each row; it never dismisses or snoozes anything (DESIGN-KF-A).
++     */
++    fun priorToMarkRead(
++        item: HubInboxItem,
++        items: List<HubInboxItem>,
++        facts: (String) -> HubNotificationFacts,
++    ): List<String> =
++        items
++            .asSequence()
++            .filter { it.dateMillis < item.dateMillis }
++            .mapNotNull { (it as? HubInboxItem.Conversation)?.conversation }
++            .filter { it.source != HubConversationSource.Sms }
++            .mapNotNull { it.sourceNotificationKey }
++            .distinct()
++            .filter { key -> facts(key).let { it.live && it.markReadIndex >= 0 } }
++            .toList()
++
++    private val HAND_OFFS =
++        setOf(
++            HubRowAction.OpenInMessages,
++            HubRowAction.OpenSourceApp,
++            HubRowAction.SourceNotifications,
++            HubRowAction.PrivacyOptions,
++        )
++
++    private fun rowEntries(
++        item: HubInboxItem,
++        privacy: HubPrivacyState,
++        facts: HubNotificationFacts,
+     ): List<HubMenuEntry> {
+         val base = HubRowActions.forItem(item, privacy)
+         val conversation = (item as? HubInboxItem.Conversation)?.conversation
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt
+index b35693b..8b1107f 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt
+@@ -12,6 +12,7 @@ enum class HubRowAction(
+     Open("open"),
+     Reply("reply"),
+     MarkRead("mark_read"),
++    MarkPriorRead("mark_prior_read"),
+     Snooze("snooze_1_hour"),
+     Dismiss("dismiss_notification"),
+     CallBack("call_back"),
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+index 6989f1d..c0a70fb 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+@@ -63,6 +63,8 @@ internal fun ConnectedAppsScreen(
+     onPrivateModeChanged: (Boolean) -> Unit = {},
+     combineConversations: Boolean = true,
+     onCombineConversationsChanged: (Boolean) -> Unit = {},
++    eachMessage: Boolean = false,
++    onEachMessageChanged: (Boolean) -> Unit = {},
+     onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit = { _, _ -> },
+     onOpenAndroidNotificationSettings: (ConnectedAppKey) -> Unit = {},
+     onOpenAttentionSettings: () -> Unit = {},
+@@ -119,6 +121,8 @@ internal fun ConnectedAppsScreen(
+                         onPrivateModeChanged = onPrivateModeChanged,
+                         combineConversations = combineConversations,
+                         onCombineConversationsChanged = onCombineConversationsChanged,
++                        eachMessage = eachMessage,
++                        onEachMessageChanged = onEachMessageChanged,
+                         onOpenAttentionSettings = onOpenAttentionSettings,
+                     )
+                 }
+@@ -196,6 +200,8 @@ private fun NotificationAccessPanel(
+     onPrivateModeChanged: (Boolean) -> Unit,
+     combineConversations: Boolean,
+     onCombineConversationsChanged: (Boolean) -> Unit,
++    eachMessage: Boolean,
++    onEachMessageChanged: (Boolean) -> Unit,
+     onOpenAttentionSettings: () -> Unit,
+ ) {
+     SablePanel {
+@@ -229,9 +235,16 @@ private fun NotificationAccessPanel(
+             detail =
+                 t("group_adjacent_messages_from_the"),
+             checked = combineConversations,
+-            enabled = true,
++            enabled = !eachMessage,
+             onCheckedChange = onCombineConversationsChanged,
+         )
++        PolicySwitchRow(
++            label = t("each_message_on_its_own"),
++            detail = t("one_row_per_received_message"),
++            checked = eachMessage,
++            enabled = true,
++            onCheckedChange = onEachMessageChanged,
++        )
+         TextButton(onClick = onOpenAttentionSettings) {
+             Text(t("sable_attention"))
+         }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+index 98aa327..570e026 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+@@ -360,6 +360,7 @@ private class HubActions(
+     val drafts: Map<String, String>,
+     val onDraftChange: (String, String) -> Unit,
+     val combineConversations: Boolean,
++    val eachMessage: Boolean,
+     val loadAppIcon: suspend (String, Long) -> ImageBitmap?,
+     val notificationFacts: (String) -> HubNotificationFacts,
+     val onNotificationCommand: (String, HubMenuEntry) -> String?,
+@@ -388,6 +389,7 @@ fun HubScreen(
+     pendingAddress: String? = null,
+     onPendingAddressConsumed: () -> Unit = {},
+     combineConversations: Boolean = true,
++    eachMessage: Boolean = false,
+     loadAppIcon: suspend (String, Long) -> ImageBitmap? = { _, _ -> null },
+     notificationFacts: (String) -> HubNotificationFacts = { HubNotificationFacts() },
+     onNotificationCommand: (String, HubMenuEntry) -> String? = { _, _ -> null },
+@@ -449,6 +451,7 @@ fun HubScreen(
+             drafts = drafts,
+             onDraftChange = onDraftChange,
+             combineConversations = combineConversations,
++            eachMessage = eachMessage,
+             loadAppIcon = loadAppIcon,
+             notificationFacts = notificationFacts,
+             onNotificationCommand = onNotificationCommand,
+@@ -1159,10 +1162,14 @@ private fun ColumnScope.InboxPivot(
+     val dockSource = state.dockSource
+     val todayStart = remember(snapshot) { startOfToday() }
+     val items =
+-        remember(snapshot, filter, query, dockSource) {
++        remember(snapshot, filter, query, dockSource, actions.eachMessage) {
+             HubSourceDock.narrow(
+                 HubInbox.items(
+-                    snapshot.conversations,
++                    if (actions.eachMessage && !snapshot.privacy.countsOnly) {
++                        HubInbox.eachMessage(snapshot.conversations, snapshot.messages)
++                    } else {
++                        snapshot.conversations
++                    },
+                     snapshot.calls,
+                     filter,
+                     query,
+@@ -1172,8 +1179,10 @@ private fun ColumnScope.InboxPivot(
+             )
+         }
+     val clusters =
+-        remember(items, actions.combineConversations) {
+-            HubConversationRollup.clusters(items.take(MAX_VISIBLE_CONVERSATIONS), actions.combineConversations)
++        remember(items, actions.combineConversations, actions.eachMessage) {
++            // Each message on its own never rolls rows back up into one conversation.
++            val combine = actions.combineConversations && !actions.eachMessage
++            HubConversationRollup.clusters(items.take(MAX_VISIBLE_CONVERSATIONS), combine)
+         }
+     val dockEntries =
+         remember(snapshot) {
+@@ -1321,8 +1330,8 @@ private fun ColumnScope.InboxPivot(
+     state.actionsItem?.let { item ->
+         HubRowActionsSheet(
+             item = item,
+-            entries = menuFor(item, snapshot.privacy, actions),
+-            onEntry = { entry -> runMenuEntry(entry, item, state, actions, onConversation, onTextCaller) },
++            entries = menuFor(item, items, snapshot.privacy, actions),
++            onEntry = { entry -> runMenuEntry(entry, item, items, state, actions, onConversation, onTextCaller) },
+             onDismiss = { state.actionsItem = null },
+         )
+     }
+@@ -1331,17 +1340,20 @@ private fun ColumnScope.InboxPivot(
+ /** The row's menu: Hub actions, plus what its live notification allows (HubMessageMenu). */
+ private fun menuFor(
+     item: HubInboxItem,
++    items: List<HubInboxItem>,
+     privacy: HubPrivacyState,
+     actions: HubActions,
+ ): List<HubMenuEntry> {
+     val key = (item as? HubInboxItem.Conversation)?.conversation?.sourceNotificationKey
+     val facts = key?.let(actions.notificationFacts) ?: HubNotificationFacts()
+-    return HubMessageMenu.entries(item, privacy, facts)
++    val prior = HubMessageMenu.priorToMarkRead(item, items, actions.notificationFacts).size
++    return HubMessageMenu.entries(item, privacy, facts, prior)
+ }
+ 
+ private fun runMenuEntry(
+     entry: HubMenuEntry,
+     item: HubInboxItem,
++    items: List<HubInboxItem>,
+     state: HubUiState,
+     actions: HubActions,
+     onConversation: (HubConversation) -> Unit,
+@@ -1350,6 +1362,14 @@ private fun runMenuEntry(
+     val notificationCommand =
+         entry is HubMenuEntry.App ||
+             (entry is HubMenuEntry.Hub && entry.action in NOTIFICATION_COMMANDS)
++    if (entry == HubMenuEntry.Hub(HubRowAction.MarkPriorRead)) {
++        state.actionsItem = null
++        // Each older row's own Mark read, one notification by key (HubNotificationCommands).
++        val keys = HubMessageMenu.priorToMarkRead(item, items, actions.notificationFacts)
++        keys.forEach { key -> actions.onNotificationCommand(key, HubMenuEntry.Hub(HubRowAction.MarkRead)) }
++        state.statusMessage = t("marked_prior_read", keys.size.toString())
++        return
++    }
+     if (!notificationCommand) {
+         runRowAction((entry as HubMenuEntry.Hub).action, item, state, actions, onConversation, onTextCaller)
+         return
+@@ -1432,8 +1452,13 @@ private fun runConversationAction(
+             actions.onOpenConnectedApps()
+         }
+ 
+-        HubRowAction.Text, HubRowAction.MarkRead, HubRowAction.Snooze, HubRowAction.Dismiss -> {
+-            // Text is a call action; the three notification commands go through runMenuEntry.
++        HubRowAction.Text,
++        HubRowAction.MarkRead,
++        HubRowAction.MarkPriorRead,
++        HubRowAction.Snooze,
++        HubRowAction.Dismiss,
++        -> {
++            // Text is a call action; the notification commands go through runMenuEntry.
+             Unit
+         }
+     }
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml
+index cc7b24e..e0e79cf 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">تم تجاهل الإشعار.</string>
+     <string name="sent_to_the_app">أُرسل إلى التطبيق.</string>
+     <string name="the_notification_is_gone">لم يعد الإشعار موجودًا.</string>
++    <string name="mark_prior_read">وضع علامة مقروء على السابق</string>
++    <string name="marked_prior_read">طُلب من التطبيقات وضع علامة مقروء على %1$s من الإشعارات الأقدم.</string>
++    <string name="each_message_on_its_own">كل رسالة على حدة</string>
++    <string name="one_row_per_received_message">صف لكل رسالة مستلمة. يوقف دمج المحادثات.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml
+index ca5a983..d762fa1 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">Benachrichtigung geschlossen.</string>
+     <string name="sent_to_the_app">An die App gesendet.</string>
+     <string name="the_notification_is_gone">Die Benachrichtigung ist nicht mehr da.</string>
++    <string name="mark_prior_read">Ältere als gelesen markieren</string>
++    <string name="marked_prior_read">Die Apps wurden gebeten, %1$s ältere Benachrichtigungen als gelesen zu markieren.</string>
++    <string name="each_message_on_its_own">Jede Nachricht einzeln</string>
++    <string name="one_row_per_received_message">Eine Zeile pro empfangener Nachricht. Schaltet „Unterhaltungen zusammenfassen“ aus.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml
+index 2a81f33..646e09d 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">Η ειδοποίηση παραβλέφθηκε.</string>
+     <string name="sent_to_the_app">Στάλθηκε στην εφαρμογή.</string>
+     <string name="the_notification_is_gone">Η ειδοποίηση δεν υπάρχει πια.</string>
++    <string name="mark_prior_read">Σήμανση προηγούμενων ως αναγνωσμένων</string>
++    <string name="marked_prior_read">Ζητήθηκε από τις εφαρμογές να σημάνουν %1$s παλαιότερες ειδοποιήσεις ως αναγνωσμένες.</string>
++    <string name="each_message_on_its_own">Κάθε μήνυμα χωριστά</string>
++    <string name="one_row_per_received_message">Μία γραμμή ανά ληφθέν μήνυμα. Απενεργοποιεί τη Συνένωση συνομιλιών.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml
+index 4eaade6..da9a4c4 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">Notificación descartada.</string>
+     <string name="sent_to_the_app">Enviado a la app.</string>
+     <string name="the_notification_is_gone">La notificación ya no está.</string>
++    <string name="mark_prior_read">Marcar anteriores como leídos</string>
++    <string name="marked_prior_read">Se pidió a las apps marcar como leídas %1$s notificaciones anteriores.</string>
++    <string name="each_message_on_its_own">Cada mensaje por separado</string>
++    <string name="one_row_per_received_message">Una fila por mensaje recibido. Desactiva Combinar conversaciones.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml
+index 9370a7e..f86e80d 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">Notification ignorée.</string>
+     <string name="sent_to_the_app">Envoyé à l’application.</string>
+     <string name="the_notification_is_gone">La notification n’est plus là.</string>
++    <string name="mark_prior_read">Marquer les précédents comme lus</string>
++    <string name="marked_prior_read">Les applis ont été invitées à marquer %1$s notifications plus anciennes comme lues.</string>
++    <string name="each_message_on_its_own">Chaque message séparément</string>
++    <string name="one_row_per_received_message">Une ligne par message reçu. Désactive Regrouper les conversations.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml
+index 928a7c8..3fc369e 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">सूचना हटा दी गई।</string>
+     <string name="sent_to_the_app">ऐप को भेजा गया।</string>
+     <string name="the_notification_is_gone">सूचना अब मौजूद नहीं है।</string>
++    <string name="mark_prior_read">पिछले को पढ़ा हुआ चिह्नित करें</string>
++    <string name="marked_prior_read">ऐप्स से %1$s पुरानी सूचनाओं को पढ़ा हुआ चिह्नित करने को कहा गया।</string>
++    <string name="each_message_on_its_own">हर संदेश अलग</string>
++    <string name="one_row_per_received_message">हर प्राप्त संदेश के लिए एक पंक्ति। बातचीत जोड़ना बंद करता है।</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml
+index aac43d4..56359fa 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">Notifica ignorata.</string>
+     <string name="sent_to_the_app">Inviato all’app.</string>
+     <string name="the_notification_is_gone">La notifica non c’è più.</string>
++    <string name="mark_prior_read">Segna precedenti come letti</string>
++    <string name="marked_prior_read">È stato chiesto alle app di segnare come lette %1$s notifiche precedenti.</string>
++    <string name="each_message_on_its_own">Ogni messaggio a sé</string>
++    <string name="one_row_per_received_message">Una riga per ogni messaggio ricevuto. Disattiva Unisci conversazioni.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml
+index 65c18e2..441c56f 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">ההתראה נסגרה.</string>
+     <string name="sent_to_the_app">נשלח לאפליקציה.</string>
+     <string name="the_notification_is_gone">ההתראה כבר לא קיימת.</string>
++    <string name="mark_prior_read">סמן קודמות כנקראו</string>
++    <string name="marked_prior_read">האפליקציות התבקשו לסמן %1$s התראות ישנות יותר כנקראו.</string>
++    <string name="each_message_on_its_own">כל הודעה בנפרד</string>
++    <string name="one_row_per_received_message">שורה לכל הודעה שהתקבלה. מכבה את איחוד השיחות.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml
+index d0c1a16..6e0d409 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">通知を閉じました。</string>
+     <string name="sent_to_the_app">アプリに送信しました。</string>
+     <string name="the_notification_is_gone">通知はもうありません。</string>
++    <string name="mark_prior_read">以前のものを既読にする</string>
++    <string name="marked_prior_read">古い通知 %1$s 件を既読にするようアプリに依頼しました。</string>
++    <string name="each_message_on_its_own">メッセージごとに表示</string>
++    <string name="one_row_per_received_message">受信メッセージごとに1行。会話をまとめるをオフにします。</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml
+index 5834ef1..e5e9a61 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">알림을 닫았습니다.</string>
+     <string name="sent_to_the_app">앱으로 보냈습니다.</string>
+     <string name="the_notification_is_gone">알림이 더 이상 없습니다.</string>
++    <string name="mark_prior_read">이전 항목 읽음으로 표시</string>
++    <string name="marked_prior_read">앱에 이전 알림 %1$s개를 읽음으로 표시하도록 요청했습니다.</string>
++    <string name="each_message_on_its_own">메시지마다 따로</string>
++    <string name="one_row_per_received_message">받은 메시지마다 한 줄. 대화 묶기를 끕니다.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml
+index 38fbfa5..91264b4 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">Melding gesloten.</string>
+     <string name="sent_to_the_app">Naar de app gestuurd.</string>
+     <string name="the_notification_is_gone">De melding is er niet meer.</string>
++    <string name="mark_prior_read">Eerdere als gelezen markeren</string>
++    <string name="marked_prior_read">De apps is gevraagd %1$s oudere meldingen als gelezen te markeren.</string>
++    <string name="each_message_on_its_own">Elk bericht apart</string>
++    <string name="one_row_per_received_message">Eén rij per ontvangen bericht. Zet Gesprekken samenvoegen uit.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml
+index dd2ba86..a972fa1 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">Powiadomienie odrzucone.</string>
+     <string name="sent_to_the_app">Wysłano do aplikacji.</string>
+     <string name="the_notification_is_gone">Powiadomienia już nie ma.</string>
++    <string name="mark_prior_read">Oznacz wcześniejsze jako przeczytane</string>
++    <string name="marked_prior_read">Poproszono aplikacje o oznaczenie %1$s starszych powiadomień jako przeczytanych.</string>
++    <string name="each_message_on_its_own">Każda wiadomość osobno</string>
++    <string name="one_row_per_received_message">Jeden wiersz na każdą odebraną wiadomość. Wyłącza łączenie rozmów.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml
+index e8d52b4..2e40fd6 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">Notificação dispensada.</string>
+     <string name="sent_to_the_app">Enviado para o app.</string>
+     <string name="the_notification_is_gone">A notificação não está mais lá.</string>
++    <string name="mark_prior_read">Marcar anteriores como lidas</string>
++    <string name="marked_prior_read">Foi pedido às apps que marquem %1$s notificações anteriores como lidas.</string>
++    <string name="each_message_on_its_own">Cada mensagem separada</string>
++    <string name="one_row_per_received_message">Uma linha por mensagem recebida. Desliga Combinar conversas.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml
+index 448ba53..c9aa2f1 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">Уведомление закрыто.</string>
+     <string name="sent_to_the_app">Отправлено в приложение.</string>
+     <string name="the_notification_is_gone">Уведомления больше нет.</string>
++    <string name="mark_prior_read">Отметить предыдущие прочитанными</string>
++    <string name="marked_prior_read">Приложения попросили отметить прочитанными %1$s более старых уведомлений.</string>
++    <string name="each_message_on_its_own">Каждое сообщение отдельно</string>
++    <string name="one_row_per_received_message">Одна строка на каждое полученное сообщение. Отключает объединение бесед.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml
+index a82adf1..8858041 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">Aviseringen stängdes.</string>
+     <string name="sent_to_the_app">Skickat till appen.</string>
+     <string name="the_notification_is_gone">Aviseringen finns inte längre.</string>
++    <string name="mark_prior_read">Markera tidigare som lästa</string>
++    <string name="marked_prior_read">Apparna ombads markera %1$s äldre aviseringar som lästa.</string>
++    <string name="each_message_on_its_own">Varje meddelande för sig</string>
++    <string name="one_row_per_received_message">En rad per mottaget meddelande. Stänger av Slå ihop konversationer.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml
+index 3c6525e..071078f 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">Bildirim kapatıldı.</string>
+     <string name="sent_to_the_app">Uygulamaya gönderildi.</string>
+     <string name="the_notification_is_gone">Bildirim artık yok.</string>
++    <string name="mark_prior_read">Öncekileri okundu işaretle</string>
++    <string name="marked_prior_read">Uygulamalardan %1$s eski bildirimi okundu işaretlemeleri istendi.</string>
++    <string name="each_message_on_its_own">Her mesaj ayrı</string>
++    <string name="one_row_per_received_message">Alınan her mesaj için bir satır. Konuşmaları birleştir kapanır.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml
+index e053966..0724ae3 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">اطلاع ہٹا دی گئی۔</string>
+     <string name="sent_to_the_app">ایپ کو بھیج دیا گیا۔</string>
+     <string name="the_notification_is_gone">اطلاع اب موجود نہیں ہے۔</string>
++    <string name="mark_prior_read">پچھلے کو پڑھا ہوا نشان زد کریں</string>
++    <string name="marked_prior_read">ایپس سے %1$s پرانی اطلاعات کو پڑھا ہوا نشان زد کرنے کو کہا گیا۔</string>
++    <string name="each_message_on_its_own">ہر پیغام الگ</string>
++    <string name="one_row_per_received_message">ہر موصول پیغام کے لیے ایک قطار۔ گفتگو یکجا کرنا بند کرتا ہے۔</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml
+index c5ac71b..d267113 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml
+@@ -190,4 +190,8 @@
+     <string name="notification_dismissed">通知已关闭。</string>
+     <string name="sent_to_the_app">已发送给应用。</string>
+     <string name="the_notification_is_gone">该通知已不存在。</string>
++    <string name="mark_prior_read">将之前的标为已读</string>
++    <string name="marked_prior_read">已请应用将 %1$s 条较早的通知标为已读。</string>
++    <string name="each_message_on_its_own">每条消息单独显示</string>
++    <string name="one_row_per_received_message">每条收到的消息一行。会关闭合并对话。</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
+index f7c89bd..04d7165 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
+@@ -192,4 +192,8 @@
+     <string name="notification_dismissed">Notification dismissed.</string>
+     <string name="sent_to_the_app">Sent to the app.</string>
+     <string name="the_notification_is_gone">The notification is no longer there.</string>
++    <string name="mark_prior_read">Mark prior read</string>
++    <string name="marked_prior_read">Asked the apps to mark %1$s older notifications read.</string>
++    <string name="each_message_on_its_own">Each message on its own</string>
++    <string name="one_row_per_received_message">One row per received message. Turns off Combine conversations.</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubInboxTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubInboxTest.kt
+index f5eea50..33440d9 100644
+--- a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubInboxTest.kt
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubInboxTest.kt
+@@ -8,6 +8,7 @@ import org.sableos.hub.HubCall
+ import org.sableos.hub.HubCallKind
+ import org.sableos.hub.HubConversation
+ import org.sableos.hub.HubConversationSource
++import org.sableos.hub.HubMessage
+ 
+ class HubInboxTest {
+     private val sms =
+@@ -156,4 +157,36 @@ class HubInboxTest {
+         assertNull(HubThreadResolver.resolve(conversations, HubThreadResolver.NEW_THREAD_ID, "team"))
+         assertNull(HubThreadResolver.resolve(conversations, HubThreadResolver.NEW_THREAD_ID, null))
+     }
++
++    @Test
++    fun eachMessageOnItsOwnGivesOneRowPerReceivedMessage() {
++        fun msg(
++            id: Long,
++            thread: Long,
++            at: Long,
++            incoming: Boolean = true,
++            read: Boolean = false,
++            source: HubConversationSource = HubConversationSource.Sms,
++        ) = HubMessage(id, thread, "x", "m$id", at, incoming, read, source)
++        val messages =
++            listOf(
++                msg(1, 7L, 3_000L),
++                msg(2, 7L, 2_500L, read = true),
++                msg(3, 7L, 2_800L, incoming = false),
++                msg(4, -42L, 2_000L, source = HubConversationSource.ConnectedApp),
++                // Same thread id, other source: not Maya's.
++                msg(5, 7L, 1_000L, source = HubConversationSource.ConnectedApp),
++            )
++        val rows = HubInbox.eachMessage(listOf(sms, connected), messages)
++        assertEquals(listOf(1L, 2L, 4L), rows.map { it.messageId })
++        assertEquals(listOf("m1", "m2", "m4"), rows.map { it.lastBody })
++        assertEquals(listOf(1, 0, 1), rows.map { it.unreadCount })
++        val keys = rows.map { HubInboxItem.Conversation(it).key }
++        assertEquals(keys.size, keys.toSet().size)
++        // No received message: the conversation keeps its one row.
++        assertEquals(listOf(sms), HubInbox.eachMessage(listOf(sms), emptyList()))
++        // A hidden list preview keeps each message's text hidden.
++        val hidden = HubInbox.eachMessage(listOf(sms.copy(lastBody = "")), messages)
++        assertTrue(hidden.all { it.lastBody.isEmpty() })
++    }
+ }
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMessageMenuTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMessageMenuTest.kt
+index 6a52246..95aed7a 100644
+--- a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMessageMenuTest.kt
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMessageMenuTest.kt
+@@ -2,6 +2,7 @@ package org.sableos.hub.policy
+ 
+ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
+ import org.junit.Test
+ import org.sableos.hub.HubConversation
+ import org.sableos.hub.HubConversationSource
+@@ -102,4 +103,28 @@ class HubMessageMenuTest {
+         assertNull(HubMessageMenu.forKey(HubRowKey.Z, smsEntries))
+         assertEquals("Del", HubMessageMenu.shortcutLabel(HubRowAction.Dismiss))
+     }
++
++    @Test
++    fun markPriorReadListsOlderLiveRowsTheSourceCanMarkRead() {
++        val newest = HubInboxItem.Conversation(gmail.copy(lastDateMillis = 5_000L, sourceNotificationKey = "new"))
++        fun row(
++            thread: Long,
++            at: Long,
++            key: String,
++        ) = HubInboxItem.Conversation(gmail.copy(threadId = thread, lastDateMillis = at, sourceNotificationKey = key))
++        val older = row(-8L, 4_000L, "old")
++        val gone = row(-9L, 3_000L, "gone")
++        val oldSms = HubInboxItem.Conversation(sms.copy(lastDateMillis = 1L))
++        val facts: (String) -> HubNotificationFacts = { if (it == "gone") HubNotificationFacts() else live }
++        val items = listOf(newest, older, gone, oldSms)
++        assertEquals(listOf("old"), HubMessageMenu.priorToMarkRead(newest, items, facts))
++        assertEquals(emptyList<String>(), HubMessageMenu.priorToMarkRead(older, items, facts))
++
++        val menu = labels(HubMessageMenu.entries(newest, facts = live, priorToMarkRead = 1))
++        assertEquals("MarkPriorRead", menu[menu.indexOf("OpenSourceApp") - 1])
++        val smsMenu = labels(HubMessageMenu.entries(HubInboxItem.Conversation(sms), priorToMarkRead = 2))
++        assertEquals("MarkPriorRead", smsMenu[smsMenu.indexOf("OpenInMessages") - 1])
++        val locked = HubPrivacyState(deviceLocked = true)
++        assertTrue("MarkPriorRead" !in labels(HubMessageMenu.entries(newest, locked, live, 1)))
++    }
+ }
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartMonthTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartMonthTest.kt
+index 52e8283..29472d2 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartMonthTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartMonthTest.kt
+@@ -32,6 +32,14 @@ class StartMonthTest {
+         assertEquals("FRIDAY", StartMonth.dayWord(today.plusDays(2), today, weekday, words))
+     }
+ 
++    @Test
++    fun hubsUpcomingStripKeepsTodayAndTomorrow() {
++        val today = LocalDate.of(2026, 11, 4)
++        val days = listOf(today, today.plusDays(1), today.plusDays(2), today.minusDays(1), today)
++        assertEquals(listOf(0, 1, 4), StartMonth.todayAndTomorrow(days.indices.toList(), today) { days[it] })
++        assertEquals(emptyList<Int>(), StartMonth.todayAndTomorrow(emptyList<Int>(), today) { today })
++    }
++
+     @Test
+     fun theMonthFrameGetsAWholeRow() {
+         val rows = GlanceWidgets.rows(listOf("weather", "month", "battery", "media", "hub"), 2)
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index 4b18e77..647f6d7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">اليوم</string>
+     <string name="month_tomorrow">غدًا</string>
+     <string name="month_all_day">طوال اليوم</string>
++    <string name="hub_upcoming">القادم</string>
++    <string name="hub_upcoming_none">لا شيء اليوم أو غدًا</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index a1850cd..aababc3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">Heute</string>
+     <string name="month_tomorrow">Morgen</string>
+     <string name="month_all_day">ganztägig</string>
++    <string name="hub_upcoming">Demnächst</string>
++    <string name="hub_upcoming_none">Nichts heute oder morgen</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index fc1e936..fd694e3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">Σήμερα</string>
+     <string name="month_tomorrow">Αύριο</string>
+     <string name="month_all_day">ολοήμερο</string>
++    <string name="hub_upcoming">Επερχόμενα</string>
++    <string name="hub_upcoming_none">Τίποτα σήμερα ή αύριο</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index 16037b3..ba7af68 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">Hoy</string>
+     <string name="month_tomorrow">Mañana</string>
+     <string name="month_all_day">todo el día</string>
++    <string name="hub_upcoming">Próximo</string>
++    <string name="hub_upcoming_none">Nada hoy ni mañana</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index 760ecff..848b760 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">Aujourd’hui</string>
+     <string name="month_tomorrow">Demain</string>
+     <string name="month_all_day">toute la journée</string>
++    <string name="hub_upcoming">À venir</string>
++    <string name="hub_upcoming_none">Rien aujourd\'hui ni demain</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index 877a437..90524dc 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">आज</string>
+     <string name="month_tomorrow">कल</string>
+     <string name="month_all_day">पूरे दिन</string>
++    <string name="hub_upcoming">आगामी</string>
++    <string name="hub_upcoming_none">आज या कल कुछ नहीं</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index 122713c..5eeea82 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">Oggi</string>
+     <string name="month_tomorrow">Domani</string>
+     <string name="month_all_day">tutto il giorno</string>
++    <string name="hub_upcoming">In arrivo</string>
++    <string name="hub_upcoming_none">Niente oggi o domani</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index aa58847..d6f8bdc 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">היום</string>
+     <string name="month_tomorrow">מחר</string>
+     <string name="month_all_day">כל היום</string>
++    <string name="hub_upcoming">בקרוב</string>
++    <string name="hub_upcoming_none">אין כלום היום או מחר</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index 35656d2..f62de4e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">今日</string>
+     <string name="month_tomorrow">明日</string>
+     <string name="month_all_day">終日</string>
++    <string name="hub_upcoming">予定</string>
++    <string name="hub_upcoming_none">今日と明日の予定はありません</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 6ba1646..083ae4f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">오늘</string>
+     <string name="month_tomorrow">내일</string>
+     <string name="month_all_day">종일</string>
++    <string name="hub_upcoming">다가오는 일정</string>
++    <string name="hub_upcoming_none">오늘과 내일 일정 없음</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 30ac977..110002d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">Vandaag</string>
+     <string name="month_tomorrow">Morgen</string>
+     <string name="month_all_day">hele dag</string>
++    <string name="hub_upcoming">Binnenkort</string>
++    <string name="hub_upcoming_none">Niets vandaag of morgen</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index 920c14d..543d9d0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">Dziś</string>
+     <string name="month_tomorrow">Jutro</string>
+     <string name="month_all_day">cały dzień</string>
++    <string name="hub_upcoming">Nadchodzące</string>
++    <string name="hub_upcoming_none">Nic dzisiaj ani jutro</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index 3ada22b..faca1b6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">Hoje</string>
+     <string name="month_tomorrow">Amanhã</string>
+     <string name="month_all_day">dia inteiro</string>
++    <string name="hub_upcoming">Próximos</string>
++    <string name="hub_upcoming_none">Nada hoje ou amanhã</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 38d912f..0185275 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">Сегодня</string>
+     <string name="month_tomorrow">Завтра</string>
+     <string name="month_all_day">весь день</string>
++    <string name="hub_upcoming">Скоро</string>
++    <string name="hub_upcoming_none">Ничего сегодня и завтра</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 6f010a4..f278461 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">I dag</string>
+     <string name="month_tomorrow">I morgon</string>
+     <string name="month_all_day">heldag</string>
++    <string name="hub_upcoming">Kommande</string>
++    <string name="hub_upcoming_none">Inget i dag eller i morgon</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 5235ea0..b80c13a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">Bugün</string>
+     <string name="month_tomorrow">Yarın</string>
+     <string name="month_all_day">tüm gün</string>
++    <string name="hub_upcoming">Yaklaşan</string>
++    <string name="hub_upcoming_none">Bugün veya yarın bir şey yok</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index 2e61c48..e82cc1b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">آج</string>
+     <string name="month_tomorrow">کل</string>
+     <string name="month_all_day">پورا دن</string>
++    <string name="hub_upcoming">آنے والا</string>
++    <string name="hub_upcoming_none">آج یا کل کچھ نہیں</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index c9c40f9..76d76f0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -253,4 +253,6 @@
+     <string name="month_today">今天</string>
+     <string name="month_tomorrow">明天</string>
+     <string name="month_all_day">全天</string>
++    <string name="hub_upcoming">即将到来</string>
++    <string name="hub_upcoming_none">今天和明天没有安排</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 2abdc3b..ae68968 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -257,4 +257,6 @@
+     <string name="month_today">Today</string>
+     <string name="month_tomorrow">Tomorrow</string>
+     <string name="month_all_day">all day</string>
++    <string name="hub_upcoming">Upcoming</string>
++    <string name="hub_upcoming_none">Nothing today or tomorrow</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartMonth.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartMonth.kt
+index 99b24a1..22b41da 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartMonth.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartMonth.kt
+@@ -39,4 +39,13 @@ object StartMonth {
+             today.plusDays(1) -> words.second
+             else -> weekday(day)
+         }
++
++    /**
++     * Hub's Upcoming strip: the events that start today or tomorrow, in Calendar's order.
++     * [dayOf] gives an event's local day (all-day events are stored at UTC midnight).
++     */
++    fun <T> todayAndTomorrow(events: List<T>, today: LocalDate, dayOf: (T) -> LocalDate): List<T> {
++        val tomorrow = today.plusDays(1)
++        return events.filter { dayOf(it).let { day -> day == today || day == tomorrow } }
++    }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index b4b5d7d..3b4b209 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -68,6 +68,8 @@ object StartText {
+             "month_today" to "Today",
+             "month_tomorrow" to "Tomorrow",
+             "month_all_day" to "all day",
++            "hub_upcoming" to "Upcoming",
++            "hub_upcoming_none" to "Nothing today or tomorrow",
+             "media" to "Media",
+             "mail" to "Mail",
+             "photos" to "Photos",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index fb6c240..171694c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -80,6 +80,7 @@ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.draw.shadow
+ import androidx.compose.ui.focus.FocusRequester
++import androidx.compose.ui.focus.focusProperties
+ import androidx.compose.ui.focus.focusRequester
+ import androidx.compose.ui.focus.onFocusChanged
+ import androidx.compose.ui.geometry.CornerRadius
+@@ -134,6 +135,7 @@ import org.sableos.start.live.HubMessageRow
+ import org.sableos.start.live.LiveAvailability
+ import org.sableos.start.live.LiveDatum
+ import org.sableos.start.live.LiveSurfaceSnapshot
++import org.sableos.start.live.UpcomingEvent
+ import org.sableos.start.model.ActiveFrame
+ import org.sableos.start.model.ActiveFrames
+ import org.sableos.start.model.AppEntry
+@@ -2218,6 +2220,7 @@ private fun HubPage(
+                 appFor = { personalApps[it] },
+                 onOpen = ::openBarItem,
+             )
++            HubUpcoming(snapshot = snapshot, onOpen = { findLiveApp(apps, CALENDAR_PACKAGE)?.let(onLaunchApp) })
+             Spacer(Modifier.height(8.dp))
+             HubTabs(filter = filter, firstTab = tabFocus, onFilter = onFilter)
+         }
+@@ -2250,6 +2253,64 @@ private fun HubPage(
+     }
+ }
+ 
++/**
++ * The Hub page's Upcoming strip: today's and tomorrow's events from Calendar's snapshot, one line
++ * each, or "Nothing today or tomorrow". Hidden while Calendar is missing or has no permission (the
++ * Month widget asks for it). A tap opens Calendar; it takes no key focus, so the tabs stay first.
++ */
++@Composable
++private fun HubUpcoming(
++    snapshot: LiveSurfaceSnapshot,
++    onOpen: () -> Unit,
++) {
++    val availability = snapshot.calendar.availability
++    if (availability != LiveAvailability.LIVE && availability != LiveAvailability.EMPTY) return
++    val context = LocalContext.current
++    val today = LocalDate.now()
++    val zone = ZoneId.systemDefault()
++    fun dayOf(event: UpcomingEvent): LocalDate =
++        Instant.ofEpochMilli(event.beginMillis).atZone(if (event.allDay) ZoneOffset.UTC else zone).toLocalDate()
++    val soon = StartMonth.todayAndTomorrow(snapshot.calendarNext, today, ::dayOf)
++    Column(
++        Modifier
++            .padding(top = 8.dp)
++            .fillMaxWidth()
++            .focusProperties { canFocus = false }
++            .clickable(onClick = onOpen)
++            .semantics(mergeDescendants = true) {},
++        verticalArrangement = Arrangement.spacedBy(2.dp),
++    ) {
++        Text(
++            text = t("hub_upcoming"),
++            style = MaterialTheme.typography.labelSmall,
++            color = Bb10Muted,
++            modifier = Modifier.semantics { heading() },
++        )
++        if (soon.isEmpty()) {
++            Text(text = t("hub_upcoming_none"), style = MaterialTheme.typography.bodySmall, color = Bb10Muted, maxLines = 1)
++        }
++        soon.forEach { event ->
++            val day = StartMonth.dayWord(dayOf(event), today, { it.toString() }, t("month_today") to t("month_tomorrow"))
++            val time =
++                if (event.allDay) {
++                    t("month_all_day")
++                } else {
++                    android.text.format.DateFormat.getTimeFormat(context).format(Date(event.beginMillis))
++                }
++            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
++                Text(text = "$day $time", style = MaterialTheme.typography.labelSmall, color = SableBlue, maxLines = 1)
++                Text(
++                    text = event.title,
++                    style = MaterialTheme.typography.bodySmall,
++                    color = Bb10Text,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                )
++            }
++        }
++    }
++}
++
+ /**
+  * The Hub page's unread bar: one item per app (its icon and count), most unread first, "+N" in
+  * the last slot when they do not all fit; Enter or a tap on "+N" shows every app. While the device
