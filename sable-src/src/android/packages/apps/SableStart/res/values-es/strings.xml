@@ -290,4 +290,6 @@
     <string name="remove_from_tab">Quitar de %1$s</string>
     <string name="delete_tab">Eliminar pestaña %1$s</string>
     <string name="letter_press_for">%1$s: pulsa una letra, Retroceso la quita</string>
+    <string name="instant_event">Nuevo evento</string>
+    <string name="instant_open_address">Abrir dirección</string>
 </resources>

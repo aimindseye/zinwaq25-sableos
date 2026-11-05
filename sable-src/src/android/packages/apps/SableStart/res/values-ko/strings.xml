@@ -290,4 +290,6 @@
     <string name="remove_from_tab">%1$s에서 제거</string>
     <string name="delete_tab">%1$s 탭 삭제</string>
     <string name="letter_press_for">%1$s: 글자를 누르세요, Backspace는 해제</string>
+    <string name="instant_event">새 일정</string>
+    <string name="instant_open_address">주소 열기</string>
 </resources>

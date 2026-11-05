@@ -49,4 +49,42 @@ class InstantActionsTest {
         // An app name that starts like a keyword is not one.
         assertTrue(InstantActions.forTerm("notes").none { it.chosen })
     }
+
+    @Test
+    fun quickPrefixesMakeATodoANoteOrAnEvent() {
+        assertEquals(listOf(InstantRow(InstantAction.RemindMe, "Buy milk", true)), rows("-Buy milk"))
+        assertEquals(
+            listOf(InstantRow(InstantAction.Note, "Draft the release notes", true)),
+            rows("/Draft the release notes"),
+        )
+        assertEquals(listOf(InstantRow(InstantAction.Event, "Dinner Friday at 7", true)), rows("+Dinner Friday at 7"))
+        assertEquals(listOf(InstantRow(InstantAction.RemindMe, "call mum", true)), rows("- call mum"))
+        // A prefix with nothing after it does nothing yet.
+        assertEquals(emptyList<InstantRow>(), rows("-"))
+        assertEquals(emptyList<InstantRow>(), rows("+ "))
+        // A + phone number is still a number.
+        assertEquals(InstantAction.Call, actions("+44 20 7946 0000").first())
+    }
+
+    @Test
+    fun aWebAddressOpensInTheBrowser() {
+        assertEquals(
+            InstantRow(InstantAction.OpenAddress, "https://example.com/page", true),
+            rows("example.com/page").first(),
+        )
+        assertEquals(
+            InstantRow(InstantAction.OpenAddress, "https://www.example.org", true),
+            rows("www.example.org").first(),
+        )
+        assertEquals(
+            InstantRow(InstantAction.OpenAddress, "http://192.168.1.1.example.net", true),
+            rows("http://192.168.1.1.example.net").first(),
+        )
+        // A bare name with a dot is offered, but Enter does not pick it over the other results.
+        assertEquals(InstantRow(InstantAction.OpenAddress, "https://sableos.org", false), rows("sableos.org").first())
+        assertNull(InstantActions.webAddress("maya@example.org"))
+        assertNull(InstantActions.webAddress("buy milk.com today"))
+        assertNull(InstantActions.webAddress("v1.2"))
+        assertTrue(InstantAction.OpenAddress !in actions("buy milk"))
+    }
 }

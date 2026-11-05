@@ -290,4 +290,6 @@
     <string name="remove_from_tab">%1$s से हटाएँ</string>
     <string name="delete_tab">टैब %1$s हटाएँ</string>
     <string name="letter_press_for">%1$s: एक अक्षर दबाएँ, Backspace हटाता है</string>
+    <string name="instant_event">नया इवेंट</string>
+    <string name="instant_open_address">पता खोलें</string>
 </resources>

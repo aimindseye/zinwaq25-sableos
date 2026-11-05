@@ -290,4 +290,6 @@
     <string name="remove_from_tab">%1$s から外す</string>
     <string name="delete_tab">タブ %1$s を削除</string>
     <string name="letter_press_for">%1$s: 文字キーを押す（Backspace で解除）</string>
+    <string name="instant_event">新しい予定</string>
+    <string name="instant_open_address">アドレスを開く</string>
 </resources>

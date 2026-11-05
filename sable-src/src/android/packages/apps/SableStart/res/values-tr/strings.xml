@@ -290,4 +290,6 @@
     <string name="remove_from_tab">%1$s sekmesinden kaldır</string>
     <string name="delete_tab">%1$s sekmesini sil</string>
     <string name="letter_press_for">%1$s: bir harfe basın, Geri silme kaldırır</string>
+    <string name="instant_event">Yeni etkinlik</string>
+    <string name="instant_open_address">Adresi aç</string>
 </resources>

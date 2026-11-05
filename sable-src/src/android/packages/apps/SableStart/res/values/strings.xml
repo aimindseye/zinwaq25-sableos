@@ -294,4 +294,6 @@
     <string name="remove_from_tab">Remove from %1$s</string>
     <string name="delete_tab">Delete tab %1$s</string>
     <string name="letter_press_for">%1$s: press a letter, Backspace removes</string>
+    <string name="instant_event">New event</string>
+    <string name="instant_open_address">Open address</string>
 </resources>

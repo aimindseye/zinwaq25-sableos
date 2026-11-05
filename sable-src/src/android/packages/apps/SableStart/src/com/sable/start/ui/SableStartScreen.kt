@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.os.SystemClock
+import android.provider.CalendarContract
 import android.provider.CallLog
 import android.util.LruCache
 import androidx.compose.foundation.Image
@@ -4716,8 +4717,9 @@ private fun SearchScreen(
 
 /**
  * One Instant Action row: Remind me into Sable Tasks and Note into Sable Notes (their own share
- * entry), Call to the dialer, Text and Email to the user's apps, Map to a maps app, Web search to
- * the browser. Nothing is sent from here: each app opens with the text filled in.
+ * entry), Call to the dialer, Text and Email to the user's apps, Map to a maps app, Web search and
+ * Open address to the browser, New event to the calendar's new-event screen. Nothing is sent or
+ * saved from here: each app opens with the text filled in.
  */
 private fun instantResult(
     row: InstantRow,
@@ -4743,6 +4745,11 @@ private fun instantResult(
             }
             InstantAction.Map -> Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(text)))
             InstantAction.WebSearch -> Intent(Intent.ACTION_WEB_SEARCH).putExtra(SearchManager.QUERY, text)
+            InstantAction.Event ->
+                Intent(Intent.ACTION_INSERT, CalendarContract.Events.CONTENT_URI)
+                    .putExtra(CalendarContract.Events.TITLE, text)
+            InstantAction.OpenAddress ->
+                Intent(Intent.ACTION_VIEW, Uri.parse(text)).addCategory(Intent.CATEGORY_BROWSABLE)
         }
     return SearchCommand(
         title = row.action.label,

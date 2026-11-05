@@ -305,6 +305,8 @@ object StartText {
             "remove_from_tab" to "Remove from %1\$s",
             "delete_tab" to "Delete tab %1\$s",
             "letter_press_for" to "%1\$s: press a letter, Backspace removes",
+            "instant_event" to "New event",
+            "instant_open_address" to "Open address",
             "icon_large" to "Large",
             "letter_shortcut_press" to
                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",

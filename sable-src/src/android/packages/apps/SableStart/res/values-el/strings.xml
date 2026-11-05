@@ -290,4 +290,6 @@
     <string name="remove_from_tab">Αφαίρεση από %1$s</string>
     <string name="delete_tab">Διαγραφή καρτέλας %1$s</string>
     <string name="letter_press_for">%1$s: πατήστε ένα γράμμα, το Backspace αφαιρεί</string>
+    <string name="instant_event">Νέο συμβάν</string>
+    <string name="instant_open_address">Άνοιγμα διεύθυνσης</string>
 </resources>

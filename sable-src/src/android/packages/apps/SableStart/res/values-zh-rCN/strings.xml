@@ -290,4 +290,6 @@
     <string name="remove_from_tab">从%1$s移除</string>
     <string name="delete_tab">删除标签%1$s</string>
     <string name="letter_press_for">%1$s：按一个字母，退格键移除</string>
+    <string name="instant_event">新建日程</string>
+    <string name="instant_open_address">打开网址</string>
 </resources>

@@ -68,6 +68,23 @@ Two more entries are off until you turn them on in Hub > Connected apps (Sable S
 
 Alt+Left and Alt+Right move between pages. Alt+Space opens Command, and any letter starts a search of apps, contacts and commands. Menu opens Edit Home, where you choose Home apps, the quick bar and widgets. The status dials at the top show Wi-Fi, Mobile, CPU, RAM, battery and Cell.
 
+Command understands these prefixes and words, typed first:
+
+| Type | What you get |
+|---|---|
+| `-buy milk` | A to-do in Sable Tasks named "buy milk" |
+| `/call the bank` | A note in Sable Notes |
+| `+dentist friday` | Calendar's new-event screen with the title filled in |
+| `example.com`, `www.example.com/page` | Open address in the browser (Search the web is the second row) |
+| `?cam` | Apps only |
+| `@ana` or `#ana` | People only |
+| `!wifi` | Actions only |
+| `/settings`, `/apps`, `/hub`, `/private`, `/dual`, `/work` | Just that group |
+| `remind me`, `note`, `call`, `text`, `email`, `map`, `web` or `g`, then text | That one action, so Enter runs it |
+| A phone number, `+44 20…` included | Call first, then Text |
+
+Nothing is sent or saved from Command: each app opens with the text filled in, and you confirm there.
+
 ### Sable Start, BlackBerry 7 style
 
 <p>

@@ -290,4 +290,6 @@
     <string name="remove_from_tab">Usuń z %1$s</string>
     <string name="delete_tab">Usuń kartę %1$s</string>
     <string name="letter_press_for">%1$s: naciśnij literę, Backspace usuwa</string>
+    <string name="instant_event">Nowe wydarzenie</string>
+    <string name="instant_open_address">Otwórz adres</string>
 </resources>

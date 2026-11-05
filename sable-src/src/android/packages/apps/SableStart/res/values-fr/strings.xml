@@ -290,4 +290,6 @@
     <string name="remove_from_tab">Retirer de %1$s</string>
     <string name="delete_tab">Supprimer l\'onglet %1$s</string>
     <string name="letter_press_for">%1$s : appuyez sur une lettre, Retour arrière l\'enlève</string>
+    <string name="instant_event">Nouvel événement</string>
+    <string name="instant_open_address">Ouvrir l\'adresse</string>
 </resources>

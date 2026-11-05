@@ -290,4 +290,6 @@
     <string name="remove_from_tab">Aus %1$s entfernen</string>
     <string name="delete_tab">Tab %1$s löschen</string>
     <string name="letter_press_for">%1$s: Buchstaben drücken, Rücktaste entfernt</string>
+    <string name="instant_event">Neuer Termin</string>
+    <string name="instant_open_address">Adresse öffnen</string>
 </resources>

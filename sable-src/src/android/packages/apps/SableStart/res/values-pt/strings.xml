@@ -290,4 +290,6 @@
     <string name="remove_from_tab">Remover de %1$s</string>
     <string name="delete_tab">Excluir aba %1$s</string>
     <string name="letter_press_for">%1$s: pressione uma letra, Backspace remove</string>
+    <string name="instant_event">Novo evento</string>
+    <string name="instant_open_address">Abrir endereço</string>
 </resources>
