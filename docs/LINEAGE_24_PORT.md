@@ -24,7 +24,7 @@ the Q4 gates in [QUALIFICATION.md](QUALIFICATION.md) apply unchanged.
 
 ## Status
 
-62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Fifteen more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), frameworks/base 0317 (the next event on the lock screen), frameworks/base 0318 (the Peek as an app column beside the newest notification), frameworks/base 0319 (Alt+Space opens Command from any app), SetupWizard 0416 (the Full Sable, Essentials or Stock Android step), SetupWizard 0417 (the BlackBerry 10 or BlackBerry 7 look step), and Settings 1605 with device tree 1503 (the trackpad Keys or Pointer choice).
+62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Seventeen more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), frameworks/base 0317 (the next event on the lock screen), frameworks/base 0318 (the Peek as an app column beside the newest notification), frameworks/base 0319 (Alt+Space opens Command from any app), SetupWizard 0416 (the Full Sable, Essentials or Stock Android step), SetupWizard 0417 (the BlackBerry 10 or BlackBerry 7 look step), frameworks/base 0320 with Settings 1606 (Picture Password), and Settings 1605 with device tree 1503 (the trackpad Keys or Pointer choice).
 
 Every patch applies to the 24.0 heads in order. That is not yet a build: the ports below were
 written against the 24.0 sources without compiling them, so the first 24.0 build is the real test.
@@ -52,6 +52,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `frameworks/base/0317-SableOS-next-calendar-event-on-the-lock-screen.patch` | new on 24.0 |
 | `frameworks/base/0318-SableOS-lock-screen-Peek-as-an-app-column-beside-the.patch` | new on 24.0 |
 | `frameworks/base/0319-SableOS-Alt-Space-opens-Sable-Command-from-any-app.patch` | new on 24.0 |
+| `frameworks/base/0320-SableOS-Picture-Password-as-a-quick-second-unlock.patch` | new on 24.0 |
 | `frameworks/base/0501-SableOS-notification-light-for-every-alerting-channe.patch` | applies as is |
 | `frameworks/base/0550-SableOS-microG-signature-spoofing-on-user-builds-whe.patch` | ported by hand |
 | `kernel/xelex/mt6789/0201-SableOS-report-the-fuel-gauge-s-learned-battery-health.patch` | applies as is |
@@ -133,6 +134,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/Settings/1603-SableOS-size-tiles-for-Display-Text-and-Lock-screen.patch` | new on 24.0 |
 | `packages/apps/Settings/1604-SableOS-Sable-settings-page-in-one-list.patch` | new on 24.0 |
 | `packages/apps/Settings/1605-SableOS-Trackpad-Keys-or-Pointer-in-Settings-Keyboard.patch` | new on 24.0 |
+| `packages/apps/Settings/1606-SableOS-Picture-Password-row-on-the-Sable-page.patch` | new on 24.0 |
 | `packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | ported by hand |
 | `packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | ported by hand |
 | `packages/apps/SetupWizard/0403-SableOS-Esc-returns-to-the-previous-setup-step.patch` | ported by hand |

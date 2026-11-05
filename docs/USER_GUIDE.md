@@ -353,6 +353,10 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 <img src="images/q25/private-space.png" alt="Private Space and Dual Apps" width="200">
 </p>
 
+### Picture Password
+
+Settings > Sable > Picture Password sets up a quicker unlock over one of your photos: pick a photo, a number (0 to 9) and a spot in the photo. To unlock, move the grid of numbers with the trackpad until your number sits on your spot, then press Enter. The numbers start in a different place and order every time, so watching or smudges give nothing away. **Stronger** adds a second number and spot (off unless you turn it on). Your PIN or password is still needed after a restart, after 72 hours and after 5 wrong pictures, and Esc always switches to it.
+
 ## Privacy and security defaults
 
 SableOS favours privacy over Google compatibility, but it is not hardened yet. The bootloader stays unlocked, and the build is not release-key signed (gate Q5-KEYS is `NOT_RUN`). Treat it as a development phone, not a phone for banking or work secrets.
