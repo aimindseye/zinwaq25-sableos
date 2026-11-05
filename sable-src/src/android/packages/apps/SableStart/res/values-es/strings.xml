@@ -268,4 +268,10 @@
     <string name="frame_play">Reproducir</string>
     <string name="frame_pause">Pausar</string>
     <string name="frame_next">Siguiente</string>
+    <string name="balance_personal">Personal</string>
+    <string name="balance_space">Espacio: %1$s</string>
+    <string name="work_paused">Las apps de trabajo están en pausa. Sus notificaciones esperan hasta que las actives.</string>
+    <string name="pause_work">Pausar apps de trabajo</string>
+    <string name="resume_work">Activar apps de trabajo</string>
+    <string name="no_work_apps">Aún no hay apps de trabajo. Sable Setup puede crear un espacio de trabajo.</string>
 </resources>

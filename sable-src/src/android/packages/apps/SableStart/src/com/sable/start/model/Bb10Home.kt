@@ -246,3 +246,20 @@ object AppProfiles {
         return apps.firstOrNull { it !== app && componentOf(it) == component && profileOf(it) == wanted }
     }
 }
+
+/** BB10 Balance: the space All Apps shows. Private Space keeps its own section in Personal. */
+enum class BalanceSpace { Personal, Work }
+
+object Balance {
+    /** Personal and Work when the phone has a work profile; nothing to switch otherwise. */
+    fun spaces(hasWorkProfile: Boolean): List<BalanceSpace> = if (hasWorkProfile) BalanceSpace.entries else emptyList()
+
+    /** Whether an app with [profileLabel] belongs in [space]: Work apps only in Work, the rest in Personal. */
+    fun inSpace(
+        profileLabel: String?,
+        space: BalanceSpace,
+    ): Boolean = (profileLabel == AppProfiles.WORK) == (space == BalanceSpace.Work)
+
+    fun next(space: BalanceSpace): BalanceSpace =
+        if (space == BalanceSpace.Personal) BalanceSpace.Work else BalanceSpace.Personal
+}

@@ -134,12 +134,16 @@ class LauncherAppsRepository(
     fun privateSpace(): UserHandle? =
         runCatching { userManager.userProfiles.firstOrNull { profileLabelFor(it) == PROFILE_PRIVATE } }.getOrNull()
 
+    /** The work profile (Balance), when the phone has one; null otherwise. */
+    fun workProfile(): UserHandle? =
+        runCatching { userManager.userProfiles.firstOrNull { profileLabelFor(it) == PROFILE_WORK } }.getOrNull()
+
     /** Locked means quiet mode: its apps cannot run and are not listed. */
     fun isLocked(user: UserHandle): Boolean = runCatching { userManager.isQuietModeEnabled(user) }.getOrDefault(true)
 
     /**
-     * Locks or unlocks the private space. Unlocking may first show the
-     * system's own credential screen; the profile broadcasts then refresh.
+     * Locks or unlocks the private space, or pauses or turns on work apps. Unlocking may first
+     * show the system's own credential screen; the profile broadcasts then refresh.
      */
     fun setLocked(
         user: UserHandle,

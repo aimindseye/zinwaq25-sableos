@@ -283,6 +283,12 @@ object StartText {
             "action_uninstall" to "uninstall",
             "action_disable" to "disable",
             "letter_shortcut" to "Hold-key shortcut",
+            "balance_personal" to "Personal",
+            "balance_space" to "Space: %1\$s",
+            "work_paused" to "Work apps are paused. Their notifications wait until you turn them on.",
+            "pause_work" to "Pause work apps",
+            "resume_work" to "Turn on work apps",
+            "no_work_apps" to "No work apps yet. Sable Setup can make a Work space.",
             "letter_shortcut_current" to "Hold-key shortcut: %1\$s",
             "letter_shortcut_press" to
                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",

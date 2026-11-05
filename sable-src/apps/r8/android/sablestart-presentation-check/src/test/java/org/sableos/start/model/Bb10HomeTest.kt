@@ -129,4 +129,18 @@ class Bb10HomeTest {
         assertEquals("Dual", AppProfiles.badge(AppProfiles.DUAL))
         assertEquals("Work", AppProfiles.badge(AppProfiles.WORK))
     }
+
+    @Test
+    fun balanceSplitsWorkAppsFromPersonalOnes() {
+        assertEquals(emptyList<BalanceSpace>(), Balance.spaces(hasWorkProfile = false))
+        assertEquals(listOf(BalanceSpace.Personal, BalanceSpace.Work), Balance.spaces(hasWorkProfile = true))
+        assertTrue(Balance.inSpace(null, BalanceSpace.Personal))
+        assertTrue(Balance.inSpace(AppProfiles.DUAL, BalanceSpace.Personal))
+        assertTrue(Balance.inSpace(AppProfiles.PRIVATE, BalanceSpace.Personal))
+        assertFalse(Balance.inSpace(AppProfiles.WORK, BalanceSpace.Personal))
+        assertTrue(Balance.inSpace(AppProfiles.WORK, BalanceSpace.Work))
+        assertFalse(Balance.inSpace(null, BalanceSpace.Work))
+        assertEquals(BalanceSpace.Work, Balance.next(BalanceSpace.Personal))
+        assertEquals(BalanceSpace.Personal, Balance.next(BalanceSpace.Work))
+    }
 }

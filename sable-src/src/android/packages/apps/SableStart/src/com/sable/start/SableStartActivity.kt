@@ -70,6 +70,9 @@ class SableStartActivity : ComponentActivity() {
 
     /** null: no private space; true: locked; false: unlocked. */
     private val privateSpaceLockedState = mutableStateOf<Boolean?>(null)
+
+    /** null: no work profile; true: work apps paused; false: on. */
+    private val workPausedState = mutableStateOf<Boolean?>(null)
     private val liveRefreshGeneration = mutableStateOf(0)
     private val homeGeneration = mutableStateOf(0)
     private val backGeneration = mutableStateOf(0)
@@ -289,6 +292,8 @@ class SableStartActivity : ComponentActivity() {
                     letterShortcuts = letterShortcutRepository,
                     privateSpaceLocked = privateSpaceLockedState.value,
                     onTogglePrivateSpace = ::togglePrivateSpace,
+                    workPaused = workPausedState.value,
+                    onToggleWork = ::toggleWork,
                     liveSurfaceRepository = liveSurfaceRepository,
                     appearance = appearance,
                     refreshGeneration = liveRefreshGeneration.value,
@@ -452,6 +457,7 @@ class SableStartActivity : ComponentActivity() {
                 val apps = launcherAppsRepository.loadApps()
                 val privateSpaceLocked =
                     launcherAppsRepository.privateSpace()?.let(launcherAppsRepository::isLocked)
+                val workPaused = launcherAppsRepository.workProfile()?.let(launcherAppsRepository::isLocked)
                 runOnUiThread {
                     if (
                         !isDestroyed &&
@@ -459,6 +465,7 @@ class SableStartActivity : ComponentActivity() {
                     ) {
                         appsState.value = apps
                         privateSpaceLockedState.value = privateSpaceLocked
+                        workPausedState.value = workPaused
                     }
                 }
             }
@@ -557,6 +564,16 @@ class SableStartActivity : ComponentActivity() {
         inventoryExecutor.execute {
             val user = launcherAppsRepository.privateSpace() ?: return@execute
             launcherAppsRepository.setLocked(user, !locked)
+            runOnUiThread { scheduleInventoryRefresh() }
+        }
+    }
+
+    /** Balance: pause or turn on work apps (Android's quiet mode for the work profile). */
+    private fun toggleWork() {
+        val paused = workPausedState.value ?: return
+        inventoryExecutor.execute {
+            val user = launcherAppsRepository.workProfile() ?: return@execute
+            launcherAppsRepository.setLocked(user, !paused)
             runOnUiThread { scheduleInventoryRefresh() }
         }
     }

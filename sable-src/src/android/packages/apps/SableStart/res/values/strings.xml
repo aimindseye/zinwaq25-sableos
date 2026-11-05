@@ -272,4 +272,10 @@
     <string name="frame_play">Play</string>
     <string name="frame_pause">Pause</string>
     <string name="frame_next">Next</string>
+    <string name="balance_personal">Personal</string>
+    <string name="balance_space">Space: %1$s</string>
+    <string name="work_paused">Work apps are paused. Their notifications wait until you turn them on.</string>
+    <string name="pause_work">Pause work apps</string>
+    <string name="resume_work">Turn on work apps</string>
+    <string name="no_work_apps">No work apps yet. Sable Setup can make a Work space.</string>
 </resources>

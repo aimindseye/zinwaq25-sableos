@@ -268,4 +268,10 @@
     <string name="frame_play">播放</string>
     <string name="frame_pause">暂停</string>
     <string name="frame_next">下一个</string>
+    <string name="balance_personal">个人</string>
+    <string name="balance_space">空间：%1$s</string>
+    <string name="work_paused">工作应用已暂停。开启前其通知会等待。</string>
+    <string name="pause_work">暂停工作应用</string>
+    <string name="resume_work">开启工作应用</string>
+    <string name="no_work_apps">还没有工作应用。Sable Setup 可以创建工作空间。</string>
 </resources>

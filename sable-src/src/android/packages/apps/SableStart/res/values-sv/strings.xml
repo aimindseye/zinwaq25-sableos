@@ -268,4 +268,10 @@
     <string name="frame_play">Spela</string>
     <string name="frame_pause">Pausa</string>
     <string name="frame_next">Nästa</string>
+    <string name="balance_personal">Privat</string>
+    <string name="balance_space">Utrymme: %1$s</string>
+    <string name="work_paused">Jobbappar är pausade. Deras aviseringar väntar tills du slår på dem.</string>
+    <string name="pause_work">Pausa jobbappar</string>
+    <string name="resume_work">Slå på jobbappar</string>
+    <string name="no_work_apps">Inga jobbappar än. Sable Setup kan skapa ett jobbutrymme.</string>
 </resources>

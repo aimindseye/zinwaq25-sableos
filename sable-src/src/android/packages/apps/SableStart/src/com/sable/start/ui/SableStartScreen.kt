@@ -74,6 +74,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
@@ -144,6 +145,8 @@ import org.sableos.start.model.AppEntry
 import org.sableos.start.model.AppGlyphs
 import org.sableos.start.model.AppGrid
 import org.sableos.start.model.AppProfiles
+import org.sableos.start.model.Balance
+import org.sableos.start.model.BalanceSpace
 import org.sableos.start.model.CommandBestMatch
 import org.sableos.start.model.CommandGroups
 import org.sableos.start.model.CommandQuery
@@ -393,6 +396,9 @@ fun SableStartScreen(
     /** null: no private space on this device; true: locked; false: unlocked. */
     privateSpaceLocked: Boolean? = null,
     onTogglePrivateSpace: () -> Unit = {},
+    /** Balance. null: no work profile; true: work apps paused; false: on. */
+    workPaused: Boolean? = null,
+    onToggleWork: () -> Unit = {},
     /** Counts up for each "show the Hub page" request (org.sableos.start.action.SHOW_HUB). */
     hubGeneration: Int = 0,
     /** The tab that request asked for ([HubFilter] by name), or null for All. */
@@ -797,6 +803,8 @@ fun SableStartScreen(
                             onOpenAppInfo = onOpenAppInfo,
                             privateSpaceLocked = privateSpaceLocked,
                             onTogglePrivateSpace = onTogglePrivateSpace,
+                            workPaused = workPaused,
+                            onToggleWork = onToggleWork,
                         )
 
                     SableStartDestination.Search ->
@@ -4034,9 +4042,20 @@ private fun AppsScreen(
     onOpenAppInfo: (AppEntry) -> Unit,
     privateSpaceLocked: Boolean?,
     onTogglePrivateSpace: () -> Unit,
+    workPaused: Boolean? = null,
+    onToggleWork: () -> Unit = {},
 ) {
+    // Balance: with a work profile, All Apps shows Personal or Work (BB10's switch).
+    val spaces = Balance.spaces(hasWorkProfile = workPaused != null)
+    var chosen by rememberSaveable { mutableStateOf(BalanceSpace.Personal) }
+    val space = if (chosen in spaces) chosen else BalanceSpace.Personal
+    val inWork = space == BalanceSpace.Work
     // Private Space apps live in their own section at the end, never in the A-Z list.
-    val (privateApps, listedApps) = remember(apps) { apps.partition { it.profileLabel == PROFILE_PRIVATE_LABEL } }
+    val (privateApps, allListed) = remember(apps) { apps.partition { it.profileLabel == PROFILE_PRIVATE_LABEL } }
+    val listedApps =
+        remember(allListed, space, spaces) {
+            if (spaces.isEmpty()) allListed else allListed.filter { Balance.inSpace(it.profileLabel, space) }
+        }
     var filter by remember { mutableStateOf(PrivacyFilter.All) }
     val rows = remember(listedApps, filter) { buildRailRows(listedApps.filter { filter.matches(it.privacy) }) }
     val keys = remember(rows) { rows.map { it.app.stableKey() } }
@@ -4147,10 +4166,17 @@ private fun AppsScreen(
             Spacer(Modifier.height(8.dp))
             SearchLaunchButton(onClick = onSearch)
             Spacer(Modifier.height(6.dp))
+            if (spaces.isNotEmpty()) {
+                BalanceSwitch(spaces = spaces, selected = space, onSelect = { chosen = it })
+                if (inWork) WorkPauseLine(paused = workPaused == true, onToggle = onToggleWork)
+                Spacer(Modifier.height(6.dp))
+            }
             PrivacyFilterChips(selected = filter, onSelect = { filter = it })
             Spacer(Modifier.height(8.dp))
 
-            if (rows.isEmpty() && filter != PrivacyFilter.All) {
+            if (rows.isEmpty() && inWork && workPaused != true && filter == PrivacyFilter.All) {
+                EmptyState(t("no_work_apps"))
+            } else if (rows.isEmpty() && filter != PrivacyFilter.All) {
                 EmptyState(t("no_apps_match", filter.label))
             } else if (rows.isEmpty() && privateSpaceLocked == null) {
                 EmptyState(t("no_launchable_apps_are_available"))
@@ -4195,7 +4221,7 @@ private fun AppsScreen(
                                     }.onPreviewKeyEvent { event -> onRowKey(index, event) },
                         )
                     }
-                    if (privateSpaceLocked != null) {
+                    if (privateSpaceLocked != null && !inWork) {
                         item(key = "private-space") {
                             PrivateSpaceSection(
                                 locked = privateSpaceLocked,
@@ -4221,6 +4247,65 @@ private fun AppsScreen(
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
         }
+    }
+}
+
+/** BB10 Balance: Personal · Work, as chips like the privacy filters. */
+@Composable
+private fun BalanceSwitch(
+    spaces: List<BalanceSpace>,
+    selected: BalanceSpace,
+    onSelect: (BalanceSpace) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        spaces.forEach { space ->
+            val on = space == selected
+            val label = if (space == BalanceSpace.Work) t("work") else t("balance_personal")
+            Text(
+                text = label,
+                modifier =
+                    Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                        .sableFocusRing()
+                        .clickable { onSelect(space) }
+                        .semantics { contentDescription = t("balance_space", label) + if (on) t("applied") else "" }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+/** In Work: pause work apps (Android's quiet mode), or say they are paused and turn them on. */
+@Composable
+private fun WorkPauseLine(
+    paused: Boolean,
+    onToggle: () -> Unit,
+) {
+    Column(Modifier.padding(top = 6.dp)) {
+        if (paused) {
+            Text(
+                text = t("work_paused"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = t(if (paused) "resume_work" else "pause_work"),
+            modifier =
+                Modifier
+                    .padding(top = 4.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                    .sableFocusRing()
+                    .clickable(onClick = onToggle)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 

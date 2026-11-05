@@ -268,4 +268,10 @@
     <string name="frame_play">Oynat</string>
     <string name="frame_pause">Duraklat</string>
     <string name="frame_next">Sonraki</string>
+    <string name="balance_personal">Kişisel</string>
+    <string name="balance_space">Alan: %1$s</string>
+    <string name="work_paused">İş uygulamaları duraklatıldı. Bildirimleri, siz açana kadar bekler.</string>
+    <string name="pause_work">İş uygulamalarını duraklat</string>
+    <string name="resume_work">İş uygulamalarını aç</string>
+    <string name="no_work_apps">Henüz iş uygulaması yok. Sable Setup bir İş alanı oluşturabilir.</string>
 </resources>

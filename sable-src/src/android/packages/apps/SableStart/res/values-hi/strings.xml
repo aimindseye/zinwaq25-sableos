@@ -268,4 +268,10 @@
     <string name="frame_play">चलाएँ</string>
     <string name="frame_pause">रोकें</string>
     <string name="frame_next">अगला</string>
+    <string name="balance_personal">व्यक्तिगत</string>
+    <string name="balance_space">स्पेस: %1$s</string>
+    <string name="work_paused">कार्य ऐप्स रुके हुए हैं। उनकी सूचनाएँ तब तक रुकी रहेंगी जब तक आप उन्हें चालू नहीं करते।</string>
+    <string name="pause_work">कार्य ऐप्स रोकें</string>
+    <string name="resume_work">कार्य ऐप्स चालू करें</string>
+    <string name="no_work_apps">अभी कोई कार्य ऐप नहीं। Sable Setup एक कार्य स्पेस बना सकता है।</string>
 </resources>

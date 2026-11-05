@@ -268,4 +268,10 @@
     <string name="frame_play">Αναπαραγωγή</string>
     <string name="frame_pause">Παύση</string>
     <string name="frame_next">Επόμενο</string>
+    <string name="balance_personal">Προσωπικά</string>
+    <string name="balance_space">Χώρος: %1$s</string>
+    <string name="work_paused">Οι εφαρμογές εργασίας είναι σε παύση. Οι ειδοποιήσεις τους περιμένουν μέχρι να τις ενεργοποιήσετε.</string>
+    <string name="pause_work">Παύση εφαρμογών εργασίας</string>
+    <string name="resume_work">Ενεργοποίηση εφαρμογών εργασίας</string>
+    <string name="no_work_apps">Δεν υπάρχουν ακόμη εφαρμογές εργασίας. Το Sable Setup μπορεί να φτιάξει χώρο εργασίας.</string>
 </resources>

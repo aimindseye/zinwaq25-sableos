@@ -268,4 +268,10 @@
     <string name="frame_play">Afspelen</string>
     <string name="frame_pause">Pauzeren</string>
     <string name="frame_next">Volgende</string>
+    <string name="balance_personal">Persoonlijk</string>
+    <string name="balance_space">Ruimte: %1$s</string>
+    <string name="work_paused">Werk-apps zijn gepauzeerd. Hun meldingen wachten tot je ze aanzet.</string>
+    <string name="pause_work">Werk-apps pauzeren</string>
+    <string name="resume_work">Werk-apps aanzetten</string>
+    <string name="no_work_apps">Nog geen werk-apps. Sable Setup kan een werkruimte maken.</string>
 </resources>

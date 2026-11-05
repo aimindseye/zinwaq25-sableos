@@ -268,4 +268,10 @@
     <string name="frame_play">Odtwórz</string>
     <string name="frame_pause">Wstrzymaj</string>
     <string name="frame_next">Następny</string>
+    <string name="balance_personal">Osobiste</string>
+    <string name="balance_space">Przestrzeń: %1$s</string>
+    <string name="work_paused">Aplikacje służbowe są wstrzymane. Ich powiadomienia czekają, aż je włączysz.</string>
+    <string name="pause_work">Wstrzymaj aplikacje służbowe</string>
+    <string name="resume_work">Włącz aplikacje służbowe</string>
+    <string name="no_work_apps">Brak aplikacji służbowych. Sable Setup może utworzyć przestrzeń służbową.</string>
 </resources>

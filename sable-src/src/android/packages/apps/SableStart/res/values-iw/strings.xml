@@ -268,4 +268,10 @@
     <string name="frame_play">הפעל</string>
     <string name="frame_pause">השהה</string>
     <string name="frame_next">הבא</string>
+    <string name="balance_personal">אישי</string>
+    <string name="balance_space">מרחב: %1$s</string>
+    <string name="work_paused">אפליקציות העבודה מושהות. ההתראות שלהן ימתינו עד שתפעיל אותן.</string>
+    <string name="pause_work">השהיית אפליקציות העבודה</string>
+    <string name="resume_work">הפעלת אפליקציות העבודה</string>
+    <string name="no_work_apps">אין עדיין אפליקציות עבודה. Sable Setup יכול ליצור מרחב עבודה.</string>
 </resources>

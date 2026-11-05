@@ -268,4 +268,10 @@
     <string name="frame_play">Играть</string>
     <string name="frame_pause">Пауза</string>
     <string name="frame_next">Далее</string>
+    <string name="balance_personal">Личное</string>
+    <string name="balance_space">Пространство: %1$s</string>
+    <string name="work_paused">Рабочие приложения приостановлены. Их уведомления ждут, пока вы их не включите.</string>
+    <string name="pause_work">Приостановить рабочие приложения</string>
+    <string name="resume_work">Включить рабочие приложения</string>
+    <string name="no_work_apps">Рабочих приложений пока нет. Sable Setup может создать рабочее пространство.</string>
 </resources>

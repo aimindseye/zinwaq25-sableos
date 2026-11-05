@@ -268,4 +268,10 @@
     <string name="frame_play">Lecture</string>
     <string name="frame_pause">Pause</string>
     <string name="frame_next">Suivant</string>
+    <string name="balance_personal">Personnel</string>
+    <string name="balance_space">Espace : %1$s</string>
+    <string name="work_paused">Les apps professionnelles sont en pause. Leurs notifications attendent que vous les réactiviez.</string>
+    <string name="pause_work">Mettre en pause les apps pro</string>
+    <string name="resume_work">Activer les apps pro</string>
+    <string name="no_work_apps">Aucune app pro pour l’instant. Sable Setup peut créer un espace pro.</string>
 </resources>

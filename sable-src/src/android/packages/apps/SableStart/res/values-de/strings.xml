@@ -268,4 +268,10 @@
     <string name="frame_play">Wiedergabe</string>
     <string name="frame_pause">Pause</string>
     <string name="frame_next">Weiter</string>
+    <string name="balance_personal">Privat</string>
+    <string name="balance_space">Bereich: %1$s</string>
+    <string name="work_paused">Arbeits-Apps sind pausiert. Ihre Benachrichtigungen warten, bis du sie einschaltest.</string>
+    <string name="pause_work">Arbeits-Apps pausieren</string>
+    <string name="resume_work">Arbeits-Apps einschalten</string>
+    <string name="no_work_apps">Noch keine Arbeits-Apps. Sable Setup kann einen Arbeitsbereich anlegen.</string>
 </resources>

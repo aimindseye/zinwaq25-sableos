@@ -268,4 +268,10 @@
     <string name="frame_play">재생</string>
     <string name="frame_pause">일시중지</string>
     <string name="frame_next">다음</string>
+    <string name="balance_personal">개인</string>
+    <string name="balance_space">공간: %1$s</string>
+    <string name="work_paused">업무용 앱이 일시중지되었습니다. 켤 때까지 알림이 대기합니다.</string>
+    <string name="pause_work">업무용 앱 일시중지</string>
+    <string name="resume_work">업무용 앱 켜기</string>
+    <string name="no_work_apps">아직 업무용 앱이 없습니다. Sable Setup에서 업무 공간을 만들 수 있습니다.</string>
 </resources>

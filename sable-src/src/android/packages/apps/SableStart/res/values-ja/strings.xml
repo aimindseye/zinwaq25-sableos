@@ -268,4 +268,10 @@
     <string name="frame_play">再生</string>
     <string name="frame_pause">一時停止</string>
     <string name="frame_next">次へ</string>
+    <string name="balance_personal">個人用</string>
+    <string name="balance_space">スペース: %1$s</string>
+    <string name="work_paused">仕事用アプリは一時停止中です。オンにするまで通知は届きません。</string>
+    <string name="pause_work">仕事用アプリを一時停止</string>
+    <string name="resume_work">仕事用アプリをオンにする</string>
+    <string name="no_work_apps">仕事用アプリはまだありません。Sable Setup で仕事用スペースを作れます。</string>
 </resources>
