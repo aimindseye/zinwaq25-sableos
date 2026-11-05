@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sable Spaces, Sable's own profile manager for the Work space (BB10 Balance): installed for the main
+     user, which makes the Work space and offers apps for it, and in work profiles, where it is the
+     profile owner. Never in Private Space, a clone profile or a guest. -->
+<config>
+    <install-in-user-type package="org.sableos.titan2.spaces">
+        <install-in user-type="FULL" />
+        <install-in user-type="android.os.usertype.profile.MANAGED" />
+    </install-in-user-type>
+</config>

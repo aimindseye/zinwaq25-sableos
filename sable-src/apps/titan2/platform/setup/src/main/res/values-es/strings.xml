@@ -77,4 +77,7 @@
     <string name="row_hub_menu_title">Menú de fila de Hub</string>
     <string name="row_hub_menu_detail">Posponer y Recordármelo están desactivados hasta que los actives en Hub</string>
     <string name="action_hub_row_menu">Ajustes de Hub</string>
+    <string name="row_work_space_title">Espacio de trabajo</string>
+    <string name="row_work_space_detail">Opcional: mantén aparte las apps de trabajo, con un selector Personal · Trabajo en Start</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

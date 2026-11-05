@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">Рабочее пространство</string>
+    <string name="work">Работа</string>
+    <string name="intro">Держите рабочие приложения отдельно от своих: свои данные и аккаунты, значок «Работа» и переключатель «Личное · Работа» в Start, который может их приостановить.</string>
+    <string name="make">Создать рабочее пространство</string>
+    <string name="making">Android создаёт рабочее пространство. Это займёт минуту.</string>
+    <string name="not_allowed">Этот телефон сейчас не может создать рабочее пространство. Возможно, уже есть рабочее пространство или менеджер устройства.</string>
+    <string name="cancelled">Рабочее пространство не создано.</string>
+    <string name="ready">Рабочее пространство готово. Добавьте приложения для работы: у каждого будет своя копия со своими данными.</string>
+    <string name="paused">Рабочие приложения приостановлены. Включите их в Start (Все приложения, Работа), чтобы добавить приложения.</string>
+    <string name="in_work">%1$s · в «Работе»</string>
+    <string name="no_apps">Все ваши приложения уже в «Работе».</string>
+    <string name="could_not_open">Рабочее пространство не ответило. Повторите попытку чуть позже.</string>
+    <string name="remove">Удалить рабочее пространство</string>
+    <string name="add_confirm">Добавить %1$s (%2$s) в «Работу»? Enter — добавить, Назад — отмена.</string>
+    <string name="added">%1$s теперь в «Работе».</string>
+    <string name="add_failed">Не удалось добавить %1$s в «Работу».</string>
+    <string name="remove_confirm">Удалить рабочее пространство со всеми рабочими приложениями и их данными? Y — удалить, N — оставить.</string>
+    <string name="yes">Да</string>
+    <string name="no">Нет</string>
+    <string name="hint">Вверх и Вниз — выбор приложения · Enter — добавить · R — удалить рабочее пространство · Назад — выход</string>
+</resources>

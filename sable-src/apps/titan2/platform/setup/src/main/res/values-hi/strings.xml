@@ -77,4 +77,7 @@
     <string name="row_hub_menu_title">Hub पंक्ति मेनू</string>
     <string name="row_hub_menu_detail">स्नूज़ और मुझे याद दिलाएँ तब तक बंद हैं जब तक आप उन्हें Hub में चालू नहीं करते</string>
     <string name="action_hub_row_menu">Hub सेटिंग</string>
+    <string name="row_work_space_title">कार्य स्थान</string>
+    <string name="row_work_space_detail">वैकल्पिक: कार्य ऐप्स अलग रखें, Start में व्यक्तिगत · कार्य स्विच के साथ</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

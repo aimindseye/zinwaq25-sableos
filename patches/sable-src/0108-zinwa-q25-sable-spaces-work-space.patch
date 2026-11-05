@@ -1,0 +1,2062 @@
+diff --git a/sable-src/apps/titan2/platform/settings.gradle.kts b/sable-src/apps/titan2/platform/settings.gradle.kts
+index 7af750f..0236ba9 100644
+--- a/sable-src/apps/titan2/platform/settings.gradle.kts
++++ b/sable-src/apps/titan2/platform/settings.gradle.kts
+@@ -13,4 +13,4 @@ dependencyResolutionManagement {
+     }
+ }
+ rootProject.name = "sable-titan2-platform"
+-include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools", ":vault", ":profiles")
++include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools", ":vault", ":profiles", ":spaces")
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
+index 8704993..499d0e3 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
+@@ -28,6 +28,8 @@
+         </intent>
+         <!-- Hub's settings page: Snooze and Remind me for Hub's row menu. -->
+         <intent><action android:name="org.sableos.hub.action.CONNECTED_APPS" /></intent>
++        <!-- Sable Spaces: make a Work space (BB10 Balance). -->
++        <intent><action android:name="org.sableos.spaces.action.WORK_SPACE" /></intent>
+         <package android:name="org.sableos.titan2.displaycompat" />
+         <package android:name="org.sableos.titan2.radiodiag" />
+         <!-- Sable Weather's city hand-off (ContentResolver.call); Weather allows only this package. -->
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
+index 052172b..c7aea87 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
+@@ -36,6 +36,8 @@ class Launcher(private val activity: Activity) {
+         Action.RadioDiag -> activity.packageManager.getLaunchIntentForPackage(RADIO_PACKAGE)
+ 
+         Action.HubRowMenu -> Intent(HUB_SETTINGS_ACTION).setPackage(HUB_PACKAGE)
++
++        Action.WorkSpace -> Intent(WORK_SPACE_ACTION).setPackage(SPACES_PACKAGE)
+     }
+ 
+     /**
+@@ -92,5 +94,7 @@ class Launcher(private val activity: Activity) {
+         const val RADIO_PACKAGE = "org.sableos.titan2.radiodiag"
+         const val HUB_SETTINGS_ACTION = "org.sableos.hub.action.CONNECTED_APPS"
+         const val HUB_PACKAGE = "org.sableos.hub"
++        const val WORK_SPACE_ACTION = "org.sableos.spaces.action.WORK_SPACE"
++        const val SPACES_PACKAGE = "org.sableos.titan2.spaces"
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
+index 87fe092..8f9bd16 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
+@@ -55,7 +55,10 @@ enum class Action(private val labelKey: String) {
+     WeatherCity("action_weather_city"),
+ 
+     /** Hub's settings page, where Snooze and Remind me are turned on for Hub's row menu. */
+-    HubRowMenu("action_hub_row_menu");
++    HubRowMenu("action_hub_row_menu"),
++
++    /** Sable Spaces, where the user can make a Work space (BB10 Balance) with Android's own setup. */
++    WorkSpace("action_work_space");
+ 
+     /** What the button opens, for a launch failure line; empty for [None]. */
+     val label: String get() = if (labelKey.isEmpty()) "" else SetupText.t(labelKey)
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
+index 41b01fc..4c1bfac 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
+@@ -77,15 +77,26 @@ object SetupRows {
+             Readiness.Informational,
+             Action.NetworkSettings
+         ),
+-        WeatherCityStep.row(snapshot.weatherCity),
++        WeatherCityStep.row(snapshot.weatherCity)
++    ).plus(optionalRows()).map { applyTarget(it, targets(it.action)) }
++
++    /** Choices a fresh phone leaves off: Hub's extra row menu entries and a Work space. */
++    private fun optionalRows(): List<Item> = listOf(
+         Item(
+             "hub_menu",
+             t("row_hub_menu_title"),
+             t("row_hub_menu_detail"),
+             Readiness.Informational,
+             Action.HubRowMenu
++        ),
++        Item(
++            "work_space",
++            t("row_work_space_title"),
++            t("row_work_space_detail"),
++            Readiness.Informational,
++            Action.WorkSpace
+         )
+-    ).map { applyTarget(it, targets(it.action)) }
++    )
+ 
+     /** HOME is owned by the canonical lane (IR-003); this row never judges it. */
+     private fun home(o: Observed): Item = when (o) {
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt
+index 9c8eb14..e324432 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt
+@@ -94,6 +94,10 @@ object SetupText {
+         "weather_row_failed" to "Could not read the Weather city",
+         "row_hub_menu_title" to "Hub row menu",
+         "row_hub_menu_detail" to "Snooze and Remind me are off until you turn them on in Hub",
++        "row_work_space_title" to "Work space",
++        "row_work_space_detail" to
++            "Optional: keep work apps apart, with a Personal · Work switch on Start",
++        "action_work_space" to "Sable Spaces",
+         "action_hub_row_menu" to "Hub settings"
+     )
+ 
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-ar/strings.xml
+index d8733f5..fc29f40 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-ar/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">قائمة الصف في Hub</string>
+     <string name="row_hub_menu_detail">الغفوة وذكّرني متوقفان حتى تشغّلهما في Hub</string>
+     <string name="action_hub_row_menu">إعدادات Hub</string>
++    <string name="row_work_space_title">مساحة العمل</string>
++    <string name="row_work_space_detail">اختياري: افصل تطبيقات العمل، مع مبدّل شخصي · عمل في Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-de/strings.xml
+index 73892ad..5388f46 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-de/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Hub-Zeilenmenü</string>
+     <string name="row_hub_menu_detail">Schlummern und Erinnern sind aus, bis du sie in Hub einschaltest</string>
+     <string name="action_hub_row_menu">Hub-Einstellungen</string>
++    <string name="row_work_space_title">Arbeitsbereich</string>
++    <string name="row_work_space_detail">Optional: Arbeits-Apps getrennt halten, mit einem Schalter Privat · Arbeit in Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-el/strings.xml
+index bc0a0a5..70ab707 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-el/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Μενού γραμμής του Hub</string>
+     <string name="row_hub_menu_detail">Η Αναβολή και το Υπενθύμισέ μου είναι ανενεργά μέχρι να τα ενεργοποιήσετε στο Hub</string>
+     <string name="action_hub_row_menu">Ρυθμίσεις Hub</string>
++    <string name="row_work_space_title">Χώρος εργασίας</string>
++    <string name="row_work_space_detail">Προαιρετικό: κρατήστε χωριστά τις εφαρμογές εργασίας, με διακόπτη Προσωπικά · Εργασία στο Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml
+index 2639e99..a2483fa 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Menú de fila de Hub</string>
+     <string name="row_hub_menu_detail">Posponer y Recordármelo están desactivados hasta que los actives en Hub</string>
+     <string name="action_hub_row_menu">Ajustes de Hub</string>
++    <string name="row_work_space_title">Espacio de trabajo</string>
++    <string name="row_work_space_detail">Opcional: mantén aparte las apps de trabajo, con un selector Personal · Trabajo en Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-fr/strings.xml
+index 51160f3..c23a5f5 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-fr/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Menu de ligne du Hub</string>
+     <string name="row_hub_menu_detail">Reporter et Me le rappeler sont désactivés tant que vous ne les activez pas dans le Hub</string>
+     <string name="action_hub_row_menu">Paramètres du Hub</string>
++    <string name="row_work_space_title">Espace professionnel</string>
++    <string name="row_work_space_detail">Facultatif : gardez les applis professionnelles à part, avec un sélecteur Personnel · Travail dans Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-hi/strings.xml
+index 52a0d38..3953fe8 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-hi/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Hub पंक्ति मेनू</string>
+     <string name="row_hub_menu_detail">स्नूज़ और मुझे याद दिलाएँ तब तक बंद हैं जब तक आप उन्हें Hub में चालू नहीं करते</string>
+     <string name="action_hub_row_menu">Hub सेटिंग</string>
++    <string name="row_work_space_title">कार्य स्थान</string>
++    <string name="row_work_space_detail">वैकल्पिक: कार्य ऐप्स अलग रखें, Start में व्यक्तिगत · कार्य स्विच के साथ</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-it/strings.xml
+index 7debeb0..6e4296f 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-it/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Menu della riga di Hub</string>
+     <string name="row_hub_menu_detail">Posticipa e Ricordamelo sono disattivati finché non li attivi in Hub</string>
+     <string name="action_hub_row_menu">Impostazioni di Hub</string>
++    <string name="row_work_space_title">Spazio di lavoro</string>
++    <string name="row_work_space_detail">Facoltativo: tieni separate le app di lavoro, con un selettore Personale · Lavoro in Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-iw/strings.xml
+index 2ad76f9..a3e22b5 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-iw/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">תפריט השורה ב-Hub</string>
+     <string name="row_hub_menu_detail">נודניק ותזכיר לי כבויים עד שתפעיל אותם ב-Hub</string>
+     <string name="action_hub_row_menu">הגדרות Hub</string>
++    <string name="row_work_space_title">מרחב העבודה</string>
++    <string name="row_work_space_detail">אופציונלי: הפרד את אפליקציות העבודה, עם מתג אישי · עבודה ב-Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-ja/strings.xml
+index 3d66eef..ee7361c 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-ja/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Hub の行メニュー</string>
+     <string name="row_hub_menu_detail">スヌーズとリマインドは Hub でオンにするまでオフです</string>
+     <string name="action_hub_row_menu">Hub の設定</string>
++    <string name="row_work_space_title">仕事用スペース</string>
++    <string name="row_work_space_detail">任意: 仕事用アプリを分けて、Start で個人用 · 仕事を切り替え</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-ko/strings.xml
+index 2233331..94c4b54 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-ko/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Hub 행 메뉴</string>
+     <string name="row_hub_menu_detail">다시 알림과 나중에 알림은 Hub에서 켤 때까지 꺼져 있습니다</string>
+     <string name="action_hub_row_menu">Hub 설정</string>
++    <string name="row_work_space_title">업무 공간</string>
++    <string name="row_work_space_detail">선택 사항: 업무 앱을 분리하고 Start에서 개인 · 업무 전환</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-nl/strings.xml
+index 088dd88..ec249ac 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-nl/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Hub-rijmenu</string>
+     <string name="row_hub_menu_detail">Uitstellen en Herinner me staan uit tot je ze aanzet in Hub</string>
+     <string name="action_hub_row_menu">Hub-instellingen</string>
++    <string name="row_work_space_title">Werkruimte</string>
++    <string name="row_work_space_detail">Optioneel: houd werk-apps apart, met een schakelaar Persoonlijk · Werk in Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-pl/strings.xml
+index 02dd09a..8a21496 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-pl/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Menu wiersza w Hub</string>
+     <string name="row_hub_menu_detail">Odłóż i Przypomnij mi są wyłączone, dopóki nie włączysz ich w Hub</string>
+     <string name="action_hub_row_menu">Ustawienia Hub</string>
++    <string name="row_work_space_title">Przestrzeń służbowa</string>
++    <string name="row_work_space_detail">Opcjonalnie: trzymaj aplikacje służbowe osobno, z przełącznikiem Osobiste · Praca w Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-pt/strings.xml
+index 2759387..d149ed8 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-pt/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Menu da linha do Hub</string>
+     <string name="row_hub_menu_detail">Adiar e Lembrar-me estão desligados até os ativar no Hub</string>
+     <string name="action_hub_row_menu">Definições do Hub</string>
++    <string name="row_work_space_title">Espaço de trabalho</string>
++    <string name="row_work_space_detail">Opcional: mantenha as apps de trabalho à parte, com um seletor Pessoal · Trabalho no Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-ru/strings.xml
+index e0d928f..6b398ef 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-ru/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Меню строки в Hub</string>
+     <string name="row_hub_menu_detail">«Отложить» и «Напомнить» выключены, пока вы не включите их в Hub</string>
+     <string name="action_hub_row_menu">Настройки Hub</string>
++    <string name="row_work_space_title">Рабочее пространство</string>
++    <string name="row_work_space_detail">Необязательно: держите рабочие приложения отдельно, с переключателем «Личное · Работа» в Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-sv/strings.xml
+index 58fa379..59a2d2b 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-sv/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Hubs radmeny</string>
+     <string name="row_hub_menu_detail">Snooza och Påminn mig är av tills du slår på dem i Hub</string>
+     <string name="action_hub_row_menu">Hub-inställningar</string>
++    <string name="row_work_space_title">Arbetsyta</string>
++    <string name="row_work_space_detail">Valfritt: håll jobbappar åtskilda, med ett reglage Privat · Arbete i Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-tr/strings.xml
+index bb55f65..0743714 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-tr/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Hub satır menüsü</string>
+     <string name="row_hub_menu_detail">Ertele ve Bana hatırlat, Hub\'da açana kadar kapalıdır</string>
+     <string name="action_hub_row_menu">Hub ayarları</string>
++    <string name="row_work_space_title">İş alanı</string>
++    <string name="row_work_space_detail">İsteğe bağlı: iş uygulamalarını ayrı tutun, Start\'ta Kişisel · İş anahtarıyla</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-ur/strings.xml
+index ef244a0..45b0d88 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-ur/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Hub قطار کا مینو</string>
+     <string name="row_hub_menu_detail">مؤخر اور مجھے یاد دلائیں بند ہیں جب تک آپ انہیں Hub میں آن نہ کریں</string>
+     <string name="action_hub_row_menu">Hub کی ترتیبات</string>
++    <string name="row_work_space_title">کام کی جگہ</string>
++    <string name="row_work_space_detail">اختیاری: کام کی ایپس الگ رکھیں، Start میں ذاتی · کام سوئچ کے ساتھ</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-zh-rCN/strings.xml
+index edf480e..f6c7a80 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-zh-rCN/strings.xml
+@@ -77,4 +77,7 @@
+     <string name="row_hub_menu_title">Hub 行菜单</string>
+     <string name="row_hub_menu_detail">在 Hub 中开启之前，稍后提醒和提醒我处于关闭状态</string>
+     <string name="action_hub_row_menu">Hub 设置</string>
++    <string name="row_work_space_title">工作空间</string>
++    <string name="row_work_space_detail">可选：将工作应用分开，并在 Start 上使用个人 · 工作切换</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml
+index 8a5cce1..55bade4 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml
+@@ -78,4 +78,7 @@
+     <string name="row_hub_menu_title">Hub row menu</string>
+     <string name="row_hub_menu_detail">Snooze and Remind me are off until you turn them on in Hub</string>
+     <string name="action_hub_row_menu">Hub settings</string>
++    <string name="row_work_space_title">Work space</string>
++    <string name="row_work_space_detail">Optional: keep work apps apart, with a Personal · Work switch on Start</string>
++    <string name="action_work_space">Sable Spaces</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/build.gradle.kts b/sable-src/apps/titan2/platform/spaces/build.gradle.kts
+new file mode 100644
+index 0000000..0e87700
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/build.gradle.kts
+@@ -0,0 +1,41 @@
++plugins {
++    alias(libs.plugins.android.application)
++    alias(libs.plugins.kotlin.android)
++}
++
++// Sable Spaces: Sable's own profile manager. It makes the Work space (an Android work profile the
++// user owns, with no outside manager), adds apps the user already has to it, and removes it. It sets
++// no other policy: no network, logging or monitoring rules.
++android {
++    // The Sable theme palette shared by the platform apps (one copy, see sable-theme/).
++    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
++    namespace = "org.sableos.titan2.spaces"
++    compileSdk = 36
++    defaultConfig {
++        applicationId = "org.sableos.titan2.spaces"
++        // Platform apps ship only on Android 16+ images.
++        minSdk = 36
++        targetSdk = 36
++        versionCode = 1
++        versionName = "0.1.0"
++    }
++    buildTypes {
++        release {
++            // R8 shrinks and obfuscates the shipped release APK.
++            isMinifyEnabled = true
++            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
++        }
++    }
++    compileOptions {
++        sourceCompatibility = JavaVersion.VERSION_17
++        targetCompatibility =
++            JavaVersion.VERSION_17
++    }
++    kotlinOptions { jvmTarget = "17" }
++}
++
++dependencies {
++    implementation(libs.androidx.core.ktx)
++
++    testImplementation(libs.junit)
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/spaces/src/main/AndroidManifest.xml
+new file mode 100644
+index 0000000..e56bb0d
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/AndroidManifest.xml
+@@ -0,0 +1,92 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Sable Spaces: Sable's own profile manager for the Work space (BB10 Balance). Installed for the main
++     user and in work profiles only (product/q25/sysconfig/preinstalled-packages-sable-spaces.xml).
++     The main user's copy makes the Work space with Android's own managed-profile setup and lists apps
++     to add; the copy inside the Work space is its profile owner and does the adding and removing, each
++     after the user confirms on its own screen. No network, no backup, no launcher entry: Sable Setup
++     opens it. -->
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
++
++    <queries>
++        <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
++        <provider android:authorities="org.sableos.appearance" />
++        <!-- The user's launchable apps, to offer them for the Work space. -->
++        <intent>
++            <action android:name="android.intent.action.MAIN" />
++            <category android:name="android.intent.category.LAUNCHER" />
++        </intent>
++    </queries>
++
++    <application
++        android:name="org.sableos.titan2.spaces.SpacesApplication"
++        android:allowBackup="false"
++        android:usesCleartextTraffic="false"
++        android:icon="@mipmap/ic_sable_spaces"
++        android:roundIcon="@mipmap/ic_sable_spaces_round"
++        android:label="@string/app_name"
++        android:supportsRtl="true"
++        android:theme="@android:style/Theme.Material.NoActionBar">
++
++        <!-- Sable Setup's Work space row. -->
++        <activity
++            android:name=".android.WorkSpaceActivity"
++            android:exported="true"
++            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
++            <intent-filter>
++                <action android:name="org.sableos.spaces.action.WORK_SPACE" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
++        <!-- Inside the Work space only: off in the main user, turned on by WorkProfileSetup once the
++             profile exists, and reached from the main user through the profile's intent forwarding.
++             Every request is confirmed on this screen first. -->
++        <activity
++            android:name=".android.InWorkActivity"
++            android:enabled="false"
++            android:exported="true"
++            android:excludeFromRecents="true"
++            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
++            <intent-filter>
++                <action android:name="org.sableos.spaces.action.ADD_APP" />
++                <action android:name="org.sableos.spaces.action.REMOVE" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
++        <!-- Android's managed-profile setup asks which mode to use, then hands over the new profile. -->
++        <activity
++            android:name=".android.ProvisioningModeActivity"
++            android:exported="true"
++            android:permission="android.permission.BIND_DEVICE_ADMIN">
++            <intent-filter>
++                <action android:name="android.app.action.GET_PROVISIONING_MODE" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++        <activity
++            android:name=".android.PolicyComplianceActivity"
++            android:exported="true"
++            android:permission="android.permission.BIND_DEVICE_ADMIN">
++            <intent-filter>
++                <action android:name="android.app.action.ADMIN_POLICY_COMPLIANCE" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
++        <receiver
++            android:name=".android.SpacesAdminReceiver"
++            android:exported="true"
++            android:permission="android.permission.BIND_DEVICE_ADMIN">
++            <meta-data
++                android:name="android.app.device_admin"
++                android:resource="@xml/device_admin" />
++            <intent-filter>
++                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
++                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
++            </intent-filter>
++        </receiver>
++    </application>
++</manifest>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/SpacesApplication.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/SpacesApplication.kt
+new file mode 100644
+index 0000000..246f26f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/SpacesApplication.kt
+@@ -0,0 +1,13 @@
++package org.sableos.titan2.spaces
++
++import android.app.Application
++import org.sableos.titan2.spaces.core.SpacesText
++import org.sableos.titan2.theme.bindTo
++
++/** Binds [SpacesText] to the app's string resources once per process, so the phone's language is used. */
++class SpacesApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        SpacesText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/InWorkActivity.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/InWorkActivity.kt
+new file mode 100644
+index 0000000..53a3372
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/InWorkActivity.kt
+@@ -0,0 +1,149 @@
++package org.sableos.titan2.spaces.android
++
++import android.app.Activity
++import android.app.admin.DevicePolicyManager
++import android.os.Bundle
++import android.util.Log
++import android.view.KeyEvent
++import android.widget.LinearLayout
++import android.widget.Toast
++import android.window.OnBackInvokedDispatcher
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.BODY_SP
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.PAD
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.TITLE_SP
++import org.sableos.titan2.spaces.core.SpacesText.t
++import org.sableos.titan2.spaces.core.WorkSpace
++import org.sableos.titan2.theme.SablePalette
++
++/**
++ * Inside the Work space: adds an app the user already has, or removes the Work space. Any app of the
++ * main user can send these two requests through the forwarding, so each is confirmed here first:
++ * Enter adds the named package, and only Y removes the space.
++ */
++class InWorkActivity : Activity() {
++    private sealed interface Request {
++        data class Add(val packageName: String, val label: String) : Request
++        data object Remove : Request
++    }
++
++    private var request: Request? = null
++    private lateinit var dpm: DevicePolicyManager
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        dpm = getSystemService(DevicePolicyManager::class.java)
++        request = if (dpm.isProfileOwnerApp(packageName)) read() else null
++        val asked = request
++        if (asked == null) {
++            finish()
++            return
++        }
++        val palette = SablePalette.read(this).also { it.applyTo(this) }
++        val views = SpacesViews(this, palette)
++        val line = when (asked) {
++            is Request.Add -> t("add_confirm", asked.label, asked.packageName)
++            Request.Remove -> t("remove_confirm")
++        }
++        setContentView(
++            LinearLayout(this).apply {
++                orientation = LinearLayout.VERTICAL
++                setPadding(views.px(PAD), views.px(PAD), views.px(PAD), views.px(PAD))
++                addView(views.text(t("work_space"), TITLE_SP, palette.text, bold = true))
++                addView(views.text(line, BODY_SP, palette.text))
++                addView(
++                    LinearLayout(this@InWorkActivity).apply {
++                        addView(views.button(t("yes")) { confirm() })
++                        addView(views.button(t("no")) { finish() })
++                    }
++                )
++            }
++        )
++        onBackInvokedDispatcher.registerOnBackInvokedCallback(
++            OnBackInvokedDispatcher.PRIORITY_DEFAULT
++        ) { finish() }
++    }
++
++    private fun read(): Request? = when (intent?.action) {
++        WorkSpace.ACTION_ADD_APP -> {
++            val pkg = intent.getStringExtra(WorkSpace.EXTRA_PACKAGE)
++            if (WorkSpace.isPackageName(pkg) && pkg != null) {
++                Request.Add(
++                    pkg,
++                    WorkSpace.shownLabel(intent.getStringExtra(WorkSpace.EXTRA_LABEL), pkg)
++                )
++            } else {
++                null
++            }
++        }
++
++        WorkSpace.ACTION_REMOVE -> Request.Remove
++
++        else -> null
++    }
++
++    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
++        val adding = request is Request.Add
++        when (keyCode) {
++            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_DPAD_CENTER ->
++                if (adding) confirm()
++
++            KeyEvent.KEYCODE_Y -> confirm()
++
++            KeyEvent.KEYCODE_N, KeyEvent.KEYCODE_ESCAPE -> finish()
++
++            else -> return super.onKeyDown(keyCode, event)
++        }
++        return true
++    }
++
++    private fun confirm() {
++        when (val asked = request) {
++            is Request.Add -> {
++                val done = add(asked.packageName)
++                val line = t(if (done) "added" else "add_failed", asked.label)
++                Toast.makeText(this, line, Toast.LENGTH_SHORT).show()
++            }
++
++            Request.Remove -> removeWorkSpace()
++
++            null -> Unit
++        }
++        finish()
++    }
++
++    /** An app the main user has is installed here too, with its own data; a system app is turned on. */
++    private fun add(pkg: String): Boolean {
++        val admin = SpacesAdminReceiver.component(this)
++        val installed = try {
++            dpm.installExistingPackage(admin, pkg)
++        } catch (e: SecurityException) {
++            Log.w(TAG, "Could not install $pkg in the Work space", e)
++            false
++        }
++        return installed || enableSystemApp(pkg)
++    }
++
++    private fun enableSystemApp(pkg: String): Boolean = try {
++        dpm.enableSystemApp(SpacesAdminReceiver.component(this), pkg)
++        true
++    } catch (e: IllegalArgumentException) {
++        Log.w(TAG, "$pkg is not a system app", e)
++        false
++    } catch (e: SecurityException) {
++        Log.w(TAG, "Could not turn on $pkg in the Work space", e)
++        false
++    }
++
++    /** As the profile owner, removing its own data removes the Work space and everything in it. */
++    private fun removeWorkSpace() {
++        try {
++            dpm.wipeData(0)
++        } catch (e: SecurityException) {
++            Log.w(TAG, "Android refused to remove the Work space", e)
++        }
++    }
++
++    private companion object {
++        const val TAG = "SableSpaces"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/PolicyComplianceActivity.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/PolicyComplianceActivity.kt
+new file mode 100644
+index 0000000..e89361a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/PolicyComplianceActivity.kt
+@@ -0,0 +1,14 @@
++package org.sableos.titan2.spaces.android
++
++import android.app.Activity
++import android.os.Bundle
++
++/** Android's setup hands over the new Work space here; there is no policy to agree to, so finish it. */
++class PolicyComplianceActivity : Activity() {
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        WorkProfileSetup.finish(this)
++        setResult(RESULT_OK)
++        finish()
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/ProvisioningModeActivity.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/ProvisioningModeActivity.kt
+new file mode 100644
+index 0000000..6178684
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/ProvisioningModeActivity.kt
+@@ -0,0 +1,19 @@
++package org.sableos.titan2.spaces.android
++
++import android.app.Activity
++import android.app.admin.DevicePolicyManager
++import android.content.Intent
++import android.os.Bundle
++
++/** Android's setup asks which kind of space to make: always a work profile, never a managed phone. */
++class ProvisioningModeActivity : Activity() {
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        val result = Intent().putExtra(
++            DevicePolicyManager.EXTRA_PROVISIONING_MODE,
++            DevicePolicyManager.PROVISIONING_MODE_MANAGED_PROFILE
++        )
++        setResult(RESULT_OK, result)
++        finish()
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/SpacesAdminReceiver.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/SpacesAdminReceiver.kt
+new file mode 100644
+index 0000000..21ee78b
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/SpacesAdminReceiver.kt
+@@ -0,0 +1,19 @@
++package org.sableos.titan2.spaces.android
++
++import android.app.admin.DeviceAdminReceiver
++import android.content.ComponentName
++import android.content.Context
++import android.content.Intent
++
++/** Sable Spaces as the Work space's profile owner. It asks for no device admin policy. */
++class SpacesAdminReceiver : DeviceAdminReceiver() {
++    /** Sent inside the new Work space when Android's setup has made it. */
++    override fun onProfileProvisioningComplete(context: Context, intent: Intent) {
++        WorkProfileSetup.finish(context)
++    }
++
++    companion object {
++        fun component(context: Context): ComponentName =
++            ComponentName(context, SpacesAdminReceiver::class.java)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/SpacesViews.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/SpacesViews.kt
+new file mode 100644
+index 0000000..5164452
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/SpacesViews.kt
+@@ -0,0 +1,47 @@
++package org.sableos.titan2.spaces.android
++
++import android.content.Context
++import android.graphics.Typeface
++import android.graphics.drawable.GradientDrawable
++import android.widget.Button
++import android.widget.TextView
++import org.sableos.titan2.theme.SablePalette
++
++/** The few views Sable Spaces draws, in the Sable theme. Keys go to the screen, not to a focused button. */
++class SpacesViews(private val context: Context, val palette: SablePalette) {
++    private val dp = context.resources.displayMetrics.density
++
++    fun text(s: String, sp: Float, color: Int, bold: Boolean = false): TextView =
++        TextView(context).apply {
++            text = s
++            textSize = sp
++            setTextColor(color)
++            if (bold) typeface = Typeface.DEFAULT_BOLD
++            setPadding(0, px(GAP), 0, 0)
++        }
++
++    fun button(label: String, onClick: () -> Unit): Button = Button(context).apply {
++        text = label
++        isAllCaps = false
++        isFocusable = false
++        setOnClickListener { onClick() }
++    }
++
++    fun box(fill: Int, stroke: Int) = GradientDrawable().apply {
++        setColor(fill)
++        cornerRadius = CORNER * dp
++        setStroke(px(STROKE), stroke)
++    }
++
++    fun px(v: Int): Int = (v * dp).toInt()
++
++    companion object {
++        const val PAD = 12
++        const val GAP = 6
++        const val TITLE_SP = 18f
++        const val BODY_SP = 14f
++        const val SMALL_SP = 11f
++        private const val STROKE = 2
++        private const val CORNER = 6f
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkProfileSetup.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkProfileSetup.kt
+new file mode 100644
+index 0000000..e7aec22
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkProfileSetup.kt
+@@ -0,0 +1,48 @@
++package org.sableos.titan2.spaces.android
++
++import android.app.admin.DevicePolicyManager
++import android.content.ComponentName
++import android.content.Context
++import android.content.Intent
++import android.content.IntentFilter
++import android.content.pm.PackageManager
++import android.util.Log
++import org.sableos.titan2.spaces.core.SpacesText.t
++import org.sableos.titan2.spaces.core.WorkSpace
++
++/**
++ * Finishes a new Work space from inside it: names it Work, lets the main user's Sable Spaces reach
++ * this copy for adding apps and removing the space, and turns the profile on. Nothing else is set.
++ * Safe to run twice (the setup broadcast and the policy compliance screen both call it).
++ */
++object WorkProfileSetup {
++    private const val TAG = "SableSpaces"
++
++    fun finish(context: Context) {
++        val dpm = context.getSystemService(DevicePolicyManager::class.java)
++        if (dpm == null || !dpm.isProfileOwnerApp(context.packageName)) {
++            Log.w(TAG, "Not the Work space's profile owner; nothing to finish")
++            return
++        }
++        val admin = SpacesAdminReceiver.component(context)
++        try {
++            dpm.setProfileName(admin, t("work"))
++            listOf(WorkSpace.ACTION_ADD_APP, WorkSpace.ACTION_REMOVE).forEach { action ->
++                val filter = IntentFilter(action).apply { addCategory(Intent.CATEGORY_DEFAULT) }
++                dpm.addCrossProfileIntentFilter(
++                    admin,
++                    filter,
++                    DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED
++                )
++            }
++            context.packageManager.setComponentEnabledSetting(
++                ComponentName(context, InWorkActivity::class.java),
++                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
++                PackageManager.DONT_KILL_APP
++            )
++            dpm.setProfileEnabled(admin)
++        } catch (e: SecurityException) {
++            Log.w(TAG, "Android refused part of the Work space setup", e)
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkSpaceActivity.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkSpaceActivity.kt
+new file mode 100644
+index 0000000..a55ead9
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/WorkSpaceActivity.kt
+@@ -0,0 +1,225 @@
++package org.sableos.titan2.spaces.android
++
++import android.app.Activity
++import android.app.admin.DevicePolicyManager
++import android.content.ActivityNotFoundException
++import android.content.Intent
++import android.content.pm.CrossProfileApps
++import android.content.pm.LauncherActivityInfo
++import android.content.pm.LauncherApps
++import android.os.Bundle
++import android.os.Process
++import android.os.UserHandle
++import android.os.UserManager
++import android.view.KeyEvent
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import android.window.OnBackInvokedDispatcher
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.BODY_SP
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.GAP
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.PAD
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.SMALL_SP
++import org.sableos.titan2.spaces.android.SpacesViews.Companion.TITLE_SP
++import org.sableos.titan2.spaces.core.AppChoice
++import org.sableos.titan2.spaces.core.SpaceState
++import org.sableos.titan2.spaces.core.SpacesText.t
++import org.sableos.titan2.spaces.core.WorkSpace
++import org.sableos.titan2.theme.SablePalette
++
++/**
++ * The main user's Work space screen, opened from Sable Setup: make the Work space with Android's own
++ * managed-profile setup, add apps the user already has to it, or ask the Work space to remove itself.
++ * Adding and removing are confirmed again inside the Work space.
++ */
++class WorkSpaceActivity : Activity() {
++    private lateinit var views: SpacesViews
++    private lateinit var body: LinearLayout
++    private var state = SpaceState.None
++    private var apps: List<AppChoice> = emptyList()
++    private var selected = 0
++    private var message: String? = null
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        val palette = SablePalette.read(this).also { it.applyTo(this) }
++        views = SpacesViews(this, palette)
++        body = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            setPadding(views.px(PAD), views.px(PAD), views.px(PAD), views.px(PAD))
++        }
++        setContentView(
++            ScrollView(this).apply {
++                setBackgroundColor(palette.window)
++                isFocusable = false
++                addView(body)
++            }
++        )
++        onBackInvokedDispatcher.registerOnBackInvokedCallback(
++            OnBackInvokedDispatcher.PRIORITY_DEFAULT
++        ) { finish() }
++    }
++
++    override fun onResume() {
++        super.onResume()
++        refresh()
++    }
++
++    private fun refresh() {
++        val work = workSpace()
++        val paused = work != null &&
++            runCatching { getSystemService(UserManager::class.java).isQuietModeEnabled(work) }
++                .getOrDefault(true)
++        val allowed = runCatching {
++            getSystemService(DevicePolicyManager::class.java)
++                .isProvisioningAllowed(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE)
++        }.getOrDefault(false)
++        state = WorkSpace.state(hasWorkSpace = work != null, paused = paused, allowed = allowed)
++        apps = if (state == SpaceState.On && work != null) {
++            val inWork = launchable(work).map { it.componentName.packageName }.toSet()
++            WorkSpace.addable(ownApps(), packageName, inWork)
++        } else {
++            emptyList()
++        }
++        selected = WorkSpace.move(selected, 0, apps.size)
++        render()
++    }
++
++    /** The Work space: a profile of this phone where Sable Spaces is installed, which only work profiles have. */
++    private fun workSpace(): UserHandle? = runCatching {
++        getSystemService(CrossProfileApps::class.java).targetUserProfiles.firstOrNull()
++    }.getOrNull()
++
++    private fun ownApps(): List<AppChoice> = launchable(Process.myUserHandle()).map {
++        AppChoice(it.componentName.packageName, it.label.toString())
++    }
++
++    private fun launchable(user: UserHandle): List<LauncherActivityInfo> = runCatching {
++        getSystemService(LauncherApps::class.java).getActivityList(null, user)
++    }.getOrDefault(emptyList())
++
++    // ---- keys ----
++
++    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
++        when (keyCode) {
++            KeyEvent.KEYCODE_DPAD_UP -> move(-1)
++
++            KeyEvent.KEYCODE_DPAD_DOWN -> move(1)
++
++            KeyEvent.KEYCODE_ENTER,
++            KeyEvent.KEYCODE_NUMPAD_ENTER,
++            KeyEvent.KEYCODE_DPAD_CENTER
++            -> primary()
++
++            KeyEvent.KEYCODE_R -> if (state == SpaceState.On || state == SpaceState.Paused) remove()
++
++            KeyEvent.KEYCODE_ESCAPE -> finish()
++
++            else -> return super.onKeyDown(keyCode, event)
++        }
++        return true
++    }
++
++    private fun move(delta: Int) {
++        selected = WorkSpace.move(selected, delta, apps.size)
++        render()
++    }
++
++    private fun primary() {
++        when (state) {
++            SpaceState.None -> make()
++            SpaceState.On -> apps.getOrNull(selected)?.let(::add)
++            SpaceState.NotAllowed, SpaceState.Paused -> Unit
++        }
++    }
++
++    // ---- actions ----
++
++    private fun make() {
++        val intent = Intent(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE).putExtra(
++            DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME,
++            SpacesAdminReceiver.component(this)
++        )
++        try {
++            startActivityForResult(intent, REQUEST_MAKE)
++        } catch (_: ActivityNotFoundException) {
++            say(t("not_allowed"))
++        }
++    }
++
++    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
++        super.onActivityResult(requestCode, resultCode, data)
++        if (requestCode == REQUEST_MAKE) {
++            message = t(if (resultCode == RESULT_OK) "making" else "cancelled")
++        }
++    }
++
++    private fun add(app: AppChoice) {
++        forward(
++            Intent(WorkSpace.ACTION_ADD_APP)
++                .putExtra(WorkSpace.EXTRA_PACKAGE, app.packageName)
++                .putExtra(WorkSpace.EXTRA_LABEL, app.label)
++        )
++    }
++
++    private fun remove() = forward(Intent(WorkSpace.ACTION_REMOVE))
++
++    /** Into the Work space through the forwarding it set up; it has no package, so Android picks the forwarder. */
++    private fun forward(intent: Intent) {
++        try {
++            startActivity(intent)
++        } catch (_: ActivityNotFoundException) {
++            say(t("could_not_open"))
++        } catch (_: SecurityException) {
++            say(t("could_not_open"))
++        }
++    }
++
++    private fun say(line: String) {
++        message = line
++        render()
++    }
++
++    // ---- view ----
++
++    private fun render() {
++        val palette = views.palette
++        body.removeAllViews()
++        body.addView(views.text(t("work_space"), TITLE_SP, palette.text, bold = true))
++        val detailColor = if (state == SpaceState.NotAllowed) palette.warn else palette.muted
++        body.addView(views.text(t(WorkSpace.detailKey(state)), BODY_SP, detailColor))
++        message?.let { body.addView(views.text(it, SMALL_SP, palette.accent)) }
++        when (state) {
++            SpaceState.None -> body.addView(views.button(t("make")) { make() })
++
++            SpaceState.On -> {
++                if (apps.isEmpty()) body.addView(views.text(t("no_apps"), BODY_SP, palette.muted))
++                apps.forEachIndexed { i, app -> body.addView(row(i, app)) }
++                body.addView(views.button(t("remove")) { remove() })
++                body.addView(views.text(t("hint"), SMALL_SP, palette.muted))
++            }
++
++            SpaceState.Paused -> body.addView(views.button(t("remove")) { remove() })
++
++            SpaceState.NotAllowed -> Unit
++        }
++    }
++
++    private fun row(i: Int, app: AppChoice) =
++        views.text(app.label, BODY_SP, views.palette.text).apply {
++            val on = i == selected
++            val palette = views.palette
++            setPadding(views.px(GAP), views.px(GAP), views.px(GAP), views.px(GAP))
++            background = views.box(
++                if (on) palette.surface else palette.window,
++                if (on) palette.accent else palette.window
++            )
++            setOnClickListener {
++                selected = i
++                add(app)
++            }
++        }
++
++    private companion object {
++        const val REQUEST_MAKE = 1
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt
+new file mode 100644
+index 0000000..f4d8683
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt
+@@ -0,0 +1,44 @@
++package org.sableos.titan2.spaces.core
++
++import org.sableos.titan2.theme.SableTexts
++
++/**
++ * Every line Sable Spaces shows, in English, by string resource name. res/values/strings.xml repeats
++ * them (SpacesTextTest keeps the two equal) and res/values-<lang>/strings.xml translates them.
++ */
++object SpacesText {
++    val EN: Map<String, String> =
++        mapOf(
++            "work_space" to "Work space",
++            "work" to "Work",
++            "intro" to
++                "Keep work apps apart from yours: their own data and accounts, a Work " +
++                "badge, and a Personal · Work switch on Start that can pause them.",
++            "make" to "Make a Work space",
++            "making" to "Android is making the Work space. This takes a minute.",
++            "not_allowed" to
++                "This phone cannot make a Work space now. A Work space or a phone manager may " +
++                "already be in charge.",
++            "cancelled" to "No Work space was made.",
++            "ready" to
++                "Your Work space is ready. Add the apps you use for work: each gets its own copy " +
++                "with its own data.",
++            "paused" to
++                "Work apps are paused. Turn them on from Start (All apps, Work) to add apps.",
++            "in_work" to "%1\$s · in Work",
++            "no_apps" to "Every app you have is already in Work.",
++            "could_not_open" to "The Work space did not answer. Try again in a moment.",
++            "remove" to "Remove Work space",
++            "add_confirm" to "Add %1\$s (%2\$s) to Work? Enter adds it, Back cancels.",
++            "added" to "%1\$s is now in Work.",
++            "add_failed" to "%1\$s could not be added to Work.",
++            "remove_confirm" to
++                "Remove the Work space with every work app and its data? Y removes it, N keeps it.",
++            "yes" to "Yes",
++            "no" to "No",
++            "hint" to
++                "Up and Down choose an app · Enter adds it · R removes the Work space · Back leaves"
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/WorkSpace.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/WorkSpace.kt
+new file mode 100644
+index 0000000..6b9a681
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/WorkSpace.kt
+@@ -0,0 +1,57 @@
++package org.sableos.titan2.spaces.core
++
++/** Where the Work space stands, seen from the main user. */
++enum class SpaceState { NotAllowed, None, On, Paused }
++
++/** An app the user can add to the Work space. */
++data class AppChoice(val packageName: String, val label: String)
++
++/** What Sable Spaces does with the Work space, without Android, so it can be tested. */
++object WorkSpace {
++    /** Sable Setup's Work space row opens this. */
++    const val ACTION_OPEN = "org.sableos.spaces.action.WORK_SPACE"
++
++    /** Forwarded from the main user into the Work space; both are confirmed there first. */
++    const val ACTION_ADD_APP = "org.sableos.spaces.action.ADD_APP"
++    const val ACTION_REMOVE = "org.sableos.spaces.action.REMOVE"
++    const val EXTRA_PACKAGE = "org.sableos.spaces.extra.PACKAGE"
++    const val EXTRA_LABEL = "org.sableos.spaces.extra.LABEL"
++
++    private const val MAX_PACKAGE_LENGTH = 255
++    private const val MAX_LABEL_LENGTH = 80
++    private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
++
++    fun state(hasWorkSpace: Boolean, paused: Boolean, allowed: Boolean): SpaceState = when {
++        hasWorkSpace && paused -> SpaceState.Paused
++        hasWorkSpace -> SpaceState.On
++        allowed -> SpaceState.None
++        else -> SpaceState.NotAllowed
++    }
++
++    /** The line under the title for [state]. */
++    fun detailKey(state: SpaceState): String = when (state) {
++        SpaceState.NotAllowed -> "not_allowed"
++        SpaceState.None -> "intro"
++        SpaceState.On -> "ready"
++        SpaceState.Paused -> "paused"
++    }
++
++    /** A request from another profile names a package; anything that is not a package name is refused. */
++    fun isPackageName(value: String?): Boolean =
++        value != null && value.length <= MAX_PACKAGE_LENGTH && PACKAGE_NAME.matches(value)
++
++    /** The caller's label is shown beside the package name, never instead of it, and kept short. */
++    fun shownLabel(label: String?, packageName: String): String =
++        label?.trim()?.take(MAX_LABEL_LENGTH)?.takeIf { it.isNotEmpty() } ?: packageName
++
++    /** Apps the user can still add: not Sable Spaces itself, not already in Work, one row per app, by name. */
++    fun addable(apps: List<AppChoice>, ownPackage: String, inWork: Set<String>): List<AppChoice> =
++        apps
++            .filter { it.packageName != ownPackage && it.packageName !in inWork }
++            .distinctBy { it.packageName }
++            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label })
++
++    /** The selection after Up or Down, kept on the list. */
++    fun move(selected: Int, delta: Int, size: Int): Int =
++        if (size == 0) 0 else (selected + delta).coerceIn(0, size - 1)
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/drawable/ic_sable_spaces.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/drawable/ic_sable_spaces.xml
+new file mode 100644
+index 0000000..b9f4bdc
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/drawable/ic_sable_spaces.xml
+@@ -0,0 +1,21 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="48dp"
++    android:height="48dp"
++    android:viewportWidth="256"
++    android:viewportHeight="256">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M32,16h192c8.8,0 16,7.2 16,16v192c0,8.8 -7.2,16 -16,16H32c-8.8,0 -16,-7.2 -16,-16V32c0,-8.8 7.2,-16 16,-16z" />
++    <group
++        android:scaleX="0.70"
++        android:scaleY="0.70"
++        android:translateX="38.4"
++        android:translateY="34">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M216,56H176V48a24,24,0,0,0-24-24H104A24,24,0,0,0,80,48v8H40A16,16,0,0,0,24,72V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V72A16,16,0,0,0,216,56ZM96,48a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96ZM216,72v41.61A184,184,0,0,1,128,136a184.07,184.07,0,0,1-88-22.38V72Zm0,128H40V131.64A200.19,200.19,0,0,0,128,152a200.25,200.25,0,0,0,88-20.37V200ZM104,112a8,8,0,0,1,8-8h32a8,8,0,0,1,0,16H112A8,8,0,0,1,104,112Z" />
++    </group>
++    <path
++        android:fillColor="#3FA7D6"
++        android:pathData="M28,226h200v6H28z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/drawable/ic_sable_spaces_background.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/drawable/ic_sable_spaces_background.xml
+new file mode 100644
+index 0000000..811854a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/drawable/ic_sable_spaces_background.xml
+@@ -0,0 +1,10 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M0,0h108v108H0z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/drawable/ic_sable_spaces_foreground.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/drawable/ic_sable_spaces_foreground.xml
+new file mode 100644
+index 0000000..e045f79
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/drawable/ic_sable_spaces_foreground.xml
+@@ -0,0 +1,19 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M216,56H176V48a24,24,0,0,0-24-24H104A24,24,0,0,0,80,48v8H40A16,16,0,0,0,24,72V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V72A16,16,0,0,0,216,56ZM96,48a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96ZM216,72v41.61A184,184,0,0,1,128,136a184.07,184.07,0,0,1-88-22.38V72Zm0,128H40V131.64A200.19,200.19,0,0,0,128,152a200.25,200.25,0,0,0,88-20.37V200ZM104,112a8,8,0,0,1,8-8h32a8,8,0,0,1,0,16H112A8,8,0,0,1,104,112Z" />
++    </group>
++    <path
++        android:fillColor="#3FA7D6"
++        android:pathData="M38,76.5h32v1.5H38z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/drawable/ic_sable_spaces_monochrome.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/drawable/ic_sable_spaces_monochrome.xml
+new file mode 100644
+index 0000000..0d454bd
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/drawable/ic_sable_spaces_monochrome.xml
+@@ -0,0 +1,16 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#FFFFFFFF"
++            android:pathData="M216,56H176V48a24,24,0,0,0-24-24H104A24,24,0,0,0,80,48v8H40A16,16,0,0,0,24,72V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V72A16,16,0,0,0,216,56ZM96,48a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96ZM216,72v41.61A184,184,0,0,1,128,136a184.07,184.07,0,0,1-88-22.38V72Zm0,128H40V131.64A200.19,200.19,0,0,0,128,152a200.25,200.25,0,0,0,88-20.37V200ZM104,112a8,8,0,0,1,8-8h32a8,8,0,0,1,0,16H112A8,8,0,0,1,104,112Z" />
++    </group>
++</vector>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/mipmap-anydpi-v26/ic_sable_spaces.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/mipmap-anydpi-v26/ic_sable_spaces.xml
+new file mode 100644
+index 0000000..266caf3
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/mipmap-anydpi-v26/ic_sable_spaces.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_spaces_background" />
++    <foreground android:drawable="@drawable/ic_sable_spaces_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_spaces_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/mipmap-anydpi-v26/ic_sable_spaces_round.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/mipmap-anydpi-v26/ic_sable_spaces_round.xml
+new file mode 100644
+index 0000000..266caf3
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/mipmap-anydpi-v26/ic_sable_spaces_round.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_spaces_background" />
++    <foreground android:drawable="@drawable/ic_sable_spaces_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_spaces_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ar/strings.xml
+new file mode 100644
+index 0000000..10582e1
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ar/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Arabic. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">مساحة العمل</string>
++    <string name="work">العمل</string>
++    <string name="intro">افصل تطبيقات العمل عن تطبيقاتك: بياناتها وحساباتها الخاصة، وشارة العمل، ومبدّل شخصي · عمل في Start يمكنه إيقافها مؤقتًا.</string>
++    <string name="make">إنشاء مساحة عمل</string>
++    <string name="making">يُنشئ Android مساحة العمل. يستغرق ذلك دقيقة.</string>
++    <string name="not_allowed">لا يمكن لهذا الهاتف إنشاء مساحة عمل الآن. ربما توجد مساحة عمل أو مدير للهاتف بالفعل.</string>
++    <string name="cancelled">لم يتم إنشاء مساحة عمل.</string>
++    <string name="ready">مساحة العمل جاهزة. أضف التطبيقات التي تستخدمها للعمل: يحصل كل منها على نسخة خاصة ببياناتها.</string>
++    <string name="paused">تطبيقات العمل متوقفة مؤقتًا. شغّلها من Start (كل التطبيقات، العمل) لإضافة تطبيقات.</string>
++    <string name="in_work">%1$s · في العمل</string>
++    <string name="no_apps">كل تطبيقاتك موجودة بالفعل في العمل.</string>
++    <string name="could_not_open">لم تستجب مساحة العمل. حاول مرة أخرى بعد قليل.</string>
++    <string name="remove">إزالة مساحة العمل</string>
++    <string name="add_confirm">إضافة %1$s (%2$s) إلى العمل؟ Enter يضيفه، ورجوع يلغي.</string>
++    <string name="added">أصبح %1$s في العمل.</string>
++    <string name="add_failed">تعذّرت إضافة %1$s إلى العمل.</string>
++    <string name="remove_confirm">إزالة مساحة العمل مع كل تطبيقات العمل وبياناتها؟ Y يزيلها، وN يبقيها.</string>
++    <string name="yes">نعم</string>
++    <string name="no">لا</string>
++    <string name="hint">أعلى وأسفل لاختيار تطبيق · Enter يضيفه · R يزيل مساحة العمل · رجوع للخروج</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-de/strings.xml
+new file mode 100644
+index 0000000..c5e6e32
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-de/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- German. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">Arbeitsbereich</string>
++    <string name="work">Arbeit</string>
++    <string name="intro">Arbeits-Apps getrennt von Ihren halten: eigene Daten und Konten, ein Arbeitssymbol und ein Schalter Privat · Arbeit in Start, der sie pausieren kann.</string>
++    <string name="make">Arbeitsbereich erstellen</string>
++    <string name="making">Android erstellt den Arbeitsbereich. Das dauert etwa eine Minute.</string>
++    <string name="not_allowed">Dieses Telefon kann jetzt keinen Arbeitsbereich erstellen. Möglicherweise ist bereits ein Arbeitsbereich oder eine Geräteverwaltung zuständig.</string>
++    <string name="cancelled">Es wurde kein Arbeitsbereich erstellt.</string>
++    <string name="ready">Ihr Arbeitsbereich ist bereit. Fügen Sie die Apps hinzu, die Sie für die Arbeit nutzen: Jede erhält eine eigene Kopie mit eigenen Daten.</string>
++    <string name="paused">Arbeits-Apps sind pausiert. Schalten Sie sie in Start ein (Alle Apps, Arbeit), um Apps hinzuzufügen.</string>
++    <string name="in_work">%1$s · in Arbeit</string>
++    <string name="no_apps">Alle Ihre Apps sind bereits im Arbeitsbereich.</string>
++    <string name="could_not_open">Der Arbeitsbereich hat nicht geantwortet. Versuchen Sie es gleich noch einmal.</string>
++    <string name="remove">Arbeitsbereich entfernen</string>
++    <string name="add_confirm">%1$s (%2$s) zur Arbeit hinzufügen? Enter fügt hinzu, Zurück bricht ab.</string>
++    <string name="added">%1$s ist jetzt im Arbeitsbereich.</string>
++    <string name="add_failed">%1$s konnte nicht zur Arbeit hinzugefügt werden.</string>
++    <string name="remove_confirm">Arbeitsbereich mit allen Arbeits-Apps und ihren Daten entfernen? Y entfernt ihn, N behält ihn.</string>
++    <string name="yes">Ja</string>
++    <string name="no">Nein</string>
++    <string name="hint">Auf und Ab wählen eine App · Enter fügt sie hinzu · R entfernt den Arbeitsbereich · Zurück verlässt</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-el/strings.xml
+new file mode 100644
+index 0000000..fcdbf3a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-el/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Greek. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">Χώρος εργασίας</string>
++    <string name="work">Εργασία</string>
++    <string name="intro">Κρατήστε τις εφαρμογές εργασίας χωριστά από τις δικές σας: δικά τους δεδομένα και λογαριασμοί, σήμα Εργασίας και διακόπτης Προσωπικά · Εργασία στο Start που μπορεί να τις θέσει σε παύση.</string>
++    <string name="make">Δημιουργία χώρου εργασίας</string>
++    <string name="making">Το Android δημιουργεί τον χώρο εργασίας. Χρειάζεται ένα λεπτό.</string>
++    <string name="not_allowed">Αυτό το τηλέφωνο δεν μπορεί να δημιουργήσει χώρο εργασίας τώρα. Ίσως υπάρχει ήδη χώρος εργασίας ή διαχειριστής τηλεφώνου.</string>
++    <string name="cancelled">Δεν δημιουργήθηκε χώρος εργασίας.</string>
++    <string name="ready">Ο χώρος εργασίας σας είναι έτοιμος. Προσθέστε τις εφαρμογές που χρησιμοποιείτε για δουλειά: η καθεμία έχει δικό της αντίγραφο με δικά της δεδομένα.</string>
++    <string name="paused">Οι εφαρμογές εργασίας είναι σε παύση. Ενεργοποιήστε τις από το Start (Όλες οι εφαρμογές, Εργασία) για να προσθέσετε εφαρμογές.</string>
++    <string name="in_work">%1$s · στην Εργασία</string>
++    <string name="no_apps">Όλες οι εφαρμογές σας είναι ήδη στην Εργασία.</string>
++    <string name="could_not_open">Ο χώρος εργασίας δεν απάντησε. Δοκιμάστε ξανά σε λίγο.</string>
++    <string name="remove">Κατάργηση χώρου εργασίας</string>
++    <string name="add_confirm">Προσθήκη %1$s (%2$s) στην Εργασία; Το Enter την προσθέτει, το Πίσω ακυρώνει.</string>
++    <string name="added">Η %1$s είναι πλέον στην Εργασία.</string>
++    <string name="add_failed">Δεν ήταν δυνατή η προσθήκη της %1$s στην Εργασία.</string>
++    <string name="remove_confirm">Κατάργηση του χώρου εργασίας με όλες τις εφαρμογές εργασίας και τα δεδομένα τους; Το Y τον καταργεί, το N τον κρατά.</string>
++    <string name="yes">Ναι</string>
++    <string name="no">Όχι</string>
++    <string name="hint">Πάνω και Κάτω επιλέγουν εφαρμογή · Enter την προσθέτει · R καταργεί τον χώρο εργασίας · Πίσω έξοδος</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-es/strings.xml
+new file mode 100644
+index 0000000..85d4fbf
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-es/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Spanish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">Espacio de trabajo</string>
++    <string name="work">Trabajo</string>
++    <string name="intro">Mantén las apps de trabajo separadas de las tuyas: sus propios datos y cuentas, una insignia de Trabajo y un selector Personal · Trabajo en Start que puede pausarlas.</string>
++    <string name="make">Crear un espacio de trabajo</string>
++    <string name="making">Android está creando el espacio de trabajo. Tarda un minuto.</string>
++    <string name="not_allowed">Este teléfono no puede crear un espacio de trabajo ahora. Puede que ya haya un espacio de trabajo o un gestor del teléfono al mando.</string>
++    <string name="cancelled">No se creó ningún espacio de trabajo.</string>
++    <string name="ready">Tu espacio de trabajo está listo. Añade las apps que usas para trabajar: cada una tiene su propia copia con sus propios datos.</string>
++    <string name="paused">Las apps de trabajo están en pausa. Actívalas desde Start (Todas las apps, Trabajo) para añadir apps.</string>
++    <string name="in_work">%1$s · en Trabajo</string>
++    <string name="no_apps">Todas tus apps ya están en Trabajo.</string>
++    <string name="could_not_open">El espacio de trabajo no respondió. Inténtalo de nuevo en un momento.</string>
++    <string name="remove">Quitar el espacio de trabajo</string>
++    <string name="add_confirm">¿Añadir %1$s (%2$s) a Trabajo? Enter la añade, Atrás cancela.</string>
++    <string name="added">%1$s ya está en Trabajo.</string>
++    <string name="add_failed">No se pudo añadir %1$s a Trabajo.</string>
++    <string name="remove_confirm">¿Quitar el espacio de trabajo con todas las apps de trabajo y sus datos? Y lo quita, N lo conserva.</string>
++    <string name="yes">Sí</string>
++    <string name="no">No</string>
++    <string name="hint">Arriba y Abajo eligen una app · Enter la añade · R quita el espacio de trabajo · Atrás sale</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-fr/strings.xml
+new file mode 100644
+index 0000000..91da168
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-fr/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- French. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">Espace professionnel</string>
++    <string name="work">Travail</string>
++    <string name="intro">Gardez les applis professionnelles à part des vôtres : leurs propres données et comptes, un badge Travail et un sélecteur Personnel · Travail dans Start qui peut les mettre en pause.</string>
++    <string name="make">Créer un espace professionnel</string>
++    <string name="making">Android crée l\'espace professionnel. Cela prend une minute.</string>
++    <string name="not_allowed">Ce téléphone ne peut pas créer d\'espace professionnel pour le moment. Un espace professionnel ou un gestionnaire d\'appareil est peut-être déjà en place.</string>
++    <string name="cancelled">Aucun espace professionnel n\'a été créé.</string>
++    <string name="ready">Votre espace professionnel est prêt. Ajoutez les applis que vous utilisez pour le travail : chacune a sa propre copie avec ses propres données.</string>
++    <string name="paused">Les applis professionnelles sont en pause. Activez-les depuis Start (Toutes les applis, Travail) pour ajouter des applis.</string>
++    <string name="in_work">%1$s · dans Travail</string>
++    <string name="no_apps">Toutes vos applis sont déjà dans Travail.</string>
++    <string name="could_not_open">L\'espace professionnel n\'a pas répondu. Réessayez dans un instant.</string>
++    <string name="remove">Supprimer l\'espace professionnel</string>
++    <string name="add_confirm">Ajouter %1$s (%2$s) à Travail ? Entrée l\'ajoute, Retour annule.</string>
++    <string name="added">%1$s est maintenant dans Travail.</string>
++    <string name="add_failed">Impossible d\'ajouter %1$s à Travail.</string>
++    <string name="remove_confirm">Supprimer l\'espace professionnel avec toutes les applis professionnelles et leurs données ? Y le supprime, N le garde.</string>
++    <string name="yes">Oui</string>
++    <string name="no">Non</string>
++    <string name="hint">Haut et Bas choisissent une appli · Entrée l\'ajoute · R supprime l\'espace professionnel · Retour quitte</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-hi/strings.xml
+new file mode 100644
+index 0000000..717c78c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-hi/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hindi. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">कार्य स्थान</string>
++    <string name="work">कार्य</string>
++    <string name="intro">कार्य ऐप्स को अपने ऐप्स से अलग रखें: उनका अपना डेटा और खाते, कार्य बैज, और Start में व्यक्तिगत · कार्य स्विच जो उन्हें रोक सकता है।</string>
++    <string name="make">कार्य स्थान बनाएं</string>
++    <string name="making">Android कार्य स्थान बना रहा है। इसमें एक मिनट लगता है।</string>
++    <string name="not_allowed">यह फ़ोन अभी कार्य स्थान नहीं बना सकता। हो सकता है कोई कार्य स्थान या फ़ोन प्रबंधक पहले से नियंत्रण में हो।</string>
++    <string name="cancelled">कोई कार्य स्थान नहीं बना।</string>
++    <string name="ready">आपका कार्य स्थान तैयार है। काम के लिए उपयोग होने वाले ऐप्स जोड़ें: हर एक को अपने डेटा के साथ अपनी कॉपी मिलती है।</string>
++    <string name="paused">कार्य ऐप्स रुके हुए हैं। ऐप्स जोड़ने के लिए उन्हें Start (सभी ऐप्स, कार्य) से चालू करें।</string>
++    <string name="in_work">%1$s · कार्य में</string>
++    <string name="no_apps">आपके सभी ऐप्स पहले से कार्य में हैं।</string>
++    <string name="could_not_open">कार्य स्थान ने जवाब नहीं दिया। थोड़ी देर में फिर कोशिश करें।</string>
++    <string name="remove">कार्य स्थान हटाएं</string>
++    <string name="add_confirm">%1$s (%2$s) को कार्य में जोड़ें? Enter जोड़ता है, Back रद्द करता है।</string>
++    <string name="added">%1$s अब कार्य में है।</string>
++    <string name="add_failed">%1$s को कार्य में नहीं जोड़ा जा सका।</string>
++    <string name="remove_confirm">सभी कार्य ऐप्स और उनके डेटा के साथ कार्य स्थान हटाएं? Y हटाता है, N रखता है।</string>
++    <string name="yes">हाँ</string>
++    <string name="no">नहीं</string>
++    <string name="hint">ऊपर और नीचे ऐप चुनते हैं · Enter जोड़ता है · R कार्य स्थान हटाता है · Back बाहर जाता है</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-it/strings.xml
+new file mode 100644
+index 0000000..1b5e767
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-it/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Italian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">Spazio di lavoro</string>
++    <string name="work">Lavoro</string>
++    <string name="intro">Tieni le app di lavoro separate dalle tue: dati e account propri, un badge Lavoro e un selettore Personale · Lavoro in Start che può metterle in pausa.</string>
++    <string name="make">Crea uno spazio di lavoro</string>
++    <string name="making">Android sta creando lo spazio di lavoro. Ci vuole un minuto.</string>
++    <string name="not_allowed">Questo telefono non può creare uno spazio di lavoro ora. Potrebbe esserci già uno spazio di lavoro o un gestore del telefono.</string>
++    <string name="cancelled">Nessuno spazio di lavoro è stato creato.</string>
++    <string name="ready">Il tuo spazio di lavoro è pronto. Aggiungi le app che usi per lavoro: ognuna ha la sua copia con i suoi dati.</string>
++    <string name="paused">Le app di lavoro sono in pausa. Attivale da Start (Tutte le app, Lavoro) per aggiungere app.</string>
++    <string name="in_work">%1$s · in Lavoro</string>
++    <string name="no_apps">Tutte le tue app sono già in Lavoro.</string>
++    <string name="could_not_open">Lo spazio di lavoro non ha risposto. Riprova tra poco.</string>
++    <string name="remove">Rimuovi lo spazio di lavoro</string>
++    <string name="add_confirm">Aggiungere %1$s (%2$s) a Lavoro? Invio la aggiunge, Indietro annulla.</string>
++    <string name="added">%1$s ora è in Lavoro.</string>
++    <string name="add_failed">Impossibile aggiungere %1$s a Lavoro.</string>
++    <string name="remove_confirm">Rimuovere lo spazio di lavoro con tutte le app di lavoro e i loro dati? Y lo rimuove, N lo mantiene.</string>
++    <string name="yes">Sì</string>
++    <string name="no">No</string>
++    <string name="hint">Su e Giù scelgono un\'app · Invio la aggiunge · R rimuove lo spazio di lavoro · Indietro esce</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-iw/strings.xml
+new file mode 100644
+index 0000000..59609ed
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-iw/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Hebrew. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">מרחב העבודה</string>
++    <string name="work">עבודה</string>
++    <string name="intro">הפרד את אפליקציות העבודה מהאפליקציות שלך: נתונים וחשבונות משלהן, תג עבודה ומתג אישי · עבודה ב-Start שיכול להשהות אותן.</string>
++    <string name="make">יצירת מרחב עבודה</string>
++    <string name="making">Android יוצר את מרחב העבודה. זה לוקח דקה.</string>
++    <string name="not_allowed">הטלפון לא יכול ליצור מרחב עבודה כרגע. ייתכן שכבר קיים מרחב עבודה או מנהל טלפון.</string>
++    <string name="cancelled">לא נוצר מרחב עבודה.</string>
++    <string name="ready">מרחב העבודה שלך מוכן. הוסף את האפליקציות שאתה משתמש בהן לעבודה: כל אחת מקבלת עותק משלה עם נתונים משלה.</string>
++    <string name="paused">אפליקציות העבודה מושהות. הפעל אותן מ-Start (כל האפליקציות, עבודה) כדי להוסיף אפליקציות.</string>
++    <string name="in_work">%1$s · בעבודה</string>
++    <string name="no_apps">כל האפליקציות שלך כבר בעבודה.</string>
++    <string name="could_not_open">מרחב העבודה לא הגיב. נסה שוב בעוד רגע.</string>
++    <string name="remove">הסרת מרחב העבודה</string>
++    <string name="add_confirm">להוסיף את %1$s (%2$s) לעבודה? Enter מוסיף, חזרה מבטל.</string>
++    <string name="added">%1$s נמצאת עכשיו בעבודה.</string>
++    <string name="add_failed">לא ניתן היה להוסיף את %1$s לעבודה.</string>
++    <string name="remove_confirm">להסיר את מרחב העבודה עם כל אפליקציות העבודה והנתונים שלהן? Y מסיר, N משאיר.</string>
++    <string name="yes">כן</string>
++    <string name="no">לא</string>
++    <string name="hint">למעלה ולמטה בוחרים אפליקציה · Enter מוסיף · R מסיר את מרחב העבודה · חזרה יוצא</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ja/strings.xml
+new file mode 100644
+index 0000000..c386277
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ja/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Japanese. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">仕事用スペース</string>
++    <string name="work">仕事</string>
++    <string name="intro">仕事用アプリを個人用と分けておけます。専用のデータとアカウント、仕事バッジ、そして一時停止もできる Start の個人用 · 仕事切り替え。</string>
++    <string name="make">仕事用スペースを作成</string>
++    <string name="making">Android が仕事用スペースを作成しています。1 分ほどかかります。</string>
++    <string name="not_allowed">この電話では現在、仕事用スペースを作成できません。すでに仕事用スペースや端末管理アプリがある可能性があります。</string>
++    <string name="cancelled">仕事用スペースは作成されませんでした。</string>
++    <string name="ready">仕事用スペースの準備ができました。仕事で使うアプリを追加してください。それぞれ専用のデータを持つ別のコピーになります。</string>
++    <string name="paused">仕事用アプリは一時停止中です。アプリを追加するには Start（すべてのアプリ、仕事）でオンにしてください。</string>
++    <string name="in_work">%1$s · 仕事内</string>
++    <string name="no_apps">すべてのアプリはすでに仕事用にあります。</string>
++    <string name="could_not_open">仕事用スペースが応答しませんでした。しばらくしてからもう一度お試しください。</string>
++    <string name="remove">仕事用スペースを削除</string>
++    <string name="add_confirm">%1$s（%2$s）を仕事用に追加しますか？Enter で追加、戻るでキャンセル。</string>
++    <string name="added">%1$s を仕事用に追加しました。</string>
++    <string name="add_failed">%1$s を仕事用に追加できませんでした。</string>
++    <string name="remove_confirm">仕事用スペースをすべての仕事用アプリとそのデータごと削除しますか？Y で削除、N で残します。</string>
++    <string name="yes">はい</string>
++    <string name="no">いいえ</string>
++    <string name="hint">上下でアプリを選択 · Enter で追加 · R で仕事用スペースを削除 · 戻るで終了</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ko/strings.xml
+new file mode 100644
+index 0000000..b2d192c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ko/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Korean. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">업무 공간</string>
++    <string name="work">업무</string>
++    <string name="intro">업무 앱을 개인 앱과 분리합니다. 별도의 데이터와 계정, 업무 배지, 그리고 업무 앱을 일시중지할 수 있는 Start의 개인 · 업무 전환.</string>
++    <string name="make">업무 공간 만들기</string>
++    <string name="making">Android가 업무 공간을 만들고 있습니다. 1분 정도 걸립니다.</string>
++    <string name="not_allowed">지금은 이 휴대전화에서 업무 공간을 만들 수 없습니다. 이미 업무 공간이나 기기 관리자가 있을 수 있습니다.</string>
++    <string name="cancelled">업무 공간이 만들어지지 않았습니다.</string>
++    <string name="ready">업무 공간이 준비되었습니다. 업무에 쓰는 앱을 추가하세요. 각 앱은 자체 데이터를 가진 별도 사본이 됩니다.</string>
++    <string name="paused">업무 앱이 일시중지되었습니다. 앱을 추가하려면 Start(모든 앱, 업무)에서 켜세요.</string>
++    <string name="in_work">%1$s · 업무에 있음</string>
++    <string name="no_apps">모든 앱이 이미 업무에 있습니다.</string>
++    <string name="could_not_open">업무 공간이 응답하지 않았습니다. 잠시 후 다시 시도하세요.</string>
++    <string name="remove">업무 공간 삭제</string>
++    <string name="add_confirm">%1$s(%2$s)을(를) 업무에 추가할까요? Enter는 추가, 뒤로는 취소.</string>
++    <string name="added">%1$s이(가) 이제 업무에 있습니다.</string>
++    <string name="add_failed">%1$s을(를) 업무에 추가할 수 없습니다.</string>
++    <string name="remove_confirm">모든 업무 앱과 데이터를 포함해 업무 공간을 삭제할까요? Y는 삭제, N은 유지.</string>
++    <string name="yes">예</string>
++    <string name="no">아니요</string>
++    <string name="hint">위아래로 앱 선택 · Enter로 추가 · R로 업무 공간 삭제 · 뒤로로 나가기</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-nl/strings.xml
+new file mode 100644
+index 0000000..c2270f2
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-nl/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Dutch. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">Werkruimte</string>
++    <string name="work">Werk</string>
++    <string name="intro">Houd werk-apps gescheiden van de jouwe: eigen gegevens en accounts, een Werk-badge en een schakelaar Persoonlijk · Werk in Start die ze kan pauzeren.</string>
++    <string name="make">Werkruimte maken</string>
++    <string name="making">Android maakt de werkruimte. Dit duurt een minuut.</string>
++    <string name="not_allowed">Deze telefoon kan nu geen werkruimte maken. Er is misschien al een werkruimte of telefoonbeheerder actief.</string>
++    <string name="cancelled">Er is geen werkruimte gemaakt.</string>
++    <string name="ready">Je werkruimte is klaar. Voeg de apps toe die je voor werk gebruikt: elk krijgt een eigen kopie met eigen gegevens.</string>
++    <string name="paused">Werk-apps zijn gepauzeerd. Zet ze aan via Start (Alle apps, Werk) om apps toe te voegen.</string>
++    <string name="in_work">%1$s · in Werk</string>
++    <string name="no_apps">Al je apps staan al in Werk.</string>
++    <string name="could_not_open">De werkruimte reageerde niet. Probeer het zo opnieuw.</string>
++    <string name="remove">Werkruimte verwijderen</string>
++    <string name="add_confirm">%1$s (%2$s) toevoegen aan Werk? Enter voegt toe, Terug annuleert.</string>
++    <string name="added">%1$s staat nu in Werk.</string>
++    <string name="add_failed">%1$s kon niet aan Werk worden toegevoegd.</string>
++    <string name="remove_confirm">De werkruimte met alle werk-apps en hun gegevens verwijderen? Y verwijdert, N behoudt.</string>
++    <string name="yes">Ja</string>
++    <string name="no">Nee</string>
++    <string name="hint">Omhoog en Omlaag kiezen een app · Enter voegt toe · R verwijdert de werkruimte · Terug sluit</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-pl/strings.xml
+new file mode 100644
+index 0000000..fc937ef
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-pl/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Polish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">Przestrzeń służbowa</string>
++    <string name="work">Praca</string>
++    <string name="intro">Trzymaj aplikacje służbowe osobno od swoich: własne dane i konta, plakietka Praca i przełącznik Osobiste · Praca w Start, który może je wstrzymać.</string>
++    <string name="make">Utwórz przestrzeń służbową</string>
++    <string name="making">Android tworzy przestrzeń służbową. To potrwa minutę.</string>
++    <string name="not_allowed">Ten telefon nie może teraz utworzyć przestrzeni służbowej. Być może jest już przestrzeń służbowa lub menedżer telefonu.</string>
++    <string name="cancelled">Nie utworzono przestrzeni służbowej.</string>
++    <string name="ready">Twoja przestrzeń służbowa jest gotowa. Dodaj aplikacje, których używasz w pracy: każda dostaje własną kopię z własnymi danymi.</string>
++    <string name="paused">Aplikacje służbowe są wstrzymane. Włącz je w Start (Wszystkie aplikacje, Praca), aby dodać aplikacje.</string>
++    <string name="in_work">%1$s · w Pracy</string>
++    <string name="no_apps">Wszystkie Twoje aplikacje są już w Pracy.</string>
++    <string name="could_not_open">Przestrzeń służbowa nie odpowiedziała. Spróbuj ponownie za chwilę.</string>
++    <string name="remove">Usuń przestrzeń służbową</string>
++    <string name="add_confirm">Dodać %1$s (%2$s) do Pracy? Enter dodaje, Wstecz anuluje.</string>
++    <string name="added">%1$s jest teraz w Pracy.</string>
++    <string name="add_failed">Nie udało się dodać %1$s do Pracy.</string>
++    <string name="remove_confirm">Usunąć przestrzeń służbową ze wszystkimi aplikacjami służbowymi i ich danymi? Y usuwa, N zachowuje.</string>
++    <string name="yes">Tak</string>
++    <string name="no">Nie</string>
++    <string name="hint">Góra i Dół wybierają aplikację · Enter dodaje · R usuwa przestrzeń służbową · Wstecz wychodzi</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-pt/strings.xml
+new file mode 100644
+index 0000000..2b16903
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-pt/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Portuguese. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">Espaço de trabalho</string>
++    <string name="work">Trabalho</string>
++    <string name="intro">Mantenha as apps de trabalho separadas das suas: dados e contas próprios, um emblema de Trabalho e um seletor Pessoal · Trabalho no Start que pode pausá-las.</string>
++    <string name="make">Criar um espaço de trabalho</string>
++    <string name="making">O Android está criando o espaço de trabalho. Leva um minuto.</string>
++    <string name="not_allowed">Este telefone não pode criar um espaço de trabalho agora. Talvez já exista um espaço de trabalho ou um gestor do telefone no comando.</string>
++    <string name="cancelled">Nenhum espaço de trabalho foi criado.</string>
++    <string name="ready">Seu espaço de trabalho está pronto. Adicione as apps que usa no trabalho: cada uma tem sua própria cópia com seus próprios dados.</string>
++    <string name="paused">As apps de trabalho estão pausadas. Ative-as no Start (Todas as apps, Trabalho) para adicionar apps.</string>
++    <string name="in_work">%1$s · no Trabalho</string>
++    <string name="no_apps">Todas as suas apps já estão no Trabalho.</string>
++    <string name="could_not_open">O espaço de trabalho não respondeu. Tente novamente em instantes.</string>
++    <string name="remove">Remover o espaço de trabalho</string>
++    <string name="add_confirm">Adicionar %1$s (%2$s) ao Trabalho? Enter adiciona, Voltar cancela.</string>
++    <string name="added">%1$s agora está no Trabalho.</string>
++    <string name="add_failed">Não foi possível adicionar %1$s ao Trabalho.</string>
++    <string name="remove_confirm">Remover o espaço de trabalho com todas as apps de trabalho e seus dados? Y remove, N mantém.</string>
++    <string name="yes">Sim</string>
++    <string name="no">Não</string>
++    <string name="hint">Cima e Baixo escolhem uma app · Enter adiciona · R remove o espaço de trabalho · Voltar sai</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ru/strings.xml
+new file mode 100644
+index 0000000..6c42496
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ru/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Russian. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">Рабочее пространство</string>
++    <string name="work">Работа</string>
++    <string name="intro">Держите рабочие приложения отдельно от своих: свои данные и аккаунты, значок «Работа» и переключатель «Личное · Работа» в Start, который может их приостановить.</string>
++    <string name="make">Создать рабочее пространство</string>
++    <string name="making">Android создаёт рабочее пространство. Это займёт минуту.</string>
++    <string name="not_allowed">Этот телефон сейчас не может создать рабочее пространство. Возможно, уже есть рабочее пространство или менеджер устройства.</string>
++    <string name="cancelled">Рабочее пространство не создано.</string>
++    <string name="ready">Рабочее пространство готово. Добавьте приложения для работы: у каждого будет своя копия со своими данными.</string>
++    <string name="paused">Рабочие приложения приостановлены. Включите их в Start (Все приложения, Работа), чтобы добавить приложения.</string>
++    <string name="in_work">%1$s · в «Работе»</string>
++    <string name="no_apps">Все ваши приложения уже в «Работе».</string>
++    <string name="could_not_open">Рабочее пространство не ответило. Повторите попытку чуть позже.</string>
++    <string name="remove">Удалить рабочее пространство</string>
++    <string name="add_confirm">Добавить %1$s (%2$s) в «Работу»? Enter — добавить, Назад — отмена.</string>
++    <string name="added">%1$s теперь в «Работе».</string>
++    <string name="add_failed">Не удалось добавить %1$s в «Работу».</string>
++    <string name="remove_confirm">Удалить рабочее пространство со всеми рабочими приложениями и их данными? Y — удалить, N — оставить.</string>
++    <string name="yes">Да</string>
++    <string name="no">Нет</string>
++    <string name="hint">Вверх и Вниз — выбор приложения · Enter — добавить · R — удалить рабочее пространство · Назад — выход</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-sv/strings.xml
+new file mode 100644
+index 0000000..c4e7279
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-sv/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Swedish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">Arbetsyta</string>
++    <string name="work">Arbete</string>
++    <string name="intro">Håll jobbappar åtskilda från dina: egna data och konton, en Arbete-märkning och ett reglage Privat · Arbete i Start som kan pausa dem.</string>
++    <string name="make">Skapa en arbetsyta</string>
++    <string name="making">Android skapar arbetsytan. Det tar en minut.</string>
++    <string name="not_allowed">Telefonen kan inte skapa en arbetsyta nu. En arbetsyta eller en telefonhanterare kanske redan styr.</string>
++    <string name="cancelled">Ingen arbetsyta skapades.</string>
++    <string name="ready">Din arbetsyta är klar. Lägg till apparna du använder i jobbet: var och en får en egen kopia med egna data.</string>
++    <string name="paused">Jobbappar är pausade. Slå på dem från Start (Alla appar, Arbete) för att lägga till appar.</string>
++    <string name="in_work">%1$s · i Arbete</string>
++    <string name="no_apps">Alla dina appar finns redan i Arbete.</string>
++    <string name="could_not_open">Arbetsytan svarade inte. Försök igen om en stund.</string>
++    <string name="remove">Ta bort arbetsytan</string>
++    <string name="add_confirm">Lägga till %1$s (%2$s) i Arbete? Enter lägger till, Tillbaka avbryter.</string>
++    <string name="added">%1$s finns nu i Arbete.</string>
++    <string name="add_failed">%1$s kunde inte läggas till i Arbete.</string>
++    <string name="remove_confirm">Ta bort arbetsytan med alla jobbappar och deras data? Y tar bort, N behåller.</string>
++    <string name="yes">Ja</string>
++    <string name="no">Nej</string>
++    <string name="hint">Upp och Ned väljer en app · Enter lägger till · R tar bort arbetsytan · Tillbaka lämnar</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-tr/strings.xml
+new file mode 100644
+index 0000000..6018ae3
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-tr/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Turkish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">İş alanı</string>
++    <string name="work">İş</string>
++    <string name="intro">İş uygulamalarını kendi uygulamalarınızdan ayrı tutun: kendi verileri ve hesapları, bir İş rozeti ve Start\'ta onları duraklatabilen Kişisel · İş anahtarı.</string>
++    <string name="make">İş alanı oluştur</string>
++    <string name="making">Android iş alanını oluşturuyor. Bu bir dakika sürer.</string>
++    <string name="not_allowed">Bu telefon şu anda iş alanı oluşturamıyor. Zaten bir iş alanı veya telefon yöneticisi devrede olabilir.</string>
++    <string name="cancelled">İş alanı oluşturulmadı.</string>
++    <string name="ready">İş alanınız hazır. İş için kullandığınız uygulamaları ekleyin: her biri kendi verileriyle kendi kopyasını alır.</string>
++    <string name="paused">İş uygulamaları duraklatıldı. Uygulama eklemek için Start\'tan (Tüm uygulamalar, İş) açın.</string>
++    <string name="in_work">%1$s · İş\'te</string>
++    <string name="no_apps">Tüm uygulamalarınız zaten İş\'te.</string>
++    <string name="could_not_open">İş alanı yanıt vermedi. Birazdan tekrar deneyin.</string>
++    <string name="remove">İş alanını kaldır</string>
++    <string name="add_confirm">%1$s (%2$s) İş\'e eklensin mi? Enter ekler, Geri iptal eder.</string>
++    <string name="added">%1$s artık İş\'te.</string>
++    <string name="add_failed">%1$s İş\'e eklenemedi.</string>
++    <string name="remove_confirm">İş alanı tüm iş uygulamaları ve verileriyle kaldırılsın mı? Y kaldırır, N tutar.</string>
++    <string name="yes">Evet</string>
++    <string name="no">Hayır</string>
++    <string name="hint">Yukarı ve Aşağı uygulama seçer · Enter ekler · R iş alanını kaldırır · Geri çıkar</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ur/strings.xml
+new file mode 100644
+index 0000000..bcf2152
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-ur/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Urdu. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">کام کی جگہ</string>
++    <string name="work">کام</string>
++    <string name="intro">کام کی ایپس کو اپنی ایپس سے الگ رکھیں: ان کا اپنا ڈیٹا اور اکاؤنٹس، کام کا بیج، اور Start میں ذاتی · کام سوئچ جو انہیں روک سکتا ہے۔</string>
++    <string name="make">کام کی جگہ بنائیں</string>
++    <string name="making">Android کام کی جگہ بنا رہا ہے۔ اس میں ایک منٹ لگتا ہے۔</string>
++    <string name="not_allowed">یہ فون ابھی کام کی جگہ نہیں بنا سکتا۔ ہو سکتا ہے کوئی کام کی جگہ یا فون مینیجر پہلے سے موجود ہو۔</string>
++    <string name="cancelled">کوئی کام کی جگہ نہیں بنی۔</string>
++    <string name="ready">آپ کی کام کی جگہ تیار ہے۔ کام کے لیے استعمال ہونے والی ایپس شامل کریں: ہر ایک کو اپنے ڈیٹا کے ساتھ اپنی کاپی ملتی ہے۔</string>
++    <string name="paused">کام کی ایپس رکی ہوئی ہیں۔ ایپس شامل کرنے کے لیے انہیں Start (تمام ایپس، کام) سے چالو کریں۔</string>
++    <string name="in_work">%1$s · کام میں</string>
++    <string name="no_apps">آپ کی تمام ایپس پہلے سے کام میں ہیں۔</string>
++    <string name="could_not_open">کام کی جگہ نے جواب نہیں دیا۔ تھوڑی دیر میں دوبارہ کوشش کریں۔</string>
++    <string name="remove">کام کی جگہ ہٹائیں</string>
++    <string name="add_confirm">%1$s (%2$s) کو کام میں شامل کریں؟ Enter شامل کرتا ہے، Back منسوخ کرتا ہے۔</string>
++    <string name="added">%1$s اب کام میں ہے۔</string>
++    <string name="add_failed">%1$s کو کام میں شامل نہیں کیا جا سکا۔</string>
++    <string name="remove_confirm">تمام کام کی ایپس اور ان کے ڈیٹا کے ساتھ کام کی جگہ ہٹائیں؟ Y ہٹاتا ہے، N رکھتا ہے۔</string>
++    <string name="yes">ہاں</string>
++    <string name="no">نہیں</string>
++    <string name="hint">اوپر اور نیچے ایپ منتخب کرتے ہیں · Enter شامل کرتا ہے · R کام کی جگہ ہٹاتا ہے · Back باہر جاتا ہے</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values-zh-rCN/strings.xml
+new file mode 100644
+index 0000000..35bc022
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values-zh-rCN/strings.xml
+@@ -0,0 +1,24 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Chinese (Simplified). Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
++<resources>
++    <string name="work_space">工作空间</string>
++    <string name="work">工作</string>
++    <string name="intro">将工作应用与个人应用分开：各自的数据和账号、工作标志，以及 Start 上可暂停它们的个人 · 工作切换。</string>
++    <string name="make">创建工作空间</string>
++    <string name="making">Android 正在创建工作空间，大约需要一分钟。</string>
++    <string name="not_allowed">此手机目前无法创建工作空间，可能已有工作空间或手机管理程序。</string>
++    <string name="cancelled">未创建工作空间。</string>
++    <string name="ready">工作空间已就绪。添加你工作中使用的应用：每个应用都会有一份带独立数据的副本。</string>
++    <string name="paused">工作应用已暂停。要添加应用，请在 Start（所有应用，工作）中开启它们。</string>
++    <string name="in_work">%1$s · 在工作中</string>
++    <string name="no_apps">你的所有应用都已在工作中。</string>
++    <string name="could_not_open">工作空间没有响应，请稍后再试。</string>
++    <string name="remove">移除工作空间</string>
++    <string name="add_confirm">将 %1$s（%2$s）添加到工作？Enter 添加，返回取消。</string>
++    <string name="added">%1$s 现已在工作中。</string>
++    <string name="add_failed">无法将 %1$s 添加到工作。</string>
++    <string name="remove_confirm">移除工作空间及其所有工作应用和数据？Y 移除，N 保留。</string>
++    <string name="yes">是</string>
++    <string name="no">否</string>
++    <string name="hint">上下选择应用 · Enter 添加 · R 移除工作空间 · 返回退出</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..ec46715
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml
+@@ -0,0 +1,26 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (R remove, Y yes, N no) name keyboard keys: keep them as the key, translate the word.
++     Keep equal to SpacesText.EN (SpacesTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sable Spaces</string>
++    <string name="work_space">Work space</string>
++    <string name="work">Work</string>
++    <string name="intro">Keep work apps apart from yours: their own data and accounts, a Work badge, and a Personal · Work switch on Start that can pause them.</string>
++    <string name="make">Make a Work space</string>
++    <string name="making">Android is making the Work space. This takes a minute.</string>
++    <string name="not_allowed">This phone cannot make a Work space now. A Work space or a phone manager may already be in charge.</string>
++    <string name="cancelled">No Work space was made.</string>
++    <string name="ready">Your Work space is ready. Add the apps you use for work: each gets its own copy with its own data.</string>
++    <string name="paused">Work apps are paused. Turn them on from Start (All apps, Work) to add apps.</string>
++    <string name="in_work">%1$s · in Work</string>
++    <string name="no_apps">Every app you have is already in Work.</string>
++    <string name="could_not_open">The Work space did not answer. Try again in a moment.</string>
++    <string name="remove">Remove Work space</string>
++    <string name="add_confirm">Add %1$s (%2$s) to Work? Enter adds it, Back cancels.</string>
++    <string name="added">%1$s is now in Work.</string>
++    <string name="add_failed">%1$s could not be added to Work.</string>
++    <string name="remove_confirm">Remove the Work space with every work app and its data? Y removes it, N keeps it.</string>
++    <string name="yes">Yes</string>
++    <string name="no">No</string>
++    <string name="hint">Up and Down choose an app · Enter adds it · R removes the Work space · Back leaves</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/res/xml/device_admin.xml b/sable-src/apps/titan2/platform/spaces/src/main/res/xml/device_admin.xml
+new file mode 100644
+index 0000000..3f9c3cd
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/main/res/xml/device_admin.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Sable Spaces is never a device admin of the main user. As the Work space's profile owner it names
++     the profile, forwards its own two actions into it, adds apps the user picks, and removes the Work
++     space (wipe-data) when the user confirms that inside it. -->
++<device-admin>
++    <uses-policies>
++        <wipe-data />
++    </uses-policies>
++</device-admin>
+diff --git a/sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/SpacesTextTest.kt b/sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/SpacesTextTest.kt
+new file mode 100644
+index 0000000..475b199
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/SpacesTextTest.kt
+@@ -0,0 +1,62 @@
++package org.sableos.titan2.spaces
++
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.titan2.spaces.core.SpacesText
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class SpacesTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map {
++        it.value
++    }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        SpacesText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f ->
++            f.name.startsWith("values-") && File(f, "strings.xml").isFile
++        }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, SpacesText.EN.keys, tr.keys.intersect(SpacesText.EN.keys))
++            SpacesText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/core/WorkSpaceTest.kt b/sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/core/WorkSpaceTest.kt
+new file mode 100644
+index 0000000..4220c3c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/core/WorkSpaceTest.kt
+@@ -0,0 +1,70 @@
++package org.sableos.titan2.spaces.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class WorkSpaceTest {
++    @Test
++    fun stateFollowsTheWorkSpaceThenWhetherAndroidAllowsOne() {
++        assertEquals(
++            SpaceState.Paused,
++            WorkSpace.state(hasWorkSpace = true, paused = true, allowed = false)
++        )
++        assertEquals(
++            SpaceState.On,
++            WorkSpace.state(hasWorkSpace = true, paused = false, allowed = false)
++        )
++        assertEquals(
++            SpaceState.None,
++            WorkSpace.state(hasWorkSpace = false, paused = false, allowed = true)
++        )
++        assertEquals(
++            SpaceState.NotAllowed,
++            WorkSpace.state(hasWorkSpace = false, paused = false, allowed = false)
++        )
++        SpaceState.entries.forEach { assertTrue(it.name, WorkSpace.detailKey(it) in SpacesText.EN) }
++    }
++
++    @Test
++    fun onlyPackageNamesAreAcceptedFromAnotherProfile() {
++        assertTrue(WorkSpace.isPackageName("com.slack"))
++        assertTrue(WorkSpace.isPackageName("org.sableos.titan2.keyboard"))
++        assertFalse(WorkSpace.isPackageName(null))
++        assertFalse(WorkSpace.isPackageName("slack"))
++        assertFalse(WorkSpace.isPackageName("com.slack/.Main"))
++        assertFalse(WorkSpace.isPackageName("com..slack"))
++        assertFalse(WorkSpace.isPackageName("a." + "b".repeat(300)))
++    }
++
++    @Test
++    fun theCallersLabelIsShortAndNeverEmpty() {
++        assertEquals("com.slack", WorkSpace.shownLabel("  ", "com.slack"))
++        assertEquals("com.slack", WorkSpace.shownLabel(null, "com.slack"))
++        assertEquals(80, WorkSpace.shownLabel("x".repeat(200), "com.slack").length)
++        assertEquals("Slack", WorkSpace.shownLabel(" Slack ", "com.slack"))
++    }
++
++    @Test
++    fun addableLeavesOutItselfAndAppsAlreadyInWorkSortedByName() {
++        val apps = listOf(
++            AppChoice("com.zoom", "zoom"),
++            AppChoice("org.sableos.titan2.spaces", "Sable Spaces"),
++            AppChoice("com.slack", "Slack"),
++            AppChoice("com.slack", "Slack"),
++            AppChoice("com.mail", "Mail"),
++            AppChoice("com.teams", "Teams")
++        )
++        val shown = WorkSpace.addable(apps, "org.sableos.titan2.spaces", setOf("com.teams"))
++        assertEquals(listOf("Mail", "Slack", "zoom"), shown.map { it.label })
++    }
++
++    @Test
++    fun moveStaysOnTheList() {
++        assertEquals(0, WorkSpace.move(0, -1, 3))
++        assertEquals(2, WorkSpace.move(2, 1, 3))
++        assertEquals(1, WorkSpace.move(0, 1, 3))
++        assertEquals(0, WorkSpace.move(5, 1, 0))
++    }
++}
+diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+index bd447c7..0b12975 100644
+--- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
++++ b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+@@ -30,3 +30,4 @@ notes	ic_sable_notes	notepad	65f069445f9cbf08b9dbbcab5069512095d25c4b0a17113cf98
+ terminal	ic_sable_terminal	terminal-window	5ee2be45ae5f7ff95d51e142baad1103cd8b473f89e69f983f3f5b40c884327d	#3FA37A	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/connectbot/res	none
+ tasks	ic_sable_tasks	check-square	69fc9a39cab4af71874d4cc56eaa6d8943962f2619f5c9a7e2e38d01e232c928	#2BB5A0	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/tasks/src/main/res	none
+ browser	ic_sable_browser	globe	3b53d207c09fc72de699c8b2149892e065b570b3ae144412ae53244b0a0f7977	#4D9CFF	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/browser/src/main/res	none
++spaces	ic_sable_spaces	briefcase	c908360aa8ffeff3b78be469066aa9faf7df2eda8f34a3596c44157dddc96453	#3FA7D6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/spaces/src/main/res	none
+diff --git a/sable-src/third_party/phosphor-icons/PROVENANCE.md b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+index a186b01..8be4a1f 100644
+--- a/sable-src/third_party/phosphor-icons/PROVENANCE.md
++++ b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+@@ -27,7 +27,7 @@ adaptive launcher icon (background, foreground, monochrome layers and `mipmap-an
+ 
+ Glyphs added for the Q25 adaptive-icon work (verbatim `assets/regular/<name>.svg` at the pinned commit, fetched
+ from raw.githubusercontent.com): bomb, book-open-text, calculator, calendar-dots, chat-circle-dots, chat-text,
+-cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench. Added for Sable Tasks: check-square.
++cloud-sun, envelope-simple, grid-four, grid-nine, music-notes, text-align-left, wrench. Added for Sable Tasks: check-square. Added for Sable Spaces: briefcase.
+ Added for Secure Vault (Private Space file layer, `origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): vault.
+ Added for Sound Profiles (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): speaker-high.
+ Added for Sable Start's tile-free app glyphs on the Q25 (`model/AppGlyphs.kt`, drawn by `ui/SableGlyphIcon.kt` from
+diff --git a/sable-src/third_party/phosphor-icons/glyphs/briefcase.svg b/sable-src/third_party/phosphor-icons/glyphs/briefcase.svg
+new file mode 100644
+index 0000000..17cce72
+--- /dev/null
++++ b/sable-src/third_party/phosphor-icons/glyphs/briefcase.svg
+@@ -0,0 +1 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M216,56H176V48a24,24,0,0,0-24-24H104A24,24,0,0,0,80,48v8H40A16,16,0,0,0,24,72V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V72A16,16,0,0,0,216,56ZM96,48a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96ZM216,72v41.61A184,184,0,0,1,128,136a184.07,184.07,0,0,1-88-22.38V72Zm0,128H40V131.64A200.19,200.19,0,0,0,128,152a200.25,200.25,0,0,0,88-20.37V200ZM104,112a8,8,0,0,1,8-8h32a8,8,0,0,1,0,16H112A8,8,0,0,1,104,112Z"/></svg>
+\ No newline at end of file

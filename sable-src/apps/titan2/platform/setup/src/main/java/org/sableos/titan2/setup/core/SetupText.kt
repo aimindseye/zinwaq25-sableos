@@ -94,6 +94,10 @@ object SetupText {
         "weather_row_failed" to "Could not read the Weather city",
         "row_hub_menu_title" to "Hub row menu",
         "row_hub_menu_detail" to "Snooze and Remind me are off until you turn them on in Hub",
+        "row_work_space_title" to "Work space",
+        "row_work_space_detail" to
+            "Optional: keep work apps apart, with a Personal · Work switch on Start",
+        "action_work_space" to "Sable Spaces",
         "action_hub_row_menu" to "Hub settings"
     )
 

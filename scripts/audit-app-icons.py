@@ -38,7 +38,8 @@ PLACEHOLDER = re.compile(r"(^@mipmap/ic_launcher(_round)?$)|sym_def_app_icon|(^@
 # Modules that intentionally have no launcher entry. Any extra launcher entry beyond the first is
 # reported, since a diagnostic in the app drawer is a product defect. SableHub: Sable Start's Hub page
 # is the one Hub; the app keeps its providers, notification listener and settings screens only.
-HEADLESS: set[str] = {"SableHub"}
+# SableSpaces: the Work space's profile manager, opened from Sable Setup's Work space row.
+HEADLESS: set[str] = {"SableHub", "SableSpaces"}
 # Upstream services with no launcher entry that keep their upstream icon: it shows only in App info,
 # never in the app grid. SableSpeech: the eSpeak NG text-to-speech engine.
 UPSTREAM_SERVICES: set[str] = {"SableSpeech"}

@@ -77,4 +77,7 @@
     <string name="row_hub_menu_title">Μενού γραμμής του Hub</string>
     <string name="row_hub_menu_detail">Η Αναβολή και το Υπενθύμισέ μου είναι ανενεργά μέχρι να τα ενεργοποιήσετε στο Hub</string>
     <string name="action_hub_row_menu">Ρυθμίσεις Hub</string>
+    <string name="row_work_space_title">Χώρος εργασίας</string>
+    <string name="row_work_space_detail">Προαιρετικό: κρατήστε χωριστά τις εφαρμογές εργασίας, με διακόπτη Προσωπικά · Εργασία στο Start</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

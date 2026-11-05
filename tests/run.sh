@@ -272,6 +272,23 @@ if grep -q 'user-type="android.os.usertype.profile.PRIVATE"' product/q25/sysconf
 else
     fail "Secure Vault manifest or window policy"
 fi
+# Sable Spaces (Balance): main user and work profiles only, no network, no backup; it sets no policy beyond
+# naming the profile, forwarding its own two actions, adding apps and removing the Work space; the
+# in-profile screen is off in the main user and every request is confirmed there.
+sm=sable-src/apps/titan2/platform/spaces/src/main
+sx=product/q25/sysconfig/preinstalled-packages-sable-spaces.xml
+if grep -q 'user-type="android.os.usertype.profile.MANAGED"' "$sx" && grep -q 'user-type="FULL"' "$sx" &&
+    ! grep -q 'PRIVATE\|CLONE\|SYSTEM' "$sx" &&
+    ! grep -q '<uses-permission' "$sm/AndroidManifest.xml" &&
+    grep -q 'android:allowBackup="false"' "$sm/AndroidManifest.xml" &&
+    grep -A1 'name=".android.InWorkActivity"' "$sm/AndroidManifest.xml" | grep -q 'android:enabled="false"' &&
+    ! grep -rqE 'setPasswordQuality|setKeyguardDisabled|setGlobalProxy|setAlwaysOnVpn|setNetworkLogging|setSecurityLogging|setPermissionGrantState|addUserRestriction' "$sm/java" &&
+    grep -q 'KEYCODE_Y -> confirm()' "$sm/java/org/sableos/titan2/spaces/android/InWorkActivity.kt" &&
+    grep -q 'WorkSpace.isPackageName(pkg)' "$sm/java/org/sableos/titan2/spaces/android/InWorkActivity.kt"; then
+    pass "Sable Spaces: main user and work profiles only, no permissions or policies, requests confirmed in Work"
+else
+    fail "Sable Spaces install scope or policy"
+fi
 # 6b1b. microG (SABLE_Q25_MICROG, docs/MICROG.md): off by default at Q4 but spoofing allowed for the
 # add-on, built in with YES, never before Q4, refused when an APK does not match its pin; the fetcher
 # never keeps a bad file.
@@ -1148,6 +1165,7 @@ sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/co
 sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/DisplayCompatTextTest.kt
 sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/KeyboardText.kt sable-src/apps/titan2/platform/keyboard/src/main/res/values/strings.xml sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/KeyboardApplication.kt sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/KeyboardTextTest.kt
 sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/ProfilesApplication.kt sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/ProfilesTextTest.kt
+sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/SpacesApplication.kt sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/SpacesTextTest.kt
 sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupTextTest.kt
 sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ToolsApplication.kt sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/ToolsTextTest.kt
 sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultLines.kt sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/VaultApplication.kt sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/VaultLinesTest.kt

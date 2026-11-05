@@ -78,4 +78,7 @@
     <string name="row_hub_menu_title">Hub row menu</string>
     <string name="row_hub_menu_detail">Snooze and Remind me are off until you turn them on in Hub</string>
     <string name="action_hub_row_menu">Hub settings</string>
+    <string name="row_work_space_title">Work space</string>
+    <string name="row_work_space_detail">Optional: keep work apps apart, with a Personal · Work switch on Start</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

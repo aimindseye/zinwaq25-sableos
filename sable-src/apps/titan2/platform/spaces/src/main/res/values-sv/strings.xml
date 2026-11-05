@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Swedish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">Arbetsyta</string>
+    <string name="work">Arbete</string>
+    <string name="intro">Håll jobbappar åtskilda från dina: egna data och konton, en Arbete-märkning och ett reglage Privat · Arbete i Start som kan pausa dem.</string>
+    <string name="make">Skapa en arbetsyta</string>
+    <string name="making">Android skapar arbetsytan. Det tar en minut.</string>
+    <string name="not_allowed">Telefonen kan inte skapa en arbetsyta nu. En arbetsyta eller en telefonhanterare kanske redan styr.</string>
+    <string name="cancelled">Ingen arbetsyta skapades.</string>
+    <string name="ready">Din arbetsyta är klar. Lägg till apparna du använder i jobbet: var och en får en egen kopia med egna data.</string>
+    <string name="paused">Jobbappar är pausade. Slå på dem från Start (Alla appar, Arbete) för att lägga till appar.</string>
+    <string name="in_work">%1$s · i Arbete</string>
+    <string name="no_apps">Alla dina appar finns redan i Arbete.</string>
+    <string name="could_not_open">Arbetsytan svarade inte. Försök igen om en stund.</string>
+    <string name="remove">Ta bort arbetsytan</string>
+    <string name="add_confirm">Lägga till %1$s (%2$s) i Arbete? Enter lägger till, Tillbaka avbryter.</string>
+    <string name="added">%1$s finns nu i Arbete.</string>
+    <string name="add_failed">%1$s kunde inte läggas till i Arbete.</string>
+    <string name="remove_confirm">Ta bort arbetsytan med alla jobbappar och deras data? Y tar bort, N behåller.</string>
+    <string name="yes">Ja</string>
+    <string name="no">Nej</string>
+    <string name="hint">Upp och Ned väljer en app · Enter lägger till · R tar bort arbetsytan · Tillbaka lämnar</string>
+</resources>

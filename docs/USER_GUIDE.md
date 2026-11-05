@@ -111,6 +111,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |
 | Media | Music, photos, FM radio | E shares |
 | Sound Profiles | Normal, Loud, Vibrate only, Phone calls only, All alerts off | Enter uses, E edits, Menu for more; Quick Settings tile |
+| Sable Spaces | Make a Work space, add apps you already have to it, remove it | Opened from Sable Setup > Work space. Up and Down pick an app, Enter adds it (confirm with Enter in the Work screen), R removes the Work space (confirm with Y) |
 | Reader | Books (EPUB), PDF, comics and audiobooks, all stored on the phone | See [Comics and audiobooks](#comics-and-audiobooks) below; B bookmark, T contents, A view settings |
 | Calculator | Keyboard-first | Digits and operators from the keys |
 | Games | Ten games, each its own app: Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words | See [Games](#games) below |
@@ -306,7 +307,7 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Where | What it does |
 | --- | --- |
 | Apps > All apps | Under each app's name, the sensitive access it has, for example `permissions · Location · Contacts · +1`. "See app info" means the phone could not tell, which is never shown as "none" |
-| All apps > Personal · Work | With a work profile on the phone, a switch above the filters shows your own apps or your work apps. In Work, Pause work apps stops every work app and its notifications until you turn them back on. Without a work profile the switch is not shown |
+| All apps > Personal · Work | With a work profile on the phone, a switch above the filters shows your own apps or your work apps. In Work, Pause work apps stops every work app and its notifications until you turn them back on. Without a work profile the switch is not shown; Sable Setup > Work space makes one with Sable Spaces |
 | Apps > Network access | One switch per app to block all networks. Wi-Fi, mobile data and VPN limits you set in App info are kept. Blocking a messaging, mail or phone app asks first. It does not filter websites |
 | Apps > App security & privacy | A read-only page per app: where it came from and who signed it, what it can do, how many entry points it exposes to other apps, packaged native code, and whether it has a known tracker library. **Changes seen on this phone** lists updates and signer changes since you first opened the page |
 | Apps > Mobile Manager | The home of the controls below, plus a plain list of what is not available yet |

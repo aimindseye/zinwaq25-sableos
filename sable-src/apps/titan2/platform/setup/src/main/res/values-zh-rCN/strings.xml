@@ -77,4 +77,7 @@
     <string name="row_hub_menu_title">Hub 行菜单</string>
     <string name="row_hub_menu_detail">在 Hub 中开启之前，稍后提醒和提醒我处于关闭状态</string>
     <string name="action_hub_row_menu">Hub 设置</string>
+    <string name="row_work_space_title">工作空间</string>
+    <string name="row_work_space_detail">可选：将工作应用分开，并在 Start 上使用个人 · 工作切换</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Japanese. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">仕事用スペース</string>
+    <string name="work">仕事</string>
+    <string name="intro">仕事用アプリを個人用と分けておけます。専用のデータとアカウント、仕事バッジ、そして一時停止もできる Start の個人用 · 仕事切り替え。</string>
+    <string name="make">仕事用スペースを作成</string>
+    <string name="making">Android が仕事用スペースを作成しています。1 分ほどかかります。</string>
+    <string name="not_allowed">この電話では現在、仕事用スペースを作成できません。すでに仕事用スペースや端末管理アプリがある可能性があります。</string>
+    <string name="cancelled">仕事用スペースは作成されませんでした。</string>
+    <string name="ready">仕事用スペースの準備ができました。仕事で使うアプリを追加してください。それぞれ専用のデータを持つ別のコピーになります。</string>
+    <string name="paused">仕事用アプリは一時停止中です。アプリを追加するには Start（すべてのアプリ、仕事）でオンにしてください。</string>
+    <string name="in_work">%1$s · 仕事内</string>
+    <string name="no_apps">すべてのアプリはすでに仕事用にあります。</string>
+    <string name="could_not_open">仕事用スペースが応答しませんでした。しばらくしてからもう一度お試しください。</string>
+    <string name="remove">仕事用スペースを削除</string>
+    <string name="add_confirm">%1$s（%2$s）を仕事用に追加しますか？Enter で追加、戻るでキャンセル。</string>
+    <string name="added">%1$s を仕事用に追加しました。</string>
+    <string name="add_failed">%1$s を仕事用に追加できませんでした。</string>
+    <string name="remove_confirm">仕事用スペースをすべての仕事用アプリとそのデータごと削除しますか？Y で削除、N で残します。</string>
+    <string name="yes">はい</string>
+    <string name="no">いいえ</string>
+    <string name="hint">上下でアプリを選択 · Enter で追加 · R で仕事用スペースを削除 · 戻るで終了</string>
+</resources>

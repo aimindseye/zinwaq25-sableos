@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Urdu. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">کام کی جگہ</string>
+    <string name="work">کام</string>
+    <string name="intro">کام کی ایپس کو اپنی ایپس سے الگ رکھیں: ان کا اپنا ڈیٹا اور اکاؤنٹس، کام کا بیج، اور Start میں ذاتی · کام سوئچ جو انہیں روک سکتا ہے۔</string>
+    <string name="make">کام کی جگہ بنائیں</string>
+    <string name="making">Android کام کی جگہ بنا رہا ہے۔ اس میں ایک منٹ لگتا ہے۔</string>
+    <string name="not_allowed">یہ فون ابھی کام کی جگہ نہیں بنا سکتا۔ ہو سکتا ہے کوئی کام کی جگہ یا فون مینیجر پہلے سے موجود ہو۔</string>
+    <string name="cancelled">کوئی کام کی جگہ نہیں بنی۔</string>
+    <string name="ready">آپ کی کام کی جگہ تیار ہے۔ کام کے لیے استعمال ہونے والی ایپس شامل کریں: ہر ایک کو اپنے ڈیٹا کے ساتھ اپنی کاپی ملتی ہے۔</string>
+    <string name="paused">کام کی ایپس رکی ہوئی ہیں۔ ایپس شامل کرنے کے لیے انہیں Start (تمام ایپس، کام) سے چالو کریں۔</string>
+    <string name="in_work">%1$s · کام میں</string>
+    <string name="no_apps">آپ کی تمام ایپس پہلے سے کام میں ہیں۔</string>
+    <string name="could_not_open">کام کی جگہ نے جواب نہیں دیا۔ تھوڑی دیر میں دوبارہ کوشش کریں۔</string>
+    <string name="remove">کام کی جگہ ہٹائیں</string>
+    <string name="add_confirm">%1$s (%2$s) کو کام میں شامل کریں؟ Enter شامل کرتا ہے، Back منسوخ کرتا ہے۔</string>
+    <string name="added">%1$s اب کام میں ہے۔</string>
+    <string name="add_failed">%1$s کو کام میں شامل نہیں کیا جا سکا۔</string>
+    <string name="remove_confirm">تمام کام کی ایپس اور ان کے ڈیٹا کے ساتھ کام کی جگہ ہٹائیں؟ Y ہٹاتا ہے، N رکھتا ہے۔</string>
+    <string name="yes">ہاں</string>
+    <string name="no">نہیں</string>
+    <string name="hint">اوپر اور نیچے ایپ منتخب کرتے ہیں · Enter شامل کرتا ہے · R کام کی جگہ ہٹاتا ہے · Back باہر جاتا ہے</string>
+</resources>

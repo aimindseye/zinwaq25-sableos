@@ -77,4 +77,7 @@
     <string name="row_hub_menu_title">Hub satır menüsü</string>
     <string name="row_hub_menu_detail">Ertele ve Bana hatırlat, Hub\'da açana kadar kapalıdır</string>
     <string name="action_hub_row_menu">Hub ayarları</string>
+    <string name="row_work_space_title">İş alanı</string>
+    <string name="row_work_space_detail">İsteğe bağlı: iş uygulamalarını ayrı tutun, Start\'ta Kişisel · İş anahtarıyla</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

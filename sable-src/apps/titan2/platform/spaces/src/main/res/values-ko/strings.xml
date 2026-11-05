@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Korean. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">업무 공간</string>
+    <string name="work">업무</string>
+    <string name="intro">업무 앱을 개인 앱과 분리합니다. 별도의 데이터와 계정, 업무 배지, 그리고 업무 앱을 일시중지할 수 있는 Start의 개인 · 업무 전환.</string>
+    <string name="make">업무 공간 만들기</string>
+    <string name="making">Android가 업무 공간을 만들고 있습니다. 1분 정도 걸립니다.</string>
+    <string name="not_allowed">지금은 이 휴대전화에서 업무 공간을 만들 수 없습니다. 이미 업무 공간이나 기기 관리자가 있을 수 있습니다.</string>
+    <string name="cancelled">업무 공간이 만들어지지 않았습니다.</string>
+    <string name="ready">업무 공간이 준비되었습니다. 업무에 쓰는 앱을 추가하세요. 각 앱은 자체 데이터를 가진 별도 사본이 됩니다.</string>
+    <string name="paused">업무 앱이 일시중지되었습니다. 앱을 추가하려면 Start(모든 앱, 업무)에서 켜세요.</string>
+    <string name="in_work">%1$s · 업무에 있음</string>
+    <string name="no_apps">모든 앱이 이미 업무에 있습니다.</string>
+    <string name="could_not_open">업무 공간이 응답하지 않았습니다. 잠시 후 다시 시도하세요.</string>
+    <string name="remove">업무 공간 삭제</string>
+    <string name="add_confirm">%1$s(%2$s)을(를) 업무에 추가할까요? Enter는 추가, 뒤로는 취소.</string>
+    <string name="added">%1$s이(가) 이제 업무에 있습니다.</string>
+    <string name="add_failed">%1$s을(를) 업무에 추가할 수 없습니다.</string>
+    <string name="remove_confirm">모든 업무 앱과 데이터를 포함해 업무 공간을 삭제할까요? Y는 삭제, N은 유지.</string>
+    <string name="yes">예</string>
+    <string name="no">아니요</string>
+    <string name="hint">위아래로 앱 선택 · Enter로 추가 · R로 업무 공간 삭제 · 뒤로로 나가기</string>
+</resources>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">Espacio de trabajo</string>
+    <string name="work">Trabajo</string>
+    <string name="intro">Mantén las apps de trabajo separadas de las tuyas: sus propios datos y cuentas, una insignia de Trabajo y un selector Personal · Trabajo en Start que puede pausarlas.</string>
+    <string name="make">Crear un espacio de trabajo</string>
+    <string name="making">Android está creando el espacio de trabajo. Tarda un minuto.</string>
+    <string name="not_allowed">Este teléfono no puede crear un espacio de trabajo ahora. Puede que ya haya un espacio de trabajo o un gestor del teléfono al mando.</string>
+    <string name="cancelled">No se creó ningún espacio de trabajo.</string>
+    <string name="ready">Tu espacio de trabajo está listo. Añade las apps que usas para trabajar: cada una tiene su propia copia con sus propios datos.</string>
+    <string name="paused">Las apps de trabajo están en pausa. Actívalas desde Start (Todas las apps, Trabajo) para añadir apps.</string>
+    <string name="in_work">%1$s · en Trabajo</string>
+    <string name="no_apps">Todas tus apps ya están en Trabajo.</string>
+    <string name="could_not_open">El espacio de trabajo no respondió. Inténtalo de nuevo en un momento.</string>
+    <string name="remove">Quitar el espacio de trabajo</string>
+    <string name="add_confirm">¿Añadir %1$s (%2$s) a Trabajo? Enter la añade, Atrás cancela.</string>
+    <string name="added">%1$s ya está en Trabajo.</string>
+    <string name="add_failed">No se pudo añadir %1$s a Trabajo.</string>
+    <string name="remove_confirm">¿Quitar el espacio de trabajo con todas las apps de trabajo y sus datos? Y lo quita, N lo conserva.</string>
+    <string name="yes">Sí</string>
+    <string name="no">No</string>
+    <string name="hint">Arriba y Abajo eligen una app · Enter la añade · R quita el espacio de trabajo · Atrás sale</string>
+</resources>

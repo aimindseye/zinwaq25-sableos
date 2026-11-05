@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English. Single capital letters in hints (R remove, Y yes, N no) name keyboard keys: keep them as the key, translate the word.
+     Keep equal to SpacesText.EN (SpacesTextTest checks); translations go in values-<lang>/. -->
+<resources>
+    <string name="app_name" translatable="false">Sable Spaces</string>
+    <string name="work_space">Work space</string>
+    <string name="work">Work</string>
+    <string name="intro">Keep work apps apart from yours: their own data and accounts, a Work badge, and a Personal · Work switch on Start that can pause them.</string>
+    <string name="make">Make a Work space</string>
+    <string name="making">Android is making the Work space. This takes a minute.</string>
+    <string name="not_allowed">This phone cannot make a Work space now. A Work space or a phone manager may already be in charge.</string>
+    <string name="cancelled">No Work space was made.</string>
+    <string name="ready">Your Work space is ready. Add the apps you use for work: each gets its own copy with its own data.</string>
+    <string name="paused">Work apps are paused. Turn them on from Start (All apps, Work) to add apps.</string>
+    <string name="in_work">%1$s · in Work</string>
+    <string name="no_apps">Every app you have is already in Work.</string>
+    <string name="could_not_open">The Work space did not answer. Try again in a moment.</string>
+    <string name="remove">Remove Work space</string>
+    <string name="add_confirm">Add %1$s (%2$s) to Work? Enter adds it, Back cancels.</string>
+    <string name="added">%1$s is now in Work.</string>
+    <string name="add_failed">%1$s could not be added to Work.</string>
+    <string name="remove_confirm">Remove the Work space with every work app and its data? Y removes it, N keeps it.</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="hint">Up and Down choose an app · Enter adds it · R removes the Work space · Back leaves</string>
+</resources>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">Arbeitsbereich</string>
+    <string name="work">Arbeit</string>
+    <string name="intro">Arbeits-Apps getrennt von Ihren halten: eigene Daten und Konten, ein Arbeitssymbol und ein Schalter Privat · Arbeit in Start, der sie pausieren kann.</string>
+    <string name="make">Arbeitsbereich erstellen</string>
+    <string name="making">Android erstellt den Arbeitsbereich. Das dauert etwa eine Minute.</string>
+    <string name="not_allowed">Dieses Telefon kann jetzt keinen Arbeitsbereich erstellen. Möglicherweise ist bereits ein Arbeitsbereich oder eine Geräteverwaltung zuständig.</string>
+    <string name="cancelled">Es wurde kein Arbeitsbereich erstellt.</string>
+    <string name="ready">Ihr Arbeitsbereich ist bereit. Fügen Sie die Apps hinzu, die Sie für die Arbeit nutzen: Jede erhält eine eigene Kopie mit eigenen Daten.</string>
+    <string name="paused">Arbeits-Apps sind pausiert. Schalten Sie sie in Start ein (Alle Apps, Arbeit), um Apps hinzuzufügen.</string>
+    <string name="in_work">%1$s · in Arbeit</string>
+    <string name="no_apps">Alle Ihre Apps sind bereits im Arbeitsbereich.</string>
+    <string name="could_not_open">Der Arbeitsbereich hat nicht geantwortet. Versuchen Sie es gleich noch einmal.</string>
+    <string name="remove">Arbeitsbereich entfernen</string>
+    <string name="add_confirm">%1$s (%2$s) zur Arbeit hinzufügen? Enter fügt hinzu, Zurück bricht ab.</string>
+    <string name="added">%1$s ist jetzt im Arbeitsbereich.</string>
+    <string name="add_failed">%1$s konnte nicht zur Arbeit hinzugefügt werden.</string>
+    <string name="remove_confirm">Arbeitsbereich mit allen Arbeits-Apps und ihren Daten entfernen? Y entfernt ihn, N behält ihn.</string>
+    <string name="yes">Ja</string>
+    <string name="no">Nein</string>
+    <string name="hint">Auf und Ab wählen eine App · Enter fügt sie hinzu · R entfernt den Arbeitsbereich · Zurück verlässt</string>
+</resources>

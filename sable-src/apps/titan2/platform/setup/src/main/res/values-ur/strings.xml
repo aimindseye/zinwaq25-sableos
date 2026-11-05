@@ -77,4 +77,7 @@
     <string name="row_hub_menu_title">Hub قطار کا مینو</string>
     <string name="row_hub_menu_detail">مؤخر اور مجھے یاد دلائیں بند ہیں جب تک آپ انہیں Hub میں آن نہ کریں</string>
     <string name="action_hub_row_menu">Hub کی ترتیبات</string>
+    <string name="row_work_space_title">کام کی جگہ</string>
+    <string name="row_work_space_detail">اختیاری: کام کی ایپس الگ رکھیں، Start میں ذاتی · کام سوئچ کے ساتھ</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

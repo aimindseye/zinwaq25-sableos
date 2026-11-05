@@ -77,4 +77,7 @@
     <string name="row_hub_menu_title">Menu da linha do Hub</string>
     <string name="row_hub_menu_detail">Adiar e Lembrar-me estão desligados até os ativar no Hub</string>
     <string name="action_hub_row_menu">Definições do Hub</string>
+    <string name="row_work_space_title">Espaço de trabalho</string>
+    <string name="row_work_space_detail">Opcional: mantenha as apps de trabalho à parte, com um seletor Pessoal · Trabalho no Start</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

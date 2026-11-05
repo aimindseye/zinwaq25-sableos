@@ -77,4 +77,7 @@
     <string name="row_hub_menu_title">Hub-rijmenu</string>
     <string name="row_hub_menu_detail">Uitstellen en Herinner me staan uit tot je ze aanzet in Hub</string>
     <string name="action_hub_row_menu">Hub-instellingen</string>
+    <string name="row_work_space_title">Werkruimte</string>
+    <string name="row_work_space_detail">Optioneel: houd werk-apps apart, met een schakelaar Persoonlijk · Werk in Start</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

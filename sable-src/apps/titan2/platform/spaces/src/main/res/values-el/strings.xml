@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">Χώρος εργασίας</string>
+    <string name="work">Εργασία</string>
+    <string name="intro">Κρατήστε τις εφαρμογές εργασίας χωριστά από τις δικές σας: δικά τους δεδομένα και λογαριασμοί, σήμα Εργασίας και διακόπτης Προσωπικά · Εργασία στο Start που μπορεί να τις θέσει σε παύση.</string>
+    <string name="make">Δημιουργία χώρου εργασίας</string>
+    <string name="making">Το Android δημιουργεί τον χώρο εργασίας. Χρειάζεται ένα λεπτό.</string>
+    <string name="not_allowed">Αυτό το τηλέφωνο δεν μπορεί να δημιουργήσει χώρο εργασίας τώρα. Ίσως υπάρχει ήδη χώρος εργασίας ή διαχειριστής τηλεφώνου.</string>
+    <string name="cancelled">Δεν δημιουργήθηκε χώρος εργασίας.</string>
+    <string name="ready">Ο χώρος εργασίας σας είναι έτοιμος. Προσθέστε τις εφαρμογές που χρησιμοποιείτε για δουλειά: η καθεμία έχει δικό της αντίγραφο με δικά της δεδομένα.</string>
+    <string name="paused">Οι εφαρμογές εργασίας είναι σε παύση. Ενεργοποιήστε τις από το Start (Όλες οι εφαρμογές, Εργασία) για να προσθέσετε εφαρμογές.</string>
+    <string name="in_work">%1$s · στην Εργασία</string>
+    <string name="no_apps">Όλες οι εφαρμογές σας είναι ήδη στην Εργασία.</string>
+    <string name="could_not_open">Ο χώρος εργασίας δεν απάντησε. Δοκιμάστε ξανά σε λίγο.</string>
+    <string name="remove">Κατάργηση χώρου εργασίας</string>
+    <string name="add_confirm">Προσθήκη %1$s (%2$s) στην Εργασία; Το Enter την προσθέτει, το Πίσω ακυρώνει.</string>
+    <string name="added">Η %1$s είναι πλέον στην Εργασία.</string>
+    <string name="add_failed">Δεν ήταν δυνατή η προσθήκη της %1$s στην Εργασία.</string>
+    <string name="remove_confirm">Κατάργηση του χώρου εργασίας με όλες τις εφαρμογές εργασίας και τα δεδομένα τους; Το Y τον καταργεί, το N τον κρατά.</string>
+    <string name="yes">Ναι</string>
+    <string name="no">Όχι</string>
+    <string name="hint">Πάνω και Κάτω επιλέγουν εφαρμογή · Enter την προσθέτει · R καταργεί τον χώρο εργασίας · Πίσω έξοδος</string>
+</resources>

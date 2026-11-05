@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Portuguese. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">Espaço de trabalho</string>
+    <string name="work">Trabalho</string>
+    <string name="intro">Mantenha as apps de trabalho separadas das suas: dados e contas próprios, um emblema de Trabalho e um seletor Pessoal · Trabalho no Start que pode pausá-las.</string>
+    <string name="make">Criar um espaço de trabalho</string>
+    <string name="making">O Android está criando o espaço de trabalho. Leva um minuto.</string>
+    <string name="not_allowed">Este telefone não pode criar um espaço de trabalho agora. Talvez já exista um espaço de trabalho ou um gestor do telefone no comando.</string>
+    <string name="cancelled">Nenhum espaço de trabalho foi criado.</string>
+    <string name="ready">Seu espaço de trabalho está pronto. Adicione as apps que usa no trabalho: cada uma tem sua própria cópia com seus próprios dados.</string>
+    <string name="paused">As apps de trabalho estão pausadas. Ative-as no Start (Todas as apps, Trabalho) para adicionar apps.</string>
+    <string name="in_work">%1$s · no Trabalho</string>
+    <string name="no_apps">Todas as suas apps já estão no Trabalho.</string>
+    <string name="could_not_open">O espaço de trabalho não respondeu. Tente novamente em instantes.</string>
+    <string name="remove">Remover o espaço de trabalho</string>
+    <string name="add_confirm">Adicionar %1$s (%2$s) ao Trabalho? Enter adiciona, Voltar cancela.</string>
+    <string name="added">%1$s agora está no Trabalho.</string>
+    <string name="add_failed">Não foi possível adicionar %1$s ao Trabalho.</string>
+    <string name="remove_confirm">Remover o espaço de trabalho com todas as apps de trabalho e seus dados? Y remove, N mantém.</string>
+    <string name="yes">Sim</string>
+    <string name="no">Não</string>
+    <string name="hint">Cima e Baixo escolhem uma app · Enter adiciona · R remove o espaço de trabalho · Voltar sai</string>
+</resources>

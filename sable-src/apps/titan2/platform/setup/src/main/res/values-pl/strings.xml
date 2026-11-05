@@ -77,4 +77,7 @@
     <string name="row_hub_menu_title">Menu wiersza w Hub</string>
     <string name="row_hub_menu_detail">Odłóż i Przypomnij mi są wyłączone, dopóki nie włączysz ich w Hub</string>
     <string name="action_hub_row_menu">Ustawienia Hub</string>
+    <string name="row_work_space_title">Przestrzeń służbowa</string>
+    <string name="row_work_space_detail">Opcjonalnie: trzymaj aplikacje służbowe osobno, z przełącznikiem Osobiste · Praca w Start</string>
+    <string name="action_work_space">Sable Spaces</string>
 </resources>

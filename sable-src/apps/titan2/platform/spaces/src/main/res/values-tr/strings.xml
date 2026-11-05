@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish. Machine draft checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SpacesTextTest checks). -->
+<resources>
+    <string name="work_space">İş alanı</string>
+    <string name="work">İş</string>
+    <string name="intro">İş uygulamalarını kendi uygulamalarınızdan ayrı tutun: kendi verileri ve hesapları, bir İş rozeti ve Start\'ta onları duraklatabilen Kişisel · İş anahtarı.</string>
+    <string name="make">İş alanı oluştur</string>
+    <string name="making">Android iş alanını oluşturuyor. Bu bir dakika sürer.</string>
+    <string name="not_allowed">Bu telefon şu anda iş alanı oluşturamıyor. Zaten bir iş alanı veya telefon yöneticisi devrede olabilir.</string>
+    <string name="cancelled">İş alanı oluşturulmadı.</string>
+    <string name="ready">İş alanınız hazır. İş için kullandığınız uygulamaları ekleyin: her biri kendi verileriyle kendi kopyasını alır.</string>
+    <string name="paused">İş uygulamaları duraklatıldı. Uygulama eklemek için Start\'tan (Tüm uygulamalar, İş) açın.</string>
+    <string name="in_work">%1$s · İş\'te</string>
+    <string name="no_apps">Tüm uygulamalarınız zaten İş\'te.</string>
+    <string name="could_not_open">İş alanı yanıt vermedi. Birazdan tekrar deneyin.</string>
+    <string name="remove">İş alanını kaldır</string>
+    <string name="add_confirm">%1$s (%2$s) İş\'e eklensin mi? Enter ekler, Geri iptal eder.</string>
+    <string name="added">%1$s artık İş\'te.</string>
+    <string name="add_failed">%1$s İş\'e eklenemedi.</string>
+    <string name="remove_confirm">İş alanı tüm iş uygulamaları ve verileriyle kaldırılsın mı? Y kaldırır, N tutar.</string>
+    <string name="yes">Evet</string>
+    <string name="no">Hayır</string>
+    <string name="hint">Yukarı ve Aşağı uygulama seçer · Enter ekler · R iş alanını kaldırır · Geri çıkar</string>
+</resources>
