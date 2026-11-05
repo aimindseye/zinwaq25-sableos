@@ -74,6 +74,7 @@ import org.sableos.start.model.HomeApps
 import org.sableos.start.model.HomeHeader
 import org.sableos.start.model.SpeedDialKeys
 import org.sableos.start.model.StartTypeToSearch
+import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
 import org.sableos.start.platform.LetterShortcutRepository
 import org.sableos.start.platform.LiveSurfaceRepository
