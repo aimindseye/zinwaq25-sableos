@@ -253,4 +253,6 @@
     <string name="month_today">Bugün</string>
     <string name="month_tomorrow">Yarın</string>
     <string name="month_all_day">tüm gün</string>
+    <string name="hub_upcoming">Yaklaşan</string>
+    <string name="hub_upcoming_none">Bugün veya yarın bir şey yok</string>
 </resources>

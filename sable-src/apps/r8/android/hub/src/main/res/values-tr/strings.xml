@@ -190,4 +190,8 @@
     <string name="notification_dismissed">Bildirim kapatıldı.</string>
     <string name="sent_to_the_app">Uygulamaya gönderildi.</string>
     <string name="the_notification_is_gone">Bildirim artık yok.</string>
+    <string name="mark_prior_read">Öncekileri okundu işaretle</string>
+    <string name="marked_prior_read">Uygulamalardan %1$s eski bildirimi okundu işaretlemeleri istendi.</string>
+    <string name="each_message_on_its_own">Her mesaj ayrı</string>
+    <string name="one_row_per_received_message">Alınan her mesaj için bir satır. Konuşmaları birleştir kapanır.</string>
 </resources>

@@ -253,4 +253,6 @@
     <string name="month_today">今日</string>
     <string name="month_tomorrow">明日</string>
     <string name="month_all_day">終日</string>
+    <string name="hub_upcoming">予定</string>
+    <string name="hub_upcoming_none">今日と明日の予定はありません</string>
 </resources>

@@ -190,4 +190,8 @@
     <string name="notification_dismissed">ההתראה נסגרה.</string>
     <string name="sent_to_the_app">נשלח לאפליקציה.</string>
     <string name="the_notification_is_gone">ההתראה כבר לא קיימת.</string>
+    <string name="mark_prior_read">סמן קודמות כנקראו</string>
+    <string name="marked_prior_read">האפליקציות התבקשו לסמן %1$s התראות ישנות יותר כנקראו.</string>
+    <string name="each_message_on_its_own">כל הודעה בנפרד</string>
+    <string name="one_row_per_received_message">שורה לכל הודעה שהתקבלה. מכבה את איחוד השיחות.</string>
 </resources>

@@ -192,4 +192,8 @@
     <string name="notification_dismissed">Notification dismissed.</string>
     <string name="sent_to_the_app">Sent to the app.</string>
     <string name="the_notification_is_gone">The notification is no longer there.</string>
+    <string name="mark_prior_read">Mark prior read</string>
+    <string name="marked_prior_read">Asked the apps to mark %1$s older notifications read.</string>
+    <string name="each_message_on_its_own">Each message on its own</string>
+    <string name="one_row_per_received_message">One row per received message. Turns off Combine conversations.</string>
 </resources>

@@ -257,4 +257,6 @@
     <string name="month_today">Today</string>
     <string name="month_tomorrow">Tomorrow</string>
     <string name="month_all_day">all day</string>
+    <string name="hub_upcoming">Upcoming</string>
+    <string name="hub_upcoming_none">Nothing today or tomorrow</string>
 </resources>

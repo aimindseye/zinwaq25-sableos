@@ -63,6 +63,8 @@ internal fun ConnectedAppsScreen(
     onPrivateModeChanged: (Boolean) -> Unit = {},
     combineConversations: Boolean = true,
     onCombineConversationsChanged: (Boolean) -> Unit = {},
+    eachMessage: Boolean = false,
+    onEachMessageChanged: (Boolean) -> Unit = {},
     onAttentionChanged: (ConnectedAppKey, Set<AttentionOutput>) -> Unit = { _, _ -> },
     onOpenAndroidNotificationSettings: (ConnectedAppKey) -> Unit = {},
     onOpenAttentionSettings: () -> Unit = {},
@@ -119,6 +121,8 @@ internal fun ConnectedAppsScreen(
                         onPrivateModeChanged = onPrivateModeChanged,
                         combineConversations = combineConversations,
                         onCombineConversationsChanged = onCombineConversationsChanged,
+                        eachMessage = eachMessage,
+                        onEachMessageChanged = onEachMessageChanged,
                         onOpenAttentionSettings = onOpenAttentionSettings,
                     )
                 }
@@ -196,6 +200,8 @@ private fun NotificationAccessPanel(
     onPrivateModeChanged: (Boolean) -> Unit,
     combineConversations: Boolean,
     onCombineConversationsChanged: (Boolean) -> Unit,
+    eachMessage: Boolean,
+    onEachMessageChanged: (Boolean) -> Unit,
     onOpenAttentionSettings: () -> Unit,
 ) {
     SablePanel {
@@ -229,8 +235,15 @@ private fun NotificationAccessPanel(
             detail =
                 t("group_adjacent_messages_from_the"),
             checked = combineConversations,
-            enabled = true,
+            enabled = !eachMessage,
             onCheckedChange = onCombineConversationsChanged,
+        )
+        PolicySwitchRow(
+            label = t("each_message_on_its_own"),
+            detail = t("one_row_per_received_message"),
+            checked = eachMessage,
+            enabled = true,
+            onCheckedChange = onEachMessageChanged,
         )
         TextButton(onClick = onOpenAttentionSettings) {
             Text(t("sable_attention"))

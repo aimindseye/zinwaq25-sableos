@@ -253,4 +253,6 @@
     <string name="month_today">I dag</string>
     <string name="month_tomorrow">I morgon</string>
     <string name="month_all_day">heldag</string>
+    <string name="hub_upcoming">Kommande</string>
+    <string name="hub_upcoming_none">Inget i dag eller i morgon</string>
 </resources>

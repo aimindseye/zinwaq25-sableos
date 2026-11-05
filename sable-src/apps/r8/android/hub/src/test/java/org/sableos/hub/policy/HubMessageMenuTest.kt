@@ -2,6 +2,7 @@ package org.sableos.hub.policy
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.sableos.hub.HubConversation
 import org.sableos.hub.HubConversationSource
@@ -101,5 +102,29 @@ class HubMessageMenuTest {
         val smsEntries = HubMessageMenu.entries(HubInboxItem.Conversation(sms), facts = live)
         assertNull(HubMessageMenu.forKey(HubRowKey.Z, smsEntries))
         assertEquals("Del", HubMessageMenu.shortcutLabel(HubRowAction.Dismiss))
+    }
+
+    @Test
+    fun markPriorReadListsOlderLiveRowsTheSourceCanMarkRead() {
+        val newest = HubInboxItem.Conversation(gmail.copy(lastDateMillis = 5_000L, sourceNotificationKey = "new"))
+        fun row(
+            thread: Long,
+            at: Long,
+            key: String,
+        ) = HubInboxItem.Conversation(gmail.copy(threadId = thread, lastDateMillis = at, sourceNotificationKey = key))
+        val older = row(-8L, 4_000L, "old")
+        val gone = row(-9L, 3_000L, "gone")
+        val oldSms = HubInboxItem.Conversation(sms.copy(lastDateMillis = 1L))
+        val facts: (String) -> HubNotificationFacts = { if (it == "gone") HubNotificationFacts() else live }
+        val items = listOf(newest, older, gone, oldSms)
+        assertEquals(listOf("old"), HubMessageMenu.priorToMarkRead(newest, items, facts))
+        assertEquals(emptyList<String>(), HubMessageMenu.priorToMarkRead(older, items, facts))
+
+        val menu = labels(HubMessageMenu.entries(newest, facts = live, priorToMarkRead = 1))
+        assertEquals("MarkPriorRead", menu[menu.indexOf("OpenSourceApp") - 1])
+        val smsMenu = labels(HubMessageMenu.entries(HubInboxItem.Conversation(sms), priorToMarkRead = 2))
+        assertEquals("MarkPriorRead", smsMenu[smsMenu.indexOf("OpenInMessages") - 1])
+        val locked = HubPrivacyState(deviceLocked = true)
+        assertTrue("MarkPriorRead" !in labels(HubMessageMenu.entries(newest, locked, live, 1)))
     }
 }

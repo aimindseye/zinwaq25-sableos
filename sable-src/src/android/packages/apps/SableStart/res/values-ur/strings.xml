@@ -253,4 +253,6 @@
     <string name="month_today">آج</string>
     <string name="month_tomorrow">کل</string>
     <string name="month_all_day">پورا دن</string>
+    <string name="hub_upcoming">آنے والا</string>
+    <string name="hub_upcoming_none">آج یا کل کچھ نہیں</string>
 </resources>

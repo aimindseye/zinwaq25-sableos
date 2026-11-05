@@ -190,4 +190,8 @@
     <string name="notification_dismissed">Powiadomienie odrzucone.</string>
     <string name="sent_to_the_app">Wysłano do aplikacji.</string>
     <string name="the_notification_is_gone">Powiadomienia już nie ma.</string>
+    <string name="mark_prior_read">Oznacz wcześniejsze jako przeczytane</string>
+    <string name="marked_prior_read">Poproszono aplikacje o oznaczenie %1$s starszych powiadomień jako przeczytanych.</string>
+    <string name="each_message_on_its_own">Każda wiadomość osobno</string>
+    <string name="one_row_per_received_message">Jeden wiersz na każdą odebraną wiadomość. Wyłącza łączenie rozmów.</string>
 </resources>

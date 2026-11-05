@@ -80,6 +80,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
@@ -134,6 +135,7 @@ import org.sableos.start.live.HubMessageRow
 import org.sableos.start.live.LiveAvailability
 import org.sableos.start.live.LiveDatum
 import org.sableos.start.live.LiveSurfaceSnapshot
+import org.sableos.start.live.UpcomingEvent
 import org.sableos.start.model.ActiveFrame
 import org.sableos.start.model.ActiveFrames
 import org.sableos.start.model.AppEntry
@@ -2218,6 +2220,7 @@ private fun HubPage(
                 appFor = { personalApps[it] },
                 onOpen = ::openBarItem,
             )
+            HubUpcoming(snapshot = snapshot, onOpen = { findLiveApp(apps, CALENDAR_PACKAGE)?.let(onLaunchApp) })
             Spacer(Modifier.height(8.dp))
             HubTabs(filter = filter, firstTab = tabFocus, onFilter = onFilter)
         }
@@ -2246,6 +2249,64 @@ private fun HubPage(
                 mailApp = mailApp,
                 actions = actions,
             )
+        }
+    }
+}
+
+/**
+ * The Hub page's Upcoming strip: today's and tomorrow's events from Calendar's snapshot, one line
+ * each, or "Nothing today or tomorrow". Hidden while Calendar is missing or has no permission (the
+ * Month widget asks for it). A tap opens Calendar; it takes no key focus, so the tabs stay first.
+ */
+@Composable
+private fun HubUpcoming(
+    snapshot: LiveSurfaceSnapshot,
+    onOpen: () -> Unit,
+) {
+    val availability = snapshot.calendar.availability
+    if (availability != LiveAvailability.LIVE && availability != LiveAvailability.EMPTY) return
+    val context = LocalContext.current
+    val today = LocalDate.now()
+    val zone = ZoneId.systemDefault()
+    fun dayOf(event: UpcomingEvent): LocalDate =
+        Instant.ofEpochMilli(event.beginMillis).atZone(if (event.allDay) ZoneOffset.UTC else zone).toLocalDate()
+    val soon = StartMonth.todayAndTomorrow(snapshot.calendarNext, today, ::dayOf)
+    Column(
+        Modifier
+            .padding(top = 8.dp)
+            .fillMaxWidth()
+            .focusProperties { canFocus = false }
+            .clickable(onClick = onOpen)
+            .semantics(mergeDescendants = true) {},
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            text = t("hub_upcoming"),
+            style = MaterialTheme.typography.labelSmall,
+            color = Bb10Muted,
+            modifier = Modifier.semantics { heading() },
+        )
+        if (soon.isEmpty()) {
+            Text(text = t("hub_upcoming_none"), style = MaterialTheme.typography.bodySmall, color = Bb10Muted, maxLines = 1)
+        }
+        soon.forEach { event ->
+            val day = StartMonth.dayWord(dayOf(event), today, { it.toString() }, t("month_today") to t("month_tomorrow"))
+            val time =
+                if (event.allDay) {
+                    t("month_all_day")
+                } else {
+                    android.text.format.DateFormat.getTimeFormat(context).format(Date(event.beginMillis))
+                }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "$day $time", style = MaterialTheme.typography.labelSmall, color = SableBlue, maxLines = 1)
+                Text(
+                    text = event.title,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Bb10Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

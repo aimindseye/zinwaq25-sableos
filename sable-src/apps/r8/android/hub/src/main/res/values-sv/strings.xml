@@ -190,4 +190,8 @@
     <string name="notification_dismissed">Aviseringen stängdes.</string>
     <string name="sent_to_the_app">Skickat till appen.</string>
     <string name="the_notification_is_gone">Aviseringen finns inte längre.</string>
+    <string name="mark_prior_read">Markera tidigare som lästa</string>
+    <string name="marked_prior_read">Apparna ombads markera %1$s äldre aviseringar som lästa.</string>
+    <string name="each_message_on_its_own">Varje meddelande för sig</string>
+    <string name="one_row_per_received_message">En rad per mottaget meddelande. Stänger av Slå ihop konversationer.</string>
 </resources>

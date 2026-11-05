@@ -114,6 +114,9 @@ class MainActivity : ComponentActivity() {
             var combineConversations by remember {
                 mutableStateOf(true)
             }
+            var eachMessage by remember {
+                mutableStateOf(false)
+            }
 
             LaunchedEffect(refreshGeneration) {
                 refreshing = refreshGeneration == userRefreshGeneration
@@ -121,10 +124,9 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.IO) {
                         repository.snapshot()
                     }
-                combineConversations =
-                    withContext(Dispatchers.IO) {
-                        HubPreferences(applicationContext).combineConversations()
-                    }
+                val preferences = withContext(Dispatchers.IO) { HubPreferences(applicationContext) }
+                combineConversations = preferences.combineConversations()
+                eachMessage = preferences.eachMessage()
                 refreshing = false
             }
 
@@ -240,6 +242,7 @@ class MainActivity : ComponentActivity() {
                         pendingAddress = null
                     },
                     combineConversations = combineConversations,
+                    eachMessage = eachMessage,
                     loadAppIcon = ::loadAppIcon,
                     notificationFacts = HubNotificationCommands::facts,
                     onNotificationCommand = { key, entry ->

@@ -3,6 +3,7 @@ package org.sableos.hub.policy
 import org.sableos.hub.HubCall
 import org.sableos.hub.HubConversation
 import org.sableos.hub.HubConversationSource
+import org.sableos.hub.HubMessage
 import org.sableos.hub.HubPerson
 import org.sableos.hub.HubText.t
 
@@ -50,7 +51,9 @@ sealed interface HubInboxItem {
         val conversation: HubConversation,
     ) : HubInboxItem {
         override val key: String
-            get() = "conversation:" + conversation.threadId + ":" + conversation.address
+            get() =
+                "conversation:" + conversation.threadId + ":" + conversation.address +
+                    (conversation.messageId?.let { ":$it" } ?: "")
         override val dateMillis: Long
             get() = conversation.lastDateMillis
     }
@@ -72,6 +75,35 @@ data class HubInboxContext(
 )
 
 object HubInbox {
+    /**
+     * Each message on its own (Hub setting): one row per received message, newest first,
+     * each still opening its conversation. A conversation with no received message in the
+     * snapshot keeps its one row. A conversation whose list preview is hidden (blank) keeps every
+     * message's text hidden too, so the setting never shows more than the conversation row would.
+     */
+    fun eachMessage(
+        conversations: List<HubConversation>,
+        messages: List<HubMessage>,
+    ): List<HubConversation> {
+        val received = messages.filter { it.incoming }.groupBy { it.source to it.threadId }
+        return conversations
+            .flatMap { conversation ->
+                val own = received[conversation.source to conversation.threadId].orEmpty()
+                if (own.isEmpty()) {
+                    listOf(conversation)
+                } else {
+                    own.map { message ->
+                        conversation.copy(
+                            lastBody = if (conversation.lastBody.isEmpty()) "" else message.body,
+                            lastDateMillis = message.dateMillis,
+                            unreadCount = if (message.read) 0 else 1,
+                            messageId = message.id,
+                        )
+                    }
+                }
+            }.sortedByDescending { it.lastDateMillis }
+    }
+
     /**
      * Rows for [filter] matching [query], newest first. The query is a [HubSearch] query: words
      * match name, number, text or source; `unread`, `missed`, `today`, `from:` and `app:` narrow.

@@ -190,4 +190,8 @@
     <string name="notification_dismissed">Уведомление закрыто.</string>
     <string name="sent_to_the_app">Отправлено в приложение.</string>
     <string name="the_notification_is_gone">Уведомления больше нет.</string>
+    <string name="mark_prior_read">Отметить предыдущие прочитанными</string>
+    <string name="marked_prior_read">Приложения попросили отметить прочитанными %1$s более старых уведомлений.</string>
+    <string name="each_message_on_its_own">Каждое сообщение отдельно</string>
+    <string name="one_row_per_received_message">Одна строка на каждое полученное сообщение. Отключает объединение бесед.</string>
 </resources>

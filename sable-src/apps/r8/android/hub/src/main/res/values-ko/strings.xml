@@ -190,4 +190,8 @@
     <string name="notification_dismissed">알림을 닫았습니다.</string>
     <string name="sent_to_the_app">앱으로 보냈습니다.</string>
     <string name="the_notification_is_gone">알림이 더 이상 없습니다.</string>
+    <string name="mark_prior_read">이전 항목 읽음으로 표시</string>
+    <string name="marked_prior_read">앱에 이전 알림 %1$s개를 읽음으로 표시하도록 요청했습니다.</string>
+    <string name="each_message_on_its_own">메시지마다 따로</string>
+    <string name="one_row_per_received_message">받은 메시지마다 한 줄. 대화 묶기를 끕니다.</string>
 </resources>

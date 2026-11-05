@@ -190,4 +190,8 @@
     <string name="notification_dismissed">通知を閉じました。</string>
     <string name="sent_to_the_app">アプリに送信しました。</string>
     <string name="the_notification_is_gone">通知はもうありません。</string>
+    <string name="mark_prior_read">以前のものを既読にする</string>
+    <string name="marked_prior_read">古い通知 %1$s 件を既読にするようアプリに依頼しました。</string>
+    <string name="each_message_on_its_own">メッセージごとに表示</string>
+    <string name="one_row_per_received_message">受信メッセージごとに1行。会話をまとめるをオフにします。</string>
 </resources>

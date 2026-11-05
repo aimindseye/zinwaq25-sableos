@@ -253,4 +253,6 @@
     <string name="month_today">Сегодня</string>
     <string name="month_tomorrow">Завтра</string>
     <string name="month_all_day">весь день</string>
+    <string name="hub_upcoming">Скоро</string>
+    <string name="hub_upcoming_none">Ничего сегодня и завтра</string>
 </resources>

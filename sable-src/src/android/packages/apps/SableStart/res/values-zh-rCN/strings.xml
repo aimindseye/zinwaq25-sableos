@@ -253,4 +253,6 @@
     <string name="month_today">今天</string>
     <string name="month_tomorrow">明天</string>
     <string name="month_all_day">全天</string>
+    <string name="hub_upcoming">即将到来</string>
+    <string name="hub_upcoming_none">今天和明天没有安排</string>
 </resources>

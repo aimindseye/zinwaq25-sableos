@@ -83,6 +83,9 @@ class ConnectedAppsActivity : ComponentActivity() {
             var combineConversations by remember {
                 mutableStateOf(true)
             }
+            var eachMessage by remember {
+                mutableStateOf(false)
+            }
 
             LaunchedEffect(refreshGeneration) {
                 loading = true
@@ -107,6 +110,7 @@ class ConnectedAppsActivity : ComponentActivity() {
                     )
                 privateMode = preferences.privateMode()
                 combineConversations = preferences.combineConversations()
+                eachMessage = preferences.eachMessage()
                 notificationAccessGranted = hasNotificationAccess()
                 loading = false
             }
@@ -131,6 +135,11 @@ class ConnectedAppsActivity : ComponentActivity() {
                     combineConversations = combineConversations,
                     onCombineConversationsChanged = { enabled ->
                         preferences.setCombineConversations(enabled)
+                        refreshGeneration += 1
+                    },
+                    eachMessage = eachMessage,
+                    onEachMessageChanged = { enabled ->
+                        preferences.setEachMessage(enabled)
                         refreshGeneration += 1
                     },
                     onAttentionChanged = ::updateAttention,

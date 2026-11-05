@@ -190,4 +190,8 @@
     <string name="notification_dismissed">Η ειδοποίηση παραβλέφθηκε.</string>
     <string name="sent_to_the_app">Στάλθηκε στην εφαρμογή.</string>
     <string name="the_notification_is_gone">Η ειδοποίηση δεν υπάρχει πια.</string>
+    <string name="mark_prior_read">Σήμανση προηγούμενων ως αναγνωσμένων</string>
+    <string name="marked_prior_read">Ζητήθηκε από τις εφαρμογές να σημάνουν %1$s παλαιότερες ειδοποιήσεις ως αναγνωσμένες.</string>
+    <string name="each_message_on_its_own">Κάθε μήνυμα χωριστά</string>
+    <string name="one_row_per_received_message">Μία γραμμή ανά ληφθέν μήνυμα. Απενεργοποιεί τη Συνένωση συνομιλιών.</string>
 </resources>

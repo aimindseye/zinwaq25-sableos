@@ -253,4 +253,6 @@
     <string name="month_today">오늘</string>
     <string name="month_tomorrow">내일</string>
     <string name="month_all_day">종일</string>
+    <string name="hub_upcoming">다가오는 일정</string>
+    <string name="hub_upcoming_none">오늘과 내일 일정 없음</string>
 </resources>

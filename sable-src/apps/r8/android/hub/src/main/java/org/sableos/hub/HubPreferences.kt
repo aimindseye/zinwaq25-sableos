@@ -57,9 +57,18 @@ class HubPreferences(
         appContext.contentResolver.notifyChange(ConnectedAppsRepository.HISTORY_URI, null)
     }
 
+    /** Each message on its own: one inbox row per received message (default off). */
+    fun eachMessage(): Boolean = preferences.getBoolean(KEY_EACH_MESSAGE, false)
+
+    fun setEachMessage(enabled: Boolean) {
+        preferences.edit().putBoolean(KEY_EACH_MESSAGE, enabled).apply()
+        appContext.contentResolver.notifyChange(ConnectedAppsRepository.HISTORY_URI, null)
+    }
+
     private companion object {
         const val KEY_ATTENTION_RECORDS = "attention_records"
         const val KEY_PRIVATE_MODE = "private_mode"
         const val KEY_COMBINE_CONVERSATIONS = "combine_conversations"
+        const val KEY_EACH_MESSAGE = "each_message"
     }
 }

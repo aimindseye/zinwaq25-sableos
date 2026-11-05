@@ -190,4 +190,8 @@
     <string name="notification_dismissed">सूचना हटा दी गई।</string>
     <string name="sent_to_the_app">ऐप को भेजा गया।</string>
     <string name="the_notification_is_gone">सूचना अब मौजूद नहीं है।</string>
+    <string name="mark_prior_read">पिछले को पढ़ा हुआ चिह्नित करें</string>
+    <string name="marked_prior_read">ऐप्स से %1$s पुरानी सूचनाओं को पढ़ा हुआ चिह्नित करने को कहा गया।</string>
+    <string name="each_message_on_its_own">हर संदेश अलग</string>
+    <string name="one_row_per_received_message">हर प्राप्त संदेश के लिए एक पंक्ति। बातचीत जोड़ना बंद करता है।</string>
 </resources>

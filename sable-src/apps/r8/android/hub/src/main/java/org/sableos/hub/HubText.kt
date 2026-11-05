@@ -233,6 +233,10 @@ object HubText {
             "notification_dismissed" to "Notification dismissed.",
             "sent_to_the_app" to "Sent to the app.",
             "the_notification_is_gone" to "The notification is no longer there.",
+            "mark_prior_read" to "Mark prior read",
+            "marked_prior_read" to "Asked the apps to mark %1\$s older notifications read.",
+            "each_message_on_its_own" to "Each message on its own",
+            "one_row_per_received_message" to "One row per received message. Turns off Combine conversations.",
         )
 
     val t = SableTexts(EN)

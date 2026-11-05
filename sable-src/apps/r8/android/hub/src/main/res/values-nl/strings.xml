@@ -190,4 +190,8 @@
     <string name="notification_dismissed">Melding gesloten.</string>
     <string name="sent_to_the_app">Naar de app gestuurd.</string>
     <string name="the_notification_is_gone">De melding is er niet meer.</string>
+    <string name="mark_prior_read">Eerdere als gelezen markeren</string>
+    <string name="marked_prior_read">De apps is gevraagd %1$s oudere meldingen als gelezen te markeren.</string>
+    <string name="each_message_on_its_own">Elk bericht apart</string>
+    <string name="one_row_per_received_message">Eén rij per ontvangen bericht. Zet Gesprekken samenvoegen uit.</string>
 </resources>

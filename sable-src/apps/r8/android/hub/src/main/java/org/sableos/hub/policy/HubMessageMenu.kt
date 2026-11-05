@@ -67,6 +67,48 @@ object HubMessageMenu {
         item: HubInboxItem,
         privacy: HubPrivacyState = HubPrivacyState(),
         facts: HubNotificationFacts = HubNotificationFacts(),
+        priorToMarkRead: Int = 0,
+    ): List<HubMenuEntry> {
+        val entries = rowEntries(item, privacy, facts)
+        if (priorToMarkRead <= 0 || privacy.deviceLocked) return entries
+        // Mark prior read goes after the row's own commands, before the routes that leave Hub.
+        val handOff = entries.indexOfFirst { it is HubMenuEntry.Hub && it.action in HAND_OFFS }
+        val at = if (handOff >= 0) handOff else entries.size
+        return entries.take(at) + HubMenuEntry.Hub(HubRowAction.MarkPriorRead) + entries.drop(at)
+    }
+
+    /**
+     * Mark prior read (BB10): the live notifications of rows older than [item] whose source offers
+     * its own mark-as-read action, by key. Running it sends each source's own action once, like
+     * Mark read on each row; it never dismisses or snoozes anything (DESIGN-KF-A).
+     */
+    fun priorToMarkRead(
+        item: HubInboxItem,
+        items: List<HubInboxItem>,
+        facts: (String) -> HubNotificationFacts,
+    ): List<String> =
+        items
+            .asSequence()
+            .filter { it.dateMillis < item.dateMillis }
+            .mapNotNull { (it as? HubInboxItem.Conversation)?.conversation }
+            .filter { it.source != HubConversationSource.Sms }
+            .mapNotNull { it.sourceNotificationKey }
+            .distinct()
+            .filter { key -> facts(key).let { it.live && it.markReadIndex >= 0 } }
+            .toList()
+
+    private val HAND_OFFS =
+        setOf(
+            HubRowAction.OpenInMessages,
+            HubRowAction.OpenSourceApp,
+            HubRowAction.SourceNotifications,
+            HubRowAction.PrivacyOptions,
+        )
+
+    private fun rowEntries(
+        item: HubInboxItem,
+        privacy: HubPrivacyState,
+        facts: HubNotificationFacts,
     ): List<HubMenuEntry> {
         val base = HubRowActions.forItem(item, privacy)
         val conversation = (item as? HubInboxItem.Conversation)?.conversation

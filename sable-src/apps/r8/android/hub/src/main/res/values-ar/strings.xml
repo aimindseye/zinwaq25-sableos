@@ -190,4 +190,8 @@
     <string name="notification_dismissed">تم تجاهل الإشعار.</string>
     <string name="sent_to_the_app">أُرسل إلى التطبيق.</string>
     <string name="the_notification_is_gone">لم يعد الإشعار موجودًا.</string>
+    <string name="mark_prior_read">وضع علامة مقروء على السابق</string>
+    <string name="marked_prior_read">طُلب من التطبيقات وضع علامة مقروء على %1$s من الإشعارات الأقدم.</string>
+    <string name="each_message_on_its_own">كل رسالة على حدة</string>
+    <string name="one_row_per_received_message">صف لكل رسالة مستلمة. يوقف دمج المحادثات.</string>
 </resources>

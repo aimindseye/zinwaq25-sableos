@@ -190,4 +190,8 @@
     <string name="notification_dismissed">Benachrichtigung geschlossen.</string>
     <string name="sent_to_the_app">An die App gesendet.</string>
     <string name="the_notification_is_gone">Die Benachrichtigung ist nicht mehr da.</string>
+    <string name="mark_prior_read">Ältere als gelesen markieren</string>
+    <string name="marked_prior_read">Die Apps wurden gebeten, %1$s ältere Benachrichtigungen als gelesen zu markieren.</string>
+    <string name="each_message_on_its_own">Jede Nachricht einzeln</string>
+    <string name="one_row_per_received_message">Eine Zeile pro empfangener Nachricht. Schaltet „Unterhaltungen zusammenfassen“ aus.</string>
 </resources>

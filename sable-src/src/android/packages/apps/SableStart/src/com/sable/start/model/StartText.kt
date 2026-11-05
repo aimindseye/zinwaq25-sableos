@@ -68,6 +68,8 @@ object StartText {
             "month_today" to "Today",
             "month_tomorrow" to "Tomorrow",
             "month_all_day" to "all day",
+            "hub_upcoming" to "Upcoming",
+            "hub_upcoming_none" to "Nothing today or tomorrow",
             "media" to "Media",
             "mail" to "Mail",
             "photos" to "Photos",

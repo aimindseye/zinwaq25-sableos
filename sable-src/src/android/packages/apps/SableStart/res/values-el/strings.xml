@@ -253,4 +253,6 @@
     <string name="month_today">Σήμερα</string>
     <string name="month_tomorrow">Αύριο</string>
     <string name="month_all_day">ολοήμερο</string>
+    <string name="hub_upcoming">Επερχόμενα</string>
+    <string name="hub_upcoming_none">Τίποτα σήμερα ή αύριο</string>
 </resources>

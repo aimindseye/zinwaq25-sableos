@@ -253,4 +253,6 @@
     <string name="month_today">اليوم</string>
     <string name="month_tomorrow">غدًا</string>
     <string name="month_all_day">طوال اليوم</string>
+    <string name="hub_upcoming">القادم</string>
+    <string name="hub_upcoming_none">لا شيء اليوم أو غدًا</string>
 </resources>

@@ -360,6 +360,7 @@ private class HubActions(
     val drafts: Map<String, String>,
     val onDraftChange: (String, String) -> Unit,
     val combineConversations: Boolean,
+    val eachMessage: Boolean,
     val loadAppIcon: suspend (String, Long) -> ImageBitmap?,
     val notificationFacts: (String) -> HubNotificationFacts,
     val onNotificationCommand: (String, HubMenuEntry) -> String?,
@@ -388,6 +389,7 @@ fun HubScreen(
     pendingAddress: String? = null,
     onPendingAddressConsumed: () -> Unit = {},
     combineConversations: Boolean = true,
+    eachMessage: Boolean = false,
     loadAppIcon: suspend (String, Long) -> ImageBitmap? = { _, _ -> null },
     notificationFacts: (String) -> HubNotificationFacts = { HubNotificationFacts() },
     onNotificationCommand: (String, HubMenuEntry) -> String? = { _, _ -> null },
@@ -449,6 +451,7 @@ fun HubScreen(
             drafts = drafts,
             onDraftChange = onDraftChange,
             combineConversations = combineConversations,
+            eachMessage = eachMessage,
             loadAppIcon = loadAppIcon,
             notificationFacts = notificationFacts,
             onNotificationCommand = onNotificationCommand,
@@ -1159,10 +1162,14 @@ private fun ColumnScope.InboxPivot(
     val dockSource = state.dockSource
     val todayStart = remember(snapshot) { startOfToday() }
     val items =
-        remember(snapshot, filter, query, dockSource) {
+        remember(snapshot, filter, query, dockSource, actions.eachMessage) {
             HubSourceDock.narrow(
                 HubInbox.items(
-                    snapshot.conversations,
+                    if (actions.eachMessage && !snapshot.privacy.countsOnly) {
+                        HubInbox.eachMessage(snapshot.conversations, snapshot.messages)
+                    } else {
+                        snapshot.conversations
+                    },
                     snapshot.calls,
                     filter,
                     query,
@@ -1172,8 +1179,10 @@ private fun ColumnScope.InboxPivot(
             )
         }
     val clusters =
-        remember(items, actions.combineConversations) {
-            HubConversationRollup.clusters(items.take(MAX_VISIBLE_CONVERSATIONS), actions.combineConversations)
+        remember(items, actions.combineConversations, actions.eachMessage) {
+            // Each message on its own never rolls rows back up into one conversation.
+            val combine = actions.combineConversations && !actions.eachMessage
+            HubConversationRollup.clusters(items.take(MAX_VISIBLE_CONVERSATIONS), combine)
         }
     val dockEntries =
         remember(snapshot) {
@@ -1321,8 +1330,8 @@ private fun ColumnScope.InboxPivot(
     state.actionsItem?.let { item ->
         HubRowActionsSheet(
             item = item,
-            entries = menuFor(item, snapshot.privacy, actions),
-            onEntry = { entry -> runMenuEntry(entry, item, state, actions, onConversation, onTextCaller) },
+            entries = menuFor(item, items, snapshot.privacy, actions),
+            onEntry = { entry -> runMenuEntry(entry, item, items, state, actions, onConversation, onTextCaller) },
             onDismiss = { state.actionsItem = null },
         )
     }
@@ -1331,17 +1340,20 @@ private fun ColumnScope.InboxPivot(
 /** The row's menu: Hub actions, plus what its live notification allows (HubMessageMenu). */
 private fun menuFor(
     item: HubInboxItem,
+    items: List<HubInboxItem>,
     privacy: HubPrivacyState,
     actions: HubActions,
 ): List<HubMenuEntry> {
     val key = (item as? HubInboxItem.Conversation)?.conversation?.sourceNotificationKey
     val facts = key?.let(actions.notificationFacts) ?: HubNotificationFacts()
-    return HubMessageMenu.entries(item, privacy, facts)
+    val prior = HubMessageMenu.priorToMarkRead(item, items, actions.notificationFacts).size
+    return HubMessageMenu.entries(item, privacy, facts, prior)
 }
 
 private fun runMenuEntry(
     entry: HubMenuEntry,
     item: HubInboxItem,
+    items: List<HubInboxItem>,
     state: HubUiState,
     actions: HubActions,
     onConversation: (HubConversation) -> Unit,
@@ -1350,6 +1362,14 @@ private fun runMenuEntry(
     val notificationCommand =
         entry is HubMenuEntry.App ||
             (entry is HubMenuEntry.Hub && entry.action in NOTIFICATION_COMMANDS)
+    if (entry == HubMenuEntry.Hub(HubRowAction.MarkPriorRead)) {
+        state.actionsItem = null
+        // Each older row's own Mark read, one notification by key (HubNotificationCommands).
+        val keys = HubMessageMenu.priorToMarkRead(item, items, actions.notificationFacts)
+        keys.forEach { key -> actions.onNotificationCommand(key, HubMenuEntry.Hub(HubRowAction.MarkRead)) }
+        state.statusMessage = t("marked_prior_read", keys.size.toString())
+        return
+    }
     if (!notificationCommand) {
         runRowAction((entry as HubMenuEntry.Hub).action, item, state, actions, onConversation, onTextCaller)
         return
@@ -1432,8 +1452,13 @@ private fun runConversationAction(
             actions.onOpenConnectedApps()
         }
 
-        HubRowAction.Text, HubRowAction.MarkRead, HubRowAction.Snooze, HubRowAction.Dismiss -> {
-            // Text is a call action; the three notification commands go through runMenuEntry.
+        HubRowAction.Text,
+        HubRowAction.MarkRead,
+        HubRowAction.MarkPriorRead,
+        HubRowAction.Snooze,
+        HubRowAction.Dismiss,
+        -> {
+            // Text is a call action; the notification commands go through runMenuEntry.
             Unit
         }
     }

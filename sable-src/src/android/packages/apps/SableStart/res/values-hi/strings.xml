@@ -253,4 +253,6 @@
     <string name="month_today">आज</string>
     <string name="month_tomorrow">कल</string>
     <string name="month_all_day">पूरे दिन</string>
+    <string name="hub_upcoming">आगामी</string>
+    <string name="hub_upcoming_none">आज या कल कुछ नहीं</string>
 </resources>

@@ -39,4 +39,13 @@ object StartMonth {
             today.plusDays(1) -> words.second
             else -> weekday(day)
         }
+
+    /**
+     * Hub's Upcoming strip: the events that start today or tomorrow, in Calendar's order.
+     * [dayOf] gives an event's local day (all-day events are stored at UTC midnight).
+     */
+    fun <T> todayAndTomorrow(events: List<T>, today: LocalDate, dayOf: (T) -> LocalDate): List<T> {
+        val tomorrow = today.plusDays(1)
+        return events.filter { dayOf(it).let { day -> day == today || day == tomorrow } }
+    }
 }

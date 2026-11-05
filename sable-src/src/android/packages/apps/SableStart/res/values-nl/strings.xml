@@ -253,4 +253,6 @@
     <string name="month_today">Vandaag</string>
     <string name="month_tomorrow">Morgen</string>
     <string name="month_all_day">hele dag</string>
+    <string name="hub_upcoming">Binnenkort</string>
+    <string name="hub_upcoming_none">Niets vandaag of morgen</string>
 </resources>

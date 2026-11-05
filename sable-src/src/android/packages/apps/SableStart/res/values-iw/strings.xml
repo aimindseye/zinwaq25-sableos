@@ -253,4 +253,6 @@
     <string name="month_today">היום</string>
     <string name="month_tomorrow">מחר</string>
     <string name="month_all_day">כל היום</string>
+    <string name="hub_upcoming">בקרוב</string>
+    <string name="hub_upcoming_none">אין כלום היום או מחר</string>
 </resources>

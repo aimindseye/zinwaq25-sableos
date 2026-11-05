@@ -253,4 +253,6 @@
     <string name="month_today">Heute</string>
     <string name="month_tomorrow">Morgen</string>
     <string name="month_all_day">ganztägig</string>
+    <string name="hub_upcoming">Demnächst</string>
+    <string name="hub_upcoming_none">Nichts heute oder morgen</string>
 </resources>

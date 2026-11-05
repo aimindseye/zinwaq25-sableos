@@ -190,4 +190,8 @@
     <string name="notification_dismissed">اطلاع ہٹا دی گئی۔</string>
     <string name="sent_to_the_app">ایپ کو بھیج دیا گیا۔</string>
     <string name="the_notification_is_gone">اطلاع اب موجود نہیں ہے۔</string>
+    <string name="mark_prior_read">پچھلے کو پڑھا ہوا نشان زد کریں</string>
+    <string name="marked_prior_read">ایپس سے %1$s پرانی اطلاعات کو پڑھا ہوا نشان زد کرنے کو کہا گیا۔</string>
+    <string name="each_message_on_its_own">ہر پیغام الگ</string>
+    <string name="one_row_per_received_message">ہر موصول پیغام کے لیے ایک قطار۔ گفتگو یکجا کرنا بند کرتا ہے۔</string>
 </resources>

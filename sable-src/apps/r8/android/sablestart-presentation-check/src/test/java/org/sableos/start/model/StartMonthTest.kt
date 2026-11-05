@@ -33,6 +33,14 @@ class StartMonthTest {
     }
 
     @Test
+    fun hubsUpcomingStripKeepsTodayAndTomorrow() {
+        val today = LocalDate.of(2026, 11, 4)
+        val days = listOf(today, today.plusDays(1), today.plusDays(2), today.minusDays(1), today)
+        assertEquals(listOf(0, 1, 4), StartMonth.todayAndTomorrow(days.indices.toList(), today) { days[it] })
+        assertEquals(emptyList<Int>(), StartMonth.todayAndTomorrow(emptyList<Int>(), today) { today })
+    }
+
+    @Test
     fun theMonthFrameGetsAWholeRow() {
         val rows = GlanceWidgets.rows(listOf("weather", "month", "battery", "media", "hub"), 2)
         assertEquals(listOf(listOf("weather"), listOf("month"), listOf("battery", "media"), listOf("hub")), rows)

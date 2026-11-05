@@ -190,4 +190,8 @@
     <string name="notification_dismissed">Notificación descartada.</string>
     <string name="sent_to_the_app">Enviado a la app.</string>
     <string name="the_notification_is_gone">La notificación ya no está.</string>
+    <string name="mark_prior_read">Marcar anteriores como leídos</string>
+    <string name="marked_prior_read">Se pidió a las apps marcar como leídas %1$s notificaciones anteriores.</string>
+    <string name="each_message_on_its_own">Cada mensaje por separado</string>
+    <string name="one_row_per_received_message">Una fila por mensaje recibido. Desactiva Combinar conversaciones.</string>
 </resources>
