@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">Seuls les appels sonnent ; messages et alertes restent silencieux</string>
     <string name="all_alerts_off">Toutes les alertes désactivées</string>
     <string name="nothing_rings_or_vibrates_alarms">Aucune sonnerie ni vibration ; les alarmes continuent de sonner</string>
+    <string name="bedside">Table de chevet</string>
+    <string name="alarms_only_and_the_dimmest">Alarmes uniquement, écran au plus sombre</string>
 </resources>

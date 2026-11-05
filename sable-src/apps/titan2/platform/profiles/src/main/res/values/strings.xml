@@ -34,4 +34,6 @@
     <string name="only_calls_ring_messages_and">Only calls ring; messages and alerts are silent</string>
     <string name="all_alerts_off">All alerts off</string>
     <string name="nothing_rings_or_vibrates_alarms">Nothing rings or vibrates; alarms still sound</string>
+    <string name="bedside">Bedside</string>
+    <string name="alarms_only_and_the_dimmest">Alarms only, screen at its dimmest</string>
 </resources>

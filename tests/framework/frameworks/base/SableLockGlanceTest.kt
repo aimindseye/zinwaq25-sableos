@@ -147,4 +147,22 @@ class SableLockGlanceTest {
         assertEquals(3, peek.moreApps())
         assertTrue(SableLockGlance.Peek().isEmpty())
     }
+
+    @Test
+    fun nextEventShowsTodayTomorrowOrNowAndHidesItsName() {
+        val zone = java.time.ZoneId.of("America/Toronto")
+        val now = java.time.ZonedDateTime.of(2026, 11, 5, 8, 0, 0, 0, zone).toInstant().toEpochMilli()
+        val hour = 3_600_000L
+        assertEquals(SableLockGlance.EVENT_NOW, SableLockGlance.eventDay(now - hour, false, now, zone))
+        assertEquals(0, SableLockGlance.eventDay(now + hour, false, now, zone))
+        assertEquals(1, SableLockGlance.eventDay(now + 20 * hour, false, now, zone))
+        assertEquals(SableLockGlance.EVENT_LATER, SableLockGlance.eventDay(now + 48 * hour, false, now, zone))
+        // All-day events are stored at UTC midnight.
+        val todayUtc = java.time.LocalDate.of(2026, 11, 5).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        assertEquals(0, SableLockGlance.eventDay(todayUtc, true, now, zone))
+        assertEquals(1, SableLockGlance.eventDay(todayUtc + 24 * hour, true, now, zone))
+        assertEquals("Today 9:30 · Standup", SableLockGlance.eventLine("Today 9:30", " Standup ", false, "Event"))
+        assertEquals("Today 9:30 · Event", SableLockGlance.eventLine("Today 9:30", "Standup", true, "Event"))
+        assertEquals("Now · Event", SableLockGlance.eventLine("Now", " ", false, "Event"))
+    }
 }

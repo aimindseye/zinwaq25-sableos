@@ -24,7 +24,7 @@ the Q4 gates in [QUALIFICATION.md](QUALIFICATION.md) apply unchanged.
 
 ## Status
 
-62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Eight more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page).
+62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Nine more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), and frameworks/base 0317 (the next event on the lock screen).
 
 Every patch applies to the 24.0 heads in order. That is not yet a build: the ports below were
 written against the 24.0 sources without compiling them, so the first 24.0 build is the real test.

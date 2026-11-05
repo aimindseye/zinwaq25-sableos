@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">רק שיחות מצלצלות; הודעות והתראות מושתקות</string>
     <string name="all_alerts_off">כל ההתראות כבויות</string>
     <string name="nothing_rings_or_vibrates_alarms">אין צלצול או רטט; השעונים המעוררים ממשיכים לצלצל</string>
+    <string name="bedside">ליד המיטה</string>
+    <string name="alarms_only_and_the_dimmest">רק שעונים מעוררים, מסך בעמעום מרבי</string>
 </resources>

@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">Ηχούν μόνο οι κλήσεις· τα μηνύματα και οι ειδοποιήσεις είναι αθόρυβα</string>
     <string name="all_alerts_off">Όλες οι ειδοποιήσεις κλειστές</string>
     <string name="nothing_rings_or_vibrates_alarms">Δεν ακούγεται ήχος ούτε υπάρχει δόνηση· οι αφυπνίσεις εξακολουθούν να ηχούν</string>
+    <string name="bedside">Κομοδίνο</string>
+    <string name="alarms_only_and_the_dimmest">Μόνο ξυπνητήρια, οθόνη στο ελάχιστο</string>
 </resources>

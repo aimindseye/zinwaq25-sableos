@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">Nur Anrufe klingeln; Nachrichten und Hinweise bleiben stumm</string>
     <string name="all_alerts_off">Alle Hinweise aus</string>
     <string name="nothing_rings_or_vibrates_alarms">Keine Töne oder Vibrationen; Wecker klingeln weiterhin</string>
+    <string name="bedside">Nachttisch</string>
+    <string name="alarms_only_and_the_dimmest">Nur Wecker, Bildschirm ganz dunkel</string>
 </resources>

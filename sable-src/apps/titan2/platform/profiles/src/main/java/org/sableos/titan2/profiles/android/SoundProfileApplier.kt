@@ -30,8 +30,16 @@ class SoundProfileStore(context: Context) {
         prefs.edit().putString(profile.name, SoundProfiles.format(settings)).apply()
     }
 
+    /** The brightness from before Bedside ("mode,value"), kept until another profile puts it back. */
+    var brightnessBeforeBedside: String?
+        get() = prefs.getString(BRIGHTNESS_BEFORE_BEDSIDE, null)
+        set(v) {
+            prefs.edit().putString(BRIGHTNESS_BEFORE_BEDSIDE, v).apply()
+        }
+
     private companion object {
         const val CURRENT = "current"
+        const val BRIGHTNESS_BEFORE_BEDSIDE = "brightness_before_bedside"
     }
 }
 
@@ -66,7 +74,8 @@ class SoundProfileApplier(private val context: Context) {
         setSound(plan)
         setDnd(nm, plan.dnd)
         store.current = profile
-        return if (setExtras(plan)) Result.APPLIED else Result.PARTIAL
+        val screen = setScreen(store, plan)
+        return if (setExtras(plan) && screen) Result.APPLIED else Result.PARTIAL
     }
 
     private fun setSound(plan: ProfilePlan) {
@@ -117,6 +126,40 @@ class SoundProfileApplier(private val context: Context) {
             plan.ringtone?.let { setTone(RingtoneManager.TYPE_RINGTONE, it) }
             plan.notificationTone?.let { setTone(RingtoneManager.TYPE_NOTIFICATION, it) }
         }.isSuccess
+
+    /**
+     * Bedside dims the screen and remembers the brightness it found; any other profile puts that
+     * back. False when system settings cannot be written.
+     */
+    private fun setScreen(store: SoundProfileStore, plan: ProfilePlan): Boolean {
+        val saved = store.brightnessBeforeBedside
+        if (!plan.dimScreen && saved == null) return true
+        if (!Settings.System.canWrite(context)) return false
+        val cr = context.contentResolver
+        return runCatching {
+            if (plan.dimScreen) {
+                if (saved == null) {
+                    store.brightnessBeforeBedside =
+                        SoundProfiles.formatBrightness(
+                            Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE),
+                            Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS)
+                        )
+                }
+                Settings.System.putInt(
+                    cr,
+                    Settings.System.SCREEN_BRIGHTNESS_MODE,
+                    Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
+                )
+                Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, SoundProfiles.BEDSIDE_BRIGHTNESS)
+            } else {
+                SoundProfiles.restoreBrightness(saved)?.let { (mode, value) ->
+                    Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, value)
+                    Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, mode)
+                }
+                store.brightnessBeforeBedside = null
+            }
+        }.isSuccess
+    }
 
     private fun setTone(type: Int, uri: String) {
         RingtoneManager.setActualDefaultRingtoneUri(context, type, Uri.parse(uri))

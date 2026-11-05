@@ -1,0 +1,316 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 5 Nov 2026 03:00:00 +0000
+Subject: [PATCH] SableOS: next calendar event on the lock screen
+
+The Sable locked glance shows the next event from Sable Calendar under
+the clock, above the Peek (owner pick from the JL10 review, after
+BlackBerry 10): "Today 9:30 · Standup", "Now · Standup" or "Tomorrow
+all day · Trip". Only today's and tomorrow's events show. While the
+lock screen hides notification content the event is named "Event", so
+a locked phone never shows a meeting's name the user hides.
+
+SystemUI reads Sable Calendar's "next" snapshot off the main thread
+when the lock screen shows and when the calendar changes. Sable
+Calendar answers only SystemUI and Sable Start, from the calendars the
+user shows, and only while it holds READ_CALENDAR; without Sable
+Calendar nothing shows. The day and line rules are pure Java
+(SableLockGlance.eventDay and eventLine, unit tested). Hidden while
+dozing; Lock screen size scales it like the rest of the glance.
+---
+ .../res/layout/sable_keyguard_glance.xml      |  15 ++-
+ .../res/values/sable_keyguard_strings.xml     |  11 ++
+ .../keyguard/sable/SableLockGlance.java       |  37 +++++++
+ .../layout/sections/SableLockGlanceSection.kt | 101 +++++++++++++++++-
+ 4 files changed, 160 insertions(+), 4 deletions(-)
+
+diff --git a/packages/SystemUI/res/layout/sable_keyguard_glance.xml b/packages/SystemUI/res/layout/sable_keyguard_glance.xml
+index 5851a13..df5ccbf 100644
+--- a/packages/SystemUI/res/layout/sable_keyguard_glance.xml
++++ b/packages/SystemUI/res/layout/sable_keyguard_glance.xml
+@@ -15,7 +15,7 @@
+      limitations under the License.
+ -->
+ <!-- Sable locked glance under the lock screen clock (sable-lockscreen-titan2): "Locked", the
+-     Peek rows (one per app), the private mode card and the unlock line. Counts only unless the
++     next calendar event, the Peek rows (one per app), the private mode card and the unlock line. Counts only unless the
+      user lets the lock screen show notification content. -->
+ <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+     android:id="@+id/sable_keyguard_glance"
+@@ -35,6 +35,19 @@
+         android:textSize="18sp"
+         android:visibility="gone" />
+ 
++    <!-- Next calendar event (Sable Calendar): "Today 9:30 · Standup", or "Event" while the lock
++         screen hides content. Set in code (SableLockGlanceSection). -->
++    <TextView
++        android:id="@+id/sable_keyguard_next_event"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_marginTop="@dimen/sable_keyguard_card_gap"
++        android:maxLines="1"
++        android:ellipsize="end"
++        android:textColor="@color/sable_keyguard_text_primary"
++        android:textSize="15sp"
++        android:visibility="gone" />
++
+     <!-- Peek: one row per app (icon, name, "N notifications" or the newest sender, count).
+          Rows are added in code (SableLockGlanceSection). -->
+     <LinearLayout
+diff --git a/packages/SystemUI/res/values/sable_keyguard_strings.xml b/packages/SystemUI/res/values/sable_keyguard_strings.xml
+index 040d5f0..e798797 100644
+--- a/packages/SystemUI/res/values/sable_keyguard_strings.xml
++++ b/packages/SystemUI/res/values/sable_keyguard_strings.xml
+@@ -73,4 +73,15 @@
+     </plurals>
+     <!-- Under the peek while lock screen content is hidden. [CHAR LIMIT=40] -->
+     <string name="sable_keyguard_peek_unlock">Unlock to read message details</string>
++
++    <!-- Next calendar event under the lock screen clock, before its time: it starts today. [CHAR LIMIT=12] -->
++    <string name="sable_keyguard_event_today">Today</string>
++    <!-- Next event: it starts tomorrow. [CHAR LIMIT=12] -->
++    <string name="sable_keyguard_event_tomorrow">Tomorrow</string>
++    <!-- Next event: it is happening now. [CHAR LIMIT=12] -->
++    <string name="sable_keyguard_event_now">Now</string>
++    <!-- Next event: an all-day event, after "Today" or "Tomorrow". [CHAR LIMIT=12] -->
++    <string name="sable_keyguard_event_all_day">all day</string>
++    <!-- Next event's name while the lock screen hides notification content. [CHAR LIMIT=16] -->
++    <string name="sable_keyguard_event_hidden">Event</string>
+ </resources>
+diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+index 838a0b8..e361d01 100644
+--- a/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
++++ b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+@@ -16,6 +16,11 @@
+ 
+ package com.android.keyguard.sable;
+ 
++import java.time.Instant;
++import java.time.LocalDate;
++import java.time.ZoneId;
++import java.time.ZoneOffset;
++import java.time.temporal.ChronoUnit;
+ import java.util.ArrayList;
+ import java.util.Arrays;
+ import java.util.Collections;
+@@ -246,4 +251,36 @@ public final class SableLockGlance {
+         }
+         return Math.max(1, messageCount);
+     }
++
++    /** {@link #eventDay}: the event has started and has not ended. */
++    public static final int EVENT_NOW = -2;
++    /** {@link #eventDay}: the event is after tomorrow, so the lock screen does not show it. */
++    public static final int EVENT_LATER = -1;
++
++    /**
++     * Next event under the clock (Sable Calendar's "next" snapshot): {@link #EVENT_NOW}, 0 for
++     * today, 1 for tomorrow, else {@link #EVENT_LATER}. All-day events are stored at UTC midnight.
++     */
++    public static int eventDay(long beginMillis, boolean allDay, long nowMillis, ZoneId zone) {
++        LocalDate today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate();
++        LocalDate day =
++                Instant.ofEpochMilli(beginMillis).atZone(allDay ? ZoneOffset.UTC : zone).toLocalDate();
++        if (!allDay && beginMillis <= nowMillis) {
++            return EVENT_NOW;
++        }
++        if (allDay && !day.isAfter(today)) {
++            return 0;
++        }
++        long days = ChronoUnit.DAYS.between(today, day);
++        return days == 0 || days == 1 ? (int) days : EVENT_LATER;
++    }
++
++    /**
++     * "Today 9:30 · Standup". While the lock screen hides notification content the title is
++     * {@code hiddenTitle} ("Event"), so a locked phone never names a meeting the user hides.
++     */
++    public static String eventLine(String when, String title, boolean hideTitle, String hiddenTitle) {
++        boolean blank = title == null || title.trim().isEmpty();
++        return when + " · " + (hideTitle || blank ? hiddenTitle : title.trim());
++    }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+index 1666d14..5a7433d 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+@@ -18,8 +18,14 @@ package com.android.systemui.keyguard.ui.view.layout.sections
+ 
+ import android.app.Notification
+ import android.content.Context
++import android.database.ContentObserver
+ import android.graphics.drawable.Drawable
++import android.net.Uri
++import android.os.Handler
++import android.os.Looper
++import android.os.UserHandle
+ import android.provider.Settings
++import android.text.format.DateFormat
+ import android.util.TypedValue
+ import android.view.Gravity
+ import android.view.LayoutInflater
+@@ -38,6 +44,7 @@ import androidx.constraintlayout.widget.ConstraintSet.TOP
+ import com.android.keyguard.sable.SableLockGlance
+ import com.android.keyguard.sable.SableLockSize
+ import com.android.systemui.dagger.SysUISingleton
++import com.android.systemui.dagger.qualifiers.Background
+ import com.android.systemui.keyguard.shared.model.KeyguardSection
+ import com.android.systemui.keyguard.ui.viewmodel.KeyguardClockViewModel
+ import com.android.systemui.plugins.keyguard.ui.clocks.ClockViewIds
+@@ -51,6 +58,9 @@ import com.android.systemui.statusbar.notification.collection.notifcollection.No
+ import com.android.systemui.statusbar.notification.interruption.KeyguardNotificationVisibilityProvider
+ import com.android.systemui.statusbar.policy.KeyguardStateController
+ import dagger.Lazy
++import java.time.ZoneId
++import java.util.Date
++import java.util.concurrent.Executor
+ import javax.inject.Inject
+ 
+ /**
+@@ -66,7 +76,12 @@ import javax.inject.Inject
+  * not redacted, does a row name the newest sender (the notification's title, never its text);
+  * the notifications below show that much already. Notifications the keyguard hides (secret, a user
+  * or profile setting, silent ones when hidden, lock screen notifications off) are not counted, so
+- * with lock screen notifications off the count row stays hidden. Hidden while dozing. The
++ * with lock screen notifications off the count row stays hidden.
++ *
++ * Above the peek, the next event from Sable Calendar's snapshot ("Today 9:30 · Standup", "Now ·
++ * Standup", "Tomorrow all day · Trip"), today's or tomorrow's only; while the lock screen hides
++ * notification content its name is "Event". Sable Calendar answers only SystemUI and Start, from
++ * the calendars the user shows, and only with READ_CALENDAR. Hidden while dozing. The
+  * notification stack starts below the glance. Legacy (blueprint) keyguard only.
+  */
+ @SysUISingleton
+@@ -81,7 +96,15 @@ constructor(
+     private val lockscreenUserManagerLazy: Lazy<NotificationLockscreenUserManager>,
+     private val keyguardStateController: KeyguardStateController,
+     private val statusBarStateController: StatusBarStateController,
++    @Background private val bgExecutor: Executor,
+ ) : KeyguardSection() {
++    /** The next event Sable Calendar gave: title, begin, all day; null for none. */
++    private var nextEvent: Triple<String?, Long, Boolean>? = null
++
++    private val calendarObserver =
++        object : ContentObserver(Handler(Looper.getMainLooper())) {
++            override fun onChange(selfChange: Boolean) = loadNextEvent()
++        }
+     private var glanceView: View? = null
+     private var textScale = 1f
+     private val notifPipeline
+@@ -110,7 +133,10 @@ constructor(
+         object : KeyguardStateController.Callback {
+             override fun onUnlockedChanged() = refresh()
+ 
+-            override fun onKeyguardShowingChanged() = refresh()
++            override fun onKeyguardShowingChanged() {
++                if (keyguardStateController.isShowing) loadNextEvent()
++                refresh()
++            }
+         }
+ 
+     private val statusBarStateListener =
+@@ -175,6 +201,66 @@ constructor(
+         lockscreenUserManager.addNotificationStateChangedListener { refresh() }
+         keyguardStateController.addCallback(keyguardStateCallback)
+         statusBarStateController.addCallback(statusBarStateListener)
++        // Sable Calendar's snapshot, and Android's calendar for edits and syncs. Either may refuse
++        // an observer; the event is read again each time the lock screen shows anyway.
++        for (uri in arrayOf(CALENDAR_URI, ANDROID_CALENDAR_URI)) {
++            runCatching {
++                context.contentResolver.registerContentObserver(uri, true, calendarObserver, UserHandle.USER_ALL)
++            }
++        }
++        loadNextEvent()
++    }
++
++    /** Reads Sable Calendar's next event off the main thread, then redraws the glance. */
++    private fun loadNextEvent() {
++        val userId = lockscreenUserManager.currentUserId
++        bgExecutor.execute {
++            val event =
++                runCatching {
++                    context
++                        .createContextAsUser(UserHandle.of(userId), 0)
++                        .contentResolver
++                        .query(CALENDAR_NEXT_URI, null, null, null, null)
++                        ?.use { cursor ->
++                            if (!cursor.moveToFirst()) return@use null
++                            Triple(
++                                cursor.getString(cursor.getColumnIndexOrThrow("title")),
++                                cursor.getLong(cursor.getColumnIndexOrThrow("begin")),
++                                cursor.getInt(cursor.getColumnIndexOrThrow("all_day")) != 0,
++                            )
++                        }
++                }.getOrNull()
++            glanceView?.post {
++                nextEvent = event
++                refresh()
++            }
++        }
++    }
++
++    /** The next-event line, or null when there is none today or tomorrow. */
++    private fun eventLine(privateMode: Boolean): String? {
++        val (title, begin, allDay) = nextEvent ?: return null
++        val res = context.resources
++        val day = SableLockGlance.eventDay(begin, allDay, System.currentTimeMillis(), ZoneId.systemDefault())
++        val time = DateFormat.getTimeFormat(context).format(Date(begin))
++        val whenText =
++            when (day) {
++                SableLockGlance.EVENT_NOW -> res.getString(R.string.sable_keyguard_event_now)
++                0, 1 -> {
++                    val word =
++                        res.getString(
++                            if (day == 0) R.string.sable_keyguard_event_today else R.string.sable_keyguard_event_tomorrow
++                        )
++                    word + " " + if (allDay) res.getString(R.string.sable_keyguard_event_all_day) else time
++                }
++                else -> return null
++            }
++        return SableLockGlance.eventLine(
++            whenText,
++            title,
++            privateMode,
++            res.getString(R.string.sable_keyguard_event_hidden),
++        )
+     }
+ 
+     private fun refresh() {
+@@ -222,6 +308,11 @@ constructor(
+         for (id in SCALED_TEXT) view.findViewById<TextView>(id)?.scaleText(scale)
+ 
+         view.findViewById<View>(R.id.sable_keyguard_locked).visibleIf(glance.lockedLabel)
++        val event = if (statusBarStateController.isDozing) null else eventLine(privateMode)
++        view.findViewById<TextView>(R.id.sable_keyguard_next_event).apply {
++            visibleIf(event != null)
++            if (event != null) text = event
++        }
+         view.findViewById<View>(R.id.sable_keyguard_peek).apply {
+             visibleIf(glance.countRow)
+             if (glance.countRow) bindPeek(this, peek, icons)
+@@ -240,7 +331,7 @@ constructor(
+                 )
+             }
+         }
+-        view.visibleIf(glance.any())
++        view.visibleIf(glance.any() || event != null)
+     }
+ 
+     /**
+@@ -353,9 +444,13 @@ constructor(
+ 
+     private companion object {
+         val ID = R.id.sable_keyguard_glance
++        val CALENDAR_URI: Uri = Uri.parse("content://org.sableos.calendar.snapshot")
++        val CALENDAR_NEXT_URI: Uri = Uri.parse("content://org.sableos.calendar.snapshot/next")
++        val ANDROID_CALENDAR_URI: Uri = Uri.parse("content://com.android.calendar")
+         val SCALED_TEXT =
+             intArrayOf(
+                 R.id.sable_keyguard_locked,
++                R.id.sable_keyguard_next_event,
+                 R.id.sable_keyguard_requires_unlock,
+                 R.id.sable_keyguard_peek_more,
+             )
+-- 
+2.43.0
+

@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">Suonano solo le chiamate; messaggi e avvisi restano silenziosi</string>
     <string name="all_alerts_off">Tutti gli avvisi disattivati</string>
     <string name="nothing_rings_or_vibrates_alarms">Nessun suono o vibrazione; le sveglie continuano a suonare</string>
+    <string name="bedside">Comodino</string>
+    <string name="alarms_only_and_the_dimmest">Solo sveglie, schermo al minimo</string>
 </resources>

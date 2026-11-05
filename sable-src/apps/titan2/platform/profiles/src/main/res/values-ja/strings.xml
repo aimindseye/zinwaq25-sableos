@@ -32,4 +32,6 @@
     <string name="only_calls_ring_messages_and">電話の着信だけを鳴らし、メッセージと通知は無音</string>
     <string name="all_alerts_off">すべての通知をオフ</string>
     <string name="nothing_rings_or_vibrates_alarms">音も振動もなし。アラームは引き続き鳴る</string>
+    <string name="bedside">ベッドサイド</string>
+    <string name="alarms_only_and_the_dimmest">アラームのみ、画面は最も暗く</string>
 </resources>

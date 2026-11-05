@@ -21,7 +21,7 @@ class CalendarSnapshotProvider : ContentProvider() {
         sortOrder: String?,
     ): Cursor {
         val appContext = checkNotNull(context)
-        enforceLauncherCaller(appContext)
+        enforceCaller(appContext, uri.lastPathSegment == PATH_NEXT)
         val repository = CalendarRepository(appContext)
         val cursor =
             when (uri.lastPathSegment) {
@@ -90,7 +90,14 @@ class CalendarSnapshotProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
     ): Int = throw UnsupportedOperationException("Read-only provider")
 
-    private fun enforceLauncherCaller(context: android.content.Context) {
+    /**
+     * Sable Start reads everything; SystemUI reads only the next event, for the lock screen
+     * (frameworks/base 0317), which names it "Event" while the lock screen hides content.
+     */
+    private fun enforceCaller(
+        context: android.content.Context,
+        nextOnly: Boolean,
+    ) {
         val callingUid = Binder.getCallingUid()
         if (callingUid == Process.myUid()) return
         val packages =
@@ -98,7 +105,7 @@ class CalendarSnapshotProvider : ContentProvider() {
                 .getPackagesForUid(callingUid)
                 ?.toSet()
                 .orEmpty()
-        if ("org.sableos.launcher" !in packages) {
+        if ("org.sableos.launcher" !in packages && !(nextOnly && SYSTEM_UI in packages)) {
             throw SecurityException(
                 "Sable live snapshot is restricted to SableLauncher.",
             )
@@ -116,5 +123,6 @@ class CalendarSnapshotProvider : ContentProvider() {
         private val NEXT_COLUMNS = arrayOf("title", "begin", "all_day", "calendar")
         private const val NEXT_DAYS = 7L
         private const val MAX_NEXT = 3
+        private const val SYSTEM_UI = "com.android.systemui"
     }
 }

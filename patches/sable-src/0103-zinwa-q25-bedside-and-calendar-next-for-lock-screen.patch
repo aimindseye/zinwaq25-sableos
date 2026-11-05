@@ -1,0 +1,473 @@
+diff --git a/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
+index 6cbe30c..efca7df 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
+@@ -6,6 +6,8 @@
+         <provider android:authorities="org.sableos.appearance" />
+         <!-- Start reads the snapshot; getPackagesForUid only names packages this app can see. -->
+         <package android:name="org.sableos.launcher" />
++        <!-- SystemUI reads the next event for the lock screen (frameworks/base 0317). -->
++        <package android:name="com.android.systemui" />
+     </queries>
+     <application
+         android:name="org.sableos.calendar.CalendarApplication"
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt
+index ba00a47..55b0d93 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt
+@@ -21,7 +21,7 @@ class CalendarSnapshotProvider : ContentProvider() {
+         sortOrder: String?,
+     ): Cursor {
+         val appContext = checkNotNull(context)
+-        enforceLauncherCaller(appContext)
++        enforceCaller(appContext, uri.lastPathSegment == PATH_NEXT)
+         val repository = CalendarRepository(appContext)
+         val cursor =
+             when (uri.lastPathSegment) {
+@@ -90,7 +90,14 @@ class CalendarSnapshotProvider : ContentProvider() {
+         selectionArgs: Array<out String>?,
+     ): Int = throw UnsupportedOperationException("Read-only provider")
+ 
+-    private fun enforceLauncherCaller(context: android.content.Context) {
++    /**
++     * Sable Start reads everything; SystemUI reads only the next event, for the lock screen
++     * (frameworks/base 0317), which names it "Event" while the lock screen hides content.
++     */
++    private fun enforceCaller(
++        context: android.content.Context,
++        nextOnly: Boolean,
++    ) {
+         val callingUid = Binder.getCallingUid()
+         if (callingUid == Process.myUid()) return
+         val packages =
+@@ -98,7 +105,7 @@ class CalendarSnapshotProvider : ContentProvider() {
+                 .getPackagesForUid(callingUid)
+                 ?.toSet()
+                 .orEmpty()
+-        if ("org.sableos.launcher" !in packages) {
++        if ("org.sableos.launcher" !in packages && !(nextOnly && SYSTEM_UI in packages)) {
+             throw SecurityException(
+                 "Sable live snapshot is restricted to SableLauncher.",
+             )
+@@ -116,5 +123,6 @@ class CalendarSnapshotProvider : ContentProvider() {
+         private val NEXT_COLUMNS = arrayOf("title", "begin", "all_day", "calendar")
+         private const val NEXT_DAYS = 7L
+         private const val MAX_NEXT = 3
++        private const val SYSTEM_UI = "com.android.systemui"
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileApplier.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileApplier.kt
+index e948bda..5e179a1 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileApplier.kt
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfileApplier.kt
+@@ -30,8 +30,16 @@ class SoundProfileStore(context: Context) {
+         prefs.edit().putString(profile.name, SoundProfiles.format(settings)).apply()
+     }
+ 
++    /** The brightness from before Bedside ("mode,value"), kept until another profile puts it back. */
++    var brightnessBeforeBedside: String?
++        get() = prefs.getString(BRIGHTNESS_BEFORE_BEDSIDE, null)
++        set(v) {
++            prefs.edit().putString(BRIGHTNESS_BEFORE_BEDSIDE, v).apply()
++        }
++
+     private companion object {
+         const val CURRENT = "current"
++        const val BRIGHTNESS_BEFORE_BEDSIDE = "brightness_before_bedside"
+     }
+ }
+ 
+@@ -66,7 +74,8 @@ class SoundProfileApplier(private val context: Context) {
+         setSound(plan)
+         setDnd(nm, plan.dnd)
+         store.current = profile
+-        return if (setExtras(plan)) Result.APPLIED else Result.PARTIAL
++        val screen = setScreen(store, plan)
++        return if (setExtras(plan) && screen) Result.APPLIED else Result.PARTIAL
+     }
+ 
+     private fun setSound(plan: ProfilePlan) {
+@@ -118,6 +127,40 @@ class SoundProfileApplier(private val context: Context) {
+             plan.notificationTone?.let { setTone(RingtoneManager.TYPE_NOTIFICATION, it) }
+         }.isSuccess
+ 
++    /**
++     * Bedside dims the screen and remembers the brightness it found; any other profile puts that
++     * back. False when system settings cannot be written.
++     */
++    private fun setScreen(store: SoundProfileStore, plan: ProfilePlan): Boolean {
++        val saved = store.brightnessBeforeBedside
++        if (!plan.dimScreen && saved == null) return true
++        if (!Settings.System.canWrite(context)) return false
++        val cr = context.contentResolver
++        return runCatching {
++            if (plan.dimScreen) {
++                if (saved == null) {
++                    store.brightnessBeforeBedside =
++                        SoundProfiles.formatBrightness(
++                            Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE),
++                            Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS)
++                        )
++                }
++                Settings.System.putInt(
++                    cr,
++                    Settings.System.SCREEN_BRIGHTNESS_MODE,
++                    Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
++                )
++                Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, SoundProfiles.BEDSIDE_BRIGHTNESS)
++            } else {
++                SoundProfiles.restoreBrightness(saved)?.let { (mode, value) ->
++                    Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, value)
++                    Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, mode)
++                }
++                store.brightnessBeforeBedside = null
++            }
++        }.isSuccess
++    }
++
+     private fun setTone(type: Int, uri: String) {
+         RingtoneManager.setActualDefaultRingtoneUri(context, type, Uri.parse(uri))
+     }
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt
+index a639617..5336975 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/ProfilesText.kt
+@@ -45,7 +45,9 @@ object ProfilesText {
+             "phone_calls_only" to "Phone calls only",
+             "only_calls_ring_messages_and" to "Only calls ring; messages and alerts are silent",
+             "all_alerts_off" to "All alerts off",
+-            "nothing_rings_or_vibrates_alarms" to "Nothing rings or vibrates; alarms still sound"
++            "nothing_rings_or_vibrates_alarms" to "Nothing rings or vibrates; alarms still sound",
++            "bedside" to "Bedside",
++            "alarms_only_and_the_dimmest" to "Alarms only, screen at its dimmest"
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt
+index e0eef59..7b4cecc 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/core/SoundProfiles.kt
+@@ -12,7 +12,10 @@ enum class SoundProfile(private val titleKey: String, private val summaryKey: St
+     LOUD("loud", "rings_and_alerts_at_full"),
+     VIBRATE_ONLY("vibrate_only", "vibrates_for_calls_and_alerts"),
+     PHONE_CALLS_ONLY("phone_calls_only", "only_calls_ring_messages_and"),
+-    ALL_ALERTS_OFF("all_alerts_off", "nothing_rings_or_vibrates_alarms");
++    ALL_ALERTS_OFF("all_alerts_off", "nothing_rings_or_vibrates_alarms"),
++
++    /** BB10's Bedside Mode: alarms only and the screen at its dimmest, put back when you leave it. */
++    BEDSIDE("bedside", "alarms_only_and_the_dimmest");
+ 
+     val title: String get() = t(titleKey)
+     val summary: String get() = t(summaryKey)
+@@ -45,13 +48,18 @@ data class ProfilePlan(
+     val vibrateWhenRinging: Boolean,
+     val light: Boolean,
+     val ringtone: String?,
+-    val notificationTone: String?
++    val notificationTone: String?,
++    /** Bedside: the screen at [SoundProfiles.BEDSIDE_BRIGHTNESS], auto-brightness off. */
++    val dimScreen: Boolean = false
+ )
+ 
+ object SoundProfiles {
+     const val NORMAL_VOLUME = 70
+     const val FULL_VOLUME = 100
+ 
++    /** Bedside brightness on Android's 0-255 scale: readable in the dark, no glow. */
++    const val BEDSIDE_BRIGHTNESS = 8
++
+     fun plan(profile: SoundProfile, settings: ProfileSettings = ProfileSettings()): ProfilePlan {
+         val base = when (profile) {
+             SoundProfile.NORMAL -> ProfilePlan(
+@@ -96,7 +104,19 @@ object SoundProfiles {
+                 null,
+                 null
+             )
++
++            SoundProfile.BEDSIDE -> ProfilePlan(
++                Ringer.SILENT,
++                Dnd.ALARMS_ONLY,
++                null,
++                false,
++                false,
++                null,
++                null,
++                dimScreen = true
++            )
+         }
++        val silent = profile == SoundProfile.ALL_ALERTS_OFF || profile == SoundProfile.BEDSIDE
+         // A silent or vibrating profile has no volume to set; the user's volume applies only where it rings.
+         val volume = settings.volumePercent?.coerceIn(0, FULL_VOLUME)?.takeIf {
+             base.volumePercent !=
+@@ -104,7 +124,7 @@ object SoundProfiles {
+         }
+         return base.copy(
+             volumePercent = volume ?: base.volumePercent,
+-            vibrateWhenRinging = settings.vibrate?.takeIf { profile != SoundProfile.ALL_ALERTS_OFF }
++            vibrateWhenRinging = settings.vibrate?.takeIf { !silent }
+                 ?: base.vibrateWhenRinging,
+             light = settings.light ?: base.light,
+             ringtone = settings.ringtone,
+@@ -112,6 +132,21 @@ object SoundProfiles {
+         )
+     }
+ 
++    /**
++     * The brightness to put back when leaving Bedside: what was saved on entering it, else null
++     * (nothing to restore). [saved] is "mode,value" as [formatBrightness] wrote it.
++     */
++    fun restoreBrightness(saved: String?): Pair<Int, Int>? {
++        val parts = saved?.split(',') ?: return null
++        val mode = parts.getOrNull(0)?.toIntOrNull() ?: return null
++        val value = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, MAX_BRIGHTNESS) ?: return null
++        return mode to value
++    }
++
++    fun formatBrightness(mode: Int, value: Int): String = "$mode,$value"
++
++    private const val MAX_BRIGHTNESS = 255
++
+     /** The next profile, for a key or tile that steps through them. */
+     fun next(current: SoundProfile?): SoundProfile {
+         val all = SoundProfile.entries
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-ar/strings.xml
+index 1ea8d87..56092aa 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-ar/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">المكالمات وحدها ترن؛ الرسائل والتنبيهات صامتة</string>
+     <string name="all_alerts_off">تعطيل جميع التنبيهات</string>
+     <string name="nothing_rings_or_vibrates_alarms">لا رنين ولا اهتزاز؛ تظل المنبهات تصدر صوتًا</string>
++    <string name="bedside">بجانب السرير</string>
++    <string name="alarms_only_and_the_dimmest">المنبهات فقط، والشاشة بأقل سطوع</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-de/strings.xml
+index b13835f..f3c392b 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-de/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">Nur Anrufe klingeln; Nachrichten und Hinweise bleiben stumm</string>
+     <string name="all_alerts_off">Alle Hinweise aus</string>
+     <string name="nothing_rings_or_vibrates_alarms">Keine Töne oder Vibrationen; Wecker klingeln weiterhin</string>
++    <string name="bedside">Nachttisch</string>
++    <string name="alarms_only_and_the_dimmest">Nur Wecker, Bildschirm ganz dunkel</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-el/strings.xml
+index a289021..53996ed 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-el/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">Ηχούν μόνο οι κλήσεις· τα μηνύματα και οι ειδοποιήσεις είναι αθόρυβα</string>
+     <string name="all_alerts_off">Όλες οι ειδοποιήσεις κλειστές</string>
+     <string name="nothing_rings_or_vibrates_alarms">Δεν ακούγεται ήχος ούτε υπάρχει δόνηση· οι αφυπνίσεις εξακολουθούν να ηχούν</string>
++    <string name="bedside">Κομοδίνο</string>
++    <string name="alarms_only_and_the_dimmest">Μόνο ξυπνητήρια, οθόνη στο ελάχιστο</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-es/strings.xml
+index 7881537..6106acc 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-es/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">Solo suenan las llamadas; los mensajes y avisos permanecen en silencio</string>
+     <string name="all_alerts_off">Todos los avisos desactivados</string>
+     <string name="nothing_rings_or_vibrates_alarms">No suena ni vibra nada; las alarmas siguen sonando</string>
++    <string name="bedside">Mesita de noche</string>
++    <string name="alarms_only_and_the_dimmest">Solo alarmas, pantalla al mínimo</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-fr/strings.xml
+index 33330da..2bf2ef9 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-fr/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">Seuls les appels sonnent ; messages et alertes restent silencieux</string>
+     <string name="all_alerts_off">Toutes les alertes désactivées</string>
+     <string name="nothing_rings_or_vibrates_alarms">Aucune sonnerie ni vibration ; les alarmes continuent de sonner</string>
++    <string name="bedside">Table de chevet</string>
++    <string name="alarms_only_and_the_dimmest">Alarmes uniquement, écran au plus sombre</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-hi/strings.xml
+index 1bd8c6c..f2d5d93 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-hi/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">सिर्फ कॉल बजती हैं; संदेश और अलर्ट शांत रहते हैं</string>
+     <string name="all_alerts_off">सभी अलर्ट बंद</string>
+     <string name="nothing_rings_or_vibrates_alarms">कोई घंटी या कंपन नहीं; अलार्म फिर भी बजते हैं</string>
++    <string name="bedside">बेडसाइड</string>
++    <string name="alarms_only_and_the_dimmest">सिर्फ़ अलार्म, स्क्रीन सबसे धीमी</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-it/strings.xml
+index 45725cd..651027f 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-it/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">Suonano solo le chiamate; messaggi e avvisi restano silenziosi</string>
+     <string name="all_alerts_off">Tutti gli avvisi disattivati</string>
+     <string name="nothing_rings_or_vibrates_alarms">Nessun suono o vibrazione; le sveglie continuano a suonare</string>
++    <string name="bedside">Comodino</string>
++    <string name="alarms_only_and_the_dimmest">Solo sveglie, schermo al minimo</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-iw/strings.xml
+index 460f0f7..4eff0fd 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-iw/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">רק שיחות מצלצלות; הודעות והתראות מושתקות</string>
+     <string name="all_alerts_off">כל ההתראות כבויות</string>
+     <string name="nothing_rings_or_vibrates_alarms">אין צלצול או רטט; השעונים המעוררים ממשיכים לצלצל</string>
++    <string name="bedside">ליד המיטה</string>
++    <string name="alarms_only_and_the_dimmest">רק שעונים מעוררים, מסך בעמעום מרבי</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-ja/strings.xml
+index 4a8f163..8fc7934 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-ja/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">電話の着信だけを鳴らし、メッセージと通知は無音</string>
+     <string name="all_alerts_off">すべての通知をオフ</string>
+     <string name="nothing_rings_or_vibrates_alarms">音も振動もなし。アラームは引き続き鳴る</string>
++    <string name="bedside">ベッドサイド</string>
++    <string name="alarms_only_and_the_dimmest">アラームのみ、画面は最も暗く</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-ko/strings.xml
+index bfe8914..c1f25e6 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-ko/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">전화만 울리고 메시지와 알림은 무음</string>
+     <string name="all_alerts_off">모든 알림 끄기</string>
+     <string name="nothing_rings_or_vibrates_alarms">소리와 진동이 모두 꺼지지만 알람은 계속 울림</string>
++    <string name="bedside">침대 옆</string>
++    <string name="alarms_only_and_the_dimmest">알람만, 화면은 가장 어둡게</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-nl/strings.xml
+index 5edf63b..363d8d8 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-nl/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">Alleen oproepen gaan over; berichten en meldingen blijven stil</string>
+     <string name="all_alerts_off">Alle meldingen uit</string>
+     <string name="nothing_rings_or_vibrates_alarms">Geen geluid of trilling; wekkers blijven afgaan</string>
++    <string name="bedside">Nachtkastje</string>
++    <string name="alarms_only_and_the_dimmest">Alleen wekkers, scherm op zijn donkerst</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-pl/strings.xml
+index a6fd3d4..2ea4c5c 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-pl/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">Dzwonią tylko połączenia; wiadomości i alerty są wyciszone</string>
+     <string name="all_alerts_off">Wszystkie alerty wyłączone</string>
+     <string name="nothing_rings_or_vibrates_alarms">Brak dźwięków i wibracji; alarmy nadal dzwonią</string>
++    <string name="bedside">Przy łóżku</string>
++    <string name="alarms_only_and_the_dimmest">Tylko alarmy, ekran najciemniejszy</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-pt/strings.xml
+index b5640be..832cb4a 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-pt/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">Apenas as chamadas tocam; mensagens e alertas ficam silenciosos</string>
+     <string name="all_alerts_off">Todos os alertas desativados</string>
+     <string name="nothing_rings_or_vibrates_alarms">Nada toca nem vibra; os alarmes continuam tocando</string>
++    <string name="bedside">Mesa de cabeceira</string>
++    <string name="alarms_only_and_the_dimmest">Só alarmes, ecrã no mínimo</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-ru/strings.xml
+index 99326fc..eaea548 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-ru/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">Звучат только вызовы; сообщения и уведомления без звука</string>
+     <string name="all_alerts_off">Все уведомления выключены</string>
+     <string name="nothing_rings_or_vibrates_alarms">Нет звука и вибрации; будильники продолжают звонить</string>
++    <string name="bedside">У кровати</string>
++    <string name="alarms_only_and_the_dimmest">Только будильники, экран на минимуме</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-sv/strings.xml
+index f5af421..530db33 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-sv/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">Endast samtal ringer; meddelanden och aviseringar är tysta</string>
+     <string name="all_alerts_off">Alla aviseringar av</string>
+     <string name="nothing_rings_or_vibrates_alarms">Inget ljud eller vibration; alarm hörs fortfarande</string>
++    <string name="bedside">Nattduksbord</string>
++    <string name="alarms_only_and_the_dimmest">Bara alarm, skärmen så mörk som möjligt</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-tr/strings.xml
+index 2315870..60ad6d8 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-tr/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">Yalnızca aramalar çalar; mesajlar ve uyarılar sessizdir</string>
+     <string name="all_alerts_off">Tüm uyarılar kapalı</string>
+     <string name="nothing_rings_or_vibrates_alarms">Hiçbir ses veya titreşim olmaz; alarmlar çalmaya devam eder</string>
++    <string name="bedside">Başucu</string>
++    <string name="alarms_only_and_the_dimmest">Yalnızca alarmlar, ekran en karanlıkta</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-ur/strings.xml
+index 0954d43..4c23c66 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-ur/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">صرف کالوں کی گھنٹی بجتی ہے؛ پیغامات اور انتباہات خاموش رہتے ہیں</string>
+     <string name="all_alerts_off">تمام انتباہات بند</string>
+     <string name="nothing_rings_or_vibrates_alarms">نہ آواز آتی ہے نہ وائبریشن ہوتی ہے؛ الارم بجتے رہتے ہیں</string>
++    <string name="bedside">بستر کے پاس</string>
++    <string name="alarms_only_and_the_dimmest">صرف الارم، اسکرین سب سے مدھم</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values-zh-rCN/strings.xml
+index aa31457..bad0dfd 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values-zh-rCN/strings.xml
+@@ -32,4 +32,6 @@
+     <string name="only_calls_ring_messages_and">仅来电响铃；消息和通知静音</string>
+     <string name="all_alerts_off">关闭所有通知</string>
+     <string name="nothing_rings_or_vibrates_alarms">没有铃声和振动；闹钟仍会响起</string>
++    <string name="bedside">床头</string>
++    <string name="alarms_only_and_the_dimmest">仅闹钟，屏幕调到最暗</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml
+index 98e3d82..c7cbb29 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml
+@@ -34,4 +34,6 @@
+     <string name="only_calls_ring_messages_and">Only calls ring; messages and alerts are silent</string>
+     <string name="all_alerts_off">All alerts off</string>
+     <string name="nothing_rings_or_vibrates_alarms">Nothing rings or vibrates; alarms still sound</string>
++    <string name="bedside">Bedside</string>
++    <string name="alarms_only_and_the_dimmest">Alarms only, screen at its dimmest</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/core/SoundProfilesTest.kt b/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/core/SoundProfilesTest.kt
+index 7f2d03a..dd29c3d 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/core/SoundProfilesTest.kt
++++ b/sable-src/apps/titan2/platform/profiles/src/test/java/org/sableos/titan2/profiles/core/SoundProfilesTest.kt
+@@ -65,9 +65,25 @@ class SoundProfilesTest {
+     fun profilesStepAndResolveByName() {
+         assertEquals(SoundProfile.NORMAL, SoundProfiles.next(null))
+         assertEquals(SoundProfile.LOUD, SoundProfiles.next(SoundProfile.NORMAL))
+-        assertEquals(SoundProfile.NORMAL, SoundProfiles.next(SoundProfile.ALL_ALERTS_OFF))
++        assertEquals(SoundProfile.BEDSIDE, SoundProfiles.next(SoundProfile.ALL_ALERTS_OFF))
++        assertEquals(SoundProfile.NORMAL, SoundProfiles.next(SoundProfile.BEDSIDE))
+         assertEquals(SoundProfile.PHONE_CALLS_ONLY, SoundProfile.fromName("PHONE_CALLS_ONLY"))
+         assertNull(SoundProfile.fromName("nope"))
+-        assertTrue(SoundProfile.entries.size == 5)
++        assertTrue(SoundProfile.entries.size == 6)
++    }
++
++    @Test
++    fun bedsideIsAlarmsOnlyOnADimScreenAndPutsBrightnessBack() {
++        val bedside = SoundProfiles.plan(SoundProfile.BEDSIDE, ProfileSettings(vibrate = true, volumePercent = 80))
++        assertEquals(Ringer.SILENT, bedside.ringer)
++        assertEquals(Dnd.ALARMS_ONLY, bedside.dnd)
++        assertFalse("never vibrates", bedside.vibrateWhenRinging)
++        assertNull(bedside.volumePercent)
++        assertTrue(bedside.dimScreen)
++        assertFalse(SoundProfiles.plan(SoundProfile.ALL_ALERTS_OFF).dimScreen)
++        assertEquals(1 to 120, SoundProfiles.restoreBrightness(SoundProfiles.formatBrightness(1, 120)))
++        assertEquals(0 to 255, SoundProfiles.restoreBrightness("0,999"))
++        assertNull(SoundProfiles.restoreBrightness(null))
++        assertNull(SoundProfiles.restoreBrightness("junk"))
+     }
+ }
