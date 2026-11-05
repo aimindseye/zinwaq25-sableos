@@ -24,7 +24,7 @@ the Q4 gates in [QUALIFICATION.md](QUALIFICATION.md) apply unchanged.
 
 ## Status
 
-62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Twelve more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), frameworks/base 0317 (the next event on the lock screen), frameworks/base 0318 (the Peek as an app column beside the newest notification), and Settings 1605 with device tree 1503 (the trackpad Keys or Pointer choice).
+62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Thirteen more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), frameworks/base 0317 (the next event on the lock screen), frameworks/base 0318 (the Peek as an app column beside the newest notification), frameworks/base 0319 (Alt+Space opens Command from any app), and Settings 1605 with device tree 1503 (the trackpad Keys or Pointer choice).
 
 Every patch applies to the 24.0 heads in order. That is not yet a build: the ports below were
 written against the 24.0 sources without compiling them, so the first 24.0 build is the real test.
@@ -51,6 +51,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `frameworks/base/0316-SableOS-compact-Settings-rows-on-short-screens.patch` | new on 24.0 |
 | `frameworks/base/0317-SableOS-next-calendar-event-on-the-lock-screen.patch` | new on 24.0 |
 | `frameworks/base/0318-SableOS-lock-screen-Peek-as-an-app-column-beside-the.patch` | new on 24.0 |
+| `frameworks/base/0319-SableOS-Alt-Space-opens-Sable-Command-from-any-app.patch` | new on 24.0 |
 | `frameworks/base/0501-SableOS-notification-light-for-every-alerting-channe.patch` | applies as is |
 | `frameworks/base/0550-SableOS-microG-signature-spoofing-on-user-builds-whe.patch` | ported by hand |
 | `kernel/xelex/mt6789/0201-SableOS-report-the-fuel-gauge-s-learned-battery-health.patch` | applies as is |

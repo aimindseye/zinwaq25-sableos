@@ -1,0 +1,137 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 5 Nov 2026 12:00:00 +0000
+Subject: [PATCH] SableOS: Alt+Space opens Sable Command from any app
+
+BB10 had no system-wide search key; on the Q25 Alt+Space already opens
+Command on Sable Start, so it becomes the chord for Command anywhere:
+
+* PhoneWindowManager.interceptSystemKeysAndShortcuts takes Alt+Space
+  (either Alt; Sym is Right Alt on the Q25) from a physical keyboard
+  only, with no other modifier, after setup and off the keyguard, and
+  starts org.sableos.start.action.COMMAND in Sable Start for the
+  current user on the key's display. Its release is consumed with it.
+  Start opens Command over the app, and Back returns to that app.
+* The keyguard keeps Alt+Space for its emergency shortcut (0307): the
+  chord is not taken while the keyguard shows, so SystemUI gets it.
+* On the Q25 Space has no Alt character, so nothing typed is lost.
+  Pure policy: policy/sable/SableCommandKeys.java.
+---
+ .../server/policy/PhoneWindowManager.java     | 23 ++++++++
+ .../server/policy/sable/SableCommandKeys.java | 57 +++++++++++++++++++
+ 2 files changed, 80 insertions(+)
+
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+index 7b6ae07..47afb18 100644
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -265,6 +265,7 @@ import com.android.server.inputmethod.InputMethodManagerInternal;
+ import com.android.server.pm.UserManagerInternal;
+ import com.android.server.policy.keyguard.KeyguardServiceDelegate;
+ import com.android.server.statusbar.StatusBarManagerInternal;
++import com.android.server.policy.sable.SableCommandKeys;
+ import com.android.server.policy.sable.SableDisplayKeys;
+ import com.android.server.policy.sable.SableShadeKeys;
+ import com.android.server.vr.VrManagerInternal;
+@@ -4070,6 +4071,20 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+                 }
+                 return true;
+             }
++            case KeyEvent.KEYCODE_SPACE: {
++                // Sable: Alt+Space opens Sable Start's Command search over any app; Back there
++                // returns to the app. The keyguard keeps Alt+Space for its emergency shortcut
++                // (SystemUI), so the chord is not taken there, nor before setup.
++                if (!SableCommandKeys.isCommandChord(keyCode, event.getMetaState(), virtualKey)
++                        || keyguardOn || !isUserSetupComplete()) {
++                    break;
++                }
++                if (down && repeatCount == 0) {
++                    final int displayId = event.getDisplayId();
++                    mHandler.post(() -> openSableCommand(displayId));
++                }
++                return true;
++            }
+         }
+         if (isValidGlobalKey(keyCode)
+                 && mGlobalKeyManager.handleGlobalKey(mContext, keyCode, event)) {
+@@ -4090,6 +4105,14 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+         mContext.sendBroadcastAsUser(intent, UserHandle.CURRENT);
+     }
+ 
++    /** Sable Command from anywhere (see above): Start's search, on the display the key came from. */
++    private void openSableCommand(int displayId) {
++        final Intent intent = new Intent(SableCommandKeys.ACTION_COMMAND)
++                .setPackage(SableCommandKeys.START_PACKAGE)
++                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++        startActivityAsUser(intent, UserHandle.CURRENT, displayId);
++    }
++
+     @SuppressLint("MissingPermission")
+     private void initKeyGestures() {
+         List<Integer> supportedGestures = new ArrayList<>(List.of(
+diff --git a/services/core/java/com/android/server/policy/sable/SableCommandKeys.java b/services/core/java/com/android/server/policy/sable/SableCommandKeys.java
+new file mode 100644
+index 0000000..407e4a5
+--- /dev/null
++++ b/services/core/java/com/android/server/policy/sable/SableCommandKeys.java
+@@ -0,0 +1,57 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.server.policy.sable;
++
++/**
++ * Sable Command from anywhere: Alt+Space (either Alt; Sym is Right Alt on the Q25) opens Sable
++ * Start's Command search over whatever app is in front.
++ *
++ * <p>Only Alt may be held: Shift, Ctrl, Meta, Sym-as-symbol or Fn keep Space's own meaning, and
++ * software keyboards never trigger it. On the Q25 Space has no Alt character, so the chord never
++ * types anything. The lock screen keeps Alt+Space for its emergency shortcut: PhoneWindowManager
++ * does not take the chord while the keyguard shows, so SystemUI's keyguard handles it there.
++ *
++ * <p>Pure: android.view.KeyEvent values are copied so that it can be tested off-device.
++ */
++public final class SableCommandKeys {
++    /** {@code KeyEvent.KEYCODE_SPACE}. */
++    public static final int KEYCODE_SPACE = 62;
++    /** Sable Start's Command search (SableStartActivity.ACTION_COMMAND). */
++    public static final String ACTION_COMMAND = "org.sableos.start.action.COMMAND";
++    /** Sable Start (the BB10 and BB7 home). */
++    public static final String START_PACKAGE = "org.sableos.launcher";
++
++    // android.view.KeyEvent meta state bits.
++    private static final int META_SHIFT_MASK = 0x01 | 0x40 | 0x80;
++    private static final int META_ALT_ON = 0x02;
++    private static final int META_SYM_ON = 0x04;
++    private static final int META_FUNCTION_ON = 0x08;
++    private static final int META_CTRL_MASK = 0x1000 | 0x2000 | 0x4000;
++    private static final int META_META_MASK = 0x10000 | 0x20000 | 0x40000;
++    private static final int OTHER_MODIFIERS =
++            META_SHIFT_MASK | META_SYM_ON | META_FUNCTION_ON | META_CTRL_MASK | META_META_MASK;
++
++    private SableCommandKeys() {}
++
++    /** Alt+Space from a physical keyboard, with no other modifier (lock states aside). */
++    public static boolean isCommandChord(int keyCode, int metaState, boolean virtualKey) {
++        return keyCode == KEYCODE_SPACE
++                && !virtualKey
++                && (metaState & META_ALT_ON) != 0
++                && (metaState & OTHER_MODIFIERS) == 0;
++    }
++}
+-- 
+2.43.0
+

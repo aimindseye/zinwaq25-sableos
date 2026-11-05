@@ -106,6 +106,13 @@
                 <action android:name="org.sableos.start.action.SHOW_HUB" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+
+            <!-- Alt+Space from any app (frameworks/base PhoneWindowManager, unlocked and after
+                 setup): Command search over Start; Back returns to the app. -->
+            <intent-filter>
+                <action android:name="org.sableos.start.action.COMMAND" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <!-- Home screen style (BlackBerry 10 or BlackBerry 7), opened by Sable Setup and Start's menu. -->

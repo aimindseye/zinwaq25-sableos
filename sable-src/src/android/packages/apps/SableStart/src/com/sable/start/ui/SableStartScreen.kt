@@ -405,6 +405,13 @@ fun SableStartScreen(
     hubGeneration: Int = 0,
     /** The tab that request asked for ([HubFilter] by name), or null for All. */
     hubRequestFilter: String? = null,
+    /** Counts up for each Command request (org.sableos.start.action.COMMAND, Alt+Space anywhere). */
+    commandGeneration: Int = 0,
+    /** That Command was opened over another app, so Back returns to it. */
+    commandReturnsToApp: Boolean = false,
+    onReturnFromCommand: () -> Unit = {},
+    /** Command was left another way (an app opened, Home): Back is Start's own again. */
+    onCommandClosed: () -> Unit = {},
     /** The Contacts tab asks for READ_CONTACTS; the activity bumps [refreshGeneration] after. */
     onRequestContactsPermission: () -> Unit = {},
     /** Phone's speed dial: holding an assigned letter on Home calls it (null: no speed dial). */
@@ -532,6 +539,7 @@ fun SableStartScreen(
     }
 
     fun navigateBack() {
+        if (destination == SableStartDestination.Search && commandReturnsToApp) onReturnFromCommand()
         destination = backDestination(destination, returnDestination)
     }
 
@@ -570,6 +578,20 @@ fun SableStartScreen(
             selectedApp = null
             startPager.animateScrollToPage(StartPages.HOME)
         }
+    }
+
+    LaunchedEffect(commandGeneration) {
+        if (commandGeneration > 0) {
+            selectedApp = null
+            openSearch(SableStartDestination.Start)
+        }
+    }
+
+    var commandShowing by remember { mutableStateOf(false) }
+    LaunchedEffect(destination) {
+        val searching = destination == SableStartDestination.Search
+        if (commandShowing && !searching) onCommandClosed()
+        commandShowing = searching
     }
 
     LaunchedEffect(hubGeneration) {
