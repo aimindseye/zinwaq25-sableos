@@ -8,6 +8,10 @@
     <queries>
         <provider android:authorities="org.sableos.appearance" />
     </queries>
+    <permission
+        android:name="org.sableos.tasks.permission.SYSTEM_EVENTS"
+        android:protectionLevel="signature" />
+
     <application
         android:name=".TasksApplication"
         android:allowBackup="false"
@@ -41,9 +45,12 @@
         <receiver
             android:name=".platform.TaskAlarmReceiver"
             android:exported="false" />
+        <!-- Boot, time and package broadcasts come from the system, which holds every permission;
+             the signature permission keeps other apps from sending this receiver anything. -->
         <receiver
             android:name=".platform.TaskBootReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:permission="org.sableos.tasks.permission.SYSTEM_EVENTS">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.TIME_SET" />

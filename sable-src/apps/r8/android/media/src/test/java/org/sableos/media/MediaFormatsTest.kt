@@ -9,24 +9,33 @@ import java.nio.ByteOrder
 class MediaFormatsTest {
     @Test
     fun stationListAcceptsTextPairsAndM3u() {
-        val parsed =
-            MediaFormats.parseStationList(
-                "#EXTM3U\n#EXTINF:-1,News Radio\nhttps://radio.example/live.mp3\nJazz|http://jazz.example/stream\ninvalid row\n",
-            )
+        val text =
+            "#EXTM3U\n#EXTINF:-1,News Radio\nhttps://radio.example/live.mp3\n" +
+                "Jazz|http://jazz.example/stream\ninvalid row\n"
+        val parsed = MediaFormats.parseStationList(text)
         assertEquals(listOf("News Radio", "Jazz"), parsed.stations.map { it.name })
         assertEquals(1, parsed.skippedLines)
-        assertEquals("q.example", MediaFormats.parseStationList("\"http://q.example/a\"").stations.single().name)
+        val quoted = MediaFormats.parseStationList("\"http://q.example/a\"")
+        assertEquals("q.example", quoted.stations.single().name)
     }
 
     @Test
     fun wavProbeReadsPcmMetadata() {
-        val wav =
-            ByteBuffer.allocate(48).order(ByteOrder.LITTLE_ENDIAN).apply {
-                put("RIFF".toByteArray()).putInt(40).put("WAVEfmt ".toByteArray()).putInt(16)
-                putShort(1).putShort(2).putInt(44_100).putInt(176_400).putShort(4).putShort(16)
-                put("data".toByteArray()).putInt(4).putInt(0)
-            }.array()
-        assertEquals(MediaFormats.WavInfo(2, 44_100, 16, 4), MediaFormats.probeWav(wav))
+        val buffer = ByteBuffer.allocate(48).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.put("RIFF".toByteArray())
+        buffer.putInt(40)
+        buffer.put("WAVEfmt ".toByteArray())
+        buffer.putInt(16)
+        buffer.putShort(1)
+        buffer.putShort(2)
+        buffer.putInt(44_100)
+        buffer.putInt(176_400)
+        buffer.putShort(4)
+        buffer.putShort(16)
+        buffer.put("data".toByteArray())
+        buffer.putInt(4)
+        buffer.putInt(0)
+        assertEquals(MediaFormats.WavInfo(2, 44_100, 16, 4), MediaFormats.probeWav(buffer.array()))
         val error = runCatching { MediaFormats.probeWav(ByteArray(4)) }.exceptionOrNull()
         assertEquals(MediaFormats.ProbeError.TooSmall, (error as MediaFormats.ProbeException).error)
     }
