@@ -1,0 +1,639 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 6 Nov 2026 12:45:00 +0000
+Subject: [PATCH] SableOS: Deep sleeping apps, with Put unused apps to sleep
+
+Mobile Manager > App blocker becomes Deep sleeping apps (owner decision
+2026-11-06, after the deep sleep of recent Samsung phones): the same
+switch per launcher app, Android's Restricted background mode plus a
+stop, now named for what it does. A new switch at the top, Put unused
+apps to sleep (off by default), schedules a daily pass while the phone
+is idle that puts every launcher app not opened, installed or updated
+for 3 days into deep sleep. Sable's own apps, the apps 1208 never lists
+(home, dialer, SMS, keyboard, Settings), enabled accessibility services
+and notification listeners, device admins and the live wallpaper are
+left alone, and an app the user wakes on the page stays awake. Its row
+says it was put to sleep for not being opened.
+
+Pure DeepSleepPolicy with host tests in tests/sable-apps.
+---
+ AndroidManifest.xml                           |   7 +
+ res/values/strings_sable_app_blocker.xml      |  18 +-
+ res/xml/sable_app_blocker.xml                 |   8 +-
+ .../sable/SableAppBlockerFragment.java        |  34 ++-
+ .../applications/sable/SableDeepSleep.java    | 220 ++++++++++++++++++
+ .../sable/model/DeepSleepPolicy.java          |  96 ++++++++
+ .../sable/model/DeepSleepPolicyTest.java      |  87 +++++++
+ 7 files changed, 458 insertions(+), 12 deletions(-)
+ create mode 100644 src/com/android/settings/applications/sable/SableDeepSleep.java
+ create mode 100644 src/com/android/settings/applications/sable/model/DeepSleepPolicy.java
+ create mode 100644 tests/sable-apps/src/com/android/settings/applications/sable/model/DeepSleepPolicyTest.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index a8093f2..c597324 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -2136,6 +2136,13 @@
+             </intent-filter>
+         </receiver>
+ 
++        <!-- SableOS: Put unused apps to sleep (Mobile Manager > Deep sleeping apps), a daily
++             pass while idle, scheduled only while the user has it on. -->
++        <service
++            android:name=".applications.sable.SableDeepSleep"
++            android:exported="false"
++            android:permission="android.permission.BIND_JOB_SERVICE" />
++
+         <!-- SableOS: Focus mode started or ended (from anywhere): pause or release the chosen
+              apps. Android sends this only to the rule owner's package; Settings shares the
+              system UID, so the receiver need not be exported. -->
+diff --git a/res/values/strings_sable_app_blocker.xml b/res/values/strings_sable_app_blocker.xml
+index ec30e01..57cbed4 100644
+--- a/res/values/strings_sable_app_blocker.xml
++++ b/res/values/strings_sable_app_blocker.xml
+@@ -18,17 +18,23 @@
+     <!-- ===== App blocker ===== -->
+ 
+     <!-- App blocker page and Mobile Manager row title. -->
+-    <string name="sable_blocker_title">App blocker</string>
++    <string name="sable_blocker_title">Deep sleeping apps</string>
+     <!-- App blocker row summary in Mobile Manager. -->
+-    <string name="sable_blocker_summary">Stop an app and keep it from running in the background</string>
++    <string name="sable_blocker_summary">Apps that never run in the background, only when you open them</string>
+     <!-- App blocker search keywords. -->
+-    <string name="sable_blocker_keywords">app blocker, block app, stop app, restricted, restrict background, kill app, stop background apps</string>
++    <string name="sable_blocker_keywords">deep sleep, deep sleeping apps, sleeping apps, put app to sleep, unused apps, app blocker, block app, stop app, restricted, restrict background, kill app, stop background apps</string>
+     <!-- App blocker page: what a switch does. -->
+-    <string name="sable_blocker_explanation">Blocking an app stops it now and sets it to Restricted, so it cannot run in the background, sync or wake the phone. You can still open it yourself. To make an app impossible to open, use Freezer.</string>
++    <string name="sable_blocker_explanation">Putting an app into deep sleep stops it now and sets it to Restricted, so it cannot run in the background, sync or wake the phone. It runs only while you have it open. To make an app impossible to open, use Freezer.</string>
+     <!-- App blocker page: the app list heading. -->
+     <string name="sable_blocker_apps_title">Apps</string>
+     <!-- App blocker: summary of a blocked app. -->
+-    <string name="sable_blocker_app_blocked">Blocked: stopped, restricted in the background</string>
++    <string name="sable_blocker_app_blocked">Deep sleeping: runs only when you open it</string>
+     <!-- App blocker page: breakage note. -->
+-    <string name="sable_blocker_note">Notifications, sync and sign-in can stop for a blocked app. Messaging, mail and calendar apps are the most affected. This is Android\'s Restricted mode, the same setting as Battery &gt; Background use. The home screen, phone, messages, keyboard and Settings cannot be blocked.</string>
++    <string name="sable_blocker_note">Notifications, sync and sign-in can stop for a deep sleeping app. Messaging, mail and calendar apps are the most affected. This is Android\'s Restricted mode, the same setting as Battery &gt; Background use. The home screen, phone, messages, keyboard and Settings cannot be put to sleep.</string>
++    <!-- Deep sleeping apps: the switch that puts unused apps to sleep. -->
++    <string name="sable_deep_sleep_auto_title">Put unused apps to sleep</string>
++    <!-- Deep sleeping apps: what that switch does. -->
++    <string name="sable_deep_sleep_auto_summary">Apps you have not opened for 3 days go into deep sleep. Sable apps, apps Android needs and apps you wake here are left alone.</string>
++    <!-- Deep sleeping apps: summary of an app the switch put to sleep. -->
++    <string name="sable_deep_sleep_app_auto">Deep sleeping: not opened for 3 days</string>
+ </resources>
+diff --git a/res/xml/sable_app_blocker.xml b/res/xml/sable_app_blocker.xml
+index 58f941f..3442dea 100644
+--- a/res/xml/sable_app_blocker.xml
++++ b/res/xml/sable_app_blocker.xml
+@@ -14,7 +14,7 @@
+      See the License for the specific language governing permissions and
+      limitations under the License.
+ -->
+-<!-- App blocker: one switch per launcher app (filled in by SableAppBlockerFragment). -->
++<!-- Deep sleeping apps (formerly App blocker): one switch per launcher app (filled in by SableAppBlockerFragment). -->
+ <PreferenceScreen
+     xmlns:android="http://schemas.android.com/apk/res/android"
+     xmlns:settings="http://schemas.android.com/apk/res-auto"
+@@ -22,6 +22,12 @@
+     android:title="@string/sable_blocker_title"
+     settings:keywords="@string/sable_blocker_keywords">
+ 
++    <SwitchPreferenceCompat
++        android:key="sable_deep_sleep_auto"
++        android:title="@string/sable_deep_sleep_auto_title"
++        android:summary="@string/sable_deep_sleep_auto_summary"
++        android:persistent="false" />
++
+     <Preference
+         android:key="sable_blocker_explanation"
+         android:summary="@string/sable_blocker_explanation"
+diff --git a/src/com/android/settings/applications/sable/SableAppBlockerFragment.java b/src/com/android/settings/applications/sable/SableAppBlockerFragment.java
+index 853820f..a925b51 100644
+--- a/src/com/android/settings/applications/sable/SableAppBlockerFragment.java
++++ b/src/com/android/settings/applications/sable/SableAppBlockerFragment.java
+@@ -37,7 +37,8 @@ import java.util.List;
+ import java.util.Set;
+ 
+ /**
+- * App blocker (Mobile Manager &gt; App blocker): one switch per launcher app. On puts the app in
++ * Deep sleeping apps (Mobile Manager &gt; Deep sleeping apps, formerly App blocker): one switch
++ * per launcher app, and "Put unused apps to sleep" ({@link SableDeepSleep}). On puts the app in
+  * Android's Restricted background mode and stops it ({@link SableAppBlocker}); Off allows
+  * background use again. Apps the phone needs are not listed. Whether an app is blocked is read
+  * from Android each time the page opens, so changes made in Battery or the App Control Center
+@@ -47,9 +48,11 @@ import java.util.Set;
+ public class SableAppBlockerFragment extends SettingsPreferenceFragment
+         implements Preference.OnPreferenceChangeListener {
+     private static final String KEY_APPS = "sable_blocker_apps";
++    private static final String KEY_AUTO = "sable_deep_sleep_auto";
+     private static final String PREFIX = "sable_block:";
+ 
+     private PreferenceCategory mApps;
++    private SwitchPreferenceCompat mAuto;
+     private SableAppListKeyboard mKeyboard;
+     private int mLoadGeneration;
+ 
+@@ -57,10 +60,12 @@ public class SableAppBlockerFragment extends SettingsPreferenceFragment
+     private static final class AppData {
+         final SableAppControls.LauncherApp app;
+         final boolean blocked;
++        final boolean autoSlept;
+ 
+-        AppData(SableAppControls.LauncherApp app, boolean blocked) {
++        AppData(SableAppControls.LauncherApp app, boolean blocked, boolean autoSlept) {
+             this.app = app;
+             this.blocked = blocked;
++            this.autoSlept = autoSlept;
+         }
+     }
+ 
+@@ -74,6 +79,10 @@ public class SableAppBlockerFragment extends SettingsPreferenceFragment
+         super.onCreate(icicle);
+         addPreferencesFromResource(R.xml.sable_app_blocker);
+         mApps = findPreference(KEY_APPS);
++        mAuto = findPreference(KEY_AUTO);
++        if (mAuto != null) {
++            mAuto.setOnPreferenceChangeListener(this);
++        }
+     }
+ 
+     @Override
+@@ -99,14 +108,19 @@ public class SableAppBlockerFragment extends SettingsPreferenceFragment
+ 
+     private void load() {
+         final Context context = getPrefContext().getApplicationContext();
++        if (mAuto != null) {
++            mAuto.setChecked(SableDeepSleep.isAutoOn(context));
++        }
+         final int generation = ++mLoadGeneration;
+         ThreadUtils.postOnBackgroundThread(() -> {
+             final Set<String> neverBlock = SableAppControls.protectedPackages(context);
+             final List<AppData> apps = new ArrayList<>();
+             for (SableAppControls.LauncherApp app : SableAppControls.launcherApps(context, true)) {
+                 if (!neverBlock.contains(app.packageName)) {
+-                    apps.add(new AppData(app,
+-                            SableAppBlocker.isBlocked(context, app.uid, app.packageName)));
++                    final boolean blocked =
++                            SableAppBlocker.isBlocked(context, app.uid, app.packageName);
++                    apps.add(new AppData(app, blocked,
++                            blocked && SableDeepSleep.wasAutoSlept(context, app.packageName)));
+                 }
+             }
+             ThreadUtils.postOnMainThread(() -> {
+@@ -129,7 +143,8 @@ public class SableAppBlockerFragment extends SettingsPreferenceFragment
+             pref.setPersistent(false);
+             pref.setChecked(data.blocked);
+             if (data.blocked) {
+-                pref.setSummary(R.string.sable_blocker_app_blocked);
++                pref.setSummary(data.autoSlept ? R.string.sable_deep_sleep_app_auto
++                        : R.string.sable_blocker_app_blocked);
+             }
+             pref.setOnPreferenceChangeListener(this);
+             mApps.addPreference(pref);
+@@ -145,6 +160,12 @@ public class SableAppBlockerFragment extends SettingsPreferenceFragment
+     @Override
+     public boolean onPreferenceChange(Preference preference, Object newValue) {
+         final String key = preference.getKey();
++        if (KEY_AUTO.equals(key) && newValue instanceof Boolean) {
++            final boolean on = (Boolean) newValue;
++            final Context app = getPrefContext().getApplicationContext();
++            ThreadUtils.postOnBackgroundThread(() -> SableDeepSleep.setAutoOn(app, on));
++            return true;
++        }
+         if (key == null || !key.startsWith(PREFIX) || !(newValue instanceof Boolean)) {
+             return false;
+         }
+@@ -153,6 +174,9 @@ public class SableAppBlockerFragment extends SettingsPreferenceFragment
+         final Context context = getPrefContext().getApplicationContext();
+         ThreadUtils.postOnBackgroundThread(() -> {
+             final boolean ok = SableAppBlocker.setBlocked(context, pkg, block);
++            if (ok) {
++                SableDeepSleep.onManualChange(context, pkg, block);
++            }
+             ThreadUtils.postOnMainThread(() -> {
+                 if (!isAdded()) {
+                     return;
+diff --git a/src/com/android/settings/applications/sable/SableDeepSleep.java b/src/com/android/settings/applications/sable/SableDeepSleep.java
+new file mode 100644
+index 0000000..0944de3
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/SableDeepSleep.java
+@@ -0,0 +1,220 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable;
++
++import android.app.WallpaperInfo;
++import android.app.WallpaperManager;
++import android.app.admin.DevicePolicyManager;
++import android.app.job.JobInfo;
++import android.app.job.JobParameters;
++import android.app.job.JobScheduler;
++import android.app.job.JobService;
++import android.app.usage.UsageStats;
++import android.app.usage.UsageStatsManager;
++import android.content.ComponentName;
++import android.content.Context;
++import android.content.pm.PackageInfo;
++import android.content.pm.PackageManager;
++import android.provider.Settings;
++import android.text.TextUtils;
++import android.util.Log;
++
++import com.android.settings.applications.sable.model.DeepSleepPolicy;
++
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.Set;
++import java.util.TreeSet;
++
++/**
++ * "Put unused apps to sleep" (Mobile Manager &gt; Deep sleeping apps), off until the user turns
++ * it on: once a day, while the phone is idle, every launcher app not opened for three days goes
++ * into deep sleep ({@link SableAppBlocker}: Android's Restricted background mode and a stop), as
++ * {@link DeepSleepPolicy} decides. An app the user wakes on the page stays awake.
++ */
++public class SableDeepSleep extends JobService {
++    private static final String TAG = "SableDeepSleep";
++    private static final String NAMESPACE = "sable_deep_sleep";
++    private static final int JOB_ID = 1;
++    private static final long DAY_MILLIS = 24L * 60 * 60 * 1000;
++    /** Usage older than this is not looked up; such an app counts as unused since install. */
++    private static final long LOOKBACK_MILLIS = 30L * DAY_MILLIS;
++
++    static final String KEY_AUTO = "deep_sleep_auto";
++    static final String KEY_KEEP_AWAKE = "deep_sleep_keep_awake";
++    static final String KEY_AUTO_SLEPT = "deep_sleep_auto_slept";
++
++    static boolean isAutoOn(Context context) {
++        return "1".equals(SableAppControls.readString(context, KEY_AUTO));
++    }
++
++    /** Turns "Put unused apps to sleep" on or off, and schedules or cancels the daily pass. */
++    static void setAutoOn(Context context, boolean on) {
++        SableAppControls.writeString(context, KEY_AUTO, on ? "1" : "0");
++        final JobScheduler scheduler = scheduler(context);
++        if (scheduler == null) {
++            return;
++        }
++        if (!on) {
++            scheduler.cancel(JOB_ID);
++            return;
++        }
++        scheduler.schedule(new JobInfo.Builder(JOB_ID,
++                new ComponentName(context, SableDeepSleep.class))
++                .setPeriodic(DAY_MILLIS)
++                .setRequiresDeviceIdle(true)
++                .setPersisted(true)
++                .build());
++    }
++
++    /** Records a switch the user flipped on the page, so a woken app is not put back to sleep. */
++    static void onManualChange(Context context, String pkg, boolean asleep) {
++        SableAppControls.writeSet(context, KEY_KEEP_AWAKE, DeepSleepPolicy.afterManualChange(
++                SableAppControls.readSet(context, KEY_KEEP_AWAKE), pkg, asleep));
++        final Set<String> slept = new TreeSet<>(SableAppControls.readSet(context, KEY_AUTO_SLEPT));
++        if (slept.remove(pkg)) {
++            SableAppControls.writeSet(context, KEY_AUTO_SLEPT, slept);
++        }
++    }
++
++    /** Whether "Put unused apps to sleep" put {@code pkg} to sleep (for its summary). */
++    static boolean wasAutoSlept(Context context, String pkg) {
++        return SableAppControls.readSet(context, KEY_AUTO_SLEPT).contains(pkg);
++    }
++
++    @Override
++    public boolean onStartJob(JobParameters params) {
++        final Context context = getApplicationContext();
++        new Thread(() -> {
++            try {
++                if (isAutoOn(context)) {
++                    sleepUnused(context, System.currentTimeMillis());
++                }
++            } catch (RuntimeException e) {
++                Log.e(TAG, "Deep sleep pass failed", e);
++            }
++            jobFinished(params, false);
++        }, TAG).start();
++        return true;
++    }
++
++    @Override
++    public boolean onStopJob(JobParameters params) {
++        return false;
++    }
++
++    private static void sleepUnused(Context context, long now) {
++        final Map<String, Long> lastUsed = new HashMap<>();
++        final Set<String> asleep = new TreeSet<>();
++        final Map<String, UsageStats> usage = usage(context, now);
++        final PackageManager pm = context.getPackageManager();
++        for (SableAppControls.LauncherApp app : SableAppControls.launcherApps(context, false)) {
++            if (SableAppBlocker.isBlocked(context, app.uid, app.packageName)) {
++                asleep.add(app.packageName);
++            }
++            final UsageStats stats = usage.get(app.packageName);
++            long installed = 0;
++            long updated = 0;
++            try {
++                final PackageInfo info = pm.getPackageInfo(app.packageName,
++                        PackageManager.PackageInfoFlags.of(0));
++                installed = info.firstInstallTime;
++                updated = info.lastUpdateTime;
++            } catch (PackageManager.NameNotFoundException e) {
++                continue;
++            }
++            lastUsed.put(app.packageName, DeepSleepPolicy.lastTouched(
++                    stats == null ? 0 : stats.getLastTimeUsed(), installed, updated));
++        }
++        final Set<String> chosen = DeepSleepPolicy.toSleep(lastUsed, now, asleep,
++                SableAppControls.readSet(context, KEY_KEEP_AWAKE),
++                SableAppControls.protectedPackages(context), exempt(context));
++        final Set<String> slept = new TreeSet<>(SableAppControls.readSet(context, KEY_AUTO_SLEPT));
++        slept.retainAll(lastUsed.keySet());
++        for (String pkg : chosen) {
++            if (SableAppBlocker.setBlocked(context, pkg, true)) {
++                slept.add(pkg);
++            }
++        }
++        SableAppControls.writeSet(context, KEY_AUTO_SLEPT, slept);
++        Log.i(TAG, "Put " + chosen.size() + " unused apps to sleep");
++    }
++
++    private static Map<String, UsageStats> usage(Context context, long now) {
++        try {
++            final UsageStatsManager manager = context.getSystemService(UsageStatsManager.class);
++            final Map<String, UsageStats> stats = manager == null ? null
++                    : manager.queryAndAggregateUsageStats(now - LOOKBACK_MILLIS, now);
++            return stats == null ? new HashMap<>() : stats;
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Cannot read app usage", e);
++            return new HashMap<>();
++        }
++    }
++
++    /**
++     * Apps that work in the background on the user's behalf, which a sleep would quietly break:
++     * enabled accessibility services and notification listeners, active device admins and the
++     * live wallpaper.
++     */
++    private static Set<String> exempt(Context context) {
++        final Set<String> out = new TreeSet<>();
++        addComponents(out, Settings.Secure.getString(context.getContentResolver(),
++                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES));
++        addComponents(out, Settings.Secure.getString(context.getContentResolver(),
++                Settings.Secure.ENABLED_NOTIFICATION_LISTENERS));
++        try {
++            final DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
++            final List<ComponentName> admins = dpm == null ? null : dpm.getActiveAdmins();
++            if (admins != null) {
++                for (ComponentName admin : admins) {
++                    out.add(admin.getPackageName());
++                }
++            }
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Cannot list device admins", e);
++        }
++        try {
++            final WallpaperManager wallpapers = context.getSystemService(WallpaperManager.class);
++            final WallpaperInfo live = wallpapers == null ? null : wallpapers.getWallpaperInfo();
++            if (live != null) {
++                out.add(live.getPackageName());
++            }
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Cannot read the live wallpaper", e);
++        }
++        return out;
++    }
++
++    private static void addComponents(Set<String> out, String flattened) {
++        if (TextUtils.isEmpty(flattened)) {
++            return;
++        }
++        for (String item : flattened.split(":")) {
++            final ComponentName component = ComponentName.unflattenFromString(item);
++            if (component != null) {
++                out.add(component.getPackageName());
++            }
++        }
++    }
++
++    private static JobScheduler scheduler(Context context) {
++        final JobScheduler scheduler = context.getSystemService(JobScheduler.class);
++        return scheduler == null ? null : scheduler.forNamespace(NAMESPACE);
++    }
++}
+diff --git a/src/com/android/settings/applications/sable/model/DeepSleepPolicy.java b/src/com/android/settings/applications/sable/model/DeepSleepPolicy.java
+new file mode 100644
+index 0000000..e3068a4
+--- /dev/null
++++ b/src/com/android/settings/applications/sable/model/DeepSleepPolicy.java
+@@ -0,0 +1,96 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import java.util.Collection;
++import java.util.Map;
++import java.util.Set;
++import java.util.TreeSet;
++
++/**
++ * Deep sleeping apps (Mobile Manager &gt; Deep sleeping apps), the pure part of "Put unused apps
++ * to sleep": which apps go into deep sleep after {@link #UNUSED_MILLIS} without being opened, and
++ * which apps the user woke and so keep awake. Deep sleep is App blocker's Restricted background
++ * mode ({@link AppBlockerPolicy}), so the platform holds the state.
++ */
++public final class DeepSleepPolicy {
++    /** Three days, as in the request (after the deep sleep of recent Samsung phones). */
++    public static final long UNUSED_MILLIS = 3L * 24 * 60 * 60 * 1000;
++
++    /** Sable's own apps (Hub, Weather, Tasks and the rest) are never put to sleep on their own. */
++    public static final String SABLE_PREFIX = "org.sableos.";
++
++    private DeepSleepPolicy() {}
++
++    /**
++     * The apps to put to sleep now: blockable, not asleep already, not woken by the user, not
++     * {@code exempt} (an accessibility service, notification listener, device admin or the live
++     * wallpaper), not a Sable app, and last used (or installed or updated) at least
++     * {@link #UNUSED_MILLIS} before {@code now}. An app with no known time is left alone.
++     */
++    public static Set<String> toSleep(Map<String, Long> lastUsed, long now,
++            Collection<String> asleep, Collection<String> keepAwake, Set<String> neverBlock,
++            Collection<String> exempt) {
++        final Set<String> out = new TreeSet<>();
++        if (lastUsed == null) {
++            return out;
++        }
++        for (Map.Entry<String, Long> entry : lastUsed.entrySet()) {
++            final String pkg = entry.getKey();
++            final Long used = entry.getValue();
++            if (used != null && used > 0 && now - used >= UNUSED_MILLIS
++                    && AppBlockerPolicy.canBlock(pkg, neverBlock)
++                    && !pkg.startsWith(SABLE_PREFIX)
++                    && !contains(asleep, pkg) && !contains(keepAwake, pkg)
++                    && !contains(exempt, pkg)) {
++                out.add(pkg);
++            }
++        }
++        return out;
++    }
++
++    /**
++     * The apps kept awake after the user switches {@code pkg} by hand: waking one keeps it awake
++     * from then on, and putting one to sleep by hand lets "Put unused apps to sleep" manage it
++     * again.
++     */
++    public static Set<String> afterManualChange(Collection<String> keepAwake, String pkg,
++            boolean asleep) {
++        final Set<String> out = new TreeSet<>();
++        if (keepAwake != null) {
++            out.addAll(keepAwake);
++        }
++        if (!PackageSet.isValidPackageName(pkg)) {
++            return out;
++        }
++        if (asleep) {
++            out.remove(pkg);
++        } else {
++            out.add(pkg);
++        }
++        return out;
++    }
++
++    /** The newest of the last use, install and update times, in milliseconds (0 when none). */
++    public static long lastTouched(long lastUsed, long installed, long updated) {
++        return Math.max(Math.max(lastUsed, installed), Math.max(updated, 0L));
++    }
++
++    private static boolean contains(Collection<String> set, String pkg) {
++        return set != null && set.contains(pkg);
++    }
++}
+diff --git a/tests/sable-apps/src/com/android/settings/applications/sable/model/DeepSleepPolicyTest.java b/tests/sable-apps/src/com/android/settings/applications/sable/model/DeepSleepPolicyTest.java
+new file mode 100644
+index 0000000..6a406d4
+--- /dev/null
++++ b/tests/sable-apps/src/com/android/settings/applications/sable/model/DeepSleepPolicyTest.java
+@@ -0,0 +1,87 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.applications.sable.model;
++
++import static org.junit.Assert.assertEquals;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.HashMap;
++import java.util.HashSet;
++import java.util.Map;
++import java.util.Set;
++
++public class DeepSleepPolicyTest {
++    private static final long NOW = 1_794_000_000_000L;
++    private static final long DAY = 24L * 60 * 60 * 1000;
++    private static final Set<String> NEEDED = new HashSet<>(Arrays.asList(
++            "com.android.settings", "com.android.dialer"));
++
++    private static Map<String, Long> used(Object... pairs) {
++        final Map<String, Long> out = new HashMap<>();
++        for (int i = 0; i < pairs.length; i += 2) {
++            out.put((String) pairs[i], (Long) pairs[i + 1]);
++        }
++        return out;
++    }
++
++    @Test
++    public void appsUnusedForThreeDaysGoToSleep() {
++        final Set<String> out = DeepSleepPolicy.toSleep(used(
++                "com.example.old", NOW - 3 * DAY,
++                "com.example.recent", NOW - 2 * DAY,
++                "com.example.older", NOW - 30 * DAY), NOW, null, null, NEEDED, null);
++        assertEquals(new HashSet<>(Arrays.asList("com.example.old", "com.example.older")), out);
++    }
++
++    @Test
++    public void neededSableExemptAsleepAndWokenAppsAreLeftAlone() {
++        final long old = NOW - 10 * DAY;
++        final Set<String> out = DeepSleepPolicy.toSleep(used(
++                "com.android.dialer", old,
++                "org.sableos.weather", old,
++                "com.example.listener", old,
++                "com.example.asleep", old,
++                "com.example.woken", old,
++                "com.example.game", old,
++                "com.example.unknown", 0L,
++                "bad", old), NOW,
++                Collections.singleton("com.example.asleep"),
++                Collections.singleton("com.example.woken"), NEEDED,
++                Collections.singleton("com.example.listener"));
++        assertEquals(Collections.singleton("com.example.game"), out);
++        assertTrue(DeepSleepPolicy.toSleep(null, NOW, null, null, NEEDED, null).isEmpty());
++    }
++
++    @Test
++    public void wakingKeepsAnAppAwakeAndSleepingByHandReleasesIt() {
++        Set<String> keep = DeepSleepPolicy.afterManualChange(null, "com.example.a", false);
++        assertEquals(Collections.singleton("com.example.a"), keep);
++        keep = DeepSleepPolicy.afterManualChange(keep, "com.example.a", true);
++        assertTrue(keep.isEmpty());
++        assertTrue(DeepSleepPolicy.afterManualChange(null, "not valid", false).isEmpty());
++    }
++
++    @Test
++    public void lastTouchedIsTheNewestTime() {
++        assertEquals(30L, DeepSleepPolicy.lastTouched(10L, 30L, 20L));
++        assertEquals(0L, DeepSleepPolicy.lastTouched(0L, 0L, -1L));
++    }
++}
+-- 
+2.43.0
+

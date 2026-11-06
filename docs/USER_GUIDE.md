@@ -147,7 +147,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Calculator | Keyboard-first | Digits and operators from the keys |
 | Games | Ten games, each its own app: Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words | See [Games](#games) below |
 | Tools | Device reports you can save to Download/SableTools. Its utilities (SOS and alarm, pedometer with a goal and 7-day history, flashlight, compass and more) show on the Q25 only when Developer options and Tools' developer mode are on, until each is proven on the phone | C copy, S save, M more. In the pedometer, Menu sets height, weight and goal |
-| Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, App blocker, Focus and Student mode) | App blocker: Settings > Apps > Mobile Manager > App blocker. To see what an app can do and what changed in it, open Settings > Apps > App security & privacy (signing, permissions, exposed parts, tracker signals, changes seen on this phone) |
+| Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, Deep sleeping apps, Focus and Student mode) | Deep sleeping apps: Settings > Apps > Mobile Manager > Deep sleeping apps. To see what an app can do and what changed in it, open Settings > Apps > App security & privacy (signing, permissions, exposed parts, tracker signals, changes seen on this phone) |
 | App display compatibility | Taller canvas per app for apps that don't fit a square screen | Alt+Shift+R |
 | Aurora Store + microG | Install Play Store apps without Google Play | See [MICROG.md](MICROG.md) |
 
@@ -372,7 +372,7 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Apps > Mobile Manager | The home of the controls below, plus a plain list of what is not available yet |
 | Mobile Manager > App Control Center | Every app with its network access, background mode and paused state (Frozen, Student mode or Focus mode). Filter by network blocked, background restricted, paused, frozen or hidden. Enter on an app: Freeze, Hide, Network access, App security, App info |
 | Mobile Manager > Freezer | Freeze an app so it stops running; its data stays. You can also hide a frozen app from the launcher. Apps the phone needs cannot be frozen |
-| Mobile Manager > App blocker | Puts an app on Android's Restricted background mode and stops it now, so it only runs when you open it |
+| Mobile Manager > Deep sleeping apps (was App blocker) | Puts an app into deep sleep: Android's Restricted background mode, and it stops now, so it only runs when you open it. Put unused apps to sleep (off until you turn it on) does this once a day for apps you have not opened for 3 days; Sable apps, apps Android needs and apps you wake on the page are left alone |
 | Mobile Manager > Focus mode | Only priority apps, alarms, media and repeat callers can notify you. "Pause while Focus mode is on" suspends the apps you choose. It also appears in Settings > Modes and Quick Settings |
 | Mobile Manager > Student mode | Focus mode on a schedule (days and times; weekdays 08:00-17:00 once you turn it on): every app you have not allowed is paused. Turning it off by hand lasts until the next boundary. It is a local control, not parental control or a site filter |
 | Private Space & Dual Apps | Private Space state and setup, Dual Apps (a second copy of an app, from Apps > Cloned apps) and the work profile. There is no app lock, because Android 16 on this build has no way to gate an app launch honestly; use Private Space for apps you want behind a lock |
@@ -383,7 +383,7 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 <img src="images/q25/mobile-manager.png" alt="Mobile Manager" width="200">
 <img src="images/q25/app-control-center.png" alt="App Control Center" width="200">
 <img src="images/q25/freezer.png" alt="Freezer" width="200">
-<img src="images/q25/app-blocker.png" alt="App blocker" width="200">
+<img src="images/q25/app-blocker.png" alt="Deep sleeping apps" width="200">
 <img src="images/q25/focus-mode.png" alt="Focus mode" width="200">
 <img src="images/q25/student-mode.png" alt="Student mode" width="200">
 <img src="images/q25/private-space.png" alt="Private Space and Dual Apps" width="200">

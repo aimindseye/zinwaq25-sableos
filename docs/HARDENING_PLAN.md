@@ -58,7 +58,7 @@ Status words: **Have** (Android or LineageOS ships it, or SableOS added it),
 | Auditor, GrapheneOS camera and PDF apps | N/A | Auditor needs hardware attestation; SableOS has its own apps |
 | Sandboxed Google Play | N/A | SableOS uses microG and Aurora Store, not Google Play |
 | App security inspection | Have (Sable) | Settings > Apps > App security & privacy (0604, 1209): read-only, evidence-labelled |
-| Per-app background and freeze controls | Have (Sable) | Mobile Manager: App blocker, Freezer, App Control Center (1205, 1208) |
+| Per-app background and freeze controls | Have (Sable) | Mobile Manager: Deep sleeping apps (was App blocker), Freezer, App Control Center (1205, 1208, 1608) |
 | Native debugging protection | Evaluate | Relevant only once `adb root` is gone (`user` build) |
 
 ## Suggested order
