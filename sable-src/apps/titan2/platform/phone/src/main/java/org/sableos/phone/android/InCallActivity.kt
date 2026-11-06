@@ -49,12 +49,11 @@ class InCallActivity :
     private lateinit var merge: TextView
     private lateinit var answer: TextView
     private val handler = Handler(Looper.getMainLooper())
-    private val tick = object : Runnable {
-        override fun run() {
+    private val tick: Runnable =
+        Runnable {
             showTimer()
-            handler.postDelayed(this, TICK_MS)
+            postTick()
         }
-    }
     private var keypadOpen = false
     private var answeredKey = -1
     private var accountsFor: Call? = null
@@ -259,6 +258,11 @@ class InCallActivity :
             val what = CallInfo.stateLabel(other).ifEmpty { t("ongoing_call") }
             second.text = t("other_call", CallInfo.name(this, other), what)
         }
+    }
+
+    /** The call timer's next tick, a second on. */
+    private fun postTick() {
+        handler.postDelayed(tick, TICK_MS)
     }
 
     private fun showTimer() {
