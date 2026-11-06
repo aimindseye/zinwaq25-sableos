@@ -193,6 +193,8 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # Trackpad mode (Settings > Keyboard > Trackpad): init writes the bbqX0kbd mode switch
     # (device patch 1503 labels it for init only).
     cp "$SABLE_REPO_ROOT/product/q25/init/sable-trackpad.rc" "$VENDOR_SABLE/etc/init/"
+    # Double-tap to wake (Settings 1610): init hands the choice to the touch driver (kernel 0903).
+    cp "$SABLE_REPO_ROOT/product/q25/init/sable-dt2w.rc" "$VENDOR_SABLE/etc/init/"
     # Privileged permission allowlist for the apps.tsv "platform" and "privileged" rows
     # (App display compatibility, Secure Vault).
     mkdir -p "$VENDOR_SABLE/etc/permissions"
@@ -244,7 +246,8 @@ PRODUCT_PACKAGES += \
 SABLE_Q25_NO_UPDATER := true
 PRODUCT_SYSTEM_EXT_PROPERTIES += \
     ro.sable.home=org.sableos.launcher \
-    ro.sable.keyboard_backlight=true
+    ro.sable.keyboard_backlight=true \
+    ro.sable.double_tap_wake=true
 # App display compatibility applies profiles: the framework overlay turns on per-app user
 # aspect ratios (SableFrameworkOverlay sable_displaycompat.xml) and this opens the app's gate.
 PRODUCT_PRODUCT_PROPERTIES += \
@@ -256,6 +259,7 @@ PRODUCT_COPY_FILES += \
     vendor/sable/q25/etc/battery/zinwa-q25.conf:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/sable/battery/zinwa-q25.conf \
     vendor/sable/q25/etc/init/sable-keyboard-backlight.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-keyboard-backlight.rc \
     vendor/sable/q25/etc/init/sable-trackpad.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-trackpad.rc \
+    vendor/sable/q25/etc/init/sable-dt2w.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-dt2w.rc \
     vendor/sable/q25/etc/init/sable-power.rc:$(TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc \
     vendor/sable/q25/media/sable_default_wallpaper.png:$(TARGET_COPY_OUT_PRODUCT)/media/wallpaper/sable_default_wallpaper.png
 MK
