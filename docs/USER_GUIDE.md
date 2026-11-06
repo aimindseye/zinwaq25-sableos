@@ -1,10 +1,10 @@
 # SableOS on the Zinwa Q25: User Guide
 
-As of 2026-10-28. Editable copy: [SableOS User Guide (Claude Doc)](https://claude.ai/artifact/KmYo2jeSg6d4z5dXuvzvMf).
+As of 2026-11-06. Editable copy: [SableOS User Guide (Claude Doc)](https://claude.ai/artifact/KmYo2jeSg6d4z5dXuvzvMf).
 
 ## About this guide
 
-SableOS is a BlackBerry-style Android for the Zinwa Q25. It is built on LineageOS 23.2 (Android 16), and almost everything can be done from the keyboard. This guide covers SableOS 1.0, which includes the earlier alpha-20261028 test build plus the changes in PR #38 (pure black Dark theme, BlackBerry 7 home icons and swipes, Sound Profiles look, weather fix).
+SableOS is a BlackBerry-style Android for the Zinwa Q25. It is built on LineageOS 24.0 (Android 17), and almost everything can be done from the keyboard. This guide covers SableOS 2.0; what is new since 1.0 is listed in [releases/2.0.md](../releases/2.0.md).
 
 Features whose gate in [QUALIFICATION.md](QUALIFICATION.md) says `NOT_RUN` have not been checked on a Q25 yet. Settings marked "default" below are what a fresh install ships with.
 
@@ -340,7 +340,7 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Display > Text size | Small, Medium, Large or Larger text. Larger is the biggest size SableOS lays out for the square screen. Display size and text, next to it, has Android's Font size slider, bold text and high contrast text for anything bigger; a size set there shows as custom. Setup's Theme step has the same choice |
 | Accessibility | Android's own options: magnification, colour correction, colour inversion, extra dim, remove animations, caption preferences, mono audio, time to take action, and for the keyboard sticky, slow and bounce keys. TalkBack, Select to Speak and Switch Access are Google apps and are not included; see [ACCESSIBILITY.md](ACCESSIBILITY.md) for adding a screen reader |
 | Display > App display compatibility | A taller canvas per app, and **Sable app style**: compact corners (default) or rounded. Open Sable apps restyle at once |
-| About phone > SableOS version | Release number, release name, the LineageOS base and the source commit, for example `1.0 · full · lineage-23.2 · 0afdeef1c2d3`. LineageOS legal information stays under Legal information |
+| About phone > SableOS version | Release number, release name, the LineageOS base and the source commit, for example `2.0 · full · lineage-24.0 · 0afdeef1c2d3`. LineageOS legal information stays under Legal information |
 | Battery > Battery health | Cycle count, capacity health, temperature and voltage, each with its source. A value the phone cannot read says "Not reported", never a guess. A chart below shows Today, 24 hours and 7 days |
 | Battery > Charging & protection | Shows what the phone can and cannot do. Charge limit and adaptive charging are listed as "not available on this device" on the Q25 |
 | Notifications > Sable Attention | Hub's hardware-attention settings. Each app's notification page also has a Sable Hub and Attention row |

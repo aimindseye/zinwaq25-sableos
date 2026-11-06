@@ -209,7 +209,7 @@ What the scripts do, for reference:
 
 ```bash
 cd ~/sable-q25/android
-repo init -u https://github.com/LineageOS/android.git -b lineage-23.2 --git-lfs
+repo init -u https://github.com/LineageOS/android.git -b lineage-24.0 --git-lfs
 cp <this repo>/manifests/local_manifests/sable_q25.xml .repo/local_manifests/
 repo sync -c -j$(nproc) --no-tags
 # Q2 only:

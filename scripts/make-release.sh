@@ -2,8 +2,8 @@
 # Package a collected build as a GitHub release: one zip with the images,
 # the install package, checksums, flashing steps and release notes.
 #
-#   bash build/sable.sh q25 full artifacts --version 1.0
-#   bash build/sable.sh q25 full release --version 1.0 [--notes FILE]
+#   bash build/sable.sh q25 full artifacts --version 2.0
+#   bash build/sable.sh q25 full release --version 2.0 [--notes FILE]
 #                                      [--artifacts DIR] [--boot-tested] [--publish]
 #
 # The release number is --version (default 1.0): it is the GitHub tag and part of the

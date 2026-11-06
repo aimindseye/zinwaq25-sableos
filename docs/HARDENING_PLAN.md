@@ -19,7 +19,7 @@ reference, not something to apply to the LineageOS tree.
 ## The limit that comes first: the build and boot state
 
 Hardening inside Android is worth little if the device is open at a lower level.
-SableOS 1.0 ships as follows:
+SableOS 2.0 ships as follows (as 1.0 did):
 
 | Fact | Effect on hardening |
 | --- | --- |

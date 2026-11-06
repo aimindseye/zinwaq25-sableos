@@ -28,7 +28,7 @@ licence text next to each before a public release.
 
 | Component | Licence |
 |---|---|
-| LineageOS 23.2 / AOSP | Apache-2.0 and others |
+| LineageOS 24.0 / AOSP | Apache-2.0 and others |
 | `LineageOS/android_device_xelex_Q25` | Apache-2.0 |
 | `LineageOS/android_kernel_xelex_mt6789` | GPL-2.0 |
 | `LineageOS/android_hardware_mediatek`, `android_device_mediatek_sepolicy_vndr` | Apache-2.0 |

@@ -2,7 +2,7 @@
 
 | Upstream | Used for | Pin | Licence |
 |---|---|---|---|
-| [LineageOS/android](https://github.com/LineageOS/android) `lineage-23.2` | OS base manifest | branch; exact revisions recorded per sync | Apache-2.0 and others (AOSP) |
+| [LineageOS/android](https://github.com/LineageOS/android) `lineage-24.0` | OS base manifest (SableOS 1.0 used `lineage-23.2`) | branch; exact revisions recorded per sync | Apache-2.0 and others (AOSP) |
 | [LineageOS/android_device_xelex_Q25](https://github.com/LineageOS/android_device_xelex_Q25) | Device tree | `1f4e295b5b972bd5e5ea0ec01f8a87154973b464` | Apache-2.0 |
 | [LineageOS/android_kernel_xelex_mt6789](https://github.com/LineageOS/android_kernel_xelex_mt6789) | Kernel | `2a873a3511ee0eeead1442e60145093192a4535d` | GPL-2.0 |
 | [LineageOS/android_hardware_mediatek](https://github.com/LineageOS/android_hardware_mediatek) | MTK HALs, IMS frameworks | `68f9be72a32bca66e7c63d69e9739b18f13c8b48` | Apache-2.0 |

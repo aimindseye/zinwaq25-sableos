@@ -6,7 +6,7 @@
 > layout this build produces. Do not follow them unless you can recover the device yourself (see
 > [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md)).
 > Unlocking the bootloader erases all data.
-> Built on LineageOS 23.2 (Android 16 QPR2).
+> SableOS 2.0 is built on LineageOS 24.0 (Android 17). SableOS 1.0 was built on LineageOS 23.2 (Android 16 QPR2).
 
 ## Before you start
 

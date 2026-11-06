@@ -13,40 +13,19 @@ repository holds everything needed to build SableOS for the **Zinwa Q25** (the
 BlackBerry Classic restomod, codename `Q25`), without needing the Pixel 7,
 Titan 2 or Q27 SableOS lanes.
 
-> **Status: the next release is SableOS 1.0, built from this main. The latest published build so far is the test build
-> [`alpha-20261029`](https://github.com/aimindseye/zinwaq25-sableos/releases/tag/alpha-20261029),
-> built from main after PR #38; it runs on a Q25.** On 2026-10-15/17 a real
-> Q25 (board `q20_v12_factory`, stock `Q25_20.01.2026`) was backed up, restored
-> to stock, unlocked, and flashed with the Q1 control image, the Q2 image and
-> then the first Q4 image. The device reviews on 2026-10-22 and 2026-10-28
-> ([review notes](docs/implementation/q4-review.md)) were answered by PRs #32,
-> #34-#36 and #38. The first alpha, `alpha-20261028`, booted; PR #38 answered
-> its review: the weather fix, Sound Profiles restyled, BlackBerry 7 home dials,
-> swipes and home screen icons, one pure black palette, and seven new games
-> (Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong and Words).
-> On `alpha-20261029` the seven games install under /product and the Pure
-> black setting defaults to on. Two problems found on it are fixed in PR #40
-> (in the next alpha): the system black theme overlay was not applied
-> (frameworks/base 0103), and returning from Hub on the BlackBerry 7 home showed
-> the BlackBerry 10 home ([#39](https://github.com/aimindseye/zinwaq25-sableos/issues/39)).
-> PR #41 (also for the next alpha) finishes Sable Reader for the Q25: the
-> Comics and Audio tabs list comics and audiobooks instead of "Coming Soon",
-> N/P change audiobook chapters, Settings sets the comic and audiobook
-> defaults, and the library, audiobook player and dialogs fit the 411 dp
-> square screen.
-> Sable Notes (also for the next alpha, sable-src 0081) adds notes and
-> checklists in the spirit of BlackBerry Remember and Color Notes: colour
-> labels, a Tasks view of every open item, and share, export and import, all
-> kept on the phone.
-> Clipboard history (sable-src 0083) is an opt-in Sable Keyboard setting:
-> held Alt+Shift+V lists your last 20 copies in the keyboard strip, kept in
-> memory only and never on the lock screen.
-> Sable Terminal (sable-src 0084) is ConnectBot 1.10.9 for SSH, Telnet and a
-> local shell; on the Q25 the Menu key is Ctrl and Menu then Back is Esc.
-> Every Sable app now keeps its English in `strings.xml` (sable-src 0085) and has
-> draft translations in 18 languages; see [`docs/LANGUAGES.md`](docs/LANGUAGES.md).
+> **Status: the next release is SableOS 2.0, built from this main on
+> LineageOS 24.0 (Android 17).** SableOS 1.0 (Android 16) was released on
+> 2026-10-29; see [`releases/1.0.md`](releases/1.0.md). What 2.0 adds is in
+> [`releases/2.0.md`](releases/2.0.md): Sable Phone, Priority Hub with snooze
+> and remind-me, Hub swipe to settings, the Device Monitor and media Active
+> Frames, lock-screen Peek and Picture Password, Command from any app, folders
+> and hidden apps, Sable Speech, Tasks, Browser, Spaces, Print To Go, Compass,
+> the Cosgrove assistant, weather alerts and Deep sleeping apps.
+> The Q25 was first flashed on 2026-10-15/17 (board `q20_v12_factory`, stock
+> `Q25_20.01.2026`); earlier device reviews are in
+> [docs/implementation/q4-review.md](docs/implementation/q4-review.md).
 > **Disclaimer:** Sable app translations (18 languages) are machine-assisted drafts: they have not been reviewed by fluent speakers and may contain errors or awkward wording. English is the reference text. Corrections are welcome.
-> Most Q4-* device gates are still `NOT_RUN`
+> Many Q4-* device gates for the 2.0 features are still `NOT_RUN`
 > ([#27](https://github.com/aimindseye/zinwaq25-sableos/issues/27) tracks them).
 > **Using SableOS:** [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) covers setup,
 > the keys, the apps, the privacy and security defaults and what to change.
@@ -58,27 +37,27 @@ Titan 2 or Q27 SableOS lanes.
 
 ```text
 DEVICE=Q25
-PHASE=R0, Q1, Q2 PASS on a Q25; Q4 alpha-20261029 (main after PR #38) flashed 2026-10-29, device gates in progress
+PHASE=R0, Q1, Q2 PASS on a Q25; 1.0 released 2026-10-29; 2.0 (LineageOS 24.0) in progress, device gates in progress
 BASE=LineageOS 24.0 (Android 17), official lineage_Q25 device (not a GSI)
 SABLE_LAYER=vendor/extra/product.mk -> vendor/sable/q25 (+ patches/framework at Q4)
 APPS_BUILD=PASS in GitHub Actions (Gradle build, unit tests, Lint, detekt, ktlint)
 IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 (2026-10-22); PR #33 Q4 (2026-10-28); alpha-20261028; alpha-20261029
-FRAMEWORK_PATCHES=104 patch files; all apply in order (check with scripts/apply-framework-patches.sh check)
+FRAMEWORK_PATCHES=127 patch files; all apply in order (check with scripts/apply-framework-patches.sh check)
 BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17, 2026-10-22, 2026-10-28); alpha-20261028; alpha-20261029 (2026-10-29)
 FLASH_SCRIPT=NONE (manual, documented steps in docs/INSTALL.md and docs/FLASHING_RELEASE.md)
-RELEASES=1.0 (the first SableOS release, built from this main), earlier test builds alpha-20261029, alpha-20261028; GitHub releases made with build/sable.sh q25 full release
+RELEASES=2.0 (next, built from this main), 1.0 (2026-10-29, LineageOS 23.2), earlier test builds alpha-20261029, alpha-20261028; GitHub releases made with build/sable.sh q25 full release
 ```
 
 ## Install a release
 
 Every release is built on **LineageOS 24.0 (Android 17)** and says so in its
-release notes. Download `sableos-q25-full-1.0-*.zip` from
+release notes. Download `sableos-q25-full-2.0-*.zip` from
 [Releases](https://github.com/aimindseye/zinwaq25-sableos/releases), then, with
 `adb` and `fastboot` installed and the phone's USB-C cable plugged in:
 
 ```bash
-unzip sableos-q25-full-1.0-*.zip
-cd sableos-q25-full-1.0-*/
+unzip sableos-q25-full-2.0-*.zip
+cd sableos-q25-full-2.0-*/
 sha256sum -c SHA256SUMS.txt                 # every line must say OK
 adb reboot bootloader
 fastboot flashing unlock                    # erases the phone; confirm on it
@@ -188,7 +167,7 @@ build/sable.sh            entry point: bash build/sable.sh q25 <release> <functi
 build/devices/q25.sh      device adapter (capabilities, fail-closed flags)
 build/config/             storage, host tools and source pins
 scripts/                  bootstrap, apps, stage, build, artifacts, release, import
-releases/                 hand-written notes for GitHub releases (1.0.md)
+releases/                 hand-written notes for GitHub releases (1.0.md, 2.0.md)
 manifests/local_manifests Q25 device/kernel/blob projects at pinned commits
 product/q25/              Sable product layer copied to vendor/sable/q25
 device-profile/           Q25 hardware capability profile and key map
