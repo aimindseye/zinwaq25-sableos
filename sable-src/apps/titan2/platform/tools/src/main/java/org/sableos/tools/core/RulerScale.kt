@@ -26,7 +26,9 @@ object RulerScale {
             when {
                 mm % MM_PER_CM == 0 ->
                     RulerTick(mm * pxPerMm, RulerTick.Size.LONG, (mm / MM_PER_CM).toString())
+
                 mm % MM_PER_HALF_CM == 0 -> RulerTick(mm * pxPerMm, RulerTick.Size.MEDIUM, null)
+
                 else -> RulerTick(mm * pxPerMm, RulerTick.Size.SHORT, null)
             }
         }
@@ -40,7 +42,9 @@ object RulerScale {
             when {
                 e % EIGHTHS == 0 ->
                     RulerTick(e * pxPerEighth, RulerTick.Size.LONG, (e / EIGHTHS).toString())
+
                 e % HALF == 0 -> RulerTick(e * pxPerEighth, RulerTick.Size.MEDIUM, null)
+
                 else -> RulerTick(e * pxPerEighth, RulerTick.Size.SHORT, null)
             }
         }

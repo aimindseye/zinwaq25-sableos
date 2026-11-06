@@ -11,6 +11,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
+import org.sableos.titan2.theme.SableFonts
 import org.sableos.titan2.theme.SablePalette
 
 /**
@@ -56,7 +57,7 @@ object Ui {
         this.text = text
         setTextColor(TEXT)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, TITLE_SP)
-        typeface = Typeface.DEFAULT_BOLD
+        typeface = SableFonts.BOLD
     }
 
     fun subtitle(ctx: Context, text: String) = TextView(ctx).apply {
@@ -69,7 +70,7 @@ object Ui {
         this.text = text.uppercase()
         setTextColor(ACCENT)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, HEADER_SP)
-        typeface = Typeface.DEFAULT_BOLD
+        typeface = SableFonts.BOLD
         setPadding(0, dp(ctx, PAD), 0, dp(ctx, PAD_SMALL))
     }
 
@@ -131,7 +132,7 @@ object Ui {
     fun reading(ctx: Context) = TextView(ctx).apply {
         setTextColor(TEXT)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, READING_SP)
-        typeface = Typeface.DEFAULT_BOLD
+        typeface = SableFonts.BOLD
         gravity = Gravity.CENTER
     }
 

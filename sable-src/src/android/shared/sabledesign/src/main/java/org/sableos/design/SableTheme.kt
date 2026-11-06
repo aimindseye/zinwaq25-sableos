@@ -1,5 +1,6 @@
 package org.sableos.design
 
+import android.graphics.Typeface
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -12,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -113,10 +115,18 @@ object SableColorTokens {
     val LightTextMuted = Color(0xFF515B66)
 }
 
-private val SableTypography =
+/**
+ * Source Sans 3 (Sable 2.0 type, UI direction 2026-11-04): the "source-sans" family the image adds
+ * in /product/etc/fonts_customization.xml. Where it is missing, Typeface.create returns the default
+ * sans-serif, so nothing breaks.
+ */
+val SableFontFamily: FontFamily by lazy { FontFamily(Typeface.create("source-sans", Typeface.NORMAL)) }
+
+private val SableTypography by lazy {
     Typography(
         displayLarge =
             TextStyle(
+                fontFamily = SableFontFamily,
                 fontSize = 44.sp,
                 lineHeight = 50.sp,
                 fontWeight = FontWeight.Light,
@@ -124,6 +134,7 @@ private val SableTypography =
             ),
         headlineLarge =
             TextStyle(
+                fontFamily = SableFontFamily,
                 fontSize = 34.sp,
                 lineHeight = 40.sp,
                 fontWeight = FontWeight.Light,
@@ -131,44 +142,51 @@ private val SableTypography =
             ),
         headlineMedium =
             TextStyle(
+                fontFamily = SableFontFamily,
                 fontSize = 26.sp,
                 lineHeight = 32.sp,
                 fontWeight = FontWeight.Normal,
             ),
         titleLarge =
             TextStyle(
+                fontFamily = SableFontFamily,
                 fontSize = 21.sp,
                 lineHeight = 27.sp,
                 fontWeight = FontWeight.Medium,
             ),
         titleMedium =
             TextStyle(
+                fontFamily = SableFontFamily,
                 fontSize = 17.sp,
                 lineHeight = 23.sp,
                 fontWeight = FontWeight.Medium,
             ),
         bodyLarge =
             TextStyle(
+                fontFamily = SableFontFamily,
                 fontSize = 17.sp,
                 lineHeight = 24.sp,
                 fontWeight = FontWeight.Normal,
             ),
         bodyMedium =
             TextStyle(
+                fontFamily = SableFontFamily,
                 fontSize = 15.sp,
                 lineHeight = 21.sp,
                 fontWeight = FontWeight.Normal,
             ),
         labelLarge =
             TextStyle(
+                fontFamily = SableFontFamily,
                 fontSize = 14.sp,
                 lineHeight = 18.sp,
                 fontWeight = FontWeight.Medium,
             ),
     )
+}
 
 /** The type scale in a short window: the same roles, one step smaller, display and headline the most. */
-private val SableShortTypography =
+private val SableShortTypography by lazy {
     SableTypography.copy(
         displayLarge = SableTypography.displayLarge.copy(fontSize = 28.sp, lineHeight = 32.sp, letterSpacing = (-0.4).sp),
         headlineLarge = SableTypography.headlineLarge.copy(fontSize = 24.sp, lineHeight = 28.sp, letterSpacing = 0.sp),
@@ -179,6 +197,7 @@ private val SableShortTypography =
         bodyMedium = SableTypography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 19.sp),
         labelLarge = SableTypography.labelLarge.copy(fontSize = 13.sp, lineHeight = 17.sp),
     )
+}
 
 /** Material shapes for a corner style, built from [SableShapeTable]. */
 fun sableShapes(style: SableCornerStyle): Shapes {

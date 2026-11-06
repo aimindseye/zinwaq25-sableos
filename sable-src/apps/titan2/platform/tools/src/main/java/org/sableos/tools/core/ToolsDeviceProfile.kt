@@ -103,6 +103,11 @@ data class ToolsDeviceProfile(
                 ) +
                 all(Declared.DIAGNOSTIC_ONLY, "MT6631 FM in spec; NOT_RUN", Capability.FM_RADIO) +
                 all(
+                    Declared.DIAGNOSTIC_ONLY,
+                    "ruler drawn from the panel's reported density; NOT_RUN against a real ruler",
+                    Capability.RULER
+                ) +
+                all(
                     Declared.UNKNOWN,
                     "no factory-test dialer code observed on Q25",
                     Capability.FACTORY_TEST_BRIDGE

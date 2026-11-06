@@ -46,6 +46,9 @@ enum class Capability(
     IR_REMOTE(setOf(Hardware.IR_EMITTER)),
     SOS_ALERT(setOf(Hardware.CAMERA_FLASH)),
 
+    /** Needs only the panel's reported density, which still has to be checked against a real ruler. */
+    RULER(emptySet()),
+
     /** Android has no public IR receive API; this stays off unless a profile proves a platform-owned path. */
     IR_LEARNING(setOf(Hardware.IR_EMITTER, Hardware.IR_RECEIVER)),
 

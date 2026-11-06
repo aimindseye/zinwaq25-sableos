@@ -380,8 +380,11 @@ object ToolsText {
             "select_at_least_one_section" to "Select at least one section",
             "tv" to "TV",
             "ruler" to "Ruler",
-            "ruler_hint" to "Lay it along the left (cm) or right (inch) edge, from the top of the screen.",
-            "ruler_info" to "Draws centimetres and inches from the screen's own density, so it is as accurate as the panel reports. Nothing is kept.",
+            "ruler_hint" to
+                "Lay it along the left (cm) or right (inch) edge, from the top of the screen.",
+            "ruler_info" to
+                "Draws centimetres and inches from the screen's own density, so it is as " +
+                "accurate as the panel reports. Nothing is kept.",
             "sos_alert" to "SOS and alarm",
             "sos_light" to "SOS light",
             "sos_screen_flash" to "Screen flash",

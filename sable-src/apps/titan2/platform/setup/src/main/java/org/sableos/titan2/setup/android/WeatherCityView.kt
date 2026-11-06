@@ -1,7 +1,6 @@
 package org.sableos.titan2.setup.android
 
 import android.app.Activity
-import android.graphics.Typeface
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
@@ -14,6 +13,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import org.sableos.titan2.setup.core.WeatherCityStep
+import org.sableos.titan2.theme.SableFonts
 
 /**
  * The Weather city step: a filter field over Sable Weather's bundled catalog, up to
@@ -178,7 +178,7 @@ class WeatherCityView(
             text = s
             textSize = sp
             setTextColor(color)
-            if (bold) typeface = Typeface.DEFAULT_BOLD
+            typeface = SableFonts.of(bold)
         }
 
     private companion object {

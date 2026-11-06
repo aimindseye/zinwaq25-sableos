@@ -1,10 +1,10 @@
 package org.sableos.titan2.spaces.android
 
 import android.content.Context
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.widget.Button
 import android.widget.TextView
+import org.sableos.titan2.theme.SableFonts
 import org.sableos.titan2.theme.SablePalette
 
 /** The few views Sable Spaces draws, in the Sable theme. Keys go to the screen, not to a focused button. */
@@ -16,7 +16,7 @@ class SpacesViews(private val context: Context, val palette: SablePalette) {
             text = s
             textSize = sp
             setTextColor(color)
-            if (bold) typeface = Typeface.DEFAULT_BOLD
+            typeface = SableFonts.of(bold)
             setPadding(0, px(GAP), 0, 0)
         }
 

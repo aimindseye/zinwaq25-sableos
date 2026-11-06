@@ -94,6 +94,7 @@ enum class Tool(
         Section.UTILITIES,
         "ruler",
         ToolKind.ACTION,
+        Capability.RULER,
         keywords = listOf("measure", "length", "cm", "inch")
     ),
     FLASHLIGHT(

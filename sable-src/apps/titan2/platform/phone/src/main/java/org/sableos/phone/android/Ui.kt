@@ -2,7 +2,6 @@ package org.sableos.phone.android
 
 import android.content.Context
 import android.content.res.ColorStateList
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.StateListDrawable
@@ -10,6 +9,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
 import android.widget.TextView
+import org.sableos.titan2.theme.SableFonts
 import org.sableos.titan2.theme.SablePalette
 
 /**
@@ -30,7 +30,7 @@ class Ui(private val context: Context, val palette: SablePalette) {
         text = s
         textSize = sp
         setTextColor(color)
-        if (bold) typeface = Typeface.DEFAULT_BOLD
+        typeface = SableFonts.of(bold)
     }
 
     /** A focusable list row or tile: [fill] at rest, the focus surface with an accent outline when focused. */
