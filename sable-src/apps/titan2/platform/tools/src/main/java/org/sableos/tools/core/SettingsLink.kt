@@ -92,6 +92,9 @@ enum class SettingsLink(private val labelKey: String, val candidates: List<LinkI
 
 /** Which link each diagnostic offers as its "Open in Settings" action. */
 object Handoffs {
+    private val MY_SABLE_LINKS =
+        listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY, SettingsLink.ACCESSIBILITY)
+
     fun forTool(tool: Tool): List<SettingsLink> = when (tool) {
         Tool.KEY_VIEWER, Tool.KEYBOARD_PROFILE, Tool.TEXT_ENTRY -> listOf(SettingsLink.KEYBOARD)
         Tool.DISPLAY_INPUT -> listOf(SettingsLink.DISPLAY, SettingsLink.DISPLAY_COMPAT)
@@ -102,7 +105,7 @@ object Handoffs {
         Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS, SettingsLink.KEYBOARD)
         Tool.DEVICE_IDENTITY -> listOf(SettingsLink.ABOUT, SettingsLink.SECURITY)
         Tool.PRIVACY_CHECK -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
-        Tool.MY_SABLE -> with(SettingsLink) { listOf(SECURITY, PRIVACY, ACCESSIBILITY) }
+        Tool.MY_SABLE -> MY_SABLE_LINKS
         Tool.BUGREPORT -> listOf(SettingsLink.DEVELOPER)
         else -> emptyList()
     }
