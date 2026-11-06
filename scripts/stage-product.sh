@@ -216,17 +216,16 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # module installs TARGET_BOOTANIMATION as is when it is set;
     # bootanimation-dark.zip is a symlink to it.
     # Sable 2.0 type: Source Sans 3 (OFL) as the named family "source-sans"
-    # (product/common/fonts; SableFrameworkOverlay's font configs point at it).
+    # (product/common/fonts; SableFrameworkOverlay's font configs point at it). The
+    # families go into LineageOS's own /product/etc/fonts_customization.xml
+    # (packages/overlays/Lineage 0101): a second copy of that file fails the build.
     mkdir -p "$VENDOR_SABLE/fonts"
-    cp "$SABLE_REPO_ROOT"/product/common/fonts/*.ttf "$SABLE_REPO_ROOT/product/common/fonts/fonts_customization.xml" \
-        "$VENDOR_SABLE/fonts/"
+    cp "$SABLE_REPO_ROOT"/product/common/fonts/*.ttf "$VENDOR_SABLE/fonts/"
     for f in "$SABLE_REPO_ROOT"/product/common/fonts/*.ttf; do
         # shellcheck disable=SC2016 # $(TARGET_COPY_OUT_PRODUCT) is make syntax, written literally
         printf 'PRODUCT_COPY_FILES += vendor/sable/q25/fonts/%s:$(TARGET_COPY_OUT_PRODUCT)/fonts/%s\n' \
             "$(basename "$f")" "$(basename "$f")" >> "$fw_mk"
     done
-    # shellcheck disable=SC2016 # make syntax, written literally
-    echo 'PRODUCT_COPY_FILES += vendor/sable/q25/fonts/fonts_customization.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/fonts_customization.xml' >> "$fw_mk"
     python3 -I "$SABLE_REPO_ROOT/product/q25/bootanimation/pack-bootanimation.py" \
         "$SABLE_REPO_ROOT/product/q25/bootanimation/frames" "$VENDOR_SABLE/media/bootanimation.zip"
     cat >> "$fw_mk" <<'MK'

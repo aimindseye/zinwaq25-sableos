@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 6 Nov 2026 19:30:00 +0000
+Subject: [PATCH] SableOS: Source Sans 3 families in the product font
+ customization
+
+SableOS 2.0 sets Source Sans 3 as the system type. Android reads one
+/product/etc/fonts_customization.xml, and LineageOS installs this one
+(Google Sans Flex families), so SableOS adds its source-sans and
+source-sans-medium named families here instead of installing a second
+copy, which fails the build with overriding commands for that file. The
+fonts themselves are installed to /product/fonts by SableOS's product
+layer; SableFrameworkOverlay's font configs point at these families.
+---
+ fonts/etc/fonts_customization.xml | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/fonts/etc/fonts_customization.xml b/fonts/etc/fonts_customization.xml
+index 90d6444..ea7ecd8 100644
+--- a/fonts/etc/fonts_customization.xml
++++ b/fonts/etc/fonts_customization.xml
+@@ -486,4 +486,21 @@
+             <axis tag="wght" stylevalue="700"/>
+         </font>
+     </family>
++
++    <!-- SableOS 2.0: Source Sans 3 (SIL OFL 1.1) as two named families; the fonts are in
++         /product/fonts (SableOS scripts/stage-product.sh). SableFrameworkOverlay points the
++         headline and body font configs at them; Sable apps ask for "source-sans" by name. -->
++    <family customizationType="new-named-family" name="source-sans">
++        <font weight="400" style="normal">SourceSans3-Regular.ttf</font>
++        <font weight="400" style="italic">SourceSans3-It.ttf</font>
++        <font weight="500" style="normal">SourceSans3-Medium.ttf</font>
++        <font weight="600" style="normal">SourceSans3-Semibold.ttf</font>
++        <font weight="700" style="normal">SourceSans3-Bold.ttf</font>
++        <font weight="700" style="italic">SourceSans3-BoldIt.ttf</font>
++    </family>
++
++    <family customizationType="new-named-family" name="source-sans-medium">
++        <font weight="500" style="normal">SourceSans3-Medium.ttf</font>
++        <font weight="700" style="normal">SourceSans3-Bold.ttf</font>
++    </family>
+ </fonts-modification>
+-- 
+2.43.0
+

@@ -10,7 +10,7 @@
         <item>*|TONAL_SPOT|#2E9BD6</item>
     </string-array>
     <!-- Sable 2.0 type (UI direction 2026-11-04): Source Sans 3, the named family
-         "source-sans" that product/common/fonts/fonts_customization.xml adds.
+         "source-sans" that packages/overlays/Lineage patch 0101 adds to fonts_customization.xml.
          Settings, SystemUI, SetupWizard and other apps that read these
          configs use it; anything else keeps the default sans-serif. -->
     <string name="config_headlineFontFamily" translatable="false">source-sans</string>
