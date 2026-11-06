@@ -506,9 +506,9 @@ night_colors = {el.get("name"): (el.text or "").upper() for el in ET.parse(night
 report(
     suw_added("0409", "class SableFocusRing")
     and suw_added("0409", 'name="sable_setup_card"')
-    and night_colors.get("sable_setup_card") == "#FF121B28"
-    and night_colors.get("sable_setup_focus") == "#FF2FD0FF",
-    "Setup cards and focus ring are SetupWizard resources the overlay colours navy and cyan",
+    and night_colors.get("sable_setup_card") == "#FF141414"
+    and night_colors.get("sable_setup_focus") == "#FF2E9BD6",
+    "Setup cards and focus ring are SetupWizard resources the overlay colours black and grey with the one blue",
     str(night_colors),
 )
 report(

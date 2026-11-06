@@ -8,9 +8,9 @@ pinned in third_party/phosphor-icons/PROVENANCE.md). For every manifest row it w
 to the sable-src root):
 
   drawable/<drawable>.xml             legacy full-bleed vector in the SableOS R9 language: 256x256 viewport,
-                                      #161C24 tonal rounded background, #F7F9FC glyph at 0.70 scale, per-app
+                                      #000000 rounded background, #FFFFFF glyph at 0.70 scale, per-app
                                       accent bottom rail. Used in-app (logos, shortcuts) and as the pre-26 icon.
-  drawable/<drawable>_background.xml  adaptive background: full-bleed #161C24 on the 108dp canvas
+  drawable/<drawable>_background.xml  adaptive background: full-bleed #000000 on the 108dp canvas
   drawable/<drawable>_foreground.xml  adaptive foreground: the glyph centred in the 108dp canvas inside the 66dp
                                       safe zone, with the accent rail under it (also inside the safe zone)
   drawable/<drawable>_monochrome.xml  adaptive monochrome layer (Android 13+ themed icons): the glyph only
@@ -31,8 +31,10 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PH = os.path.join(ROOT, "third_party", "phosphor-icons")
-BG = "#161C24"
-GLYPH = "#F7F9FC"
+# SableOS 2.0 is black and white with one blue: black tile, white glyph, blue rail in every icon.
+BG = "#000000"
+GLYPH = "#FFFFFF"
+ACCENT = "#2E9BD6"
 BG_PATH = "M32,16h192c8.8,0 16,7.2 16,16v192c0,8.8 -7.2,16 -16,16H32c-8.8,0 -16,-7.2 -16,-16V32c0,-8.8 7.2,-16 16,-16z"
 RAIL_PATH = "M28,226h200v6H28z"
 
@@ -175,13 +177,13 @@ def render(r):
     glyph = glyph_path(r["glyph"], r["glyph_svg_sha256"])
     name = r["drawable"]
     legacy = LEGACY % {"bg_color": BG, "bg": BG_PATH, "glyph_color": GLYPH, "glyph": glyph,
-                       "accent": r["accent"], "rail": RAIL_PATH}
+                       "accent": ACCENT, "rail": RAIL_PATH}
     layer = {"scale": "%g" % GLYPH_SCALE, "offset": "%g" % GLYPH_OFFSET, "glyph": glyph}
     adaptive = ADAPTIVE % {"name": name}
     files = {
         "drawable/%s.xml" % name: legacy,
         "drawable/%s_background.xml" % name: BACKGROUND % {"bg_color": BG},
-        "drawable/%s_foreground.xml" % name: FOREGROUND % dict(layer, color=GLYPH, accent=r["accent"],
+        "drawable/%s_foreground.xml" % name: FOREGROUND % dict(layer, color=GLYPH, accent=ACCENT,
                                                                rail=ADAPTIVE_RAIL_PATH),
         "drawable/%s_monochrome.xml" % name: MONOCHROME % dict(layer, color="#FFFFFFFF"),
         "mipmap-anydpi-v26/%s.xml" % name: adaptive,

@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SableOS setup theme (sable-setup-wizard-titan2): cards and the keyboard focus ring.
-     The resources are added by SetupWizard patch 0409; light values here, the navy and cyan
-     of the design in values-night. -->
+     The resources are added by SetupWizard patch 0409. SableOS 2.0 is black and white with one
+     blue (#2E9BD6) for focus and selection: neutral grey cards, light values here, black cards
+     in values-night. -->
 <resources>
-    <color name="sable_setup_card">#FFEEF3F9</color>
-    <color name="sable_setup_card_stroke">#FFC4D4E6</color>
-    <color name="sable_setup_focus">#FF0B7FA8</color>
+    <color name="sable_setup_card">#FFF0F0F0</color>
+    <color name="sable_setup_card_stroke">#FFD0D0D0</color>
+    <color name="sable_setup_focus">#FF2E9BD6</color>
 </resources>
