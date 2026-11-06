@@ -36,7 +36,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -86,6 +85,7 @@ import org.sableos.design.SableActionButton
 import org.sableos.design.SableGlobalTheme
 import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableSpacing
+import org.sableos.design.SableUndoBar
 import org.sableos.design.sableFocusRing
 import org.sableos.design.sableVerticalScroll
 import java.time.Instant
@@ -257,8 +257,12 @@ private class CalendarAppState {
         canModify: Boolean,
     ) {
         status = null
+        if (pendingDelete != null) return
         if (canModify) {
             pendingDelete = PendingDelete(id, title, recurring)
+            openEvent = null
+            detail = null
+            mode = CalendarMode.Agenda
         } else {
             status = t("is_in_a_read_only", title)
         }
@@ -467,21 +471,6 @@ private fun CalendarApp(
         state.onDetailLoaded(withContext(Dispatchers.IO) { repository.event(occurrence) })
     }
 
-    state.pendingDelete?.let { pending ->
-        DeleteConfirmDialog(
-            message = EventEditPolicy.deleteConfirmation(pending.title, pending.recurring),
-            onDismiss = { state.pendingDelete = null },
-            onConfirm = {
-                state.pendingDelete = null
-                scope.launch {
-                    val deleted = withContext(Dispatchers.IO) { repository.deleteEvent(pending.eventId) }
-                    state.onDeleteFinished(pending.title, deleted)
-                    onRefresh()
-                }
-            },
-        )
-    }
-
     CompositionLocalProvider(LocalEventColors provides eventColors) {
         Surface(
             modifier = Modifier.fillMaxSize(),
@@ -513,6 +502,20 @@ private fun CalendarApp(
                             }
                         }
                     }
+                }
+                state.pendingDelete?.let { pending ->
+                    SableUndoBar(
+                        message = t("deleted", pending.title),
+                        onUndo = { state.pendingDelete = null },
+                        onExpire = {
+                            state.pendingDelete = null
+                            scope.launch {
+                                val deleted = withContext(Dispatchers.IO) { repository.deleteEvent(pending.eventId) }
+                                state.onDeleteFinished(pending.title, deleted)
+                                onRefresh()
+                            }
+                        },
+                    )
                 }
                 if (repository.canRead() && state.mode == CalendarMode.Agenda) {
                     CalendarActionBar(state, onRefresh)
@@ -658,7 +661,7 @@ private fun AgendaPane(state: CalendarAppState) {
     val split = LocalConfiguration.current.screenWidthDp >= SPLIT_MIN_WIDTH_DP
     ApprovedCalendarLanding(
         selectedDate = state.selectedDate,
-        events = state.events,
+        events = state.events.filter { it.id != state.pendingDelete?.eventId },
         busy = state.busy,
         selected = state.openEvent,
         onSelectDate = { state.selectedDate = it },
@@ -1226,41 +1229,6 @@ private fun eventWhen(
             )
         }
     return if (detail.allDay) t("all_day_2", range) else range
-}
-
-@Composable
-private fun DeleteConfirmDialog(
-    message: String,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    val cancel = remember { FocusRequester() }
-    // Focus starts on Cancel: Enter right away keeps the event; deleting is a deliberate move.
-    LaunchedEffect(Unit) {
-        withFrameNanos { }
-        runCatching { cancel.requestFocus() }
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(t("delete_event")) },
-        text = { Text(message) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    text = t("delete"),
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.focusRequester(cancel),
-            ) {
-                Text(t("cancel"))
-            }
-        },
-    )
 }
 
 @Composable

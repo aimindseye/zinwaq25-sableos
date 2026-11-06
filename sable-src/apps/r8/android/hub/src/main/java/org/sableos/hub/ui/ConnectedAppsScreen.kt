@@ -113,32 +113,25 @@ internal fun ConnectedAppsScreen(
                 item {
                     SablePageHeader(
                         title = t("connected_apps"),
-                        subtitle =
-                            t("choose_installed_apps_that_may"),
                     )
                 }
-                item {
-                    NotificationAccessPanel(
-                        notificationAccessGranted = notificationAccessGranted,
-                        onOpenNotificationAccess = onOpenNotificationAccess,
-                        privateMode = privateMode,
-                        onPrivateModeChanged = onPrivateModeChanged,
-                        combineConversations = combineConversations,
-                        onCombineConversationsChanged = onCombineConversationsChanged,
-                        eachMessage = eachMessage,
-                        onEachMessageChanged = onEachMessageChanged,
-                        menuOptions = menuOptions,
-                        onMenuOptionsChanged = onMenuOptionsChanged,
-                        onOpenAttentionSettings = onOpenAttentionSettings,
-                    )
-                }
-                item {
-                    Text(
-                        text =
-                            t("sable_does_not_sign_into"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+
+                if (!notificationAccessGranted) {
+                    item {
+                        NotificationAccessPanel(
+                            notificationAccessGranted = notificationAccessGranted,
+                            onOpenNotificationAccess = onOpenNotificationAccess,
+                            privateMode = privateMode,
+                            onPrivateModeChanged = onPrivateModeChanged,
+                            combineConversations = combineConversations,
+                            onCombineConversationsChanged = onCombineConversationsChanged,
+                            eachMessage = eachMessage,
+                            onEachMessageChanged = onEachMessageChanged,
+                            menuOptions = menuOptions,
+                            onMenuOptionsChanged = onMenuOptionsChanged,
+                            onOpenAttentionSettings = onOpenAttentionSettings,
+                        )
+                    }
                 }
 
                 // Opened from Android Settings for one app: show just that app's Hub/Attention.
@@ -176,6 +169,25 @@ internal fun ConnectedAppsScreen(
                             },
                             onSearchChange = { search = it },
                             rowContext = rowContext,
+                        )
+                    }
+                }
+
+                // Hub options come after the apps once access is granted.
+                if (notificationAccessGranted) {
+                    item {
+                        NotificationAccessPanel(
+                            notificationAccessGranted = notificationAccessGranted,
+                            onOpenNotificationAccess = onOpenNotificationAccess,
+                            privateMode = privateMode,
+                            onPrivateModeChanged = onPrivateModeChanged,
+                            combineConversations = combineConversations,
+                            onCombineConversationsChanged = onCombineConversationsChanged,
+                            eachMessage = eachMessage,
+                            onEachMessageChanged = onEachMessageChanged,
+                            menuOptions = menuOptions,
+                            onMenuOptionsChanged = onMenuOptionsChanged,
+                            onOpenAttentionSettings = onOpenAttentionSettings,
                         )
                     }
                 }
