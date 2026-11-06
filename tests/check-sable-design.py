@@ -407,7 +407,7 @@ report(
 fw = resources(OVERLAY / "SableFrameworkOverlay/res/values/config.xml")
 theming = [i.text.strip() for i in fw[("string-array", "theming_defaults")]]
 report(
-    theming == [f"*|TONAL_SPOT|#{accents['blue']['seed'] & 0xFFFFFF:06X}"],
+    theming == [f"*|SPRITZ|#{accents['blue']['seed'] & 0xFFFFFF:06X}"],
     "first-boot system palette seeded from Sable Blue",
     str(theming),
 )

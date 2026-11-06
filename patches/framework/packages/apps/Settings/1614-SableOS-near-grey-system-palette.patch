@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 6 Nov 2026 22:40:00 +0000
+Subject: [PATCH] SableOS: near-grey system palette (black and white 2.0)
+
+The system palette style is SPRITZ, Android's near-grey style, instead of
+TONAL_SPOT, so Settings and SystemUI surfaces are grey rather than tinted
+blue. The seed stays Sable Blue (#2E9BD6) for the accent. The first-boot
+default in SableFrameworkOverlay uses the same style.
+---
+ src/com/android/settings/sable/SableAppearancePolicy.java | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/com/android/settings/sable/SableAppearancePolicy.java b/src/com/android/settings/sable/SableAppearancePolicy.java
+index 1807ade..73edae4 100644
+--- a/src/com/android/settings/sable/SableAppearancePolicy.java
++++ b/src/com/android/settings/sable/SableAppearancePolicy.java
+@@ -88,7 +88,7 @@ public final class SableAppearancePolicy {
+     public static final String KEY_COLOR_INDEX = "android.theme.customization.color_index";
+     public static final String KEY_APPLIED_TIMESTAMP = "_applied_timestamp";
+     public static final String COLOR_SOURCE_PRESET = "preset";
+-    public static final String THEME_STYLE = "TONAL_SPOT";
++    public static final String THEME_STYLE = "SPRITZ";
+ 
+     private SableAppearancePolicy() {}
+ 
+-- 
+2.43.0

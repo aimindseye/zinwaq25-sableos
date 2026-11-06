@@ -146,6 +146,8 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/Settings/1610-SableOS-Double-tap-to-wake-switch-in-Settings-Display.patch` | new on 24.0 |
 | `packages/apps/Settings/1611-SableOS-Settings-top-level-in-ten-BlackBerry-10-rows.patch` | new on 24.0 |
 | `packages/apps/Settings/1612-SableOS-no-Attention-row-on-the-Sable-page.patch` | new on 24.0 |
+| `packages/apps/Settings/1613-SableOS-Picture-Password-row-in-Settings-Security.patch` | new on 24.0 |
+| `packages/apps/Settings/1614-SableOS-near-grey-system-palette.patch` | new on 24.0 |
 | `packages/overlays/Lineage/0101-SableOS-Source-Sans-3-families-in-the-product-font-cu.patch` | new on 24.0 (24.0 installs its own fonts_customization.xml) |
 | `packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | ported by hand |
 | `packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | ported by hand |
