@@ -5028,10 +5028,13 @@ private fun SearchScreen(
                 query = it
                 actionsFor = null
             },
-            // Enter opens the best match: else the first app, else the first other result.
-            onSubmit = {
-                assistantResult?.onClick?.invoke()
-                    ?: bestApp?.let(onLaunchApp)
+            // Enter asks the assistant after /ask; else opens the best match, the first app, the first other result.
+            onSubmit = submit@{
+                assistantResult?.let { ask ->
+                    ask.onClick()
+                    return@submit
+                }
+                bestApp?.let(onLaunchApp)
                     ?: bestOther?.onClick?.invoke()
                     ?: filteredApps.firstOrNull()?.let(onLaunchApp)
                     ?: firstOther?.onClick?.invoke()
