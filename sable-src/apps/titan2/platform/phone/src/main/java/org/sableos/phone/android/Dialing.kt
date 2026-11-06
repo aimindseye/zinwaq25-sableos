@@ -36,6 +36,8 @@ object Dialing {
     }
 
     /** Handles [typed] when it is a complete special code; true when it was one (the dial pad then clears). */
+    // sendDialerSpecialCode is for the default Phone app, which Sable Phone is; a refusal is caught.
+    @Suppress("MissingPermission")
     fun special(context: Context, typed: String): Boolean =
         when (val code = SpecialCodes.parse(typed)) {
             null -> false

@@ -1,6 +1,7 @@
 package org.sableos.phone.android
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.role.RoleManager
@@ -525,6 +526,9 @@ class PhoneActivity : Activity() {
         }
     }
 
+    // The default Phone app may clear its missed call notification without MODIFY_PHONE_STATE, which lint
+    // cannot know; a refusal is caught and logged.
+    @SuppressLint("MissingPermission")
     private fun clearMissed() {
         try {
             getSystemService(TelecomManager::class.java).cancelMissedCallsNotification()

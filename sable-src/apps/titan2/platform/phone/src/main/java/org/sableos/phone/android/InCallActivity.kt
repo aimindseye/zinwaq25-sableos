@@ -263,24 +263,19 @@ class InCallActivity :
     }
 
     /** The SIMs that can place a call; none when Android refuses (no phone state permission). */
-    private fun capableAccounts(telecom: TelecomManager): List<PhoneAccountHandle> =
-        try {
-            telecom.callCapablePhoneAccounts
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Cannot list the SIMs", e)
-            emptyList()
-        }
+    private fun capableAccounts(telecom: TelecomManager): List<PhoneAccountHandle> = try {
+        telecom.callCapablePhoneAccounts
+    } catch (e: SecurityException) {
+        Log.w(TAG, "Cannot list the SIMs", e)
+        emptyList()
+    }
 
-    private fun accountLabel(
-        telecom: TelecomManager,
-        handle: PhoneAccountHandle,
-    ): String? =
-        try {
-            telecom.getPhoneAccount(handle)?.label?.toString()
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Cannot read a SIM's name", e)
-            null
-        }
+    private fun accountLabel(telecom: TelecomManager, handle: PhoneAccountHandle): String? = try {
+        telecom.getPhoneAccount(handle)?.label?.toString()
+    } catch (e: SecurityException) {
+        Log.w(TAG, "Cannot read a SIM's name", e)
+        null
+    }
 
     /** The call timer's next tick, a second on. */
     private fun postTick() {
