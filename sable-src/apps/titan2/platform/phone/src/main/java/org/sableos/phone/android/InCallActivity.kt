@@ -7,8 +7,10 @@ import android.os.Handler
 import android.os.Looper
 import android.telecom.Call
 import android.telecom.CallAudioState
+import android.telecom.PhoneAccountHandle
 import android.telecom.PhoneAccountSuggestion
 import android.telecom.TelecomManager
+import android.util.Log
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -260,6 +262,26 @@ class InCallActivity :
         }
     }
 
+    /** The SIMs that can place a call; none when Android refuses (no phone state permission). */
+    private fun capableAccounts(telecom: TelecomManager): List<PhoneAccountHandle> =
+        try {
+            telecom.callCapablePhoneAccounts
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Cannot list the SIMs", e)
+            emptyList()
+        }
+
+    private fun accountLabel(
+        telecom: TelecomManager,
+        handle: PhoneAccountHandle,
+    ): String? =
+        try {
+            telecom.getPhoneAccount(handle)?.label?.toString()
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Cannot read a SIM's name", e)
+            null
+        }
+
     /** The call timer's next tick, a second on. */
     private fun postTick() {
         handler.postDelayed(tick, TICK_MS)
@@ -290,11 +312,9 @@ class InCallActivity :
             )
             ?.map { it.phoneAccountHandle }
         val handles = suggested?.takeIf { it.isNotEmpty() }
-            ?: runCatching { telecom.callCapablePhoneAccounts }.getOrNull().orEmpty()
+            ?: capableAccounts(telecom)
         handles.forEach { h ->
-            val label =
-                runCatching { telecom.getPhoneAccount(h)?.label?.toString() }.getOrNull()
-                    ?: t("sim")
+            val label = accountLabel(telecom, h) ?: t("sim")
             accounts.addView(toggle(label) { CallControl.chooseAccount(call, h) }, fullWidth())
         }
         accounts.addView(ui.button(t("cancel"), Ui.RED, Ui.ON_COLOR) { CallControl.hangUp(call) })
@@ -425,6 +445,7 @@ class InCallActivity :
 
     companion object {
         const val EXTRA_KEYPAD = "org.sableos.phone.extra.KEYPAD"
+        private const val TAG = "SablePhoneInCall"
         private const val NAME_SP = 28f
         private const val COLUMNS = 3
         private const val KEYPAD_COLUMNS = 3

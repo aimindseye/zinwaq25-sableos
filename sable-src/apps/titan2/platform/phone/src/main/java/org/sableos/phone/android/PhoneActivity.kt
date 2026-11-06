@@ -18,6 +18,7 @@ import android.provider.ContactsContract
 import android.telecom.TelecomManager
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -525,7 +526,11 @@ class PhoneActivity : Activity() {
     }
 
     private fun clearMissed() {
-        runCatching { getSystemService(TelecomManager::class.java).cancelMissedCallsNotification() }
+        try {
+            getSystemService(TelecomManager::class.java).cancelMissedCallsNotification()
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Cannot clear the missed call notification", e)
+        }
         io.execute { PhoneData(this).markMissedSeen() }
     }
 
@@ -561,6 +566,7 @@ class PhoneActivity : Activity() {
 
     companion object {
         const val ACTION_ADD_CALL = "org.sableos.phone.action.ADD_CALL"
+        private const val TAG = "SablePhone"
         private const val MATCH = LinearLayout.LayoutParams.MATCH_PARENT
         private const val WRAP = LinearLayout.LayoutParams.WRAP_CONTENT
         private const val TAB_CALLS = 0
