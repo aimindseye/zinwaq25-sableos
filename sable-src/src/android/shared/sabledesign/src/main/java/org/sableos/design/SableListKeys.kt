@@ -1,15 +1,26 @@
 package org.sableos.design
 
 import android.view.KeyEvent
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onSizeChanged
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.sableos.design.DesignText.t
@@ -145,3 +156,64 @@ fun Modifier.sableListKeys(
             }
         }
     }
+
+/** Where T, B, Space and Shift+Space take a plain scrolling screen. Pure, so it is JVM-tested. */
+object SableScrollKeys {
+    /** The scroll offset [move] goes to, or null when it is not a scroll move or nothing would change. */
+    fun destination(
+        move: SableListMove,
+        value: Int,
+        max: Int,
+        viewport: Int,
+    ): Int? {
+        val page = viewport * PAGE_NUMERATOR / PAGE_DENOMINATOR
+        val to =
+            when (move) {
+                SableListMove.Top -> 0
+                SableListMove.Bottom -> max
+                SableListMove.PageDown -> value + page
+                SableListMove.PageUp -> value - page
+                SableListMove.Next, SableListMove.Previous -> return null
+            }
+        return to.coerceIn(0, max.coerceAtLeast(0)).takeIf { it != value }
+    }
+
+    // A page keeps a tenth of the screen in view, so the eye keeps its place.
+    private const val PAGE_NUMERATOR = 9
+    private const val PAGE_DENOMINATOR = 10
+}
+
+/**
+ * A vertically scrolling screen with the BlackBerry keys: T top, B bottom, Space page down and Shift+Space page up.
+ * It acts only on a key nothing inside took (a text field keeps its letters, a button its Space), so screens that
+ * have their own list keys keep them. Use in place of `verticalScroll(rememberScrollState())`.
+ */
+@Composable
+fun Modifier.sableVerticalScroll(): Modifier {
+    val state = rememberScrollState()
+    return sableScrollKeys(state).verticalScroll(state)
+}
+
+@Composable
+private fun Modifier.sableScrollKeys(state: ScrollState): Modifier {
+    val scope = rememberCoroutineScope()
+    var viewport by remember { mutableIntStateOf(0) }
+    return onSizeChanged { viewport = it.height }.onKeyEvent { event ->
+        val native = event.nativeKeyEvent
+        val chord = native.isAltPressed || native.isCtrlPressed || native.isMetaPressed
+        val move =
+            SableListKeys.command(
+                native.keyCode,
+                native.isShiftPressed,
+                chord,
+                owned = setOf(SableListMove.Next, SableListMove.Previous),
+            )
+        val to = move?.let { SableScrollKeys.destination(it, state.value, state.maxValue, viewport) }
+        if (to == null) {
+            false
+        } else {
+            if (event.type == KeyEventType.KeyDown) scope.launch { state.animateScrollTo(to) }
+            true
+        }
+    }
+}

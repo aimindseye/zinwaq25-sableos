@@ -20,9 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -47,6 +45,7 @@ import kotlinx.coroutines.withContext
 import org.sableos.design.SableGlobalTheme
 import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableSpacing
+import org.sableos.design.sableVerticalScroll
 import org.sableos.weather.WeatherText.t
 
 class MainActivity : ComponentActivity() {
@@ -185,7 +184,7 @@ private fun WeatherApp() {
                 Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
-                    .verticalScroll(rememberScrollState())
+                    .sableVerticalScroll()
                     .padding(
                         horizontal = SableSpacing.ScreenHorizontal,
                         vertical = SableSpacing.Xl,

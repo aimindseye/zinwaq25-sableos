@@ -16,9 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -41,6 +39,7 @@ import org.sableos.design.SableSize
 import org.sableos.design.SableSpacing
 import org.sableos.design.SableUndoBar
 import org.sableos.design.sableFocusRing
+import org.sableos.design.sableVerticalScroll
 import org.sableos.tasks.core.ReminderPreset
 import org.sableos.tasks.core.RowKey
 import org.sableos.tasks.core.ScreenKey
@@ -72,7 +71,7 @@ fun TasksApp(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .sableVerticalScroll()
                     .padding(horizontal = SableSpacing.ScreenHorizontal, vertical = SableSpacing.ScreenVertical),
         ) {
             val editing = state.editing

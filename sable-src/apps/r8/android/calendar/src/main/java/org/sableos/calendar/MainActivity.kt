@@ -35,9 +35,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -89,6 +87,7 @@ import org.sableos.design.SableGlobalTheme
 import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableSpacing
 import org.sableos.design.sableFocusRing
+import org.sableos.design.sableVerticalScroll
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -498,7 +497,7 @@ private fun CalendarApp(
                             modifier =
                                 Modifier
                                     .fillMaxSize()
-                                    .verticalScroll(rememberScrollState())
+                                    .sableVerticalScroll()
                                     .padding(
                                         horizontal = SableSpacing.ScreenHorizontal,
                                         vertical = SableSpacing.ScreenVertical,
