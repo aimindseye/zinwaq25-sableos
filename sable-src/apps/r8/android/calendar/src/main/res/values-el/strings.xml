@@ -60,6 +60,12 @@
     <string name="calendars">Ημερολόγια</string>
     <string name="calendars_hint">Τα εμφανιζόμενα ημερολόγια γεμίζουν την ατζέντα, τους δακτυλίους φόρτου και τον μήνα του Start.</string>
     <string name="no_calendars">Δεν υπάρχουν ακόμη ημερολόγια σε αυτό το τηλέφωνο. Προσθέστε λογαριασμό στις Ρυθμίσεις > Λογαριασμοί.</string>
+    <string name="add_account">Προσθήκη λογαριασμού</string>
+    <string name="phone_calendar">Ημερολόγιο τηλεφώνου</string>
+    <string name="import_ics">Εισαγωγή .ics</string>
+    <string name="imported_events">Εισήχθησαν %1$d συμβάντα.</string>
+    <string name="import_failed">Δεν εισήχθη τίποτα.</string>
+    <string name="phone_calendar_ready">Το ημερολόγιο τηλεφώνου είναι έτοιμο.</string>
     <string name="l_calendars">" · L ημερολόγια"</string>
     <string name="day_events">%1$s, %2$s συμβάντα</string>
 </resources>

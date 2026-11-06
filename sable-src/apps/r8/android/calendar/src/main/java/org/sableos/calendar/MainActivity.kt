@@ -3,7 +3,12 @@ package org.sableos.calendar
 import android.Manifest
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.CalendarContract
+import android.provider.Settings
 import android.text.format.DateUtils
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
@@ -590,6 +595,27 @@ private fun CalendarsPane(
     onRefresh: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val importer = remember { CalendarImport(context.applicationContext) }
+    val reload: suspend () -> Unit = {
+        state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
+        onRefresh()
+    }
+    val picker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                val stored =
+                    withContext(Dispatchers.IO) {
+                        runCatching { readIcs(context, uri) }
+                            .getOrNull()
+                            ?.let { importer.importEvents(IcsParser.parse(it)) }
+                            ?: 0
+                    }
+                state.status = if (stored > 0) t("imported_events", stored) else t("import_failed")
+                reload()
+            }
+        }
     BackToAgenda { state.mode = CalendarMode.Agenda }
     CalendarsList(
         calendars = state.calendars,
@@ -604,8 +630,38 @@ private fun CalendarsPane(
                 }
             }
         },
+        actions =
+            CalendarsActions(
+                onAddAccount = {
+                    // Android's own screen; it lists the account types that carry calendars.
+                    val intent =
+                        Intent(Settings.ACTION_ADD_ACCOUNT)
+                            .putExtra(Settings.EXTRA_AUTHORITIES, arrayOf(CalendarContract.AUTHORITY))
+                    runCatching { context.startActivity(intent) }
+                },
+                onPhoneCalendar = {
+                    scope.launch {
+                        val id = withContext(Dispatchers.IO) { importer.phoneCalendarId() }
+                        state.status = if (id != null) t("phone_calendar_ready") else t("import_failed")
+                        reload()
+                    }
+                },
+                onImportIcs = { picker.launch(arrayOf("text/calendar", "application/octet-stream", "text/plain")) },
+            ),
     )
 }
+
+/** The text of a chosen .ics file, up to 4 MB; larger files are refused rather than half read. */
+private fun readIcs(
+    context: Context,
+    uri: Uri,
+): String? =
+    context.contentResolver.openInputStream(uri)?.use { input ->
+        val bytes = input.readBytes()
+        if (bytes.size > MAX_ICS_BYTES) null else bytes.toString(Charsets.UTF_8)
+    }
+
+private const val MAX_ICS_BYTES = 4 * 1024 * 1024
 
 @Composable
 private fun NewEventPane(

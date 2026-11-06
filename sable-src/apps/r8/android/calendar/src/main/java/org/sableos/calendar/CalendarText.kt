@@ -75,6 +75,12 @@ object CalendarText {
             "calendars" to "Calendars",
             "calendars_hint" to "Shown calendars fill the agenda, the busy rings and Start's month.",
             "no_calendars" to "No calendars on this phone yet. Add an account in Settings > Accounts.",
+            "add_account" to "Add account",
+            "phone_calendar" to "Phone calendar",
+            "import_ics" to "Import .ics",
+            "imported_events" to "Imported %1\$d events.",
+            "import_failed" to "Nothing was imported.",
+            "phone_calendar_ready" to "Phone calendar ready.",
             "l_calendars" to " · L calendars",
             "day_events" to "%1\$s, %2\$s events",
         )

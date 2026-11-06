@@ -60,6 +60,12 @@
     <string name="calendars">日历</string>
     <string name="calendars_hint">显示的日历会用于日程、忙碌圆环和 Start 的月视图。</string>
     <string name="no_calendars">此手机上还没有日历。请在“设置 > 帐号”中添加帐号。</string>
+    <string name="add_account">添加账户</string>
+    <string name="phone_calendar">手机日历</string>
+    <string name="import_ics">导入 .ics</string>
+    <string name="imported_events">已导入 %1$d 个日程。</string>
+    <string name="import_failed">未导入任何内容。</string>
+    <string name="phone_calendar_ready">手机日历已就绪。</string>
     <string name="l_calendars">" · L 日历"</string>
     <string name="day_events">%1$s，%2$s 个活动</string>
 </resources>

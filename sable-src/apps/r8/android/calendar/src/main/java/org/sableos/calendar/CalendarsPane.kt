@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.sableos.calendar.CalendarText.t
+import org.sableos.design.SableActionButton
 import org.sableos.design.SableSize
 import org.sableos.design.sableFocusRing
 
@@ -37,6 +38,7 @@ import org.sableos.design.sableFocusRing
 internal fun CalendarsList(
     calendars: List<CalendarSource>,
     onToggle: (CalendarSource, Boolean) -> Unit,
+    actions: CalendarsActions,
 ) {
     Text(text = t("calendars"), style = MaterialTheme.typography.headlineMedium)
     Text(
@@ -44,6 +46,11 @@ internal fun CalendarsList(
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    Spacer(Modifier.height(12.dp))
+    // Connecting calendars comes first: Android's add-account screen, a Phone calendar, an .ics file.
+    SableActionButton(text = t("add_account"), primary = false, onClick = actions.onAddAccount)
+    SableActionButton(text = t("phone_calendar"), primary = false, onClick = actions.onPhoneCalendar)
+    SableActionButton(text = t("import_ics"), primary = false, onClick = actions.onImportIcs)
     Spacer(Modifier.height(12.dp))
     if (calendars.isEmpty()) {
         Text(
@@ -57,6 +64,13 @@ internal fun CalendarsList(
         calendars.forEach { source -> CalendarSourceRow(source, onToggle) }
     }
 }
+
+/** What the three "connect a calendar" buttons do. */
+internal class CalendarsActions(
+    val onAddAccount: () -> Unit,
+    val onPhoneCalendar: () -> Unit,
+    val onImportIcs: () -> Unit,
+)
 
 @Composable
 private fun CalendarSourceRow(

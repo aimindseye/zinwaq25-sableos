@@ -60,6 +60,12 @@
     <string name="calendars">Agendas</string>
     <string name="calendars_hint">Les agendas affichés remplissent l’agenda, les anneaux d’occupation et le mois de Start.</string>
     <string name="no_calendars">Aucun agenda sur ce téléphone. Ajoutez un compte dans Paramètres > Comptes.</string>
+    <string name="add_account">Ajouter un compte</string>
+    <string name="phone_calendar">Agenda du téléphone</string>
+    <string name="import_ics">Importer un .ics</string>
+    <string name="imported_events">%1$d événements importés.</string>
+    <string name="import_failed">Rien n’a été importé.</string>
+    <string name="phone_calendar_ready">Agenda du téléphone prêt.</string>
     <string name="l_calendars">" · L agendas"</string>
     <string name="day_events">%1$s, %2$s événements</string>
 </resources>

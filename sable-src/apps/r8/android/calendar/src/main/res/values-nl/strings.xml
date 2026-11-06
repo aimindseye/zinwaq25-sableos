@@ -60,6 +60,12 @@
     <string name="calendars">Agenda\'s</string>
     <string name="calendars_hint">Getoonde agenda\'s vullen de agenda, de drukte-ringen en de maand in Start.</string>
     <string name="no_calendars">Nog geen agenda\'s op deze telefoon. Voeg een account toe via Instellingen > Accounts.</string>
+    <string name="add_account">Account toevoegen</string>
+    <string name="phone_calendar">Telefoonagenda</string>
+    <string name="import_ics">.ics importeren</string>
+    <string name="imported_events">%1$d afspraken geïmporteerd.</string>
+    <string name="import_failed">Er is niets geïmporteerd.</string>
+    <string name="phone_calendar_ready">Telefoonagenda gereed.</string>
     <string name="l_calendars">" · L agenda\'s"</string>
     <string name="day_events">%1$s, %2$s afspraken</string>
 </resources>

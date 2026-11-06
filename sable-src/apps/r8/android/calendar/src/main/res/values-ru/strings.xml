@@ -60,6 +60,12 @@
     <string name="calendars">Календари</string>
     <string name="calendars_hint">Показанные календари заполняют список дел, кольца занятости и месяц в Start.</string>
     <string name="no_calendars">На этом телефоне пока нет календарей. Добавьте аккаунт в Настройки > Аккаунты.</string>
+    <string name="add_account">Добавить аккаунт</string>
+    <string name="phone_calendar">Календарь телефона</string>
+    <string name="import_ics">Импорт .ics</string>
+    <string name="imported_events">Импортировано событий: %1$d.</string>
+    <string name="import_failed">Ничего не импортировано.</string>
+    <string name="phone_calendar_ready">Календарь телефона готов.</string>
     <string name="l_calendars">" · L календари"</string>
     <string name="day_events">%1$s, событий: %2$s</string>
 </resources>
