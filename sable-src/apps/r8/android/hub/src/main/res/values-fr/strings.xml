@@ -200,4 +200,10 @@
     <string name="row_menu_snooze_detail">Ajoute Reporter d’1 heure et la touche Z pour une notification active.</string>
     <string name="row_menu_remind_me">Me le rappeler dans le menu de ligne</string>
     <string name="row_menu_remind_me_detail">Ajoute une relance dans Sable Tasks pour demain matin. Seule l’app est enregistrée, jamais le message.</string>
+    <string name="add_sender_to_priority">Ajouter l\'expéditeur au Hub prioritaire</string>
+    <string name="remove_sender_from_priority">Retirer l\'expéditeur du Hub prioritaire</string>
+    <string name="add_app_to_priority">Ajouter toute cette app au Hub prioritaire</string>
+    <string name="remove_app_from_priority">Retirer cette app du Hub prioritaire</string>
+    <string name="added_to_priority">Ajouté au Hub prioritaire</string>
+    <string name="removed_from_priority">Retiré du Hub prioritaire</string>
 </resources>

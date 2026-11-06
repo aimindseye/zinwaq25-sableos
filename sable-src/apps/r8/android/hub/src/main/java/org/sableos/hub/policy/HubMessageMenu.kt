@@ -61,8 +61,9 @@ enum class HubRowKey { R, U, Z, Delete }
 /**
  * The BB10 row menu of a Hub message (Menu, Alt+Enter or a long press; it opens on the right
  * edge): Open and Reply first, then Mark read, Snooze (when turned on) and Dismiss when the row's
- * notification is live, then the source's own actions under their own names, then Mark prior read
- * and Remind me (when turned on), then the routes that leave Hub.
+ * notification is live, then the source's own actions under their own names, then Priority Hub
+ * (the sender, and a connected app as a whole), Mark prior read and Remind me (when turned on), then
+ * the routes that leave Hub.
  *
  * Mark read and the app actions run the source's own PendingIntent, so Hub still invents nothing
  * (`INVENT_UNSUPPORTED_ACTIONS=NO`): an SMS cannot be marked read from Hub and gets none of them.
@@ -84,6 +85,11 @@ object HubMessageMenu {
         val entries = rowEntries(item, privacy, facts, options.snooze)
         if (privacy.deviceLocked) return entries
         val extra = mutableListOf<HubMenuEntry>()
+        // Priority Hub: not in private mode, where the row may not show who it is from.
+        val conversation = (item as? HubInboxItem.Conversation)?.conversation
+        if (conversation != null && !privacy.privateMode) {
+            extra += HubPriority.menuActions(conversation).map { HubMenuEntry.Hub(it) }
+        }
         if (priorToMarkRead > 0) extra += HubMenuEntry.Hub(HubRowAction.MarkPriorRead)
         if (options.remindMe && canRemind(item)) extra += HubMenuEntry.Hub(HubRowAction.RemindMe)
         // These go after the row's own commands, before the routes that leave Hub.

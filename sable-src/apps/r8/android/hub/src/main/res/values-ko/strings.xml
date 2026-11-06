@@ -200,4 +200,10 @@
     <string name="row_menu_snooze_detail">활성 알림에 1시간 후 다시 알림과 Z 키를 추가합니다.</string>
     <string name="row_menu_remind_me">행 메뉴에 나중에 알림</string>
     <string name="row_menu_remind_me_detail">Sable Tasks에 내일 아침 후속 조치를 추가합니다. 앱만 저장되며 메시지는 저장되지 않습니다.</string>
+    <string name="add_sender_to_priority">보낸 사람을 우선 Hub에 추가</string>
+    <string name="remove_sender_from_priority">보낸 사람을 우선 Hub에서 제거</string>
+    <string name="add_app_to_priority">이 앱 전체를 우선 Hub에 추가</string>
+    <string name="remove_app_from_priority">이 앱을 우선 Hub에서 제거</string>
+    <string name="added_to_priority">우선 Hub에 추가됨</string>
+    <string name="removed_from_priority">우선 Hub에서 제거됨</string>
 </resources>

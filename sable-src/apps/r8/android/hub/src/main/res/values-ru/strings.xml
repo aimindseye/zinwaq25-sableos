@@ -200,4 +200,10 @@
     <string name="row_menu_snooze_detail">Добавляет «Отложить на 1 час» и клавишу Z для активного уведомления.</string>
     <string name="row_menu_remind_me">«Напомнить» в меню строки</string>
     <string name="row_menu_remind_me_detail">Добавляет в Sable Tasks напоминание на завтра утром. Сохраняется только приложение, не сообщение.</string>
+    <string name="add_sender_to_priority">Добавить отправителя в приоритетный Hub</string>
+    <string name="remove_sender_from_priority">Убрать отправителя из приоритетного Hub</string>
+    <string name="add_app_to_priority">Добавить всё приложение в приоритетный Hub</string>
+    <string name="remove_app_from_priority">Убрать приложение из приоритетного Hub</string>
+    <string name="added_to_priority">Добавлено в приоритетный Hub</string>
+    <string name="removed_from_priority">Убрано из приоритетного Hub</string>
 </resources>

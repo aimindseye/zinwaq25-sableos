@@ -43,6 +43,11 @@ data class HubConversation(
     val category: String? = null,
     /** Each message on its own: the message this row shows, or null for a conversation row. */
     val messageId: Long? = null,
+    /** Priority Hub: the sender's key ([org.sableos.hub.policy.HubPriority]); null once the name is hidden. */
+    val priorityKey: String? = null,
+    /** This sender, or this row's whole app, is in Priority Hub. */
+    val personPriority: Boolean = false,
+    val appPriority: Boolean = false,
 )
 
 data class HubPerson(

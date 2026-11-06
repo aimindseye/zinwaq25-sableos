@@ -75,6 +75,7 @@ object HubRedaction {
                 badged.copy(
                     displayName = conversation.sourceLabel ?: conversation.sourceFallbackLabel(),
                     lastBody = "",
+                    priorityKey = null,
                 )
             }
 
@@ -84,6 +85,7 @@ object HubRedaction {
                     lastBody = "",
                     sourceLabel = WORK_PROFILE_LABEL,
                     canQuickReply = false,
+                    priorityKey = null,
                 )
             }
 

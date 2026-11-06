@@ -200,4 +200,10 @@
     <string name="row_menu_snooze_detail">सक्रिय सूचना के लिए 1 घंटा स्नूज़ और Z कुंजी जोड़ता है।</string>
     <string name="row_menu_remind_me">पंक्ति मेनू में मुझे याद दिलाएँ</string>
     <string name="row_menu_remind_me_detail">Sable Tasks में कल सुबह के लिए फ़ॉलो-अप जोड़ता है। केवल ऐप सहेजा जाता है, संदेश कभी नहीं।</string>
+    <string name="add_sender_to_priority">भेजने वाले को प्राथमिकता Hub में जोड़ें</string>
+    <string name="remove_sender_from_priority">भेजने वाले को प्राथमिकता Hub से हटाएँ</string>
+    <string name="add_app_to_priority">इस पूरे ऐप को प्राथमिकता Hub में जोड़ें</string>
+    <string name="remove_app_from_priority">इस ऐप को प्राथमिकता Hub से हटाएँ</string>
+    <string name="added_to_priority">प्राथमिकता Hub में जोड़ा गया</string>
+    <string name="removed_from_priority">प्राथमिकता Hub से हटाया गया</string>
 </resources>

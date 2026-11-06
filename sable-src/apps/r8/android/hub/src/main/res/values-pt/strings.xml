@@ -200,4 +200,10 @@
     <string name="row_menu_snooze_detail">Adiciona Adiar 1 hora e a tecla Z para uma notificação ativa.</string>
     <string name="row_menu_remind_me">Lembrar-me no menu da linha</string>
     <string name="row_menu_remind_me_detail">Adiciona um acompanhamento no Sable Tasks para amanhã de manhã. Só a app é guardada, nunca a mensagem.</string>
+    <string name="add_sender_to_priority">Adicionar remetente ao Hub prioritário</string>
+    <string name="remove_sender_from_priority">Remover remetente do Hub prioritário</string>
+    <string name="add_app_to_priority">Adicionar todo este app ao Hub prioritário</string>
+    <string name="remove_app_from_priority">Remover este app do Hub prioritário</string>
+    <string name="added_to_priority">Adicionado ao Hub prioritário</string>
+    <string name="removed_from_priority">Removido do Hub prioritário</string>
 </resources>

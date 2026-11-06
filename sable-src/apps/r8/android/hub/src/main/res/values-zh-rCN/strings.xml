@@ -200,4 +200,10 @@
     <string name="row_menu_snooze_detail">为当前通知添加“1 小时后提醒”和 Z 键。</string>
     <string name="row_menu_remind_me">行菜单中的提醒我</string>
     <string name="row_menu_remind_me_detail">在 Sable Tasks 中添加明天早上的跟进。只保存应用，从不保存消息。</string>
+    <string name="add_sender_to_priority">将发件人加入优先 Hub</string>
+    <string name="remove_sender_from_priority">将发件人移出优先 Hub</string>
+    <string name="add_app_to_priority">将此应用全部加入优先 Hub</string>
+    <string name="remove_app_from_priority">将此应用移出优先 Hub</string>
+    <string name="added_to_priority">已加入优先 Hub</string>
+    <string name="removed_from_priority">已移出优先 Hub</string>
 </resources>

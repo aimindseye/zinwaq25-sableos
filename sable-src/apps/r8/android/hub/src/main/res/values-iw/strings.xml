@@ -200,4 +200,10 @@
     <string name="row_menu_snooze_detail">מוסיף נודניק לשעה ואת המקש Z להתראה פעילה.</string>
     <string name="row_menu_remind_me">תזכיר לי בתפריט השורה</string>
     <string name="row_menu_remind_me_detail">מוסיף מעקב ב-Sable Tasks למחר בבוקר. נשמרת רק האפליקציה, אף פעם לא ההודעה.</string>
+    <string name="add_sender_to_priority">הוספת השולח ל-Hub בעדיפות</string>
+    <string name="remove_sender_from_priority">הסרת השולח מ-Hub בעדיפות</string>
+    <string name="add_app_to_priority">הוספת כל האפליקציה ל-Hub בעדיפות</string>
+    <string name="remove_app_from_priority">הסרת האפליקציה מ-Hub בעדיפות</string>
+    <string name="added_to_priority">נוסף ל-Hub בעדיפות</string>
+    <string name="removed_from_priority">הוסר מ-Hub בעדיפות</string>
 </resources>

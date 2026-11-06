@@ -66,6 +66,8 @@ In the Hub app (H or Enter from Start), Menu, Alt+Enter or a long press on a mes
 
 Two more entries are off until you turn them on in Hub > Connected apps (Sable Setup's Hub row menu line opens that page): **Snooze in the row menu** adds Snooze 1 hour and the Z key, and Android brings the notification back after an hour; **Remind me in the row menu** adds Remind me, which opens Sable Tasks with a follow-up for tomorrow morning named after the app ("Follow up in Gmail"). Only the app is saved, never the message, and asking again for the same message moves that task instead of adding another.
 
+**Priority Hub.** The row menu also has Add sender to Priority Hub, and on a connected app's row Add all of this app to Priority Hub (the same switch as the app's Hub priority in Connected apps). Priority rows sort first and show under the Priority filter; the same entries then read Remove. Priority only orders Hub: it never lets anything through Do Not Disturb. In private mode, or when a row hides who it is from, there is no sender entry.
+
 **Folders on the app pages.** Menu on an app (or a long press) shows Add to folder, which lists your folders and New folder: type the name and press Enter (Esc cancels). The folder takes the app's place on the grid and shows up to four of its apps. Enter opens a folder; Menu on an app in it shows Remove from (the app goes back on the grid next to the folder), and at the bottom Rename folder and Ungroup folder (all its apps go back on the grid). A folder left with no apps goes away. Edit Home moves folders like apps. You can have up to 12 folders of up to 25 apps each.
 
 An open folder is a panel over the dimmed grid. Back, Esc or a tap outside it closes it.

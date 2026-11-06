@@ -64,6 +64,7 @@ class HubMessageMenuTest {
                 "Dismiss",
                 "app:Archive",
                 "app:Delete",
+                "AddAppPriority",
                 "OpenSourceApp",
                 "SourceNotifications",
                 "PrivacyOptions",
@@ -105,7 +106,15 @@ class HubMessageMenuTest {
     fun noMarkReadWithoutTheSourcesOwnActionAndNoDismissForOngoing() {
         val facts = live.copy(clearable = false, markReadIndex = -1, appActions = emptyList())
         assertEquals(
-            listOf("Open", "Reply", "Snooze", "OpenSourceApp", "SourceNotifications", "PrivacyOptions"),
+            listOf(
+                "Open",
+                "Reply",
+                "Snooze",
+                "AddAppPriority",
+                "OpenSourceApp",
+                "SourceNotifications",
+                "PrivacyOptions",
+            ),
             labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail), facts = facts, options = snooze)),
         )
     }
@@ -113,7 +122,9 @@ class HubMessageMenuTest {
     @Test
     fun goneNotificationLockedPhoneAndSmsGetNoNotificationCommands() {
         val base = HubRowActions.forConversation(gmail).map { it.name }
-        assertEquals(base, labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail))))
+        val gone = labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail)))
+        assertEquals(base, gone - "AddAppPriority")
+        assertEquals("AddAppPriority", gone[gone.indexOf("OpenSourceApp") - 1])
         val locked = HubPrivacyState(deviceLocked = true)
         assertEquals(
             HubRowActions.forConversation(gmail, locked).map { it.name },

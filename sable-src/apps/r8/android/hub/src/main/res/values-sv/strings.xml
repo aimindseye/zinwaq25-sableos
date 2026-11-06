@@ -200,4 +200,10 @@
     <string name="row_menu_snooze_detail">Lägger till Snooza 1 timme och tangenten Z för en aktiv avisering.</string>
     <string name="row_menu_remind_me">Påminn mig i radmenyn</string>
     <string name="row_menu_remind_me_detail">Lägger till en uppföljning i Sable Tasks till i morgon bitti. Bara appen sparas, aldrig meddelandet.</string>
+    <string name="add_sender_to_priority">Lägg till avsändaren i Prioriterad Hub</string>
+    <string name="remove_sender_from_priority">Ta bort avsändaren från Prioriterad Hub</string>
+    <string name="add_app_to_priority">Lägg till hela appen i Prioriterad Hub</string>
+    <string name="remove_app_from_priority">Ta bort appen från Prioriterad Hub</string>
+    <string name="added_to_priority">Tillagd i Prioriterad Hub</string>
+    <string name="removed_from_priority">Borttagen från Prioriterad Hub</string>
 </resources>

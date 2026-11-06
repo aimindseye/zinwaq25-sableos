@@ -25,6 +25,7 @@ import org.sableos.hub.policy.AndroidSettingsRoutes
 import org.sableos.hub.policy.HubCallRedaction
 import org.sableos.hub.policy.HubHandoffRouter
 import org.sableos.hub.policy.HubHandoffTarget
+import org.sableos.hub.policy.HubPriority
 import org.sableos.hub.policy.HubPrivacyState
 import org.sableos.hub.policy.HubRedaction
 import org.sableos.hub.policy.HubSourcePrivacy
@@ -45,7 +46,7 @@ class HubRepository(
     private val privacyReader = PrivacyReader(context)
 
     /** Conversations and messages from opted-in connected apps, with Hub priority applied. */
-    private fun loadConnected(): ConnectedLoad {
+    private fun loadConnected(priorityPeople: Set<String>): ConnectedLoad {
         val connectedPolicies =
             connectedApps
                 .loadPolicies()
@@ -68,7 +69,8 @@ class HubRepository(
                     conversation.sourcePackage?.let { pkg ->
                         conversation.sourceUserSerial?.let { serial -> ConnectedAppKey(pkg, serial) }
                     }
-                conversation.copy(hubPriority = key?.let { connectedPolicies[it]?.favorite } == true)
+                val appPriority = key?.let { connectedPolicies[it]?.favorite } == true
+                HubPriority.apply(conversation, priorityPeople, appPriority)
             }
         return ConnectedLoad(prioritized, reduced.messages, sourcePrivacy(connectedPolicies))
     }
@@ -106,11 +108,13 @@ class HubRepository(
                     ?: address
             }
 
-        val connected = loadConnected()
+        val priorityPeople = HubPreferences(context).priorityPeople()
+        val connected = loadConnected(priorityPeople)
         val smsPrivacy = smsPrivacy()
+        val prioritizedSms = smsConversations.map { sms -> HubPriority.apply(sms, priorityPeople) }
         val (conversations, visibleMessages) =
             HubRedaction.apply(
-                conversations = smsConversations + connected.conversations,
+                conversations = prioritizedSms + connected.conversations,
                 messages = messages + connected.messages,
                 smsPrivacy = smsPrivacy,
                 privacyFor = connected.privacyFor,
