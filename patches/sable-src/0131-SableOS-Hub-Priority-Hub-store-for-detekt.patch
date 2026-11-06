@@ -1,0 +1,131 @@
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt
+index 42e9448..8b9ce61 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt
+@@ -84,16 +84,7 @@ class HubPreferences(
+             .apply()
+     }
+ 
+-    /** Priority Hub senders ([org.sableos.hub.policy.HubPriority.personKey]), set from the row menu. */
+-    fun priorityPeople(): Set<String> = preferences.getStringSet(KEY_PRIORITY_PEOPLE, emptySet()).orEmpty().toSet()
+-
+-    fun setPriorityPeople(people: Set<String>) {
+-        preferences.edit().putStringSet(KEY_PRIORITY_PEOPLE, people).apply()
+-        appContext.contentResolver.notifyChange(ConnectedAppsRepository.HISTORY_URI, null)
+-    }
+-
+     private companion object {
+-        const val KEY_PRIORITY_PEOPLE = "priority_people"
+         const val KEY_ATTENTION_RECORDS = "attention_records"
+         const val KEY_PRIVATE_MODE = "private_mode"
+         const val KEY_COMBINE_CONVERSATIONS = "combine_conversations"
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPriorityPeople.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPriorityPeople.kt
+new file mode 100644
+index 0000000..9b6012d
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPriorityPeople.kt
+@@ -0,0 +1,35 @@
++package org.sableos.hub
++
++import android.content.Context
++
++/**
++ * Priority Hub senders ([org.sableos.hub.policy.HubPriority.personKey]), set from the row menu
++ * and kept in Hub's own preferences on the phone. A whole app's priority is its Connected apps
++ * Hub priority instead.
++ */
++class HubPriorityPeople(
++    context: Context,
++) {
++    private val appContext = context.applicationContext
++    private val preferences =
++        appContext.getSharedPreferences(
++            ConnectedAppsRepository.PREFERENCES_NAME,
++            Context.MODE_PRIVATE,
++        )
++
++    fun load(): Set<String> = preferences.getStringSet(KEY, emptySet()).orEmpty().toSet()
++
++    /** Adds or removes [key]; Hub reloads its rows. */
++    fun set(
++        key: String,
++        priority: Boolean,
++    ) {
++        val people = load()
++        preferences.edit().putStringSet(KEY, if (priority) people + key else people - key).apply()
++        appContext.contentResolver.notifyChange(ConnectedAppsRepository.HISTORY_URI, null)
++    }
++
++    private companion object {
++        const val KEY = "priority_people"
++    }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+index b1f7248..7a87b78 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+@@ -108,7 +108,7 @@ class HubRepository(
+                     ?: address
+             }
+ 
+-        val priorityPeople = HubPreferences(context).priorityPeople()
++        val priorityPeople = HubPriorityPeople(context).load()
+         val connected = loadConnected(priorityPeople)
+         val smsPrivacy = smsPrivacy()
+         val prioritizedSms = smsConversations.map { sms -> HubPriority.apply(sms, priorityPeople) }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+index 7ce0be9..2a9bc49 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+@@ -277,28 +277,35 @@ class MainActivity : ComponentActivity() {
+         conversation: HubConversation,
+         action: HubRowAction,
+     ): String? {
+-        val preferences = HubPreferences(this)
+         val add = action == HubRowAction.AddPersonPriority || action == HubRowAction.AddAppPriority
+-        when (action) {
+-            HubRowAction.AddPersonPriority, HubRowAction.RemovePersonPriority -> {
+-                val key = conversation.priorityKey ?: return null
+-                val people = preferences.priorityPeople()
+-                preferences.setPriorityPeople(if (add) people + key else people - key)
++        val person = action == HubRowAction.AddPersonPriority || action == HubRowAction.RemovePersonPriority
++        val key = conversation.priorityKey
++        val app =
++            conversation.sourcePackage?.let { pkg ->
++                conversation.sourceUserSerial?.let { serial -> ConnectedAppKey(pkg, serial) }
+             }
++        val done =
++            when {
++                person && key != null -> {
++                    HubPriorityPeople(this).set(key, add)
++                    true
++                }
+ 
+-            HubRowAction.AddAppPriority, HubRowAction.RemoveAppPriority -> {
+-                val pkg = conversation.sourcePackage ?: return null
+-                val serial = conversation.sourceUserSerial ?: return null
+-                val connectedApps = ConnectedAppsRepository(this)
+-                val policy = connectedApps.policyFor(ConnectedAppKey(pkg, serial))
+-                connectedApps.update(policy.copy(favorite = add))
+-            }
++                !person && app != null -> {
++                    val connectedApps = ConnectedAppsRepository(this)
++                    connectedApps.update(connectedApps.policyFor(app).copy(favorite = add))
++                    true
++                }
+ 
+-            else -> {
+-                return null
++                else -> {
++                    false
++                }
+             }
++        return when {
++            !done -> null
++            add -> t("added_to_priority")
++            else -> t("removed_from_priority")
+         }
+-        return if (add) t("added_to_priority") else t("removed_from_priority")
+     }
+ 
+     /** Remind me: Sable Tasks opens its new follow-up; null status when it opened. */

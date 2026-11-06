@@ -108,7 +108,7 @@ class HubRepository(
                     ?: address
             }
 
-        val priorityPeople = HubPreferences(context).priorityPeople()
+        val priorityPeople = HubPriorityPeople(context).load()
         val connected = loadConnected(priorityPeople)
         val smsPrivacy = smsPrivacy()
         val prioritizedSms = smsConversations.map { sms -> HubPriority.apply(sms, priorityPeople) }

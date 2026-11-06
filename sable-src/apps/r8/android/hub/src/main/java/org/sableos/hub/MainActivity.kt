@@ -277,28 +277,35 @@ class MainActivity : ComponentActivity() {
         conversation: HubConversation,
         action: HubRowAction,
     ): String? {
-        val preferences = HubPreferences(this)
         val add = action == HubRowAction.AddPersonPriority || action == HubRowAction.AddAppPriority
-        when (action) {
-            HubRowAction.AddPersonPriority, HubRowAction.RemovePersonPriority -> {
-                val key = conversation.priorityKey ?: return null
-                val people = preferences.priorityPeople()
-                preferences.setPriorityPeople(if (add) people + key else people - key)
+        val person = action == HubRowAction.AddPersonPriority || action == HubRowAction.RemovePersonPriority
+        val key = conversation.priorityKey
+        val app =
+            conversation.sourcePackage?.let { pkg ->
+                conversation.sourceUserSerial?.let { serial -> ConnectedAppKey(pkg, serial) }
             }
+        val done =
+            when {
+                person && key != null -> {
+                    HubPriorityPeople(this).set(key, add)
+                    true
+                }
 
-            HubRowAction.AddAppPriority, HubRowAction.RemoveAppPriority -> {
-                val pkg = conversation.sourcePackage ?: return null
-                val serial = conversation.sourceUserSerial ?: return null
-                val connectedApps = ConnectedAppsRepository(this)
-                val policy = connectedApps.policyFor(ConnectedAppKey(pkg, serial))
-                connectedApps.update(policy.copy(favorite = add))
-            }
+                !person && app != null -> {
+                    val connectedApps = ConnectedAppsRepository(this)
+                    connectedApps.update(connectedApps.policyFor(app).copy(favorite = add))
+                    true
+                }
 
-            else -> {
-                return null
+                else -> {
+                    false
+                }
             }
+        return when {
+            !done -> null
+            add -> t("added_to_priority")
+            else -> t("removed_from_priority")
         }
-        return if (add) t("added_to_priority") else t("removed_from_priority")
     }
 
     /** Remind me: Sable Tasks opens its new follow-up; null status when it opened. */

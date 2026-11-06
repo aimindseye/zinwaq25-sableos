@@ -84,16 +84,7 @@ class HubPreferences(
             .apply()
     }
 
-    /** Priority Hub senders ([org.sableos.hub.policy.HubPriority.personKey]), set from the row menu. */
-    fun priorityPeople(): Set<String> = preferences.getStringSet(KEY_PRIORITY_PEOPLE, emptySet()).orEmpty().toSet()
-
-    fun setPriorityPeople(people: Set<String>) {
-        preferences.edit().putStringSet(KEY_PRIORITY_PEOPLE, people).apply()
-        appContext.contentResolver.notifyChange(ConnectedAppsRepository.HISTORY_URI, null)
-    }
-
     private companion object {
-        const val KEY_PRIORITY_PEOPLE = "priority_people"
         const val KEY_ATTENTION_RECORDS = "attention_records"
         const val KEY_PRIVATE_MODE = "private_mode"
         const val KEY_COMBINE_CONVERSATIONS = "combine_conversations"
