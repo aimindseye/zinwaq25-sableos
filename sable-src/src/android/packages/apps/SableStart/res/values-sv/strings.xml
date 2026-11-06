@@ -298,4 +298,14 @@
     <string name="rename_folder">Byt namn på mappen</string>
     <string name="ungroup_folder">Dela upp mappen</string>
     <string name="folder_of">Mappen %1$s</string>
+    <string name="grid_rows">Rutnätsrader: %1$s</string>
+    <string name="grid_rows_fit">Anpassa</string>
+    <string name="app_names">Appnamn</string>
+    <string name="app_names_sub">Namn under ikonerna</string>
+    <string name="max_frames">Högst antal ramar: %1$s</string>
+    <string name="live_frames">Liveramar</string>
+    <string name="live_frames_sub">Varje apps senaste bild. Av visar bara ikon och namn.</string>
+    <string name="hide_app">Dölj app</string>
+    <string name="show_app">Visa app</string>
+    <string name="hide_app_hint">Dolda appar försvinner från rutnätet, Alla appar och sökningen. Sök “private” för att hitta dem.</string>
 </resources>

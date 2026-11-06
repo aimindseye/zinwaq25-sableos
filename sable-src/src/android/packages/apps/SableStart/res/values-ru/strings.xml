@@ -298,4 +298,14 @@
     <string name="rename_folder">Переименовать папку</string>
     <string name="ungroup_folder">Разгруппировать папку</string>
     <string name="folder_of">Папка %1$s</string>
+    <string name="grid_rows">Строки сетки: %1$s</string>
+    <string name="grid_rows_fit">Авто</string>
+    <string name="app_names">Названия приложений</string>
+    <string name="app_names_sub">Названия под значками сетки</string>
+    <string name="max_frames">Максимум окон: %1$s</string>
+    <string name="live_frames">Живые окна</string>
+    <string name="live_frames_sub">Последний снимок каждого приложения. Если выключено, видны только значок и название.</string>
+    <string name="hide_app">Скрыть приложение</string>
+    <string name="show_app">Показать приложение</string>
+    <string name="hide_app_hint">Скрытые приложения пропадают из сетки, всех приложений и поиска. Найдите их по запросу “private”.</string>
 </resources>

@@ -298,4 +298,14 @@
     <string name="rename_folder">Renommer le dossier</string>
     <string name="ungroup_folder">Dégrouper le dossier</string>
     <string name="folder_of">Dossier %1$s</string>
+    <string name="grid_rows">Lignes de la grille : %1$s</string>
+    <string name="grid_rows_fit">Ajuster</string>
+    <string name="app_names">Noms des apps</string>
+    <string name="app_names_sub">Noms sous les icônes</string>
+    <string name="max_frames">Cadres maximum : %1$s</string>
+    <string name="live_frames">Cadres en direct</string>
+    <string name="live_frames_sub">La dernière image de chaque app. Désactivé, seuls l\'icône et le nom s\'affichent.</string>
+    <string name="hide_app">Masquer l\'app</string>
+    <string name="show_app">Afficher l\'app</string>
+    <string name="hide_app_hint">Les apps masquées quittent la grille, Toutes les apps et la recherche. Cherchez “private” pour les retrouver.</string>
 </resources>

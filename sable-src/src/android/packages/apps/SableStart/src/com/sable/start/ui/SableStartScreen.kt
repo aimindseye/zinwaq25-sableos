@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -156,11 +157,14 @@ import org.sableos.start.model.CommandScope
 import org.sableos.start.model.CoreAppIdentity
 import org.sableos.start.model.FrameMedia
 import org.sableos.start.model.FrameMediaCommand
+import org.sableos.start.model.FramesOptions
 import org.sableos.start.model.Bb7Naming
 import org.sableos.start.model.GlanceWidgets
 import org.sableos.start.model.GridFolder
 import org.sableos.start.model.GridFolders
 import org.sableos.start.model.GridItem
+import org.sableos.start.model.GridShape
+import org.sableos.start.model.HiddenApps
 import org.sableos.start.model.HomeApps
 import org.sableos.start.model.HomeHeader
 import org.sableos.start.model.HomeLayout
@@ -262,6 +266,8 @@ private data class HomeEdit(
     val quickBar: List<String>,
     val glanceWidgets: List<String>,
     val hiddenSections: Set<String>,
+    val gridShape: GridShape = GridShape(),
+    val framesOptions: FramesOptions = FramesOptions(),
 )
 
 private val SableBlue = Color(0xFF4D9CFF)
@@ -393,6 +399,15 @@ fun SableStartScreen(
     /** The app grid's folders ([GridFolders]). */
     initialGridFolders: List<GridFolder> = emptyList(),
     onGridFoldersChanged: (List<GridFolder>) -> Unit = {},
+    /** The grid's columns, rows and names, set in Edit Home. */
+    initialGridShape: GridShape = GridShape(),
+    onGridShapeChanged: (GridShape) -> Unit = {},
+    /** Active Frames: how many, and whether they show live pictures. */
+    initialFramesOptions: FramesOptions = FramesOptions(),
+    onFramesOptionsChanged: (FramesOptions) -> Unit = {},
+    /** Apps hidden from the grid, All Apps and search ([HiddenApps]). */
+    initialHiddenApps: Set<String> = emptySet(),
+    onHiddenAppsChanged: (Set<String>) -> Unit = {},
     initialQuickBar: List<String>? = null,
     onQuickBarChanged: (List<String>?) -> Unit = {},
     initialGlanceWidgets: List<String>? = null,
@@ -455,6 +470,9 @@ fun SableStartScreen(
     var savedGridOrder by remember(initialGridOrder) { mutableStateOf(initialGridOrder) }
     var gridFolders by remember(initialGridFolders) { mutableStateOf(initialGridFolders) }
     var openFolderId by remember { mutableStateOf<Int?>(null) }
+    var gridShape by remember(initialGridShape) { mutableStateOf(initialGridShape) }
+    var framesOptions by remember(initialFramesOptions) { mutableStateOf(initialFramesOptions) }
+    var hiddenApps by remember(initialHiddenApps) { mutableStateOf(initialHiddenApps) }
     var recentKeys by remember { mutableStateOf<List<String>>(emptyList()) }
     // Text typed on Start before Command/Search opened (type-to-launch).
     var searchSeed by remember { mutableStateOf("") }
@@ -485,8 +503,10 @@ fun SableStartScreen(
     }
 
     val appByKey = apps.associateBy { it.stableKey() }
+    // Hidden apps leave the grid, All Apps and search; searching "private" lists them.
+    val shownApps = apps.filterNot { it.stableKey() in hiddenApps }
     // The grid holds every app except Private Space ones, which stay in All Apps behind its lock.
-    val gridCandidates = apps.filterNot { it.profileLabel == PROFILE_PRIVATE_LABEL }
+    val gridCandidates = shownApps.filterNot { it.profileLabel == PROFILE_PRIVATE_LABEL }
     val defaultHomeKeys = defaultHomeApps(apps).map { it.stableKey() }
     val gridItems =
         GridFolders.layout(
@@ -497,14 +517,17 @@ fun SableStartScreen(
         )
     // App keys and folder tokens, in grid order (what Edit Home reorders).
     val gridKeys = GridFolders.order(gridItems)
-    val gridTiles = gridTilesOf(gridItems, appByKey)
+    // Folders hold only shown apps, so a hidden app leaves its folder too.
+    val gridTiles = gridTilesOf(gridItems, gridCandidates.associateBy { it.stableKey() })
     val gridLabels = gridCandidates.mapTo(HashSet()) { it.label }
     val quickSlots =
         quickBarTokens.mapNotNull { token ->
             resolveQuickSlot(token, apps, appByKey)
         }
-    val gridRows = AppGrid.rowsFor(startGridHeightDp(), GRID_CELL_MIN_DP)
-    val gridPerPage = AppGrid.perPage(gridRows)
+    val gridRows = gridShape.rowsFor(AppGrid.rowsFor(startGridHeightDp(), GRID_CELL_MIN_DP))
+    val gridPerPage = gridShape.columns * gridRows
+    val shownFrames = frames.take(framesOptions.max)
+    val shownSnapshot: (ActiveFrame) -> Bitmap? = if (framesOptions.live) frameSnapshot else { _ -> null }
     val gridPages = AppGrid.pageCount(gridTiles.size, gridPerPage)
     val pageCount = StartPages.count(gridPages)
 
@@ -676,7 +699,7 @@ fun SableStartScreen(
                         .windowInsetsPadding(WindowInsets.safeDrawing),
             ) {
                 when (destination) {
-                    SableStartDestination.Start ->
+                    SableStartDestination.Start, SableStartDestination.Folder -> {
                         Bb10Theme(appearance) {
                             StartStrip(
                                 state = startPager,
@@ -719,7 +742,7 @@ fun SableStartScreen(
                                         }
                                     page == StartPages.HOME ->
                                         ActiveFramesPage(
-                                            frames = frames,
+                                            frames = shownFrames,
                                             apps = apps,
                                             hiddenSections = hiddenSections,
                                             onOpenSettings = onOpenSystemSettings,
@@ -728,7 +751,7 @@ fun SableStartScreen(
                                             widgets = glanceWidgets,
                                             refreshGeneration = refreshGeneration,
                                             framesGeneration = framesGeneration,
-                                            frameSnapshot = frameSnapshot,
+                                            frameSnapshot = shownSnapshot,
                                             active = startPager.settledPage == StartPages.HOME,
                                             onResume = ::resumeFrame,
                                             onClose = onCloseFrame,
@@ -742,8 +765,10 @@ fun SableStartScreen(
                                         AppGridPage(
                                             tiles = AppGrid.page(gridTiles, index, gridPerPage),
                                             rows = gridRows,
+                                            columns = gridShape.columns,
+                                            showNames = gridShape.names,
                                             gridLabels = gridLabels,
-                                            active = startPager.settledPage == page,
+                                            active = startPager.settledPage == page && destination == SableStartDestination.Start,
                                             onLaunchApp = ::launchApp,
                                             onLaunchSecond = ::launchSecond,
                                             onOpenPeek = { app -> openPeek(app, SableStartDestination.Start) },
@@ -754,6 +779,34 @@ fun SableStartScreen(
                                 }
                             }
                         }
+                        if (destination == SableStartDestination.Folder) {
+                            val tile =
+                                gridTiles.firstNotNullOfOrNull { tile ->
+                                    (tile as? GridTile.FolderTile)?.takeIf { it.folder.id == openFolderId }
+                                }
+                            if (tile == null) {
+                                destination = SableStartDestination.Start
+                            } else {
+                                val id = tile.folder.id
+                                Bb10Theme(appearance) {
+                                    GridFolderPanel(
+                                        folder = tile.folder,
+                                        apps = tile.apps,
+                                        gridLabels = gridLabels,
+                                        onClose = ::navigateBack,
+                                        onLaunchApp = ::launchApp,
+                                        onLaunchSecond = ::launchSecond,
+                                        onOpenPeek = { app -> openPeek(app, SableStartDestination.Folder) },
+                                        onRename = { name -> setGridFolders(GridFolders.rename(gridFolders, id, name) to gridKeys) },
+                                        onUngroup = {
+                                            setGridFolders(GridFolders.ungroup(gridFolders, gridKeys, id))
+                                            destination = SableStartDestination.Start
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                     SableStartDestination.SlotOptions -> {
                         val slot = selectedSlot
@@ -820,6 +873,8 @@ fun SableStartScreen(
                                     quickBar = quickBarTokens,
                                     glanceWidgets = glanceWidgets,
                                     hiddenSections = hiddenSections,
+                                    gridShape = gridShape,
+                                    framesOptions = framesOptions,
                                 ),
                             defaults =
                                 HomeEdit(
@@ -843,6 +898,10 @@ fun SableStartScreen(
                                 onGlanceWidgetsChanged(edit.glanceWidgets)
                                 hiddenSections = edit.hiddenSections
                                 onHiddenHomeSectionsChanged(edit.hiddenSections)
+                                gridShape = edit.gridShape
+                                onGridShapeChanged(edit.gridShape)
+                                framesOptions = edit.framesOptions
+                                onFramesOptionsChanged(edit.framesOptions)
                                 destination = SableStartDestination.Start
                                 pagerScope.launch { startPager.scrollToPage(StartPages.HOME) }
                             },
@@ -854,7 +913,7 @@ fun SableStartScreen(
 
                     SableStartDestination.Apps ->
                         AppsScreen(
-                            apps = apps,
+                            apps = shownApps,
                             focusMemory = focusMemory,
                             onBack = ::navigateBack,
                             onSearch = {
@@ -875,6 +934,7 @@ fun SableStartScreen(
                     SableStartDestination.Search ->
                         SearchScreen(
                             apps = apps,
+                            hiddenKeys = hiddenApps,
                             recentKeys = recentKeys,
                             initialQuery = searchSeed,
                             privateSpaceLocked = privateSpaceLocked,
@@ -910,32 +970,6 @@ fun SableStartScreen(
                             onAppearanceChanged = onAppearanceChanged,
                             onReset = onResetAppearance,
                         )
-
-                    SableStartDestination.Folder -> {
-                        val tile =
-                            gridTiles.firstNotNullOfOrNull { tile ->
-                                (tile as? GridTile.FolderTile)?.takeIf { it.folder.id == openFolderId }
-                            }
-                        if (tile == null) {
-                            destination = SableStartDestination.Start
-                        } else {
-                            val id = tile.folder.id
-                            GridFolderScreen(
-                                folder = tile.folder,
-                                apps = tile.apps,
-                                gridLabels = gridLabels,
-                                onBack = ::navigateBack,
-                                onLaunchApp = ::launchApp,
-                                onLaunchSecond = ::launchSecond,
-                                onOpenPeek = { app -> openPeek(app, SableStartDestination.Folder) },
-                                onRename = { name -> setGridFolders(GridFolders.rename(gridFolders, id, name) to gridKeys) },
-                                onUngroup = {
-                                    setGridFolders(GridFolders.ungroup(gridFolders, gridKeys, id))
-                                    destination = SableStartDestination.Start
-                                },
-                            )
-                        }
-                    }
 
                     SableStartDestination.Peek -> {
                         val app = selectedApp
@@ -980,6 +1014,11 @@ fun SableStartScreen(
                                 },
                                 onNewFolder = { name -> setGridFolders(GridFolders.create(gridFolders, gridKeys, key, name)) },
                                 onRemoveFromFolder = { setGridFolders(GridFolders.remove(gridFolders, gridKeys, key)) },
+                                hidden = key in hiddenApps,
+                                onToggleHidden = {
+                                    hiddenApps = HiddenApps.toggle(hiddenApps, key)
+                                    onHiddenAppsChanged(hiddenApps)
+                                },
                                 onSetLetterShortcut = { letter ->
                                     if (letter == null) {
                                         letterShortcuts?.remove(app.component)
@@ -2118,6 +2157,9 @@ private fun AppGridPage(
     onOpenPeek: (AppEntry) -> Unit,
     onOpenFolder: (GridFolder) -> Unit,
     onEditHome: () -> Unit,
+    columns: Int = AppGrid.COLUMNS,
+    /** Off: icons only, for a fuller grid (the name stays the spoken description). */
+    showNames: Boolean = true,
 ) {
     val firstFocus = remember { FocusRequester() }
     LaunchedEffect(active, tiles.firstOrNull()?.let(::tileKey)) {
@@ -2135,15 +2177,15 @@ private fun AppGridPage(
     ) {
         val iconDp =
             AppGrid.iconSizeFor(
-                cellWidthDp = (maxWidth / AppGrid.COLUMNS).value.toInt(),
+                cellWidthDp = (maxWidth / columns).value.toInt(),
                 cellHeightDp = (maxHeight / rows).value.toInt(),
-                labelDp = GRID_LABEL_LINE_DP + GRID_CELL_CHROME_DP,
+                labelDp = (if (showNames) GRID_LABEL_LINE_DP else 0) + GRID_CELL_CHROME_DP,
             )
         Column(modifier = Modifier.fillMaxSize()) {
             for (row in 0 until rows) {
                 Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    for (column in 0 until AppGrid.COLUMNS) {
-                        val tile = tiles.getOrNull(row * AppGrid.COLUMNS + column)
+                    for (column in 0 until columns) {
+                        val tile = tiles.getOrNull(row * columns + column)
                         val cellModifier =
                             Modifier
                                 .weight(1f)
@@ -2158,6 +2200,7 @@ private fun AppGridPage(
                                 GridCell(
                                     app = tile.app,
                                     label = AppGrid.gridLabel(tile.app.label, gridLabels),
+                                    showLabel = showNames,
                                     iconDp = iconDp,
                                     onOpen = { onLaunchApp(tile.app) },
                                     onOpenSecond = { onLaunchSecond(tile.app) },
@@ -2170,6 +2213,7 @@ private fun AppGridPage(
                                 FolderCell(
                                     tile = tile,
                                     iconDp = iconDp,
+                                    showLabel = showNames,
                                     onOpen = { onOpenFolder(tile.folder) },
                                     modifier = cellModifier,
                                 )
@@ -2218,6 +2262,7 @@ private fun FolderCell(
     iconDp: Int,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
+    showLabel: Boolean = true,
 ) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(6.dp)
@@ -2253,29 +2298,32 @@ private fun FolderCell(
                 }
             }
         }
-        Spacer(Modifier.height(GRID_ICON_LABEL_GAP))
-        Text(
-            text = tile.folder.name,
-            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
-            color = Bb10Text,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (showLabel) {
+            Spacer(Modifier.height(GRID_ICON_LABEL_GAP))
+            Text(
+                text = tile.folder.name,
+                style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
+                color = Bb10Text,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
 /**
- * An open grid folder: its name, its apps on a grid page (Enter opens, Menu shows the
- * app's actions, where Remove from takes it out), then Rename folder and Ungroup folder.
- * Rename takes the new name from the keyboard: Enter saves, Esc cancels.
+ * An open grid folder, as BB10 opens one: a panel over the dimmed app grid with the folder's
+ * name, its apps (Enter opens, Menu shows the app's actions, where Remove from takes it out),
+ * then Rename folder and Ungroup folder. Focus stays in the panel; Back, Esc or a tap outside
+ * closes it. Rename takes the new name from the keyboard: Enter saves, Esc cancels.
  */
 @Composable
-private fun GridFolderScreen(
+private fun GridFolderPanel(
     folder: GridFolder,
     apps: List<AppEntry>,
     gridLabels: Set<String>,
-    onBack: () -> Unit,
+    onClose: () -> Unit,
     onLaunchApp: (AppEntry) -> Unit,
     onLaunchSecond: (AppEntry) -> Unit,
     onOpenPeek: (AppEntry) -> Unit,
@@ -2284,35 +2332,59 @@ private fun GridFolderScreen(
 ) {
     var naming by remember(folder.id) { mutableStateOf<String?>(null) }
     val rows = ((apps.size + AppGrid.COLUMNS - 1) / AppGrid.COLUMNS).coerceIn(1, AppGrid.MAX_ROWS)
-    Column(
+    val shape = RoundedCornerShape(12.dp)
+    Box(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .onPreviewKeyEvent { event -> nameKey(event, naming, { naming = it }, onRename) }
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .background(Color.Black.copy(alpha = FOLDER_SCRIM_ALPHA))
+                .pointerInput(Unit) { detectTapGestures { onClose() } },
+        contentAlignment = Alignment.Center,
     ) {
-        MetroHeader(title = folder.name, onBack = onBack)
-        Box(modifier = Modifier.fillMaxWidth().height((rows * FOLDER_ROW_DP).dp)) {
-            AppGridPage(
-                tiles = apps.map(GridTile::AppTile),
-                rows = rows,
-                gridLabels = gridLabels,
-                active = naming == null,
-                onLaunchApp = onLaunchApp,
-                onLaunchSecond = onLaunchSecond,
-                onOpenPeek = onOpenPeek,
-                onOpenFolder = {},
-                onEditHome = {},
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .clip(shape)
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, Bb10Muted, shape)
+                    // Taps inside the panel never reach the scrim behind it.
+                    .pointerInput(Unit) { detectTapGestures { } }
+                    .focusProperties { onExit = { cancelFocusChange() } }
+                    .focusGroup()
+                    .onPreviewKeyEvent { event -> nameKey(event, naming, { naming = it }, onRename) }
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+        ) {
+            Text(
+                text = folder.name,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                style = MaterialTheme.typography.titleMedium,
+                color = Bb10Text,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
+            Box(modifier = Modifier.fillMaxWidth().height((rows * FOLDER_ROW_DP).dp)) {
+                AppGridPage(
+                    tiles = apps.map(GridTile::AppTile),
+                    rows = rows,
+                    gridLabels = gridLabels,
+                    active = naming == null,
+                    onLaunchApp = onLaunchApp,
+                    onLaunchSecond = onLaunchSecond,
+                    onOpenPeek = onOpenPeek,
+                    onOpenFolder = {},
+                    onEditHome = {},
+                )
+            }
+            ContextAction(
+                mark = "✎",
+                label = naming?.let { t("folder_name", "${it}_") } ?: t("rename_folder"),
+                onClick = { naming = if (naming == null) folder.name else null },
+            )
+            ContextAction(mark = "▦", label = t("ungroup_folder"), onClick = onUngroup)
         }
-        Spacer(Modifier.height(8.dp))
-        ContextAction(
-            mark = "✎",
-            label = naming?.let { t("folder_name", "${it}_") } ?: t("rename_folder"),
-            onClick = { naming = if (naming == null) folder.name else null },
-        )
-        ContextAction(mark = "▦", label = t("ungroup_folder"), onClick = onUngroup)
     }
 }
 
@@ -2349,6 +2421,7 @@ private fun GridCell(
     onOpenSecond: () -> Unit,
     onActions: () -> Unit,
     modifier: Modifier = Modifier,
+    showLabel: Boolean = true,
 ) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(6.dp)
@@ -2403,16 +2476,18 @@ private fun GridCell(
                 )
             }
         }
-        Spacer(Modifier.height(GRID_ICON_LABEL_GAP))
-        Text(
-            text = label,
-            // No tracking: "Minesweeper" fits a fifth of 411dp on one line.
-            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
-            color = Bb10Text,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (showLabel) {
+            Spacer(Modifier.height(GRID_ICON_LABEL_GAP))
+            Text(
+                text = label,
+                // No tracking: "Minesweeper" fits a fifth of 411dp on one line.
+                style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
+                color = Bb10Text,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -3847,6 +3922,25 @@ private fun EditHomeScreen(
                 )
             }
         }
+        item(key = "grid-shape") {
+            val shape = draft.gridShape
+            val rowsText = if (shape.rows == GridShape.FIT) t("grid_rows_fit") else shape.rows.toString()
+            MetroLink(
+                text = t("grid_columns", shape.columns.toString()),
+                onClick = { draft = draft.copy(gridShape = shape.nextColumns()) },
+            )
+            MetroLink(
+                text = t("grid_rows", rowsText),
+                onClick = { draft = draft.copy(gridShape = shape.nextRows()) },
+            )
+            HomeToggleRow(
+                title = t("app_names"),
+                subtitle = t("app_names_sub"),
+                selected = shape.names,
+                accent = MaterialTheme.colorScheme.primary,
+                onClick = { draft = draft.copy(gridShape = shape.toggleNames()) },
+            )
+        }
         item(key = "bar") {
             Spacer(Modifier.height(10.dp))
             SectionLabel(t("bottom_bar"))
@@ -3947,6 +4041,18 @@ private fun EditHomeScreen(
                     onClick = { draft = draft.copy(hiddenSections = HomeLayout.toggle(draft.hiddenSections, section)) },
                 )
             }
+            val frames = draft.framesOptions
+            MetroLink(
+                text = t("max_frames", frames.max.toString()),
+                onClick = { draft = draft.copy(framesOptions = frames.nextMax()) },
+            )
+            HomeToggleRow(
+                title = t("live_frames"),
+                subtitle = t("live_frames_sub"),
+                selected = frames.live,
+                accent = accent,
+                onClick = { draft = draft.copy(framesOptions = frames.toggleLive()) },
+            )
             Spacer(Modifier.height(10.dp))
             MetroLink(text = "appearance", onClick = onAppearance)
             MetroLink(text = t("reset_home_to_default"), onClick = { draft = defaults })
@@ -4720,6 +4826,8 @@ private fun PrivateSpaceSection(
 @Composable
 private fun SearchScreen(
     apps: List<AppEntry>,
+    /** Hidden apps: left out unless the search is for them ([HiddenApps.reveals]). */
+    hiddenKeys: Set<String> = emptySet(),
     recentKeys: List<String>,
     initialQuery: String,
     privateSpaceLocked: Boolean?,
@@ -4763,8 +4871,13 @@ private fun SearchScreen(
             else -> null
         }
     val (filteredApps, privacyMatches) =
-        remember(apps, recentKeys, parsed) {
-            if (profileApps != null) {
+        remember(apps, hiddenKeys, recentKeys, parsed) {
+            val searchable = apps.filterNot { it.stableKey() in hiddenKeys }
+            if (parsed.scope == CommandScope.All && hiddenKeys.isNotEmpty() && HiddenApps.reveals(term)) {
+                // "private" or "hidden": the hidden apps, A to Z, then any app the word names.
+                val hiddenFirst = apps.filter { it.stableKey() in hiddenKeys }.sortedBy { it.label.lowercase(locale) }
+                (hiddenFirst + CommandRanking.apps(searchable, { it.label }, { null }, term)) to emptyList()
+            } else if (profileApps != null) {
                 CommandRanking.apps(profileApps, { it.label }, { null }, term) to emptyList()
             } else if (!parsed.includes(CommandScope.Apps)) {
                 emptyList<AppEntry>() to emptyList()
@@ -4773,7 +4886,7 @@ private fun SearchScreen(
                 // access matches privacy words ("camera", "mic") are their own group.
                 val byName =
                     CommandRanking.apps(
-                        items = apps,
+                        items = searchable,
                         label = { it.label },
                         recentRank = { app -> recentKeys.indexOf(app.stableKey()).takeIf { it >= 0 } },
                         term = term,
@@ -4782,9 +4895,9 @@ private fun SearchScreen(
                     if (term.isEmpty()) {
                         emptyList()
                     } else {
-                        apps.filter { app ->
-                            app !in byName && PrivacySummaryPolicy.matchesPrivacyQuery(app.privacy, term)
-                        }.take(8)
+                        searchable
+                            .filter { app -> app !in byName && PrivacySummaryPolicy.matchesPrivacyQuery(app.privacy, term) }
+                            .take(8)
                     }
                 byName to byPrivacy
             }
@@ -5728,6 +5841,9 @@ private fun SablePeekScreen(
     onAddToFolder: (Int) -> Unit,
     onNewFolder: (String) -> Unit,
     onRemoveFromFolder: () -> Unit,
+    /** Hidden from the grid, All Apps and search ([HiddenApps]). */
+    hidden: Boolean = false,
+    onToggleHidden: () -> Unit = {},
 ) {
     // Waiting for the letter to hold: a letter assigns, Backspace clears, "cancel" or Back leaves it.
     var capturing by remember(app) { mutableStateOf(false) }
@@ -5948,6 +6064,18 @@ private fun SablePeekScreen(
                     onStartNaming = { naming = "" },
                     onRemoveFromFolder = onRemoveFromFolder,
                 )
+                ContextAction(
+                    mark = if (hidden) "◉" else "◌",
+                    label = if (hidden) t("show_app") else t("hide_app"),
+                    onClick = onToggleHidden,
+                )
+                if (!hidden) {
+                    Text(
+                        text = t("hide_app_hint"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             Text(
@@ -6477,7 +6605,8 @@ private val GRID_CELL_GAP = 2.dp
 private const val FOLDER_PADDING_DP = 4
 private const val FOLDER_GAP_DP = 2
 private const val FOLDER_PREVIEW = 4
-private const val FOLDER_ROW_DP = 88
+private const val FOLDER_ROW_DP = 84
+private const val FOLDER_SCRIM_ALPHA = 0.6f
 private val GRID_CELL_INNER_PADDING = 4.dp
 private val GRID_ICON_LABEL_GAP = 3.dp
 

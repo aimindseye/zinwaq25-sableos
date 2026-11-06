@@ -298,4 +298,14 @@
     <string name="rename_folder">שינוי שם התיקייה</string>
     <string name="ungroup_folder">פירוק התיקייה</string>
     <string name="folder_of">תיקייה %1$s</string>
+    <string name="grid_rows">שורות ברשת: %1$s</string>
+    <string name="grid_rows_fit">התאמה</string>
+    <string name="app_names">שמות אפליקציות</string>
+    <string name="app_names_sub">שמות מתחת לסמלים</string>
+    <string name="max_frames">מספר מסגרות מרבי: %1$s</string>
+    <string name="live_frames">מסגרות חיות</string>
+    <string name="live_frames_sub">התמונה האחרונה של כל אפליקציה. כשכבוי מוצגים רק הסמל והשם.</string>
+    <string name="hide_app">הסתרת אפליקציה</string>
+    <string name="show_app">הצגת אפליקציה</string>
+    <string name="hide_app_hint">אפליקציות מוסתרות יוצאות מהרשת, מכל האפליקציות ומהחיפוש. חפשו “private” כדי למצוא אותן.</string>
 </resources>

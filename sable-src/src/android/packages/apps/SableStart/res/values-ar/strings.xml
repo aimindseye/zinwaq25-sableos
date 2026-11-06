@@ -298,4 +298,14 @@
     <string name="rename_folder">إعادة تسمية المجلد</string>
     <string name="ungroup_folder">فك تجميع المجلد</string>
     <string name="folder_of">مجلد %1$s</string>
+    <string name="grid_rows">صفوف الشبكة: %1$s</string>
+    <string name="grid_rows_fit">ملاءمة</string>
+    <string name="app_names">أسماء التطبيقات</string>
+    <string name="app_names_sub">الأسماء تحت أيقونات الشبكة</string>
+    <string name="max_frames">الحد الأقصى للإطارات: %1$s</string>
+    <string name="live_frames">إطارات حية</string>
+    <string name="live_frames_sub">آخر صورة لكل تطبيق. عند الإيقاف تظهر الأيقونة والاسم فقط.</string>
+    <string name="hide_app">إخفاء التطبيق</string>
+    <string name="show_app">إظهار التطبيق</string>
+    <string name="hide_app_hint">تختفي التطبيقات المخفية من الشبكة وكل التطبيقات والبحث. ابحث عن “private” للعثور عليها.</string>
 </resources>

@@ -314,6 +314,16 @@ object StartText {
             "rename_folder" to "Rename folder",
             "ungroup_folder" to "Ungroup folder",
             "folder_of" to "%1\$s folder",
+            "grid_rows" to "Grid rows: %1\$s",
+            "grid_rows_fit" to "Fit",
+            "app_names" to "App names",
+            "app_names_sub" to "Names under the grid icons",
+            "max_frames" to "Maximum frames: %1\$s",
+            "live_frames" to "Live frames",
+            "live_frames_sub" to "Each app's last picture. Off shows only its icon and name.",
+            "hide_app" to "Hide app",
+            "show_app" to "Show app",
+            "hide_app_hint" to "Hidden apps leave the grid, All Apps and search. Search “private” to find them.",
             "letter_shortcut_press" to
                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",
         )

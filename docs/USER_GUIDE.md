@@ -68,6 +68,10 @@ Two more entries are off until you turn them on in Hub > Connected apps (Sable S
 
 **Folders on the app pages.** Menu on an app (or a long press) shows Add to folder, which lists your folders and New folder: type the name and press Enter (Esc cancels). The folder takes the app's place on the grid and shows up to four of its apps. Enter opens a folder; Menu on an app in it shows Remove from (the app goes back on the grid next to the folder), and at the bottom Rename folder and Ungroup folder (all its apps go back on the grid). A folder left with no apps goes away. Edit Home moves folders like apps. You can have up to 12 folders of up to 25 apps each.
 
+An open folder is a panel over the dimmed grid. Back, Esc or a tap outside it closes it.
+
+**Grid size, frames and hidden apps.** Edit Home sets the app grid's columns (4, 5 or 6), its rows (Fit, which uses as many as the screen holds, or 3, 4 or 5) and whether app names show under the icons. Under the Active Frames header it sets the maximum number of frames (2, 4, 6 or 8) and Live frames: off, each frame shows only its app's icon and name. Menu on an app also has Hide app. A hidden app leaves the app grid, its folder, All Apps and search; search for "private" or "hidden" to list your hidden apps, then use Menu and Show app to bring one back. Hiding is not a lock: the app still runs and still sends notifications. For apps nobody else should open, use Private Space.
+
 Alt+Left and Alt+Right move between pages. Alt+Space opens Command, from any app as well as from Start (Back returns to the app you were in; on the lock screen Alt+Space is still Emergency), and any letter starts a search of apps, contacts and commands. Menu opens Edit Home, where you choose Home apps, the quick bar and widgets. The status dials at the top show Wi-Fi, Mobile, CPU, RAM, battery and Cell.
 
 Command understands these prefixes and words, typed first:

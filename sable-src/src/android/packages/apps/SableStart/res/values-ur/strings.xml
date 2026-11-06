@@ -298,4 +298,14 @@
     <string name="rename_folder">فولڈر کا نام بدلیں</string>
     <string name="ungroup_folder">فولڈر الگ کریں</string>
     <string name="folder_of">%1$s فولڈر</string>
+    <string name="grid_rows">گرڈ کی قطاریں: %1$s</string>
+    <string name="grid_rows_fit">فٹ</string>
+    <string name="app_names">ایپ کے نام</string>
+    <string name="app_names_sub">گرڈ آئیکنز کے نیچے نام</string>
+    <string name="max_frames">زیادہ سے زیادہ فریم: %1$s</string>
+    <string name="live_frames">لائیو فریم</string>
+    <string name="live_frames_sub">ہر ایپ کی آخری تصویر۔ بند ہونے پر صرف آئیکن اور نام دکھتا ہے۔</string>
+    <string name="hide_app">ایپ چھپائیں</string>
+    <string name="show_app">ایپ دکھائیں</string>
+    <string name="hide_app_hint">چھپی ایپس گرڈ، تمام ایپس اور تلاش سے ہٹ جاتی ہیں۔ انہیں ڈھونڈنے کے لیے “private” تلاش کریں۔</string>
 </resources>

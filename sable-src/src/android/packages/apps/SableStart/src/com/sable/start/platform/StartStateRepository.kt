@@ -5,8 +5,10 @@ import org.sableos.start.model.Bb7Home
 import org.sableos.start.model.Bb7Layout
 import org.sableos.start.model.Bb7Tab
 import org.sableos.start.model.Bb7Tabs
+import org.sableos.start.model.FramesOptions
 import org.sableos.start.model.GridFolder
 import org.sableos.start.model.GridFolders
+import org.sableos.start.model.GridShape
 import org.sableos.start.model.HomeStyle
 
 /**
@@ -149,6 +151,27 @@ class StartStateRepository(
         preferences.edit().putString(KEY_GRID_FOLDERS, GridFolders.encode(folders)).apply()
     }
 
+    /** The app grid's columns, rows and labels (see GridShape). */
+    fun loadGridShape(): GridShape = GridShape.decode(preferences.getString(KEY_GRID_SHAPE, null))
+
+    fun saveGridShape(shape: GridShape) {
+        preferences.edit().putString(KEY_GRID_SHAPE, shape.encode()).apply()
+    }
+
+    /** Active Frames' maximum and live pictures (see FramesOptions). */
+    fun loadFramesOptions(): FramesOptions = FramesOptions.decode(preferences.getString(KEY_FRAMES_OPTIONS, null))
+
+    fun saveFramesOptions(options: FramesOptions) {
+        preferences.edit().putString(KEY_FRAMES_OPTIONS, options.encode()).apply()
+    }
+
+    /** Apps hidden from the grid, All Apps and search (see HiddenApps). */
+    fun loadHiddenApps(): Set<String> = preferences.getStringSet(KEY_HIDDEN_APPS, null)?.toSet().orEmpty()
+
+    fun saveHiddenApps(keys: Set<String>) {
+        preferences.edit().putStringSet(KEY_HIDDEN_APPS, keys.toSet()).apply()
+    }
+
     /** Ordered Glance widgets, shown as Active Frames while no app is running (see GlanceWidgets); null means never customised. */
     fun loadGlanceWidgets(): List<String>? = loadOrdered(KEY_GLANCE_WIDGETS)
 
@@ -228,5 +251,8 @@ class StartStateRepository(
         const val KEY_HOME_STYLE = "home_style"
         const val KEY_GRID_ORDER = "grid_order"
         const val KEY_GRID_FOLDERS = "grid_folders"
+        const val KEY_GRID_SHAPE = "grid_shape"
+        const val KEY_FRAMES_OPTIONS = "frames_options"
+        const val KEY_HIDDEN_APPS = "hidden_apps"
     }
 }

@@ -298,4 +298,14 @@
     <string name="rename_folder">Ordner umbenennen</string>
     <string name="ungroup_folder">Ordner auflösen</string>
     <string name="folder_of">Ordner %1$s</string>
+    <string name="grid_rows">Rasterzeilen: %1$s</string>
+    <string name="grid_rows_fit">Anpassen</string>
+    <string name="app_names">App-Namen</string>
+    <string name="app_names_sub">Namen unter den Rastersymbolen</string>
+    <string name="max_frames">Höchstens Frames: %1$s</string>
+    <string name="live_frames">Live-Frames</string>
+    <string name="live_frames_sub">Das letzte Bild jeder App. Aus zeigt nur Symbol und Namen.</string>
+    <string name="hide_app">App ausblenden</string>
+    <string name="show_app">App einblenden</string>
+    <string name="hide_app_hint">Ausgeblendete Apps verschwinden aus Raster, Alle Apps und Suche. Suche “private”, um sie zu finden.</string>
 </resources>

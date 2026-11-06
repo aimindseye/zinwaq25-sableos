@@ -298,4 +298,14 @@
     <string name="rename_folder">폴더 이름 변경</string>
     <string name="ungroup_folder">폴더 해제</string>
     <string name="folder_of">%1$s 폴더</string>
+    <string name="grid_rows">그리드 행: %1$s</string>
+    <string name="grid_rows_fit">맞춤</string>
+    <string name="app_names">앱 이름</string>
+    <string name="app_names_sub">그리드 아이콘 아래 이름</string>
+    <string name="max_frames">최대 프레임: %1$s</string>
+    <string name="live_frames">라이브 프레임</string>
+    <string name="live_frames_sub">각 앱의 마지막 화면. 끄면 아이콘과 이름만 표시됩니다.</string>
+    <string name="hide_app">앱 숨기기</string>
+    <string name="show_app">앱 표시</string>
+    <string name="hide_app_hint">숨긴 앱은 그리드, 모든 앱, 검색에서 빠집니다. “private”를 검색하면 찾을 수 있습니다.</string>
 </resources>

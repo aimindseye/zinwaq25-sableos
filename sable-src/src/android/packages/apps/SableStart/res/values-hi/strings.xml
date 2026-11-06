@@ -298,4 +298,14 @@
     <string name="rename_folder">फ़ोल्डर का नाम बदलें</string>
     <string name="ungroup_folder">फ़ोल्डर अलग करें</string>
     <string name="folder_of">%1$s फ़ोल्डर</string>
+    <string name="grid_rows">ग्रिड पंक्तियाँ: %1$s</string>
+    <string name="grid_rows_fit">फ़िट</string>
+    <string name="app_names">ऐप नाम</string>
+    <string name="app_names_sub">ग्रिड आइकन के नीचे नाम</string>
+    <string name="max_frames">अधिकतम फ़्रेम: %1$s</string>
+    <string name="live_frames">लाइव फ़्रेम</string>
+    <string name="live_frames_sub">हर ऐप की आखिरी तस्वीर। बंद होने पर केवल आइकन और नाम दिखता है।</string>
+    <string name="hide_app">ऐप छिपाएँ</string>
+    <string name="show_app">ऐप दिखाएँ</string>
+    <string name="hide_app_hint">छिपे ऐप ग्रिड, सभी ऐप और खोज से हट जाते हैं। उन्हें ढूँढने के लिए “private” खोजें।</string>
 </resources>

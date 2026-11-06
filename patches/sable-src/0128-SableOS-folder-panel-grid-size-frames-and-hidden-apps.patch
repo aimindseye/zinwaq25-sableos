@@ -1,0 +1,1217 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeOptionsTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeOptionsTest.kt
+new file mode 100644
+index 0000000..5327cb4
+--- /dev/null
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeOptionsTest.kt
+@@ -0,0 +1,57 @@
++package org.sableos.start.model
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++/** Edit Home's grid size and Active Frames options, and hidden apps. */
++class HomeOptionsTest {
++    @Test
++    fun gridShapeCyclesColumnsAndRows() {
++        val shape = GridShape()
++        val six = shape.nextColumns()
++        assertEquals(6, six.columns)
++        assertEquals(4, six.nextColumns().columns)
++        assertEquals(5, six.nextColumns().nextColumns().columns)
++        var rows = shape
++        val seen = mutableListOf<Int>()
++        repeat(4) {
++            rows = rows.nextRows()
++            seen += rows.rows
++        }
++        assertEquals(listOf(3, 4, 5, GridShape.FIT), seen)
++        assertEquals(4, shape.rowsFor(4))
++        assertEquals(3, shape.copy(rows = 3).rowsFor(5))
++    }
++
++    @Test
++    fun gridShapeRoundTripsAndFallsBackOnBadText() {
++        val shape = GridShape(columns = 6, rows = 4, names = false)
++        assertEquals(shape, GridShape.decode(shape.encode()))
++        assertEquals(GridShape(), GridShape.decode(null))
++        assertEquals(GridShape(), GridShape.decode("9:9:1"))
++        assertTrue(GridShape.decode("5:0:1").names)
++    }
++
++    @Test
++    fun framesOptionsStepByTwoAndRoundTrip() {
++        val options = FramesOptions()
++        assertEquals(ActiveFrames.MAX, options.max)
++        assertEquals(FramesOptions.STEP, options.nextMax().max)
++        assertEquals(FramesOptions.STEP * 2, options.nextMax().nextMax().max)
++        val off = options.toggleLive()
++        assertFalse(off.live)
++        assertEquals(off, FramesOptions.decode(off.encode()))
++        assertEquals(FramesOptions(), FramesOptions.decode("3:1"))
++    }
++
++    @Test
++    fun hiddenAppsShowForPrivateOrHiddenSearches() {
++        assertTrue(HiddenApps.reveals(" Private "))
++        assertTrue(HiddenApps.reveals("hidden"))
++        assertFalse(HiddenApps.reveals("priv"))
++        assertEquals(setOf("a"), HiddenApps.toggle(emptySet(), "a"))
++        assertEquals(emptySet<String>(), HiddenApps.toggle(setOf("a"), "a"))
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index b0e96d5..3978993 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">إعادة تسمية المجلد</string>
+     <string name="ungroup_folder">فك تجميع المجلد</string>
+     <string name="folder_of">مجلد %1$s</string>
++    <string name="grid_rows">صفوف الشبكة: %1$s</string>
++    <string name="grid_rows_fit">ملاءمة</string>
++    <string name="app_names">أسماء التطبيقات</string>
++    <string name="app_names_sub">الأسماء تحت أيقونات الشبكة</string>
++    <string name="max_frames">الحد الأقصى للإطارات: %1$s</string>
++    <string name="live_frames">إطارات حية</string>
++    <string name="live_frames_sub">آخر صورة لكل تطبيق. عند الإيقاف تظهر الأيقونة والاسم فقط.</string>
++    <string name="hide_app">إخفاء التطبيق</string>
++    <string name="show_app">إظهار التطبيق</string>
++    <string name="hide_app_hint">تختفي التطبيقات المخفية من الشبكة وكل التطبيقات والبحث. ابحث عن “private” للعثور عليها.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index 2c946f5..bbc3be7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">Ordner umbenennen</string>
+     <string name="ungroup_folder">Ordner auflösen</string>
+     <string name="folder_of">Ordner %1$s</string>
++    <string name="grid_rows">Rasterzeilen: %1$s</string>
++    <string name="grid_rows_fit">Anpassen</string>
++    <string name="app_names">App-Namen</string>
++    <string name="app_names_sub">Namen unter den Rastersymbolen</string>
++    <string name="max_frames">Höchstens Frames: %1$s</string>
++    <string name="live_frames">Live-Frames</string>
++    <string name="live_frames_sub">Das letzte Bild jeder App. Aus zeigt nur Symbol und Namen.</string>
++    <string name="hide_app">App ausblenden</string>
++    <string name="show_app">App einblenden</string>
++    <string name="hide_app_hint">Ausgeblendete Apps verschwinden aus Raster, Alle Apps und Suche. Suche “private”, um sie zu finden.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index 0ece6a7..3b4caac 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">Μετονομασία φακέλου</string>
+     <string name="ungroup_folder">Κατάργηση ομαδοποίησης</string>
+     <string name="folder_of">Φάκελος %1$s</string>
++    <string name="grid_rows">Σειρές πλέγματος: %1$s</string>
++    <string name="grid_rows_fit">Προσαρμογή</string>
++    <string name="app_names">Ονόματα εφαρμογών</string>
++    <string name="app_names_sub">Ονόματα κάτω από τα εικονίδια</string>
++    <string name="max_frames">Μέγιστα πλαίσια: %1$s</string>
++    <string name="live_frames">Ζωντανά πλαίσια</string>
++    <string name="live_frames_sub">Η τελευταία εικόνα κάθε εφαρμογής. Απενεργοποιημένο δείχνει μόνο εικονίδιο και όνομα.</string>
++    <string name="hide_app">Απόκρυψη εφαρμογής</string>
++    <string name="show_app">Εμφάνιση εφαρμογής</string>
++    <string name="hide_app_hint">Οι κρυφές εφαρμογές φεύγουν από το πλέγμα, όλες τις εφαρμογές και την αναζήτηση. Αναζητήστε “private” για να τις βρείτε.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index cd4f655..eaf7ebf 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">Cambiar nombre de la carpeta</string>
+     <string name="ungroup_folder">Desagrupar carpeta</string>
+     <string name="folder_of">Carpeta %1$s</string>
++    <string name="grid_rows">Filas de la cuadrícula: %1$s</string>
++    <string name="grid_rows_fit">Ajustar</string>
++    <string name="app_names">Nombres de apps</string>
++    <string name="app_names_sub">Nombres bajo los iconos</string>
++    <string name="max_frames">Máximo de marcos: %1$s</string>
++    <string name="live_frames">Marcos en vivo</string>
++    <string name="live_frames_sub">La última imagen de cada app. Desactivado muestra solo su icono y nombre.</string>
++    <string name="hide_app">Ocultar app</string>
++    <string name="show_app">Mostrar app</string>
++    <string name="hide_app_hint">Las apps ocultas salen de la cuadrícula, Todas las apps y la búsqueda. Busca “private” para encontrarlas.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index fb91336..99cad71 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">Renommer le dossier</string>
+     <string name="ungroup_folder">Dégrouper le dossier</string>
+     <string name="folder_of">Dossier %1$s</string>
++    <string name="grid_rows">Lignes de la grille : %1$s</string>
++    <string name="grid_rows_fit">Ajuster</string>
++    <string name="app_names">Noms des apps</string>
++    <string name="app_names_sub">Noms sous les icônes</string>
++    <string name="max_frames">Cadres maximum : %1$s</string>
++    <string name="live_frames">Cadres en direct</string>
++    <string name="live_frames_sub">La dernière image de chaque app. Désactivé, seuls l\'icône et le nom s\'affichent.</string>
++    <string name="hide_app">Masquer l\'app</string>
++    <string name="show_app">Afficher l\'app</string>
++    <string name="hide_app_hint">Les apps masquées quittent la grille, Toutes les apps et la recherche. Cherchez “private” pour les retrouver.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index 6fd2abe..ce33577 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">फ़ोल्डर का नाम बदलें</string>
+     <string name="ungroup_folder">फ़ोल्डर अलग करें</string>
+     <string name="folder_of">%1$s फ़ोल्डर</string>
++    <string name="grid_rows">ग्रिड पंक्तियाँ: %1$s</string>
++    <string name="grid_rows_fit">फ़िट</string>
++    <string name="app_names">ऐप नाम</string>
++    <string name="app_names_sub">ग्रिड आइकन के नीचे नाम</string>
++    <string name="max_frames">अधिकतम फ़्रेम: %1$s</string>
++    <string name="live_frames">लाइव फ़्रेम</string>
++    <string name="live_frames_sub">हर ऐप की आखिरी तस्वीर। बंद होने पर केवल आइकन और नाम दिखता है।</string>
++    <string name="hide_app">ऐप छिपाएँ</string>
++    <string name="show_app">ऐप दिखाएँ</string>
++    <string name="hide_app_hint">छिपे ऐप ग्रिड, सभी ऐप और खोज से हट जाते हैं। उन्हें ढूँढने के लिए “private” खोजें।</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index afae5eb..dc42f45 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">Rinomina cartella</string>
+     <string name="ungroup_folder">Separa cartella</string>
+     <string name="folder_of">Cartella %1$s</string>
++    <string name="grid_rows">Righe della griglia: %1$s</string>
++    <string name="grid_rows_fit">Adatta</string>
++    <string name="app_names">Nomi delle app</string>
++    <string name="app_names_sub">Nomi sotto le icone</string>
++    <string name="max_frames">Riquadri massimi: %1$s</string>
++    <string name="live_frames">Riquadri dal vivo</string>
++    <string name="live_frames_sub">L\'ultima immagine di ogni app. Disattivato mostra solo icona e nome.</string>
++    <string name="hide_app">Nascondi app</string>
++    <string name="show_app">Mostra app</string>
++    <string name="hide_app_hint">Le app nascoste escono da griglia, Tutte le app e ricerca. Cerca “private” per trovarle.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index f22ae2a..77e30a7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">שינוי שם התיקייה</string>
+     <string name="ungroup_folder">פירוק התיקייה</string>
+     <string name="folder_of">תיקייה %1$s</string>
++    <string name="grid_rows">שורות ברשת: %1$s</string>
++    <string name="grid_rows_fit">התאמה</string>
++    <string name="app_names">שמות אפליקציות</string>
++    <string name="app_names_sub">שמות מתחת לסמלים</string>
++    <string name="max_frames">מספר מסגרות מרבי: %1$s</string>
++    <string name="live_frames">מסגרות חיות</string>
++    <string name="live_frames_sub">התמונה האחרונה של כל אפליקציה. כשכבוי מוצגים רק הסמל והשם.</string>
++    <string name="hide_app">הסתרת אפליקציה</string>
++    <string name="show_app">הצגת אפליקציה</string>
++    <string name="hide_app_hint">אפליקציות מוסתרות יוצאות מהרשת, מכל האפליקציות ומהחיפוש. חפשו “private” כדי למצוא אותן.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index 09690bd..5427a66 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">フォルダ名を変更</string>
+     <string name="ungroup_folder">フォルダを解除</string>
+     <string name="folder_of">%1$s フォルダ</string>
++    <string name="grid_rows">グリッドの行: %1$s</string>
++    <string name="grid_rows_fit">自動</string>
++    <string name="app_names">アプリ名</string>
++    <string name="app_names_sub">グリッドのアイコンの下に名前</string>
++    <string name="max_frames">最大フレーム数: %1$s</string>
++    <string name="live_frames">ライブフレーム</string>
++    <string name="live_frames_sub">各アプリの最後の画面。オフではアイコンと名前だけを表示します。</string>
++    <string name="hide_app">アプリを非表示</string>
++    <string name="show_app">アプリを表示</string>
++    <string name="hide_app_hint">非表示のアプリはグリッド、すべてのアプリ、検索に表示されません。“private” で検索すると見つかります。</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index d06b571..95f4349 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">폴더 이름 변경</string>
+     <string name="ungroup_folder">폴더 해제</string>
+     <string name="folder_of">%1$s 폴더</string>
++    <string name="grid_rows">그리드 행: %1$s</string>
++    <string name="grid_rows_fit">맞춤</string>
++    <string name="app_names">앱 이름</string>
++    <string name="app_names_sub">그리드 아이콘 아래 이름</string>
++    <string name="max_frames">최대 프레임: %1$s</string>
++    <string name="live_frames">라이브 프레임</string>
++    <string name="live_frames_sub">각 앱의 마지막 화면. 끄면 아이콘과 이름만 표시됩니다.</string>
++    <string name="hide_app">앱 숨기기</string>
++    <string name="show_app">앱 표시</string>
++    <string name="hide_app_hint">숨긴 앱은 그리드, 모든 앱, 검색에서 빠집니다. “private”를 검색하면 찾을 수 있습니다.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 28afc24..23461a3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">Map hernoemen</string>
+     <string name="ungroup_folder">Map opheffen</string>
+     <string name="folder_of">Map %1$s</string>
++    <string name="grid_rows">Rasterrijen: %1$s</string>
++    <string name="grid_rows_fit">Passend</string>
++    <string name="app_names">App-namen</string>
++    <string name="app_names_sub">Namen onder de rasterpictogrammen</string>
++    <string name="max_frames">Maximaal frames: %1$s</string>
++    <string name="live_frames">Live frames</string>
++    <string name="live_frames_sub">De laatste afbeelding van elke app. Uit toont alleen pictogram en naam.</string>
++    <string name="hide_app">App verbergen</string>
++    <string name="show_app">App tonen</string>
++    <string name="hide_app_hint">Verborgen apps verdwijnen uit het raster, Alle apps en zoeken. Zoek “private” om ze te vinden.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index e803cd9..2489dce 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">Zmień nazwę folderu</string>
+     <string name="ungroup_folder">Rozgrupuj folder</string>
+     <string name="folder_of">Folder %1$s</string>
++    <string name="grid_rows">Wiersze siatki: %1$s</string>
++    <string name="grid_rows_fit">Dopasuj</string>
++    <string name="app_names">Nazwy aplikacji</string>
++    <string name="app_names_sub">Nazwy pod ikonami siatki</string>
++    <string name="max_frames">Maks. ramek: %1$s</string>
++    <string name="live_frames">Ramki na żywo</string>
++    <string name="live_frames_sub">Ostatni obraz każdej aplikacji. Wyłączone pokazuje tylko ikonę i nazwę.</string>
++    <string name="hide_app">Ukryj aplikację</string>
++    <string name="show_app">Pokaż aplikację</string>
++    <string name="hide_app_hint">Ukryte aplikacje znikają z siatki, Wszystkich aplikacji i wyszukiwania. Wyszukaj “private”, aby je znaleźć.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index fc21599..eb75332 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">Renomear pasta</string>
+     <string name="ungroup_folder">Desagrupar pasta</string>
+     <string name="folder_of">Pasta %1$s</string>
++    <string name="grid_rows">Linhas da grade: %1$s</string>
++    <string name="grid_rows_fit">Ajustar</string>
++    <string name="app_names">Nomes dos apps</string>
++    <string name="app_names_sub">Nomes sob os ícones da grade</string>
++    <string name="max_frames">Máximo de quadros: %1$s</string>
++    <string name="live_frames">Quadros ao vivo</string>
++    <string name="live_frames_sub">A última imagem de cada app. Desativado mostra só o ícone e o nome.</string>
++    <string name="hide_app">Ocultar app</string>
++    <string name="show_app">Mostrar app</string>
++    <string name="hide_app_hint">Apps ocultos saem da grade, de Todos os apps e da pesquisa. Pesquise “private” para encontrá-los.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 7206356..81728b4 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">Переименовать папку</string>
+     <string name="ungroup_folder">Разгруппировать папку</string>
+     <string name="folder_of">Папка %1$s</string>
++    <string name="grid_rows">Строки сетки: %1$s</string>
++    <string name="grid_rows_fit">Авто</string>
++    <string name="app_names">Названия приложений</string>
++    <string name="app_names_sub">Названия под значками сетки</string>
++    <string name="max_frames">Максимум окон: %1$s</string>
++    <string name="live_frames">Живые окна</string>
++    <string name="live_frames_sub">Последний снимок каждого приложения. Если выключено, видны только значок и название.</string>
++    <string name="hide_app">Скрыть приложение</string>
++    <string name="show_app">Показать приложение</string>
++    <string name="hide_app_hint">Скрытые приложения пропадают из сетки, всех приложений и поиска. Найдите их по запросу “private”.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index d249405..807e3ed 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">Byt namn på mappen</string>
+     <string name="ungroup_folder">Dela upp mappen</string>
+     <string name="folder_of">Mappen %1$s</string>
++    <string name="grid_rows">Rutnätsrader: %1$s</string>
++    <string name="grid_rows_fit">Anpassa</string>
++    <string name="app_names">Appnamn</string>
++    <string name="app_names_sub">Namn under ikonerna</string>
++    <string name="max_frames">Högst antal ramar: %1$s</string>
++    <string name="live_frames">Liveramar</string>
++    <string name="live_frames_sub">Varje apps senaste bild. Av visar bara ikon och namn.</string>
++    <string name="hide_app">Dölj app</string>
++    <string name="show_app">Visa app</string>
++    <string name="hide_app_hint">Dolda appar försvinner från rutnätet, Alla appar och sökningen. Sök “private” för att hitta dem.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 3ff449e..964abc6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">Klasörü yeniden adlandır</string>
+     <string name="ungroup_folder">Klasörü dağıt</string>
+     <string name="folder_of">%1$s klasörü</string>
++    <string name="grid_rows">Izgara satırları: %1$s</string>
++    <string name="grid_rows_fit">Sığdır</string>
++    <string name="app_names">Uygulama adları</string>
++    <string name="app_names_sub">Izgara simgelerinin altında adlar</string>
++    <string name="max_frames">En fazla çerçeve: %1$s</string>
++    <string name="live_frames">Canlı çerçeveler</string>
++    <string name="live_frames_sub">Her uygulamanın son görüntüsü. Kapalıyken yalnızca simge ve ad görünür.</string>
++    <string name="hide_app">Uygulamayı gizle</string>
++    <string name="show_app">Uygulamayı göster</string>
++    <string name="hide_app_hint">Gizli uygulamalar ızgaradan, Tüm uygulamalardan ve aramadan çıkar. Bulmak için “private” arayın.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index 96b4c21..829443e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">فولڈر کا نام بدلیں</string>
+     <string name="ungroup_folder">فولڈر الگ کریں</string>
+     <string name="folder_of">%1$s فولڈر</string>
++    <string name="grid_rows">گرڈ کی قطاریں: %1$s</string>
++    <string name="grid_rows_fit">فٹ</string>
++    <string name="app_names">ایپ کے نام</string>
++    <string name="app_names_sub">گرڈ آئیکنز کے نیچے نام</string>
++    <string name="max_frames">زیادہ سے زیادہ فریم: %1$s</string>
++    <string name="live_frames">لائیو فریم</string>
++    <string name="live_frames_sub">ہر ایپ کی آخری تصویر۔ بند ہونے پر صرف آئیکن اور نام دکھتا ہے۔</string>
++    <string name="hide_app">ایپ چھپائیں</string>
++    <string name="show_app">ایپ دکھائیں</string>
++    <string name="hide_app_hint">چھپی ایپس گرڈ، تمام ایپس اور تلاش سے ہٹ جاتی ہیں۔ انہیں ڈھونڈنے کے لیے “private” تلاش کریں۔</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 7eb21d6..9912076 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -298,4 +298,14 @@
+     <string name="rename_folder">重命名文件夹</string>
+     <string name="ungroup_folder">解散文件夹</string>
+     <string name="folder_of">%1$s 文件夹</string>
++    <string name="grid_rows">网格行数：%1$s</string>
++    <string name="grid_rows_fit">自适应</string>
++    <string name="app_names">应用名称</string>
++    <string name="app_names_sub">网格图标下显示名称</string>
++    <string name="max_frames">最多窗口数：%1$s</string>
++    <string name="live_frames">实时窗口</string>
++    <string name="live_frames_sub">每个应用的最后画面。关闭后只显示图标和名称。</string>
++    <string name="hide_app">隐藏应用</string>
++    <string name="show_app">显示应用</string>
++    <string name="hide_app_hint">隐藏的应用不会出现在网格、所有应用和搜索中。搜索 “private” 可以找到它们。</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 196b023..4122afa 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -302,4 +302,14 @@
+     <string name="rename_folder">Rename folder</string>
+     <string name="ungroup_folder">Ungroup folder</string>
+     <string name="folder_of">%1$s folder</string>
++    <string name="grid_rows">Grid rows: %1$s</string>
++    <string name="grid_rows_fit">Fit</string>
++    <string name="app_names">App names</string>
++    <string name="app_names_sub">Names under the grid icons</string>
++    <string name="max_frames">Maximum frames: %1$s</string>
++    <string name="live_frames">Live frames</string>
++    <string name="live_frames_sub">Each app\'s last picture. Off shows only its icon and name.</string>
++    <string name="hide_app">Hide app</string>
++    <string name="show_app">Show app</string>
++    <string name="hide_app_hint">Hidden apps leave the grid, All Apps and search. Search “private” to find them.</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index 6a22d96..7e9b816 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -342,6 +342,12 @@ class SableStartActivity : ComponentActivity() {
+                     onGridOrderChanged = startStateRepository::saveGridOrder,
+                     initialGridFolders = startStateRepository.loadGridFolders(),
+                     onGridFoldersChanged = startStateRepository::saveGridFolders,
++                    initialGridShape = startStateRepository.loadGridShape(),
++                    onGridShapeChanged = startStateRepository::saveGridShape,
++                    initialFramesOptions = startStateRepository.loadFramesOptions(),
++                    onFramesOptionsChanged = startStateRepository::saveFramesOptions,
++                    initialHiddenApps = startStateRepository.loadHiddenApps(),
++                    onHiddenAppsChanged = startStateRepository::saveHiddenApps,
+                     initialQuickBar = startStateRepository.loadQuickBar(),
+                     onQuickBarChanged = startStateRepository::saveQuickBar,
+                     initialGlanceWidgets = startStateRepository.loadGlanceWidgets(),
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
+index f1b29a0..4dbe005 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
+@@ -244,3 +244,95 @@ object HomeHeader {
+ 
+     private const val DAY_MS = 24L * 60 * 60 * 1000
+ }
++
++/**
++ * The BB10 app grid's size and labels, set in Edit Home (owner request 2026-11-05, after
++ * JLauncher's Home screen options; ideas only): 4 to 6 columns, Fit or 3 to 5 rows, app
++ * names on or off. Saved as "columns:rows:names"; anything unreadable gives the default.
++ */
++data class GridShape(
++    val columns: Int = DEFAULT_COLUMNS,
++    /** [FIT]: as many rows as the screen holds ([AppGrid.rowsFor]). */
++    val rows: Int = FIT,
++    val names: Boolean = true,
++) {
++    fun encode(): String = "$columns:$rows:${if (names) 1 else 0}"
++
++    fun nextColumns(): GridShape = copy(columns = if (columns >= MAX_COLUMNS) MIN_COLUMNS else columns + 1)
++
++    fun nextRows(): GridShape =
++        copy(
++            rows =
++                when {
++                    rows == FIT -> MIN_ROWS
++                    rows >= MAX_ROWS -> FIT
++                    else -> rows + 1
++                },
++        )
++
++    fun toggleNames(): GridShape = copy(names = !names)
++
++    /** The rows to draw when the screen fits [fitted]. */
++    fun rowsFor(fitted: Int): Int = if (rows == FIT) fitted else rows
++
++    companion object {
++        const val FIT = 0
++        const val MIN_COLUMNS = 4
++        const val MAX_COLUMNS = 6
++        const val DEFAULT_COLUMNS = 5
++        const val MIN_ROWS = 3
++        const val MAX_ROWS = 5
++
++        fun decode(text: String?): GridShape {
++            val parts = text.orEmpty().split(':')
++            if (parts.size != 3) return GridShape()
++            val columns = parts[0].toIntOrNull()?.takeIf { it in MIN_COLUMNS..MAX_COLUMNS } ?: DEFAULT_COLUMNS
++            val rows = parts[1].toIntOrNull()?.takeIf { it == FIT || it in MIN_ROWS..MAX_ROWS } ?: FIT
++            return GridShape(columns, rows, parts[2] != "0")
++        }
++    }
++}
++
++/**
++ * Active Frames options in Edit Home (after JLauncher's Active Frames page; ideas only): at most
++ * 2, 4, 6 or 8 frames, and live frames, which show each app's last picture; off shows only its
++ * icon and name, so no picture is kept. Saved as "max:live".
++ */
++data class FramesOptions(
++    val max: Int = ActiveFrames.MAX,
++    val live: Boolean = true,
++) {
++    fun encode(): String = "$max:${if (live) 1 else 0}"
++
++    fun nextMax(): FramesOptions = copy(max = if (max >= ActiveFrames.MAX) STEP else max + STEP)
++
++    fun toggleLive(): FramesOptions = copy(live = !live)
++
++    companion object {
++        const val STEP = 2
++
++        fun decode(text: String?): FramesOptions {
++            val parts = text.orEmpty().split(':')
++            if (parts.size != 2) return FramesOptions()
++            val max = parts[0].toIntOrNull()?.takeIf { it in STEP..ActiveFrames.MAX && it % STEP == 0 } ?: ActiveFrames.MAX
++            return FramesOptions(max, parts[1] != "0")
++        }
++    }
++}
++
++/**
++ * Hidden apps (after JLauncher's Hidden apps; ideas only): Menu on an app hides it from the
++ * app grid, All Apps and search. Searching "private" or "hidden" (or "/private") lists them,
++ * where Menu shows it again. Hiding is not a lock: the app still runs and still notifies.
++ */
++object HiddenApps {
++    private val WORDS = setOf("private", "hidden")
++
++    /** Whether a search for [term] lists the hidden apps. */
++    fun reveals(term: String): Boolean = term.trim().lowercase() in WORDS
++
++    fun toggle(
++        keys: Set<String>,
++        key: String,
++    ): Set<String> = if (key in keys) keys - key else keys + key
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 7d41a8a..4abbc45 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -314,6 +314,16 @@ object StartText {
+             "rename_folder" to "Rename folder",
+             "ungroup_folder" to "Ungroup folder",
+             "folder_of" to "%1\$s folder",
++            "grid_rows" to "Grid rows: %1\$s",
++            "grid_rows_fit" to "Fit",
++            "app_names" to "App names",
++            "app_names_sub" to "Names under the grid icons",
++            "max_frames" to "Maximum frames: %1\$s",
++            "live_frames" to "Live frames",
++            "live_frames_sub" to "Each app's last picture. Off shows only its icon and name.",
++            "hide_app" to "Hide app",
++            "show_app" to "Show app",
++            "hide_app_hint" to "Hidden apps leave the grid, All Apps and search. Search “private” to find them.",
+             "letter_shortcut_press" to
+                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",
+         )
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
+index 4a8031f..75ab5cb 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/StartStateRepository.kt
+@@ -5,8 +5,10 @@ import org.sableos.start.model.Bb7Home
+ import org.sableos.start.model.Bb7Layout
+ import org.sableos.start.model.Bb7Tab
+ import org.sableos.start.model.Bb7Tabs
++import org.sableos.start.model.FramesOptions
+ import org.sableos.start.model.GridFolder
+ import org.sableos.start.model.GridFolders
++import org.sableos.start.model.GridShape
+ import org.sableos.start.model.HomeStyle
+ 
+ /**
+@@ -149,6 +151,27 @@ class StartStateRepository(
+         preferences.edit().putString(KEY_GRID_FOLDERS, GridFolders.encode(folders)).apply()
+     }
+ 
++    /** The app grid's columns, rows and labels (see GridShape). */
++    fun loadGridShape(): GridShape = GridShape.decode(preferences.getString(KEY_GRID_SHAPE, null))
++
++    fun saveGridShape(shape: GridShape) {
++        preferences.edit().putString(KEY_GRID_SHAPE, shape.encode()).apply()
++    }
++
++    /** Active Frames' maximum and live pictures (see FramesOptions). */
++    fun loadFramesOptions(): FramesOptions = FramesOptions.decode(preferences.getString(KEY_FRAMES_OPTIONS, null))
++
++    fun saveFramesOptions(options: FramesOptions) {
++        preferences.edit().putString(KEY_FRAMES_OPTIONS, options.encode()).apply()
++    }
++
++    /** Apps hidden from the grid, All Apps and search (see HiddenApps). */
++    fun loadHiddenApps(): Set<String> = preferences.getStringSet(KEY_HIDDEN_APPS, null)?.toSet().orEmpty()
++
++    fun saveHiddenApps(keys: Set<String>) {
++        preferences.edit().putStringSet(KEY_HIDDEN_APPS, keys.toSet()).apply()
++    }
++
+     /** Ordered Glance widgets, shown as Active Frames while no app is running (see GlanceWidgets); null means never customised. */
+     fun loadGlanceWidgets(): List<String>? = loadOrdered(KEY_GLANCE_WIDGETS)
+ 
+@@ -228,5 +251,8 @@ class StartStateRepository(
+         const val KEY_HOME_STYLE = "home_style"
+         const val KEY_GRID_ORDER = "grid_order"
+         const val KEY_GRID_FOLDERS = "grid_folders"
++        const val KEY_GRID_SHAPE = "grid_shape"
++        const val KEY_FRAMES_OPTIONS = "frames_options"
++        const val KEY_HIDDEN_APPS = "hidden_apps"
+     }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index e5e0a61..519d47e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+ import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.combinedClickable
++import androidx.compose.foundation.focusGroup
+ import androidx.compose.foundation.focusable
+ import androidx.compose.foundation.gestures.detectDragGestures
+ import androidx.compose.foundation.gestures.detectTapGestures
+@@ -156,11 +157,14 @@ import org.sableos.start.model.CommandScope
+ import org.sableos.start.model.CoreAppIdentity
+ import org.sableos.start.model.FrameMedia
+ import org.sableos.start.model.FrameMediaCommand
++import org.sableos.start.model.FramesOptions
+ import org.sableos.start.model.Bb7Naming
+ import org.sableos.start.model.GlanceWidgets
+ import org.sableos.start.model.GridFolder
+ import org.sableos.start.model.GridFolders
+ import org.sableos.start.model.GridItem
++import org.sableos.start.model.GridShape
++import org.sableos.start.model.HiddenApps
+ import org.sableos.start.model.HomeApps
+ import org.sableos.start.model.HomeHeader
+ import org.sableos.start.model.HomeLayout
+@@ -262,6 +266,8 @@ private data class HomeEdit(
+     val quickBar: List<String>,
+     val glanceWidgets: List<String>,
+     val hiddenSections: Set<String>,
++    val gridShape: GridShape = GridShape(),
++    val framesOptions: FramesOptions = FramesOptions(),
+ )
+ 
+ private val SableBlue = Color(0xFF4D9CFF)
+@@ -393,6 +399,15 @@ fun SableStartScreen(
+     /** The app grid's folders ([GridFolders]). */
+     initialGridFolders: List<GridFolder> = emptyList(),
+     onGridFoldersChanged: (List<GridFolder>) -> Unit = {},
++    /** The grid's columns, rows and names, set in Edit Home. */
++    initialGridShape: GridShape = GridShape(),
++    onGridShapeChanged: (GridShape) -> Unit = {},
++    /** Active Frames: how many, and whether they show live pictures. */
++    initialFramesOptions: FramesOptions = FramesOptions(),
++    onFramesOptionsChanged: (FramesOptions) -> Unit = {},
++    /** Apps hidden from the grid, All Apps and search ([HiddenApps]). */
++    initialHiddenApps: Set<String> = emptySet(),
++    onHiddenAppsChanged: (Set<String>) -> Unit = {},
+     initialQuickBar: List<String>? = null,
+     onQuickBarChanged: (List<String>?) -> Unit = {},
+     initialGlanceWidgets: List<String>? = null,
+@@ -455,6 +470,9 @@ fun SableStartScreen(
+     var savedGridOrder by remember(initialGridOrder) { mutableStateOf(initialGridOrder) }
+     var gridFolders by remember(initialGridFolders) { mutableStateOf(initialGridFolders) }
+     var openFolderId by remember { mutableStateOf<Int?>(null) }
++    var gridShape by remember(initialGridShape) { mutableStateOf(initialGridShape) }
++    var framesOptions by remember(initialFramesOptions) { mutableStateOf(initialFramesOptions) }
++    var hiddenApps by remember(initialHiddenApps) { mutableStateOf(initialHiddenApps) }
+     var recentKeys by remember { mutableStateOf<List<String>>(emptyList()) }
+     // Text typed on Start before Command/Search opened (type-to-launch).
+     var searchSeed by remember { mutableStateOf("") }
+@@ -485,8 +503,10 @@ fun SableStartScreen(
+     }
+ 
+     val appByKey = apps.associateBy { it.stableKey() }
++    // Hidden apps leave the grid, All Apps and search; searching "private" lists them.
++    val shownApps = apps.filterNot { it.stableKey() in hiddenApps }
+     // The grid holds every app except Private Space ones, which stay in All Apps behind its lock.
+-    val gridCandidates = apps.filterNot { it.profileLabel == PROFILE_PRIVATE_LABEL }
++    val gridCandidates = shownApps.filterNot { it.profileLabel == PROFILE_PRIVATE_LABEL }
+     val defaultHomeKeys = defaultHomeApps(apps).map { it.stableKey() }
+     val gridItems =
+         GridFolders.layout(
+@@ -497,14 +517,17 @@ fun SableStartScreen(
+         )
+     // App keys and folder tokens, in grid order (what Edit Home reorders).
+     val gridKeys = GridFolders.order(gridItems)
+-    val gridTiles = gridTilesOf(gridItems, appByKey)
++    // Folders hold only shown apps, so a hidden app leaves its folder too.
++    val gridTiles = gridTilesOf(gridItems, gridCandidates.associateBy { it.stableKey() })
+     val gridLabels = gridCandidates.mapTo(HashSet()) { it.label }
+     val quickSlots =
+         quickBarTokens.mapNotNull { token ->
+             resolveQuickSlot(token, apps, appByKey)
+         }
+-    val gridRows = AppGrid.rowsFor(startGridHeightDp(), GRID_CELL_MIN_DP)
+-    val gridPerPage = AppGrid.perPage(gridRows)
++    val gridRows = gridShape.rowsFor(AppGrid.rowsFor(startGridHeightDp(), GRID_CELL_MIN_DP))
++    val gridPerPage = gridShape.columns * gridRows
++    val shownFrames = frames.take(framesOptions.max)
++    val shownSnapshot: (ActiveFrame) -> Bitmap? = if (framesOptions.live) frameSnapshot else { _ -> null }
+     val gridPages = AppGrid.pageCount(gridTiles.size, gridPerPage)
+     val pageCount = StartPages.count(gridPages)
+ 
+@@ -676,7 +699,7 @@ fun SableStartScreen(
+                         .windowInsetsPadding(WindowInsets.safeDrawing),
+             ) {
+                 when (destination) {
+-                    SableStartDestination.Start ->
++                    SableStartDestination.Start, SableStartDestination.Folder -> {
+                         Bb10Theme(appearance) {
+                             StartStrip(
+                                 state = startPager,
+@@ -719,7 +742,7 @@ fun SableStartScreen(
+                                         }
+                                     page == StartPages.HOME ->
+                                         ActiveFramesPage(
+-                                            frames = frames,
++                                            frames = shownFrames,
+                                             apps = apps,
+                                             hiddenSections = hiddenSections,
+                                             onOpenSettings = onOpenSystemSettings,
+@@ -728,7 +751,7 @@ fun SableStartScreen(
+                                             widgets = glanceWidgets,
+                                             refreshGeneration = refreshGeneration,
+                                             framesGeneration = framesGeneration,
+-                                            frameSnapshot = frameSnapshot,
++                                            frameSnapshot = shownSnapshot,
+                                             active = startPager.settledPage == StartPages.HOME,
+                                             onResume = ::resumeFrame,
+                                             onClose = onCloseFrame,
+@@ -742,8 +765,10 @@ fun SableStartScreen(
+                                         AppGridPage(
+                                             tiles = AppGrid.page(gridTiles, index, gridPerPage),
+                                             rows = gridRows,
++                                            columns = gridShape.columns,
++                                            showNames = gridShape.names,
+                                             gridLabels = gridLabels,
+-                                            active = startPager.settledPage == page,
++                                            active = startPager.settledPage == page && destination == SableStartDestination.Start,
+                                             onLaunchApp = ::launchApp,
+                                             onLaunchSecond = ::launchSecond,
+                                             onOpenPeek = { app -> openPeek(app, SableStartDestination.Start) },
+@@ -754,6 +779,34 @@ fun SableStartScreen(
+                                 }
+                             }
+                         }
++                        if (destination == SableStartDestination.Folder) {
++                            val tile =
++                                gridTiles.firstNotNullOfOrNull { tile ->
++                                    (tile as? GridTile.FolderTile)?.takeIf { it.folder.id == openFolderId }
++                                }
++                            if (tile == null) {
++                                destination = SableStartDestination.Start
++                            } else {
++                                val id = tile.folder.id
++                                Bb10Theme(appearance) {
++                                    GridFolderPanel(
++                                        folder = tile.folder,
++                                        apps = tile.apps,
++                                        gridLabels = gridLabels,
++                                        onClose = ::navigateBack,
++                                        onLaunchApp = ::launchApp,
++                                        onLaunchSecond = ::launchSecond,
++                                        onOpenPeek = { app -> openPeek(app, SableStartDestination.Folder) },
++                                        onRename = { name -> setGridFolders(GridFolders.rename(gridFolders, id, name) to gridKeys) },
++                                        onUngroup = {
++                                            setGridFolders(GridFolders.ungroup(gridFolders, gridKeys, id))
++                                            destination = SableStartDestination.Start
++                                        },
++                                    )
++                                }
++                            }
++                        }
++                    }
+ 
+                     SableStartDestination.SlotOptions -> {
+                         val slot = selectedSlot
+@@ -820,6 +873,8 @@ fun SableStartScreen(
+                                     quickBar = quickBarTokens,
+                                     glanceWidgets = glanceWidgets,
+                                     hiddenSections = hiddenSections,
++                                    gridShape = gridShape,
++                                    framesOptions = framesOptions,
+                                 ),
+                             defaults =
+                                 HomeEdit(
+@@ -843,6 +898,10 @@ fun SableStartScreen(
+                                 onGlanceWidgetsChanged(edit.glanceWidgets)
+                                 hiddenSections = edit.hiddenSections
+                                 onHiddenHomeSectionsChanged(edit.hiddenSections)
++                                gridShape = edit.gridShape
++                                onGridShapeChanged(edit.gridShape)
++                                framesOptions = edit.framesOptions
++                                onFramesOptionsChanged(edit.framesOptions)
+                                 destination = SableStartDestination.Start
+                                 pagerScope.launch { startPager.scrollToPage(StartPages.HOME) }
+                             },
+@@ -854,7 +913,7 @@ fun SableStartScreen(
+ 
+                     SableStartDestination.Apps ->
+                         AppsScreen(
+-                            apps = apps,
++                            apps = shownApps,
+                             focusMemory = focusMemory,
+                             onBack = ::navigateBack,
+                             onSearch = {
+@@ -875,6 +934,7 @@ fun SableStartScreen(
+                     SableStartDestination.Search ->
+                         SearchScreen(
+                             apps = apps,
++                            hiddenKeys = hiddenApps,
+                             recentKeys = recentKeys,
+                             initialQuery = searchSeed,
+                             privateSpaceLocked = privateSpaceLocked,
+@@ -911,32 +971,6 @@ fun SableStartScreen(
+                             onReset = onResetAppearance,
+                         )
+ 
+-                    SableStartDestination.Folder -> {
+-                        val tile =
+-                            gridTiles.firstNotNullOfOrNull { tile ->
+-                                (tile as? GridTile.FolderTile)?.takeIf { it.folder.id == openFolderId }
+-                            }
+-                        if (tile == null) {
+-                            destination = SableStartDestination.Start
+-                        } else {
+-                            val id = tile.folder.id
+-                            GridFolderScreen(
+-                                folder = tile.folder,
+-                                apps = tile.apps,
+-                                gridLabels = gridLabels,
+-                                onBack = ::navigateBack,
+-                                onLaunchApp = ::launchApp,
+-                                onLaunchSecond = ::launchSecond,
+-                                onOpenPeek = { app -> openPeek(app, SableStartDestination.Folder) },
+-                                onRename = { name -> setGridFolders(GridFolders.rename(gridFolders, id, name) to gridKeys) },
+-                                onUngroup = {
+-                                    setGridFolders(GridFolders.ungroup(gridFolders, gridKeys, id))
+-                                    destination = SableStartDestination.Start
+-                                },
+-                            )
+-                        }
+-                    }
+-
+                     SableStartDestination.Peek -> {
+                         val app = selectedApp
+                         if (app == null) {
+@@ -980,6 +1014,11 @@ fun SableStartScreen(
+                                 },
+                                 onNewFolder = { name -> setGridFolders(GridFolders.create(gridFolders, gridKeys, key, name)) },
+                                 onRemoveFromFolder = { setGridFolders(GridFolders.remove(gridFolders, gridKeys, key)) },
++                                hidden = key in hiddenApps,
++                                onToggleHidden = {
++                                    hiddenApps = HiddenApps.toggle(hiddenApps, key)
++                                    onHiddenAppsChanged(hiddenApps)
++                                },
+                                 onSetLetterShortcut = { letter ->
+                                     if (letter == null) {
+                                         letterShortcuts?.remove(app.component)
+@@ -2118,6 +2157,9 @@ private fun AppGridPage(
+     onOpenPeek: (AppEntry) -> Unit,
+     onOpenFolder: (GridFolder) -> Unit,
+     onEditHome: () -> Unit,
++    columns: Int = AppGrid.COLUMNS,
++    /** Off: icons only, for a fuller grid (the name stays the spoken description). */
++    showNames: Boolean = true,
+ ) {
+     val firstFocus = remember { FocusRequester() }
+     LaunchedEffect(active, tiles.firstOrNull()?.let(::tileKey)) {
+@@ -2135,15 +2177,15 @@ private fun AppGridPage(
+     ) {
+         val iconDp =
+             AppGrid.iconSizeFor(
+-                cellWidthDp = (maxWidth / AppGrid.COLUMNS).value.toInt(),
++                cellWidthDp = (maxWidth / columns).value.toInt(),
+                 cellHeightDp = (maxHeight / rows).value.toInt(),
+-                labelDp = GRID_LABEL_LINE_DP + GRID_CELL_CHROME_DP,
++                labelDp = (if (showNames) GRID_LABEL_LINE_DP else 0) + GRID_CELL_CHROME_DP,
+             )
+         Column(modifier = Modifier.fillMaxSize()) {
+             for (row in 0 until rows) {
+                 Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+-                    for (column in 0 until AppGrid.COLUMNS) {
+-                        val tile = tiles.getOrNull(row * AppGrid.COLUMNS + column)
++                    for (column in 0 until columns) {
++                        val tile = tiles.getOrNull(row * columns + column)
+                         val cellModifier =
+                             Modifier
+                                 .weight(1f)
+@@ -2158,6 +2200,7 @@ private fun AppGridPage(
+                                 GridCell(
+                                     app = tile.app,
+                                     label = AppGrid.gridLabel(tile.app.label, gridLabels),
++                                    showLabel = showNames,
+                                     iconDp = iconDp,
+                                     onOpen = { onLaunchApp(tile.app) },
+                                     onOpenSecond = { onLaunchSecond(tile.app) },
+@@ -2170,6 +2213,7 @@ private fun AppGridPage(
+                                 FolderCell(
+                                     tile = tile,
+                                     iconDp = iconDp,
++                                    showLabel = showNames,
+                                     onOpen = { onOpenFolder(tile.folder) },
+                                     modifier = cellModifier,
+                                 )
+@@ -2218,6 +2262,7 @@ private fun FolderCell(
+     iconDp: Int,
+     onOpen: () -> Unit,
+     modifier: Modifier = Modifier,
++    showLabel: Boolean = true,
+ ) {
+     var focused by remember { mutableStateOf(false) }
+     val shape = RoundedCornerShape(6.dp)
+@@ -2253,29 +2298,32 @@ private fun FolderCell(
+                 }
+             }
+         }
+-        Spacer(Modifier.height(GRID_ICON_LABEL_GAP))
+-        Text(
+-            text = tile.folder.name,
+-            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
+-            color = Bb10Text,
+-            textAlign = TextAlign.Center,
+-            maxLines = 1,
+-            overflow = TextOverflow.Ellipsis,
+-        )
++        if (showLabel) {
++            Spacer(Modifier.height(GRID_ICON_LABEL_GAP))
++            Text(
++                text = tile.folder.name,
++                style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
++                color = Bb10Text,
++                textAlign = TextAlign.Center,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++        }
+     }
+ }
+ 
+ /**
+- * An open grid folder: its name, its apps on a grid page (Enter opens, Menu shows the
+- * app's actions, where Remove from takes it out), then Rename folder and Ungroup folder.
+- * Rename takes the new name from the keyboard: Enter saves, Esc cancels.
++ * An open grid folder, as BB10 opens one: a panel over the dimmed app grid with the folder's
++ * name, its apps (Enter opens, Menu shows the app's actions, where Remove from takes it out),
++ * then Rename folder and Ungroup folder. Focus stays in the panel; Back, Esc or a tap outside
++ * closes it. Rename takes the new name from the keyboard: Enter saves, Esc cancels.
+  */
+ @Composable
+-private fun GridFolderScreen(
++private fun GridFolderPanel(
+     folder: GridFolder,
+     apps: List<AppEntry>,
+     gridLabels: Set<String>,
+-    onBack: () -> Unit,
++    onClose: () -> Unit,
+     onLaunchApp: (AppEntry) -> Unit,
+     onLaunchSecond: (AppEntry) -> Unit,
+     onOpenPeek: (AppEntry) -> Unit,
+@@ -2284,35 +2332,59 @@ private fun GridFolderScreen(
+ ) {
+     var naming by remember(folder.id) { mutableStateOf<String?>(null) }
+     val rows = ((apps.size + AppGrid.COLUMNS - 1) / AppGrid.COLUMNS).coerceIn(1, AppGrid.MAX_ROWS)
+-    Column(
++    val shape = RoundedCornerShape(12.dp)
++    Box(
+         modifier =
+             Modifier
+                 .fillMaxSize()
+-                .background(MaterialTheme.colorScheme.background)
+-                .onPreviewKeyEvent { event -> nameKey(event, naming, { naming = it }, onRename) }
+-                .padding(horizontal = 16.dp, vertical = 12.dp),
++                .background(Color.Black.copy(alpha = FOLDER_SCRIM_ALPHA))
++                .pointerInput(Unit) { detectTapGestures { onClose() } },
++        contentAlignment = Alignment.Center,
+     ) {
+-        MetroHeader(title = folder.name, onBack = onBack)
+-        Box(modifier = Modifier.fillMaxWidth().height((rows * FOLDER_ROW_DP).dp)) {
+-            AppGridPage(
+-                tiles = apps.map(GridTile::AppTile),
+-                rows = rows,
+-                gridLabels = gridLabels,
+-                active = naming == null,
+-                onLaunchApp = onLaunchApp,
+-                onLaunchSecond = onLaunchSecond,
+-                onOpenPeek = onOpenPeek,
+-                onOpenFolder = {},
+-                onEditHome = {},
++        Column(
++            modifier =
++                Modifier
++                    .fillMaxWidth()
++                    .padding(horizontal = 12.dp)
++                    .clip(shape)
++                    .background(MaterialTheme.colorScheme.surface)
++                    .border(1.dp, Bb10Muted, shape)
++                    // Taps inside the panel never reach the scrim behind it.
++                    .pointerInput(Unit) { detectTapGestures { } }
++                    .focusProperties { onExit = { cancelFocusChange() } }
++                    .focusGroup()
++                    .onPreviewKeyEvent { event -> nameKey(event, naming, { naming = it }, onRename) }
++                    .padding(horizontal = 8.dp, vertical = 10.dp),
++        ) {
++            Text(
++                text = folder.name,
++                modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
++                style = MaterialTheme.typography.titleMedium,
++                color = Bb10Text,
++                textAlign = TextAlign.Center,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
+             )
++            Box(modifier = Modifier.fillMaxWidth().height((rows * FOLDER_ROW_DP).dp)) {
++                AppGridPage(
++                    tiles = apps.map(GridTile::AppTile),
++                    rows = rows,
++                    gridLabels = gridLabels,
++                    active = naming == null,
++                    onLaunchApp = onLaunchApp,
++                    onLaunchSecond = onLaunchSecond,
++                    onOpenPeek = onOpenPeek,
++                    onOpenFolder = {},
++                    onEditHome = {},
++                )
++            }
++            ContextAction(
++                mark = "✎",
++                label = naming?.let { t("folder_name", "${it}_") } ?: t("rename_folder"),
++                onClick = { naming = if (naming == null) folder.name else null },
++            )
++            ContextAction(mark = "▦", label = t("ungroup_folder"), onClick = onUngroup)
+         }
+-        Spacer(Modifier.height(8.dp))
+-        ContextAction(
+-            mark = "✎",
+-            label = naming?.let { t("folder_name", "${it}_") } ?: t("rename_folder"),
+-            onClick = { naming = if (naming == null) folder.name else null },
+-        )
+-        ContextAction(mark = "▦", label = t("ungroup_folder"), onClick = onUngroup)
+     }
+ }
+ 
+@@ -2349,6 +2421,7 @@ private fun GridCell(
+     onOpenSecond: () -> Unit,
+     onActions: () -> Unit,
+     modifier: Modifier = Modifier,
++    showLabel: Boolean = true,
+ ) {
+     var focused by remember { mutableStateOf(false) }
+     val shape = RoundedCornerShape(6.dp)
+@@ -2403,16 +2476,18 @@ private fun GridCell(
+                 )
+             }
+         }
+-        Spacer(Modifier.height(GRID_ICON_LABEL_GAP))
+-        Text(
+-            text = label,
+-            // No tracking: "Minesweeper" fits a fifth of 411dp on one line.
+-            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
+-            color = Bb10Text,
+-            textAlign = TextAlign.Center,
+-            maxLines = 1,
+-            overflow = TextOverflow.Ellipsis,
+-        )
++        if (showLabel) {
++            Spacer(Modifier.height(GRID_ICON_LABEL_GAP))
++            Text(
++                text = label,
++                // No tracking: "Minesweeper" fits a fifth of 411dp on one line.
++                style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
++                color = Bb10Text,
++                textAlign = TextAlign.Center,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++        }
+     }
+ }
+ 
+@@ -3847,6 +3922,25 @@ private fun EditHomeScreen(
+                 )
+             }
+         }
++        item(key = "grid-shape") {
++            val shape = draft.gridShape
++            val rowsText = if (shape.rows == GridShape.FIT) t("grid_rows_fit") else shape.rows.toString()
++            MetroLink(
++                text = t("grid_columns", shape.columns.toString()),
++                onClick = { draft = draft.copy(gridShape = shape.nextColumns()) },
++            )
++            MetroLink(
++                text = t("grid_rows", rowsText),
++                onClick = { draft = draft.copy(gridShape = shape.nextRows()) },
++            )
++            HomeToggleRow(
++                title = t("app_names"),
++                subtitle = t("app_names_sub"),
++                selected = shape.names,
++                accent = MaterialTheme.colorScheme.primary,
++                onClick = { draft = draft.copy(gridShape = shape.toggleNames()) },
++            )
++        }
+         item(key = "bar") {
+             Spacer(Modifier.height(10.dp))
+             SectionLabel(t("bottom_bar"))
+@@ -3947,6 +4041,18 @@ private fun EditHomeScreen(
+                     onClick = { draft = draft.copy(hiddenSections = HomeLayout.toggle(draft.hiddenSections, section)) },
+                 )
+             }
++            val frames = draft.framesOptions
++            MetroLink(
++                text = t("max_frames", frames.max.toString()),
++                onClick = { draft = draft.copy(framesOptions = frames.nextMax()) },
++            )
++            HomeToggleRow(
++                title = t("live_frames"),
++                subtitle = t("live_frames_sub"),
++                selected = frames.live,
++                accent = accent,
++                onClick = { draft = draft.copy(framesOptions = frames.toggleLive()) },
++            )
+             Spacer(Modifier.height(10.dp))
+             MetroLink(text = "appearance", onClick = onAppearance)
+             MetroLink(text = t("reset_home_to_default"), onClick = { draft = defaults })
+@@ -4720,6 +4826,8 @@ private fun PrivateSpaceSection(
+ @Composable
+ private fun SearchScreen(
+     apps: List<AppEntry>,
++    /** Hidden apps: left out unless the search is for them ([HiddenApps.reveals]). */
++    hiddenKeys: Set<String> = emptySet(),
+     recentKeys: List<String>,
+     initialQuery: String,
+     privateSpaceLocked: Boolean?,
+@@ -4763,8 +4871,13 @@ private fun SearchScreen(
+             else -> null
+         }
+     val (filteredApps, privacyMatches) =
+-        remember(apps, recentKeys, parsed) {
+-            if (profileApps != null) {
++        remember(apps, hiddenKeys, recentKeys, parsed) {
++            val searchable = apps.filterNot { it.stableKey() in hiddenKeys }
++            if (parsed.scope == CommandScope.All && hiddenKeys.isNotEmpty() && HiddenApps.reveals(term)) {
++                // "private" or "hidden": the hidden apps, A to Z, then any app the word names.
++                val hiddenFirst = apps.filter { it.stableKey() in hiddenKeys }.sortedBy { it.label.lowercase(locale) }
++                (hiddenFirst + CommandRanking.apps(searchable, { it.label }, { null }, term)) to emptyList()
++            } else if (profileApps != null) {
+                 CommandRanking.apps(profileApps, { it.label }, { null }, term) to emptyList()
+             } else if (!parsed.includes(CommandScope.Apps)) {
+                 emptyList<AppEntry>() to emptyList()
+@@ -4773,7 +4886,7 @@ private fun SearchScreen(
+                 // access matches privacy words ("camera", "mic") are their own group.
+                 val byName =
+                     CommandRanking.apps(
+-                        items = apps,
++                        items = searchable,
+                         label = { it.label },
+                         recentRank = { app -> recentKeys.indexOf(app.stableKey()).takeIf { it >= 0 } },
+                         term = term,
+@@ -4782,9 +4895,9 @@ private fun SearchScreen(
+                     if (term.isEmpty()) {
+                         emptyList()
+                     } else {
+-                        apps.filter { app ->
+-                            app !in byName && PrivacySummaryPolicy.matchesPrivacyQuery(app.privacy, term)
+-                        }.take(8)
++                        searchable
++                            .filter { app -> app !in byName && PrivacySummaryPolicy.matchesPrivacyQuery(app.privacy, term) }
++                            .take(8)
+                     }
+                 byName to byPrivacy
+             }
+@@ -5728,6 +5841,9 @@ private fun SablePeekScreen(
+     onAddToFolder: (Int) -> Unit,
+     onNewFolder: (String) -> Unit,
+     onRemoveFromFolder: () -> Unit,
++    /** Hidden from the grid, All Apps and search ([HiddenApps]). */
++    hidden: Boolean = false,
++    onToggleHidden: () -> Unit = {},
+ ) {
+     // Waiting for the letter to hold: a letter assigns, Backspace clears, "cancel" or Back leaves it.
+     var capturing by remember(app) { mutableStateOf(false) }
+@@ -5948,6 +6064,18 @@ private fun SablePeekScreen(
+                     onStartNaming = { naming = "" },
+                     onRemoveFromFolder = onRemoveFromFolder,
+                 )
++                ContextAction(
++                    mark = if (hidden) "◉" else "◌",
++                    label = if (hidden) t("show_app") else t("hide_app"),
++                    onClick = onToggleHidden,
++                )
++                if (!hidden) {
++                    Text(
++                        text = t("hide_app_hint"),
++                        style = MaterialTheme.typography.bodySmall,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    )
++                }
+             }
+ 
+             Text(
+@@ -6477,7 +6605,8 @@ private val GRID_CELL_GAP = 2.dp
+ private const val FOLDER_PADDING_DP = 4
+ private const val FOLDER_GAP_DP = 2
+ private const val FOLDER_PREVIEW = 4
+-private const val FOLDER_ROW_DP = 88
++private const val FOLDER_ROW_DP = 84
++private const val FOLDER_SCRIM_ALPHA = 0.6f
+ private val GRID_CELL_INNER_PADDING = 4.dp
+ private val GRID_ICON_LABEL_GAP = 3.dp
+ 

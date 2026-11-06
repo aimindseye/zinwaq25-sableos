@@ -302,4 +302,14 @@
     <string name="rename_folder">Rename folder</string>
     <string name="ungroup_folder">Ungroup folder</string>
     <string name="folder_of">%1$s folder</string>
+    <string name="grid_rows">Grid rows: %1$s</string>
+    <string name="grid_rows_fit">Fit</string>
+    <string name="app_names">App names</string>
+    <string name="app_names_sub">Names under the grid icons</string>
+    <string name="max_frames">Maximum frames: %1$s</string>
+    <string name="live_frames">Live frames</string>
+    <string name="live_frames_sub">Each app\'s last picture. Off shows only its icon and name.</string>
+    <string name="hide_app">Hide app</string>
+    <string name="show_app">Show app</string>
+    <string name="hide_app_hint">Hidden apps leave the grid, All Apps and search. Search “private” to find them.</string>
 </resources>

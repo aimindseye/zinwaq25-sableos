@@ -298,4 +298,14 @@
     <string name="rename_folder">フォルダ名を変更</string>
     <string name="ungroup_folder">フォルダを解除</string>
     <string name="folder_of">%1$s フォルダ</string>
+    <string name="grid_rows">グリッドの行: %1$s</string>
+    <string name="grid_rows_fit">自動</string>
+    <string name="app_names">アプリ名</string>
+    <string name="app_names_sub">グリッドのアイコンの下に名前</string>
+    <string name="max_frames">最大フレーム数: %1$s</string>
+    <string name="live_frames">ライブフレーム</string>
+    <string name="live_frames_sub">各アプリの最後の画面。オフではアイコンと名前だけを表示します。</string>
+    <string name="hide_app">アプリを非表示</string>
+    <string name="show_app">アプリを表示</string>
+    <string name="hide_app_hint">非表示のアプリはグリッド、すべてのアプリ、検索に表示されません。“private” で検索すると見つかります。</string>
 </resources>

@@ -298,4 +298,14 @@
     <string name="rename_folder">Renomear pasta</string>
     <string name="ungroup_folder">Desagrupar pasta</string>
     <string name="folder_of">Pasta %1$s</string>
+    <string name="grid_rows">Linhas da grade: %1$s</string>
+    <string name="grid_rows_fit">Ajustar</string>
+    <string name="app_names">Nomes dos apps</string>
+    <string name="app_names_sub">Nomes sob os ícones da grade</string>
+    <string name="max_frames">Máximo de quadros: %1$s</string>
+    <string name="live_frames">Quadros ao vivo</string>
+    <string name="live_frames_sub">A última imagem de cada app. Desativado mostra só o ícone e o nome.</string>
+    <string name="hide_app">Ocultar app</string>
+    <string name="show_app">Mostrar app</string>
+    <string name="hide_app_hint">Apps ocultos saem da grade, de Todos os apps e da pesquisa. Pesquise “private” para encontrá-los.</string>
 </resources>

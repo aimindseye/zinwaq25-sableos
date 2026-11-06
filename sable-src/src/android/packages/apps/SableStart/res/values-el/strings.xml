@@ -298,4 +298,14 @@
     <string name="rename_folder">Μετονομασία φακέλου</string>
     <string name="ungroup_folder">Κατάργηση ομαδοποίησης</string>
     <string name="folder_of">Φάκελος %1$s</string>
+    <string name="grid_rows">Σειρές πλέγματος: %1$s</string>
+    <string name="grid_rows_fit">Προσαρμογή</string>
+    <string name="app_names">Ονόματα εφαρμογών</string>
+    <string name="app_names_sub">Ονόματα κάτω από τα εικονίδια</string>
+    <string name="max_frames">Μέγιστα πλαίσια: %1$s</string>
+    <string name="live_frames">Ζωντανά πλαίσια</string>
+    <string name="live_frames_sub">Η τελευταία εικόνα κάθε εφαρμογής. Απενεργοποιημένο δείχνει μόνο εικονίδιο και όνομα.</string>
+    <string name="hide_app">Απόκρυψη εφαρμογής</string>
+    <string name="show_app">Εμφάνιση εφαρμογής</string>
+    <string name="hide_app_hint">Οι κρυφές εφαρμογές φεύγουν από το πλέγμα, όλες τις εφαρμογές και την αναζήτηση. Αναζητήστε “private” για να τις βρείτε.</string>
 </resources>

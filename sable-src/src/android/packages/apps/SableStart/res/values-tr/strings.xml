@@ -298,4 +298,14 @@
     <string name="rename_folder">Klasörü yeniden adlandır</string>
     <string name="ungroup_folder">Klasörü dağıt</string>
     <string name="folder_of">%1$s klasörü</string>
+    <string name="grid_rows">Izgara satırları: %1$s</string>
+    <string name="grid_rows_fit">Sığdır</string>
+    <string name="app_names">Uygulama adları</string>
+    <string name="app_names_sub">Izgara simgelerinin altında adlar</string>
+    <string name="max_frames">En fazla çerçeve: %1$s</string>
+    <string name="live_frames">Canlı çerçeveler</string>
+    <string name="live_frames_sub">Her uygulamanın son görüntüsü. Kapalıyken yalnızca simge ve ad görünür.</string>
+    <string name="hide_app">Uygulamayı gizle</string>
+    <string name="show_app">Uygulamayı göster</string>
+    <string name="hide_app_hint">Gizli uygulamalar ızgaradan, Tüm uygulamalardan ve aramadan çıkar. Bulmak için “private” arayın.</string>
 </resources>

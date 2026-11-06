@@ -298,4 +298,14 @@
     <string name="rename_folder">Zmień nazwę folderu</string>
     <string name="ungroup_folder">Rozgrupuj folder</string>
     <string name="folder_of">Folder %1$s</string>
+    <string name="grid_rows">Wiersze siatki: %1$s</string>
+    <string name="grid_rows_fit">Dopasuj</string>
+    <string name="app_names">Nazwy aplikacji</string>
+    <string name="app_names_sub">Nazwy pod ikonami siatki</string>
+    <string name="max_frames">Maks. ramek: %1$s</string>
+    <string name="live_frames">Ramki na żywo</string>
+    <string name="live_frames_sub">Ostatni obraz każdej aplikacji. Wyłączone pokazuje tylko ikonę i nazwę.</string>
+    <string name="hide_app">Ukryj aplikację</string>
+    <string name="show_app">Pokaż aplikację</string>
+    <string name="hide_app_hint">Ukryte aplikacje znikają z siatki, Wszystkich aplikacji i wyszukiwania. Wyszukaj “private”, aby je znaleźć.</string>
 </resources>

@@ -298,4 +298,14 @@
     <string name="rename_folder">Rinomina cartella</string>
     <string name="ungroup_folder">Separa cartella</string>
     <string name="folder_of">Cartella %1$s</string>
+    <string name="grid_rows">Righe della griglia: %1$s</string>
+    <string name="grid_rows_fit">Adatta</string>
+    <string name="app_names">Nomi delle app</string>
+    <string name="app_names_sub">Nomi sotto le icone</string>
+    <string name="max_frames">Riquadri massimi: %1$s</string>
+    <string name="live_frames">Riquadri dal vivo</string>
+    <string name="live_frames_sub">L\'ultima immagine di ogni app. Disattivato mostra solo icona e nome.</string>
+    <string name="hide_app">Nascondi app</string>
+    <string name="show_app">Mostra app</string>
+    <string name="hide_app_hint">Le app nascoste escono da griglia, Tutte le app e ricerca. Cerca “private” per trovarle.</string>
 </resources>
