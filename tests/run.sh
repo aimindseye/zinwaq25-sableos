@@ -1213,6 +1213,20 @@ sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/Design
 EOF_I18N
 if [[ -z "$i18n_bad" ]]; then pass "Sable apps: English in one table per app, equal to values/strings.xml, bound to the resources"; else fail "translations:$i18n_bad"; fi
 
+# aapt2 refuses a bare ' in a string resource; a patch that adds one fails the image build.
+apostrophe_bad="$(python3 - <<'EOF_APOS'
+import glob, re
+bad = []
+for f in sorted(glob.glob("patches/framework/**/*.patch", recursive=True)):
+    for n, line in enumerate(open(f, encoding="utf-8", errors="replace"), 1):
+        m = re.search(r"^\+.*<string[^>]*>(.*)</string>", line)
+        if m and not (m.group(1).startswith('"') and m.group(1).endswith('"')) and re.search(r"(?<!\\)'", m.group(1)):
+            bad.append(f"{f}:{n}")
+print(" ".join(bad))
+EOF_APOS
+)"
+if [[ -z "$apostrophe_bad" ]]; then pass "framework patches: no unescaped apostrophe in an added string resource"; else fail "unescaped apostrophe: $apostrophe_bad"; fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"

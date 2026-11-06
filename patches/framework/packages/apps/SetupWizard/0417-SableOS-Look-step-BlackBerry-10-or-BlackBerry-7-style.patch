@@ -341,7 +341,7 @@ index bee5a53..d6c5aca 100644
 +    <string name="sable_look_summary">Choose how the home screen looks. You can change it later.</string>
 +    <string name="sable_look_bb10"><b>BlackBerry 10 style</b>\nHub on the left, your open apps as Active Frames, the app grid on the right, status dials on top and pure black.</string>
 +    <string name="sable_look_bb7"><b>BlackBerry 7 style</b>\nA banner with the clock and status over a tray of app icons, with pure black.</string>
-+    <string name="sable_look_note">Change the home later from Sable Setup or the home screen's menu, the dials in Edit Home, and pure black on the next step or in Settings, Display.</string>
++    <string name="sable_look_note">Change the home later from Sable Setup or the home screen’s menu, the dials in Edit Home, and pure black on the next step or in Settings, Display.</string>
 +
      <!-- SableOS Sable apps step (plan phase C), after Theme. Apps left out are disabled, never
           uninstalled. -->
