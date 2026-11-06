@@ -310,4 +310,12 @@
     <string name="hide_app">App verbergen</string>
     <string name="show_app">App tonen</string>
     <string name="hide_app_hint">Verborgen apps verdwijnen uit het raster, Alle apps en zoeken. Zoek “private” om ze te vinden.</string>
+    <string name="device_monitor">Apparaatmonitor</string>
+    <string name="dm_battery">Batterij</string>
+    <string name="dm_cpu">CPU</string>
+    <string name="dm_memory">Geheugen</string>
+    <string name="dm_storage">Opslag</string>
+    <string name="dm_charging">%1$s, wordt opgeladen</string>
+    <string name="dm_used_of">%1$s van %2$s</string>
+    <string name="dm_free">%1$s vrij</string>
 </resources>

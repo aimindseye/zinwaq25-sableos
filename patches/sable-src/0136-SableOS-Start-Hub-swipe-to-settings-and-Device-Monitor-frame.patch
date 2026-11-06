@@ -1,0 +1,749 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+index b172ff7..ddcf88d 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/build.gradle.kts
+@@ -65,6 +65,7 @@ val canonicalPresentationSources =
+         "com/sable/start/model/StartText.kt",
+         "com/sable/start/platform/AssistantPersona.kt",
+         "com/sable/start/platform/DeviceStatsSampler.kt",
++        "com/sable/start/platform/DeviceStatsReader.kt",
+         "com/sable/start/platform/FrameMediaRepository.kt",
+         "com/sable/start/platform/LetterShortcutRepository.kt",
+         "com/sable/start/platform/LiveSurfaceRepository.kt",
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
+index 6435e99..f5b88b4 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/Bb10HomeTest.kt
+@@ -143,4 +143,38 @@ class Bb10HomeTest {
+         assertEquals(BalanceSpace.Work, Balance.next(BalanceSpace.Personal))
+         assertEquals(BalanceSpace.Personal, Balance.next(BalanceSpace.Work))
+     }
++
++    @Test
++    fun aMostlySidewaysSwipeRightOnHubOpensHubSettings() {
++        assertTrue(HubSwipe.opensSettings(dragX = 200f, dragY = 30f, thresholdPx = 180f))
++        assertFalse(HubSwipe.opensSettings(dragX = 120f, dragY = 0f, thresholdPx = 180f))
++        assertFalse(HubSwipe.opensSettings(dragX = -400f, dragY = 0f, thresholdPx = 180f))
++        assertFalse(HubSwipe.opensSettings(dragX = 200f, dragY = 150f, thresholdPx = 180f))
++    }
++
++    @Test
++    fun theSettingsFrameShowsDeviceMonitorRows() {
++        assertTrue(DeviceMonitor.isMonitorFrame("com.android.settings"))
++        assertFalse(DeviceMonitor.isMonitorFrame("org.sableos.weather"))
++        assertEquals("3.1 GB", DeviceMonitor.gb(3_140_000_000L))
++        assertEquals("6 GB", DeviceMonitor.gb(6_000_000_000L))
++        assertEquals("41 GB", DeviceMonitor.gb(41_400_000_000L))
++        val text = { key: String, args: Array<out Any> ->
++            when (key) {
++                "dm_charging" -> "${args[0]}, charging"
++                "dm_used_of" -> "${args[0]} of ${args[1]}"
++                "dm_free" -> "${args[0]} free"
++                else -> key
++            }
++        }
++        val stats = MonitorStats(82, 0.25f, true, 3_100_000_000L, 6_000_000_000L, 40_000_000_000L, 128_000_000_000L)
++        val rows = DeviceMonitor.rows(stats, text)
++        assertEquals(listOf("dm_battery", "dm_cpu", "dm_memory", "dm_storage"), rows.map { it.labelKey })
++        assertEquals(listOf("82%, charging", "25%", "3.1 GB of 6 GB", "40 GB free"), rows.map { it.value })
++        assertEquals(0.82f, rows[0].fill, 0.001f)
++        assertEquals(0.6875f, rows[3].fill, 0.001f)
++        val unknown = DeviceMonitor.rows(MonitorStats(null, null, false, 0, 0, 0, 0), text)
++        assertEquals(listOf("?", "0 GB of 0 GB", "0 GB free"), unknown.map { it.value })
++        assertEquals(0f, unknown[1].fill, 0f)
++    }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/Android.bp b/sable-src/src/android/packages/apps/SableStart/Android.bp
+index d219e94..b208704 100644
+--- a/sable-src/src/android/packages/apps/SableStart/Android.bp
++++ b/sable-src/src/android/packages/apps/SableStart/Android.bp
+@@ -25,6 +25,7 @@ filegroup {
+         "src/com/sable/start/model/StartText.kt",
+         "src/com/sable/start/platform/AssistantPersona.kt",
+         "src/com/sable/start/platform/DeviceStatsSampler.kt",
++        "src/com/sable/start/platform/DeviceStatsReader.kt",
+         "src/com/sable/start/platform/FrameMediaRepository.kt",
+         "src/com/sable/start/platform/LetterShortcutRepository.kt",
+         "src/com/sable/start/platform/LiveSurfaceRepository.kt",
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index b9587d8..e1d0f36 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">إخفاء التطبيق</string>
+     <string name="show_app">إظهار التطبيق</string>
+     <string name="hide_app_hint">تختفي التطبيقات المخفية من الشبكة وكل التطبيقات والبحث. ابحث عن “private” للعثور عليها.</string>
++    <string name="device_monitor">مراقب الجهاز</string>
++    <string name="dm_battery">البطارية</string>
++    <string name="dm_cpu">المعالج</string>
++    <string name="dm_memory">الذاكرة</string>
++    <string name="dm_storage">التخزين</string>
++    <string name="dm_charging">%1$s، قيد الشحن</string>
++    <string name="dm_used_of">%1$s من %2$s</string>
++    <string name="dm_free">%1$s متاحة</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index 4f6eb0e..d072df2 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">App ausblenden</string>
+     <string name="show_app">App einblenden</string>
+     <string name="hide_app_hint">Ausgeblendete Apps verschwinden aus Raster, Alle Apps und Suche. Suche “private”, um sie zu finden.</string>
++    <string name="device_monitor">Gerätemonitor</string>
++    <string name="dm_battery">Akku</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">Arbeitsspeicher</string>
++    <string name="dm_storage">Speicher</string>
++    <string name="dm_charging">%1$s, lädt</string>
++    <string name="dm_used_of">%1$s von %2$s</string>
++    <string name="dm_free">%1$s frei</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index 66d3adc..5dcc6db 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">Απόκρυψη εφαρμογής</string>
+     <string name="show_app">Εμφάνιση εφαρμογής</string>
+     <string name="hide_app_hint">Οι κρυφές εφαρμογές φεύγουν από το πλέγμα, όλες τις εφαρμογές και την αναζήτηση. Αναζητήστε “private” για να τις βρείτε.</string>
++    <string name="device_monitor">Παρακολούθηση συσκευής</string>
++    <string name="dm_battery">Μπαταρία</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">Μνήμη</string>
++    <string name="dm_storage">Αποθηκευτικός χώρος</string>
++    <string name="dm_charging">%1$s, φόρτιση</string>
++    <string name="dm_used_of">%1$s από %2$s</string>
++    <string name="dm_free">%1$s ελεύθερα</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index 05b0013..8bd242b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">Ocultar app</string>
+     <string name="show_app">Mostrar app</string>
+     <string name="hide_app_hint">Las apps ocultas salen de la cuadrícula, Todas las apps y la búsqueda. Busca “private” para encontrarlas.</string>
++    <string name="device_monitor">Monitor del dispositivo</string>
++    <string name="dm_battery">Batería</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">Memoria</string>
++    <string name="dm_storage">Almacenamiento</string>
++    <string name="dm_charging">%1$s, cargando</string>
++    <string name="dm_used_of">%1$s de %2$s</string>
++    <string name="dm_free">%1$s libres</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index d7e42f6..f8b57ca 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">Masquer l\'app</string>
+     <string name="show_app">Afficher l\'app</string>
+     <string name="hide_app_hint">Les apps masquées quittent la grille, Toutes les apps et la recherche. Cherchez “private” pour les retrouver.</string>
++    <string name="device_monitor">Moniteur de l’appareil</string>
++    <string name="dm_battery">Batterie</string>
++    <string name="dm_cpu">Processeur</string>
++    <string name="dm_memory">Mémoire</string>
++    <string name="dm_storage">Stockage</string>
++    <string name="dm_charging">%1$s, en charge</string>
++    <string name="dm_used_of">%1$s sur %2$s</string>
++    <string name="dm_free">%1$s libres</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index 54413ce..9241d5a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">ऐप छिपाएँ</string>
+     <string name="show_app">ऐप दिखाएँ</string>
+     <string name="hide_app_hint">छिपे ऐप ग्रिड, सभी ऐप और खोज से हट जाते हैं। उन्हें ढूँढने के लिए “private” खोजें।</string>
++    <string name="device_monitor">डिवाइस मॉनिटर</string>
++    <string name="dm_battery">बैटरी</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">मेमोरी</string>
++    <string name="dm_storage">स्टोरेज</string>
++    <string name="dm_charging">%1$s, चार्ज हो रही है</string>
++    <string name="dm_used_of">%2$s में से %1$s</string>
++    <string name="dm_free">%1$s खाली</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index ba61753..1d1f1be 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">Nascondi app</string>
+     <string name="show_app">Mostra app</string>
+     <string name="hide_app_hint">Le app nascoste escono da griglia, Tutte le app e ricerca. Cerca “private” per trovarle.</string>
++    <string name="device_monitor">Monitor dispositivo</string>
++    <string name="dm_battery">Batteria</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">Memoria</string>
++    <string name="dm_storage">Spazio</string>
++    <string name="dm_charging">%1$s, in carica</string>
++    <string name="dm_used_of">%1$s di %2$s</string>
++    <string name="dm_free">%1$s liberi</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index c5614c1..fd2c9ab 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">הסתרת אפליקציה</string>
+     <string name="show_app">הצגת אפליקציה</string>
+     <string name="hide_app_hint">אפליקציות מוסתרות יוצאות מהרשת, מכל האפליקציות ומהחיפוש. חפשו “private” כדי למצוא אותן.</string>
++    <string name="device_monitor">צג המכשיר</string>
++    <string name="dm_battery">סוללה</string>
++    <string name="dm_cpu">מעבד</string>
++    <string name="dm_memory">זיכרון</string>
++    <string name="dm_storage">אחסון</string>
++    <string name="dm_charging">%1$s, בטעינה</string>
++    <string name="dm_used_of">%1$s מתוך %2$s</string>
++    <string name="dm_free">%1$s פנויים</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index eeee2db..e957dfb 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">アプリを非表示</string>
+     <string name="show_app">アプリを表示</string>
+     <string name="hide_app_hint">非表示のアプリはグリッド、すべてのアプリ、検索に表示されません。“private” で検索すると見つかります。</string>
++    <string name="device_monitor">デバイスモニター</string>
++    <string name="dm_battery">電池</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">メモリ</string>
++    <string name="dm_storage">ストレージ</string>
++    <string name="dm_charging">%1$s、充電中</string>
++    <string name="dm_used_of">%2$s中 %1$s</string>
++    <string name="dm_free">空き %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index be42070..252bdc8 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">앱 숨기기</string>
+     <string name="show_app">앱 표시</string>
+     <string name="hide_app_hint">숨긴 앱은 그리드, 모든 앱, 검색에서 빠집니다. “private”를 검색하면 찾을 수 있습니다.</string>
++    <string name="device_monitor">기기 모니터</string>
++    <string name="dm_battery">배터리</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">메모리</string>
++    <string name="dm_storage">저장공간</string>
++    <string name="dm_charging">%1$s, 충전 중</string>
++    <string name="dm_used_of">%2$s 중 %1$s</string>
++    <string name="dm_free">%1$s 남음</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 9456b32..0bf1fea 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">App verbergen</string>
+     <string name="show_app">App tonen</string>
+     <string name="hide_app_hint">Verborgen apps verdwijnen uit het raster, Alle apps en zoeken. Zoek “private” om ze te vinden.</string>
++    <string name="device_monitor">Apparaatmonitor</string>
++    <string name="dm_battery">Batterij</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">Geheugen</string>
++    <string name="dm_storage">Opslag</string>
++    <string name="dm_charging">%1$s, wordt opgeladen</string>
++    <string name="dm_used_of">%1$s van %2$s</string>
++    <string name="dm_free">%1$s vrij</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index 2e67903..f50771e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">Ukryj aplikację</string>
+     <string name="show_app">Pokaż aplikację</string>
+     <string name="hide_app_hint">Ukryte aplikacje znikają z siatki, Wszystkich aplikacji i wyszukiwania. Wyszukaj “private”, aby je znaleźć.</string>
++    <string name="device_monitor">Monitor urządzenia</string>
++    <string name="dm_battery">Bateria</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">Pamięć</string>
++    <string name="dm_storage">Miejsce</string>
++    <string name="dm_charging">%1$s, ładowanie</string>
++    <string name="dm_used_of">%1$s z %2$s</string>
++    <string name="dm_free">%1$s wolne</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index c203939..bb697e1 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">Ocultar app</string>
+     <string name="show_app">Mostrar app</string>
+     <string name="hide_app_hint">Apps ocultos saem da grade, de Todos os apps e da pesquisa. Pesquise “private” para encontrá-los.</string>
++    <string name="device_monitor">Monitor do dispositivo</string>
++    <string name="dm_battery">Bateria</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">Memória</string>
++    <string name="dm_storage">Armazenamento</string>
++    <string name="dm_charging">%1$s, carregando</string>
++    <string name="dm_used_of">%1$s de %2$s</string>
++    <string name="dm_free">%1$s livres</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 8bd9f22..e9c9d1e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">Скрыть приложение</string>
+     <string name="show_app">Показать приложение</string>
+     <string name="hide_app_hint">Скрытые приложения пропадают из сетки, всех приложений и поиска. Найдите их по запросу “private”.</string>
++    <string name="device_monitor">Монитор устройства</string>
++    <string name="dm_battery">Батарея</string>
++    <string name="dm_cpu">ЦП</string>
++    <string name="dm_memory">Память</string>
++    <string name="dm_storage">Хранилище</string>
++    <string name="dm_charging">%1$s, заряжается</string>
++    <string name="dm_used_of">%1$s из %2$s</string>
++    <string name="dm_free">свободно %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 854ed05..7aa23e6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">Dölj app</string>
+     <string name="show_app">Visa app</string>
+     <string name="hide_app_hint">Dolda appar försvinner från rutnätet, Alla appar och sökningen. Sök “private” för att hitta dem.</string>
++    <string name="device_monitor">Enhetsövervakare</string>
++    <string name="dm_battery">Batteri</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">Minne</string>
++    <string name="dm_storage">Lagring</string>
++    <string name="dm_charging">%1$s, laddas</string>
++    <string name="dm_used_of">%1$s av %2$s</string>
++    <string name="dm_free">%1$s ledigt</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index c4aec45..29eb86d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">Uygulamayı gizle</string>
+     <string name="show_app">Uygulamayı göster</string>
+     <string name="hide_app_hint">Gizli uygulamalar ızgaradan, Tüm uygulamalardan ve aramadan çıkar. Bulmak için “private” arayın.</string>
++    <string name="device_monitor">Cihaz İzleyici</string>
++    <string name="dm_battery">Pil</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">Bellek</string>
++    <string name="dm_storage">Depolama</string>
++    <string name="dm_charging">%1$s, şarj oluyor</string>
++    <string name="dm_used_of">%1$s / %2$s</string>
++    <string name="dm_free">%1$s boş</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index b9d1f34..88ac19c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">ایپ چھپائیں</string>
+     <string name="show_app">ایپ دکھائیں</string>
+     <string name="hide_app_hint">چھپی ایپس گرڈ، تمام ایپس اور تلاش سے ہٹ جاتی ہیں۔ انہیں ڈھونڈنے کے لیے “private” تلاش کریں۔</string>
++    <string name="device_monitor">ڈیوائس مانیٹر</string>
++    <string name="dm_battery">بیٹری</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">میموری</string>
++    <string name="dm_storage">اسٹوریج</string>
++    <string name="dm_charging">%1$s، چارج ہو رہی ہے</string>
++    <string name="dm_used_of">%2$s میں سے %1$s</string>
++    <string name="dm_free">%1$s خالی</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index aa89970..2be869a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -310,4 +310,12 @@
+     <string name="hide_app">隐藏应用</string>
+     <string name="show_app">显示应用</string>
+     <string name="hide_app_hint">隐藏的应用不会出现在网格、所有应用和搜索中。搜索 “private” 可以找到它们。</string>
++    <string name="device_monitor">设备监视器</string>
++    <string name="dm_battery">电池</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">内存</string>
++    <string name="dm_storage">存储</string>
++    <string name="dm_charging">%1$s，正在充电</string>
++    <string name="dm_used_of">%1$s / %2$s</string>
++    <string name="dm_free">可用 %1$s</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 6714617..df8e8b8 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -314,4 +314,12 @@
+     <string name="hide_app">Hide app</string>
+     <string name="show_app">Show app</string>
+     <string name="hide_app_hint">Hidden apps leave the grid, All Apps and search. Search “private” to find them.</string>
++    <string name="device_monitor">Device Monitor</string>
++    <string name="dm_battery">Battery</string>
++    <string name="dm_cpu">CPU</string>
++    <string name="dm_memory">Memory</string>
++    <string name="dm_storage">Storage</string>
++    <string name="dm_charging">%1$s, charging</string>
++    <string name="dm_used_of">%1$s of %2$s</string>
++    <string name="dm_free">%1$s free</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+index 5052d08..3d30031 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt
+@@ -31,6 +31,112 @@ data class FrameMedia(
+ /** The transport buttons on a frame. */
+ enum class FrameMediaCommand { Previous, PlayPause, Next }
+ 
++/**
++ * Swiping right on the Hub page (owner request 2026-11-06, as JLauncher's Hub does): Hub is the
++ * first page, so a rightward drag has nowhere to scroll and opens Hub settings instead. The drag
++ * must be mostly sideways, so scrolling the Hub list never opens it.
++ */
++object HubSwipe {
++    /** How far right, in dp, a drag must travel. */
++    const val DISTANCE_DP = 72f
++
++    fun opensSettings(
++        dragX: Float,
++        dragY: Float,
++        thresholdPx: Float,
++    ): Boolean = dragX >= thresholdPx && dragX > 2 * kotlin.math.abs(dragY)
++}
++
++/** The phone's battery, memory and storage, read for the Settings frame's Device Monitor. */
++data class MonitorStats(
++    /** 0-100, or null when Android does not say. */
++    val batteryPercent: Int?,
++    /** CPU load 0..1, or null where the kernel does not expose it. */
++    val cpu: Float? = null,
++    val charging: Boolean,
++    val memoryUsedBytes: Long,
++    val memoryTotalBytes: Long,
++    val storageFreeBytes: Long,
++    val storageTotalBytes: Long,
++)
++
++/**
++ * Device Monitor (owner request 2026-11-06, after BlackBerry 10, whose minimised Settings showed
++ * the phone's state): a Settings frame in Active Frames shows battery, memory and storage, each
++ * with a bar, in place of the last picture of Settings.
++ */
++object DeviceMonitor {
++    const val SETTINGS_PACKAGE = "com.android.settings"
++
++    /** How often a shown Device Monitor reads the phone again. */
++    const val REFRESH_MS = 5_000L
++
++    private const val BYTES_PER_GB = 1_000_000_000.0
++    private const val TENTHS = 10.0
++    private const val FULL = 100
++
++    /** One row: its StartText key, the value in words, and how full its bar is (0 to 1). */
++    data class Row(
++        val labelKey: String,
++        val value: String,
++        val fill: Float,
++    )
++
++    fun isMonitorFrame(packageName: String): Boolean = packageName == SETTINGS_PACKAGE
++
++    /** "3.1 GB": one decimal under 10 GB, whole numbers above, as Settings > Storage shows. */
++    fun gb(bytes: Long): String {
++        val value = bytes.coerceAtLeast(0) / BYTES_PER_GB
++        val shown =
++            if (value < TENTHS) {
++                (kotlin.math.round(value * TENTHS) / TENTHS).toString().removeSuffix(".0")
++            } else {
++                kotlin.math
++                    .round(value)
++                    .toLong()
++                    .toString()
++            }
++        return "$shown GB"
++    }
++
++    fun fill(
++        part: Long,
++        whole: Long,
++    ): Float = if (whole <= 0) 0f else (part.toDouble() / whole).coerceIn(0.0, 1.0).toFloat()
++
++    /**
++     * Battery (with "charging"), CPU load when known, memory in use of the total, and free storage. [text] turns a
++     * StartText key and its arguments into words.
++     */
++    fun rows(
++        stats: MonitorStats,
++        text: (String, Array<out Any>) -> String,
++    ): List<Row> {
++        val battery = stats.batteryPercent?.coerceIn(0, FULL)
++        val batteryValue =
++            when {
++                battery == null -> "?"
++                stats.charging -> text("dm_charging", arrayOf("$battery%"))
++                else -> "$battery%"
++            }
++        val cpu = stats.cpu?.coerceIn(0f, 1f)
++        return listOfNotNull(
++            Row("dm_battery", batteryValue, (battery ?: 0) / FULL.toFloat()),
++            cpu?.let { Row("dm_cpu", "${kotlin.math.round(it * FULL).toInt()}%", it) },
++            Row(
++                "dm_memory",
++                text("dm_used_of", arrayOf(gb(stats.memoryUsedBytes), gb(stats.memoryTotalBytes))),
++                fill(stats.memoryUsedBytes, stats.memoryTotalBytes),
++            ),
++            Row(
++                "dm_storage",
++                text("dm_free", arrayOf(gb(stats.storageFreeBytes))),
++                fill(stats.storageTotalBytes - stats.storageFreeBytes, stats.storageTotalBytes),
++            ),
++        )
++    }
++}
++
+ object ActiveFrames {
+     /** "Up to 8 recent/running apps." */
+     const val MAX = 8
+@@ -445,7 +551,8 @@ object GridFolders {
+         val folders = mutableListOf<GridFolder>()
+         text.orEmpty().split(LINE_SEPARATOR).forEach { line ->
+             val folder = parse(line)
+-            val clash = folder != null && folders.any { it.id == folder.id || it.name.equals(folder.name, ignoreCase = true) }
++            val clash =
++                folder != null && folders.any { it.id == folder.id || it.name.equals(folder.name, ignoreCase = true) }
+             if (folder != null && !clash && folders.size < MAX) {
+                 val claimed = folders.flatMap { it.keys }.toSet()
+                 folders += folder.copy(keys = folder.keys.filterNot { it in claimed }.take(MAX_APPS))
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 810baa5..02f138d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -241,6 +241,14 @@ object StartText {
+             "best_match" to "best match",
+             "assistant" to "assistant",
+             "ask_assistant" to "ask %1\$s",
++            "device_monitor" to "Device Monitor",
++            "dm_battery" to "Battery",
++            "dm_cpu" to "CPU",
++            "dm_memory" to "Memory",
++            "dm_storage" to "Storage",
++            "dm_charging" to "%1\$s, charging",
++            "dm_used_of" to "%1\$s of %2\$s",
++            "dm_free" to "%1\$s free",
+             "recent_apps" to "recent + apps",
+             "permission_matches" to "permission matches",
+             "quick_actions" to "quick actions",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/DeviceStatsReader.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/DeviceStatsReader.kt
+new file mode 100644
+index 0000000..a5efcdb
+--- /dev/null
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/DeviceStatsReader.kt
+@@ -0,0 +1,43 @@
++package org.sableos.start.platform
++
++import android.app.ActivityManager
++import android.content.Context
++import android.content.Intent
++import android.content.IntentFilter
++import android.os.BatteryManager
++import android.os.Environment
++import android.os.StatFs
++import org.sableos.start.model.MonitorStats
++
++/**
++ * Device Monitor's readings: the battery from Android's sticky battery broadcast (no receiver is
++ * kept), CPU from the status rings' [DeviceStatsSampler], memory from ActivityManager and storage
++ * from the data partition. No permission needed. Keep one per shown frame and call [read] from one
++ * coroutine at a time, off the main thread (the CPU load compares with the previous reading).
++ */
++class DeviceStatsReader {
++    private val sampler = DeviceStatsSampler()
++
++    fun read(context: Context): MonitorStats {
++        val battery = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
++        val level = battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
++        val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
++        val status = battery?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
++        val memory = ActivityManager.MemoryInfo()
++        context.getSystemService(ActivityManager::class.java)?.getMemoryInfo(memory)
++        val storage = runCatching { StatFs(Environment.getDataDirectory().path) }.getOrNull()
++        return MonitorStats(
++            batteryPercent = if (level >= 0 && scale > 0) level * PERCENT / scale else null,
++            cpu = runCatching { sampler.sample(context).cpu }.getOrNull(),
++            charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL,
++            memoryUsedBytes = memory.totalMem - memory.availMem,
++            memoryTotalBytes = memory.totalMem,
++            storageFreeBytes = storage?.availableBytes ?: 0L,
++            storageTotalBytes = storage?.totalBytes ?: 0L,
++        )
++    }
++
++    private companion object {
++        const val PERCENT = 100
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 79a5237..335f0b2 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -22,6 +22,8 @@ import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.combinedClickable
+ import androidx.compose.foundation.focusGroup
+ import androidx.compose.foundation.focusable
++import androidx.compose.foundation.gestures.awaitEachGesture
++import androidx.compose.foundation.gestures.awaitFirstDown
+ import androidx.compose.foundation.gestures.detectDragGestures
+ import androidx.compose.foundation.gestures.detectTapGestures
+ import androidx.compose.foundation.isSystemInDarkTheme
+@@ -101,6 +103,7 @@ import androidx.compose.ui.input.key.KeyEventType
+ import androidx.compose.ui.input.key.onKeyEvent
+ import androidx.compose.ui.input.key.onPreviewKeyEvent
+ import androidx.compose.ui.input.key.type
++import androidx.compose.ui.input.pointer.PointerEventPass
+ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.layout.ContentScale
+ import androidx.compose.ui.platform.LocalConfiguration
+@@ -155,6 +158,7 @@ import org.sableos.start.model.CommandQuery
+ import org.sableos.start.model.CommandRanking
+ import org.sableos.start.model.CommandScope
+ import org.sableos.start.model.CoreAppIdentity
++import org.sableos.start.model.DeviceMonitor
+ import org.sableos.start.model.FrameMedia
+ import org.sableos.start.model.FrameMediaCommand
+ import org.sableos.start.model.FramesOptions
+@@ -172,9 +176,11 @@ import org.sableos.start.model.HubBar
+ import org.sableos.start.model.HubFilter
+ import org.sableos.start.model.HubPeople
+ import org.sableos.start.model.HubPerson
++import org.sableos.start.model.HubSwipe
+ import org.sableos.start.model.InstantAction
+ import org.sableos.start.model.InstantActions
+ import org.sableos.start.model.InstantRow
++import org.sableos.start.model.MonitorStats
+ import org.sableos.start.model.QuickBar
+ import org.sableos.start.model.SpeedDialKeys
+ import org.sableos.start.model.StartMonth
+@@ -184,6 +190,7 @@ import org.sableos.start.model.TrackpadFlick
+ import org.sableos.start.model.inLauncherUser
+ import org.sableos.start.model.stableKey
+ import org.sableos.start.platform.AssistantPersona
++import org.sableos.start.platform.DeviceStatsReader
+ import org.sableos.start.platform.FrameMediaRepository
+ import org.sableos.start.platform.LetterShortcutRepository
+ import org.sableos.start.platform.LiveSurfaceRepository
+@@ -1625,7 +1632,9 @@ private fun FrameCard(
+     ) {
+         Box(modifier = Modifier.weight(1f).fillMaxWidth().background(Bb10Background)) {
+             val bitmap = picture
+-            if (bitmap != null) {
++            if (DeviceMonitor.isMonitorFrame(frame.packageName)) {
++                DeviceMonitorBody(Modifier.fillMaxSize())
++            } else if (bitmap != null) {
+                 Image(
+                     bitmap = bitmap.asImageBitmap(),
+                     contentDescription = null,
+@@ -1701,6 +1710,56 @@ private fun FrameCard(
+     }
+ }
+ 
++/**
++ * Device Monitor in place of a Settings frame's picture ([DeviceMonitor]): battery, CPU, memory
++ * and storage, each a label, a value and a bar, read again every few seconds while it is shown.
++ */
++@Composable
++private fun DeviceMonitorBody(modifier: Modifier) {
++    val context = LocalContext.current.applicationContext
++    val reader = remember { DeviceStatsReader() }
++    var stats by remember { mutableStateOf<MonitorStats?>(null) }
++    LaunchedEffect(reader) {
++        while (true) {
++            stats = withContext(Dispatchers.IO) { runCatching { reader.read(context) }.getOrNull() }
++            delay(DeviceMonitor.REFRESH_MS)
++        }
++    }
++    Column(
++        modifier = modifier.padding(horizontal = 8.dp, vertical = 6.dp),
++        verticalArrangement = Arrangement.spacedBy(4.dp),
++    ) {
++        Text(
++            text = t("device_monitor"),
++            style = MaterialTheme.typography.labelLarge,
++            color = Bb10Text,
++            maxLines = 1,
++        )
++        val shown = stats ?: return@Column
++        DeviceMonitor.rows(shown) { key, args -> t(key, *args) }.forEach { row ->
++            Row(verticalAlignment = Alignment.CenterVertically) {
++                Text(
++                    text = t(row.labelKey),
++                    style = MaterialTheme.typography.labelMedium,
++                    color = Bb10Muted,
++                    maxLines = 1,
++                    modifier = Modifier.weight(1f),
++                )
++                Text(
++                    text = row.value,
++                    style = MaterialTheme.typography.labelMedium,
++                    color = Bb10Text,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                )
++            }
++            Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(Bb10Line)) {
++                Box(modifier = Modifier.fillMaxWidth(row.fill).fillMaxHeight().background(Bb10Blue))
++            }
++        }
++    }
++}
++
+ /** One line of an app's live state over the bottom of its frame. */
+ @Composable
+ private fun FrameLiveLine(
+@@ -2592,6 +2651,31 @@ private fun GlanceCard(
+     }
+ }
+ 
++/**
++ * A rightward swipe on the Hub page opens Hub settings ([HubSwipe]). It watches the drag without
++ * consuming it, so the pager still turns to Active Frames on a leftward swipe and the list scrolls.
++ */
++private fun Modifier.hubSwipeToSettings(
++    thresholdPx: Float,
++    onOpen: () -> Unit,
++): Modifier =
++    pointerInput(thresholdPx) {
++        awaitEachGesture {
++            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
++            var opened = false
++            while (true) {
++                val event = awaitPointerEvent(PointerEventPass.Initial)
++                val change = event.changes.firstOrNull { it.id == down.id } ?: break
++                val drag = change.position - down.position
++                if (!opened && HubSwipe.opensSettings(drag.x, drag.y, thresholdPx)) {
++                    opened = true
++                    onOpen()
++                }
++                if (!change.pressed) break
++            }
++        }
++    }
++
+ /**
+  * Hub page (left of Active Frames; visual "5. Hub"): the one Sable Hub. Under the "Sable Hub"
+  * title the unread bar (after the Ripe launcher's BB7 row: each app with unread notifications as
+@@ -2689,8 +2773,13 @@ private fun HubPage(
+         return true
+     }
+ 
++    val swipeDistance = with(LocalDensity.current) { HubSwipe.DISTANCE_DP.dp.toPx() }
+     LazyColumn(
+-        modifier = Modifier.fillMaxSize().onPreviewKeyEvent(::jumpKey),
++        modifier =
++            Modifier
++                .fillMaxSize()
++                .onPreviewKeyEvent(::jumpKey)
++                .hubSwipeToSettings(swipeDistance, onOpenHubSettings),
+         state = listState,
+         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp),
+         verticalArrangement = Arrangement.spacedBy(8.dp),

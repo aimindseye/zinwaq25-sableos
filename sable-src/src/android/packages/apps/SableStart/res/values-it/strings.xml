@@ -310,4 +310,12 @@
     <string name="hide_app">Nascondi app</string>
     <string name="show_app">Mostra app</string>
     <string name="hide_app_hint">Le app nascoste escono da griglia, Tutte le app e ricerca. Cerca “private” per trovarle.</string>
+    <string name="device_monitor">Monitor dispositivo</string>
+    <string name="dm_battery">Batteria</string>
+    <string name="dm_cpu">CPU</string>
+    <string name="dm_memory">Memoria</string>
+    <string name="dm_storage">Spazio</string>
+    <string name="dm_charging">%1$s, in carica</string>
+    <string name="dm_used_of">%1$s di %2$s</string>
+    <string name="dm_free">%1$s liberi</string>
 </resources>

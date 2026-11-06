@@ -310,4 +310,12 @@
     <string name="hide_app">Ukryj aplikację</string>
     <string name="show_app">Pokaż aplikację</string>
     <string name="hide_app_hint">Ukryte aplikacje znikają z siatki, Wszystkich aplikacji i wyszukiwania. Wyszukaj “private”, aby je znaleźć.</string>
+    <string name="device_monitor">Monitor urządzenia</string>
+    <string name="dm_battery">Bateria</string>
+    <string name="dm_cpu">CPU</string>
+    <string name="dm_memory">Pamięć</string>
+    <string name="dm_storage">Miejsce</string>
+    <string name="dm_charging">%1$s, ładowanie</string>
+    <string name="dm_used_of">%1$s z %2$s</string>
+    <string name="dm_free">%1$s wolne</string>
 </resources>

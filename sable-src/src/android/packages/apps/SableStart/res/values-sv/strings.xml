@@ -310,4 +310,12 @@
     <string name="hide_app">Dölj app</string>
     <string name="show_app">Visa app</string>
     <string name="hide_app_hint">Dolda appar försvinner från rutnätet, Alla appar och sökningen. Sök “private” för att hitta dem.</string>
+    <string name="device_monitor">Enhetsövervakare</string>
+    <string name="dm_battery">Batteri</string>
+    <string name="dm_cpu">CPU</string>
+    <string name="dm_memory">Minne</string>
+    <string name="dm_storage">Lagring</string>
+    <string name="dm_charging">%1$s, laddas</string>
+    <string name="dm_used_of">%1$s av %2$s</string>
+    <string name="dm_free">%1$s ledigt</string>
 </resources>

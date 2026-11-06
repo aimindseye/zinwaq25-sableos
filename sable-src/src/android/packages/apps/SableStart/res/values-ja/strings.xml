@@ -310,4 +310,12 @@
     <string name="hide_app">アプリを非表示</string>
     <string name="show_app">アプリを表示</string>
     <string name="hide_app_hint">非表示のアプリはグリッド、すべてのアプリ、検索に表示されません。“private” で検索すると見つかります。</string>
+    <string name="device_monitor">デバイスモニター</string>
+    <string name="dm_battery">電池</string>
+    <string name="dm_cpu">CPU</string>
+    <string name="dm_memory">メモリ</string>
+    <string name="dm_storage">ストレージ</string>
+    <string name="dm_charging">%1$s、充電中</string>
+    <string name="dm_used_of">%2$s中 %1$s</string>
+    <string name="dm_free">空き %1$s</string>
 </resources>

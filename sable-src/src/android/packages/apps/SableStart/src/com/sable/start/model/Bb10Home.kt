@@ -31,6 +31,112 @@ data class FrameMedia(
 /** The transport buttons on a frame. */
 enum class FrameMediaCommand { Previous, PlayPause, Next }
 
+/**
+ * Swiping right on the Hub page (owner request 2026-11-06, as JLauncher's Hub does): Hub is the
+ * first page, so a rightward drag has nowhere to scroll and opens Hub settings instead. The drag
+ * must be mostly sideways, so scrolling the Hub list never opens it.
+ */
+object HubSwipe {
+    /** How far right, in dp, a drag must travel. */
+    const val DISTANCE_DP = 72f
+
+    fun opensSettings(
+        dragX: Float,
+        dragY: Float,
+        thresholdPx: Float,
+    ): Boolean = dragX >= thresholdPx && dragX > 2 * kotlin.math.abs(dragY)
+}
+
+/** The phone's battery, memory and storage, read for the Settings frame's Device Monitor. */
+data class MonitorStats(
+    /** 0-100, or null when Android does not say. */
+    val batteryPercent: Int?,
+    /** CPU load 0..1, or null where the kernel does not expose it. */
+    val cpu: Float? = null,
+    val charging: Boolean,
+    val memoryUsedBytes: Long,
+    val memoryTotalBytes: Long,
+    val storageFreeBytes: Long,
+    val storageTotalBytes: Long,
+)
+
+/**
+ * Device Monitor (owner request 2026-11-06, after BlackBerry 10, whose minimised Settings showed
+ * the phone's state): a Settings frame in Active Frames shows battery, memory and storage, each
+ * with a bar, in place of the last picture of Settings.
+ */
+object DeviceMonitor {
+    const val SETTINGS_PACKAGE = "com.android.settings"
+
+    /** How often a shown Device Monitor reads the phone again. */
+    const val REFRESH_MS = 5_000L
+
+    private const val BYTES_PER_GB = 1_000_000_000.0
+    private const val TENTHS = 10.0
+    private const val FULL = 100
+
+    /** One row: its StartText key, the value in words, and how full its bar is (0 to 1). */
+    data class Row(
+        val labelKey: String,
+        val value: String,
+        val fill: Float,
+    )
+
+    fun isMonitorFrame(packageName: String): Boolean = packageName == SETTINGS_PACKAGE
+
+    /** "3.1 GB": one decimal under 10 GB, whole numbers above, as Settings > Storage shows. */
+    fun gb(bytes: Long): String {
+        val value = bytes.coerceAtLeast(0) / BYTES_PER_GB
+        val shown =
+            if (value < TENTHS) {
+                (kotlin.math.round(value * TENTHS) / TENTHS).toString().removeSuffix(".0")
+            } else {
+                kotlin.math
+                    .round(value)
+                    .toLong()
+                    .toString()
+            }
+        return "$shown GB"
+    }
+
+    fun fill(
+        part: Long,
+        whole: Long,
+    ): Float = if (whole <= 0) 0f else (part.toDouble() / whole).coerceIn(0.0, 1.0).toFloat()
+
+    /**
+     * Battery (with "charging"), CPU load when known, memory in use of the total, and free storage. [text] turns a
+     * StartText key and its arguments into words.
+     */
+    fun rows(
+        stats: MonitorStats,
+        text: (String, Array<out Any>) -> String,
+    ): List<Row> {
+        val battery = stats.batteryPercent?.coerceIn(0, FULL)
+        val batteryValue =
+            when {
+                battery == null -> "?"
+                stats.charging -> text("dm_charging", arrayOf("$battery%"))
+                else -> "$battery%"
+            }
+        val cpu = stats.cpu?.coerceIn(0f, 1f)
+        return listOfNotNull(
+            Row("dm_battery", batteryValue, (battery ?: 0) / FULL.toFloat()),
+            cpu?.let { Row("dm_cpu", "${kotlin.math.round(it * FULL).toInt()}%", it) },
+            Row(
+                "dm_memory",
+                text("dm_used_of", arrayOf(gb(stats.memoryUsedBytes), gb(stats.memoryTotalBytes))),
+                fill(stats.memoryUsedBytes, stats.memoryTotalBytes),
+            ),
+            Row(
+                "dm_storage",
+                text("dm_free", arrayOf(gb(stats.storageFreeBytes))),
+                fill(stats.storageTotalBytes - stats.storageFreeBytes, stats.storageTotalBytes),
+            ),
+        )
+    }
+}
+
 object ActiveFrames {
     /** "Up to 8 recent/running apps." */
     const val MAX = 8
@@ -445,7 +551,8 @@ object GridFolders {
         val folders = mutableListOf<GridFolder>()
         text.orEmpty().split(LINE_SEPARATOR).forEach { line ->
             val folder = parse(line)
-            val clash = folder != null && folders.any { it.id == folder.id || it.name.equals(folder.name, ignoreCase = true) }
+            val clash =
+                folder != null && folders.any { it.id == folder.id || it.name.equals(folder.name, ignoreCase = true) }
             if (folder != null && !clash && folders.size < MAX) {
                 val claimed = folders.flatMap { it.keys }.toSet()
                 folders += folder.copy(keys = folder.keys.filterNot { it in claimed }.take(MAX_APPS))

@@ -314,4 +314,12 @@
     <string name="hide_app">Hide app</string>
     <string name="show_app">Show app</string>
     <string name="hide_app_hint">Hidden apps leave the grid, All Apps and search. Search “private” to find them.</string>
+    <string name="device_monitor">Device Monitor</string>
+    <string name="dm_battery">Battery</string>
+    <string name="dm_cpu">CPU</string>
+    <string name="dm_memory">Memory</string>
+    <string name="dm_storage">Storage</string>
+    <string name="dm_charging">%1$s, charging</string>
+    <string name="dm_used_of">%1$s of %2$s</string>
+    <string name="dm_free">%1$s free</string>
 </resources>

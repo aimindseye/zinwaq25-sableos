@@ -310,4 +310,12 @@
     <string name="hide_app">Απόκρυψη εφαρμογής</string>
     <string name="show_app">Εμφάνιση εφαρμογής</string>
     <string name="hide_app_hint">Οι κρυφές εφαρμογές φεύγουν από το πλέγμα, όλες τις εφαρμογές και την αναζήτηση. Αναζητήστε “private” για να τις βρείτε.</string>
+    <string name="device_monitor">Παρακολούθηση συσκευής</string>
+    <string name="dm_battery">Μπαταρία</string>
+    <string name="dm_cpu">CPU</string>
+    <string name="dm_memory">Μνήμη</string>
+    <string name="dm_storage">Αποθηκευτικός χώρος</string>
+    <string name="dm_charging">%1$s, φόρτιση</string>
+    <string name="dm_used_of">%1$s από %2$s</string>
+    <string name="dm_free">%1$s ελεύθερα</string>
 </resources>

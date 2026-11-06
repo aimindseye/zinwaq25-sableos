@@ -310,4 +310,12 @@
     <string name="hide_app">ऐप छिपाएँ</string>
     <string name="show_app">ऐप दिखाएँ</string>
     <string name="hide_app_hint">छिपे ऐप ग्रिड, सभी ऐप और खोज से हट जाते हैं। उन्हें ढूँढने के लिए “private” खोजें।</string>
+    <string name="device_monitor">डिवाइस मॉनिटर</string>
+    <string name="dm_battery">बैटरी</string>
+    <string name="dm_cpu">CPU</string>
+    <string name="dm_memory">मेमोरी</string>
+    <string name="dm_storage">स्टोरेज</string>
+    <string name="dm_charging">%1$s, चार्ज हो रही है</string>
+    <string name="dm_used_of">%2$s में से %1$s</string>
+    <string name="dm_free">%1$s खाली</string>
 </resources>

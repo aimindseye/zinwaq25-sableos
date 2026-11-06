@@ -310,4 +310,12 @@
     <string name="hide_app">隐藏应用</string>
     <string name="show_app">显示应用</string>
     <string name="hide_app_hint">隐藏的应用不会出现在网格、所有应用和搜索中。搜索 “private” 可以找到它们。</string>
+    <string name="device_monitor">设备监视器</string>
+    <string name="dm_battery">电池</string>
+    <string name="dm_cpu">CPU</string>
+    <string name="dm_memory">内存</string>
+    <string name="dm_storage">存储</string>
+    <string name="dm_charging">%1$s，正在充电</string>
+    <string name="dm_used_of">%1$s / %2$s</string>
+    <string name="dm_free">可用 %1$s</string>
 </resources>

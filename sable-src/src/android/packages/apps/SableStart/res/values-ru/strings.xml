@@ -310,4 +310,12 @@
     <string name="hide_app">Скрыть приложение</string>
     <string name="show_app">Показать приложение</string>
     <string name="hide_app_hint">Скрытые приложения пропадают из сетки, всех приложений и поиска. Найдите их по запросу “private”.</string>
+    <string name="device_monitor">Монитор устройства</string>
+    <string name="dm_battery">Батарея</string>
+    <string name="dm_cpu">ЦП</string>
+    <string name="dm_memory">Память</string>
+    <string name="dm_storage">Хранилище</string>
+    <string name="dm_charging">%1$s, заряжается</string>
+    <string name="dm_used_of">%1$s из %2$s</string>
+    <string name="dm_free">свободно %1$s</string>
 </resources>

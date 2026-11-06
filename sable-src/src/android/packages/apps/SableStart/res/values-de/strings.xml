@@ -310,4 +310,12 @@
     <string name="hide_app">App ausblenden</string>
     <string name="show_app">App einblenden</string>
     <string name="hide_app_hint">Ausgeblendete Apps verschwinden aus Raster, Alle Apps und Suche. Suche “private”, um sie zu finden.</string>
+    <string name="device_monitor">Gerätemonitor</string>
+    <string name="dm_battery">Akku</string>
+    <string name="dm_cpu">CPU</string>
+    <string name="dm_memory">Arbeitsspeicher</string>
+    <string name="dm_storage">Speicher</string>
+    <string name="dm_charging">%1$s, lädt</string>
+    <string name="dm_used_of">%1$s von %2$s</string>
+    <string name="dm_free">%1$s frei</string>
 </resources>

@@ -310,4 +310,12 @@
     <string name="hide_app">Ocultar app</string>
     <string name="show_app">Mostrar app</string>
     <string name="hide_app_hint">Apps ocultos saem da grade, de Todos os apps e da pesquisa. Pesquise “private” para encontrá-los.</string>
+    <string name="device_monitor">Monitor do dispositivo</string>
+    <string name="dm_battery">Bateria</string>
+    <string name="dm_cpu">CPU</string>
+    <string name="dm_memory">Memória</string>
+    <string name="dm_storage">Armazenamento</string>
+    <string name="dm_charging">%1$s, carregando</string>
+    <string name="dm_used_of">%1$s de %2$s</string>
+    <string name="dm_free">%1$s livres</string>
 </resources>

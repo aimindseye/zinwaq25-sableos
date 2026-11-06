@@ -310,4 +310,12 @@
     <string name="hide_app">إخفاء التطبيق</string>
     <string name="show_app">إظهار التطبيق</string>
     <string name="hide_app_hint">تختفي التطبيقات المخفية من الشبكة وكل التطبيقات والبحث. ابحث عن “private” للعثور عليها.</string>
+    <string name="device_monitor">مراقب الجهاز</string>
+    <string name="dm_battery">البطارية</string>
+    <string name="dm_cpu">المعالج</string>
+    <string name="dm_memory">الذاكرة</string>
+    <string name="dm_storage">التخزين</string>
+    <string name="dm_charging">%1$s، قيد الشحن</string>
+    <string name="dm_used_of">%1$s من %2$s</string>
+    <string name="dm_free">%1$s متاحة</string>
 </resources>

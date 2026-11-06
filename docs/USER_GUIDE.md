@@ -57,8 +57,8 @@ The keyboard does almost everything. Typing on the home screen searches, arrows 
 
 | Page | What it shows | Keys |
 | --- | --- | --- |
-| Hub (left) | All · Messages · Calls · Contacts, an unread bar per app, and your newest messages (sender, one line, time; unread ones have a blue edge). Locked or in private mode it shows counts only | T/B top and bottom, Enter opens the message in Hub, Menu (or Alt+Enter, or a long press) opens its BB10 menu |
-| Active Frames (home) | Your recent apps as live frames. With no apps open, widgets: Month (this month with busy rings and your next three events), Weather, Battery and Media; Edit Home adds Calendar, Hub, Mail and Photos | Arrows move, Enter resumes or opens, × closes |
+| Hub (left) | All · Messages · Calls · Contacts, an unread bar per app, and your newest messages (sender, one line, time; unread ones have a blue edge). Locked or in private mode it shows counts only | T/B top and bottom, Enter opens the message in Hub, Menu (or Alt+Enter, or a long press) opens its BB10 menu. Swipe right on Hub to open Hub settings (from the BlackBerry 7 home too) |
+| Active Frames (home) | Your recent apps as live frames. With no apps open, widgets: Month (this month with busy rings and your next three events), Weather, Battery and Media; Edit Home adds Calendar, Hub, Mail and Photos | Arrows move, Enter resumes or opens, × closes. A Settings frame shows Device Monitor: battery, CPU, memory and free storage |
 | App pages (right) | 5-column grid of every app, and your folders | Arrows move, a letter jumps, Enter on a folder opens it |
 | Bottom row | Page dots only; Edit Home can add up to two slots around them, such as Hub (a dot shows unread items) and Camera | Alt+1, Alt+2 open the slots; the call key opens Phone, typing or Alt+Space opens Search |
 

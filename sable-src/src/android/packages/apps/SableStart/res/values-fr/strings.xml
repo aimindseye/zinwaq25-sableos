@@ -310,4 +310,12 @@
     <string name="hide_app">Masquer l\'app</string>
     <string name="show_app">Afficher l\'app</string>
     <string name="hide_app_hint">Les apps masquées quittent la grille, Toutes les apps et la recherche. Cherchez “private” pour les retrouver.</string>
+    <string name="device_monitor">Moniteur de l’appareil</string>
+    <string name="dm_battery">Batterie</string>
+    <string name="dm_cpu">Processeur</string>
+    <string name="dm_memory">Mémoire</string>
+    <string name="dm_storage">Stockage</string>
+    <string name="dm_charging">%1$s, en charge</string>
+    <string name="dm_used_of">%1$s sur %2$s</string>
+    <string name="dm_free">%1$s libres</string>
 </resources>

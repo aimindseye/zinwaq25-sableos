@@ -143,4 +143,38 @@ class Bb10HomeTest {
         assertEquals(BalanceSpace.Work, Balance.next(BalanceSpace.Personal))
         assertEquals(BalanceSpace.Personal, Balance.next(BalanceSpace.Work))
     }
+
+    @Test
+    fun aMostlySidewaysSwipeRightOnHubOpensHubSettings() {
+        assertTrue(HubSwipe.opensSettings(dragX = 200f, dragY = 30f, thresholdPx = 180f))
+        assertFalse(HubSwipe.opensSettings(dragX = 120f, dragY = 0f, thresholdPx = 180f))
+        assertFalse(HubSwipe.opensSettings(dragX = -400f, dragY = 0f, thresholdPx = 180f))
+        assertFalse(HubSwipe.opensSettings(dragX = 200f, dragY = 150f, thresholdPx = 180f))
+    }
+
+    @Test
+    fun theSettingsFrameShowsDeviceMonitorRows() {
+        assertTrue(DeviceMonitor.isMonitorFrame("com.android.settings"))
+        assertFalse(DeviceMonitor.isMonitorFrame("org.sableos.weather"))
+        assertEquals("3.1 GB", DeviceMonitor.gb(3_140_000_000L))
+        assertEquals("6 GB", DeviceMonitor.gb(6_000_000_000L))
+        assertEquals("41 GB", DeviceMonitor.gb(41_400_000_000L))
+        val text = { key: String, args: Array<out Any> ->
+            when (key) {
+                "dm_charging" -> "${args[0]}, charging"
+                "dm_used_of" -> "${args[0]} of ${args[1]}"
+                "dm_free" -> "${args[0]} free"
+                else -> key
+            }
+        }
+        val stats = MonitorStats(82, 0.25f, true, 3_100_000_000L, 6_000_000_000L, 40_000_000_000L, 128_000_000_000L)
+        val rows = DeviceMonitor.rows(stats, text)
+        assertEquals(listOf("dm_battery", "dm_cpu", "dm_memory", "dm_storage"), rows.map { it.labelKey })
+        assertEquals(listOf("82%, charging", "25%", "3.1 GB of 6 GB", "40 GB free"), rows.map { it.value })
+        assertEquals(0.82f, rows[0].fill, 0.001f)
+        assertEquals(0.6875f, rows[3].fill, 0.001f)
+        val unknown = DeviceMonitor.rows(MonitorStats(null, null, false, 0, 0, 0, 0), text)
+        assertEquals(listOf("?", "0 GB of 0 GB", "0 GB free"), unknown.map { it.value })
+        assertEquals(0f, unknown[1].fill, 0f)
+    }
 }

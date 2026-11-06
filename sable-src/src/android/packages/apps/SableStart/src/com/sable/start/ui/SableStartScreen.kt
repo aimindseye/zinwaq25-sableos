@@ -22,6 +22,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -101,6 +103,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -155,6 +158,7 @@ import org.sableos.start.model.CommandQuery
 import org.sableos.start.model.CommandRanking
 import org.sableos.start.model.CommandScope
 import org.sableos.start.model.CoreAppIdentity
+import org.sableos.start.model.DeviceMonitor
 import org.sableos.start.model.FrameMedia
 import org.sableos.start.model.FrameMediaCommand
 import org.sableos.start.model.FramesOptions
@@ -172,9 +176,11 @@ import org.sableos.start.model.HubBar
 import org.sableos.start.model.HubFilter
 import org.sableos.start.model.HubPeople
 import org.sableos.start.model.HubPerson
+import org.sableos.start.model.HubSwipe
 import org.sableos.start.model.InstantAction
 import org.sableos.start.model.InstantActions
 import org.sableos.start.model.InstantRow
+import org.sableos.start.model.MonitorStats
 import org.sableos.start.model.QuickBar
 import org.sableos.start.model.SpeedDialKeys
 import org.sableos.start.model.StartMonth
@@ -184,6 +190,7 @@ import org.sableos.start.model.TrackpadFlick
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
 import org.sableos.start.platform.AssistantPersona
+import org.sableos.start.platform.DeviceStatsReader
 import org.sableos.start.platform.FrameMediaRepository
 import org.sableos.start.platform.LetterShortcutRepository
 import org.sableos.start.platform.LiveSurfaceRepository
@@ -1625,7 +1632,9 @@ private fun FrameCard(
     ) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth().background(Bb10Background)) {
             val bitmap = picture
-            if (bitmap != null) {
+            if (DeviceMonitor.isMonitorFrame(frame.packageName)) {
+                DeviceMonitorBody(Modifier.fillMaxSize())
+            } else if (bitmap != null) {
                 Image(
                     bitmap = bitmap.asImageBitmap(),
                     contentDescription = null,
@@ -1696,6 +1705,56 @@ private fun FrameCard(
                     fontSize = 18.sp,
                     color = if (focused) Bb10OnBlue else Bb10Muted,
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Device Monitor in place of a Settings frame's picture ([DeviceMonitor]): battery, CPU, memory
+ * and storage, each a label, a value and a bar, read again every few seconds while it is shown.
+ */
+@Composable
+private fun DeviceMonitorBody(modifier: Modifier) {
+    val context = LocalContext.current.applicationContext
+    val reader = remember { DeviceStatsReader() }
+    var stats by remember { mutableStateOf<MonitorStats?>(null) }
+    LaunchedEffect(reader) {
+        while (true) {
+            stats = withContext(Dispatchers.IO) { runCatching { reader.read(context) }.getOrNull() }
+            delay(DeviceMonitor.REFRESH_MS)
+        }
+    }
+    Column(
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = t("device_monitor"),
+            style = MaterialTheme.typography.labelLarge,
+            color = Bb10Text,
+            maxLines = 1,
+        )
+        val shown = stats ?: return@Column
+        DeviceMonitor.rows(shown) { key, args -> t(key, *args) }.forEach { row ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = t(row.labelKey),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Bb10Muted,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = row.value,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Bb10Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(Bb10Line)) {
+                Box(modifier = Modifier.fillMaxWidth(row.fill).fillMaxHeight().background(Bb10Blue))
             }
         }
     }
@@ -2593,6 +2652,31 @@ private fun GlanceCard(
 }
 
 /**
+ * A rightward swipe on the Hub page opens Hub settings ([HubSwipe]). It watches the drag without
+ * consuming it, so the pager still turns to Active Frames on a leftward swipe and the list scrolls.
+ */
+private fun Modifier.hubSwipeToSettings(
+    thresholdPx: Float,
+    onOpen: () -> Unit,
+): Modifier =
+    pointerInput(thresholdPx) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            var opened = false
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                val drag = change.position - down.position
+                if (!opened && HubSwipe.opensSettings(drag.x, drag.y, thresholdPx)) {
+                    opened = true
+                    onOpen()
+                }
+                if (!change.pressed) break
+            }
+        }
+    }
+
+/**
  * Hub page (left of Active Frames; visual "5. Hub"): the one Sable Hub. Under the "Sable Hub"
  * title the unread bar (after the Ripe launcher's BB7 row: each app with unread notifications as
  * its small icon and count, "+N" for the rest, from Sable Hub's listener), then the All /
@@ -2689,8 +2773,13 @@ private fun HubPage(
         return true
     }
 
+    val swipeDistance = with(LocalDensity.current) { HubSwipe.DISTANCE_DP.dp.toPx() }
     LazyColumn(
-        modifier = Modifier.fillMaxSize().onPreviewKeyEvent(::jumpKey),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .onPreviewKeyEvent(::jumpKey)
+                .hubSwipeToSettings(swipeDistance, onOpenHubSettings),
         state = listState,
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),

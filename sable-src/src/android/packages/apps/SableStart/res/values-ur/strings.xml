@@ -310,4 +310,12 @@
     <string name="hide_app">ایپ چھپائیں</string>
     <string name="show_app">ایپ دکھائیں</string>
     <string name="hide_app_hint">چھپی ایپس گرڈ، تمام ایپس اور تلاش سے ہٹ جاتی ہیں۔ انہیں ڈھونڈنے کے لیے “private” تلاش کریں۔</string>
+    <string name="device_monitor">ڈیوائس مانیٹر</string>
+    <string name="dm_battery">بیٹری</string>
+    <string name="dm_cpu">CPU</string>
+    <string name="dm_memory">میموری</string>
+    <string name="dm_storage">اسٹوریج</string>
+    <string name="dm_charging">%1$s، چارج ہو رہی ہے</string>
+    <string name="dm_used_of">%2$s میں سے %1$s</string>
+    <string name="dm_free">%1$s خالی</string>
 </resources>
