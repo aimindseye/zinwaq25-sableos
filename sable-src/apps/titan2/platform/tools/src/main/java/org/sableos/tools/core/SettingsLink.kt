@@ -102,11 +102,7 @@ object Handoffs {
         Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS, SettingsLink.KEYBOARD)
         Tool.DEVICE_IDENTITY -> listOf(SettingsLink.ABOUT, SettingsLink.SECURITY)
         Tool.PRIVACY_CHECK -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
-        Tool.MY_SABLE -> listOf(
-            SettingsLink.SECURITY,
-            SettingsLink.PRIVACY,
-            SettingsLink.ACCESSIBILITY
-        )
+        Tool.MY_SABLE -> with(SettingsLink) { listOf(SECURITY, PRIVACY, ACCESSIBILITY) }
         Tool.BUGREPORT -> listOf(SettingsLink.DEVELOPER)
         else -> emptyList()
     }

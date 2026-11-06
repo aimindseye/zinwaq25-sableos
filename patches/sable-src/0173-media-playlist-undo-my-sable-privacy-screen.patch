@@ -134,7 +134,7 @@ index 0048086..11158a8 100644
          current: List<MediaPlaylist>,
          validUris: Set<String>,
 diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
-index 97488ca..3b608e3 100644
+index 97488ca..443e2bc 100644
 --- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
 +++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
 @@ -25,6 +25,10 @@ enum class SettingsLink(private val labelKey: String, val candidates: List<LinkI
@@ -148,16 +148,12 @@ index 97488ca..3b608e3 100644
      DISPLAY("settings_display", listOf(LinkIntent("android.settings.DISPLAY_SETTINGS"))),
      SOUND("settings_sound", listOf(LinkIntent("android.settings.SOUND_SETTINGS"))),
      BATTERY(
-@@ -98,7 +102,11 @@ object Handoffs {
+@@ -98,7 +102,7 @@ object Handoffs {
          Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS, SettingsLink.KEYBOARD)
          Tool.DEVICE_IDENTITY -> listOf(SettingsLink.ABOUT, SettingsLink.SECURITY)
          Tool.PRIVACY_CHECK -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
 -        Tool.MY_SABLE -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
-+        Tool.MY_SABLE -> listOf(
-+            SettingsLink.SECURITY,
-+            SettingsLink.PRIVACY,
-+            SettingsLink.ACCESSIBILITY
-+        )
++        Tool.MY_SABLE -> with(SettingsLink) { listOf(SECURITY, PRIVACY, ACCESSIBILITY) }
          Tool.BUGREPORT -> listOf(SettingsLink.DEVELOPER)
          else -> emptyList()
      }
