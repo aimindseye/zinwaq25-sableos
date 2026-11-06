@@ -126,7 +126,7 @@ class ConnectedNotificationHistoryStore(
                         ?.let { record -> policies[record.key] }
                         ?.normalized()
 
-                if (source != null && policy?.includeInMessages == true) {
+                if (source != null && policy.includedInHub()) {
                     insertRecord(
                         database = database,
                         record =

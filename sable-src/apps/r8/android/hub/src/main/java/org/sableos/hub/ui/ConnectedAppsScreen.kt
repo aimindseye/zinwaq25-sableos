@@ -37,6 +37,7 @@ import org.sableos.hub.ConnectedAppCandidate
 import org.sableos.hub.ConnectedAppKey
 import org.sableos.hub.ConnectedAppPolicy
 import org.sableos.hub.HubText.t
+import org.sableos.hub.includedInHub
 import org.sableos.hub.policy.AttentionOutput
 import org.sableos.hub.policy.ConnectedAppsParity
 import org.sableos.hub.policy.HubMailSources
@@ -350,9 +351,9 @@ private fun MailAppsNote(
 ) {
     if (candidates.none { candidate -> HubMailSources.isKnownMailPackage(candidate.key.packageName) }) return
     val includedPackages =
-        policies.values
-            .filter { policy -> policy.normalized().includeInMessages }
-            .map { policy -> policy.key.packageName }
+        candidates
+            .filter { candidate -> policies[candidate.key].includedInHub() }
+            .map { candidate -> candidate.key.packageName }
     Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs)) {
         Text(
             text =
@@ -392,7 +393,7 @@ private fun visibleCandidates(
     return candidates
         .filter { candidate ->
             val policy = policies[candidate.key]?.normalized()
-            val enabled = policy?.includeInMessages == true
+            val enabled = policies[candidate.key].includedInHub()
             val favorite = policy?.favorite == true
             val belongsToPivot =
                 when (pivot) {

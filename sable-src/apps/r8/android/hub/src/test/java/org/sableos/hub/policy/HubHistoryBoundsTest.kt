@@ -41,8 +41,10 @@ class HubHistoryBoundsTest {
     @Test
     fun excludedSourcesKeepNothing() {
         val records = listOf(record(chat, 0, now))
-        assertTrue(HubHistoryBounds.retain(records, mapOf(chat to ConnectedAppPolicy(chat)), now).isEmpty())
-        assertTrue(HubHistoryBounds.retain(records, emptyMap(), now).isEmpty())
+        val off = ConnectedAppPolicy(chat, includeInMessages = false)
+        assertTrue(HubHistoryBounds.retain(records, mapOf(chat to off), now).isEmpty())
+        // No saved choice: the app is in Hub by default, so its record stays.
+        assertEquals(1, HubHistoryBounds.retain(records, emptyMap(), now).size)
     }
 
     @Test

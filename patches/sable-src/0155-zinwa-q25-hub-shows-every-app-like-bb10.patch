@@ -1,0 +1,411 @@
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppPolicy.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppPolicy.kt
+index 38f32dc..478e6db 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppPolicy.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppPolicy.kt
+@@ -87,7 +87,8 @@ enum class HubPreviewPolicy(
+  * Hub links to Android Settings for them. Field-to-concept ownership is checked by
+  * `NotificationOwnershipTest`.
+  *
+- * - [includeInMessages]: "Include in Hub".
++ * - [includeInMessages]: "Include in Hub". On for an app with no saved choice, as on BlackBerry 10
++ *   (owner decision 2026-11-06): Hub shows every app Android lets notify; Connected apps turns one off.
+  * - [favorite]: "Hub priority"; ordering/aggregation only, never a DND exception.
+  * - [allowQuickReply]: whether Hub may offer a source-provided RemoteInput reply.
+  * - [hideFromLauncher]: Sable Start hides the app while Hub represents it (Panther V1).
+@@ -96,7 +97,7 @@ enum class HubPreviewPolicy(
+  */
+ data class ConnectedAppPolicy(
+     val key: ConnectedAppKey,
+-    val includeInMessages: Boolean = false,
++    val includeInMessages: Boolean = INCLUDE_IN_HUB_BY_DEFAULT,
+     val allowQuickReply: Boolean = false,
+     val hideFromLauncher: Boolean = false,
+     val retention: HistoryRetention = HistoryRetention.ThirtyDays,
+@@ -113,9 +114,10 @@ data class ConnectedAppPolicy(
+             )
+         }
+ 
+-    fun isDefaultDisabled(): Boolean {
++    /** Nothing chosen beyond the defaults, so nothing needs saving. */
++    fun isDefault(): Boolean {
+         val value = normalized()
+-        return !value.includeInMessages &&
++        return value.includeInMessages == INCLUDE_IN_HUB_BY_DEFAULT &&
+             !value.allowQuickReply &&
+             !value.hideFromLauncher &&
+             value.retention == HistoryRetention.ThirtyDays &&
+@@ -124,6 +126,12 @@ data class ConnectedAppPolicy(
+     }
+ }
+ 
++/** BlackBerry 10 Hub: every app is in Hub until the user takes it out. */
++const val INCLUDE_IN_HUB_BY_DEFAULT = true
++
++/** Whether an app with this saved policy (null: none saved) is in Hub. */
++fun ConnectedAppPolicy?.includedInHub(): Boolean = this?.normalized()?.includeInMessages ?: INCLUDE_IN_HUB_BY_DEFAULT
++
+ object ConnectedAppPolicyCodec {
+     private const val VERSION = "3"
+     private const val VERSION_1 = "1"
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsRepository.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsRepository.kt
+index ca03193..3517b40 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsRepository.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsRepository.kt
+@@ -49,7 +49,7 @@ class ConnectedAppsRepository(
+             ConnectedAppPolicyCodec.decode(encoded)?.key == normalized.key
+         }
+ 
+-        if (!normalized.isDefaultDisabled()) {
++        if (!normalized.isDefault()) {
+             records += ConnectedAppPolicyCodec.encode(normalized)
+         }
+ 
+@@ -71,7 +71,7 @@ class ConnectedAppsRepository(
+     private fun updateCachedPolicy(policy: ConnectedAppPolicy) {
+         synchronized(CACHE_LOCK) {
+             val next = cachedPolicies.toMutableMap()
+-            if (policy.isDefaultDisabled()) {
++            if (policy.isDefault()) {
+                 next.remove(policy.key)
+             } else {
+                 next[policy.key] = policy
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedNotificationHistoryStore.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedNotificationHistoryStore.kt
+index 65d16ad..0d09325 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedNotificationHistoryStore.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedNotificationHistoryStore.kt
+@@ -126,7 +126,7 @@ class ConnectedNotificationHistoryStore(
+                         ?.let { record -> policies[record.key] }
+                         ?.normalized()
+ 
+-                if (source != null && policy?.includeInMessages == true) {
++                if (source != null && policy.includedInHub()) {
+                     insertRecord(
+                         database = database,
+                         record =
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/SableNotificationListenerService.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/SableNotificationListenerService.kt
+index 91f1713..d05b405 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/SableNotificationListenerService.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/notifications/SableNotificationListenerService.kt
+@@ -21,9 +21,12 @@ import org.sableos.hub.ConnectedAppPolicy
+ import org.sableos.hub.ConnectedAppsInventory
+ import org.sableos.hub.ConnectedAppsRepository
+ import org.sableos.hub.ConnectedNotificationHistoryStore
++import org.sableos.hub.includedInHub
+ import org.sableos.hub.policy.ActiveNotificationFacts
+ import org.sableos.hub.policy.AndroidVisibility
+ import org.sableos.hub.policy.HubAppCounts
++import org.sableos.hub.policy.HubItemFacts
++import org.sableos.hub.policy.HubItems
+ import org.sableos.hub.policy.HubMailSources
+ import org.sableos.hub.policy.ReplyActionFacts
+ import org.sableos.hub.policy.ReplyEligibility
+@@ -170,16 +173,16 @@ class SableNotificationListenerService : NotificationListenerService() {
+                     )
+                 }
+         val policy =
+-            key?.let(policies::cachedPolicyFor)
++            key?.let { policies.cachedPolicyFor(it) ?: ConnectedAppPolicy(key = it) }
+         val envelope =
+-            if (key != null && policy?.includeInMessages == true) {
++            if (key != null && policy != null && policy.includedInHub()) {
+                 captureEnvelope(
+                     sbn = sbn,
+                     key = key,
+                     policy = policy,
+                     contentRestricted = isSourceRestricted(sbn.notification, ranking),
+                 ).takeIf { candidate ->
+-                    candidate.isConversationCandidate()
++                    candidate.isConversationCandidate() || candidate.isHubItem(sbn)
+                 }
+             } else {
+                 null
+@@ -197,6 +200,19 @@ class SableNotificationListenerService : NotificationListenerService() {
+         ConnectedNotificationActivityRegistry.remove(notificationKey)
+     }
+ 
++    /** Any other alert BlackBerry 10's Hub listed: missed calls, reminders, app alerts (see [HubItems]). */
++    private fun ConnectedNotificationEnvelope.isHubItem(sbn: StatusBarNotification): Boolean =
++        HubItems.shows(
++            HubItemFacts(
++                ongoing = sbn.isOngoing,
++                foregroundService = sbn.notification.flags and Notification.FLAG_FOREGROUND_SERVICE != 0,
++                clearable = sbn.isClearable,
++                groupSummary = isGroupSummary,
++                category = category,
++                hasText = notificationTitle != null || notificationBody != null,
++            ),
++        )
++
+     private fun ConnectedNotificationEnvelope.isConversationCandidate(): Boolean =
+         !isGroupSummary &&
+             (
+@@ -430,8 +446,9 @@ class SableNotificationListenerService : NotificationListenerService() {
+         envelope: ConnectedNotificationEnvelope,
+         generation: Long,
+     ) {
+-        val latestPolicy = policies.cachedPolicyFor(envelope.key)?.normalized()
+-        if (latestPolicy?.includeInMessages != true) {
++        val saved = policies.cachedPolicyFor(envelope.key) ?: ConnectedAppPolicy(key = envelope.key)
++        val latestPolicy = saved.normalized()
++        if (!latestPolicy.includeInMessages) {
+             ConnectedReplyRegistry.remove(envelope.notificationKey)
+             return
+         }
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/ConnectedAppsParity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/ConnectedAppsParity.kt
+index e319385..86f5e2c 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/ConnectedAppsParity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/ConnectedAppsParity.kt
+@@ -3,6 +3,7 @@ package org.sableos.hub.policy
+ import org.sableos.hub.ConnectedAppKey
+ import org.sableos.hub.ConnectedAppPolicy
+ import org.sableos.hub.HubText.t
++import org.sableos.hub.includedInHub
+ 
+ /** Hub-side state of one connected app, derived from Hub policy plus Android facts. */
+ enum class ConnectedAppStatus {
+@@ -34,15 +35,13 @@ object ConnectedAppsParity {
+         policy: ConnectedAppPolicy?,
+         notificationAccessGranted: Boolean,
+         profileLocked: Boolean,
+-    ): ConnectedAppStatus {
+-        val normalized = policy?.normalized()
+-        return when {
+-            normalized?.includeInMessages != true -> ConnectedAppStatus.Off
++    ): ConnectedAppStatus =
++        when {
++            !policy.includedInHub() -> ConnectedAppStatus.Off
+             !notificationAccessGranted -> ConnectedAppStatus.PausedNoNotificationAccess
+             profileLocked -> ConnectedAppStatus.PausedProfileLocked
+             else -> ConnectedAppStatus.Connected
+         }
+-    }
+ 
+     /**
+      * Keys Sable Start may hide. [liveKeys] is the set of launchable package/profile pairs that
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHandoffRouter.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHandoffRouter.kt
+index d766a5a..c7faf4c 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHandoffRouter.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHandoffRouter.kt
+@@ -4,6 +4,7 @@ import org.sableos.hub.ConnectedAppKey
+ import org.sableos.hub.ConnectedAppPolicy
+ import org.sableos.hub.HubConversation
+ import org.sableos.hub.HubConversationSource
++import org.sableos.hub.includedInHub
+ 
+ sealed interface HubHandoffTarget {
+     /** Open this Hub conversation. */
+@@ -34,7 +35,7 @@ object HubHandoffRouter {
+     ): HubHandoffTarget =
+         when {
+             key == null -> HubHandoffTarget.Home
+-            policies[key]?.normalized()?.includeInMessages != true -> HubHandoffTarget.ConnectedAppSettings(key)
++            !policies[key].includedInHub() -> HubHandoffTarget.ConnectedAppSettings(key)
+             else -> conversationFor(key, notificationKey, conversations)
+         }
+ 
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHistoryBounds.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHistoryBounds.kt
+index a0cfb78..b8aaf17 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHistoryBounds.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubHistoryBounds.kt
+@@ -35,8 +35,8 @@ object HubHistoryBounds {
+             .asSequence()
+             .sortedWith(compareByDescending<ConnectedNotificationRecord> { it.timestampMillis }.thenBy { it.id })
+             .filter { record ->
+-                val policy = policies[record.key]?.normalized()
+-                policy?.includeInMessages == true &&
++                val policy = (policies[record.key] ?: ConnectedAppPolicy(key = record.key)).normalized()
++                policy.includeInMessages &&
+                     (liveUserSerials == null || record.key.userSerial in liveUserSerials) &&
+                     record.timestampMillis >= hardCutoff &&
+                     record.timestampMillis <= nowMillis + MAX_FUTURE_SKEW_MILLIS &&
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubItems.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubItems.kt
+new file mode 100644
+index 0000000..c86c82b
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubItems.kt
+@@ -0,0 +1,41 @@
++package org.sableos.hub.policy
++
++/**
++ * What Hub lists besides conversations, as BlackBerry 10's Hub did (owner request 2026-11-06):
++ * every notification the user can clear and read, from any app in Hub, such as missed calls,
++ * voicemail, reminders, invitations and app alerts. Ongoing work (music, downloads, navigation,
++ * calls in progress, foreground services), group summaries and the system's own status lines stay
++ * out, as they never were Hub items.
++ */
++object HubItems {
++    /** Categories for status, never messages: Android's own names, so no platform class is needed here. */
++    val NOT_ITEMS =
++        setOf(
++            "progress",
++            "transport",
++            "service",
++            "sys",
++            "status",
++            "navigation",
++            "stopwatch",
++            "call",
++        )
++
++    fun shows(facts: HubItemFacts): Boolean =
++        !facts.ongoing &&
++            !facts.foregroundService &&
++            facts.clearable &&
++            !facts.groupSummary &&
++            facts.hasText &&
++            facts.category !in NOT_ITEMS
++}
++
++/** What [HubItems] looks at in one posted notification. */
++data class HubItemFacts(
++    val ongoing: Boolean,
++    val foregroundService: Boolean,
++    val clearable: Boolean,
++    val groupSummary: Boolean,
++    val category: String?,
++    val hasText: Boolean,
++)
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+index 5d4de40..2a8e395 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+@@ -37,6 +37,7 @@ import org.sableos.hub.ConnectedAppCandidate
+ import org.sableos.hub.ConnectedAppKey
+ import org.sableos.hub.ConnectedAppPolicy
+ import org.sableos.hub.HubText.t
++import org.sableos.hub.includedInHub
+ import org.sableos.hub.policy.AttentionOutput
+ import org.sableos.hub.policy.ConnectedAppsParity
+ import org.sableos.hub.policy.HubMailSources
+@@ -350,9 +351,9 @@ private fun MailAppsNote(
+ ) {
+     if (candidates.none { candidate -> HubMailSources.isKnownMailPackage(candidate.key.packageName) }) return
+     val includedPackages =
+-        policies.values
+-            .filter { policy -> policy.normalized().includeInMessages }
+-            .map { policy -> policy.key.packageName }
++        candidates
++            .filter { candidate -> policies[candidate.key].includedInHub() }
++            .map { candidate -> candidate.key.packageName }
+     Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs)) {
+         Text(
+             text =
+@@ -392,7 +393,7 @@ private fun visibleCandidates(
+     return candidates
+         .filter { candidate ->
+             val policy = policies[candidate.key]?.normalized()
+-            val enabled = policy?.includeInMessages == true
++            val enabled = policies[candidate.key].includedInHub()
+             val favorite = policy?.favorite == true
+             val belongsToPivot =
+                 when (pivot) {
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+index 55cff0c..a3846ef 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+@@ -2084,7 +2084,7 @@ private fun inboxEmptyText(
+         filter == HubInboxFilter.Priority -> t("nothing_needs_your_attention")
+         filter == HubInboxFilter.People && !capabilities.canReadContacts -> t("grant_contacts_access_to_match")
+         filter == HubInboxFilter.People -> t("no_conversations_or_calls_with")
+-        filter == HubInboxFilter.Notifications -> t("no_connected_app_conversations_choose")
++        filter == HubInboxFilter.Notifications -> t("no_conversations_yet")
+         filter == HubInboxFilter.Mail -> t("no_mail_notifications_turn_on")
+         else -> t("no_conversations_yet")
+     }
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/ConnectedAppsParityTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/ConnectedAppsParityTest.kt
+index b523a19..9057072 100644
+--- a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/ConnectedAppsParityTest.kt
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/ConnectedAppsParityTest.kt
+@@ -33,7 +33,12 @@ class ConnectedAppsParityTest {
+ 
+     @Test
+     fun statusReflectsAndroidAccessAndProfileState() {
+-        assertEquals(ConnectedAppStatus.Off, ConnectedAppsParity.status(null, true, false))
++        // As on BlackBerry 10, an app with no saved choice is in Hub; only a switched-off one is Off.
++        assertEquals(ConnectedAppStatus.Connected, ConnectedAppsParity.status(null, true, false))
++        assertEquals(
++            ConnectedAppStatus.Off,
++            ConnectedAppsParity.status(ConnectedAppPolicy(chat, includeInMessages = false), true, false),
++        )
+         assertEquals(ConnectedAppStatus.Connected, ConnectedAppsParity.status(hiddenChat, true, false))
+         assertEquals(
+             ConnectedAppStatus.PausedNoNotificationAccess,
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHandoffRouterTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHandoffRouterTest.kt
+index c7fc7be..6cd592f 100644
+--- a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHandoffRouterTest.kt
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHandoffRouterTest.kt
+@@ -33,7 +33,12 @@ class HubHandoffRouterTest {
+     fun excludedSourceOpensItsSettingsInsteadOfBeingIncludedSilently() {
+         assertEquals(
+             HubHandoffTarget.ConnectedAppSettings(chat),
+-            HubHandoffRouter.route(chat, "a", conversations, mapOf(chat to ConnectedAppPolicy(chat))),
++            HubHandoffRouter.route(
++                chat,
++                "a",
++                conversations,
++                mapOf(chat to ConnectedAppPolicy(chat, includeInMessages = false)),
++            ),
+         )
+     }
+ 
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHistoryBoundsTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHistoryBoundsTest.kt
+index 0821c18..3c86d39 100644
+--- a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHistoryBoundsTest.kt
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubHistoryBoundsTest.kt
+@@ -41,8 +41,10 @@ class HubHistoryBoundsTest {
+     @Test
+     fun excludedSourcesKeepNothing() {
+         val records = listOf(record(chat, 0, now))
+-        assertTrue(HubHistoryBounds.retain(records, mapOf(chat to ConnectedAppPolicy(chat)), now).isEmpty())
+-        assertTrue(HubHistoryBounds.retain(records, emptyMap(), now).isEmpty())
++        val off = ConnectedAppPolicy(chat, includeInMessages = false)
++        assertTrue(HubHistoryBounds.retain(records, mapOf(chat to off), now).isEmpty())
++        // No saved choice: the app is in Hub by default, so its record stays.
++        assertEquals(1, HubHistoryBounds.retain(records, emptyMap(), now).size)
+     }
+ 
+     @Test
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubItemsTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubItemsTest.kt
+new file mode 100644
+index 0000000..1fc275c
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubItemsTest.kt
+@@ -0,0 +1,38 @@
++package org.sableos.hub.policy
++
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class HubItemsTest {
++    private fun shows(
++        ongoing: Boolean = false,
++        foregroundService: Boolean = false,
++        clearable: Boolean = true,
++        groupSummary: Boolean = false,
++        category: String? = null,
++        hasText: Boolean = true,
++    ) = HubItems.shows(HubItemFacts(ongoing, foregroundService, clearable, groupSummary, category, hasText))
++
++    @Test
++    fun clearableAlertsFromAnyAppAreHubItems() {
++        assertTrue(shows())
++        assertTrue(shows(category = "missed_call"))
++        assertTrue(shows(category = "reminder"))
++        assertTrue(shows(category = "event"))
++        assertTrue(shows(category = "social"))
++    }
++
++    @Test
++    fun ongoingWorkAndStatusStayOut() {
++        assertFalse(shows(ongoing = true))
++        assertFalse(shows(foregroundService = true))
++        assertFalse(shows(clearable = false))
++        assertFalse(shows(groupSummary = true))
++        assertFalse(shows(hasText = false))
++        assertFalse(shows(category = "progress"))
++        assertFalse(shows(category = "transport"))
++        assertFalse(shows(category = "call"))
++        assertFalse(shows(category = "sys"))
++    }
++}

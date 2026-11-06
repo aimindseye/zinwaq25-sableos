@@ -2084,7 +2084,7 @@ private fun inboxEmptyText(
         filter == HubInboxFilter.Priority -> t("nothing_needs_your_attention")
         filter == HubInboxFilter.People && !capabilities.canReadContacts -> t("grant_contacts_access_to_match")
         filter == HubInboxFilter.People -> t("no_conversations_or_calls_with")
-        filter == HubInboxFilter.Notifications -> t("no_connected_app_conversations_choose")
+        filter == HubInboxFilter.Notifications -> t("no_conversations_yet")
         filter == HubInboxFilter.Mail -> t("no_mail_notifications_turn_on")
         else -> t("no_conversations_yet")
     }

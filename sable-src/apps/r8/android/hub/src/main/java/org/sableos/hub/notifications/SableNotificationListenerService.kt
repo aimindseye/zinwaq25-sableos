@@ -21,9 +21,12 @@ import org.sableos.hub.ConnectedAppPolicy
 import org.sableos.hub.ConnectedAppsInventory
 import org.sableos.hub.ConnectedAppsRepository
 import org.sableos.hub.ConnectedNotificationHistoryStore
+import org.sableos.hub.includedInHub
 import org.sableos.hub.policy.ActiveNotificationFacts
 import org.sableos.hub.policy.AndroidVisibility
 import org.sableos.hub.policy.HubAppCounts
+import org.sableos.hub.policy.HubItemFacts
+import org.sableos.hub.policy.HubItems
 import org.sableos.hub.policy.HubMailSources
 import org.sableos.hub.policy.ReplyActionFacts
 import org.sableos.hub.policy.ReplyEligibility
@@ -170,16 +173,16 @@ class SableNotificationListenerService : NotificationListenerService() {
                     )
                 }
         val policy =
-            key?.let(policies::cachedPolicyFor)
+            key?.let { policies.cachedPolicyFor(it) ?: ConnectedAppPolicy(key = it) }
         val envelope =
-            if (key != null && policy?.includeInMessages == true) {
+            if (key != null && policy != null && policy.includedInHub()) {
                 captureEnvelope(
                     sbn = sbn,
                     key = key,
                     policy = policy,
                     contentRestricted = isSourceRestricted(sbn.notification, ranking),
                 ).takeIf { candidate ->
-                    candidate.isConversationCandidate()
+                    candidate.isConversationCandidate() || candidate.isHubItem(sbn)
                 }
             } else {
                 null
@@ -196,6 +199,19 @@ class SableNotificationListenerService : NotificationListenerService() {
         ConnectedActionRegistry.remove(notificationKey)
         ConnectedNotificationActivityRegistry.remove(notificationKey)
     }
+
+    /** Any other alert BlackBerry 10's Hub listed: missed calls, reminders, app alerts (see [HubItems]). */
+    private fun ConnectedNotificationEnvelope.isHubItem(sbn: StatusBarNotification): Boolean =
+        HubItems.shows(
+            HubItemFacts(
+                ongoing = sbn.isOngoing,
+                foregroundService = sbn.notification.flags and Notification.FLAG_FOREGROUND_SERVICE != 0,
+                clearable = sbn.isClearable,
+                groupSummary = isGroupSummary,
+                category = category,
+                hasText = notificationTitle != null || notificationBody != null,
+            ),
+        )
 
     private fun ConnectedNotificationEnvelope.isConversationCandidate(): Boolean =
         !isGroupSummary &&
@@ -430,8 +446,9 @@ class SableNotificationListenerService : NotificationListenerService() {
         envelope: ConnectedNotificationEnvelope,
         generation: Long,
     ) {
-        val latestPolicy = policies.cachedPolicyFor(envelope.key)?.normalized()
-        if (latestPolicy?.includeInMessages != true) {
+        val saved = policies.cachedPolicyFor(envelope.key) ?: ConnectedAppPolicy(key = envelope.key)
+        val latestPolicy = saved.normalized()
+        if (!latestPolicy.includeInMessages) {
             ConnectedReplyRegistry.remove(envelope.notificationKey)
             return
         }
