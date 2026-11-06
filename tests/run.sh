@@ -177,7 +177,7 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
     grep -q 'overrides: \["LatinIME"\]' "$v/Android.bp" || ok=no
     grep -q 'home=sable' "$proj/config.txt" || ok=no
-    for o in SableFrameworkOverlay SableSystemUIOverlay SableSetupWizardOverlay SableGlimpseOverlay SableGallery2Overlay SableSettingsProviderOverlay SableLedOverlay; do
+    for o in SableFrameworkOverlay SableSystemUIOverlay SableSetupWizardOverlay SableGlimpseOverlay SableGallery2Overlay SableSettingsProviderOverlay SableLedOverlay SableTelecomOverlay; do
         grep -q "$o" "$v/sable-q25-framework.mk" || ok=no
         grep -q "name: \"$o\"" "$v/overlay/Android.bp" || ok=no
     done
@@ -510,6 +510,41 @@ for s in android.provider.Telephony.SMS_DELIVER android.provider.Telephony.WAP_P
     grep -q "$s" "$msg_m" || msg_bad="$msg_bad manifest:$s"
 done
 if [[ -z "$msg_bad" ]]; then pass "Sable Messages is the default SMS app (role default, grants, SMS/MMS components)"; else fail "Sable Messages default SMS:$msg_bad"; fi
+
+# 6b1c. Sable Phone is the default and system Phone app from Q4 (sable-src 0138, docs/implementation/sable-phone.md):
+# shipped privileged, the DIALER role default, Telecom's system dialer, the Dialer replaced at Q4 only, the role's
+# components declared, no internet, and the speed dial contract Sable Start reads unchanged.
+ph_bad=""
+grep -qP '^SablePhone\tplatform\tapps/titan2/platform\t:phone:assembleRelease\tphone/build/outputs/apk/release/\*\.apk\torg\.sableos\.phone\tprivileged\t-\tyes$' product/q25/apps.tsv || ph_bad="$ph_bad apps.tsv"
+grep -q '<string name="config_defaultDialer"[^>]*>org.sableos.phone<' product/common/overlay/SableFrameworkOverlay/res/values/sable_phone.xml || ph_bad="$ph_bad default-dialer"
+tov=product/common/overlay/SableTelecomOverlay
+grep -q 'android:targetPackage="com.android.server.telecom"' "$tov/AndroidManifest.xml" || ph_bad="$ph_bad telecom-target"
+grep -q '<string name="incall_default_class"[^>]*>org.sableos.phone.android.PhoneInCallService<' "$tov/res/values/config.xml" || ph_bad="$ph_bad incall-class"
+grep -q '<string name="dialer_default_class"[^>]*>org.sableos.phone.android.PhoneActivity<' "$tov/res/values/config.xml" || ph_bad="$ph_bad dialer-class"
+grep -q '"$FRAMEWORK" == YES && "$module" == SablePhone' scripts/stage-product.sh || ph_bad="$ph_bad q4-override"
+grep -q 'overrides=Dialer' scripts/stage-product.sh || ph_bad="$ph_bad override-dialer"
+grep -q 'SableTelecomOverlay' scripts/stage-product.sh || ph_bad="$ph_bad overlay-staged"
+grep -A3 'package="org.sableos.phone"' product/q25/permissions/privapp-permissions-sable-q25.xml | grep -q 'READ_PRIVILEGED_PHONE_STATE' || ph_bad="$ph_bad privapp"
+grep -A8 'package="org.sableos.phone"' product/q25/permissions/default-permissions-sable-q25.xml | grep -q 'android.permission.CALL_PHONE' || ph_bad="$ph_bad grants"
+phm=sable-src/apps/titan2/platform/phone/src/main
+pha=$phm/java/org/sableos/phone/android
+[[ -f "$pha/PhoneInCallService.kt" && -f "$pha/PhoneActivity.kt" ]] || ph_bad="$ph_bad classes"
+for s in android.intent.action.DIAL 'android:scheme="tel"' android.telecom.InCallService android.permission.BIND_INCALL_SERVICE android.telecom.IN_CALL_SERVICE_UI \
+    android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION 'android:permission="android.permission.MODIFY_PHONE_STATE"' 'android:allowBackup="false"' \
+    'android:authorities="org.sableos.dialer.speeddial"' 'android:readPermission="org.sableos.permission.SPEED_DIAL"' org.sableos.dialer.action.SPEED_DIAL; do
+    grep -q "$s" "$phm/AndroidManifest.xml" || ph_bad="$ph_bad manifest:$s"
+done
+grep -q 'android.permission.INTERNET' "$phm/AndroidManifest.xml" && ph_bad="$ph_bad internet"
+grep -A1 'name="org.sableos.permission.SPEED_DIAL"' "$phm/AndroidManifest.xml" | grep -q 'signature|preinstalled' || ph_bad="$ph_bad speed-dial-permission"
+# Nothing another app sends places a call: only DIAL/VIEW intents reach PhoneActivity, Call back goes through the
+# unexported receiver, and the speed dial trampoline needs the SPEED_DIAL permission.
+grep -q 'CALL_BACK' "$pha/PhoneActivity.kt" && ph_bad="$ph_bad exported-call-back"
+grep -B1 -A1 'name=".android.CallActionReceiver"' "$phm/AndroidManifest.xml" | grep -q 'android:exported="false"' || ph_bad="$ph_bad receiver-exported"
+grep -q '"org.sableos.phone" to DIALER' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CoreAppIdentity.kt || ph_bad="$ph_bad start-identity"
+grep -q 'PHONE_PACKAGES = listOf("org.sableos.phone", DIALER_PACKAGE)' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/SpeedDial.kt || ph_bad="$ph_bad start-speed-dial"
+grep -q '"org.sableos.phone",' sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt || ph_bad="$ph_bad hub-privacy"
+grep -q "^| Q4-SABLE-PHONE |" docs/QUALIFICATION.md && grep -q "^| Q4-SABLE-PHONE-EMERGENCY |" docs/QUALIFICATION.md || ph_bad="$ph_bad gates"
+if [[ -z "$ph_bad" ]]; then pass "Sable Phone is the default and system Phone app at Q4 (role, Telecom, Dialer replaced, speed dial contract)"; else fail "Sable Phone:$ph_bad"; fi
 
 # 6b1c. Framework Hub links open Start's Hub page, Hub settings or Sable Messages, never the old Hub UI.
 hl_bad=""
@@ -1208,6 +1243,7 @@ sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profile
 sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/SpacesApplication.kt sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/SpacesTextTest.kt
 sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/PrintToGoText.kt sable-src/apps/titan2/platform/printtogo/src/main/res/values/strings.xml sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/PrintToGoApplication.kt sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/PrintToGoTextTest.kt
 sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/core/CompassText.kt sable-src/apps/titan2/platform/compass/src/main/res/values/strings.xml sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/CompassApplication.kt sable-src/apps/titan2/platform/compass/src/test/java/org/sableos/titan2/compass/CompassTextTest.kt
+sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/PhoneApplication.kt sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/PhoneTextTest.kt
 sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupTextTest.kt
 sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ToolsApplication.kt sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/ToolsTextTest.kt
 sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultLines.kt sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/VaultApplication.kt sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/VaultLinesTest.kt

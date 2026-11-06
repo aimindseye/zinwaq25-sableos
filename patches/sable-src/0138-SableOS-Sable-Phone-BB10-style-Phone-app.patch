@@ -1,0 +1,4195 @@
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt
+index 712d02a..28cb64f 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt
+@@ -110,6 +110,7 @@ object HubPrivacyCallers {
+     val ALLOWED_PACKAGES: Set<String> =
+         setOf(
+             "com.android.dialer",
++            "org.sableos.phone",
+             "com.android.contacts",
+             "org.sableos.launcher",
+         )
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubCommsTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubCommsTest.kt
+index 7cbe215..f2f58f1 100644
+--- a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubCommsTest.kt
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubCommsTest.kt
+@@ -158,6 +158,7 @@ class HubCommsTest {
+     @Test
+     fun privacyProviderCallersAreFixed() {
+         assertTrue(HubPrivacyCallers.allowed(listOf("com.android.dialer")))
++        assertTrue(HubPrivacyCallers.allowed(listOf("org.sableos.phone")))
+         assertTrue(HubPrivacyCallers.allowed(listOf("x", "com.android.contacts")))
+         assertFalse(HubPrivacyCallers.allowed(listOf("com.example.spy")))
+         assertFalse(HubPrivacyCallers.allowed(emptyList()))
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/AppGlyphsTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/AppGlyphsTest.kt
+index d767beb..34cff33 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/AppGlyphsTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/AppGlyphsTest.kt
+@@ -47,6 +47,7 @@ class AppGlyphsTest {
+     @Test
+     fun keptLineageAppsMapByPackage() {
+         assertEquals(AppGlyph.PHONE, AppGlyphs.forPackage("com.android.dialer"))
++        assertEquals(AppGlyph.PHONE, AppGlyphs.forPackage("org.sableos.phone"))
+         assertEquals(AppGlyph.CONTACTS, AppGlyphs.forPackage("com.android.contacts"))
+         assertEquals(AppGlyph.SETTINGS, AppGlyphs.forPackage("com.android.settings"))
+         assertEquals(AppGlyph.PHOTOS, AppGlyphs.forPackage("org.lineageos.glimpse"))
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/CoreAppIdentityTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/CoreAppIdentityTest.kt
+index 3499b07..52bff76 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/CoreAppIdentityTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/CoreAppIdentityTest.kt
+@@ -12,6 +12,7 @@ class CoreAppIdentityTest {
+         assertEquals(CoreAppIdentity.PHOTOS, CoreAppIdentity.canonicalPackage("org.lineageos.glimpse"))
+         assertEquals(CoreAppIdentity.CAMERA, CoreAppIdentity.canonicalPackage("org.lineageos.aperture"))
+         assertEquals(CoreAppIdentity.BROWSER, CoreAppIdentity.canonicalPackage("org.lineageos.jelly"))
++        assertEquals(CoreAppIdentity.DIALER, CoreAppIdentity.canonicalPackage("org.sableos.phone"))
+     }
+ 
+     @Test
+@@ -22,6 +23,7 @@ class CoreAppIdentityTest {
+             CoreAppIdentity.BROWSER,
+             CoreAppIdentity.FILES,
+             CoreAppIdentity.CLOCK,
++            CoreAppIdentity.DIALER,
+         )) {
+             assertEquals(pkg, CoreAppIdentity.canonicalPackage(pkg))
+         }
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HubBarTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HubBarTest.kt
+index 0354659..d65ce4c 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HubBarTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HubBarTest.kt
+@@ -62,6 +62,7 @@ class HubBarTest {
+     fun messagesPhoneAndContactsOpenTheirTabsOtherAppsOpen() {
+         assertEquals(HubBar.Target.Tab(HubFilter.Messages), HubBar.target("org.sableos.messages"))
+         assertEquals(HubBar.Target.Tab(HubFilter.Calls), HubBar.target("com.android.dialer"))
++        assertEquals(HubBar.Target.Tab(HubFilter.Calls), HubBar.target("org.sableos.phone"))
+         assertEquals(HubBar.Target.Tab(HubFilter.Contacts), HubBar.target("com.android.contacts"))
+         assertEquals(HubBar.Target.OpenApp, HubBar.target("com.spotify.music"))
+     }
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/SpeedDialKeysTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/SpeedDialKeysTest.kt
+index 1265444..70ee0f9 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/SpeedDialKeysTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/SpeedDialKeysTest.kt
+@@ -60,4 +60,9 @@ class SpeedDialKeysTest {
+         assertEquals('z', SpeedDialKeys.letterFor(54))
+         assertEquals(null, SpeedDialKeys.letterFor(62))
+     }
++
++    @Test
++    fun speedDialGoesToSablePhoneFirstThenTheDialer() {
++        assertEquals(listOf("org.sableos.phone", "com.android.dialer"), SpeedDialKeys.PHONE_PACKAGES)
++    }
+ }
+diff --git a/sable-src/apps/titan2/platform/phone/build.gradle.kts b/sable-src/apps/titan2/platform/phone/build.gradle.kts
+new file mode 100644
+index 0000000..6b7d3ee
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/build.gradle.kts
+@@ -0,0 +1,40 @@
++plugins {
++    alias(libs.plugins.android.application)
++    alias(libs.plugins.kotlin.android)
++}
++
++// Sable Phone: the default Phone app, BlackBerry 10 style and keyboard first. Call list, dial pad, contacts
++// search, speed dial on letter keys, and its own incoming and in-call screens (an InCallService). Replaces the
++// LineageOS Dialer from Q4 (product/q25/apps.tsv). Nothing leaves the phone.
++android {
++    // The Sable theme palette shared by the platform apps (one copy, see sable-theme/).
++    sourceSets["main"].java.srcDir("../sable-theme/src/main/java")
++    namespace = "org.sableos.phone"
++    compileSdk = 36
++    defaultConfig {
++        applicationId = "org.sableos.phone"
++        // Platform apps ship only on Android 16+ images.
++        minSdk = 36
++        targetSdk = 36
++        versionCode = 1
++        versionName = "0.1.0"
++    }
++    buildTypes {
++        release {
++            // R8 shrinks and obfuscates the shipped release APK.
++            isMinifyEnabled = true
++            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
++        }
++    }
++    compileOptions {
++        sourceCompatibility = JavaVersion.VERSION_17
++        targetCompatibility = JavaVersion.VERSION_17
++    }
++    kotlinOptions { jvmTarget = "17" }
++}
++
++dependencies {
++    implementation(libs.androidx.core.ktx)
++
++    testImplementation(libs.junit)
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
+new file mode 100644
+index 0000000..f6218f6
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
+@@ -0,0 +1,139 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Sable Phone: the default Phone app (android.app.role.DIALER, config_defaultDialer in SableFrameworkOverlay).
++     It qualifies for the role with the DIAL activity and the UI InCallService below. Calls go through Telecom;
++     the call log and contacts are read from their providers and never copied. No internet, no backup. -->
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
++    <uses-feature android:name="android.hardware.telephony" android:required="false" />
++
++    <!-- Sable speed dial: Sable Start reads which letters are assigned and asks Phone to call. Any app on the
++         system image may hold it (Start is platform-signed, Sable Phone is not). -->
++    <permission
++        android:name="org.sableos.permission.SPEED_DIAL"
++        android:protectionLevel="signature|preinstalled" />
++
++    <!-- Granted with the Phone role. -->
++    <uses-permission android:name="android.permission.CALL_PHONE" />
++    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
++    <uses-permission android:name="android.permission.READ_CALL_LOG" />
++    <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
++    <uses-permission android:name="android.permission.READ_CONTACTS" />
++    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
++    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
++    <uses-permission android:name="android.permission.WAKE_LOCK" />
++    <!-- *#06# shows the IMEI (privileged; product/q25/permissions/privapp-permissions-sable-q25.xml). -->
++    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
++
++    <queries>
++        <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
++        <provider android:authorities="org.sableos.appearance" />
++        <!-- Sable private mode (Sable Hub): the call list hides names while it is on. -->
++        <provider android:authorities="org.sableos.hub.privacy" />
++        <intent>
++            <action android:name="android.intent.action.PICK" />
++            <data android:mimeType="vnd.android.cursor.dir/phone_v2" />
++        </intent>
++        <intent>
++            <action android:name="android.intent.action.SENDTO" />
++            <data android:scheme="smsto" />
++        </intent>
++    </queries>
++
++    <application
++        android:name="org.sableos.phone.PhoneApplication"
++        android:allowBackup="false"
++        android:usesCleartextTraffic="false"
++        android:icon="@mipmap/ic_sable_phone"
++        android:roundIcon="@mipmap/ic_sable_phone_round"
++        android:label="@string/app_name"
++        android:supportsRtl="true"
++        android:theme="@android:style/Theme.DeviceDefault.DayNight">
++
++        <activity
++            android:name=".android.PhoneActivity"
++            android:exported="true"
++            android:launchMode="singleTask"
++            android:windowSoftInputMode="stateHidden|adjustResize"
++            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++                <category android:name="android.intent.category.LAUNCHER" />
++            </intent-filter>
++            <!-- The Phone role needs DIAL both with and without a tel: number. -->
++            <intent-filter>
++                <action android:name="android.intent.action.DIAL" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++            <intent-filter>
++                <action android:name="android.intent.action.DIAL" />
++                <action android:name="android.intent.action.VIEW" />
++                <category android:name="android.intent.category.DEFAULT" />
++                <category android:name="android.intent.category.BROWSABLE" />
++                <data android:scheme="tel" />
++            </intent-filter>
++        </activity>
++
++        <activity
++            android:name=".android.InCallActivity"
++            android:exported="false"
++            android:launchMode="singleTask"
++            android:excludeFromRecents="true"
++            android:taskAffinity="org.sableos.phone.incall"
++            android:showWhenLocked="true"
++            android:turnScreenOn="true"
++            android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
++            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode" />
++
++        <activity
++            android:name=".android.SpeedDialActivity"
++            android:exported="false"
++            android:label="@string/app_name" />
++
++        <activity
++            android:name=".android.SpeedDialCallActivity"
++            android:excludeFromRecents="true"
++            android:exported="true"
++            android:noHistory="true"
++            android:permission="org.sableos.permission.SPEED_DIAL"
++            android:theme="@android:style/Theme.NoDisplay">
++            <intent-filter>
++                <action android:name="org.sableos.dialer.action.SPEED_DIAL" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
++        <provider
++            android:name=".android.SpeedDialProvider"
++            android:authorities="org.sableos.dialer.speeddial"
++            android:exported="true"
++            android:readPermission="org.sableos.permission.SPEED_DIAL"
++            android:writePermission="org.sableos.permission.SPEED_DIAL" />
++
++        <!-- The call screen: Telecom binds it for the default Phone app (only Telecom holds BIND_INCALL_SERVICE). -->
++        <service
++            android:name=".android.PhoneInCallService"
++            android:exported="true"
++            android:permission="android.permission.BIND_INCALL_SERVICE">
++            <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
++            <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="false" />
++            <intent-filter>
++                <action android:name="android.telecom.InCallService" />
++            </intent-filter>
++        </service>
++
++        <receiver
++            android:name=".android.CallActionReceiver"
++            android:exported="false" />
++
++        <!-- Only Telecom (MODIFY_PHONE_STATE) can hand over the missed call notification. -->
++        <receiver
++            android:name=".android.MissedCallReceiver"
++            android:exported="true"
++            android:permission="android.permission.MODIFY_PHONE_STATE">
++            <intent-filter>
++                <action android:name="android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION" />
++            </intent-filter>
++        </receiver>
++    </application>
++</manifest>
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/PhoneApplication.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/PhoneApplication.kt
+new file mode 100644
+index 0000000..fe6f977
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/PhoneApplication.kt
+@@ -0,0 +1,13 @@
++package org.sableos.phone
++
++import android.app.Application
++import org.sableos.phone.core.PhoneText
++import org.sableos.titan2.theme.bindTo
++
++/** Binds [PhoneText] to the app's string resources once per process, so the phone's language is used. */
++class PhoneApplication : Application() {
++    override fun onCreate() {
++        super.onCreate()
++        PhoneText.t.bindTo(this)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallActionReceiver.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallActionReceiver.kt
+new file mode 100644
+index 0000000..1f766ce
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallActionReceiver.kt
+@@ -0,0 +1,38 @@
++package org.sableos.phone.android
++
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
++
++/** Answer, Decline, Hang up and Call back from the call notifications. Not exported: only Sable Phone's own intents. */
++class CallActionReceiver : BroadcastReceiver() {
++    override fun onReceive(context: Context, intent: Intent) {
++        when (intent.action) {
++            ANSWER -> CallBook.ringing()?.let {
++                CallControl.answer(it)
++                val screen = Intent(
++                    context,
++                    InCallActivity::class.java
++                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++                context.startActivity(screen)
++            }
++
++            DECLINE -> CallBook.ringing()?.let(CallControl::decline)
++
++            HANG_UP -> CallBook.primary()?.let(CallControl::hangUp)
++
++            CALL_BACK -> intent.getStringExtra(EXTRA_NUMBER)?.let {
++                CallNotifications.missed(context, 0, "", "")
++                Dialing.call(context, it)
++            }
++        }
++    }
++
++    companion object {
++        const val ANSWER = "org.sableos.phone.action.ANSWER"
++        const val DECLINE = "org.sableos.phone.action.DECLINE"
++        const val HANG_UP = "org.sableos.phone.action.HANG_UP"
++        const val CALL_BACK = "org.sableos.phone.action.CALL_BACK"
++        const val EXTRA_NUMBER = "org.sableos.phone.extra.NUMBER"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallBook.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallBook.kt
+new file mode 100644
+index 0000000..45c3c53
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallBook.kt
+@@ -0,0 +1,140 @@
++package org.sableos.phone.android
++
++import android.telecom.Call
++import android.telecom.CallAudioState
++import android.telecom.InCallService
++import android.telecom.PhoneAccountHandle
++import android.telecom.VideoProfile
++
++/**
++ * The calls Telecom has given Sable Phone, kept by [PhoneInCallService] while Telecom has it bound, and read by
++ * the call screen and the notifications. Main thread only: Telecom calls back and the UI reads on the main looper.
++ */
++object CallBook {
++    fun interface Listener {
++        fun onCallsChanged()
++    }
++
++    private val listeners = linkedSetOf<Listener>()
++    private val callCallback = object : Call.Callback() {
++        override fun onStateChanged(call: Call, state: Int) = changed()
++
++        override fun onDetailsChanged(call: Call, details: Call.Details) = changed()
++
++        override fun onChildrenChanged(call: Call, children: MutableList<Call>) = changed()
++
++        override fun onConferenceableCallsChanged(
++            call: Call,
++            conferenceableCalls: MutableList<Call>
++        ) = changed()
++    }
++
++    var service: InCallService? = null
++        private set
++    val calls = mutableListOf<Call>()
++    var audio: CallAudioState? = null
++        private set
++
++    fun attach(s: InCallService?) {
++        service = s
++        if (s == null) {
++            calls.toList().forEach { it.unregisterCallback(callCallback) }
++            calls.clear()
++            audio = null
++        }
++        changed()
++    }
++
++    fun add(call: Call) {
++        call.registerCallback(callCallback)
++        calls += call
++        changed()
++    }
++
++    fun remove(call: Call) {
++        call.unregisterCallback(callCallback)
++        calls -= call
++        changed()
++    }
++
++    fun setAudio(state: CallAudioState?) {
++        audio = state
++        changed()
++    }
++
++    fun listen(l: Listener) {
++        listeners += l
++    }
++
++    fun unlisten(l: Listener) {
++        listeners -= l
++    }
++
++    private fun changed() = listeners.toList().forEach { it.onCallsChanged() }
++
++    /** Top-level calls (a conference's members are shown inside it). */
++    fun topLevel(): List<Call> = calls.filter { it.parent == null }
++
++    fun ringing(): Call? = topLevel().firstOrNull { it.details.state == Call.STATE_RINGING }
++
++    /** The call the screen is about: ringing first, then dialling or active, then on hold. */
++    fun primary(): Call? = topLevel().minByOrNull { order(it.details.state) }
++
++    fun other(primary: Call?): Call? =
++        topLevel().firstOrNull { it != primary && it.details.state != Call.STATE_DISCONNECTED }
++
++    private fun order(state: Int): Int = ORDER[state] ?: ORDER_LAST
++
++    private const val ORDER_LAST = 6
++    private val ORDER = mapOf(
++        Call.STATE_RINGING to 0,
++        Call.STATE_SIMULATED_RINGING to 0,
++        Call.STATE_SELECT_PHONE_ACCOUNT to 1,
++        Call.STATE_DIALING to 2,
++        Call.STATE_CONNECTING to 2,
++        Call.STATE_PULLING_CALL to 2,
++        Call.STATE_NEW to 2,
++        Call.STATE_ACTIVE to 3,
++        Call.STATE_HOLDING to 4,
++        Call.STATE_AUDIO_PROCESSING to 5
++    )
++}
++
++/** What the call screen, the notification buttons and the keys do to calls and to the call audio. */
++object CallControl {
++    fun answer(call: Call) = call.answer(VideoProfile.STATE_AUDIO_ONLY)
++
++    fun decline(call: Call) = call.reject(Call.REJECT_REASON_DECLINED)
++
++    fun hangUp(call: Call) = call.disconnect()
++
++    fun toggleHold(call: Call) {
++        if (call.details.state == Call.STATE_HOLDING) call.unhold() else call.hold()
++    }
++
++    fun chooseAccount(call: Call, account: PhoneAccountHandle) =
++        call.phoneAccountSelected(account, false)
++
++    // setMuted and setAudioRoute stay the simple way to switch an audio-only call.
++    @Suppress("DEPRECATION")
++    fun toggleMute() {
++        CallBook.service?.setMuted(CallBook.audio?.isMuted != true)
++    }
++
++    /** Speaker on or off. With Bluetooth among the routes the call screen offers the routes instead. */
++    @Suppress("DEPRECATION")
++    fun toggleSpeaker() {
++        val onSpeaker = CallBook.audio?.route == CallAudioState.ROUTE_SPEAKER
++        CallBook.service?.setAudioRoute(
++            if (onSpeaker) CallAudioState.ROUTE_WIRED_OR_EARPIECE else CallAudioState.ROUTE_SPEAKER
++        )
++    }
++
++    @Suppress("DEPRECATION")
++    fun setRoute(route: Int) {
++        CallBook.service?.setAudioRoute(route)
++    }
++
++    fun hasBluetooth(): Boolean =
++        (CallBook.audio?.supportedRouteMask ?: 0) and CallAudioState.ROUTE_BLUETOOTH != 0
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallInfo.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallInfo.kt
+new file mode 100644
+index 0000000..9d1a068
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallInfo.kt
+@@ -0,0 +1,66 @@
++package org.sableos.phone.android
++
++import android.content.Context
++import android.telecom.Call
++import android.telecom.TelecomManager
++import android.telephony.PhoneNumberUtils
++import android.telephony.TelephonyManager
++import java.util.Locale
++import org.sableos.phone.core.PhoneText.t
++
++/** Who a call is with and what state it is in, in the words the call screen and notifications use. */
++object CallInfo {
++    fun number(call: Call): String = call.details.handle?.schemeSpecificPart.orEmpty()
++
++    fun hidden(call: Call): Boolean =
++        call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED &&
++            number(call).isEmpty()
++
++    /** The contact's name, else the network's caller name, else the formatted number, else "Private number". */
++    fun name(context: Context, call: Call): String {
++        val d = call.details
++        if (d.hasProperty(Call.Details.PROPERTY_CONFERENCE)) return t("conference")
++        return d.contactDisplayName?.takeIf { it.isNotBlank() }
++            ?: d.callerDisplayName?.takeIf { it.isNotBlank() }
++            ?: formatted(context, number(call)).ifEmpty { t("private_number") }
++    }
++
++    /** The number under the name, when the name is a contact's; empty otherwise. */
++    fun subtitle(context: Context, call: Call): String {
++        val d = call.details
++        val n = number(call)
++        return if (!d.contactDisplayName.isNullOrBlank() &&
++            n.isNotEmpty()
++        ) {
++            formatted(context, n)
++        } else {
++            ""
++        }
++    }
++
++    fun formatted(context: Context, number: String): String {
++        if (number.isEmpty()) return ""
++        val iso = context.getSystemService(TelephonyManager::class.java)?.networkCountryIso
++            ?.uppercase(Locale.ROOT)?.ifEmpty { null } ?: Locale.getDefault().country
++        return PhoneNumberUtils.formatNumber(number, iso) ?: number
++    }
++
++    /** The line under the caller: "Calling…", "On hold", or empty while the timer shows. */
++    fun stateLabel(call: Call): String = when (call.details.state) {
++        Call.STATE_RINGING, Call.STATE_SIMULATED_RINGING -> t("incoming_call")
++
++        Call.STATE_DIALING, Call.STATE_CONNECTING, Call.STATE_NEW, Call.STATE_PULLING_CALL -> t(
++            "calling"
++        )
++
++        Call.STATE_HOLDING -> t("on_hold")
++
++        Call.STATE_DISCONNECTING -> t("ending")
++
++        Call.STATE_DISCONNECTED -> t("call_ended")
++
++        Call.STATE_SELECT_PHONE_ACCOUNT -> t("choose_sim")
++
++        else -> ""
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallNotifications.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallNotifications.kt
+new file mode 100644
+index 0000000..5930e77
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallNotifications.kt
+@@ -0,0 +1,158 @@
++package org.sableos.phone.android
++
++import android.app.Notification
++import android.app.NotificationChannel
++import android.app.NotificationManager
++import android.app.PendingIntent
++import android.app.Person
++import android.content.Context
++import android.content.Intent
++import android.telecom.Call
++import org.sableos.phone.R
++import org.sableos.phone.core.PhoneText.t
++
++/**
++ * The call notifications: the incoming call (heads-up with Answer and Decline, full screen when locked or asleep),
++ * the ongoing call (back to the call screen, Hang up) and missed calls. Telecom rings and vibrates itself, so the
++ * channels are silent.
++ */
++object CallNotifications {
++    private const val CHANNEL_INCOMING = "incoming"
++    private const val CHANNEL_ONGOING = "ongoing"
++    private const val CHANNEL_MISSED = "missed"
++    private const val ID_CALL = 1
++    private const val ID_MISSED = 2
++
++    private fun manager(context: Context): NotificationManager {
++        val nm = context.getSystemService(NotificationManager::class.java)
++        nm.createNotificationChannels(
++            listOf(
++                channel(
++                    CHANNEL_INCOMING,
++                    "channel_incoming",
++                    NotificationManager.IMPORTANCE_HIGH
++                ).apply {
++                    setSound(null, null)
++                    enableVibration(false)
++                },
++                channel(CHANNEL_ONGOING, "channel_ongoing", NotificationManager.IMPORTANCE_LOW),
++                channel(CHANNEL_MISSED, "channel_missed", NotificationManager.IMPORTANCE_DEFAULT)
++            )
++        )
++        return nm
++    }
++
++    private fun channel(id: String, name: String, importance: Int) =
++        NotificationChannel(id, t(name), importance)
++
++    /** Shows the notification for the current primary call, or removes it when there is none. */
++    fun update(context: Context) {
++        val call = CallBook.primary()?.takeIf { it.details.state != Call.STATE_DISCONNECTED }
++        if (call == null) {
++            cancelCall(context)
++            return
++        }
++        val nm = manager(context)
++        val ringing = call.details.state == Call.STATE_RINGING
++        nm.notify(ID_CALL, if (ringing) incoming(context, call) else ongoing(context, call))
++    }
++
++    fun cancelCall(context: Context) {
++        context.getSystemService(NotificationManager::class.java).cancel(ID_CALL)
++    }
++
++    private fun incoming(context: Context, call: Call): Notification {
++        val caller = Person.Builder().setName(
++            CallInfo.name(context, call)
++        ).setImportant(true).build()
++        return Notification.Builder(context, CHANNEL_INCOMING)
++            .setSmallIcon(R.drawable.ic_sable_phone_monochrome)
++            .setContentText(CallInfo.subtitle(context, call).ifEmpty { t("incoming_call") })
++            .setCategory(Notification.CATEGORY_CALL)
++            .setOngoing(true)
++            .setFullScreenIntent(callScreen(context), true)
++            .setContentIntent(callScreen(context))
++            .setStyle(
++                Notification.CallStyle.forIncomingCall(
++                    caller,
++                    action(context, CallActionReceiver.DECLINE),
++                    action(context, CallActionReceiver.ANSWER)
++                )
++            )
++            .build()
++    }
++
++    private fun ongoing(context: Context, call: Call): Notification {
++        val connected = call.details.connectTimeMillis
++        return Notification.Builder(context, CHANNEL_ONGOING)
++            .setSmallIcon(R.drawable.ic_sable_phone_monochrome)
++            .setContentTitle(CallInfo.name(context, call))
++            .setContentText(CallInfo.stateLabel(call).ifEmpty { t("ongoing_call") })
++            .setCategory(Notification.CATEGORY_CALL)
++            .setOngoing(true)
++            .setOnlyAlertOnce(true)
++            .setUsesChronometer(connected > 0 && call.details.state == Call.STATE_ACTIVE)
++            .setWhen(if (connected > 0) connected else System.currentTimeMillis())
++            .setShowWhen(connected > 0)
++            .setContentIntent(callScreen(context))
++            .addAction(
++                Notification.Action.Builder(
++                    null,
++                    t("hang_up"),
++                    action(context, CallActionReceiver.HANG_UP)
++                ).build()
++            )
++            .build()
++    }
++
++    /** "Missed call" from [who], or "N missed calls"; [count] 0 removes it. */
++    fun missed(context: Context, count: Int, who: String, number: String) {
++        val nm = manager(context)
++        if (count <= 0) {
++            nm.cancel(ID_MISSED)
++            return
++        }
++        val open = PendingIntent.getActivity(
++            context,
++            0,
++            Intent(context, PhoneActivity::class.java)
++                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
++            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
++        )
++        val builder = Notification.Builder(context, CHANNEL_MISSED)
++            .setSmallIcon(R.drawable.ic_sable_phone_monochrome)
++            .setContentTitle(if (count == 1) t("missed_call") else t("missed_calls", count))
++            .setContentText(who)
++            .setCategory(Notification.CATEGORY_MISSED_CALL)
++            .setNumber(count)
++            .setAutoCancel(true)
++            .setContentIntent(open)
++        if (count == 1 && number.isNotEmpty()) {
++            val callBack = PendingIntent.getBroadcast(
++                context,
++                1,
++                Intent(context, CallActionReceiver::class.java)
++                    .setAction(CallActionReceiver.CALL_BACK)
++                    .putExtra(CallActionReceiver.EXTRA_NUMBER, number),
++                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
++            )
++            builder.addAction(Notification.Action.Builder(null, t("call_back"), callBack).build())
++        }
++        nm.notify(ID_MISSED, builder.build())
++    }
++
++    private fun callScreen(context: Context): PendingIntent = PendingIntent.getActivity(
++        context,
++        0,
++        Intent(context, InCallActivity::class.java)
++            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
++        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
++    )
++
++    private fun action(context: Context, what: String): PendingIntent = PendingIntent.getBroadcast(
++        context,
++        what.hashCode(),
++        Intent(context, CallActionReceiver::class.java).setAction(what),
++        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
++    )
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/DialPadView.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/DialPadView.kt
+new file mode 100644
+index 0000000..7502988
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/DialPadView.kt
+@@ -0,0 +1,142 @@
++package org.sableos.phone.android
++
++import android.annotation.SuppressLint
++import android.content.Context
++import android.text.TextUtils
++import android.view.Gravity
++import android.widget.GridLayout
++import android.widget.LinearLayout
++import android.widget.TextView
++import org.sableos.phone.core.DialKeys
++import org.sableos.phone.core.PhoneSearch
++import org.sableos.phone.core.PhoneText.t
++
++/**
++ * The dial pad: the number, up to [MAX_SUGGESTIONS] matching contacts to call instead, the twelve keys (hold 1
++ * for voicemail, hold 0 for +) and Delete and Call. The hardware keys type into it through [type].
++ */
++@SuppressLint("ViewConstructor")
++class DialPadView(context: Context, private val ui: Ui, private val listener: Listener) :
++    LinearLayout(context) {
++    interface Listener {
++        fun onCall(number: String)
++
++        fun onNumberChanged(number: String)
++
++        fun onVoicemail()
++    }
++
++    private val display: TextView
++    private val suggestions: LinearLayout
++    var number: String = ""
++        private set
++
++    init {
++        orientation = VERTICAL
++        setPadding(ui.dp(Ui.PAD), 0, ui.dp(Ui.PAD), 0)
++        display = ui.text(NUMBER_SP, bold = true).apply {
++            gravity = Gravity.CENTER
++            maxLines = 1
++            ellipsize = TextUtils.TruncateAt.START
++            hint = t("enter_number")
++            setHintTextColor(ui.palette.muted)
++        }
++        addView(display)
++        suggestions = LinearLayout(context).apply { orientation = VERTICAL }
++        addView(suggestions)
++        val grid = GridLayout(context).apply { columnCount = COLUMNS }
++        "123456789*0#".forEach { c -> grid.addView(key(c), cell()) }
++        addView(grid)
++        val bottom = LinearLayout(context).apply { orientation = HORIZONTAL }
++        bottom.addView(
++            ui.button(t("delete"), ui.palette.surface, ui.palette.text) { backspace() }.apply {
++                setOnLongClickListener {
++                    setNumber("")
++                    true
++                }
++            },
++            LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = ui.dp(GAP) }
++        )
++        bottom.addView(
++            ui.button(t("call"), Ui.GREEN, Ui.ON_COLOR) { listener.onCall(number) },
++            LayoutParams(0, LayoutParams.WRAP_CONTENT, 2f)
++        )
++        val bottomParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
++        bottomParams.topMargin = ui.dp(GAP)
++        addView(bottom, bottomParams)
++    }
++
++    private fun key(c: Char): LinearLayout = LinearLayout(context).apply {
++        orientation = VERTICAL
++        gravity = Gravity.CENTER
++        isFocusable = true
++        isClickable = true
++        minimumHeight = ui.dp(KEY_HEIGHT)
++        background = ui.focusBackground(ui.palette.surface)
++        addView(ui.text(KEY_SP, bold = true, s = c.toString()).apply { gravity = Gravity.CENTER })
++        val letters = DialKeys.lettersFor(c)
++        if (letters.isNotEmpty()) {
++            addView(
++                ui.text(LETTERS_SP, ui.palette.muted, s = letters).apply {
++                    gravity =
++                        Gravity.CENTER
++                }
++            )
++        }
++        setOnClickListener { type(c) }
++        setOnLongClickListener {
++            when (c) {
++                '1' -> listener.onVoicemail()
++                '0' -> type('+')
++                else -> return@setOnLongClickListener false
++            }
++            true
++        }
++    }
++
++    private fun cell() = gridCell(ui, GAP)
++
++    fun type(c: Char) = setNumber(number + c)
++
++    fun backspace() = setNumber(number.dropLast(1))
++
++    fun setNumber(value: String) {
++        number = value.take(MAX_LENGTH)
++        display.text = number
++        listener.onNumberChanged(number)
++    }
++
++    /** The contacts whose numbers contain what is typed, each a row that calls that number. */
++    fun showSuggestions(people: List<PhoneSearch.Person>) {
++        suggestions.removeAllViews()
++        if (number.isEmpty()) return
++        people.take(MAX_SUGGESTIONS).forEach { p ->
++            val n =
++                p.numbers.firstOrNull { PhoneSearch.numberMatches(it, number) } ?: p.numbers.first()
++            suggestions.addView(
++                ui.text(
++                    Ui.SMALL_SP,
++                    s = t("suggestion", p.name, CallInfo.formatted(context, n))
++                ).apply {
++                    isFocusable = true
++                    isClickable = true
++                    maxLines = 1
++                    background = ui.focusBackground()
++                    setPadding(ui.dp(Ui.PAD), ui.dp(GAP / 2), ui.dp(Ui.PAD), ui.dp(GAP / 2))
++                    setOnClickListener { listener.onCall(n) }
++                }
++            )
++        }
++    }
++
++    private companion object {
++        const val COLUMNS = 3
++        const val GAP = 6
++        const val KEY_HEIGHT = 44
++        const val NUMBER_SP = 26f
++        const val KEY_SP = 20f
++        const val LETTERS_SP = 9f
++        const val MAX_LENGTH = 64
++        const val MAX_SUGGESTIONS = 2
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Dialing.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Dialing.kt
+new file mode 100644
+index 0000000..c999209
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Dialing.kt
+@@ -0,0 +1,69 @@
++package org.sableos.phone.android
++
++import android.content.Context
++import android.net.Uri
++import android.os.Bundle
++import android.telecom.TelecomManager
++import android.telephony.TelephonyManager
++import android.util.Log
++import android.widget.Toast
++import org.sableos.phone.core.CallFormat
++import org.sableos.phone.core.PhoneText.t
++import org.sableos.phone.core.SpecialCodes
++
++/** Placing calls through Telecom, and the dial pad codes Phone handles itself. */
++object Dialing {
++    /** Calls [raw] (cleaned to the dialled characters). False when there was nothing to call. */
++    fun call(context: Context, raw: String): Boolean {
++        val number = CallFormat.dialable(raw)
++        if (number.isEmpty()) return false
++        place(context, Uri.fromParts("tel", number, null))
++        return true
++    }
++
++    /** Calls voicemail on the default SIM. */
++    fun voicemail(context: Context) = place(context, Uri.fromParts("voicemail", "", null))
++
++    private fun place(context: Context, uri: Uri) {
++        val telecom = context.getSystemService(TelecomManager::class.java)
++        try {
++            telecom.placeCall(uri, Bundle())
++        } catch (e: SecurityException) {
++            // The call permission was refused: say so instead of failing silently.
++            Log.w(TAG, "placeCall refused", e)
++            Toast.makeText(context, t("needs_call_permission"), Toast.LENGTH_LONG).show()
++        }
++    }
++
++    /** Handles [typed] when it is a complete special code; true when it was one (the dial pad then clears). */
++    fun special(context: Context, typed: String): Boolean =
++        when (val code = SpecialCodes.parse(typed)) {
++            null -> false
++
++            SpecialCodes.Code.ShowImei -> {
++                Toast.makeText(context, imeis(context), Toast.LENGTH_LONG).show()
++                true
++            }
++
++            is SpecialCodes.Code.Secret -> {
++                runCatching {
++                    context.getSystemService(
++                        TelephonyManager::class.java
++                    ).sendDialerSpecialCode(code.code)
++                }
++                true
++            }
++        }
++
++    // READ_PRIVILEGED_PHONE_STATE, granted to the privileged app (privapp allowlist).
++    @Suppress("MissingPermission")
++    private fun imeis(context: Context): String {
++        val tm = context.getSystemService(TelephonyManager::class.java)
++        val lines = (0 until tm.activeModemCount).mapNotNull { slot ->
++            runCatching { tm.getImei(slot) }.getOrNull()?.let { t("imei_line", slot + 1, it) }
++        }
++        return lines.joinToString("\n").ifEmpty { t("imei_unavailable") }
++    }
++
++    private const val TAG = "SablePhone"
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/GridCells.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/GridCells.kt
+new file mode 100644
+index 0000000..ac8e630
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/GridCells.kt
+@@ -0,0 +1,13 @@
++package org.sableos.phone.android
++
++import android.widget.GridLayout
++
++/** An equal-width cell of a key grid, with [gap] dp between cells. */
++fun gridCell(ui: Ui, gap: Int): GridLayout.LayoutParams = GridLayout.LayoutParams(
++    GridLayout.spec(GridLayout.UNDEFINED, 1f),
++    GridLayout.spec(GridLayout.UNDEFINED, 1f)
++).apply {
++    width = 0
++    val half = ui.dp(gap) / 2
++    setMargins(half, half, half, half)
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
+new file mode 100644
+index 0000000..848e953
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
+@@ -0,0 +1,434 @@
++package org.sableos.phone.android
++
++import android.app.Activity
++import android.content.Intent
++import android.os.Bundle
++import android.os.Handler
++import android.os.Looper
++import android.telecom.Call
++import android.telecom.CallAudioState
++import android.telecom.PhoneAccountSuggestion
++import android.telecom.TelecomManager
++import android.view.Gravity
++import android.view.KeyEvent
++import android.view.View
++import android.widget.GridLayout
++import android.widget.LinearLayout
++import android.widget.TextView
++import org.sableos.phone.core.CallFormat
++import org.sableos.phone.core.DialKeys
++import org.sableos.phone.core.InCallKeys
++import org.sableos.phone.core.PhoneText.t
++import org.sableos.titan2.theme.SablePalette
++
++/**
++ * The call screen, BlackBerry 10 style: who and how long at the top, then either Answer and Decline for a ringing
++ * call or the in-call controls (mute, speaker, keypad, hold, add, merge or swap) over a red End button. Shown over
++ * the lock screen. Keys: Call or Space answers, End declines or hangs up, M S H D toggle mute, speaker, hold and
++ * the keypad; with the keypad open every dial key sends its tone.
++ */
++class InCallActivity :
++    Activity(),
++    CallBook.Listener {
++    private lateinit var ui: Ui
++    private lateinit var palette: SablePalette
++    private lateinit var state: TextView
++    private lateinit var name: TextView
++    private lateinit var number: TextView
++    private lateinit var timer: TextView
++    private lateinit var second: TextView
++    private lateinit var ringing: View
++    private lateinit var controls: View
++    private lateinit var accounts: LinearLayout
++    private lateinit var keypad: View
++    private lateinit var tones: TextView
++    private lateinit var hint: TextView
++    private lateinit var mute: TextView
++    private lateinit var speaker: TextView
++    private lateinit var hold: TextView
++    private lateinit var merge: TextView
++    private lateinit var answer: TextView
++    private val handler = Handler(Looper.getMainLooper())
++    private val tick = object : Runnable {
++        override fun run() {
++            showTimer()
++            handler.postDelayed(this, TICK_MS)
++        }
++    }
++    private var keypadOpen = false
++    private var answeredKey = -1
++    private var accountsFor: Call? = null
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        setShowWhenLocked(true)
++        setTurnScreenOn(true)
++        // The call screen is always dark, like the BlackBerry 10 one, with Sable Blue for the timer and focus.
++        palette = SablePalette.of(dark = true, accent = null)
++        palette.applyTo(this)
++        ui = Ui(this, palette)
++        keypadOpen = intent.getBooleanExtra(EXTRA_KEYPAD, false)
++        setContentView(build())
++    }
++
++    private fun build(): View {
++        val root = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            setBackgroundColor(palette.window)
++            setPadding(ui.dp(Ui.PAD), ui.dp(Ui.PAD), ui.dp(Ui.PAD), ui.dp(Ui.PAD))
++        }
++        state = ui.text(Ui.SMALL_SP, palette.muted).centered().also(root::addView)
++        name = ui.text(NAME_SP, bold = true).centered().apply { maxLines = 2 }.also(root::addView)
++        number = ui.text(Ui.BODY_SP, palette.muted).centered().also(root::addView)
++        timer = ui.text(Ui.BODY_SP, palette.accent).centered().also(root::addView)
++        second = ui.text(Ui.SMALL_SP, palette.muted).centered().apply {
++            isFocusable = true
++            isClickable = true
++            background = ui.focusBackground()
++            setOnClickListener { swap() }
++        }.also(root::addView)
++        root.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
++        accounts =
++            LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }.also(root::addView)
++        keypad = keypadView().also(root::addView)
++        ringing = ringingView().also(root::addView)
++        controls = controlsView().also(root::addView)
++        hint = ui.text(Ui.SMALL_SP, palette.muted).centered().also(root::addView)
++        return root
++    }
++
++    private fun TextView.centered(): TextView = apply { gravity = Gravity.CENTER_HORIZONTAL }
++
++    private fun ringingView(): View = LinearLayout(this).apply {
++        orientation = LinearLayout.HORIZONTAL
++        val decline = ui.button(t("decline"), Ui.RED, Ui.ON_COLOR) {
++            CallBook.ringing()?.let(CallControl::decline)
++        }
++        addView(decline, weighted())
++        answer =
++            ui.button(t("answer"), Ui.GREEN, Ui.ON_COLOR) {
++                CallBook.ringing()?.let(CallControl::answer)
++            }
++        addView(answer, weighted())
++    }
++
++    private fun controlsView(): View {
++        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
++        val grid = GridLayout(this).apply { columnCount = COLUMNS }
++        mute = toggle(t("mute")) { CallControl.toggleMute() }
++        speaker = toggle(t("speaker")) { speakerOrRoutes() }
++        val pad = toggle(t("keypad")) { setKeypad(!keypadOpen) }
++        hold = toggle(t("hold")) { CallBook.primary()?.let(CallControl::toggleHold) }
++        val add = toggle(t("add_call")) { addCall() }
++        merge = toggle(t("merge")) { mergeOrSwap() }
++        listOf(mute, speaker, pad, hold, add, merge).forEach { grid.addView(it, cell()) }
++        box.addView(grid)
++        box.addView(
++            ui.button(t("end_call"), Ui.RED, Ui.ON_COLOR) {
++                CallBook.primary()?.let(CallControl::hangUp)
++            },
++            fullWidth().apply { topMargin = ui.dp(GAP) }
++        )
++        return box
++    }
++
++    private fun keypadView(): View {
++        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
++        tones = ui.text(Ui.TITLE_SP, bold = true).centered().also(box::addView)
++        val grid = GridLayout(this).apply { columnCount = KEYPAD_COLUMNS }
++        "123456789*0#".forEach { c ->
++            grid.addView(
++                toggle(c.toString()) {
++                    CallBook.primary()?.let { call ->
++                        call.playDtmfTone(c)
++                        call.stopDtmfTone()
++                    }
++                    tones.append(c.toString())
++                },
++                cell()
++            )
++        }
++        box.addView(grid)
++        return box
++    }
++
++    private fun toggle(label: String, onClick: () -> Unit): TextView =
++        ui.text(Ui.BUTTON_SP, s = label).apply {
++            gravity = Gravity.CENTER
++            isFocusable = true
++            isClickable = true
++            minHeight = ui.dp(TOGGLE_HEIGHT)
++            background = ui.focusBackground(palette.surface)
++            setOnClickListener { onClick() }
++        }
++
++    private fun fullWidth() = LinearLayout.LayoutParams(
++        LinearLayout.LayoutParams.MATCH_PARENT,
++        LinearLayout.LayoutParams.WRAP_CONTENT
++    )
++
++    private fun weighted() =
++        LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
++            marginStart = ui.dp(GAP)
++            marginEnd = ui.dp(GAP)
++        }
++
++    private fun cell() = gridCell(ui, GAP)
++
++    override fun onStart() {
++        super.onStart()
++        CallBook.listen(this)
++        handler.post(tick)
++        show()
++    }
++
++    override fun onStop() {
++        CallBook.unlisten(this)
++        handler.removeCallbacks(tick)
++        super.onStop()
++    }
++
++    override fun onNewIntent(intent: Intent) {
++        super.onNewIntent(intent)
++        if (intent.getBooleanExtra(EXTRA_KEYPAD, false)) setKeypad(true)
++    }
++
++    override fun onCallsChanged() = show()
++
++    private fun show() {
++        val call = CallBook.primary()
++        if (call == null) {
++            state.text = t("call_ended")
++            handler.postDelayed({ if (CallBook.primary() == null) finish() }, END_LINGER_MS)
++            return
++        }
++        state.text = CallInfo.stateLabel(call)
++        name.text = CallInfo.name(this, call)
++        number.text = CallInfo.subtitle(this, call)
++        number.visibility = visibleIf(number.text.isNotEmpty())
++        showSecond(call)
++        showAccounts(call)
++        showPanels(call)
++        showToggles(call)
++        showTimer()
++    }
++
++    /** Answer and Decline while ringing, the SIM list while choosing, else the controls (and the keypad). */
++    private fun showPanels(call: Call) {
++        val s = call.details.state
++        val isRinging = s == Call.STATE_RINGING || s == Call.STATE_SIMULATED_RINGING
++        val busy = isRinging || s == Call.STATE_SELECT_PHONE_ACCOUNT
++        ringing.visibility = visibleIf(isRinging)
++        controls.visibility = visibleIf(!busy)
++        keypad.visibility = visibleIf(keypadOpen && !busy)
++        if (isRinging && currentFocus == null) answer.requestFocus()
++        hint.text = when {
++            isRinging -> t("hint_ringing")
++            keypadOpen -> t("hint_keypad")
++            else -> t("hint_call")
++        }
++    }
++
++    private fun visibleIf(shown: Boolean) = if (shown) View.VISIBLE else View.GONE
++
++    private fun showToggles(call: Call) {
++        val audio = CallBook.audio
++        mark(mute, audio?.isMuted == true)
++        speaker.text = if (CallControl.hasBluetooth()) t("audio") else t("speaker")
++        mark(speaker, audio?.route == CallAudioState.ROUTE_SPEAKER)
++        mark(hold, call.details.state == Call.STATE_HOLDING)
++        hold.isEnabled =
++            call.details.can(Call.Details.CAPABILITY_HOLD) ||
++            call.details.state == Call.STATE_HOLDING
++        val other = CallBook.other(call)
++        val canMerge = call.details.can(Call.Details.CAPABILITY_MERGE_CONFERENCE) ||
++            call.conferenceableCalls.isNotEmpty()
++        merge.text = if (canMerge || other == null) t("merge") else t("swap")
++        merge.isEnabled = canMerge || other != null
++    }
++
++    private fun mark(view: TextView, on: Boolean) {
++        view.setTextColor(if (on) palette.accent else palette.text)
++        view.isSelected = on
++    }
++
++    private fun showSecond(primary: Call) {
++        val other = CallBook.other(primary)
++        second.visibility = if (other == null) View.GONE else View.VISIBLE
++        if (other != null) {
++            val what = CallInfo.stateLabel(other).ifEmpty { t("ongoing_call") }
++            second.text = t("other_call", CallInfo.name(this, other), what)
++        }
++    }
++
++    private fun showTimer() {
++        val call = CallBook.primary()
++        val since = call?.details?.connectTimeMillis ?: 0
++        timer.text = if (call != null && since > 0 && call.details.state == Call.STATE_ACTIVE) {
++            CallFormat.duration((System.currentTimeMillis() - since) / MILLIS)
++        } else {
++            ""
++        }
++    }
++
++    /** Dual SIM with no default: the call waits until a SIM is chosen. */
++    private fun showAccounts(call: Call) {
++        val choosing = call.details.state == Call.STATE_SELECT_PHONE_ACCOUNT
++        accounts.visibility = if (choosing) View.VISIBLE else View.GONE
++        if (!choosing || accountsFor == call) return
++        accountsFor = call
++        accounts.removeAllViews()
++        val telecom = getSystemService(TelecomManager::class.java)
++        val suggested = call.details.intentExtras
++            ?.getParcelableArrayList(
++                Call.EXTRA_SUGGESTED_PHONE_ACCOUNTS,
++                PhoneAccountSuggestion::class.java
++            )
++            ?.map { it.phoneAccountHandle }
++        val handles = suggested?.takeIf { it.isNotEmpty() }
++            ?: runCatching { telecom.callCapablePhoneAccounts }.getOrNull().orEmpty()
++        handles.forEach { h ->
++            val label =
++                runCatching { telecom.getPhoneAccount(h)?.label?.toString() }.getOrNull()
++                    ?: t("sim")
++            accounts.addView(toggle(label) { CallControl.chooseAccount(call, h) }, fullWidth())
++        }
++        accounts.addView(ui.button(t("cancel"), Ui.RED, Ui.ON_COLOR) { CallControl.hangUp(call) })
++        accounts.getChildAt(0)?.requestFocus()
++    }
++
++    private fun setKeypad(open: Boolean) {
++        keypadOpen = open
++        if (!open) tones.text = ""
++        show()
++    }
++
++    private fun speakerOrRoutes() {
++        if (!CallControl.hasBluetooth()) {
++            CallControl.toggleSpeaker()
++            return
++        }
++        val routes = listOf(
++            CallAudioState.ROUTE_WIRED_OR_EARPIECE to t("route_phone"),
++            CallAudioState.ROUTE_SPEAKER to t("speaker"),
++            CallAudioState.ROUTE_BLUETOOTH to t("route_bluetooth")
++        )
++        android.app.AlertDialog.Builder(this)
++            .setTitle(t("audio"))
++            .setItems(
++                routes.map {
++                    it.second
++                }.toTypedArray()
++            ) { _, i -> CallControl.setRoute(routes[i].first) }
++            .show()
++    }
++
++    private fun addCall() {
++        startActivity(
++            Intent(this, PhoneActivity::class.java).setAction(PhoneActivity.ACTION_ADD_CALL)
++        )
++    }
++
++    private fun mergeOrSwap() {
++        val call = CallBook.primary() ?: return
++        when {
++            call.details.can(Call.Details.CAPABILITY_MERGE_CONFERENCE) -> call.mergeConference()
++
++            call.conferenceableCalls.isNotEmpty() -> call.conference(
++                call.conferenceableCalls.first()
++            )
++
++            else -> swap()
++        }
++    }
++
++    private fun swap() {
++        val call = CallBook.primary() ?: return
++        if (call.details.can(Call.Details.CAPABILITY_SWAP_CONFERENCE)) {
++            call.swapConference()
++        } else {
++            CallBook.other(call)?.unhold()
++        }
++    }
++
++    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
++        // The repeats and release of the press that answered never reach the controls that replace Answer.
++        val swallowed = event.keyCode == answeredKey
++        if (swallowed && event.action == KeyEvent.ACTION_UP) answeredKey = -1
++        return swallowed || (event.action == KeyEvent.ACTION_DOWN && handleKey(event)) ||
++            super.dispatchKeyEvent(event)
++    }
++
++    private fun handleKey(event: KeyEvent): Boolean {
++        val ringingCall = CallBook.ringing()
++        val screen = InCallKeys.Screen(
++            ringing = ringingCall != null && CallBook.primary() == ringingCall,
++            keypadOpen = keypadOpen,
++            spaceAnswers = PhoneSettings(this).spaceAnswers
++        )
++        val action = InCallKeys.decide(event.keyCode, event.metaState, event.repeatCount, screen)
++        val call = CallBook.primary()
++        when (action) {
++            InCallKeys.Action.ANSWER -> ringingCall?.let {
++                answeredKey = event.keyCode
++                CallControl.answer(it)
++            }
++
++            InCallKeys.Action.DECLINE -> ringingCall?.let(CallControl::decline)
++
++            InCallKeys.Action.HANG_UP -> call?.let(CallControl::hangUp)
++
++            InCallKeys.Action.MUTE -> CallControl.toggleMute()
++
++            InCallKeys.Action.SPEAKER -> speakerOrRoutes()
++
++            InCallKeys.Action.HOLD -> call?.let(CallControl::toggleHold)
++
++            InCallKeys.Action.KEYPAD -> setKeypad(true)
++
++            InCallKeys.Action.NONE -> return keypadTone(event)
++        }
++        return true
++    }
++
++    /** With the keypad open, a dial key (W E R = 1 2 3 on the phone pad) sends its tone. Back closes the keypad. */
++    private fun keypadTone(event: KeyEvent): Boolean {
++        val c = DialKeys.dialChar(
++            event.keyCode,
++            event.unicodeChar,
++            event.number.code,
++            event.metaState,
++            true
++        )
++            ?.takeIf { it != '+' }
++        if (!keypadOpen) return false
++        val back = event.keyCode == KeyEvent.KEYCODE_BACK
++        if (back) {
++            setKeypad(false)
++        } else if (c != null && event.repeatCount == 0) {
++            tone(c)
++        }
++        return back || c != null
++    }
++
++    private fun tone(c: Char) {
++        CallBook.primary()?.let { call ->
++            call.playDtmfTone(c)
++            handler.postDelayed({ call.stopDtmfTone() }, TONE_MS)
++        }
++        tones.append(c.toString())
++    }
++
++    companion object {
++        const val EXTRA_KEYPAD = "org.sableos.phone.extra.KEYPAD"
++        private const val NAME_SP = 28f
++        private const val COLUMNS = 3
++        private const val KEYPAD_COLUMNS = 3
++        private const val TOGGLE_HEIGHT = 44
++        private const val GAP = 8
++        private const val TICK_MS = 1000L
++        private const val MILLIS = 1000L
++        private const val TONE_MS = 150L
++        private const val END_LINGER_MS = 1200L
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/MissedCallReceiver.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/MissedCallReceiver.kt
+new file mode 100644
+index 0000000..e26ddaa
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/MissedCallReceiver.kt
+@@ -0,0 +1,28 @@
++package org.sableos.phone.android
++
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
++import android.telecom.TelecomManager
++
++/**
++ * Telecom hands the missed call notification to the default Phone app (ACTION_SHOW_MISSED_CALLS_NOTIFICATION),
++ * so it comes from Sable Phone and Sable Start's Hub bar opens the Calls tab for it. Only Telecom can send it:
++ * the receiver requires MODIFY_PHONE_STATE.
++ */
++class MissedCallReceiver : BroadcastReceiver() {
++    override fun onReceive(context: Context, intent: Intent) {
++        if (intent.action != TelecomManager.ACTION_SHOW_MISSED_CALLS_NOTIFICATION) return
++        val count = intent.getIntExtra(TelecomManager.EXTRA_NOTIFICATION_COUNT, 0)
++        val number = intent.getStringExtra(TelecomManager.EXTRA_NOTIFICATION_PHONE_NUMBER).orEmpty()
++        val pending = goAsync()
++        Thread {
++            try {
++                val who = PhoneData(context).nameFor(number) ?: CallInfo.formatted(context, number)
++                CallNotifications.missed(context, count, who, number)
++            } finally {
++                pending.finish()
++            }
++        }.start()
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt
+new file mode 100644
+index 0000000..c96100b
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt
+@@ -0,0 +1,581 @@
++package org.sableos.phone.android
++
++import android.Manifest
++import android.app.Activity
++import android.app.AlertDialog
++import android.app.role.RoleManager
++import android.content.ClipData
++import android.content.ClipboardManager
++import android.content.Intent
++import android.content.pm.PackageManager
++import android.database.ContentObserver
++import android.net.Uri
++import android.os.Bundle
++import android.os.Handler
++import android.os.Looper
++import android.provider.CallLog
++import android.provider.ContactsContract
++import android.telecom.TelecomManager
++import android.text.Editable
++import android.text.TextWatcher
++import android.view.KeyEvent
++import android.view.View
++import android.view.inputmethod.EditorInfo
++import android.widget.EditText
++import android.widget.LinearLayout
++import android.widget.ListView
++import android.widget.TextView
++import java.util.concurrent.Executors
++import org.sableos.phone.core.CallHistory
++import org.sableos.phone.core.DialKeys
++import org.sableos.phone.core.PhoneSearch
++import org.sableos.phone.core.PhoneText.t
++import org.sableos.titan2.theme.SablePalette
++
++/**
++ * Sable Phone's main screen, BlackBerry 10 style: Calls (by day), Contacts and Dial pad tabs on a 720x720 display,
++ * all driven from the keyboard and trackpad. Letters find contacts and calls, digits open the dial pad, holding a
++ * letter speed dials it, the Call key calls the focused row or what is typed (an empty dial pad fills in the last
++ * number called), and Menu opens speed dial and settings.
++ */
++class PhoneActivity : Activity() {
++    private lateinit var ui: Ui
++    private lateinit var palette: SablePalette
++    private lateinit var settings: PhoneSettings
++    private lateinit var tabs: List<TextView>
++    private lateinit var search: EditText
++    private lateinit var list: ListView
++    private lateinit var adapter: PhoneListAdapter
++    private lateinit var dialPad: DialPadView
++    private lateinit var banner: TextView
++    private lateinit var hint: TextView
++    private val handler = Handler(Looper.getMainLooper())
++    private val io = Executors.newSingleThreadExecutor()
++    private var calls: List<CallHistory.Call> = emptyList()
++    private var people: List<PhoneSearch.Person> = emptyList()
++    private var hideNames = false
++    private var tab = TAB_CALLS
++    private var pendingLetter: Char? = null
++    private var speedDialed = false
++    private val observer = object : ContentObserver(handler) {
++        override fun onChange(selfChange: Boolean) = load()
++    }
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        palette = SablePalette.read(this).also { it.applyTo(this) }
++        ui = Ui(this, palette)
++        settings = PhoneSettings(this)
++        setContentView(build())
++        askPermissions()
++        handle(intent, savedInstanceState == null)
++    }
++
++    private fun build(): View {
++        val root = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            setBackgroundColor(palette.window)
++        }
++        val bar = LinearLayout(this).apply {
++            orientation = LinearLayout.HORIZONTAL
++            setPadding(ui.dp(Ui.PAD / 2), ui.dp(Ui.PAD / 2), ui.dp(Ui.PAD / 2), 0)
++        }
++        tabs = listOf(t("tab_calls"), t("tab_contacts"), t("tab_dial_pad")).mapIndexed { i, label ->
++            ui.text(Ui.BODY_SP, bold = true, s = label).apply {
++                gravity = android.view.Gravity.CENTER
++                isFocusable = true
++                isClickable = true
++                background = ui.focusBackground()
++                setPadding(0, ui.dp(TAB_PAD), 0, ui.dp(TAB_PAD))
++                setOnClickListener { showTab(i) }
++            }.also {
++                bar.addView(
++                    it,
++                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
++                )
++            }
++        }
++        root.addView(bar)
++        banner = ui.text(Ui.SMALL_SP, palette.onAccent, s = t("make_default")).apply {
++            isFocusable = true
++            isClickable = true
++            background = ui.box(palette.accent, palette.accent)
++            setPadding(ui.dp(Ui.PAD), ui.dp(TAB_PAD), ui.dp(Ui.PAD), ui.dp(TAB_PAD))
++            setOnClickListener { askRole() }
++        }
++        root.addView(banner, margins())
++        search = searchField()
++        root.addView(search, margins())
++        adapter = PhoneListAdapter(this, ui)
++        list = listView()
++        root.addView(list, LinearLayout.LayoutParams(MATCH, 0, 1f))
++        dialPad = DialPadView(this, ui, dialListener)
++        root.addView(dialPad, LinearLayout.LayoutParams(MATCH, 0, 1f))
++        hint = ui.text(Ui.SMALL_SP, palette.muted)
++        hint.setPadding(ui.dp(Ui.PAD), 0, ui.dp(Ui.PAD), ui.dp(Ui.PAD / 2))
++        root.addView(hint)
++        return root
++    }
++
++    private fun searchField(): EditText = EditText(this).apply {
++        hint = t("search_hint")
++        isSingleLine = true
++        imeOptions = EditorInfo.IME_ACTION_SEARCH
++        setTextColor(palette.text)
++        setHintTextColor(palette.muted)
++        background = ui.focusBackground(palette.surface)
++        setPadding(ui.dp(Ui.PAD), ui.dp(TAB_PAD), ui.dp(Ui.PAD), ui.dp(TAB_PAD))
++        addTextChangedListener(object : TextWatcher {
++            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) =
++                Unit
++
++            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
++
++            override fun afterTextChanged(s: Editable?) = refresh()
++        })
++    }
++
++    private fun listView(): ListView = ListView(this).apply {
++        this.adapter = this@PhoneActivity.adapter
++        divider = null
++        itemsCanFocus = false
++        selector = ui.focusBackground()
++        setOnItemClickListener { _, _, position, _ ->
++            callItem(this@PhoneActivity.adapter.getItem(position))
++        }
++        setOnItemLongClickListener { _, _, position, _ ->
++            actions(this@PhoneActivity.adapter.getItem(position))
++            true
++        }
++    }
++
++    private fun margins() = LinearLayout.LayoutParams(MATCH, WRAP).apply {
++        setMargins(ui.dp(Ui.PAD), ui.dp(Ui.PAD / 2), ui.dp(Ui.PAD), 0)
++    }
++
++    private val dialListener = object : DialPadView.Listener {
++        override fun onCall(number: String) {
++            if (number.isEmpty()) {
++                val last = calls.firstOrNull {
++                    it.kind == CallHistory.Kind.OUTGOING &&
++                        it.number.isNotEmpty()
++                }
++                last?.let { dialPad.setNumber(it.number) }
++            } else if (Dialing.call(this@PhoneActivity, number)) {
++                dialPad.setNumber("")
++            }
++        }
++
++        override fun onNumberChanged(number: String) {
++            if (Dialing.special(this@PhoneActivity, number)) {
++                dialPad.setNumber("")
++                return
++            }
++            dialPad.showSuggestions(
++                if (number.isEmpty()) emptyList() else PhoneSearch.find(people, number)
++            )
++        }
++
++        override fun onVoicemail() = Dialing.voicemail(this@PhoneActivity)
++    }
++
++    override fun onNewIntent(intent: Intent) {
++        super.onNewIntent(intent)
++        setIntent(intent)
++        handle(intent, true)
++    }
++
++    /** Dial intents (tel: links) open the dial pad with the number; nothing another app sends places a call. */
++    private fun handle(intent: Intent, fresh: Boolean) {
++        val number = intent.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart
++        when (intent.action) {
++            Intent.ACTION_DIAL, Intent.ACTION_VIEW, ACTION_ADD_CALL -> {
++                showTab(TAB_DIAL)
++                dialPad.setNumber(number.orEmpty())
++            }
++
++            else -> if (fresh) showTab(settings.tab.coerceIn(TAB_CALLS, TAB_DIAL)) else showTab(tab)
++        }
++    }
++
++    override fun onResume() {
++        super.onResume()
++        banner.visibility = if (isDefaultPhone()) View.GONE else View.VISIBLE
++        contentResolver.registerContentObserver(CallLog.Calls.CONTENT_URI, true, observer)
++        contentResolver.registerContentObserver(
++            ContactsContract.Contacts.CONTENT_URI,
++            true,
++            observer
++        )
++        load()
++    }
++
++    override fun onPause() {
++        contentResolver.unregisterContentObserver(observer)
++        super.onPause()
++    }
++
++    override fun onDestroy() {
++        io.shutdownNow()
++        super.onDestroy()
++    }
++
++    private fun load() {
++        val data = PhoneData(this)
++        io.execute {
++            val c = if (granted(Manifest.permission.READ_CALL_LOG)) data.calls() else emptyList()
++            val p = if (granted(Manifest.permission.READ_CONTACTS)) data.people() else emptyList()
++            val hidden = data.privateMode()
++            handler.post {
++                calls = c
++                people = p
++                hideNames = hidden
++                refresh()
++            }
++        }
++    }
++
++    private fun showTab(index: Int) {
++        tab = index
++        settings.tab = index
++        tabs.forEachIndexed { i, v ->
++            v.setTextColor(
++                if (i ==
++                    index
++                ) {
++                    palette.accent
++                } else {
++                    palette.muted
++                }
++            )
++        }
++        val dial = index == TAB_DIAL
++        dialPad.visibility = if (dial) View.VISIBLE else View.GONE
++        list.visibility = if (dial) View.GONE else View.VISIBLE
++        search.visibility = if (dial) View.GONE else View.VISIBLE
++        hint.text = when (index) {
++            TAB_CALLS -> t("hint_calls")
++            TAB_CONTACTS -> t("hint_contacts")
++            else -> t("hint_dial_pad")
++        }
++        if (index == TAB_CALLS) clearMissed()
++        refresh()
++        if (dial) dialPad.requestFocus() else list.requestFocus()
++    }
++
++    private fun refresh() {
++        if (!::adapter.isInitialized) return
++        val query = search.text.toString().trim()
++        adapter.items = when {
++            query.isNotEmpty() -> searchItems(query)
++
++            tab == TAB_CONTACTS -> people.sortedBy {
++                it.name.lowercase()
++            }.map { PhoneListAdapter.Item.PersonRow(it) }
++
++            else -> callItems(calls)
++        }
++    }
++
++    private fun callItems(source: List<CallHistory.Call>): List<PhoneListAdapter.Item> {
++        val today = java.time.LocalDate.now().toEpochDay()
++        return CallHistory.group(source, today).flatMap { section ->
++            val title = PhoneListAdapter.dayTitle(
++                this,
++                section,
++                section.rows.first().latest.timeMillis
++            )
++            val rows = section.rows.map { PhoneListAdapter.Item.CallRow(it, hideNames) }
++            listOf(PhoneListAdapter.Item.Header(title)) + rows
++        }
++    }
++
++    /** Contacts that match, then the calls that match, each under its header. */
++    private fun searchItems(query: String): List<PhoneListAdapter.Item> {
++        val matches = PhoneSearch.find(people, query).take(MAX_PEOPLE).map {
++            PhoneListAdapter.Item.PersonRow(it)
++        }
++        val matchingCalls = if (tab == TAB_CONTACTS) {
++            emptyList()
++        } else {
++            calls.filter { c ->
++                if (PhoneSearch.isNumberQuery(query)) {
++                    PhoneSearch.numberMatches(c.number, query)
++                } else {
++                    !hideNames && c.name?.contains(query, ignoreCase = true) == true
++                }
++            }
++        }
++        val out = mutableListOf<PhoneListAdapter.Item>()
++        if (matches.isNotEmpty()) {
++            out +=
++                listOf(PhoneListAdapter.Item.Header(t("tab_contacts"))) + matches
++        }
++        if (matchingCalls.isNotEmpty()) out += callItems(matchingCalls)
++        if (out.isEmpty()) out += PhoneListAdapter.Item.Header(t("no_matches"))
++        return out
++    }
++
++    private fun numberOf(item: PhoneListAdapter.Item?): String? = when (item) {
++        is PhoneListAdapter.Item.CallRow -> item.row.latest.number.takeIf {
++            it.isNotEmpty() &&
++                !item.row.latest.hidden
++        }
++
++        is PhoneListAdapter.Item.PersonRow -> item.person.numbers.first()
++
++        else -> null
++    }
++
++    private fun callItem(item: PhoneListAdapter.Item?) {
++        if (item is PhoneListAdapter.Item.PersonRow && item.person.numbers.size > 1) {
++            AlertDialog.Builder(this)
++                .setTitle(item.person.name)
++                .setItems(
++                    item.person.numbers.map {
++                        CallInfo.formatted(this, it)
++                    }.toTypedArray()
++                ) { _, i ->
++                    Dialing.call(this, item.person.numbers[i])
++                }
++                .show()
++            return
++        }
++        numberOf(item)?.let { Dialing.call(this, it) }
++    }
++
++    /** Call, message, add to contacts, copy, and for calls, remove from the list. */
++    private fun actions(item: PhoneListAdapter.Item?) {
++        val number = numberOf(item) ?: return
++        val options = mutableListOf<Pair<String, () -> Unit>>(
++            t("call") to { Dialing.call(this, number) },
++            t("send_message") to
++                { open(Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null))) },
++            t("edit_before_call") to {
++                showTab(TAB_DIAL)
++                dialPad.setNumber(number)
++            },
++            t("copy_number") to {
++                getSystemService(
++                    ClipboardManager::class.java
++                ).setPrimaryClip(ClipData.newPlainText(number, number))
++            }
++        )
++        if (item is PhoneListAdapter.Item.CallRow) {
++            if (item.row.latest.name == null) {
++                options += t("add_contact") to {
++                    open(
++                        Intent(ContactsContract.Intents.Insert.ACTION)
++                            .setType(ContactsContract.RawContacts.CONTENT_TYPE)
++                            .putExtra(ContactsContract.Intents.Insert.PHONE, number)
++                    )
++                }
++            }
++            options += t("remove_from_calls") to {
++                val ids = item.row.calls.map { it.id }
++                io.execute { PhoneData(this).deleteCalls(ids) }
++            }
++        }
++        AlertDialog.Builder(this)
++            .setTitle(CallInfo.formatted(this, number))
++            .setItems(options.map { it.first }.toTypedArray()) { _, i -> options[i].second() }
++            .show()
++    }
++
++    private fun open(intent: Intent) {
++        runCatching { startActivity(intent) }
++    }
++
++    private fun menu() {
++        val telecom = getSystemService(TelecomManager::class.java)
++        val options = listOf<Pair<String, () -> Unit>>(
++            t("speed_dial") to { open(Intent(this, SpeedDialActivity::class.java)) },
++            (if (settings.spaceAnswers) t("space_answers_on") else t("space_answers_off")) to {
++                settings.spaceAnswers = !settings.spaceAnswers
++            },
++            t("blocked_numbers") to { open(telecom.createManageBlockedNumbersIntent()) },
++            t("call_settings") to { open(Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS)) },
++            t("sim_settings") to { open(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
++        )
++        AlertDialog.Builder(this)
++            .setTitle(t("app_title"))
++            .setItems(options.map { it.first }.toTypedArray()) { _, i -> options[i].second() }
++            .show()
++    }
++
++    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
++        val handled = when (event.action) {
++            KeyEvent.ACTION_DOWN -> keyDown(event)
++            KeyEvent.ACTION_UP -> keyUp(event)
++            else -> false
++        }
++        return handled || super.dispatchKeyEvent(event)
++    }
++
++    @Suppress("CyclomaticComplexMethod", "ReturnCount")
++    private fun keyDown(e: KeyEvent): Boolean {
++        val code = e.keyCode
++        if (code == KeyEvent.KEYCODE_MENU && e.repeatCount == 0) {
++            menu()
++            return true
++        }
++        if (code == DialKeys.KEYCODE_CALL) {
++            if (e.repeatCount == 0) callKey()
++            return true
++        }
++        if (tab == TAB_DIAL) return dialKey(e)
++        // Holding a letter speed dials it: the first press waits, the first repeat (the long-press) dials.
++        val searching = search.text.isNotEmpty() || search.hasFocus()
++        val letter = DialKeys.letterFor(code)?.takeIf {
++            e.metaState and DialKeys.CHORD_META == 0 &&
++                !searching
++        }
++        if (letter != null) {
++            if (e.repeatCount == 0) {
++                pendingLetter = letter
++                speedDialed = false
++            } else if (DialKeys.heldLetter(code, e.metaState, e.repeatCount) == letter &&
++                pendingLetter == letter
++            ) {
++                speedDialed = true
++                speedDial(letter)
++            }
++            return true
++        }
++        if (!search.hasFocus() &&
++            DialKeys.opensDialPad(code, e.unicodeChar, e.metaState, e.repeatCount)
++        ) {
++            DialKeys.dialChar(
++                code,
++                e.unicodeChar,
++                e.number.code,
++                e.metaState,
++                dialScreen = false
++            )?.let {
++                showTab(TAB_DIAL)
++                dialPad.setNumber(it.toString())
++            }
++            return true
++        }
++        return false
++    }
++
++    private fun keyUp(e: KeyEvent): Boolean {
++        val letter = pendingLetter?.takeIf { DialKeys.letterFor(e.keyCode) == it } ?: return false
++        pendingLetter = null
++        if (!speedDialed) {
++            // A short press: the letter starts a search.
++            search.requestFocus()
++            search.append(letter.toString())
++        }
++        return true
++    }
++
++    /** Delete (hold to clear), Enter calls, and every dial key types; holding 0 makes it +. */
++    private fun dialKey(e: KeyEvent): Boolean {
++        val c = DialKeys.dialChar(
++            e.keyCode,
++            e.unicodeChar,
++            e.number.code,
++            e.metaState,
++            dialScreen = true
++        )
++        val onKey = dialPad.findFocus() !is TextView
++        val enterCalls = e.keyCode == KeyEvent.KEYCODE_ENTER && dialPad.number.isNotEmpty() && onKey
++        when {
++            e.keyCode == KeyEvent.KEYCODE_DEL -> when (e.repeatCount) {
++                0 -> dialPad.backspace()
++                1 -> dialPad.setNumber("")
++            }
++
++            enterCalls -> dialListener.onCall(dialPad.number)
++
++            c == null -> return false
++
++            e.repeatCount == 0 -> dialPad.type(c)
++
++            e.repeatCount == 1 && c == '0' -> dialPad.setNumber(dialPad.number.dropLast(1) + '+')
++        }
++        return true
++    }
++
++    /** The green key calls the focused row, else what the dial pad holds (an empty one fills in the last number). */
++    private fun callKey() {
++        if (tab == TAB_DIAL) {
++            dialListener.onCall(dialPad.number)
++            return
++        }
++        val position = list.selectedItemPosition
++        if (position >= 0 && position < adapter.count) {
++            callItem(adapter.getItem(position))
++        } else {
++            showTab(TAB_DIAL)
++        }
++    }
++
++    private fun speedDial(letter: Char) {
++        val entry = SpeedDialStore(this).get(letter)
++        if (entry !=
++            null
++        ) {
++            Dialing.call(this, entry.number)
++        } else {
++            startActivity(SpeedDialActivity.assign(this, letter))
++        }
++    }
++
++    private fun clearMissed() {
++        runCatching { getSystemService(TelecomManager::class.java).cancelMissedCallsNotification() }
++        io.execute { PhoneData(this).markMissedSeen() }
++    }
++
++    private fun isDefaultPhone(): Boolean =
++        getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_DIALER) == true
++
++    private fun askRole() {
++        val roles = getSystemService(RoleManager::class.java) ?: return
++        if (roles.isRoleAvailable(RoleManager.ROLE_DIALER)) {
++            @Suppress("DEPRECATION")
++            startActivityForResult(
++                roles.createRequestRoleIntent(RoleManager.ROLE_DIALER),
++                REQUEST_ROLE
++            )
++        }
++    }
++
++    private fun askPermissions() {
++        val missing = PERMISSIONS.filterNot(::granted)
++        if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), REQUEST_PERMISSIONS)
++    }
++
++    override fun onRequestPermissionsResult(
++        requestCode: Int,
++        permissions: Array<out String>,
++        grantResults: IntArray
++    ) {
++        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
++        load()
++    }
++
++    private fun granted(p: String) = checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
++
++    companion object {
++        const val ACTION_ADD_CALL = "org.sableos.phone.action.ADD_CALL"
++        private const val MATCH = LinearLayout.LayoutParams.MATCH_PARENT
++        private const val WRAP = LinearLayout.LayoutParams.WRAP_CONTENT
++        private const val TAB_CALLS = 0
++        private const val TAB_CONTACTS = 1
++        private const val TAB_DIAL = 2
++        private const val TAB_PAD = 8
++        private const val MAX_PEOPLE = 20
++        private const val REQUEST_ROLE = 1
++        private const val REQUEST_PERMISSIONS = 2
++        private val PERMISSIONS = listOf(
++            Manifest.permission.READ_CALL_LOG,
++            Manifest.permission.READ_CONTACTS,
++            Manifest.permission.CALL_PHONE,
++            Manifest.permission.READ_PHONE_STATE,
++            Manifest.permission.POST_NOTIFICATIONS
++        )
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneData.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneData.kt
+new file mode 100644
+index 0000000..335d7fd
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneData.kt
+@@ -0,0 +1,165 @@
++package org.sableos.phone.android
++
++import android.content.ContentValues
++import android.content.Context
++import android.net.Uri
++import android.provider.CallLog
++import android.provider.ContactsContract
++import android.provider.ContactsContract.CommonDataKinds.Phone
++import java.time.Instant
++import java.time.ZoneId
++import org.sableos.phone.core.CallHistory
++import org.sableos.phone.core.PhoneSearch
++
++/**
++ * Reads the call log and the contacts' phone numbers from their providers. No copy is kept: every screen load
++ * queries again, bounded by [MAX_CALLS] and [MAX_NUMBERS]. Call off the main thread.
++ */
++class PhoneData(private val context: Context) {
++    private val resolver = context.contentResolver
++
++    fun calls(): List<CallHistory.Call> {
++        val zone = ZoneId.systemDefault()
++        val projection = arrayOf(
++            CallLog.Calls._ID,
++            CallLog.Calls.NUMBER,
++            CallLog.Calls.CACHED_NAME,
++            CallLog.Calls.TYPE,
++            CallLog.Calls.DATE,
++            CallLog.Calls.DURATION,
++            CallLog.Calls.NUMBER_PRESENTATION
++        )
++        val out = mutableListOf<CallHistory.Call>()
++        runCatching {
++            resolver.query(
++                CallLog.Calls.CONTENT_URI.buildUpon()
++                    .appendQueryParameter(CallLog.Calls.LIMIT_PARAM_KEY, MAX_CALLS.toString())
++                    .build(),
++                projection,
++                null,
++                null,
++                "${CallLog.Calls.DATE} DESC"
++            )?.use { c ->
++                while (c.moveToNext()) {
++                    val time = c.getLong(DATE)
++                    out += CallHistory.Call(
++                        id = c.getLong(ID),
++                        number = c.getString(NUMBER).orEmpty(),
++                        name = c.getString(NAME)?.takeIf { it.isNotBlank() },
++                        kind = CallHistory.kindOf(c.getInt(TYPE)),
++                        timeMillis = time,
++                        durationSeconds = c.getLong(DURATION),
++                        day = Instant.ofEpochMilli(time).atZone(zone).toLocalDate().toEpochDay(),
++                        hidden = c.getInt(PRESENTATION) != CallLog.Calls.PRESENTATION_ALLOWED
++                    )
++                }
++            }
++        }
++        return out
++    }
++
++    /** Every contact with a phone number: name, numbers (the default first) and starred. */
++    fun people(): List<PhoneSearch.Person> {
++        val byContact = linkedMapOf<Long, PhoneSearch.Person>()
++        runCatching {
++            resolver.query(
++                Phone.CONTENT_URI,
++                arrayOf(Phone.CONTACT_ID, Phone.DISPLAY_NAME_PRIMARY, Phone.NUMBER, Phone.STARRED),
++                null,
++                null,
++                "${Phone.DISPLAY_NAME_PRIMARY} COLLATE LOCALIZED ASC, ${Phone.IS_SUPER_PRIMARY} DESC"
++            )?.use { c ->
++                var rows = 0
++                while (c.moveToNext() && rows++ < MAX_NUMBERS) {
++                    val id = c.getLong(0)
++                    val number = c.getString(2)?.takeIf { it.isNotBlank() } ?: continue
++                    val name = c.getString(1).orEmpty().ifEmpty { number }
++                    byContact[id] =
++                        withNumber(byContact[id], id, name, number, c.getInt(STARRED_COLUMN) != 0)
++                }
++            }
++        }
++        return byContact.values.toList()
++    }
++
++    private fun withNumber(
++        old: PhoneSearch.Person?,
++        id: Long,
++        name: String,
++        number: String,
++        starred: Boolean
++    ) = when {
++        old == null -> PhoneSearch.Person(id, name, listOf(number), starred)
++        old.numbers.any { it.filter(Char::isDigit) == number.filter(Char::isDigit) } -> old
++        else -> old.copy(numbers = old.numbers + number)
++    }
++
++    /** The contact name for [number], or null. */
++    fun nameFor(number: String): String? {
++        if (number.isEmpty()) return null
++        return runCatching {
++            resolver.query(
++                Uri.withAppendedPath(
++                    ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
++                    Uri.encode(number)
++                ),
++                arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME),
++                null,
++                null,
++                null
++            )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
++        }.getOrNull()
++    }
++
++    /** Missed calls the user has now seen stop counting as new. */
++    fun markMissedSeen() {
++        runCatching {
++            val values = ContentValues().apply {
++                put(CallLog.Calls.NEW, 0)
++                put(CallLog.Calls.IS_READ, 1)
++            }
++            resolver.update(
++                CallLog.Calls.CONTENT_URI,
++                values,
++                "${CallLog.Calls.TYPE} = ? AND (${CallLog.Calls.NEW} = 1 OR ${CallLog.Calls.IS_READ} = 0)",
++                arrayOf(CallLog.Calls.MISSED_TYPE.toString())
++            )
++        }
++    }
++
++    fun deleteCalls(ids: List<Long>) {
++        if (ids.isEmpty()) return
++        runCatching {
++            resolver.delete(
++                CallLog.Calls.CONTENT_URI,
++                "${CallLog.Calls._ID} IN (${ids.joinToString(",") { "?" }})",
++                ids.map { it.toString() }.toTypedArray()
++            )
++        }
++    }
++
++    /** Sable private mode from Sable Hub: names in the call list are hidden while it is on. */
++    fun privateMode(): Boolean = runCatching {
++        resolver.query(
++            Uri.parse("content://org.sableos.hub.privacy/state"),
++            arrayOf("private_mode"),
++            null,
++            null,
++            null
++        )
++            ?.use { c -> c.moveToFirst() && c.getInt(0) != 0 }
++    }.getOrNull() ?: false
++
++    private companion object {
++        const val MAX_CALLS = 500
++        const val MAX_NUMBERS = 20000
++        const val ID = 0
++        const val NUMBER = 1
++        const val NAME = 2
++        const val TYPE = 3
++        const val DATE = 4
++        const val DURATION = 5
++        const val PRESENTATION = 6
++        const val STARRED_COLUMN = 3
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
+new file mode 100644
+index 0000000..e8b08ad
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
+@@ -0,0 +1,83 @@
++package org.sableos.phone.android
++
++import android.content.Intent
++import android.os.PowerManager
++import android.telecom.Call
++import android.telecom.CallAudioState
++import android.telecom.InCallService
++
++/**
++ * Sable Phone's InCallService: Telecom binds it while there is a call because Sable Phone holds the Phone role.
++ * It keeps [CallBook], shows the incoming call as a heads-up (full screen when the phone is locked or asleep),
++ * opens the call screen for outgoing calls, and turns the screen off near the ear with the proximity sensor.
++ */
++class PhoneInCallService :
++    InCallService(),
++    CallBook.Listener {
++    private var proximity: PowerManager.WakeLock? = null
++
++    override fun onCreate() {
++        super.onCreate()
++        proximity = getSystemService(PowerManager::class.java)
++            ?.takeIf { it.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK) }
++            ?.newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "SablePhone:proximity")
++            ?.apply { setReferenceCounted(false) }
++        CallBook.attach(this)
++        CallBook.listen(this)
++    }
++
++    override fun onDestroy() {
++        CallBook.unlisten(this)
++        CallBook.attach(null)
++        proximity?.release()
++        CallNotifications.cancelCall(this)
++        super.onDestroy()
++    }
++
++    override fun onCallAdded(call: Call) {
++        CallBook.add(call)
++        if (call.details.state != Call.STATE_RINGING) openCallScreen(false)
++    }
++
++    override fun onCallRemoved(call: Call) {
++        CallBook.remove(call)
++    }
++
++    @Deprecated("Deprecated in Java")
++    override fun onCallAudioStateChanged(audioState: CallAudioState?) {
++        CallBook.setAudio(audioState)
++    }
++
++    override fun onBringToForeground(showDialpad: Boolean) = openCallScreen(showDialpad)
++
++    override fun onCallsChanged() {
++        CallNotifications.update(this)
++        updateProximity()
++    }
++
++    private fun openCallScreen(keypad: Boolean) {
++        startActivity(
++            Intent(this, InCallActivity::class.java)
++                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
++                .putExtra(InCallActivity.EXTRA_KEYPAD, keypad)
++        )
++    }
++
++    /** The screen goes dark at the ear only on the earpiece or a wired headset, never on speaker or Bluetooth. */
++    private fun updateProximity() {
++        val lock = proximity ?: return
++        val route = CallBook.audio?.route ?: CallAudioState.ROUTE_EARPIECE
++        val atEar =
++            route == CallAudioState.ROUTE_EARPIECE || route == CallAudioState.ROUTE_WIRED_HEADSET
++        val live = CallBook.topLevel().any { it.details.state in AT_EAR_STATES }
++        if (live && atEar) {
++            if (!lock.isHeld) lock.acquire()
++        } else if (lock.isHeld) {
++            lock.release(PowerManager.RELEASE_FLAG_WAIT_FOR_NO_PROXIMITY)
++        }
++    }
++
++    private companion object {
++        val AT_EAR_STATES = setOf(Call.STATE_DIALING, Call.STATE_CONNECTING, Call.STATE_ACTIVE)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneListAdapter.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneListAdapter.kt
+new file mode 100644
+index 0000000..42d29bd
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneListAdapter.kt
+@@ -0,0 +1,131 @@
++package org.sableos.phone.android
++
++import android.content.Context
++import android.text.format.DateFormat
++import android.text.format.DateUtils
++import android.view.View
++import android.view.ViewGroup
++import android.widget.BaseAdapter
++import android.widget.LinearLayout
++import android.widget.TextView
++import org.sableos.phone.core.CallFormat
++import org.sableos.phone.core.CallHistory
++import org.sableos.phone.core.PhoneSearch
++import org.sableos.phone.core.PhoneText.t
++
++/** The rows of the Calls and Contacts lists: day or group headers, call rows and contact rows. */
++class PhoneListAdapter(private val context: Context, private val ui: Ui) : BaseAdapter() {
++    sealed interface Item {
++        data class Header(val title: String) : Item
++
++        data class CallRow(val row: CallHistory.Row, val hideNames: Boolean) : Item
++
++        data class PersonRow(val person: PhoneSearch.Person) : Item
++    }
++
++    var items: List<Item> = emptyList()
++        set(value) {
++            field = value
++            notifyDataSetChanged()
++        }
++
++    override fun getCount(): Int = items.size
++
++    override fun getItem(position: Int): Item = items[position]
++
++    override fun getItemId(position: Int): Long = position.toLong()
++
++    override fun getViewTypeCount(): Int = 2
++
++    override fun getItemViewType(position: Int): Int = if (items[position] is Item.Header) 0 else 1
++
++    override fun isEnabled(position: Int): Boolean = items[position] !is Item.Header
++
++    override fun areAllItemsEnabled(): Boolean = false
++
++    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
++        val item = items[position]
++        if (item is Item.Header) {
++            return (convertView as? TextView ?: header()).apply {
++                text =
++                    item.title
++            }
++        }
++        val row = convertView as? LinearLayout ?: row()
++        return when (item) {
++            is Item.CallRow -> fill(row, callTitle(item), callLine(item), item.row.missed)
++            is Item.PersonRow -> fill(row, item.person.name, item.person.numbers.first(), false)
++            is Item.Header -> row
++        }
++    }
++
++    private fun header(): TextView = ui.text(Ui.SMALL_SP, ui.palette.accent, bold = true).apply {
++        setPadding(ui.dp(Ui.PAD), ui.dp(HEADER_TOP), ui.dp(Ui.PAD), ui.dp(HEADER_BOTTOM))
++    }
++
++    private fun row(): LinearLayout = LinearLayout(context).apply {
++        orientation = LinearLayout.VERTICAL
++        setPadding(ui.dp(Ui.PAD), ui.dp(ROW_PAD), ui.dp(Ui.PAD), ui.dp(ROW_PAD))
++        addView(ui.text(Ui.BODY_SP, bold = true).apply { maxLines = 1 })
++        addView(ui.text(Ui.SMALL_SP, ui.palette.muted).apply { maxLines = 1 })
++    }
++
++    private fun fill(row: LinearLayout, title: String, line: String, missed: Boolean): View =
++        row.apply {
++            (getChildAt(0) as TextView).apply {
++                text = title
++                setTextColor(if (missed) ui.palette.danger else ui.palette.text)
++            }
++            (getChildAt(1) as TextView).text = line
++        }
++
++    private fun callTitle(item: Item.CallRow): String {
++        val call = item.row.latest
++        val who = when {
++            item.hideNames -> t("contact_hidden")
++            call.hidden || call.number.isEmpty() -> t("private_number")
++            else -> call.name ?: CallInfo.formatted(context, call.number)
++        }
++        return if (item.row.count > 1) t("call_count", who, item.row.count) else who
++    }
++
++    private fun callLine(item: Item.CallRow): String {
++        val call = item.row.latest
++        val kind = t(KIND_KEYS.getValue(call.kind))
++        val time = DateFormat.getTimeFormat(context).format(call.timeMillis)
++        val showNumber = !item.hideNames && call.name != null && !call.hidden
++        val number = if (showNumber) CallInfo.formatted(context, call.number) else ""
++        val length = if (call.durationSeconds > 0) CallFormat.duration(call.durationSeconds) else ""
++        return listOf(kind, number, time, length).filter { it.isNotEmpty() }.joinToString(" · ")
++    }
++
++    companion object {
++        private const val HEADER_TOP = 10
++        private const val HEADER_BOTTOM = 4
++        private const val ROW_PAD = 8
++
++        private val KIND_KEYS = mapOf(
++            CallHistory.Kind.INCOMING to "kind_incoming",
++            CallHistory.Kind.OUTGOING to "kind_outgoing",
++            CallHistory.Kind.MISSED to "kind_missed",
++            CallHistory.Kind.DECLINED to "kind_declined",
++            CallHistory.Kind.BLOCKED to "kind_blocked",
++            CallHistory.Kind.VOICEMAIL to "kind_voicemail"
++        )
++
++        /** "Today", "Yesterday" or the date, for a day section. */
++        fun dayTitle(context: Context, section: CallHistory.Section, millis: Long): String =
++            when (section.label) {
++                CallHistory.DayLabel.TODAY -> t("today")
++
++                CallHistory.DayLabel.YESTERDAY -> t("yesterday")
++
++                CallHistory.DayLabel.DATE -> DateUtils.formatDateTime(
++                    context,
++                    millis,
++                    DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_WEEKDAY or
++                        DateUtils.FORMAT_ABBREV_MONTH
++                )
++            }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneSettings.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneSettings.kt
+new file mode 100644
+index 0000000..eec1294
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneSettings.kt
+@@ -0,0 +1,25 @@
++package org.sableos.phone.android
++
++import android.content.Context
++
++/** Sable Phone's own settings, in device-protected storage so the call screen reads them before first unlock. */
++class PhoneSettings(context: Context) {
++    private val prefs = context.applicationContext.createDeviceProtectedStorageContext()
++        .getSharedPreferences(FILE, Context.MODE_PRIVATE)
++
++    /** Space answers a ringing call (it never ends one). On by default, as on the Sable Lineage Dialer. */
++    var spaceAnswers: Boolean
++        get() = prefs.getBoolean(KEY_SPACE_ANSWERS, true)
++        set(value) = prefs.edit().putBoolean(KEY_SPACE_ANSWERS, value).apply()
++
++    /** The tab Phone opens on: 0 calls, 1 contacts, 2 dial pad. */
++    var tab: Int
++        get() = prefs.getInt(KEY_TAB, 0)
++        set(value) = prefs.edit().putInt(KEY_TAB, value).apply()
++
++    private companion object {
++        const val FILE = "phone"
++        const val KEY_SPACE_ANSWERS = "space_answers"
++        const val KEY_TAB = "tab"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialActivity.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialActivity.kt
+new file mode 100644
+index 0000000..1e0fbfb
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialActivity.kt
+@@ -0,0 +1,169 @@
++package org.sableos.phone.android
++
++import android.app.Activity
++import android.app.AlertDialog
++import android.content.Context
++import android.content.Intent
++import android.os.Bundle
++import android.provider.ContactsContract.CommonDataKinds.Phone
++import android.view.KeyEvent
++import android.widget.LinearLayout
++import android.widget.ScrollView
++import android.widget.TextView
++import android.widget.Toast
++import org.sableos.phone.core.DialKeys
++import org.sableos.phone.core.PhoneText.t
++import org.sableos.phone.core.SpeedDial
++import org.sableos.titan2.theme.SablePalette
++
++/**
++ * The speed dial list, A to Z. Enter on a letter calls it, changes it or removes it; a letter with nothing on it
++ * picks a contact. Pressing a letter key moves to that letter.
++ */
++class SpeedDialActivity : Activity() {
++    private lateinit var ui: Ui
++    private lateinit var store: SpeedDialStore
++    private lateinit var list: LinearLayout
++    private val rows = mutableMapOf<Char, TextView>()
++    private var picking: Char? = null
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        val palette = SablePalette.read(this).also { it.applyTo(this) }
++        ui = Ui(this, palette)
++        store = SpeedDialStore(this)
++        picking = savedInstanceState?.getString(STATE_PICKING)?.singleOrNull()
++        list = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            setPadding(ui.dp(Ui.PAD), ui.dp(Ui.PAD), ui.dp(Ui.PAD), ui.dp(Ui.PAD))
++        }
++        list.addView(ui.text(Ui.TITLE_SP, bold = true, s = t("speed_dial")))
++        list.addView(ui.text(Ui.SMALL_SP, palette.muted, s = t("speed_dial_hint")))
++        for (letter in 'a'..'z') {
++            val row = ui.text(Ui.BODY_SP).apply {
++                isFocusable = true
++                isClickable = true
++                background = ui.focusBackground()
++                setPadding(ui.dp(Ui.PAD), ui.dp(ROW_PAD), ui.dp(Ui.PAD), ui.dp(ROW_PAD))
++                setOnClickListener { choose(letter) }
++            }
++            rows[letter] = row
++            list.addView(row)
++        }
++        setContentView(ScrollView(this).apply { addView(list) })
++        show()
++        val assign = intent.getStringExtra(EXTRA_ASSIGN)?.singleOrNull()
++        if (savedInstanceState == null && assign != null) {
++            rows[assign]?.requestFocus()
++            Toast.makeText(
++                this,
++                t("speed_dial_unassigned", assign.uppercaseChar()),
++                Toast.LENGTH_LONG
++            ).show()
++            pick(assign)
++        } else {
++            rows['a']?.requestFocus()
++        }
++    }
++
++    override fun onSaveInstanceState(outState: Bundle) {
++        super.onSaveInstanceState(outState)
++        picking?.let { outState.putString(STATE_PICKING, it.toString()) }
++    }
++
++    private fun show() {
++        val all = store.all()
++        rows.forEach { (letter, row) ->
++            val e = all[letter]
++            row.text = if (e == null) {
++                t("speed_dial_row_empty", letter.uppercaseChar())
++            } else {
++                t("speed_dial_row", letter.uppercaseChar(), e.label)
++            }
++        }
++    }
++
++    private fun choose(letter: Char) {
++        val entry = store.get(letter) ?: return pick(letter)
++        AlertDialog.Builder(this)
++            .setTitle(t("speed_dial_row", letter.uppercaseChar(), entry.label))
++            .setItems(arrayOf(t("call"), t("speed_dial_change"), t("speed_dial_remove"))) {
++                    _,
++                    which
++                ->
++                when (which) {
++                    0 -> Dialing.call(this, entry.number)
++
++                    1 -> pick(letter)
++
++                    else -> {
++                        store.remove(letter)
++                        show()
++                    }
++                }
++            }
++            .show()
++    }
++
++    private fun pick(letter: Char) {
++        picking = letter
++        runCatching {
++            startActivityForResult(Intent(Intent.ACTION_PICK, Phone.CONTENT_URI), REQUEST_PICK)
++        }
++    }
++
++    @Deprecated("Deprecated in Java")
++    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
++        super.onActivityResult(requestCode, resultCode, data)
++        val letter = picking
++        val uri = data?.data?.takeIf { requestCode == REQUEST_PICK && resultCode == RESULT_OK }
++        if (letter == null || uri == null) return
++        val picked = runCatching {
++            contentResolver.query(
++                uri,
++                arrayOf(Phone.NUMBER, Phone.DISPLAY_NAME_PRIMARY),
++                null,
++                null,
++                null
++            )?.use { c ->
++                if (c.moveToFirst()) c.getString(0).orEmpty() to c.getString(1).orEmpty() else null
++            }
++        }.getOrNull()
++        if (picked == null || picked.first.isBlank()) {
++            Toast.makeText(this, t("speed_dial_no_number"), Toast.LENGTH_LONG).show()
++            return
++        }
++        val entry = SpeedDial.Entry(picked.first, picked.second.ifBlank { picked.first })
++        store.put(letter, entry)
++        show()
++        Toast.makeText(
++            this,
++            t("speed_dial_assigned", letter.uppercaseChar(), entry.label),
++            Toast.LENGTH_LONG
++        ).show()
++    }
++
++    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
++        val letter = DialKeys.letterFor(keyCode)
++        if (letter != null && event.metaState and DialKeys.CHORD_META == 0 &&
++            event.repeatCount == 0
++        ) {
++            rows[letter]?.requestFocus()
++            return true
++        }
++        return super.onKeyDown(keyCode, event)
++    }
++
++    companion object {
++        private const val EXTRA_ASSIGN = "org.sableos.phone.extra.ASSIGN"
++        private const val STATE_PICKING = "picking"
++        private const val REQUEST_PICK = 1
++        private const val ROW_PAD = 10
++
++        /** Opens the list and goes straight to choosing a contact for [letter]. */
++        fun assign(context: Context, letter: Char): Intent =
++            Intent(context, SpeedDialActivity::class.java)
++                .putExtra(EXTRA_ASSIGN, letter.lowercaseChar().toString())
++                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialCallActivity.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialCallActivity.kt
+new file mode 100644
+index 0000000..7e8837c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialCallActivity.kt
+@@ -0,0 +1,23 @@
++package org.sableos.phone.android
++
++import android.app.Activity
++import android.os.Bundle
++import org.sableos.phone.core.SpeedDial
++
++/**
++ * Sable Start's speed dial: calls the number on the letter in EXTRA_LETTER, or opens the speed dial list when the
++ * letter has none. Callers need org.sableos.permission.SPEED_DIAL, so Start needs no call permission itself.
++ */
++class SpeedDialCallActivity : Activity() {
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        val letter = intent.getStringExtra(SpeedDial.EXTRA_LETTER)?.singleOrNull()
++        val entry = letter?.let { SpeedDialStore(this).get(it) }
++        if (entry != null) {
++            Dialing.call(this, entry.number)
++        } else if (letter != null) {
++            startActivity(SpeedDialActivity.assign(this, letter))
++        }
++        finish()
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialProvider.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialProvider.kt
+new file mode 100644
+index 0000000..29953c6
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialProvider.kt
+@@ -0,0 +1,42 @@
++package org.sableos.phone.android
++
++import android.content.ContentProvider
++import android.content.ContentValues
++import android.database.Cursor
++import android.database.MatrixCursor
++import android.net.Uri
++import org.sableos.phone.core.SpeedDial
++
++/**
++ * Which letters have a speed dial, for Sable Start (letters only: never a name or number). Read access needs
++ * org.sableos.permission.SPEED_DIAL. Read-only.
++ */
++class SpeedDialProvider : ContentProvider() {
++    override fun onCreate(): Boolean = true
++
++    override fun query(
++        uri: Uri,
++        projection: Array<out String>?,
++        selection: String?,
++        selectionArgs: Array<out String>?,
++        sortOrder: String?
++    ): Cursor {
++        val cursor = MatrixCursor(arrayOf(SpeedDial.COLUMN_LETTER))
++        val ctx = context ?: return cursor
++        SpeedDialStore(ctx).all().keys.forEach { cursor.addRow(arrayOf<Any>(it.toString())) }
++        return cursor
++    }
++
++    override fun getType(uri: Uri): String? = null
++
++    override fun insert(uri: Uri, values: ContentValues?): Uri? = null
++
++    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = 0
++
++    override fun update(
++        uri: Uri,
++        values: ContentValues?,
++        selection: String?,
++        selectionArgs: Array<out String>?
++    ): Int = 0
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialStore.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialStore.kt
+new file mode 100644
+index 0000000..3b3382c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialStore.kt
+@@ -0,0 +1,33 @@
++package org.sableos.phone.android
++
++import android.content.Context
++import org.sableos.phone.core.SpeedDial
++
++/** The speed dial list, in Sable Phone's own preferences (device-protected, so it works before first unlock). */
++class SpeedDialStore(context: Context) {
++    private val prefs = context.applicationContext.createDeviceProtectedStorageContext()
++        .getSharedPreferences(FILE, Context.MODE_PRIVATE)
++
++    fun all(): Map<Char, SpeedDial.Entry> = SpeedDial.parse(prefs.getString(KEY, ""))
++
++    fun get(letter: Char): SpeedDial.Entry? = SpeedDial.normalize(letter)?.let { all()[it] }
++
++    fun put(letter: Char, entry: SpeedDial.Entry) {
++        val l = SpeedDial.normalize(letter) ?: return
++        save(all() + (l to entry))
++    }
++
++    fun remove(letter: Char) {
++        val l = SpeedDial.normalize(letter) ?: return
++        save(all() - l)
++    }
++
++    private fun save(entries: Map<Char, SpeedDial.Entry>) {
++        prefs.edit().putString(KEY, SpeedDial.format(entries)).apply()
++    }
++
++    private companion object {
++        const val FILE = "speed_dial"
++        const val KEY = "entries"
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ui.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ui.kt
+new file mode 100644
+index 0000000..a72d8f7
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ui.kt
+@@ -0,0 +1,90 @@
++package org.sableos.phone.android
++
++import android.content.Context
++import android.content.res.ColorStateList
++import android.graphics.Typeface
++import android.graphics.drawable.GradientDrawable
++import android.graphics.drawable.RippleDrawable
++import android.graphics.drawable.StateListDrawable
++import android.view.Gravity
++import android.widget.TextView
++import org.sableos.titan2.theme.SablePalette
++
++/**
++ * The small view kit Sable Phone draws with: Sable palette text, rows and buttons with the 2 dp accent focus
++ * outline every Sable screen shows for the trackpad and keyboard, sized for the Q25's 720x720 display.
++ */
++class Ui(private val context: Context, val palette: SablePalette) {
++    private val density = context.resources.displayMetrics.density
++
++    fun dp(value: Int): Int = (value * density).toInt()
++
++    fun text(
++        sp: Float,
++        color: Int = palette.text,
++        bold: Boolean = false,
++        s: CharSequence = ""
++    ): TextView = TextView(context).apply {
++        text = s
++        textSize = sp
++        setTextColor(color)
++        if (bold) typeface = Typeface.DEFAULT_BOLD
++    }
++
++    /** A focusable list row or tile: [fill] at rest, the focus surface with an accent outline when focused. */
++    fun focusBackground(fill: Int = palette.window, corner: Int = CORNER): StateListDrawable =
++        StateListDrawable().apply {
++            addState(
++                intArrayOf(android.R.attr.state_focused),
++                box(palette.focus, palette.accent, corner)
++            )
++            addState(
++                intArrayOf(android.R.attr.state_pressed),
++                box(palette.focus, palette.focus, corner)
++            )
++            addState(intArrayOf(), box(fill, fill, corner))
++        }
++
++    fun box(fill: Int, stroke: Int, corner: Int = CORNER): GradientDrawable =
++        GradientDrawable().apply {
++            setColor(fill)
++            cornerRadius = dp(corner).toFloat()
++            setStroke(dp(STROKE), stroke)
++        }
++
++    /** A round call-screen button with a label; [fill] carries its meaning (green answer, red end). */
++    fun button(label: String, fill: Int, textColor: Int, onClick: () -> Unit): TextView =
++        text(BUTTON_SP, textColor, true, label).apply {
++            gravity = Gravity.CENTER
++            isFocusable = true
++            isClickable = true
++            minHeight = dp(BUTTON_HEIGHT)
++            setPadding(dp(PAD), 0, dp(PAD), 0)
++            val states = StateListDrawable().apply {
++                addState(
++                    intArrayOf(android.R.attr.state_focused),
++                    box(fill, palette.text, BUTTON_CORNER)
++                )
++                addState(intArrayOf(), box(fill, fill, BUTTON_CORNER))
++            }
++            background = RippleDrawable(ColorStateList.valueOf(palette.focus), states, null)
++            setOnClickListener { onClick() }
++        }
++
++    companion object {
++        const val PAD = 12
++        const val STROKE = 2
++        const val CORNER = 8
++        const val BUTTON_CORNER = 24
++        const val BUTTON_HEIGHT = 48
++        const val TITLE_SP = 20f
++        const val BODY_SP = 16f
++        const val SMALL_SP = 13f
++        const val BUTTON_SP = 15f
++
++        /** BlackBerry call green and end red, readable in dark and light. */
++        const val GREEN = 0xFF1FA855.toInt()
++        const val RED = 0xFFD93025.toInt()
++        const val ON_COLOR = 0xFFFFFFFF.toInt()
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/CallFormat.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/CallFormat.kt
+new file mode 100644
+index 0000000..88a7d5c
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/CallFormat.kt
+@@ -0,0 +1,41 @@
++package org.sableos.phone.core
++
++/** Numbers and durations as Sable Phone shows and compares them. */
++object CallFormat {
++    private const val SECONDS_PER_MINUTE = 60
++    private const val SECONDS_PER_HOUR = 3600
++
++    /** A call's length: `0:07`, `12:45`, `1:02:03`. */
++    fun duration(seconds: Long): String {
++        val s = seconds.coerceAtLeast(0)
++        val h = s / SECONDS_PER_HOUR
++        val m = s % SECONDS_PER_HOUR / SECONDS_PER_MINUTE
++        val sec = s % SECONDS_PER_MINUTE
++        return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
++    }
++
++    /** Only the characters that are dialled: digits, `+` at the start, `*`, `#` and pauses (`,` `;`). */
++    fun dialable(raw: String): String {
++        val sb = StringBuilder()
++        raw.forEach { c ->
++            when {
++                c.isDigit() || c == '*' || c == '#' || c == ',' || c == ';' -> sb.append(c)
++                c == '+' && sb.isEmpty() -> sb.append(c)
++            }
++        }
++        return sb.toString()
++    }
++
++    /**
++     * The key two numbers share when they are the same line: the last [MATCH_DIGITS] digits, so `+1 555 0101 222`
++     * and `(555) 010-1222` match. Shorter numbers (service codes) must match in full.
++     */
++    fun matchKey(raw: String): String = raw.filter { it.isDigit() }.takeLast(MATCH_DIGITS)
++
++    fun sameNumber(a: String, b: String): Boolean {
++        val ka = matchKey(a)
++        return ka.isNotEmpty() && ka == matchKey(b)
++    }
++
++    const val MATCH_DIGITS = 9
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/CallHistory.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/CallHistory.kt
+new file mode 100644
+index 0000000..44514b1
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/CallHistory.kt
+@@ -0,0 +1,84 @@
++package org.sableos.phone.core
++
++/**
++ * The BlackBerry 10 call list: calls grouped by day, newest first, with back-to-back calls to or from the same
++ * number on the same day folded into one row that counts them. Pure, so the host tests cover the grouping.
++ */
++object CallHistory {
++    enum class Kind { INCOMING, OUTGOING, MISSED, DECLINED, BLOCKED, VOICEMAIL }
++
++    /** One call log entry. [day] is the local calendar day (epoch day) of [timeMillis]. */
++    data class Call(
++        val id: Long,
++        val number: String,
++        val name: String?,
++        val kind: Kind,
++        val timeMillis: Long,
++        val durationSeconds: Long,
++        val day: Long,
++        val hidden: Boolean = false
++    )
++
++    /** One row: the newest call and how many calls it stands for, with their kinds newest first. */
++    data class Row(val latest: Call, val calls: List<Call>) {
++        val count: Int get() = calls.size
++        val missed: Boolean get() = latest.kind == Kind.MISSED
++    }
++
++    enum class DayLabel { TODAY, YESTERDAY, DATE }
++
++    data class Section(val day: Long, val label: DayLabel, val rows: List<Row>)
++
++    /** Groups [calls] (any order) into day sections, newest first, given [today] as an epoch day. */
++    fun group(calls: List<Call>, today: Long): List<Section> {
++        val sorted = calls.sortedByDescending { it.timeMillis }
++        val sections = mutableListOf<Section>()
++        for ((day, ofDay) in sorted.groupBy { it.day }) {
++            val rows = mutableListOf<Row>()
++            for (call in ofDay) {
++                val last = rows.lastOrNull()
++                if (last != null && foldable(last.latest, call)) {
++                    rows[rows.lastIndex] = last.copy(calls = last.calls + call)
++                } else {
++                    rows += Row(call, listOf(call))
++                }
++            }
++            sections += Section(day, labelFor(day, today), rows)
++        }
++        return sections
++    }
++
++    fun labelFor(day: Long, today: Long): DayLabel = when (day) {
++        today -> DayLabel.TODAY
++        today - 1 -> DayLabel.YESTERDAY
++        else -> DayLabel.DATE
++    }
++
++    /** Same caller, and a missed call never folds into an answered one (it must stand out). */
++    private fun foldable(newer: Call, older: Call): Boolean {
++        val same = if (newer.hidden || older.hidden) {
++            newer.hidden && older.hidden
++        } else {
++            CallFormat.sameNumber(newer.number, older.number)
++        }
++        return same && (newer.kind == Kind.MISSED) == (older.kind == Kind.MISSED)
++    }
++
++    /** CallLog.Calls.TYPE to a [Kind]; unknown types read as incoming. */
++    fun kindOf(type: Int): Kind = when (type) {
++        TYPE_OUTGOING -> Kind.OUTGOING
++        TYPE_MISSED -> Kind.MISSED
++        TYPE_VOICEMAIL -> Kind.VOICEMAIL
++        TYPE_REJECTED -> Kind.DECLINED
++        TYPE_BLOCKED -> Kind.BLOCKED
++        else -> Kind.INCOMING
++    }
++
++    // android.provider.CallLog.Calls TYPE values.
++    const val TYPE_INCOMING = 1
++    const val TYPE_OUTGOING = 2
++    const val TYPE_MISSED = 3
++    const val TYPE_VOICEMAIL = 4
++    const val TYPE_REJECTED = 5
++    const val TYPE_BLOCKED = 6
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/DialKeys.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/DialKeys.kt
+new file mode 100644
+index 0000000..d2cde5a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/DialKeys.kt
+@@ -0,0 +1,124 @@
++package org.sableos.phone.core
++
++/**
++ * What a hardware key types on the dial screen and what it does elsewhere in Sable Phone, for a BlackBerry-style
++ * keyboard such as the Q25's. Pure Kotlin on raw key codes and meta bits (the android.view.KeyEvent values), so the
++ * host tests can check every case.
++ *
++ * The phone pad is the BlackBerry one: W E R / S D F / Z X C are 1-9. The key that carries 0, * and # differs by
++ * keyboard, so the key's own number character from the key character map (KeyEvent.getNumber) is used too.
++ */
++object DialKeys {
++    const val KEYCODE_CALL = 5
++    const val KEYCODE_ENDCALL = 6
++    const val KEYCODE_0 = 7
++    const val KEYCODE_9 = 16
++    const val KEYCODE_STAR = 17
++    const val KEYCODE_POUND = 18
++    const val KEYCODE_A = 29
++    const val KEYCODE_Z = 54
++    const val KEYCODE_SPACE = 62
++    const val KEYCODE_ENTER = 66
++    const val KEYCODE_DEL = 67
++    const val KEYCODE_PLUS = 81
++    const val KEYCODE_NUMPAD_0 = 144
++    const val KEYCODE_NUMPAD_9 = 153
++    const val KEYCODE_DPAD_CENTER = 23
++
++    /** W E R S D F Z X C: 1-9 on a BlackBerry phone pad. */
++    private val PHONE_PAD = intArrayOf(51, 33, 46, 47, 32, 34, 54, 52, 31)
++
++    const val META_SHIFT_MASK = 0xc1
++    const val META_ALT_MASK = 0x32
++    const val META_SYM_ON = 0x4
++    const val META_FUNCTION_ON = 0x8
++    const val META_CTRL_MASK = 0x7000
++    const val META_META_MASK = 0x70000
++
++    /** Ctrl, Meta and Fn chords are shortcuts, never digits. */
++    private const val SHORTCUT_META = META_FUNCTION_ON or META_CTRL_MASK or META_META_MASK
++
++    /** Shift, Alt, Sym, Fn, Ctrl and Meta: a chord is never a speed dial or an in-call key. */
++    const val CHORD_META = META_SHIFT_MASK or META_ALT_MASK or META_SYM_ON or SHORTCUT_META
++
++    /**
++     * The dial character [keyCode] types, or null. [unicodeChar] is what the key types with [metaState] (so Alt
++     * gives the Alt layer), [numberChar] the key's number from the key character map (0 when it has none). On the
++     * dial screen ([dialScreen]) a plain phone-pad letter is its digit; elsewhere only Alt makes it one.
++     */
++    @Suppress("CyclomaticComplexMethod", "ReturnCount")
++    fun dialChar(
++        keyCode: Int,
++        unicodeChar: Int,
++        numberChar: Int,
++        metaState: Int,
++        dialScreen: Boolean
++    ): Char? {
++        if (metaState and SHORTCUT_META != 0) return null
++        val shift = metaState and META_SHIFT_MASK != 0
++        val alt = metaState and META_ALT_MASK != 0
++        return when {
++            keyCode in KEYCODE_NUMPAD_0..KEYCODE_NUMPAD_9 -> '0' + (keyCode - KEYCODE_NUMPAD_0)
++
++            !shift && keyCode in KEYCODE_0..KEYCODE_9 && unicodeChar == 0 ->
++                '0' +
++                    (keyCode - KEYCODE_0)
++
++            keyCode == KEYCODE_STAR -> '*'
++
++            keyCode == KEYCODE_POUND -> '#'
++
++            keyCode == KEYCODE_PLUS -> '+'
++
++            isDialChar(unicodeChar) -> unicodeChar.toChar()
++
++            metaState and (META_SHIFT_MASK or META_SYM_ON) != 0 -> null
++
++            alt || dialScreen -> padDigit(keyCode)
++                ?: numberChar.takeIf { dialScreen && isDialChar(it) }?.toChar()
++
++            else -> null
++        }
++    }
++
++    /** True when a first press (not a repeat) on a list screen should open the dial pad with that digit. */
++    fun opensDialPad(keyCode: Int, unicodeChar: Int, metaState: Int, repeatCount: Int): Boolean {
++        if (repeatCount > 0) return false
++        val c = dialChar(keyCode, unicodeChar, 0, metaState, dialScreen = false)
++        return c != null && c != '+'
++    }
++
++    /** The letter a held plain A-Z key speed dials: its first auto-repeat, sent once the long-press time passed. */
++    fun heldLetter(keyCode: Int, metaState: Int, repeatCount: Int): Char? =
++        if (repeatCount != 1 || metaState and CHORD_META != 0) null else letterFor(keyCode)
++
++    fun letterFor(keyCode: Int): Char? = if (keyCode in
++        KEYCODE_A..KEYCODE_Z
++    ) {
++        'a' + (keyCode - KEYCODE_A)
++    } else {
++        null
++    }
++
++    private fun padDigit(keyCode: Int): Char? = PHONE_PAD.indexOf(keyCode).takeIf { it >= 0 }?.let {
++        '1' +
++            it
++    }
++
++    fun isDialChar(c: Int): Boolean =
++        c in '0'.code..'9'.code || c == '*'.code || c == '#'.code || c == '+'.code
++
++    /** The letters printed under a dial pad digit (ITU E.161), for the on-screen keys. */
++    fun lettersFor(digit: Char): String = when (digit) {
++        '2' -> "ABC"
++        '3' -> "DEF"
++        '4' -> "GHI"
++        '5' -> "JKL"
++        '6' -> "MNO"
++        '7' -> "PQRS"
++        '8' -> "TUV"
++        '9' -> "WXYZ"
++        '0' -> "+"
++        else -> ""
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/InCallKeys.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/InCallKeys.kt
+new file mode 100644
+index 0000000..afa28e1
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/InCallKeys.kt
+@@ -0,0 +1,43 @@
++package org.sableos.phone.core
++
++/**
++ * What a hardware key does on Sable Phone's call screen. Pure, so the host tests cover every case.
++ *
++ * Ringing: the Call key answers, and so does Space when "Space answers" is on; End declines. Space never ends a
++ * call. In a call with the keypad closed: M mute, S speaker, H hold, D opens the keypad, End hangs up. With the
++ * keypad open the letters stay DTMF digits. Held keys and chords keep their usual meaning.
++ */
++object InCallKeys {
++    enum class Action { NONE, ANSWER, DECLINE, HANG_UP, MUTE, SPEAKER, HOLD, KEYPAD }
++
++    const val KEYCODE_D = 32
++    const val KEYCODE_H = 36
++    const val KEYCODE_M = 41
++    const val KEYCODE_S = 47
++
++    /** What the call screen shows when the key comes. */
++    data class Screen(val ringing: Boolean, val keypadOpen: Boolean, val spaceAnswers: Boolean)
++
++    fun decide(keyCode: Int, metaState: Int, repeatCount: Int, screen: Screen): Action = when {
++        repeatCount > 0 || metaState and DialKeys.CHORD_META != 0 -> Action.NONE
++        screen.ringing -> ringingAction(keyCode, screen.spaceAnswers)
++        keyCode == DialKeys.KEYCODE_ENDCALL -> Action.HANG_UP
++        screen.keypadOpen -> Action.NONE
++        else -> callAction(keyCode)
++    }
++
++    private fun ringingAction(keyCode: Int, spaceAnswers: Boolean): Action = when (keyCode) {
++        DialKeys.KEYCODE_CALL -> Action.ANSWER
++        DialKeys.KEYCODE_SPACE -> if (spaceAnswers) Action.ANSWER else Action.NONE
++        DialKeys.KEYCODE_ENDCALL -> Action.DECLINE
++        else -> Action.NONE
++    }
++
++    private fun callAction(keyCode: Int): Action = when (keyCode) {
++        KEYCODE_M -> Action.MUTE
++        KEYCODE_S -> Action.SPEAKER
++        KEYCODE_H -> Action.HOLD
++        KEYCODE_D -> Action.KEYPAD
++        else -> Action.NONE
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneSearch.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneSearch.kt
+new file mode 100644
+index 0000000..575c6dc
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneSearch.kt
+@@ -0,0 +1,71 @@
++package org.sableos.phone.core
++
++/**
++ * Type-to-find on the Phone screens, BlackBerry style: letters find contacts by any word of the name, digits find
++ * contacts and calls by any part of the number. Results that start with what was typed come first.
++ */
++object PhoneSearch {
++    data class Person(
++        val id: Long,
++        val name: String,
++        val numbers: List<String>,
++        val starred: Boolean = false
++    )
++
++    /** How well [person] matches [query]; null when it does not. Lower is better. */
++    fun rank(person: Person, query: String): Int? {
++        val q = query.trim()
++        if (q.isEmpty()) return RANK_ALL
++        return if (isNumberQuery(q)) numberRank(person.numbers, q) else nameRank(person.name, q)
++    }
++
++    /** The people matching [query], best first, then starred, then by name. */
++    fun find(people: List<Person>, query: String): List<Person> = people
++        .mapNotNull { p -> rank(p, query)?.let { p to it } }
++        .sortedWith(
++            compareBy<Pair<Person, Int>> {
++                it.second
++            }.thenBy { !it.first.starred }.thenBy { it.first.name.lowercase() }
++        )
++        .map { it.first }
++
++    /** True when [number] contains the digits of [query] (separators ignored). */
++    fun numberMatches(number: String, query: String): Boolean =
++        numberRank(listOf(number), query) != null
++
++    fun isNumberQuery(q: String): Boolean =
++        q.isNotEmpty() && q.all { it.isDigit() || it in "+*# ()-." }
++
++    private fun numberRank(numbers: List<String>, q: String): Int? {
++        val digits = q.filter { it.isDigit() }
++        if (digits.isEmpty()) return null
++        return numbers.mapNotNull { n ->
++            val nd = n.filter { it.isDigit() }
++            when {
++                nd.startsWith(digits) -> RANK_PREFIX
++                nd.contains(digits) -> RANK_INSIDE
++                else -> null
++            }
++        }.minOrNull()
++    }
++
++    private fun nameRank(name: String, q: String): Int? {
++        val n = name.lowercase()
++        val query = q.lowercase()
++        val words = n.split(' ', '-', '.', ',').filter { it.isNotEmpty() }
++        return when {
++            n.startsWith(query) -> RANK_PREFIX
++            words.any { it.startsWith(query) } -> RANK_WORD
++            initials(words).startsWith(query) && query.length > 1 -> RANK_WORD
++            n.contains(query) -> RANK_INSIDE
++            else -> null
++        }
++    }
++
++    private fun initials(words: List<String>): String = words.joinToString("") { it.take(1) }
++
++    private const val RANK_PREFIX = 0
++    private const val RANK_WORD = 1
++    private const val RANK_INSIDE = 2
++    private const val RANK_ALL = 3
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt
+new file mode 100644
+index 0000000..d5bc6e8
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt
+@@ -0,0 +1,101 @@
++package org.sableos.phone.core
++
++import org.sableos.titan2.theme.SableTexts
++
++/**
++ * Every line Sable Phone shows, in English, by string resource name. res/values/strings.xml repeats them
++ * (PhoneTextTest keeps the two equal) and res/values-<lang>/strings.xml translates them.
++ */
++object PhoneText {
++    val EN: Map<String, String> =
++        mapOf(
++            "app_title" to "Phone",
++            "tab_calls" to "Calls",
++            "tab_contacts" to "Contacts",
++            "tab_dial_pad" to "Dial pad",
++            "search_hint" to "Type a name or number",
++            "make_default" to
++                "Sable Phone is not your phone app. Press here to make it the default.",
++            "today" to "Today",
++            "yesterday" to "Yesterday",
++            "no_matches" to "No matches",
++            "contact_hidden" to "Contact hidden",
++            "private_number" to "Private number",
++            "call_count" to "%1\$s (%2\$d)",
++            "kind_incoming" to "Incoming",
++            "kind_outgoing" to "Outgoing",
++            "kind_missed" to "Missed",
++            "kind_declined" to "Declined",
++            "kind_blocked" to "Blocked",
++            "kind_voicemail" to "Voicemail",
++            "call" to "Call",
++            "send_message" to "Send message",
++            "edit_before_call" to "Edit number before calling",
++            "copy_number" to "Copy number",
++            "add_contact" to "Add to contacts",
++            "remove_from_calls" to "Remove from Calls",
++            "enter_number" to "Enter a number",
++            "delete" to "Delete",
++            "suggestion" to "Call %1\$s · %2\$s",
++            "hint_calls" to
++                "Letters search · digits dial · hold a letter for speed dial · Menu for more",
++            "hint_contacts" to
++                "Letters search · Call key or Enter calls · hold a letter for speed dial",
++            "hint_dial_pad" to
++                "W E R S D F Z X C are 1 to 9 · hold 1 for voicemail · Call key calls",
++            "speed_dial" to "Speed dial",
++            "speed_dial_hint" to
++                "Hold a letter key in Phone or on the home screen to call its number.",
++            "speed_dial_row" to "%1\$s · %2\$s",
++            "speed_dial_row_empty" to "%1\$s · Not set",
++            "speed_dial_change" to "Choose another contact",
++            "speed_dial_remove" to "Remove",
++            "speed_dial_unassigned" to "Nothing on %1\$s yet. Choose who holding %1\$s calls.",
++            "speed_dial_assigned" to "Holding %1\$s now calls %2\$s",
++            "speed_dial_no_number" to "That contact has no phone number.",
++            "space_answers_on" to "Space answers calls: on",
++            "space_answers_off" to "Space answers calls: off",
++            "blocked_numbers" to "Blocked numbers",
++            "call_settings" to "Call settings",
++            "sim_settings" to "Calling accounts",
++            "needs_call_permission" to "Sable Phone needs the Phone permission to make calls.",
++            "imei_line" to "IMEI %1\$d: %2\$s",
++            "imei_unavailable" to "The IMEI is not available.",
++            "incoming_call" to "Incoming call",
++            "calling" to "Calling…",
++            "on_hold" to "On hold",
++            "ending" to "Ending…",
++            "call_ended" to "Call ended",
++            "choose_sim" to "Choose a SIM for this call",
++            "sim" to "SIM",
++            "cancel" to "Cancel",
++            "conference" to "Conference call",
++            "ongoing_call" to "Ongoing call",
++            "other_call" to "%1\$s · %2\$s",
++            "answer" to "Answer",
++            "decline" to "Decline",
++            "end_call" to "End call",
++            "hang_up" to "Hang up",
++            "mute" to "Mute",
++            "speaker" to "Speaker",
++            "audio" to "Audio",
++            "route_phone" to "Phone",
++            "route_bluetooth" to "Bluetooth",
++            "keypad" to "Keypad",
++            "hold" to "Hold",
++            "add_call" to "Add call",
++            "merge" to "Merge",
++            "swap" to "Swap",
++            "hint_ringing" to "Call key or Space answers · End declines",
++            "hint_call" to "M mute · S speaker · H hold · D keypad · End hangs up",
++            "hint_keypad" to "Dial keys send tones · Back closes the keypad",
++            "channel_incoming" to "Incoming calls",
++            "channel_ongoing" to "Ongoing calls",
++            "channel_missed" to "Missed calls",
++            "missed_call" to "Missed call",
++            "missed_calls" to "%1\$d missed calls",
++            "call_back" to "Call back"
++        )
++
++    val t = SableTexts(EN)
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/SpecialCodes.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/SpecialCodes.kt
+new file mode 100644
+index 0000000..14da718
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/SpecialCodes.kt
+@@ -0,0 +1,20 @@
++package org.sableos.phone.core
++
++/** Dial pad codes the Phone app handles itself instead of calling: the IMEI code and `*#*#code#*#*` secret codes. */
++object SpecialCodes {
++    sealed interface Code {
++        /** `*#06#`: show the IMEI (and MEID) of every SIM slot. */
++        data object ShowImei : Code
++
++        /** `*#*#1234#*#*`: sent to the apps listening for that secret code (sendDialerSpecialCode). */
++        data class Secret(val code: String) : Code
++    }
++
++    private val SECRET = Regex("""^\*#\*#([0-9]+)#\*#\*$""")
++
++    /** The code [typed] is as soon as it is complete, or null for an ordinary number (MMI and USSD codes are calls). */
++    fun parse(typed: String): Code? = when {
++        typed == "*#06#" -> Code.ShowImei
++        else -> SECRET.matchEntire(typed)?.let { Code.Secret(it.groupValues[1]) }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/SpeedDial.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/SpeedDial.kt
+new file mode 100644
+index 0000000..997c3cf
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/SpeedDial.kt
+@@ -0,0 +1,48 @@
++package org.sableos.phone.core
++
++/**
++ * BlackBerry speed dial on letter keys: holding a letter calls the number put on it. The contract Sable Start
++ * reads (authority, permission, action, extra, column) is the one the Sable Lineage Dialer patch 0710 defined, so
++ * Start keeps working when Sable Phone replaces that Dialer.
++ */
++object SpeedDial {
++    const val AUTHORITY = "org.sableos.dialer.speeddial"
++    const val PERMISSION = "org.sableos.permission.SPEED_DIAL"
++    const val ACTION_SPEED_DIAL = "org.sableos.dialer.action.SPEED_DIAL"
++    const val EXTRA_LETTER = "org.sableos.dialer.extra.LETTER"
++    const val COLUMN_LETTER = "letter"
++
++    /** One assignment: the number to call and the name shown beside the letter. */
++    data class Entry(val number: String, val label: String)
++
++    /** The letter as stored, a-z, or null for anything else. */
++    fun normalize(c: Char): Char? = c.lowercaseChar().takeIf { it in 'a'..'z' }
++
++    /** Reads the stored list: one `letter TAB number TAB label` per line; bad lines are skipped. */
++    fun parse(stored: String?): Map<Char, Entry> {
++        if (stored.isNullOrEmpty()) return emptyMap()
++        val out = sortedMapOf<Char, Entry>()
++        for (line in stored.split('\n')) {
++            val f = line.split('\t')
++            val letter = f.takeIf {
++                it.size == FIELDS && it[0].length == 1
++            }?.let { normalize(it[0][0]) }
++            val number = f.getOrNull(1)?.trim().orEmpty()
++            if (letter != null && number.isNotEmpty()) {
++                out[letter] = Entry(number, clean(f[2]).ifEmpty { number })
++            }
++        }
++        return out
++    }
++
++    /** Writes the list in [parse]'s form, A to Z. */
++    fun format(entries: Map<Char, Entry>): String =
++        entries.toSortedMap().entries.joinToString("\n") { (letter, e) ->
++            "$letter\t${clean(e.number)}\t${clean(e.label)}"
++        }
++
++    /** Names and numbers never carry the separators of the stored form. */
++    private fun clean(s: String): String = s.replace('\t', ' ').replace('\n', ' ').trim()
++
++    private const val FIELDS = 3
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/res/drawable/ic_sable_phone.xml b/sable-src/apps/titan2/platform/phone/src/main/res/drawable/ic_sable_phone.xml
+new file mode 100644
+index 0000000..30f52ef
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/res/drawable/ic_sable_phone.xml
+@@ -0,0 +1,21 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="48dp"
++    android:height="48dp"
++    android:viewportWidth="256"
++    android:viewportHeight="256">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M32,16h192c8.8,0 16,7.2 16,16v192c0,8.8 -7.2,16 -16,16H32c-8.8,0 -16,-7.2 -16,-16V32c0,-8.8 7.2,-16 16,-16z" />
++    <group
++        android:scaleX="0.70"
++        android:scaleY="0.70"
++        android:translateX="38.4"
++        android:translateY="34">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M144.27,45.93a8,8,0,0,1,9.8-5.66,86.22,86.22,0,0,1,61.66,61.66,8,8,0,0,1-5.66,9.8A8.23,8.23,0,0,1,208,112a8,8,0,0,1-7.73-5.94,70.35,70.35,0,0,0-50.33-50.33A8,8,0,0,1,144.27,45.93Zm-2.33,41.8c13.79,3.68,22.65,12.54,26.33,26.33A8,8,0,0,0,176,120a8.23,8.23,0,0,0,2.07-.27,8,8,0,0,0,5.66-9.8c-5.12-19.16-18.5-32.54-37.66-37.66a8,8,0,1,0-4.13,15.46Zm81.94,95.35A56.26,56.26,0,0,1,168,232C88.6,232,24,167.4,24,88A56.26,56.26,0,0,1,72.92,32.12a16,16,0,0,1,16.62,9.52l21.12,47.15,0,.12A16,16,0,0,1,109.39,104c-.18.27-.37.52-.57.77L88,129.45c7.49,15.22,23.41,31,38.83,38.51l24.34-20.71a8.12,8.12,0,0,1,.75-.56,16,16,0,0,1,15.17-1.4l.13.06,47.11,21.11A16,16,0,0,1,223.88,183.08Zm-15.88-2s-.07,0-.11,0h0l-47-21.05-24.35,20.71a8.44,8.44,0,0,1-.74.56,16,16,0,0,1-15.75,1.14c-18.73-9.05-37.4-27.58-46.46-46.11a16,16,0,0,1,1-15.7,6.13,6.13,0,0,1,.57-.77L96,95.15l-21-47a.61.61,0,0,1,0-.12A40.2,40.2,0,0,0,40,88,128.14,128.14,0,0,0,168,216,40.21,40.21,0,0,0,208,181.07Z" />
++    </group>
++    <path
++        android:fillColor="#35C66B"
++        android:pathData="M28,226h200v6H28z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/res/drawable/ic_sable_phone_background.xml b/sable-src/apps/titan2/platform/phone/src/main/res/drawable/ic_sable_phone_background.xml
+new file mode 100644
+index 0000000..811854a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/res/drawable/ic_sable_phone_background.xml
+@@ -0,0 +1,10 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <path
++        android:fillColor="#161C24"
++        android:pathData="M0,0h108v108H0z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/res/drawable/ic_sable_phone_foreground.xml b/sable-src/apps/titan2/platform/phone/src/main/res/drawable/ic_sable_phone_foreground.xml
+new file mode 100644
+index 0000000..4f0cca3
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/res/drawable/ic_sable_phone_foreground.xml
+@@ -0,0 +1,19 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#F7F9FC"
++            android:pathData="M144.27,45.93a8,8,0,0,1,9.8-5.66,86.22,86.22,0,0,1,61.66,61.66,8,8,0,0,1-5.66,9.8A8.23,8.23,0,0,1,208,112a8,8,0,0,1-7.73-5.94,70.35,70.35,0,0,0-50.33-50.33A8,8,0,0,1,144.27,45.93Zm-2.33,41.8c13.79,3.68,22.65,12.54,26.33,26.33A8,8,0,0,0,176,120a8.23,8.23,0,0,0,2.07-.27,8,8,0,0,0,5.66-9.8c-5.12-19.16-18.5-32.54-37.66-37.66a8,8,0,1,0-4.13,15.46Zm81.94,95.35A56.26,56.26,0,0,1,168,232C88.6,232,24,167.4,24,88A56.26,56.26,0,0,1,72.92,32.12a16,16,0,0,1,16.62,9.52l21.12,47.15,0,.12A16,16,0,0,1,109.39,104c-.18.27-.37.52-.57.77L88,129.45c7.49,15.22,23.41,31,38.83,38.51l24.34-20.71a8.12,8.12,0,0,1,.75-.56,16,16,0,0,1,15.17-1.4l.13.06,47.11,21.11A16,16,0,0,1,223.88,183.08Zm-15.88-2s-.07,0-.11,0h0l-47-21.05-24.35,20.71a8.44,8.44,0,0,1-.74.56,16,16,0,0,1-15.75,1.14c-18.73-9.05-37.4-27.58-46.46-46.11a16,16,0,0,1,1-15.7,6.13,6.13,0,0,1,.57-.77L96,95.15l-21-47a.61.61,0,0,1,0-.12A40.2,40.2,0,0,0,40,88,128.14,128.14,0,0,0,168,216,40.21,40.21,0,0,0,208,181.07Z" />
++    </group>
++    <path
++        android:fillColor="#35C66B"
++        android:pathData="M38,76.5h32v1.5H38z" />
++</vector>
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/res/drawable/ic_sable_phone_monochrome.xml b/sable-src/apps/titan2/platform/phone/src/main/res/drawable/ic_sable_phone_monochrome.xml
+new file mode 100644
+index 0000000..c1dd982
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/res/drawable/ic_sable_phone_monochrome.xml
+@@ -0,0 +1,16 @@
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="108dp"
++    android:height="108dp"
++    android:viewportWidth="108"
++    android:viewportHeight="108">
++    <group
++        android:scaleX="0.171875"
++        android:scaleY="0.171875"
++        android:translateX="32"
++        android:translateY="32">
++        <path
++            android:fillColor="#FFFFFFFF"
++            android:pathData="M144.27,45.93a8,8,0,0,1,9.8-5.66,86.22,86.22,0,0,1,61.66,61.66,8,8,0,0,1-5.66,9.8A8.23,8.23,0,0,1,208,112a8,8,0,0,1-7.73-5.94,70.35,70.35,0,0,0-50.33-50.33A8,8,0,0,1,144.27,45.93Zm-2.33,41.8c13.79,3.68,22.65,12.54,26.33,26.33A8,8,0,0,0,176,120a8.23,8.23,0,0,0,2.07-.27,8,8,0,0,0,5.66-9.8c-5.12-19.16-18.5-32.54-37.66-37.66a8,8,0,1,0-4.13,15.46Zm81.94,95.35A56.26,56.26,0,0,1,168,232C88.6,232,24,167.4,24,88A56.26,56.26,0,0,1,72.92,32.12a16,16,0,0,1,16.62,9.52l21.12,47.15,0,.12A16,16,0,0,1,109.39,104c-.18.27-.37.52-.57.77L88,129.45c7.49,15.22,23.41,31,38.83,38.51l24.34-20.71a8.12,8.12,0,0,1,.75-.56,16,16,0,0,1,15.17-1.4l.13.06,47.11,21.11A16,16,0,0,1,223.88,183.08Zm-15.88-2s-.07,0-.11,0h0l-47-21.05-24.35,20.71a8.44,8.44,0,0,1-.74.56,16,16,0,0,1-15.75,1.14c-18.73-9.05-37.4-27.58-46.46-46.11a16,16,0,0,1,1-15.7,6.13,6.13,0,0,1,.57-.77L96,95.15l-21-47a.61.61,0,0,1,0-.12A40.2,40.2,0,0,0,40,88,128.14,128.14,0,0,0,168,216,40.21,40.21,0,0,0,208,181.07Z" />
++    </group>
++</vector>
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/res/mipmap-anydpi-v26/ic_sable_phone.xml b/sable-src/apps/titan2/platform/phone/src/main/res/mipmap-anydpi-v26/ic_sable_phone.xml
+new file mode 100644
+index 0000000..ee7878b
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/res/mipmap-anydpi-v26/ic_sable_phone.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_phone_background" />
++    <foreground android:drawable="@drawable/ic_sable_phone_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_phone_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/res/mipmap-anydpi-v26/ic_sable_phone_round.xml b/sable-src/apps/titan2/platform/phone/src/main/res/mipmap-anydpi-v26/ic_sable_phone_round.xml
+new file mode 100644
+index 0000000..ee7878b
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/res/mipmap-anydpi-v26/ic_sable_phone_round.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated by sable-src/tools/gen_first_party_icons.py from ICON_MANIFEST.tsv; do not edit. -->
++<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
++    <background android:drawable="@drawable/ic_sable_phone_background" />
++    <foreground android:drawable="@drawable/ic_sable_phone_foreground" />
++    <monochrome android:drawable="@drawable/ic_sable_phone_monochrome" />
++</adaptive-icon>
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/titan2/platform/phone/src/main/res/raw/sable_strings_keep.xml
+new file mode 100644
+index 0000000..4f4b368
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/res/raw/sable_strings_keep.xml
+@@ -0,0 +1,3 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableTexts looks strings up by name, which the resource shrinker cannot see: keep them all. -->
++<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/*" />
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000..756fdce
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml
+@@ -0,0 +1,87 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- English. Single capital letters in hints (M mute, S speaker, H hold, D keypad, W E R ... phone-pad digits) name keyboard keys: keep them as the key, translate the word.
++     Keep equal to PhoneText.EN (PhoneTextTest checks); translations go in values-<lang>/. -->
++<resources>
++    <string name="app_name" translatable="false">Sable Phone</string>
++    <string name="app_title">Phone</string>
++    <string name="tab_calls">Calls</string>
++    <string name="tab_contacts">Contacts</string>
++    <string name="tab_dial_pad">Dial pad</string>
++    <string name="search_hint">Type a name or number</string>
++    <string name="make_default">Sable Phone is not your phone app. Press here to make it the default.</string>
++    <string name="today">Today</string>
++    <string name="yesterday">Yesterday</string>
++    <string name="no_matches">No matches</string>
++    <string name="contact_hidden">Contact hidden</string>
++    <string name="private_number">Private number</string>
++    <string name="call_count">%1$s (%2$d)</string>
++    <string name="kind_incoming">Incoming</string>
++    <string name="kind_outgoing">Outgoing</string>
++    <string name="kind_missed">Missed</string>
++    <string name="kind_declined">Declined</string>
++    <string name="kind_blocked">Blocked</string>
++    <string name="kind_voicemail">Voicemail</string>
++    <string name="call">Call</string>
++    <string name="send_message">Send message</string>
++    <string name="edit_before_call">Edit number before calling</string>
++    <string name="copy_number">Copy number</string>
++    <string name="add_contact">Add to contacts</string>
++    <string name="remove_from_calls">Remove from Calls</string>
++    <string name="enter_number">Enter a number</string>
++    <string name="delete">Delete</string>
++    <string name="suggestion">Call %1$s · %2$s</string>
++    <string name="hint_calls">Letters search · digits dial · hold a letter for speed dial · Menu for more</string>
++    <string name="hint_contacts">Letters search · Call key or Enter calls · hold a letter for speed dial</string>
++    <string name="hint_dial_pad">W E R S D F Z X C are 1 to 9 · hold 1 for voicemail · Call key calls</string>
++    <string name="speed_dial">Speed dial</string>
++    <string name="speed_dial_hint">Hold a letter key in Phone or on the home screen to call its number.</string>
++    <string name="speed_dial_row">%1$s · %2$s</string>
++    <string name="speed_dial_row_empty">%1$s · Not set</string>
++    <string name="speed_dial_change">Choose another contact</string>
++    <string name="speed_dial_remove">Remove</string>
++    <string name="speed_dial_unassigned">Nothing on %1$s yet. Choose who holding %1$s calls.</string>
++    <string name="speed_dial_assigned">Holding %1$s now calls %2$s</string>
++    <string name="speed_dial_no_number">That contact has no phone number.</string>
++    <string name="space_answers_on">Space answers calls: on</string>
++    <string name="space_answers_off">Space answers calls: off</string>
++    <string name="blocked_numbers">Blocked numbers</string>
++    <string name="call_settings">Call settings</string>
++    <string name="sim_settings">Calling accounts</string>
++    <string name="needs_call_permission">Sable Phone needs the Phone permission to make calls.</string>
++    <string name="imei_line">IMEI %1$d: %2$s</string>
++    <string name="imei_unavailable">The IMEI is not available.</string>
++    <string name="incoming_call">Incoming call</string>
++    <string name="calling">Calling…</string>
++    <string name="on_hold">On hold</string>
++    <string name="ending">Ending…</string>
++    <string name="call_ended">Call ended</string>
++    <string name="choose_sim">Choose a SIM for this call</string>
++    <string name="sim">SIM</string>
++    <string name="cancel">Cancel</string>
++    <string name="conference">Conference call</string>
++    <string name="ongoing_call">Ongoing call</string>
++    <string name="other_call">%1$s · %2$s</string>
++    <string name="answer">Answer</string>
++    <string name="decline">Decline</string>
++    <string name="end_call">End call</string>
++    <string name="hang_up">Hang up</string>
++    <string name="mute">Mute</string>
++    <string name="speaker">Speaker</string>
++    <string name="audio">Audio</string>
++    <string name="route_phone">Phone</string>
++    <string name="route_bluetooth">Bluetooth</string>
++    <string name="keypad">Keypad</string>
++    <string name="hold">Hold</string>
++    <string name="add_call">Add call</string>
++    <string name="merge">Merge</string>
++    <string name="swap">Swap</string>
++    <string name="hint_ringing">Call key or Space answers · End declines</string>
++    <string name="hint_call">M mute · S speaker · H hold · D keypad · End hangs up</string>
++    <string name="hint_keypad">Dial keys send tones · Back closes the keypad</string>
++    <string name="channel_incoming">Incoming calls</string>
++    <string name="channel_ongoing">Ongoing calls</string>
++    <string name="channel_missed">Missed calls</string>
++    <string name="missed_call">Missed call</string>
++    <string name="missed_calls">%1$d missed calls</string>
++    <string name="call_back">Call back</string>
++</resources>
+diff --git a/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/PhoneTextTest.kt b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/PhoneTextTest.kt
+new file mode 100644
+index 0000000..4a7ad62
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/PhoneTextTest.kt
+@@ -0,0 +1,62 @@
++package org.sableos.phone
++
++import java.io.File
++import javax.xml.parsers.DocumentBuilderFactory
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.phone.core.PhoneText
++
++/** The English lines in code and in `values/strings.xml` stay equal, and every translation fits them. */
++class PhoneTextTest {
++    private val res = File("src/main/res")
++
++    private fun strings(file: File): Map<String, String> {
++        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
++        val nodes = doc.getElementsByTagName("string")
++        return (0 until nodes.length)
++            .map { nodes.item(it) }
++            .filter { it.attributes.getNamedItem("translatable")?.nodeValue != "false" }
++            .associate { node ->
++                val raw =
++                    node.textContent.let {
++                        if (it.length > 1 && it.startsWith('"') &&
++                            it.endsWith('"')
++                        ) {
++                            it.drop(1).dropLast(1)
++                        } else {
++                            it
++                        }
++                    }
++                node.attributes.getNamedItem("name").nodeValue to
++                    raw
++                        .replace("\\n", "\n")
++                        .replace("\\'", "'")
++                        .replace("\\\"", "\"")
++                        .replace("\\@", "@")
++                        .replace("\\\\", "\\")
++            }
++    }
++
++    private fun placeholders(s: String) = Regex("%\\d+\\$[sd]").findAll(s).map {
++        it.value
++    }.toSortedSet()
++
++    @Test
++    fun englishResourcesMatchTheCode() {
++        val english = strings(File(res, "values/strings.xml"))
++        PhoneText.EN.forEach { (key, text) -> assertEquals(key, text, english[key]) }
++    }
++
++    @Test
++    fun translationsHaveEveryKeyAndTheSamePlaceholders() {
++        res.listFiles { f ->
++            f.name.startsWith("values-") && File(f, "strings.xml").isFile
++        }.orEmpty().forEach { dir ->
++            val tr = strings(File(dir, "strings.xml"))
++            assertEquals(dir.name, PhoneText.EN.keys, tr.keys.intersect(PhoneText.EN.keys))
++            PhoneText.EN.forEach { (key, text) ->
++                assertEquals("${dir.name}/$key", placeholders(text), placeholders(tr.getValue(key)))
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/CallFormatTest.kt b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/CallFormatTest.kt
+new file mode 100644
+index 0000000..e1f0f1a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/CallFormatTest.kt
+@@ -0,0 +1,39 @@
++package org.sableos.phone.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class CallFormatTest {
++    @Test
++    fun durations() {
++        assertEquals("0:07", CallFormat.duration(7))
++        assertEquals("12:45", CallFormat.duration(765))
++        assertEquals("1:02:03", CallFormat.duration(3723))
++        assertEquals("0:00", CallFormat.duration(-5))
++    }
++
++    @Test
++    fun dialableKeepsOnlyWhatIsDialled() {
++        assertEquals("+15550101", CallFormat.dialable("+1 (555) 01-01"))
++        assertEquals("*21*123#", CallFormat.dialable("*21*123#"))
++        assertEquals("12,34", CallFormat.dialable("1+2,34"))
++    }
++
++    @Test
++    fun sameNumberAcrossFormats() {
++        assertTrue(CallFormat.sameNumber("+44 7700 900123", "07700 900123"))
++        assertFalse(CallFormat.sameNumber("", ""))
++        assertFalse(CallFormat.sameNumber("112", "911"))
++    }
++
++    @Test
++    fun specialCodes() {
++        assertEquals(SpecialCodes.Code.ShowImei, SpecialCodes.parse("*#06#"))
++        assertEquals(SpecialCodes.Code.Secret("4636"), SpecialCodes.parse("*#*#4636#*#*"))
++        assertNull(SpecialCodes.parse("*#*#46"))
++        assertNull(SpecialCodes.parse("*21#"))
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/CallHistoryTest.kt b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/CallHistoryTest.kt
+new file mode 100644
+index 0000000..d787e3a
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/CallHistoryTest.kt
+@@ -0,0 +1,84 @@
++package org.sableos.phone.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.phone.core.CallHistory.Kind
++
++class CallHistoryTest {
++    private var nextId = 0L
++
++    private fun call(number: String, kind: Kind, time: Long, day: Long, hidden: Boolean = false) =
++        CallHistory.Call(nextId++, number, null, kind, time, 0, day, hidden)
++
++    @Test
++    fun groupsByDayNewestFirstWithLabels() {
++        val sections = CallHistory.group(
++            listOf(
++                call("1", Kind.INCOMING, 10, 99),
++                call("2", Kind.OUTGOING, 30, 100),
++                call("3", Kind.OUTGOING, 1, 90)
++            ),
++            today = 100
++        )
++        assertEquals(listOf(100L, 99L, 90L), sections.map { it.day })
++        assertEquals(
++            listOf(
++                CallHistory.DayLabel.TODAY,
++                CallHistory.DayLabel.YESTERDAY,
++                CallHistory.DayLabel.DATE
++            ),
++            sections.map { it.label }
++        )
++    }
++
++    @Test
++    fun foldsBackToBackCallsWithTheSameNumber() {
++        val rows = CallHistory.group(
++            listOf(
++                call("+1 555 010 1222", Kind.OUTGOING, 50, 1),
++                call("(555) 010-1222", Kind.INCOMING, 40, 1),
++                call("777", Kind.INCOMING, 30, 1),
++                call("5550101222", Kind.OUTGOING, 20, 1)
++            ),
++            today = 1
++        ).single().rows
++        assertEquals(listOf(2, 1, 1), rows.map { it.count })
++        assertEquals(50L, rows.first().latest.timeMillis)
++    }
++
++    @Test
++    fun aMissedCallNeverFoldsIntoAnAnsweredOne() {
++        val rows = CallHistory.group(
++            listOf(
++                call("555", Kind.MISSED, 50, 1),
++                call("555", Kind.INCOMING, 40, 1),
++                call("555", Kind.INCOMING, 30, 1)
++            ),
++            today = 1
++        ).single().rows
++        assertEquals(listOf(1, 2), rows.map { it.count })
++        assertEquals(true, rows.first().missed)
++    }
++
++    @Test
++    fun hiddenNumbersFoldOnlyWithHiddenNumbers() {
++        val rows = CallHistory.group(
++            listOf(
++                call("", Kind.INCOMING, 50, 1, hidden = true),
++                call("", Kind.INCOMING, 40, 1, hidden = true),
++                call("1", Kind.INCOMING, 30, 1)
++            ),
++            today = 1
++        ).single().rows
++        assertEquals(listOf(2, 1), rows.map { it.count })
++    }
++
++    @Test
++    fun callLogTypes() {
++        assertEquals(Kind.OUTGOING, CallHistory.kindOf(CallHistory.TYPE_OUTGOING))
++        assertEquals(Kind.MISSED, CallHistory.kindOf(CallHistory.TYPE_MISSED))
++        assertEquals(Kind.DECLINED, CallHistory.kindOf(CallHistory.TYPE_REJECTED))
++        assertEquals(Kind.BLOCKED, CallHistory.kindOf(CallHistory.TYPE_BLOCKED))
++        assertEquals(Kind.INCOMING, CallHistory.kindOf(99))
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/DialKeysTest.kt b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/DialKeysTest.kt
+new file mode 100644
+index 0000000..bcb0124
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/DialKeysTest.kt
+@@ -0,0 +1,72 @@
++package org.sableos.phone.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class DialKeysTest {
++    private val w = 51
++    private val c = 31
++    private val q = 45
++    private val alt = 0x12
++
++    @Test
++    fun phonePadLettersAreDigitsOnTheDialScreen() {
++        assertEquals('1', DialKeys.dialChar(w, 'w'.code, 0, 0, dialScreen = true))
++        assertEquals('9', DialKeys.dialChar(c, 'c'.code, 0, 0, dialScreen = true))
++        assertNull(DialKeys.dialChar(q, 'q'.code, 0, 0, dialScreen = true))
++    }
++
++    @Test
++    fun theKeysOwnNumberCoversZeroStarAndHash() {
++        assertEquals('0', DialKeys.dialChar(q, 'q'.code, '0'.code, 0, dialScreen = true))
++        assertNull(DialKeys.dialChar(q, 'q'.code, '0'.code, 0, dialScreen = false))
++    }
++
++    @Test
++    fun elsewhereOnlyAltMakesALetterADigit() {
++        assertNull(DialKeys.dialChar(w, 'w'.code, 0, 0, dialScreen = false))
++        assertEquals('1', DialKeys.dialChar(w, '1'.code, 0, alt, dialScreen = false))
++        assertEquals('1', DialKeys.dialChar(w, 0, 0, alt, dialScreen = false))
++    }
++
++    @Test
++    fun numberRowNumpadAndSymbols() {
++        assertEquals('5', DialKeys.dialChar(12, 0, 0, 0, dialScreen = false))
++        assertEquals('7', DialKeys.dialChar(151, 0, 0, 0, dialScreen = false))
++        assertEquals('*', DialKeys.dialChar(DialKeys.KEYCODE_STAR, 0, 0, 0, dialScreen = false))
++        assertEquals('#', DialKeys.dialChar(DialKeys.KEYCODE_POUND, 0, 0, 0, dialScreen = false))
++    }
++
++    @Test
++    fun shortcutChordsNeverType() {
++        assertNull(DialKeys.dialChar(w, 'w'.code, 0, DialKeys.META_CTRL_MASK, dialScreen = true))
++        assertNull(DialKeys.dialChar(w, 'W'.code, 0, 0x41, dialScreen = true))
++    }
++
++    @Test
++    fun opensDialPadOnFirstPressOfADigitButNotPlus() {
++        assertTrue(DialKeys.opensDialPad(w, '1'.code, alt, 0))
++        assertFalse(DialKeys.opensDialPad(w, '1'.code, alt, 1))
++        assertFalse(DialKeys.opensDialPad(w, 'w'.code, 0, 0))
++        assertFalse(DialKeys.opensDialPad(DialKeys.KEYCODE_PLUS, 0, 0, 0))
++    }
++
++    @Test
++    fun heldLetterIsTheFirstRepeatOfAPlainLetter() {
++        assertEquals('a', DialKeys.heldLetter(DialKeys.KEYCODE_A, 0, 1))
++        assertNull(DialKeys.heldLetter(DialKeys.KEYCODE_A, 0, 0))
++        assertNull(DialKeys.heldLetter(DialKeys.KEYCODE_A, 0, 2))
++        assertNull(DialKeys.heldLetter(DialKeys.KEYCODE_A, alt, 1))
++        assertNull(DialKeys.heldLetter(DialKeys.KEYCODE_SPACE, 0, 1))
++    }
++
++    @Test
++    fun lettersUnderTheKeys() {
++        assertEquals("ABC", DialKeys.lettersFor('2'))
++        assertEquals("WXYZ", DialKeys.lettersFor('9'))
++        assertEquals("", DialKeys.lettersFor('1'))
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/InCallKeysTest.kt b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/InCallKeysTest.kt
+new file mode 100644
+index 0000000..0a1188f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/InCallKeysTest.kt
+@@ -0,0 +1,57 @@
++package org.sableos.phone.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.phone.core.InCallKeys.Action
++
++class InCallKeysTest {
++    private fun decide(
++        key: Int,
++        ringing: Boolean,
++        keypad: Boolean = false,
++        space: Boolean = true,
++        meta: Int = 0
++    ) = InCallKeys.decide(key, meta, 0, InCallKeys.Screen(ringing, keypad, space))
++
++    @Test
++    fun ringingCallKeyAndSpaceAnswerEndDeclines() {
++        assertEquals(Action.ANSWER, decide(DialKeys.KEYCODE_CALL, ringing = true))
++        assertEquals(Action.ANSWER, decide(DialKeys.KEYCODE_SPACE, ringing = true))
++        assertEquals(Action.NONE, decide(DialKeys.KEYCODE_SPACE, ringing = true, space = false))
++        assertEquals(Action.DECLINE, decide(DialKeys.KEYCODE_ENDCALL, ringing = true))
++        assertEquals(Action.NONE, decide(InCallKeys.KEYCODE_M, ringing = true))
++    }
++
++    @Test
++    fun spaceNeverEndsACall() {
++        assertEquals(Action.NONE, decide(DialKeys.KEYCODE_SPACE, ringing = false))
++    }
++
++    @Test
++    fun singleKeysInACall() {
++        assertEquals(Action.MUTE, decide(InCallKeys.KEYCODE_M, ringing = false))
++        assertEquals(Action.SPEAKER, decide(InCallKeys.KEYCODE_S, ringing = false))
++        assertEquals(Action.HOLD, decide(InCallKeys.KEYCODE_H, ringing = false))
++        assertEquals(Action.KEYPAD, decide(InCallKeys.KEYCODE_D, ringing = false))
++        assertEquals(Action.HANG_UP, decide(DialKeys.KEYCODE_ENDCALL, ringing = false))
++    }
++
++    @Test
++    fun keypadOpenLeavesLettersAsTonesButEndStillHangsUp() {
++        assertEquals(Action.NONE, decide(InCallKeys.KEYCODE_M, ringing = false, keypad = true))
++        assertEquals(
++            Action.HANG_UP,
++            decide(DialKeys.KEYCODE_ENDCALL, ringing = false, keypad = true)
++        )
++    }
++
++    @Test
++    fun heldKeysAndChordsDoNothing() {
++        val ringing = InCallKeys.Screen(ringing = true, keypadOpen = false, spaceAnswers = true)
++        assertEquals(Action.NONE, InCallKeys.decide(DialKeys.KEYCODE_CALL, 0, 1, ringing))
++        assertEquals(
++            Action.NONE,
++            decide(InCallKeys.KEYCODE_M, ringing = false, meta = DialKeys.META_ALT_MASK)
++        )
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/PhoneSearchTest.kt b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/PhoneSearchTest.kt
+new file mode 100644
+index 0000000..d901107
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/PhoneSearchTest.kt
+@@ -0,0 +1,36 @@
++package org.sableos.phone.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.sableos.phone.core.PhoneSearch.Person
++
++class PhoneSearchTest {
++    private val ann = Person(1, "Ann Smith", listOf("+1 555 0101"))
++    private val bob =
++        Person(2, "Bob Annand", listOf("0207 555 9000", "07700 900123"), starred = true)
++    private val carla = Person(3, "Carla Jo", listOf("555 1234"))
++
++    @Test
++    fun lettersFindNamesByAnyWordPrefixFirst() {
++        assertEquals(listOf(ann, bob), PhoneSearch.find(listOf(carla, bob, ann), "ann"))
++        assertEquals(listOf(carla), PhoneSearch.find(listOf(ann, bob, carla), "jo"))
++        assertEquals(listOf(ann), PhoneSearch.find(listOf(ann, bob, carla), "as"))
++    }
++
++    @Test
++    fun digitsFindAnyPartOfAnyNumber() {
++        assertEquals(listOf(carla, bob, ann), PhoneSearch.find(listOf(ann, bob, carla), "555"))
++        assertEquals(listOf(bob), PhoneSearch.find(listOf(ann, bob, carla), "900123"))
++        assertTrue(PhoneSearch.numberMatches("+1 (555) 010-1", "5550"))
++        assertFalse(PhoneSearch.numberMatches("123", "9"))
++    }
++
++    @Test
++    fun emptyQueryKeepsEveryoneStarredFirst() {
++        assertEquals(listOf(bob, ann, carla), PhoneSearch.find(listOf(carla, ann, bob), " "))
++        assertNull(PhoneSearch.rank(ann, "zzz"))
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/SpeedDialTest.kt b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/SpeedDialTest.kt
+new file mode 100644
+index 0000000..14c758b
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/SpeedDialTest.kt
+@@ -0,0 +1,39 @@
++package org.sableos.phone.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class SpeedDialTest {
++    @Test
++    fun roundTripsAToZ() {
++        val entries = mapOf(
++            'm' to SpeedDial.Entry("+1 555 0101", "Mum"),
++            'a' to SpeedDial.Entry("123", "Alex")
++        )
++        val stored = SpeedDial.format(entries)
++        assertEquals("a\t123\tAlex\nm\t+1 555 0101\tMum", stored)
++        assertEquals(entries, SpeedDial.parse(stored))
++    }
++
++    @Test
++    fun badLinesAreSkippedAndAMissingLabelIsTheNumber() {
++        val parsed = SpeedDial.parse("B\t555\t\nxx\t1\tbad\n1\t2\t3\nc\t \tnobody\nd\t9")
++        assertEquals(mapOf('b' to SpeedDial.Entry("555", "555")), parsed)
++    }
++
++    @Test
++    fun separatorsNeverReachTheStore() {
++        val stored = SpeedDial.format(mapOf('z' to SpeedDial.Entry("1", "Line\none\ttwo")))
++        assertEquals("z\t1\tLine one two", stored)
++        assertTrue(SpeedDial.parse(null).isEmpty())
++    }
++
++    @Test
++    fun contractIsTheOneSableStartReads() {
++        assertEquals("org.sableos.dialer.speeddial", SpeedDial.AUTHORITY)
++        assertEquals("org.sableos.dialer.action.SPEED_DIAL", SpeedDial.ACTION_SPEED_DIAL)
++        assertEquals("org.sableos.dialer.extra.LETTER", SpeedDial.EXTRA_LETTER)
++        assertEquals("letter", SpeedDial.COLUMN_LETTER)
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/settings.gradle.kts b/sable-src/apps/titan2/platform/settings.gradle.kts
+index 6cefad6..aa6415d 100644
+--- a/sable-src/apps/titan2/platform/settings.gradle.kts
++++ b/sable-src/apps/titan2/platform/settings.gradle.kts
+@@ -13,4 +13,4 @@ dependencyResolutionManagement {
+     }
+ }
+ rootProject.name = "sable-titan2-platform"
+-include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools", ":vault", ":profiles", ":spaces", ":printtogo", ":compass")
++include(":displaycompat", ":keyboard", ":camera", ":setup", ":radiodiag", ":tools", ":vault", ":profiles", ":spaces", ":printtogo", ":compass", ":phone")
+diff --git a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+index c705c8a..0ebdf69 100644
+--- a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
++++ b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+@@ -56,6 +56,8 @@
+         <provider android:authorities="org.sableos.mail.snapshot" />
+         <provider android:authorities="org.sableos.media.snapshot" />
+         <provider android:authorities="org.sableos.dialer.speeddial" />
++        <!-- Sable Phone: speed dial calls go to it first (then the LineageOS Dialer). -->
++        <package android:name="org.sableos.phone" />
+         <!-- Command's /cosgrove: the assistant's name, nothing else. -->
+         <provider android:authorities="org.sableos.assistant.persona" />
+         <!-- The Hub page's Messages card and Contacts tab Message action. -->
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
+index 0c0ccf7..7093056 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb7Home.kt
+@@ -268,7 +268,9 @@ object Bb7Home {
+                 val byKey = apps.associateBy { it.stableKey() }
+                 val chosen = favoriteKeys.orEmpty().mapNotNull { byKey[it] }
+                 chosen.ifEmpty {
+-                    DEFAULT_FAVORITE_PACKAGES.mapNotNull { pkg -> byName.firstOrNull { it.component.packageName == pkg } }
++                    DEFAULT_FAVORITE_PACKAGES.mapNotNull { pkg ->
++                        byName.firstOrNull { CoreAppIdentity.canonicalPackage(it.component.packageName) == pkg }
++                    }
+                 }
+             }
+         }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CoreAppIdentity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CoreAppIdentity.kt
+index 8ebaa64..7f46f8d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CoreAppIdentity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CoreAppIdentity.kt
+@@ -23,6 +23,7 @@ object CoreAppIdentity {
+     const val BROWSER = "app.vanadium.browser"
+     const val FILES = "com.android.documentsui"
+     const val CLOCK = "com.android.deskclock"
++    const val DIALER = "com.android.dialer"
+ 
+     /** Sable Camera, the Sable-designed camera app. A separate app, not an equivalent of [CAMERA]. */
+     const val SABLE_CAMERA = "org.sableos.titan2.camera"
+@@ -35,6 +36,8 @@ object CoreAppIdentity {
+             "org.lineageos.glimpse" to PHOTOS,
+             "org.lineageos.aperture" to CAMERA,
+             "org.lineageos.jelly" to BROWSER,
++            // Sable Phone replaces the LineageOS Dialer from Q4: same Phone glyph, tile and quick slot.
++            "org.sableos.phone" to DIALER,
+         )
+ 
+     /** The canonical core package for [packageName], or [packageName] itself. */
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt
+index 2b4d685..6a67ef3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt
+@@ -32,6 +32,7 @@ object HubBar {
+     const val REDACTED = "*"
+     const val MESSAGES_PACKAGE = "org.sableos.messages"
+     const val DIALER_PACKAGE = "com.android.dialer"
++    const val PHONE_PACKAGE = "org.sableos.phone"
+     const val CONTACTS_PACKAGE = "com.android.contacts"
+ 
+     /** One bar item: icon, count and focus padding, laid out in a fixed width. */
+@@ -102,7 +103,7 @@ object HubBar {
+         when (packageName) {
+             REDACTED -> Target.Private
+             MESSAGES_PACKAGE -> Target.Tab(HubFilter.Messages)
+-            DIALER_PACKAGE -> Target.Tab(HubFilter.Calls)
++            DIALER_PACKAGE, PHONE_PACKAGE -> Target.Tab(HubFilter.Calls)
+             CONTACTS_PACKAGE -> Target.Tab(HubFilter.Contacts)
+             else -> Target.OpenApp
+         }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/SpeedDial.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/SpeedDial.kt
+index a9713d4..4b7ed56 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/SpeedDial.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/SpeedDial.kt
+@@ -80,6 +80,9 @@ class SpeedDialKeys {
+ 
+     companion object {
+         const val DIALER_PACKAGE = "com.android.dialer"
++
++        /** Sable Phone (Q4 on) first, then the LineageOS Dialer: both serve this speed dial. */
++        val PHONE_PACKAGES = listOf("org.sableos.phone", DIALER_PACKAGE)
+         const val AUTHORITY = "org.sableos.dialer.speeddial"
+         const val ACTION_SPEED_DIAL = "org.sableos.dialer.action.SPEED_DIAL"
+         const val EXTRA_LETTER = "org.sableos.dialer.extra.LETTER"
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/SpeedDialRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/SpeedDialRepository.kt
+index 009b957..b495d27 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/SpeedDialRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/SpeedDialRepository.kt
+@@ -33,12 +33,14 @@ class SpeedDialRepository(
+     fun call(letter: Char): Boolean = shortcuts?.launch(letter) == true || callPhone(letter)
+ 
+     private fun callPhone(letter: Char): Boolean =
+-        runCatching {
+-            context.startActivity(
+-                Intent(SpeedDialKeys.ACTION_SPEED_DIAL)
+-                    .setPackage(SpeedDialKeys.DIALER_PACKAGE)
+-                    .putExtra(SpeedDialKeys.EXTRA_LETTER, letter.toString())
+-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+-            )
+-        }.isSuccess
++        SpeedDialKeys.PHONE_PACKAGES.any { pkg ->
++            runCatching {
++                context.startActivity(
++                    Intent(SpeedDialKeys.ACTION_SPEED_DIAL)
++                        .setPackage(pkg)
++                        .putExtra(SpeedDialKeys.EXTRA_LETTER, letter.toString())
++                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
++                )
++            }.isSuccess
++        }
+ }
+diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+index f139f2f..969692d 100644
+--- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
++++ b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+@@ -34,3 +34,4 @@ spaces	ic_sable_spaces	briefcase	c908360aa8ffeff3b78be469066aa9faf7df2eda8f34a35
+ printtogo	ic_sable_printtogo	printer	398705192743d7ced5da5ca18f2b9e69759284276596f3dd3787720093d3f57e	#C77DDB	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/printtogo/src/main/res	none
+ compass	ic_sable_compass	compass	00c7e42415f795fcea90bd9dc0b2c8266b4e9601d2937cb122cd03b7e9e9e198	#E0703A	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/compass/src/main/res	none
+ assistant	ic_sable_assistant	call-bell	8e34fed4e0c7462add464ed9f3a73f6bacabe18509353beac85ef88ef5b42a59	#F5C542	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/assistant/src/main/res	none
++phone	ic_sable_phone	phone-call	35e0113708f69bc0f6a9b33f5dc3b1a5da0700f373852be92acf51b37d7f5400	#35C66B	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/phone/src/main/res	none

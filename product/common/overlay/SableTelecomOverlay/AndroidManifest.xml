@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Telecom's system dialer components (packages/services/Telecomm res/values/config.xml): the
+     in-call UI service and the main activity of the system dialer, whose package is the framework's
+     config_defaultDialer (SableFrameworkOverlay sable_phone.xml). Sable Phone replaces the
+     LineageOS Dialer, so Telecom binds Sable Phone's call screen, also for emergency calls. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.sableos.overlay.telecom">
+    <overlay
+        android:targetPackage="com.android.server.telecom"
+        android:isStatic="true"
+        android:priority="20" />
+    <application
+        android:hasCode="false"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false" />
+</manifest>

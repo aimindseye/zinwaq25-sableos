@@ -22,4 +22,9 @@
     <privapp-permissions package="org.sableos.titan2.vault">
         <permission name="android.permission.MODIFY_QUIET_MODE" />
     </privapp-permissions>
+
+    <!-- Sable Phone: *#06# shows the IMEI of each SIM slot. -->
+    <privapp-permissions package="org.sableos.phone">
+        <permission name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
+    </privapp-permissions>
 </permissions>

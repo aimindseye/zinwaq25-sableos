@@ -127,7 +127,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 
 | App | What it's for | Keyboard tips |
 | --- | --- | --- |
-| Phone | Calls, recents, contacts | Type a name to jump. In a call: M mute, S speaker, D dial pad. Space answers. Hold a letter to speed dial (set in Menu > Speed dial) |
+| Phone (Sable Phone) | Calls by day, Contacts and Dial pad, BlackBerry 10 style, with its own call screen | Letters search, digits dial, hold a letter to speed dial (Menu > Speed dial). Call key calls; on an empty dial pad it fills in the last number. In a call: M mute, S speaker, H hold, D keypad, End hangs up. Call key or Space answers |
 | Sable Messages | Default SMS app: sends SMS, receives SMS and MMS (no MMS sending yet) | T/B, N/P, Space pages |
 | Hub (in Start) | One inbox for messages, calls and notifications | H on a notification opens it in Hub |
 | Mail | Email; Gmail sign-in is covered in [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |

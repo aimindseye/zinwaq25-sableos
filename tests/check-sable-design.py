@@ -279,8 +279,9 @@ report(
         "SableSettingsProviderOverlay": ("com.android.providers.settings", "true"),
         "SableSetupWizardOverlay": ("org.lineageos.setupwizard", "true"),
         "SableSystemUIOverlay": ("com.android.systemui", "true"),
+        "SableTelecomOverlay": ("com.android.server.telecom", "true"),
     },
-    "overlay manifests target framework, SettingsProvider, SystemUI, SetupWizard and the daily-driver apps as static overlays",
+    "overlay manifests target framework, SettingsProvider, SystemUI, SetupWizard, Telecom and the daily-driver apps as static overlays",
     str(targets),
 )
 bp = (OVERLAY / "Android.bp").read_text(encoding="utf-8")

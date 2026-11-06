@@ -117,6 +117,11 @@ if [[ -f "$manifest" ]]; then
         if [[ "$FRAMEWORK" == YES && "$module" == SableKeyboard ]]; then
             if [[ "$overrides" == - || -z "$overrides" ]]; then overrides=LatinIME; else overrides="$overrides,LatinIME"; fi
         fi
+        # Q4: Sable Phone becomes the default and system Phone app and replaces the LineageOS
+        # Dialer (the Sable Dialer patches 0701-0710 then build but do not ship).
+        if [[ "$FRAMEWORK" == YES && "$module" == SablePhone ]]; then
+            if [[ "$overrides" == - || -z "$overrides" ]]; then overrides=Dialer; else overrides="$overrides,Dialer"; fi
+        fi
         {
             echo
             echo "// $group app $package sha256=$sha"
@@ -221,6 +226,7 @@ PRODUCT_PACKAGES += \
     SableGallery2Overlay \
     SableSettingsProviderOverlay \
     SableLedOverlay \
+    SableTelecomOverlay \
     SableNoUpdater
 SABLE_Q25_NO_UPDATER := true
 PRODUCT_SYSTEM_EXT_PROPERTIES += \
