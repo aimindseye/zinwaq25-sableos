@@ -13,6 +13,9 @@
       SableFrameworkOverlay); the SMS role grants the same, these make the first boot not depend
       on when the role is assigned. Exception grants also exempt the hard-restricted SMS
       permissions (DefaultPermissionGrantPolicy whitelists them as system).
+    Sable Phone (org.sableos.phone): the default Phone app (config_defaultDialer in
+      SableFrameworkOverlay); the Phone role grants the same, these make the first boot not depend
+      on when the role is assigned (call log, call permissions are hard-restricted).
     Sable Tasks (org.sableos.tasks): reminder notifications, so a reminder set before the app was
       ever opened still alerts (and shows in Hub). Reminders also show in the app without it.
     Sable Weather (org.sableos.weather): approximate location only, so Start's weather line is for
@@ -34,6 +37,14 @@
         <permission name="android.permission.RECEIVE_SMS" fixed="false" />
         <permission name="android.permission.RECEIVE_MMS" fixed="false" />
         <permission name="android.permission.RECEIVE_WAP_PUSH" fixed="false" />
+        <permission name="android.permission.READ_CONTACTS" fixed="false" />
+        <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
+    </exception>
+    <exception package="org.sableos.phone">
+        <permission name="android.permission.CALL_PHONE" fixed="false" />
+        <permission name="android.permission.READ_PHONE_STATE" fixed="false" />
+        <permission name="android.permission.READ_CALL_LOG" fixed="false" />
+        <permission name="android.permission.WRITE_CALL_LOG" fixed="false" />
         <permission name="android.permission.READ_CONTACTS" fixed="false" />
         <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
     </exception>

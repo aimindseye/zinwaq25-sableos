@@ -32,6 +32,7 @@ object HubBar {
     const val REDACTED = "*"
     const val MESSAGES_PACKAGE = "org.sableos.messages"
     const val DIALER_PACKAGE = "com.android.dialer"
+    const val PHONE_PACKAGE = "org.sableos.phone"
     const val CONTACTS_PACKAGE = "com.android.contacts"
 
     /** One bar item: icon, count and focus padding, laid out in a fixed width. */
@@ -102,7 +103,7 @@ object HubBar {
         when (packageName) {
             REDACTED -> Target.Private
             MESSAGES_PACKAGE -> Target.Tab(HubFilter.Messages)
-            DIALER_PACKAGE -> Target.Tab(HubFilter.Calls)
+            DIALER_PACKAGE, PHONE_PACKAGE -> Target.Tab(HubFilter.Calls)
             CONTACTS_PACKAGE -> Target.Tab(HubFilter.Contacts)
             else -> Target.OpenApp
         }

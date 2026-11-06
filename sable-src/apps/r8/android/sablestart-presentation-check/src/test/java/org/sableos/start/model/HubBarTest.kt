@@ -62,6 +62,7 @@ class HubBarTest {
     fun messagesPhoneAndContactsOpenTheirTabsOtherAppsOpen() {
         assertEquals(HubBar.Target.Tab(HubFilter.Messages), HubBar.target("org.sableos.messages"))
         assertEquals(HubBar.Target.Tab(HubFilter.Calls), HubBar.target("com.android.dialer"))
+        assertEquals(HubBar.Target.Tab(HubFilter.Calls), HubBar.target("org.sableos.phone"))
         assertEquals(HubBar.Target.Tab(HubFilter.Contacts), HubBar.target("com.android.contacts"))
         assertEquals(HubBar.Target.OpenApp, HubBar.target("com.spotify.music"))
     }

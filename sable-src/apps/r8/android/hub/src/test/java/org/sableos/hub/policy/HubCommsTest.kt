@@ -158,6 +158,7 @@ class HubCommsTest {
     @Test
     fun privacyProviderCallersAreFixed() {
         assertTrue(HubPrivacyCallers.allowed(listOf("com.android.dialer")))
+        assertTrue(HubPrivacyCallers.allowed(listOf("org.sableos.phone")))
         assertTrue(HubPrivacyCallers.allowed(listOf("x", "com.android.contacts")))
         assertFalse(HubPrivacyCallers.allowed(listOf("com.example.spy")))
         assertFalse(HubPrivacyCallers.allowed(emptyList()))

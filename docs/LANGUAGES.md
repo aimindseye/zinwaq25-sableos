@@ -46,6 +46,7 @@ Lines marked `translatable="false"` are left out.
 | Secure Vault | `sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml` |
 | Sound Profiles | `sable-src/apps/titan2/platform/profiles/src/main/res/values/strings.xml` |
 | Sable Compass | `sable-src/apps/titan2/platform/compass/src/main/res/values/strings.xml` |
+| Sable Phone (English only for now; translations follow) | `sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml` |
 | Sable Print To Go | `sable-src/apps/titan2/platform/printtogo/src/main/res/values/strings.xml` |
 | Sable Spaces | `sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml` |
 | Sable Setup | `sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml` |

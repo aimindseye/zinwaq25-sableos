@@ -28,6 +28,13 @@
 # vendor/lineage/config/telephony.mk). Sable Hub and Start's Hub page read and send through the
 # same provider without the role. It ships R8-shrunk (release, ~2 MB) to save partition space.
 #
+# SablePhone is the Phone app, BlackBerry 10 style: call list, dial pad, contacts search, speed dial
+# on letter keys and its own call screens (an InCallService). From Q4 it is the default Phone app
+# (android.app.role.DIALER; config_defaultDialer in SableFrameworkOverlay) and the system dialer
+# Telecom falls back to for emergency calls (SableTelecomOverlay), and it overrides the LineageOS
+# Dialer (Soong module "Dialer"; stage-product.sh adds the override at Q4 only, like LatinIME for
+# the keyboard). Before Q4 it ships next to the stock Dialer as an ordinary app.
+#
 # Package ids stay as they are in SableOS (for example org.sableos.titan2.keyboard):
 # the Q25 does not fork common apps.
 module	group	gradle_root	gradle_task	apk	package	signing	overrides	enabled
@@ -40,6 +47,7 @@ SableProfiles	platform	apps/titan2/platform	:profiles:assembleRelease	profiles/b
 SableSpaces	platform	apps/titan2/platform	:spaces:assembleRelease	spaces/build/outputs/apk/release/*.apk	org.sableos.titan2.spaces	unsigned	-	yes
 SablePrintToGo	platform	apps/titan2/platform	:printtogo:assembleRelease	printtogo/build/outputs/apk/release/*.apk	org.sableos.titan2.printtogo	unsigned	-	yes
 SableCompass	platform	apps/titan2/platform	:compass:assembleRelease	compass/build/outputs/apk/release/*.apk	org.sableos.titan2.compass	unsigned	-	yes
+SablePhone	platform	apps/titan2/platform	:phone:assembleRelease	phone/build/outputs/apk/release/*.apk	org.sableos.phone	privileged	-	yes
 SableRadioDiag	platform	apps/titan2/platform	:radiodiag:assembleRelease	radiodiag/build/outputs/apk/release/*.apk	org.sableos.titan2.radiodiag	unsigned	-	no
 SableTools	platform	apps/titan2/platform	:tools:assembleRelease	tools/build/outputs/apk/release/*.apk	org.sableos.tools	unsigned	SableRadioDiag	yes
 # Sable Calculator ships as a shrunk release build for the same reason: Q4 with microG overflowed the

@@ -268,7 +268,9 @@ object Bb7Home {
                 val byKey = apps.associateBy { it.stableKey() }
                 val chosen = favoriteKeys.orEmpty().mapNotNull { byKey[it] }
                 chosen.ifEmpty {
-                    DEFAULT_FAVORITE_PACKAGES.mapNotNull { pkg -> byName.firstOrNull { it.component.packageName == pkg } }
+                    DEFAULT_FAVORITE_PACKAGES.mapNotNull { pkg ->
+                        byName.firstOrNull { CoreAppIdentity.canonicalPackage(it.component.packageName) == pkg }
+                    }
                 }
             }
         }

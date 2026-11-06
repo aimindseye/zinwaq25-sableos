@@ -12,6 +12,7 @@ class CoreAppIdentityTest {
         assertEquals(CoreAppIdentity.PHOTOS, CoreAppIdentity.canonicalPackage("org.lineageos.glimpse"))
         assertEquals(CoreAppIdentity.CAMERA, CoreAppIdentity.canonicalPackage("org.lineageos.aperture"))
         assertEquals(CoreAppIdentity.BROWSER, CoreAppIdentity.canonicalPackage("org.lineageos.jelly"))
+        assertEquals(CoreAppIdentity.DIALER, CoreAppIdentity.canonicalPackage("org.sableos.phone"))
     }
 
     @Test
@@ -22,6 +23,7 @@ class CoreAppIdentityTest {
             CoreAppIdentity.BROWSER,
             CoreAppIdentity.FILES,
             CoreAppIdentity.CLOCK,
+            CoreAppIdentity.DIALER,
         )) {
             assertEquals(pkg, CoreAppIdentity.canonicalPackage(pkg))
         }

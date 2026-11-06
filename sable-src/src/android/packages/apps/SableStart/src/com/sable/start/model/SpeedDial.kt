@@ -80,6 +80,9 @@ class SpeedDialKeys {
 
     companion object {
         const val DIALER_PACKAGE = "com.android.dialer"
+
+        /** Sable Phone (Q4 on) first, then the LineageOS Dialer: both serve this speed dial. */
+        val PHONE_PACKAGES = listOf("org.sableos.phone", DIALER_PACKAGE)
         const val AUTHORITY = "org.sableos.dialer.speeddial"
         const val ACTION_SPEED_DIAL = "org.sableos.dialer.action.SPEED_DIAL"
         const val EXTRA_LETTER = "org.sableos.dialer.extra.LETTER"

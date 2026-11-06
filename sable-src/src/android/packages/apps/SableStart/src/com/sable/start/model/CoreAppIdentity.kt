@@ -23,6 +23,7 @@ object CoreAppIdentity {
     const val BROWSER = "app.vanadium.browser"
     const val FILES = "com.android.documentsui"
     const val CLOCK = "com.android.deskclock"
+    const val DIALER = "com.android.dialer"
 
     /** Sable Camera, the Sable-designed camera app. A separate app, not an equivalent of [CAMERA]. */
     const val SABLE_CAMERA = "org.sableos.titan2.camera"
@@ -35,6 +36,8 @@ object CoreAppIdentity {
             "org.lineageos.glimpse" to PHOTOS,
             "org.lineageos.aperture" to CAMERA,
             "org.lineageos.jelly" to BROWSER,
+            // Sable Phone replaces the LineageOS Dialer from Q4: same Phone glyph, tile and quick slot.
+            "org.sableos.phone" to DIALER,
         )
 
     /** The canonical core package for [packageName], or [packageName] itself. */

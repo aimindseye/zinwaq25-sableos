@@ -65,3 +65,12 @@ runtime_resource_overlay {
     product_specific: true,
     sdk_version: "current",
 }
+
+// Sable Phone is Telecom's system dialer (docs/implementation/sable-phone.md).
+runtime_resource_overlay {
+    name: "SableTelecomOverlay",
+    manifest: "SableTelecomOverlay/AndroidManifest.xml",
+    resource_dirs: ["SableTelecomOverlay/res"],
+    product_specific: true,
+    sdk_version: "current",
+}
