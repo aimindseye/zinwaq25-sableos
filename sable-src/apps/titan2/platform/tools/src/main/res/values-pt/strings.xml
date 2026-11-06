@@ -302,6 +302,9 @@
     <string name="provider_credentials">credenciais de provedores</string>
     <string name="select_at_least_one_section">Selecione pelo menos uma seção</string>
     <string name="tv">TV</string>
+    <string name="ruler">Régua</string>
+    <string name="ruler_hint">Encoste na borda esquerda (cm) ou direita (polegadas), a partir do topo da tela.</string>
+    <string name="ruler_info">Desenha centímetros e polegadas pela densidade da tela, com a precisão que o painel informa. Nada é guardado.</string>
     <string name="sos_alert">SOS e alarme</string>
     <string name="sos_light">Luz SOS</string>
     <string name="sos_screen_flash">Flash da tela</string>

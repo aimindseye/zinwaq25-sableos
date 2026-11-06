@@ -303,6 +303,9 @@
     <string name="provider_credentials">provider credentials</string>
     <string name="select_at_least_one_section">Select at least one section</string>
     <string name="tv">TV</string>
+    <string name="ruler">Ruler</string>
+    <string name="ruler_hint">Lay it along the left (cm) or right (inch) edge, from the top of the screen.</string>
+    <string name="ruler_info">Draws centimetres and inches from the screen\'s own density, so it is as accurate as the panel reports. Nothing is kept.</string>
     <string name="sos_alert">SOS and alarm</string>
     <string name="sos_light">SOS light</string>
     <string name="sos_screen_flash">Screen flash</string>

@@ -302,6 +302,9 @@
     <string name="provider_credentials">プロバイダーの認証情報</string>
     <string name="select_at_least_one_section">少なくとも 1 つのセクションを選択してください</string>
     <string name="tv">テレビ</string>
+    <string name="ruler">定規</string>
+    <string name="ruler_hint">画面の上端から、左端(cm)または右端(インチ)に沿って当ててください。</string>
+    <string name="ruler_info">画面自身の密度から cm とインチを描きます。精度はパネルの報告どおりです。何も保存しません。</string>
     <string name="sos_alert">SOSとアラーム</string>
     <string name="sos_light">SOSライト</string>
     <string name="sos_screen_flash">画面フラッシュ</string>

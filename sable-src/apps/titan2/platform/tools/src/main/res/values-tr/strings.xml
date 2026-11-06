@@ -302,6 +302,9 @@
     <string name="provider_credentials">sağlayıcı kimlik bilgileri</string>
     <string name="select_at_least_one_section">En az bir bölüm seçin</string>
     <string name="tv">TV</string>
+    <string name="ruler">Cetvel</string>
+    <string name="ruler_hint">Ekranın üstünden başlayarak sol (cm) veya sağ (inç) kenara yaslayın.</string>
+    <string name="ruler_info">Santimetre ve inçleri ekranın kendi yoğunluğundan çizer; panelin bildirdiği kadar doğrudur. Hiçbir şey saklanmaz.</string>
     <string name="sos_alert">SOS ve alarm</string>
     <string name="sos_light">SOS ışığı</string>
     <string name="sos_screen_flash">Ekran flaşı</string>

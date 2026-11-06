@@ -302,6 +302,9 @@
     <string name="provider_credentials">credenziali dei fornitori</string>
     <string name="select_at_least_one_section">Seleziona almeno una sezione</string>
     <string name="tv">TV</string>
+    <string name="ruler">Righello</string>
+    <string name="ruler_hint">Appoggialo al bordo sinistro (cm) o destro (pollici), partendo dall\'alto dello schermo.</string>
+    <string name="ruler_info">Disegna centimetri e pollici dalla densità dello schermo, preciso quanto indica il pannello. Nulla viene salvato.</string>
     <string name="sos_alert">SOS e allarme</string>
     <string name="sos_light">Luce SOS</string>
     <string name="sos_screen_flash">Lampeggio schermo</string>

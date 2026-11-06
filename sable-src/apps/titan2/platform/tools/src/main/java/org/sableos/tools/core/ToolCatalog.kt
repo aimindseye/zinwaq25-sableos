@@ -90,6 +90,12 @@ enum class Tool(
         Capability.PICTURE_HANGING,
         keywords = listOf("level guide", "frame")
     ),
+    RULER(
+        Section.UTILITIES,
+        "ruler",
+        ToolKind.ACTION,
+        keywords = listOf("measure", "length", "cm", "inch")
+    ),
     FLASHLIGHT(
         Section.UTILITIES,
         "flashlight",

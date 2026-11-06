@@ -17,6 +17,7 @@ object Controllers {
         Tool.PROTRACTOR to { h -> TiltController(h, Capability.PROTRACTOR) },
         Tool.PICTURE_HANGING to { h -> TiltController(h, Capability.PICTURE_HANGING) },
         Tool.HEIGHT_ESTIMATE to ::HeightController,
+        Tool.RULER to ::RulerController,
         Tool.FLASHLIGHT to ::FlashlightController,
         Tool.SOS_ALERT to ::SosController,
         Tool.MAGNIFIER to ::MagnifierController,

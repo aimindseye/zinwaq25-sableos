@@ -302,6 +302,9 @@
     <string name="provider_credentials">אישורי ספקים</string>
     <string name="select_at_least_one_section">בחרו לפחות מקטע אחד</string>
     <string name="tv">טלוויזיה</string>
+    <string name="ruler">סרגל</string>
+    <string name="ruler_hint">הניחו לאורך הקצה השמאלי (ס״מ) או הימני (אינץ׳), מראש המסך.</string>
+    <string name="ruler_info">משרטט סנטימטרים ואינצ׳ים לפי צפיפות המסך, מדויק כפי שהמסך מדווח. דבר אינו נשמר.</string>
     <string name="sos_alert">SOS והתראה</string>
     <string name="sos_light">אור SOS</string>
     <string name="sos_screen_flash">הבהוב מסך</string>

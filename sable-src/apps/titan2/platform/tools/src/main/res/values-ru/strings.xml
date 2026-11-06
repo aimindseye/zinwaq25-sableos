@@ -302,6 +302,9 @@
     <string name="provider_credentials">учётные данные провайдеров</string>
     <string name="select_at_least_one_section">Выберите хотя бы один раздел</string>
     <string name="tv">ТВ</string>
+    <string name="ruler">Линейка</string>
+    <string name="ruler_hint">Приложите к левому (см) или правому (дюймы) краю, начиная от верха экрана.</string>
+    <string name="ruler_info">Рисует сантиметры и дюймы по плотности экрана, с той точностью, которую сообщает панель. Ничего не сохраняется.</string>
     <string name="sos_alert">SOS и сигнал тревоги</string>
     <string name="sos_light">Свет SOS</string>
     <string name="sos_screen_flash">Вспышка экрана</string>

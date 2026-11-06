@@ -302,6 +302,9 @@
     <string name="provider_credentials">leverantörsuppgifter</string>
     <string name="select_at_least_one_section">Välj minst ett avsnitt</string>
     <string name="tv">TV</string>
+    <string name="ruler">Linjal</string>
+    <string name="ruler_hint">Lägg det längs vänster (cm) eller höger (tum) kant, från skärmens överkant.</string>
+    <string name="ruler_info">Ritar centimeter och tum utifrån skärmens täthet, så noggrant som panelen anger. Inget sparas.</string>
     <string name="sos_alert">SOS och larm</string>
     <string name="sos_light">SOS-ljus</string>
     <string name="sos_screen_flash">Skärmblixt</string>

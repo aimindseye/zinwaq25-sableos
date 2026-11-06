@@ -302,6 +302,9 @@
     <string name="provider_credentials">प्रदाता क्रेडेंशियल</string>
     <string name="select_at_least_one_section">कम से कम एक अनुभाग चुनें</string>
     <string name="tv">टीवी</string>
+    <string name="ruler">रूलर</string>
+    <string name="ruler_hint">स्क्रीन के ऊपर से, बाएँ (सेमी) या दाएँ (इंच) किनारे पर रखें।</string>
+    <string name="ruler_info">स्क्रीन के अपने घनत्व से सेंटीमीटर और इंच बनाता है, इसलिए उतना ही सटीक है जितना पैनल बताता है। कुछ भी सहेजा नहीं जाता।</string>
     <string name="sos_alert">SOS और अलार्म</string>
     <string name="sos_light">SOS लाइट</string>
     <string name="sos_screen_flash">स्क्रीन फ़्लैश</string>

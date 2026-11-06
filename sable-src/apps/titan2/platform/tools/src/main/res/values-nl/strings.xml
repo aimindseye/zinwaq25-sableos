@@ -302,6 +302,9 @@
     <string name="provider_credentials">inloggegevens van providers</string>
     <string name="select_at_least_one_section">Selecteer ten minste één sectie</string>
     <string name="tv">Tv</string>
+    <string name="ruler">Liniaal</string>
+    <string name="ruler_hint">Leg het langs de linkerrand (cm) of rechterrand (inch), vanaf de bovenkant van het scherm.</string>
+    <string name="ruler_info">Tekent centimeters en inches uit de dichtheid van het scherm, zo nauwkeurig als het paneel meldt. Er wordt niets bewaard.</string>
     <string name="sos_alert">SOS en alarm</string>
     <string name="sos_light">SOS-licht</string>
     <string name="sos_screen_flash">Schermflits</string>
