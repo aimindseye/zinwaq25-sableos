@@ -71,6 +71,7 @@
     <string name="today">Oggi</string>
     <string name="views">Viste</string>
     <string name="nothing_found">Nessun risultato.</string>
+    <string name="colour">Colore</string>
     <string name="l_calendars">" · L calendari"</string>
     <string name="day_events">%1$s, %2$s eventi</string>
 </resources>

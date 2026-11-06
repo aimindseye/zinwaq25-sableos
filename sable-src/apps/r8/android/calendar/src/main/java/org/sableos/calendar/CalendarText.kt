@@ -86,6 +86,7 @@ object CalendarText {
             "today" to "Today",
             "views" to "Views",
             "nothing_found" to "Nothing found.",
+            "colour" to "Colour",
             "l_calendars" to " · L calendars",
             "day_events" to "%1\$s, %2\$s events",
         )

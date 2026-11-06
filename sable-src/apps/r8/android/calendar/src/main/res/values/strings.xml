@@ -73,6 +73,7 @@
     <string name="today">Today</string>
     <string name="views">Views</string>
     <string name="nothing_found">Nothing found.</string>
+    <string name="colour">Colour</string>
     <string name="l_calendars">" · L calendars"</string>
     <string name="day_events">%1$s, %2$s events</string>
 </resources>

@@ -71,6 +71,7 @@
     <string name="today">היום</string>
     <string name="views">תצוגות</string>
     <string name="nothing_found">לא נמצא דבר.</string>
+    <string name="colour">צבע</string>
     <string name="l_calendars">" · L יומנים"</string>
     <string name="day_events">%1$s, %2$s אירועים</string>
 </resources>

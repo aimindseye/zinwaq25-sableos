@@ -45,6 +45,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
@@ -191,6 +193,7 @@ private class CalendarAppState {
     // Busy rings for the month holding selectedDate, and the calendars list (L).
     var busy by mutableStateOf<Map<LocalDate, BusyDay>>(emptyMap())
     var calendars by mutableStateOf<List<CalendarSource>>(emptyList())
+    var colorChoices by mutableStateOf<Map<Long, Int>>(emptyMap())
     var refreshing by mutableStateOf(false)
 
     // Unsaved new event kept while the user backs out to the agenda, restored on re-entry this session.
@@ -439,6 +442,16 @@ private fun CalendarApp(
         state.busy = withContext(Dispatchers.IO) { repository.busyMonth(shownMonth) }
     }
 
+    val colorStore = remember { CalendarColors(LocalContext.current) }
+    LaunchedEffect(refreshGeneration) {
+        state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
+        state.colorChoices = withContext(Dispatchers.IO) { colorStore.load() }
+    }
+    val eventColors =
+        remember(state.calendars, state.colorChoices) {
+            state.calendars.associate { it.name to (state.colorChoices[it.id] ?: it.color) }
+        }
+
     LaunchedEffect(refreshGeneration, state.mode) {
         if (state.mode == CalendarMode.Search) {
             val today = LocalDate.now()
@@ -446,9 +459,6 @@ private fun CalendarApp(
                 withContext(Dispatchers.IO) {
                     repository.range(EventSearch.first(today), EventSearch.endExclusive(today))
                 }
-        }
-        if (state.mode == CalendarMode.Calendars) {
-            state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
         }
     }
 
@@ -472,39 +482,41 @@ private fun CalendarApp(
         )
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-    ) {
-        Column(Modifier.fillMaxSize()) {
-            Box(Modifier.weight(1f)) {
-                SableRefreshableSurface(
-                    isRefreshing = state.refreshing,
-                    onRefresh = onRefresh,
-                ) {
-                    Column(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
-                                .padding(
-                                    horizontal = SableSpacing.ScreenHorizontal,
-                                    vertical = SableSpacing.ScreenVertical,
-                                ),
+    CompositionLocalProvider(LocalEventColors provides eventColors) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onBackground,
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Box(Modifier.weight(1f)) {
+                    SableRefreshableSurface(
+                        isRefreshing = state.refreshing,
+                        onRefresh = onRefresh,
                     ) {
-                        CalendarHeader()
-                        if (repository.canRead()) {
-                            StatusLine(state.status)
-                            CalendarModeContent(state, repository, onRefresh, onRequestPermissions)
-                        } else {
-                            PermissionPanel(onRequestPermissions)
+                        Column(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(
+                                        horizontal = SableSpacing.ScreenHorizontal,
+                                        vertical = SableSpacing.ScreenVertical,
+                                    ),
+                        ) {
+                            CalendarHeader()
+                            if (repository.canRead()) {
+                                StatusLine(state.status)
+                                CalendarModeContent(state, repository, onRefresh, onRequestPermissions)
+                            } else {
+                                PermissionPanel(onRequestPermissions)
+                            }
                         }
                     }
                 }
-            }
-            if (repository.canRead() && state.mode == CalendarMode.Agenda) {
-                CalendarActionBar(state, onRefresh)
+                if (repository.canRead() && state.mode == CalendarMode.Agenda) {
+                    CalendarActionBar(state, onRefresh)
+                }
             }
         }
     }
@@ -692,6 +704,7 @@ private fun CalendarsPane(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val importer = remember { CalendarImport(context.applicationContext) }
+    val colorStore = remember { CalendarColors(context) }
     val reload: suspend () -> Unit = {
         state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
         onRefresh()
@@ -724,6 +737,12 @@ private fun CalendarsPane(
                     state.status = t("this_calendar_is_read_only")
                 }
             }
+        },
+        colors = state.colorChoices,
+        onColor = { source ->
+            val next = CalendarPalette.next(state.colorChoices[source.id] ?: source.color)
+            scope.launch(Dispatchers.IO) { colorStore.set(source.id, next) }
+            state.colorChoices = state.colorChoices + (source.id to next)
         },
         actions =
             CalendarsActions(
@@ -1006,6 +1025,7 @@ private fun AgendaEventRow(
     onDelete: () -> Unit,
 ) {
     val context = LocalContext.current
+    val tint = eventTint(event)
     val time =
         if (event.allDay) {
             t("all_day")
@@ -1020,6 +1040,7 @@ private fun AgendaEventRow(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 64.dp)
+                .alpha(pastAlpha(event))
                 .border(
                     if (selected) 2.dp else 0.dp,
                     if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
@@ -1035,13 +1056,13 @@ private fun AgendaEventRow(
             text = time,
             modifier = Modifier.width(76.dp),
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
+            color = tint,
         )
         Box(
             Modifier
                 .width(3.dp)
                 .height(48.dp)
-                .background(MaterialTheme.colorScheme.primary),
+                .background(tint),
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -1635,6 +1656,24 @@ private fun WeekGrid(
     }
 }
 
+/** The colour of [event]'s calendar (chosen on the Calendars page), or the accent before calendars load. */
+@Composable
+private fun eventTint(event: CalendarEvent): Color =
+    LocalEventColors.current[event.calendarName]?.let { Color(it or OPAQUE_ALPHA) } ?: MaterialTheme.colorScheme.primary
+
+/** Events that have ended are dimmed, as in BlackBerry 10's Calendar. */
+private fun pastAlpha(event: CalendarEvent): Float =
+    if (event.endMillis <
+        System.currentTimeMillis()
+    ) {
+        PAST_ALPHA
+    } else {
+        1f
+    }
+
+private const val PAST_ALPHA = 0.5f
+private const val OPAQUE_ALPHA = -0x1000000
+
 /** The red NOW line across the week, labelled like the design. */
 @Composable
 private fun NowLine(y: androidx.compose.ui.unit.Dp) {
@@ -1661,16 +1700,18 @@ private fun WeekEventBlock(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(6.dp)
+    val tint = eventTint(block.event)
     val height = maxOf(gridHeight * (block.bottom - block.top), minBlockHeight)
     Box(
         Modifier
             .offset(y = gridHeight * block.top)
+            .alpha(pastAlpha(block.event))
             .padding(horizontal = 2.dp)
             .fillMaxWidth()
             .height(height)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = BLOCK_FILL_ALPHA))
-            .border(if (selected) 2.dp else 1.dp, MaterialTheme.colorScheme.primary, shape)
+            .background(tint.copy(alpha = BLOCK_FILL_ALPHA))
+            .border(if (selected) 2.dp else 1.dp, tint, shape)
             .sableFocusRing()
             .clickable(onClick = onClick)
             .padding(4.dp),

@@ -71,6 +71,7 @@
     <string name="today">Vandaag</string>
     <string name="views">Weergaven</string>
     <string name="nothing_found">Niets gevonden.</string>
+    <string name="colour">Kleur</string>
     <string name="l_calendars">" · L agenda\'s"</string>
     <string name="day_events">%1$s, %2$s afspraken</string>
 </resources>
