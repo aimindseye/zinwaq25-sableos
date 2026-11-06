@@ -66,6 +66,11 @@
     <string name="imported_events">Εισήχθησαν %1$d συμβάντα.</string>
     <string name="import_failed">Δεν εισήχθη τίποτα.</string>
     <string name="phone_calendar_ready">Το ημερολόγιο τηλεφώνου είναι έτοιμο.</string>
+    <string name="new_event">Νέο συμβάν</string>
+    <string name="search">Αναζήτηση</string>
+    <string name="today">Σήμερα</string>
+    <string name="views">Προβολές</string>
+    <string name="nothing_found">Δεν βρέθηκε τίποτα.</string>
     <string name="l_calendars">" · L ημερολόγια"</string>
     <string name="day_events">%1$s, %2$s συμβάντα</string>
 </resources>

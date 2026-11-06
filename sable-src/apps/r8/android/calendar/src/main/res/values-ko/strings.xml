@@ -66,6 +66,11 @@
     <string name="imported_events">일정 %1$d개를 가져왔습니다.</string>
     <string name="import_failed">가져온 항목이 없습니다.</string>
     <string name="phone_calendar_ready">휴대전화 캘린더가 준비되었습니다.</string>
+    <string name="new_event">새 일정</string>
+    <string name="search">검색</string>
+    <string name="today">오늘</string>
+    <string name="views">보기</string>
+    <string name="nothing_found">결과가 없습니다.</string>
     <string name="l_calendars">" · L 캘린더"</string>
     <string name="day_events">%1$s, 일정 %2$s개</string>
 </resources>

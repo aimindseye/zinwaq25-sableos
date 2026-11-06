@@ -66,6 +66,11 @@
     <string name="imported_events">%1$d इवेंट आयात किए गए।</string>
     <string name="import_failed">कुछ भी आयात नहीं हुआ।</string>
     <string name="phone_calendar_ready">फ़ोन कैलेंडर तैयार है।</string>
+    <string name="new_event">नया इवेंट</string>
+    <string name="search">खोजें</string>
+    <string name="today">आज</string>
+    <string name="views">दृश्य</string>
+    <string name="nothing_found">कुछ नहीं मिला।</string>
     <string name="l_calendars">" · L कैलेंडर"</string>
     <string name="day_events">%1$s, %2$s इवेंट</string>
 </resources>

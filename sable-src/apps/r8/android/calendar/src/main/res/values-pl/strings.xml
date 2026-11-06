@@ -66,6 +66,11 @@
     <string name="imported_events">Zaimportowano wydarzenia: %1$d.</string>
     <string name="import_failed">Nic nie zaimportowano.</string>
     <string name="phone_calendar_ready">Kalendarz telefonu gotowy.</string>
+    <string name="new_event">Nowe wydarzenie</string>
+    <string name="search">Szukaj</string>
+    <string name="today">Dziś</string>
+    <string name="views">Widoki</string>
+    <string name="nothing_found">Nic nie znaleziono.</string>
     <string name="l_calendars">" · L kalendarze"</string>
     <string name="day_events">%1$s, wydarzenia: %2$s</string>
 </resources>

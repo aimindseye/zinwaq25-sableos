@@ -81,6 +81,11 @@ object CalendarText {
             "imported_events" to "Imported %1\$d events.",
             "import_failed" to "Nothing was imported.",
             "phone_calendar_ready" to "Phone calendar ready.",
+            "new_event" to "New event",
+            "search" to "Search",
+            "today" to "Today",
+            "views" to "Views",
+            "nothing_found" to "Nothing found.",
             "l_calendars" to " · L calendars",
             "day_events" to "%1\$s, %2\$s events",
         )

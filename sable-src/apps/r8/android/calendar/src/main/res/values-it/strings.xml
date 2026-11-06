@@ -66,6 +66,11 @@
     <string name="imported_events">%1$d eventi importati.</string>
     <string name="import_failed">Nessun evento importato.</string>
     <string name="phone_calendar_ready">Calendario del telefono pronto.</string>
+    <string name="new_event">Nuovo evento</string>
+    <string name="search">Cerca</string>
+    <string name="today">Oggi</string>
+    <string name="views">Viste</string>
+    <string name="nothing_found">Nessun risultato.</string>
     <string name="l_calendars">" · L calendari"</string>
     <string name="day_events">%1$s, %2$s eventi</string>
 </resources>

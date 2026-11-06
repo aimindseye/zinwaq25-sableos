@@ -66,6 +66,11 @@
     <string name="imported_events">已导入 %1$d 个日程。</string>
     <string name="import_failed">未导入任何内容。</string>
     <string name="phone_calendar_ready">手机日历已就绪。</string>
+    <string name="new_event">新建日程</string>
+    <string name="search">搜索</string>
+    <string name="today">今天</string>
+    <string name="views">视图</string>
+    <string name="nothing_found">未找到任何内容。</string>
     <string name="l_calendars">" · L 日历"</string>
     <string name="day_events">%1$s，%2$s 个活动</string>
 </resources>
