@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s von %2$s</string>
     <string name="dm_free">%1$s frei</string>
     <string name="open_command">Befehl (Alt+Leertaste)</string>
+    <string name="home_shortcut_add">Zum Startbildschirm hinzufügen</string>
+    <string name="home_shortcut_remove">Vom Startbildschirm entfernen</string>
+    <string name="sable_undo">Rückgängig</string>
 </resources>

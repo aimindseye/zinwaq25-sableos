@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s av %2$s</string>
     <string name="dm_free">%1$s ledigt</string>
     <string name="open_command">Kommando (Alt+Mellanslag)</string>
+    <string name="home_shortcut_add">Lägg till på startskärmen</string>
+    <string name="home_shortcut_remove">Ta bort från startskärmen</string>
+    <string name="sable_undo">Ångra</string>
 </resources>

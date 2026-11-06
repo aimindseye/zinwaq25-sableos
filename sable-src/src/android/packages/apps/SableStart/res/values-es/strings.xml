@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s de %2$s</string>
     <string name="dm_free">%1$s libres</string>
     <string name="open_command">Comando (Alt+Espacio)</string>
+    <string name="home_shortcut_add">Añadir a la pantalla de inicio</string>
+    <string name="home_shortcut_remove">Quitar de la pantalla de inicio</string>
+    <string name="sable_undo">Deshacer</string>
 </resources>

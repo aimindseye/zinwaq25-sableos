@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s από %2$s</string>
     <string name="dm_free">%1$s ελεύθερα</string>
     <string name="open_command">Εντολή (Alt+Space)</string>
+    <string name="home_shortcut_add">Προσθήκη στην αρχική οθόνη</string>
+    <string name="home_shortcut_remove">Αφαίρεση από την αρχική οθόνη</string>
+    <string name="sable_undo">Αναίρεση</string>
 </resources>

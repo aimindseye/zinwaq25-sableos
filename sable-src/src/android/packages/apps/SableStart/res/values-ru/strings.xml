@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s из %2$s</string>
     <string name="dm_free">свободно %1$s</string>
     <string name="open_command">Команда (Alt+Пробел)</string>
+    <string name="home_shortcut_add">Добавить на главный экран</string>
+    <string name="home_shortcut_remove">Убрать с главного экрана</string>
+    <string name="sable_undo">Отменить</string>
 </resources>

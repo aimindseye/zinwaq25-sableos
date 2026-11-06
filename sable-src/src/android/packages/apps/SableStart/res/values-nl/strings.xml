@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s van %2$s</string>
     <string name="dm_free">%1$s vrij</string>
     <string name="open_command">Opdracht (Alt+Spatie)</string>
+    <string name="home_shortcut_add">Toevoegen aan startscherm</string>
+    <string name="home_shortcut_remove">Verwijderen van startscherm</string>
+    <string name="sable_undo">Ongedaan maken</string>
 </resources>

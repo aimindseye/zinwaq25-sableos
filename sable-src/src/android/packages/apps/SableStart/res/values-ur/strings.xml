@@ -319,4 +319,7 @@
     <string name="dm_used_of">%2$s میں سے %1$s</string>
     <string name="dm_free">%1$s خالی</string>
     <string name="open_command">کمانڈ (Alt+Space)</string>
+    <string name="home_shortcut_add">ہوم اسکرین پر شامل کریں</string>
+    <string name="home_shortcut_remove">ہوم اسکرین سے ہٹائیں</string>
+    <string name="sable_undo">واپس کریں</string>
 </resources>

@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s / %2$s</string>
     <string name="dm_free">可用 %1$s</string>
     <string name="open_command">命令 (Alt+空格)</string>
+    <string name="home_shortcut_add">添加到主屏幕</string>
+    <string name="home_shortcut_remove">从主屏幕移除</string>
+    <string name="sable_undo">撤销</string>
 </resources>

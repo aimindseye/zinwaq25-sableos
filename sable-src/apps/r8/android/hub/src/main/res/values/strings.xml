@@ -88,7 +88,7 @@
     <string name="private_mode_hub_shows_counts">Private mode: Hub shows counts only, Phone hides names in Recents, Contacts hides numbers</string>
     <string name="combine_conversations">Combine conversations</string>
     <string name="group_adjacent_messages_from_the">Group adjacent messages from the same conversation into a streamlined thread, hiding duplicate titles and app icons.</string>
-    <string name="sable_attention">Sable Attention</string>
+    <string name="sable_attention">Alerts and Do not disturb</string>
     <string name="search_installed_apps">Search installed apps</string>
     <string name="use_one_app_per_email">Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud and IMAP. Turn on another mail app only for accounts Sable Mail can\'t open (Proton, Tuta, managed work accounts).</string>
     <string name="more_than_one_mail_app">More than one mail app is on; an account signed in to both will appear twice.</string>
@@ -111,8 +111,8 @@
     <string name="keyboard_backlight">Keyboard backlight</string>
     <string name="glance_display">Glance display</string>
     <string name="always_on_display">Always-on display</string>
-    <string name="sable_attention_2">sable attention</string>
-    <string name="android_decides_whether_a_notification">Android decides whether a notification alerts. Sable Attention only maps that decision to outputs this device supports, and never bypasses Do Not Disturb.</string>
+    <string name="sable_attention_2">Alerts</string>
+    <string name="android_decides_whether_a_notification">Android decides whether a notification alerts. Hub only maps that decision to outputs this device supports, and never bypasses Do Not Disturb.</string>
     <string name="android_notification_settings">Android notification settings</string>
     <string name="notifications_sound_vibration_pop_up">Notifications: sound, vibration, pop-up, lock screen</string>
     <string name="conversations">Conversations</string>

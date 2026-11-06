@@ -441,7 +441,8 @@ private fun CalendarApp(
         state.busy = withContext(Dispatchers.IO) { repository.busyMonth(shownMonth) }
     }
 
-    val colorStore = remember { CalendarColors(LocalContext.current) }
+    val colorContext = LocalContext.current
+    val colorStore = remember { CalendarColors(colorContext) }
     LaunchedEffect(refreshGeneration) {
         state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
         state.colorChoices = withContext(Dispatchers.IO) { colorStore.load() }

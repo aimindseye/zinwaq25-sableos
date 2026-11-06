@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s / %2$s</string>
     <string name="dm_free">%1$s boş</string>
     <string name="open_command">Komut (Alt+Boşluk)</string>
+    <string name="home_shortcut_add">Ana ekrana ekle</string>
+    <string name="home_shortcut_remove">Ana ekrandan kaldır</string>
+    <string name="sable_undo">Geri al</string>
 </resources>
