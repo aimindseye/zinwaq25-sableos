@@ -489,7 +489,7 @@ private fun Bb7Banner(
                 .background(BANNER_SCRIM)
                 .padding(horizontal = 12.dp, vertical = if (compact) 4.dp else 8.dp),
     ) {
-        if (!compact) SableStatusRings(modifier = Modifier.fillMaxWidth(), ringSize = RING_DP.dp)
+        if (!compact) SableStatusLabels(modifier = Modifier.fillMaxWidth())
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f).padding(top = if (compact) 0.dp else 6.dp)) {
                 Text(
@@ -689,7 +689,6 @@ private fun TrayArrow(
 private const val CHORD_META = 0xc1 or 0x32 or 0x4 or 0x8 or 0x7000 or 0x70000
 
 private const val DATE_TICK_MS = 60_000L
-private const val RING_DP = 34
 private const val SWIPE_DP = 72
 
 /** A tray row's height, the drag that shows one more or one fewer row. */

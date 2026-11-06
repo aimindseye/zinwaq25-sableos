@@ -9,10 +9,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -56,26 +54,15 @@ import kotlin.math.sin
 
 // SableOS 2.0 is black and white (UI direction, 2026-11-04): every arc is white, and only a value
 // past its limit turns red (the error colour).
-private val RingGreen = Color.White
-private val RingPurple = Color.White
-private val RingOrange = Color.White
 private const val SAMPLE_INTERVAL_MS = 3_000L
 
-/**
- * Live device rings for the Start header: Wi-Fi, Mobile, CPU, RAM, Battery
- * and Cell. Samples every three seconds while HOME is started and stops when
- * it is not, so the rings cost nothing behind another app.
- */
+/** Samples the device every three seconds while HOME is started; null until the first sample. */
 @Composable
-fun SableStatusRings(
-    modifier: Modifier = Modifier,
-    ringSize: Dp = 36.dp,
-) {
+private fun rememberDeviceStats(): DeviceStats? {
     val context = LocalContext.current.applicationContext
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val sampler = remember { DeviceStatsSampler() }
     var stats by remember { mutableStateOf<DeviceStats?>(null) }
-
     LaunchedEffect(lifecycle, sampler) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
@@ -84,40 +71,44 @@ fun SableStatusRings(
             }
         }
     }
-
-    val st = stats ?: return
-    val error = MaterialTheme.colorScheme.error
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        NetRing(label = "Wi-Fi", up = st.wifiUp, down = st.wifiDown, size = ringSize)
-        NetRing(label = t("mobile"), up = st.mobileUp, down = st.mobileDown, size = ringSize)
-        StatRing(label = "CPU", fraction = st.cpu, color = RingGreen, size = ringSize)
-        StatRing(label = "RAM", fraction = st.ram, color = RingPurple, size = ringSize)
-        StatRing(
-            label =
-                when {
-                    st.charging -> t("bat")
-                    st.hoursLeft != null -> DeviceStatsFormat.hours(st.hoursLeft) + " left"
-                    else -> "BAT"
-                },
-            fraction = st.battery,
-            color = if (st.battery <= 0.2f && !st.charging) error else RingGreen,
-            size = ringSize,
-            hotAbove = 2f,
-        )
-        StatRing(
-            label = t("cell"),
-            fraction = st.signal,
-            color = RingOrange,
-            size = ringSize,
-            center = listOf(st.signal?.let { "${(it * 4).roundToInt()}/4" } ?: "–"),
-            hotAbove = 2f,
-        )
-    }
+    return stats
 }
+
+/**
+ * The Start header's status as one line of stat labels (Sable 2.0, UI direction 2026-11-04: no
+ * dials on home): Wi-Fi and mobile download rate, CPU, RAM, battery and cell bars, in grey. The
+ * Device Monitor frame keeps its dials.
+ */
+@Composable
+fun SableStatusLabels(modifier: Modifier = Modifier) {
+    val st = rememberDeviceStats() ?: return
+    val line = statusLabelLine(st, mobile = t("mobile"), cell = t("cell"))
+    val low = st.battery <= LOW_BATTERY && !st.charging
+    Text(
+        text = line,
+        style = MaterialTheme.typography.labelMedium,
+        color = if (low) MaterialTheme.colorScheme.error else Color(0xFFA6A6A6),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.semantics { contentDescription = line },
+    )
+}
+
+/** "Wi-Fi ↓1.2K · CPU 23% · RAM 61% · BAT 82%+ · Cell 3/4"; a part with no reading is left out. */
+internal fun statusLabelLine(st: DeviceStats, mobile: String, cell: String): String =
+    listOfNotNull(
+        st.wifiDown?.let { "Wi-Fi ↓" + DeviceStatsFormat.rate(it) },
+        st.mobileDown?.let { "$mobile ↓" + DeviceStatsFormat.rate(it) },
+        st.cpu?.let { "CPU ${percent(it)}" },
+        "RAM ${percent(st.ram)}",
+        "BAT ${percent(st.battery)}" + if (st.charging) "+" else "",
+        st.signal?.let { "$cell ${(it * CELL_BARS).roundToInt()}/$CELL_BARS" },
+    ).joinToString(" · ")
+
+private fun percent(fraction: Float): String = "${(fraction.coerceIn(0f, 1f) * 100).roundToInt()}%"
+
+private const val LOW_BATTERY = 0.2f
+private const val CELL_BARS = 4
 
 /**
  * A 270° gauge: a dim track, an arc that eases to each new sample, a bright
@@ -236,25 +227,3 @@ internal fun StatRing(
     }
 }
 
-/**
- * Throughput: the outer arc is download, the thin inner arc upload, both on a
- * log scale that fills at about 30 MiB/s.
- */
-@Composable
-private fun NetRing(
-    label: String,
-    up: Long?,
-    down: Long?,
-    size: Dp,
-) {
-    StatRing(
-        label = label,
-        fraction = if (down == null && up == null) null else DeviceStatsFormat.heat(down),
-        color = RingGreen,
-        size = size,
-        innerFraction = DeviceStatsFormat.heat(up),
-        innerColor = Color(0xFFA6A6A6),
-        center = listOf("↓" + DeviceStatsFormat.rate(down), "↑" + DeviceStatsFormat.rate(up)),
-        hotAbove = 2f,
-    )
-}

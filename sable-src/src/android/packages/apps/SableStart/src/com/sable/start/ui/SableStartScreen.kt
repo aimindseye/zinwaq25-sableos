@@ -85,6 +85,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -1401,14 +1402,14 @@ private fun ActiveFramesPage(
     }
 }
 
-/** The status dials (Wi-Fi, Mobile, CPU, RAM, battery time left, Cell) and the Settings gear. */
+/** The status line (Wi-Fi, Mobile, CPU, RAM, battery, Cell as stat labels) and the Settings gear. */
 @Composable
 private fun StatusDialsRow(onOpenSettings: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = FRAME_PADDING, end = 2.dp, top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SableStatusRings(modifier = Modifier.weight(1f), ringSize = STATUS_RING_SIZE)
+        SableStatusLabels(modifier = Modifier.weight(1f))
         Text(
             text = "⚙",
             fontSize = 22.sp,
@@ -3114,7 +3115,11 @@ private fun hubThreadIntent(
         .putExtra(HUB_EXTRA_ROW_MENU, menu)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
-/** One Hub message: app icon, sender or subject, a one-line preview, the time; unread has a blue edge. */
+/**
+ * One Hub message as a BlackBerry 10 style list row (Sable 2.0): flat on black with a thin divider
+ * below, app icon, sender or subject in white (bold when unread), a one-line preview and the time in
+ * grey; unread has a blue edge and the focused row fills blue.
+ */
 @Composable
 private fun HubMessageRowItem(
     row: HubMessageRow,
@@ -3123,8 +3128,8 @@ private fun HubMessageRowItem(
     onActions: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(6.dp)
     val text = if (focused) Bb10OnBlue else Bb10Text
+    val muted = if (focused) Bb10OnBlue else Bb10Muted
     val time = remember(row.dateMillis) { hubRowTime(row.dateMillis) }
     Row(
         modifier =
@@ -3132,10 +3137,11 @@ private fun HubMessageRowItem(
                 .fillMaxWidth()
                 .heightIn(min = 56.dp)
                 .onFocusChanged { focused = it.isFocused }
-                .clip(shape)
-                .background(if (focused) Bb10Blue else Bb10Card)
-                .border(1.dp, Bb10Line, shape)
-                .onPreviewKeyEvent { event ->
+                .background(if (focused) Bb10Blue else Color.Transparent)
+                .drawBehind {
+                    val y = size.height - HUB_ROW_DIVIDER_DP.dp.toPx() / 2
+                    drawLine(Bb10Line, Offset(0f, y), Offset(size.width, y), HUB_ROW_DIVIDER_DP.dp.toPx())
+                }.onPreviewKeyEvent { event ->
                     val native = event.nativeKeyEvent
                     val alt = native.metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) != 0
                     val menu =
@@ -3174,7 +3180,7 @@ private fun HubMessageRowItem(
                 Text(
                     text = time,
                     style = MaterialTheme.typography.labelSmall,
-                    color = text,
+                    color = muted,
                     maxLines = 1,
                 )
             }
@@ -3182,7 +3188,7 @@ private fun HubMessageRowItem(
                 Text(
                     text = row.preview,
                     style = MaterialTheme.typography.bodySmall,
-                    color = text,
+                    color = muted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -3206,6 +3212,7 @@ private fun hubRowTime(epochMillis: Long): String {
 }
 
 private const val HUB_ROW_EDGE_DP = 3
+private const val HUB_ROW_DIVIDER_DP = 1
 private const val HUB_ROW_ICON_DP = 28
 private const val HUB_ACTION_OPEN_THREAD = "org.sableos.hub.action.OPEN_THREAD"
 private const val HUB_EXTRA_THREAD_ID = "org.sableos.hub.extra.THREAD_ID"
@@ -6669,7 +6676,6 @@ private val FRAME_MEDIA_BUTTON = 36.dp
 // The scrim sits over an app's picture, whatever Start's theme: always light on dark.
 private val FRAME_ON_SCRIM = Color(0xFFF2F4F7)
 private val FRAME_ON_SCRIM_DIM = Color(0x80F2F4F7)
-private val STATUS_RING_SIZE = 34.dp
 
 /** A grid cell is at least this tall: a 40dp icon, its one-line label and the focus padding. */
 private const val GRID_CELL_MIN_DP = 74
