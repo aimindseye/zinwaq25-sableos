@@ -51,6 +51,7 @@ naming:
       - "**/hub/ui/ConnectedAppsScreen.kt"
       - "**/hub/ui/AttentionSettingsScreen.kt"
       - "**/hub/ui/HubTheme.kt"
+      - "**/design/SableActionBar.kt"
 
 style:
   MagicNumber:

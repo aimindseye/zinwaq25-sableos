@@ -55,7 +55,8 @@ class NotesController(
             edit = ::edit,
             cycleLabel = ::cycleLabel,
             delete = ::delete,
-            askDelete = { state.confirmDelete = it },
+            undoDelete = ::undoDelete,
+            endUndo = { state.undoNote = null },
             share = ::share,
             export = ::export,
             import = { importLauncher.launch(arrayOf("text/*")) },
@@ -96,13 +97,24 @@ class NotesController(
         event: KeyEvent,
     ): Boolean {
         val chord = event.isAltPressed || event.isCtrlPressed || event.isMetaPressed
-        if (keyCode == KeyEvent.KEYCODE_ESCAPE) return back()
-        return when (state.screen) {
+        val undo = keyCode == KeyEvent.KEYCODE_U && !chord && state.undoNote != null && !state.searching
+        return when {
+            keyCode == KeyEvent.KEYCODE_ESCAPE -> back()
+            undo && state.screen == Screen.List -> true.also { undoDelete() }
+            else -> screenKey(keyCode, event, chord)
+        }
+    }
+
+    private fun screenKey(
+        keyCode: Int,
+        event: KeyEvent,
+        chord: Boolean,
+    ): Boolean =
+        when (state.screen) {
             Screen.List -> NotesKeys.list(keyCode, event.isCtrlPressed, chord)?.let(::listKey) ?: false
             Screen.Tasks -> NotesKeys.tasks(keyCode, chord)?.let(::tasksKey) ?: false
             is Screen.Editor -> false
         }
-    }
 
     fun flushAll() {
         pendingSaves.keys.toList().forEach(::flush)
@@ -117,7 +129,7 @@ class NotesController(
             ListKey.Tasks -> show(Screen.Tasks)
             ListKey.Import -> importLauncher.launch(arrayOf("text/*"))
             ListKey.Label -> focused?.let { cycleLabel(it.id) }
-            ListKey.Delete -> focused?.let { state.confirmDelete = it }
+            ListKey.Delete -> focused?.let(::delete)
         }
         return focused != null || (key != ListKey.Label && key != ListKey.Delete)
     }
@@ -224,11 +236,20 @@ class NotesController(
         state.notes = state.notes.map { if (it.id == id) change(it) else it }.sortedByDescending { it.updatedAt }
     }
 
+    /** Delete at once, BB10 style: no question, an undo bar instead (U or Undo brings the note back). */
     private fun delete(note: Note) {
-        state.confirmDelete = null
         remove(note.id)
         if ((state.screen as? Screen.Editor)?.id == note.id) state.screen = Screen.List
-        state.notice = t("deleted", note.title)
+        state.undoNote = note
+    }
+
+    private fun undoDelete() {
+        val note = state.undoNote ?: return
+        state.undoNote = null
+        state.notes = (state.notes + note).sortedByDescending { it.updatedAt }
+        io.execute {
+            if (runCatching { store.save(note) }.isFailure) main.post { state.notice = t("couldn_t_save", note.title) }
+        }
     }
 
     private fun remove(id: String) {

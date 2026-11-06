@@ -10,4 +10,5 @@
     <string name="sable_more_actions_for">Más acciones para %1$s</string>
     <string name="sable_jump_to">Ir a %1$s</string>
     <string name="sable_return_to">Volver a %1$s</string>
+    <string name="sable_undo">Deshacer</string>
 </resources>

@@ -23,7 +23,9 @@ class NotesUiState {
     var query by mutableStateOf("")
     var searching by mutableStateOf(false)
     var showDone by mutableStateOf(false)
-    var confirmDelete by mutableStateOf<Note?>(null)
+
+    /** The note just deleted, while its undo bar shows (BB10: Delete with an undo toast). */
+    var undoNote by mutableStateOf<Note?>(null)
     var notice by mutableStateOf<String?>(null)
 
     /** The list row or task that has keyboard focus, for L, D and O. */
@@ -39,7 +41,8 @@ data class NotesActions(
     val edit: (String, String) -> Unit,
     val cycleLabel: (String) -> Unit,
     val delete: (Note) -> Unit,
-    val askDelete: (Note?) -> Unit,
+    val undoDelete: () -> Unit,
+    val endUndo: () -> Unit,
     val share: (Note) -> Unit,
     val export: (Note) -> Unit,
     val import: () -> Unit,

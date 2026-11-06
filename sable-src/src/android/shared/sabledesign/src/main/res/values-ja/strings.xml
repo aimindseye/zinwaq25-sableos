@@ -10,4 +10,5 @@
     <string name="sable_more_actions_for">%1$s のその他の操作</string>
     <string name="sable_jump_to">%1$s に移動</string>
     <string name="sable_return_to">%1$s に戻る</string>
+    <string name="sable_undo">元に戻す</string>
 </resources>

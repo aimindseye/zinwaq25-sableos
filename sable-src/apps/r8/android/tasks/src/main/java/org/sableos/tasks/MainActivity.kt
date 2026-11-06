@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import org.sableos.design.SableGlobalTheme
 import org.sableos.tasks.core.ReminderPreset
+import org.sableos.tasks.core.ScreenKey
 import org.sableos.tasks.core.TaskRecord
 import org.sableos.tasks.core.TaskSchedule
 import org.sableos.tasks.core.TasksKeys
@@ -18,6 +19,7 @@ import org.sableos.tasks.platform.TaskAlarms
 import org.sableos.tasks.platform.taskRepository
 import org.sableos.tasks.ui.TasksApp
 import org.sableos.tasks.ui.TasksState
+import org.sableos.tasks.ui.undoDelete
 import java.time.Instant
 import java.time.ZoneId
 
@@ -104,6 +106,12 @@ class MainActivity : ComponentActivity() {
     ): Boolean {
         val modified = event.isAltPressed || event.isCtrlPressed || event.isMetaPressed
         val key = TasksKeys.screen(keyCode, modified)
+        val undo = state.editing == null && state.undoTask != null
+        if (key == ScreenKey.Undo && event.repeatCount == 0 && undo) {
+            undoDelete(state, repository)
+            refresh()
+            return true
+        }
         return (key != null && event.repeatCount == 0 && state.onScreenKey(key)) || super.onKeyDown(keyCode, event)
     }
 

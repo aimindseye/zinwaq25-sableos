@@ -10,4 +10,5 @@
     <string name="sable_more_actions_for">Meer acties voor %1$s</string>
     <string name="sable_jump_to">Ga naar %1$s</string>
     <string name="sable_return_to">Terug naar %1$s</string>
+    <string name="sable_undo">Ongedaan maken</string>
 </resources>

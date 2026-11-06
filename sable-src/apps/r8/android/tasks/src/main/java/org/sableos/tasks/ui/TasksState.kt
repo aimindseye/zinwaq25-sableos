@@ -16,7 +16,9 @@ class TasksState {
     /** The task being edited (a new one is not saved until Save), or null on the list. */
     var editing by mutableStateOf<TaskRecord?>(null)
     var editingIsNew by mutableStateOf(false)
-    var pendingDelete by mutableStateOf<TaskRecord?>(null)
+
+    /** The task just deleted, while its undo bar shows (BB10: Delete with an undo toast). */
+    var undoTask by mutableStateOf<TaskRecord?>(null)
 
     fun openEditor(
         task: TaskRecord,
@@ -32,12 +34,13 @@ class TasksState {
         editingIsNew = false
     }
 
-    /** C new, H done list; not while editing or confirming. */
+    /** C new, H done list; not while editing. U (undo) needs the repository, so the activity takes it. */
     fun onScreenKey(key: ScreenKey): Boolean {
-        if (editing != null || pendingDelete != null) return false
+        if (editing != null || key == ScreenKey.Undo) return false
         when (key) {
             ScreenKey.New -> openEditor(TaskRecord(title = NEW_PLACEHOLDER), isNew = true)
             ScreenKey.ShowDone -> showDone = !showDone
+            ScreenKey.Undo -> Unit
         }
         return true
     }

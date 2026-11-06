@@ -108,7 +108,7 @@ private class EditorModel(
             EditorMenu.Label -> actions.cycleLabel(note.id)
             EditorMenu.Share -> actions.share(note)
             EditorMenu.Export -> actions.export(note)
-            EditorMenu.Delete -> actions.askDelete(note)
+            EditorMenu.Delete -> actions.delete(note)
         }
         if (!finding) focusEditor()
     }

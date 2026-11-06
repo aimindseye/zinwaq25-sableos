@@ -17,6 +17,7 @@ object DesignText {
             "sable_more_actions_for" to "More actions for %1\$s",
             "sable_jump_to" to "Jump to %1\$s",
             "sable_return_to" to "Return to %1\$s",
+            "sable_undo" to "Undo",
         )
 
     val t = SableTexts(EN)
