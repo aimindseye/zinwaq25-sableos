@@ -12,7 +12,7 @@ class PhoneSettings(context: Context) {
         get() = prefs.getBoolean(KEY_SPACE_ANSWERS, true)
         set(value) = prefs.edit().putBoolean(KEY_SPACE_ANSWERS, value).apply()
 
-    /** The tab Phone opens on: 0 calls, 1 contacts, 2 dial pad. */
+    /** The tab Phone opens on: 0 calls, 1 contacts, 2 dial pad, 3 favorites. */
     var tab: Int
         get() = prefs.getInt(KEY_TAB, 0)
         set(value) = prefs.edit().putInt(KEY_TAB, value).apply()

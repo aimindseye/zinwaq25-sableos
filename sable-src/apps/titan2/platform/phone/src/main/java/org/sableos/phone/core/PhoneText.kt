@@ -97,7 +97,15 @@ object PhoneText {
             "channel_missed" to "Missed calls",
             "missed_call" to "Missed call",
             "missed_calls" to "%1\$d missed calls",
-            "call_back" to "Call back"
+            "call_back" to "Call back",
+            "tab_favorites" to "Favorites",
+            "frequently_called" to "Frequently called",
+            "no_favorites" to
+                "No favorites yet. Star a contact, or call someone often, and they appear here.",
+            "hint_favorites" to
+                "Call key or Enter calls · hold a row to open the contact and star it",
+            "favorite_speed_dial" to "Hold %1\$s · %2\$s",
+            "open_contact" to "Open contact"
         )
 
     val t = SableTexts(EN)

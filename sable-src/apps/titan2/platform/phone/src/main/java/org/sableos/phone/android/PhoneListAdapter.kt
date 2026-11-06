@@ -13,14 +13,15 @@ import org.sableos.phone.core.CallHistory
 import org.sableos.phone.core.PhoneSearch
 import org.sableos.phone.core.PhoneText.t
 
-/** The rows of the Calls and Contacts lists: day or group headers, call rows and contact rows. */
+/** The rows of the Calls, Favorites and Contacts lists: day or group headers, call rows and contact rows. */
 class PhoneListAdapter(private val context: Context, private val ui: Ui) : BaseAdapter() {
     sealed interface Item {
         data class Header(val title: String) : Item
 
         data class CallRow(val row: CallHistory.Row, val hideNames: Boolean) : Item
 
-        data class PersonRow(val person: PhoneSearch.Person) : Item
+        /** A contact; [line] replaces the number under the name (Favorites adds the speed dial letter). */
+        data class PersonRow(val person: PhoneSearch.Person, val line: String? = null) : Item
     }
 
     var items: List<Item> = emptyList()
@@ -54,7 +55,14 @@ class PhoneListAdapter(private val context: Context, private val ui: Ui) : BaseA
         val row = convertView as? LinearLayout ?: row()
         return when (item) {
             is Item.CallRow -> fill(row, callTitle(item), callLine(item), item.row.missed)
-            is Item.PersonRow -> fill(row, item.person.name, item.person.numbers.first(), false)
+
+            is Item.PersonRow -> fill(
+                row,
+                item.person.name,
+                item.line ?: item.person.numbers.first(),
+                false
+            )
+
             is Item.Header -> row
         }
     }

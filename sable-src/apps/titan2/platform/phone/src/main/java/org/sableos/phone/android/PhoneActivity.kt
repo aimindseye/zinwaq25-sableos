@@ -30,21 +30,22 @@ import android.widget.TextView
 import java.util.concurrent.Executors
 import org.sableos.phone.core.CallHistory
 import org.sableos.phone.core.DialKeys
+import org.sableos.phone.core.Favorites
 import org.sableos.phone.core.PhoneSearch
 import org.sableos.phone.core.PhoneText.t
 import org.sableos.titan2.theme.SablePalette
 
 /**
- * Sable Phone's main screen, BlackBerry 10 style: Calls (by day), Contacts and Dial pad tabs on a 720x720 display,
- * all driven from the keyboard and trackpad. Letters find contacts and calls, digits open the dial pad, holding a
- * letter speed dials it, the Call key calls the focused row or what is typed (an empty dial pad fills in the last
- * number called), and Menu opens speed dial and settings.
+ * Sable Phone's main screen, BlackBerry 10 style: Calls (by day), Favorites, Contacts and Dial pad tabs on a
+ * 720x720 display, all driven from the keyboard and trackpad. Letters find contacts and calls, digits open the
+ * dial pad, holding a letter speed dials it, the Call key calls the focused row or what is typed (an empty dial
+ * pad fills in the last number called), and Menu opens speed dial and settings.
  */
 class PhoneActivity : Activity() {
     private lateinit var ui: Ui
     private lateinit var palette: SablePalette
     private lateinit var settings: PhoneSettings
-    private lateinit var tabs: List<TextView>
+    private lateinit var tabs: Map<Int, TextView>
     private lateinit var search: EditText
     private lateinit var list: ListView
     private lateinit var adapter: PhoneListAdapter
@@ -83,7 +84,9 @@ class PhoneActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(ui.dp(Ui.PAD / 2), ui.dp(Ui.PAD / 2), ui.dp(Ui.PAD / 2), 0)
         }
-        tabs = listOf(t("tab_calls"), t("tab_contacts"), t("tab_dial_pad")).mapIndexed { i, label ->
+        // Shown in BlackBerry 10 order; the ids stay as they were so a saved opening tab keeps its meaning.
+        tabs = TAB_ORDER.associateWith { i ->
+            val label = t(TAB_LABELS.getValue(i))
             ui.text(Ui.BODY_SP, bold = true, s = label).apply {
                 gravity = android.view.Gravity.CENTER
                 isFocusable = true
@@ -208,9 +211,11 @@ class PhoneActivity : Activity() {
                 dialPad.setNumber(number.orEmpty())
             }
 
-            else -> if (fresh) showTab(settings.tab.coerceIn(TAB_CALLS, TAB_DIAL)) else showTab(tab)
+            else -> showTab(if (fresh) savedTab() else tab)
         }
     }
+
+    private fun savedTab(): Int = settings.tab.takeIf { it in TAB_ORDER } ?: TAB_CALLS
 
     override fun onResume() {
         super.onResume()
@@ -252,7 +257,7 @@ class PhoneActivity : Activity() {
     private fun showTab(index: Int) {
         tab = index
         settings.tab = index
-        tabs.forEachIndexed { i, v ->
+        tabs.forEach { (i, v) ->
             v.setTextColor(
                 if (i ==
                     index
@@ -269,6 +274,7 @@ class PhoneActivity : Activity() {
         search.visibility = if (dial) View.GONE else View.VISIBLE
         hint.text = when (index) {
             TAB_CALLS -> t("hint_calls")
+            TAB_FAVORITES -> t("hint_favorites")
             TAB_CONTACTS -> t("hint_contacts")
             else -> t("hint_dial_pad")
         }
@@ -287,9 +293,15 @@ class PhoneActivity : Activity() {
                 it.name.lowercase()
             }.map { PhoneListAdapter.Item.PersonRow(it) }
 
+            tab == TAB_FAVORITES -> favoriteItems()
+
             else -> callItems(calls)
         }
-        val empty = if (tab == TAB_CONTACTS) t("no_contacts") else t("no_calls")
+        val empty = when (tab) {
+            TAB_CONTACTS -> t("no_contacts")
+            TAB_FAVORITES -> t("no_favorites")
+            else -> t("no_calls")
+        }
         adapter.items = items.ifEmpty { listOf(PhoneListAdapter.Item.Header(empty)) }
     }
 
@@ -304,6 +316,30 @@ class PhoneActivity : Activity() {
             val rows = section.rows.map { PhoneListAdapter.Item.CallRow(it, hideNames) }
             listOf(PhoneListAdapter.Item.Header(title)) + rows
         }
+    }
+
+    /** Starred contacts, then the people called most often, each with the speed dial letter that calls them. */
+    private fun favoriteItems(): List<PhoneListAdapter.Item> {
+        val lists = Favorites.build(people, calls)
+        if (lists.isEmpty) return emptyList()
+        val speed = SpeedDialStore(this).all()
+        fun rows(list: List<PhoneSearch.Person>) = list.map { person ->
+            val number = CallInfo.formatted(this, person.numbers.first())
+            val line = Favorites.speedLetter(person, speed)?.let {
+                t("favorite_speed_dial", it.toString(), number)
+            }
+            PhoneListAdapter.Item.PersonRow(person, line ?: number)
+        }
+        val out = mutableListOf<PhoneListAdapter.Item>()
+        if (lists.starred.isNotEmpty()) {
+            out +=
+                listOf(PhoneListAdapter.Item.Header(t("tab_favorites"))) + rows(lists.starred)
+        }
+        if (lists.frequent.isNotEmpty()) {
+            out +=
+                listOf(PhoneListAdapter.Item.Header(t("frequently_called"))) + rows(lists.frequent)
+        }
+        return out
     }
 
     /** Contacts that match, then the calls that match, each under its header. */
@@ -377,6 +413,19 @@ class PhoneActivity : Activity() {
                 ).setPrimaryClip(ClipData.newPlainText(number, number))
             }
         )
+        if (item is PhoneListAdapter.Item.PersonRow && item.person.id >= 0) {
+            options += t("open_contact") to {
+                open(
+                    Intent(
+                        Intent.ACTION_VIEW,
+                        android.content.ContentUris.withAppendedId(
+                            ContactsContract.Contacts.CONTENT_URI,
+                            item.person.id
+                        )
+                    )
+                )
+            }
+        }
         if (item is PhoneListAdapter.Item.CallRow) {
             if (item.row.latest.name == null) {
                 options += t("add_contact") to {
@@ -590,6 +639,14 @@ class PhoneActivity : Activity() {
         private const val TAB_CALLS = 0
         private const val TAB_CONTACTS = 1
         private const val TAB_DIAL = 2
+        private const val TAB_FAVORITES = 3
+        private val TAB_ORDER = listOf(TAB_CALLS, TAB_FAVORITES, TAB_CONTACTS, TAB_DIAL)
+        private val TAB_LABELS = mapOf(
+            TAB_CALLS to "tab_calls",
+            TAB_FAVORITES to "tab_favorites",
+            TAB_CONTACTS to "tab_contacts",
+            TAB_DIAL to "tab_dial_pad"
+        )
         private const val TAB_PAD = 8
         private const val MAX_PEOPLE = 20
         private const val REQUEST_ROLE = 1

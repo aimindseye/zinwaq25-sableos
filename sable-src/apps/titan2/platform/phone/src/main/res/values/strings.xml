@@ -87,4 +87,10 @@
     <string name="missed_call">Missed call</string>
     <string name="missed_calls">%1$d missed calls</string>
     <string name="call_back">Call back</string>
+    <string name="tab_favorites">Favorites</string>
+    <string name="frequently_called">Frequently called</string>
+    <string name="no_favorites">No favorites yet. Star a contact, or call someone often, and they appear here.</string>
+    <string name="hint_favorites">Call key or Enter calls · hold a row to open the contact and star it</string>
+    <string name="favorite_speed_dial">Hold %1$s · %2$s</string>
+    <string name="open_contact">Open contact</string>
 </resources>

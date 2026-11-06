@@ -1,0 +1,395 @@
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt
+index 8a0f25d..d0a692a 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt
+@@ -30,21 +30,22 @@ import android.widget.TextView
+ import java.util.concurrent.Executors
+ import org.sableos.phone.core.CallHistory
+ import org.sableos.phone.core.DialKeys
++import org.sableos.phone.core.Favorites
+ import org.sableos.phone.core.PhoneSearch
+ import org.sableos.phone.core.PhoneText.t
+ import org.sableos.titan2.theme.SablePalette
+ 
+ /**
+- * Sable Phone's main screen, BlackBerry 10 style: Calls (by day), Contacts and Dial pad tabs on a 720x720 display,
+- * all driven from the keyboard and trackpad. Letters find contacts and calls, digits open the dial pad, holding a
+- * letter speed dials it, the Call key calls the focused row or what is typed (an empty dial pad fills in the last
+- * number called), and Menu opens speed dial and settings.
++ * Sable Phone's main screen, BlackBerry 10 style: Calls (by day), Favorites, Contacts and Dial pad tabs on a
++ * 720x720 display, all driven from the keyboard and trackpad. Letters find contacts and calls, digits open the
++ * dial pad, holding a letter speed dials it, the Call key calls the focused row or what is typed (an empty dial
++ * pad fills in the last number called), and Menu opens speed dial and settings.
+  */
+ class PhoneActivity : Activity() {
+     private lateinit var ui: Ui
+     private lateinit var palette: SablePalette
+     private lateinit var settings: PhoneSettings
+-    private lateinit var tabs: List<TextView>
++    private lateinit var tabs: Map<Int, TextView>
+     private lateinit var search: EditText
+     private lateinit var list: ListView
+     private lateinit var adapter: PhoneListAdapter
+@@ -83,7 +84,9 @@ class PhoneActivity : Activity() {
+             orientation = LinearLayout.HORIZONTAL
+             setPadding(ui.dp(Ui.PAD / 2), ui.dp(Ui.PAD / 2), ui.dp(Ui.PAD / 2), 0)
+         }
+-        tabs = listOf(t("tab_calls"), t("tab_contacts"), t("tab_dial_pad")).mapIndexed { i, label ->
++        // Shown in BlackBerry 10 order; the ids stay as they were so a saved opening tab keeps its meaning.
++        tabs = TAB_ORDER.associateWith { i ->
++            val label = t(TAB_LABELS.getValue(i))
+             ui.text(Ui.BODY_SP, bold = true, s = label).apply {
+                 gravity = android.view.Gravity.CENTER
+                 isFocusable = true
+@@ -208,10 +211,12 @@ class PhoneActivity : Activity() {
+                 dialPad.setNumber(number.orEmpty())
+             }
+ 
+-            else -> if (fresh) showTab(settings.tab.coerceIn(TAB_CALLS, TAB_DIAL)) else showTab(tab)
++            else -> showTab(if (fresh) savedTab() else tab)
+         }
+     }
+ 
++    private fun savedTab(): Int = settings.tab.takeIf { it in TAB_ORDER } ?: TAB_CALLS
++
+     override fun onResume() {
+         super.onResume()
+         banner.visibility = if (isDefaultPhone()) View.GONE else View.VISIBLE
+@@ -252,7 +257,7 @@ class PhoneActivity : Activity() {
+     private fun showTab(index: Int) {
+         tab = index
+         settings.tab = index
+-        tabs.forEachIndexed { i, v ->
++        tabs.forEach { (i, v) ->
+             v.setTextColor(
+                 if (i ==
+                     index
+@@ -269,6 +274,7 @@ class PhoneActivity : Activity() {
+         search.visibility = if (dial) View.GONE else View.VISIBLE
+         hint.text = when (index) {
+             TAB_CALLS -> t("hint_calls")
++            TAB_FAVORITES -> t("hint_favorites")
+             TAB_CONTACTS -> t("hint_contacts")
+             else -> t("hint_dial_pad")
+         }
+@@ -287,9 +293,15 @@ class PhoneActivity : Activity() {
+                 it.name.lowercase()
+             }.map { PhoneListAdapter.Item.PersonRow(it) }
+ 
++            tab == TAB_FAVORITES -> favoriteItems()
++
+             else -> callItems(calls)
+         }
+-        val empty = if (tab == TAB_CONTACTS) t("no_contacts") else t("no_calls")
++        val empty = when (tab) {
++            TAB_CONTACTS -> t("no_contacts")
++            TAB_FAVORITES -> t("no_favorites")
++            else -> t("no_calls")
++        }
+         adapter.items = items.ifEmpty { listOf(PhoneListAdapter.Item.Header(empty)) }
+     }
+ 
+@@ -306,6 +318,30 @@ class PhoneActivity : Activity() {
+         }
+     }
+ 
++    /** Starred contacts, then the people called most often, each with the speed dial letter that calls them. */
++    private fun favoriteItems(): List<PhoneListAdapter.Item> {
++        val lists = Favorites.build(people, calls)
++        if (lists.isEmpty) return emptyList()
++        val speed = SpeedDialStore(this).all()
++        fun rows(list: List<PhoneSearch.Person>) = list.map { person ->
++            val number = CallInfo.formatted(this, person.numbers.first())
++            val line = Favorites.speedLetter(person, speed)?.let {
++                t("favorite_speed_dial", it.toString(), number)
++            }
++            PhoneListAdapter.Item.PersonRow(person, line ?: number)
++        }
++        val out = mutableListOf<PhoneListAdapter.Item>()
++        if (lists.starred.isNotEmpty()) {
++            out +=
++                listOf(PhoneListAdapter.Item.Header(t("tab_favorites"))) + rows(lists.starred)
++        }
++        if (lists.frequent.isNotEmpty()) {
++            out +=
++                listOf(PhoneListAdapter.Item.Header(t("frequently_called"))) + rows(lists.frequent)
++        }
++        return out
++    }
++
+     /** Contacts that match, then the calls that match, each under its header. */
+     private fun searchItems(query: String): List<PhoneListAdapter.Item> {
+         val matches = PhoneSearch.find(people, query).take(MAX_PEOPLE).map {
+@@ -377,6 +413,19 @@ class PhoneActivity : Activity() {
+                 ).setPrimaryClip(ClipData.newPlainText(number, number))
+             }
+         )
++        if (item is PhoneListAdapter.Item.PersonRow && item.person.id >= 0) {
++            options += t("open_contact") to {
++                open(
++                    Intent(
++                        Intent.ACTION_VIEW,
++                        android.content.ContentUris.withAppendedId(
++                            ContactsContract.Contacts.CONTENT_URI,
++                            item.person.id
++                        )
++                    )
++                )
++            }
++        }
+         if (item is PhoneListAdapter.Item.CallRow) {
+             if (item.row.latest.name == null) {
+                 options += t("add_contact") to {
+@@ -590,6 +639,14 @@ class PhoneActivity : Activity() {
+         private const val TAB_CALLS = 0
+         private const val TAB_CONTACTS = 1
+         private const val TAB_DIAL = 2
++        private const val TAB_FAVORITES = 3
++        private val TAB_ORDER = listOf(TAB_CALLS, TAB_FAVORITES, TAB_CONTACTS, TAB_DIAL)
++        private val TAB_LABELS = mapOf(
++            TAB_CALLS to "tab_calls",
++            TAB_FAVORITES to "tab_favorites",
++            TAB_CONTACTS to "tab_contacts",
++            TAB_DIAL to "tab_dial_pad"
++        )
+         private const val TAB_PAD = 8
+         private const val MAX_PEOPLE = 20
+         private const val REQUEST_ROLE = 1
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneListAdapter.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneListAdapter.kt
+index 42d29bd..9b7ff8e 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneListAdapter.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneListAdapter.kt
+@@ -13,14 +13,15 @@ import org.sableos.phone.core.CallHistory
+ import org.sableos.phone.core.PhoneSearch
+ import org.sableos.phone.core.PhoneText.t
+ 
+-/** The rows of the Calls and Contacts lists: day or group headers, call rows and contact rows. */
++/** The rows of the Calls, Favorites and Contacts lists: day or group headers, call rows and contact rows. */
+ class PhoneListAdapter(private val context: Context, private val ui: Ui) : BaseAdapter() {
+     sealed interface Item {
+         data class Header(val title: String) : Item
+ 
+         data class CallRow(val row: CallHistory.Row, val hideNames: Boolean) : Item
+ 
+-        data class PersonRow(val person: PhoneSearch.Person) : Item
++        /** A contact; [line] replaces the number under the name (Favorites adds the speed dial letter). */
++        data class PersonRow(val person: PhoneSearch.Person, val line: String? = null) : Item
+     }
+ 
+     var items: List<Item> = emptyList()
+@@ -54,7 +55,14 @@ class PhoneListAdapter(private val context: Context, private val ui: Ui) : BaseA
+         val row = convertView as? LinearLayout ?: row()
+         return when (item) {
+             is Item.CallRow -> fill(row, callTitle(item), callLine(item), item.row.missed)
+-            is Item.PersonRow -> fill(row, item.person.name, item.person.numbers.first(), false)
++
++            is Item.PersonRow -> fill(
++                row,
++                item.person.name,
++                item.line ?: item.person.numbers.first(),
++                false
++            )
++
+             is Item.Header -> row
+         }
+     }
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneSettings.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneSettings.kt
+index eec1294..460a246 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneSettings.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneSettings.kt
+@@ -12,7 +12,7 @@ class PhoneSettings(context: Context) {
+         get() = prefs.getBoolean(KEY_SPACE_ANSWERS, true)
+         set(value) = prefs.edit().putBoolean(KEY_SPACE_ANSWERS, value).apply()
+ 
+-    /** The tab Phone opens on: 0 calls, 1 contacts, 2 dial pad. */
++    /** The tab Phone opens on: 0 calls, 1 contacts, 2 dial pad, 3 favorites. */
+     var tab: Int
+         get() = prefs.getInt(KEY_TAB, 0)
+         set(value) = prefs.edit().putInt(KEY_TAB, value).apply()
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/Favorites.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/Favorites.kt
+new file mode 100644
+index 0000000..82394ba
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/Favorites.kt
+@@ -0,0 +1,58 @@
++package org.sableos.phone.core
++
++import org.sableos.phone.core.PhoneSearch.Person
++
++/**
++ * The Favorites tab, BlackBerry 10 style: starred contacts by name, then the people called most often who are not
++ * starred. Speed dial letters show beside the favorite they call. Nothing is stored: the stars live in Contacts and
++ * the counts come from the call log each time the tab loads.
++ */
++object Favorites {
++    const val FREQUENT_MAX = 8
++    const val FREQUENT_MIN_CALLS = 2
++
++    data class Lists(val starred: List<Person>, val frequent: List<Person>) {
++        val isEmpty: Boolean get() = starred.isEmpty() && frequent.isEmpty()
++    }
++
++    fun build(people: List<Person>, calls: List<CallHistory.Call>): Lists {
++        val starred = people.filter { it.starred }.sortedBy { it.name.lowercase() }
++        val talked = calls.filter {
++            !it.hidden && it.number.any(Char::isDigit) &&
++                (it.kind == CallHistory.Kind.INCOMING || it.kind == CallHistory.Kind.OUTGOING)
++        }
++        val frequent = talked
++            .groupBy { CallFormat.matchKey(it.number) }
++            .filterValues { it.size >= FREQUENT_MIN_CALLS }
++            .values
++            .filter { group ->
++                starred.none { s ->
++                    s.numbers.any { CallFormat.sameNumber(it, group.first().number) }
++                }
++            }
++            .sortedWith(
++                compareByDescending<List<CallHistory.Call>> {
++                    it.size
++                }.thenByDescending { g -> g.maxOf { it.timeMillis } }
++            )
++            .map { group -> personFor(group.first().number, people) }
++            .distinctBy { if (it.id >= 0) "c${it.id}" else CallFormat.matchKey(it.numbers.first()) }
++            .take(FREQUENT_MAX)
++        return Lists(starred, frequent)
++    }
++
++    /** The speed dial letter (upper case) that calls one of [person]'s numbers, or null. */
++    fun speedLetter(person: Person, speedDial: Map<Char, SpeedDial.Entry>): Char? =
++        speedDial.entries
++            .sortedBy { it.key }
++            .firstOrNull { (_, entry) ->
++                person.numbers.any { CallFormat.sameNumber(it, entry.number) }
++            }
++            ?.key
++            ?.uppercaseChar()
++
++    /** The contact for [number], or a stand-in named by the number itself (id -1). */
++    private fun personFor(number: String, people: List<Person>): Person =
++        people.firstOrNull { p -> p.numbers.any { CallFormat.sameNumber(it, number) } }
++            ?: Person(-1, number, listOf(number))
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt
+index 2770a66..fa71541 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt
+@@ -97,7 +97,15 @@ object PhoneText {
+             "channel_missed" to "Missed calls",
+             "missed_call" to "Missed call",
+             "missed_calls" to "%1\$d missed calls",
+-            "call_back" to "Call back"
++            "call_back" to "Call back",
++            "tab_favorites" to "Favorites",
++            "frequently_called" to "Frequently called",
++            "no_favorites" to
++                "No favorites yet. Star a contact, or call someone often, and they appear here.",
++            "hint_favorites" to
++                "Call key or Enter calls · hold a row to open the contact and star it",
++            "favorite_speed_dial" to "Hold %1\$s · %2\$s",
++            "open_contact" to "Open contact"
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml
+index 31df9c0..c7491ae 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml
+@@ -87,4 +87,10 @@
+     <string name="missed_call">Missed call</string>
+     <string name="missed_calls">%1$d missed calls</string>
+     <string name="call_back">Call back</string>
++    <string name="tab_favorites">Favorites</string>
++    <string name="frequently_called">Frequently called</string>
++    <string name="no_favorites">No favorites yet. Star a contact, or call someone often, and they appear here.</string>
++    <string name="hint_favorites">Call key or Enter calls · hold a row to open the contact and star it</string>
++    <string name="favorite_speed_dial">Hold %1$s · %2$s</string>
++    <string name="open_contact">Open contact</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/FavoritesTest.kt b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/FavoritesTest.kt
+new file mode 100644
+index 0000000..1c95229
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/FavoritesTest.kt
+@@ -0,0 +1,81 @@
++package org.sableos.phone.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.sableos.phone.core.CallHistory.Call
++import org.sableos.phone.core.CallHistory.Kind
++import org.sableos.phone.core.PhoneSearch.Person
++
++class FavoritesTest {
++    private val ann = Person(1, "Ann Smith", listOf("+44 7700 900101"), starred = true)
++    private val bob = Person(2, "Bob Jones", listOf("07700 900202"))
++    private val cat = Person(3, "Cat Lee", listOf("555 0303"), starred = true)
++
++    private fun call(
++        number: String,
++        kind: Kind = Kind.OUTGOING,
++        time: Long = 0,
++        hidden: Boolean = false
++    ) = Call(time, number, null, kind, time, 30, 0, hidden)
++
++    @Test
++    fun starredComeFirstByName() {
++        val lists = Favorites.build(listOf(cat, bob, ann), emptyList())
++        assertEquals(listOf(ann, cat), lists.starred)
++        assertTrue(lists.frequent.isEmpty())
++    }
++
++    @Test
++    fun frequentAreTalkedToTwiceAndNotStarred() {
++        val calls = listOf(
++            call("07700 900202", time = 5),
++            call("+447700900202", Kind.INCOMING, time = 4),
++            // Ann is starred already, so her calls do not make her frequent too.
++            call("07700 900101", time = 3),
++            call("+44 7700 900101", time = 2),
++            // Missed and hidden calls do not count.
++            call("0123 456789", Kind.MISSED, time = 1),
++            call("0123 456789", Kind.MISSED, time = 1),
++            call("", hidden = true),
++            call("", hidden = true),
++            // Once is not often.
++            call("0999 888777")
++        )
++        val lists = Favorites.build(listOf(ann, bob, cat), calls)
++        assertEquals(listOf(bob), lists.frequent)
++    }
++
++    @Test
++    fun frequentStrangersAreNamedByNumberAndMostCalledFirst() {
++        val calls = listOf(
++            call("0111 222333", time = 9),
++            call("0111 222333", time = 8),
++            call("0444 555666", time = 7),
++            call("0444 555666", time = 6),
++            call("0444 555666", time = 5)
++        )
++        val frequent = Favorites.build(emptyList(), calls).frequent
++        assertEquals(listOf("0444 555666", "0111 222333"), frequent.map { it.name })
++        assertEquals(-1L, frequent.first().id)
++    }
++
++    @Test
++    fun frequentIsCapped() {
++        val calls = (0 until 20).flatMap { i ->
++            List(2) { call("0700 0000%02d".format(i), time = i.toLong()) }
++        }
++        assertEquals(Favorites.FREQUENT_MAX, Favorites.build(emptyList(), calls).frequent.size)
++    }
++
++    @Test
++    fun speedDialLetterMatchesAnyNumber() {
++        val speed = mapOf(
++            'w' to SpeedDial.Entry("07700 900101", "Ann"),
++            'e' to SpeedDial.Entry("555 1234", "x")
++        )
++        assertEquals('W', Favorites.speedLetter(ann, speed))
++        assertNull(Favorites.speedLetter(bob, speed))
++    }
++}
