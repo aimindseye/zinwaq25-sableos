@@ -42,9 +42,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -56,6 +59,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sable.start.model.StartText.t
+import java.text.DateFormat
+import java.util.Date
 import kotlinx.coroutines.delay
 import org.sableos.design.SableAppearance
 import org.sableos.design.SableTheme
@@ -79,8 +84,6 @@ import org.sableos.start.model.stableKey
 import org.sableos.start.platform.LetterShortcutRepository
 import org.sableos.start.platform.LiveSurfaceRepository
 import org.sableos.start.platform.SpeedDialRepository
-import java.text.DateFormat
-import java.util.Date
 
 /**
  * Sable Start in the BlackBerry 7 style ([org.sableos.start.model.HomeStyle.Bb7]): the banner
@@ -514,7 +517,10 @@ private fun Bb7Banner(
     }
 }
 
-/** The Hub unread count; tapping it opens Hub. Nothing when there is nothing unread. */
+/**
+ * The Hub unread count; tapping it opens Hub. Nothing when there is nothing unread. Sable 2.0:
+ * white on black with a thin grey outline, since blue is kept for focus.
+ */
 @Composable
 private fun UnreadBadge(
     unread: Int,
@@ -528,7 +534,7 @@ private fun UnreadBadge(
         modifier =
             Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
                 .clickable(onClick = onOpenHub)
                 .padding(horizontal = 10.dp, vertical = 4.dp),
     )
@@ -538,6 +544,10 @@ private fun UnreadBadge(
  * The tray: its panel name between arrows, then the home screen's rows of apps (closed) or the
  * whole panel (open). Tapping the name opens or closes it; the arrows switch panels; dragging the
  * closed tray up or down ([onResize], px) shows more or fewer rows. The icon being moved is outlined.
+ *
+ * Sable 2.0 black and white: a thin line above the tray's name, the selected app filled blue with
+ * its name in the on-blue colour (the icon being moved outlined in white), and in List view a thin
+ * divider under each row, as the BlackBerry 10 lists.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -561,11 +571,15 @@ private fun Bb7Tray(
     LaunchedEffect(selected, open) {
         if (open && selected in apps.indices) grid.animateScrollToItem(selected)
     }
+    val line = MaterialTheme.colorScheme.outlineVariant
+    val selectedFill = MaterialTheme.colorScheme.primary
+    val selectedInk = MaterialTheme.colorScheme.onPrimary
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
                 .background(TRAY_SCRIM)
+                .drawBehind { drawLine(line, Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }
                 .then(
                     if (open) {
                         Modifier
@@ -619,16 +633,25 @@ private fun Bb7Tray(
                 key = { _, app -> app.component.flattenToString() + app.user.hashCode() },
             ) { index, app ->
                 val isSelected = index == selected
-                val outline = if (moving && isSelected) Color.White else MaterialTheme.colorScheme.primary
+                val ink = if (isSelected) selectedInk else Color.White
+                val shape = if (list) RectangleShape else RoundedCornerShape(8.dp)
                 val cell =
                     Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else Color.Transparent,
-                        ).border(
-                            if (isSelected) 2.dp else 0.dp,
-                            if (isSelected) outline else Color.Transparent,
-                            RoundedCornerShape(8.dp),
+                        .clip(shape)
+                        .background(if (isSelected) selectedFill else Color.Transparent)
+                        .border(
+                            if (moving && isSelected) 2.dp else 0.dp,
+                            if (moving && isSelected) Color.White else Color.Transparent,
+                            shape,
+                        ).then(
+                            if (list) {
+                                Modifier.drawBehind {
+                                    val y = size.height - 0.5.dp.toPx()
+                                    drawLine(line, Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
+                                }
+                            } else {
+                                Modifier
+                            },
                         ).combinedClickable(
                             onClick = { onLaunch(app) },
                             onLongClick = { onInfo(app) },
@@ -643,7 +666,7 @@ private fun Bb7Tray(
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = app.label,
-                            color = Color.White,
+                            color = ink,
                             style = MaterialTheme.typography.bodyLarge,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -658,7 +681,7 @@ private fun Bb7Tray(
                         Spacer(Modifier.height(2.dp))
                         Text(
                             text = app.label,
-                            color = Color.White,
+                            color = ink,
                             fontSize = 11.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -695,4 +718,4 @@ private const val SWIPE_DP = 72
 private const val ROW_DP = 64
 private val BANNER_SCRIM = Color(0x99000000)
 private val TRAY_SCRIM = Color(0xE6000000)
-private val BANNER_MUTED = Color(0xFFC9D1DA)
+private val BANNER_MUTED = Color(0xFFA6A6A6)
