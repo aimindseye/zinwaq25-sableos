@@ -37,7 +37,7 @@ command must name the Q25. Set its serial once per shell; both tools read it:
 
 ```bash
 adb devices                       # note the Q25's serial
-export ANDROID_SERIAL=<q25-serial>  # e.g. 36022310232425 on the test phone
+export ANDROID_SERIAL=<q25-serial>  # e.g. 3602XXXXXXXXXX (14 digits; the rest of the test phone's serial is hidden)
 ```
 
 `restore-stock.sh --execute` and `capture-crash-evidence.sh` refuse to run

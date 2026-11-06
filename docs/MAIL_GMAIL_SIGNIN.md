@@ -17,8 +17,9 @@ signs the APK on the phone (the platform build signs it). Read it from the
 installed APK:
 
 ```bash
-adb -s 36022310232425 shell pm path org.sableos.mail          # package:/system/.../SableMail.apk
-adb -s 36022310232425 pull "$(adb -s 36022310232425 shell pm path org.sableos.mail | sed 's/^package://' | tr -d '\r')" /tmp/SableMail.apk
+# Replace 3602XXXXXXXXXX with your Q25's serial from `adb devices`.
+adb -s 3602XXXXXXXXXX shell pm path org.sableos.mail          # package:/system/.../SableMail.apk
+adb -s 3602XXXXXXXXXX pull "$(adb -s 3602XXXXXXXXXX shell pm path org.sableos.mail | sed 's/^package://' | tr -d '\r')" /tmp/SableMail.apk
 keytool -printcert -jarfile /tmp/SableMail.apk | grep SHA1
 ```
 
