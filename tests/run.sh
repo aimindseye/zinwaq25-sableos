@@ -521,6 +521,7 @@ tov=product/common/overlay/SableTelecomOverlay
 grep -q 'android:targetPackage="com.android.server.telecom"' "$tov/AndroidManifest.xml" || ph_bad="$ph_bad telecom-target"
 grep -q '<string name="incall_default_class"[^>]*>org.sableos.phone.android.PhoneInCallService<' "$tov/res/values/config.xml" || ph_bad="$ph_bad incall-class"
 grep -q '<string name="dialer_default_class"[^>]*>org.sableos.phone.android.PhoneActivity<' "$tov/res/values/config.xml" || ph_bad="$ph_bad dialer-class"
+# shellcheck disable=SC2016  # a literal $ in the pattern
 grep -q '"$FRAMEWORK" == YES && "$module" == SablePhone' scripts/stage-product.sh || ph_bad="$ph_bad q4-override"
 grep -q 'overrides=Dialer' scripts/stage-product.sh || ph_bad="$ph_bad override-dialer"
 grep -q 'SableTelecomOverlay' scripts/stage-product.sh || ph_bad="$ph_bad overlay-staged"
