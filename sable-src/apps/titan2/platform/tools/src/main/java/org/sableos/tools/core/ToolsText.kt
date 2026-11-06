@@ -288,6 +288,13 @@ object ToolsText {
             "settings_install_unknown_apps" to "Settings > Install unknown apps",
             "privacy_check_info" to
                 "Read-only: it never changes a setting. Menu opens the Settings page for a check that needs attention.",
+            "my_sable" to "My Sable",
+            "my_sable_info" to
+                "Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.",
+            "my_sable_attention" to "Attention: alerts and Do not disturb",
+            "my_sable_mobile" to "Mobile Manager: network and mobile data",
+            "my_sable_battery" to "Battery: usage and health",
+            "my_sable_open" to "Open",
             "device_build_and_security" to "Device, build and security",
             "keyboard_event_viewer" to "Keyboard event viewer",
             "keyboard_layout_and_profile" to "Keyboard layout and profile",

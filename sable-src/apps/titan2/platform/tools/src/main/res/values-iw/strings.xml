@@ -217,6 +217,12 @@
     <string name="check_patch_age">%1$s, בן %2$d ימים</string>
     <string name="settings_install_unknown_apps">הגדרות &gt; התקנת אפליקציות לא מוכרות</string>
     <string name="privacy_check_info">לקריאה בלבד: אינו משנה שום הגדרה. התפריט פותח את דף ההגדרות של בדיקה שדורשת תשומת לב.</string>
+    <string name="my_sable">My Sable</string>
+    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
+    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
+    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+    <string name="my_sable_battery">Battery: usage and health</string>
+    <string name="my_sable_open">Open</string>
     <string name="device_build_and_security">מכשיר, גרסה ואבטחה</string>
     <string name="keyboard_event_viewer">מציג אירועי מקלדת</string>
     <string name="keyboard_layout_and_profile">פריסת מקלדת ופרופיל</string>

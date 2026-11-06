@@ -1,0 +1,571 @@
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+index 9430042..97488ca 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+@@ -98,6 +98,7 @@ object Handoffs {
+         Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS, SettingsLink.KEYBOARD)
+         Tool.DEVICE_IDENTITY -> listOf(SettingsLink.ABOUT, SettingsLink.SECURITY)
+         Tool.PRIVACY_CHECK -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
++        Tool.MY_SABLE -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
+         Tool.BUGREPORT -> listOf(SettingsLink.DEVELOPER)
+         else -> emptyList()
+     }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
+index 75ceb17..e84f9d7 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
+@@ -159,6 +159,12 @@ enum class Tool(
+     ),
+ 
+     // Diagnostics
++    MY_SABLE(
++        Section.DIAGNOSTICS,
++        "my_sable",
++        ToolKind.INFO,
++        keywords = listOf("attention", "mobile", "private space", "battery", "privacy")
++    ),
+     PRIVACY_CHECK(
+         Section.DIAGNOSTICS,
+         "privacy_check",
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+index 1fad5b7..9e0c27d 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+@@ -288,6 +288,13 @@ object ToolsText {
+             "settings_install_unknown_apps" to "Settings > Install unknown apps",
+             "privacy_check_info" to
+                 "Read-only: it never changes a setting. Menu opens the Settings page for a check that needs attention.",
++            "my_sable" to "My Sable",
++            "my_sable_info" to
++                "Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.",
++            "my_sable_attention" to "Attention: alerts and Do not disturb",
++            "my_sable_mobile" to "Mobile Manager: network and mobile data",
++            "my_sable_battery" to "Battery: usage and health",
++            "my_sable_open" to "Open",
+             "device_build_and_security" to "Device, build and security",
+             "keyboard_event_viewer" to "Keyboard event viewer",
+             "keyboard_layout_and_profile" to "Keyboard layout and profile",
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt
+index 6c66e44..7c4a3a3 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt
+@@ -25,6 +25,7 @@ object Controllers {
+         Tool.SPEEDOMETER to ::SpeedController,
+         Tool.PEDOMETER to ::PedometerController,
+         Tool.IR_REMOTE to ::IrRemoteController,
++        Tool.MY_SABLE to ::MySableController,
+         Tool.PRIVACY_CHECK to ::PrivacyCheckController,
+         Tool.DEVICE_IDENTITY to info(ReportCategory.DEVICE),
+         Tool.KEY_VIEWER to ::KeyViewerController,
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+index 3c52dc1..fd8cfb8 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+@@ -21,9 +21,11 @@ import org.sableos.tools.core.FieldKind
+ import org.sableos.tools.core.HomeModel
+ import org.sableos.tools.core.KeyEventFormat
+ import org.sableos.tools.core.PrivacyCheck
++import org.sableos.tools.core.PrivacyCheckId
+ import org.sableos.tools.core.PrivacyScore
+ import org.sableos.tools.core.Redactor
+ import org.sableos.tools.core.ReportSection
++import org.sableos.tools.core.SettingsLink
+ import org.sableos.tools.core.TextEntryTest
+ import org.sableos.tools.core.Tool
+ import org.sableos.tools.core.ToolsText.t
+@@ -382,3 +384,46 @@ class PrivacyCheckController(private val host: ToolHost) : ToolController {
+             .map { c -> t("open", c.id.title) to { host.openLink(c.id.link) } }
+     }
+ }
++
++/**
++ * My Sable: the Sable features that used to sit deep in Settings and Hub menus, on one screen. A privacy rating comes
++ * first (the same read-only check as Privacy check), then one row per feature with its state. Read-only: the Menu
++ * opens the Settings page behind a row.
++ */
++class MySableController(private val host: ToolHost) : ToolController {
++    private val ctx = host.activity
++    private val text: TextView = Ui.mono(ctx)
++    private var rendered = ""
++
++    override fun view(): View = ScrollView(ctx).apply {
++        isFocusable = true
++        addView(text)
++        post { requestFocus() }
++    }
++
++    override fun start() {
++        val checks = PrivacyCollector(ctx).checks()
++        val fix = PrivacyScore.nextFix(checks)
++        val space = checks.firstOrNull { it.id == PrivacyCheckId.PRIVATE_SPACE }
++        rendered = buildString {
++            appendLine("${t("privacy_check")}: ${PrivacyScore.rate(checks).label}")
++            fix?.let { appendLine("${t("check_fix_first")}: ${it.id.title}") }
++            appendLine()
++            appendLine("${t("my_sable_attention")}  ${t("my_sable_open")}")
++            appendLine("${t("my_sable_mobile")}  ${t("my_sable_open")}")
++            appendLine("${t("check_private_space")}  ${space?.detail ?: t("check_unknown")}")
++            appendLine("${t("my_sable_battery")}  ${t("my_sable_open")}")
++        }.trimEnd()
++        text.text = rendered
++    }
++
++    override fun info() = t("my_sable_info")
++    override fun copyText() = rendered
++
++    override fun actions() = listOf(
++        t("my_sable_attention") to { host.openLink(SettingsLink.NOTIFICATIONS) },
++        t("my_sable_mobile") to { host.openLink(SettingsLink.NETWORK) },
++        t("check_private_space") to { host.openLink(SettingsLink.SECURITY) },
++        t("my_sable_battery") to { host.openLink(SettingsLink.BATTERY) }
++    )
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+index 3ecfc2d..b7fe91d 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s، عمره %2$d يومًا</string>
+     <string name="settings_install_unknown_apps">الإعدادات &gt; تثبيت التطبيقات غير المعروفة</string>
+     <string name="privacy_check_info">للقراءة فقط: لا يغيّر أي إعداد. تفتح القائمة صفحة الإعدادات للفحص الذي يحتاج إلى انتباه.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">الجهاز والإصدار والأمان</string>
+     <string name="keyboard_event_viewer">عارض أحداث لوحة المفاتيح</string>
+     <string name="keyboard_layout_and_profile">تخطيط لوحة المفاتيح وملفها</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+index 8b827f2..a080b04 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d Tage alt</string>
+     <string name="settings_install_unknown_apps">Einstellungen &gt; Unbekannte Apps installieren</string>
+     <string name="privacy_check_info">Nur lesen: Es ändert keine Einstellung. Menü öffnet die Einstellungen zu einer Prüfung, die Aufmerksamkeit braucht.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">Gerät, Build und Sicherheit</string>
+     <string name="keyboard_event_viewer">Tastaturereignis-Anzeige</string>
+     <string name="keyboard_layout_and_profile">Tastaturlayout und Profil</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+index eb46213..9f5baa0 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d ημερών</string>
+     <string name="settings_install_unknown_apps">Ρυθμίσεις &gt; Εγκατάσταση άγνωστων εφαρμογών</string>
+     <string name="privacy_check_info">Μόνο ανάγνωση: δεν αλλάζει καμία ρύθμιση. Το Μενού ανοίγει τη σελίδα ρυθμίσεων για έναν έλεγχο που χρειάζεται προσοχή.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">Συσκευή, έκδοση και ασφάλεια</string>
+     <string name="keyboard_event_viewer">Προβολή συμβάντων πληκτρολογίου</string>
+     <string name="keyboard_layout_and_profile">Διάταξη και προφίλ πληκτρολογίου</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+index 5ee637a..60dfc50 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d días de antigüedad</string>
+     <string name="settings_install_unknown_apps">Ajustes &gt; Instalar apps desconocidas</string>
+     <string name="privacy_check_info">Solo lectura: no cambia ningún ajuste. Menú abre la página de Ajustes de una revisión que necesita atención.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">Dispositivo, compilación y seguridad</string>
+     <string name="keyboard_event_viewer">Visor de eventos de teclado</string>
+     <string name="keyboard_layout_and_profile">Distribución y perfil del teclado</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+index 93cd189..3ed16c5 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d jours</string>
+     <string name="settings_install_unknown_apps">Paramètres &gt; Installer des applis inconnues</string>
+     <string name="privacy_check_info">Lecture seule : aucun réglage n’est modifié. Menu ouvre la page des paramètres d’un contrôle à vérifier.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">Appareil, version et sécurité</string>
+     <string name="keyboard_event_viewer">Visionneuse d\'événements clavier</string>
+     <string name="keyboard_layout_and_profile">Disposition et profil du clavier</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+index 628452f..97d637e 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d दिन पुराना</string>
+     <string name="settings_install_unknown_apps">सेटिंग &gt; अज्ञात ऐप्स इंस्टॉल करें</string>
+     <string name="privacy_check_info">केवल पढ़ने के लिए: यह कोई सेटिंग नहीं बदलता। मेनू ध्यान चाहने वाली जाँच का सेटिंग पेज खोलता है।</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">डिवाइस, बिल्ड और सुरक्षा</string>
+     <string name="keyboard_event_viewer">कीबोर्ड इवेंट व्यूअर</string>
+     <string name="keyboard_layout_and_profile">कीबोर्ड लेआउट और प्रोफ़ाइल</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+index d687166..c5c7b4a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d giorni</string>
+     <string name="settings_install_unknown_apps">Impostazioni &gt; Installa app sconosciute</string>
+     <string name="privacy_check_info">Sola lettura: non cambia nessuna impostazione. Menu apre la pagina delle impostazioni di un controllo che richiede attenzione.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">Dispositivo, build e sicurezza</string>
+     <string name="keyboard_event_viewer">Visualizzatore eventi tastiera</string>
+     <string name="keyboard_layout_and_profile">Layout e profilo tastiera</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+index 6a65a03..f4fcdc0 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, בן %2$d ימים</string>
+     <string name="settings_install_unknown_apps">הגדרות &gt; התקנת אפליקציות לא מוכרות</string>
+     <string name="privacy_check_info">לקריאה בלבד: אינו משנה שום הגדרה. התפריט פותח את דף ההגדרות של בדיקה שדורשת תשומת לב.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">מכשיר, גרסה ואבטחה</string>
+     <string name="keyboard_event_viewer">מציג אירועי מקלדת</string>
+     <string name="keyboard_layout_and_profile">פריסת מקלדת ופרופיל</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+index d39be27..b56d105 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s（%2$d 日前）</string>
+     <string name="settings_install_unknown_apps">設定 &gt; 不明なアプリのインストール</string>
+     <string name="privacy_check_info">読み取り専用: 設定は変更しません。メニューで、要確認の項目の設定ページを開けます。</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">デバイス、ビルド、セキュリティ</string>
+     <string name="keyboard_event_viewer">キーボードイベントビューアー</string>
+     <string name="keyboard_layout_and_profile">キーボードレイアウトとプロファイル</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+index b46304b..2e10e9c 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d일 전</string>
+     <string name="settings_install_unknown_apps">설정 &gt; 알 수 없는 앱 설치</string>
+     <string name="privacy_check_info">읽기 전용: 어떤 설정도 바꾸지 않습니다. 메뉴에서 확인이 필요한 항목의 설정 페이지를 엽니다.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">기기, 빌드 및 보안</string>
+     <string name="keyboard_event_viewer">키보드 이벤트 뷰어</string>
+     <string name="keyboard_layout_and_profile">키보드 레이아웃 및 프로필</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+index e7b26f9..cd4f75d 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d dagen oud</string>
+     <string name="settings_install_unknown_apps">Instellingen &gt; Onbekende apps installeren</string>
+     <string name="privacy_check_info">Alleen lezen: er wordt geen instelling gewijzigd. Menu opent de instellingenpagina van een controle die aandacht nodig heeft.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">Apparaat, build en beveiliging</string>
+     <string name="keyboard_event_viewer">Toetsenbordgebeurtenissen-viewer</string>
+     <string name="keyboard_layout_and_profile">Toetsenbordindeling en profiel</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+index 778f1b0..6a605c9 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d dni temu</string>
+     <string name="settings_install_unknown_apps">Ustawienia &gt; Instalowanie nieznanych aplikacji</string>
+     <string name="privacy_check_info">Tylko do odczytu: nie zmienia żadnego ustawienia. Menu otwiera stronę ustawień dla sprawdzenia wymagającego uwagi.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">Urządzenie, kompilacja i bezpieczeństwo</string>
+     <string name="keyboard_event_viewer">Podgląd zdarzeń klawiatury</string>
+     <string name="keyboard_layout_and_profile">Układ i profil klawiatury</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+index eb54395..5753dd7 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d dias</string>
+     <string name="settings_install_unknown_apps">Definições &gt; Instalar apps desconhecidas</string>
+     <string name="privacy_check_info">Só de leitura: não altera nenhuma definição. Menu abre a página de definições de uma verificação que precisa de atenção.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">Dispositivo, versão e segurança</string>
+     <string name="keyboard_event_viewer">Visualizador de eventos do teclado</string>
+     <string name="keyboard_layout_and_profile">Layout e perfil do teclado</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+index 26cf8eb..029dff5 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d дн. назад</string>
+     <string name="settings_install_unknown_apps">Настройки &gt; Установка неизвестных приложений</string>
+     <string name="privacy_check_info">Только чтение: ни одна настройка не меняется. Меню открывает страницу настроек для проверки, требующей внимания.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">Устройство, сборка и безопасность</string>
+     <string name="keyboard_event_viewer">Просмотр событий клавиатуры</string>
+     <string name="keyboard_layout_and_profile">Раскладка и профиль клавиатуры</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+index becaf27..718d8cc 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d dagar gammal</string>
+     <string name="settings_install_unknown_apps">Inställningar &gt; Installera okända appar</string>
+     <string name="privacy_check_info">Skrivskyddad: ändrar ingen inställning. Meny öppnar inställningssidan för en kontroll som behöver åtgärdas.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">Enhet, version och säkerhet</string>
+     <string name="keyboard_event_viewer">Visare för tangenthändelser</string>
+     <string name="keyboard_layout_and_profile">Tangentbordslayout och profil</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+index 1b28f14..c328d09 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s, %2$d gün önce</string>
+     <string name="settings_install_unknown_apps">Ayarlar &gt; Bilinmeyen uygulamaları yükle</string>
+     <string name="privacy_check_info">Salt okunur: hiçbir ayarı değiştirmez. Menü, dikkat gerektiren bir kontrolün ayar sayfasını açar.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">Cihaz, sürüm ve güvenlik</string>
+     <string name="keyboard_event_viewer">Klavye olay görüntüleyici</string>
+     <string name="keyboard_layout_and_profile">Klavye düzeni ve profili</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+index 3382954..35c4152 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s، %2$d دن پرانا</string>
+     <string name="settings_install_unknown_apps">ترتیبات &gt; نامعلوم ایپس انسٹال کریں</string>
+     <string name="privacy_check_info">صرف پڑھنے کے لیے: یہ کوئی ترتیب نہیں بدلتا۔ مینو توجہ طلب جانچ کا ترتیبات صفحہ کھولتا ہے۔</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">ڈیوائس، بلڈ اور سیکیورٹی</string>
+     <string name="keyboard_event_viewer">کی بورڈ ایونٹ ویور</string>
+     <string name="keyboard_layout_and_profile">کی بورڈ لے آؤٹ اور پروفائل</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+index b64a1ef..481ab32 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+@@ -217,6 +217,12 @@
+     <string name="check_patch_age">%1$s，已过去 %2$d 天</string>
+     <string name="settings_install_unknown_apps">设置 &gt; 安装未知应用</string>
+     <string name="privacy_check_info">只读：不会更改任何设置。菜单可打开需要注意的检查对应的设置页面。</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">设备、版本和安全</string>
+     <string name="keyboard_event_viewer">键盘事件查看器</string>
+     <string name="keyboard_layout_and_profile">键盘布局和配置文件</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+index e6d92c7..f6fed7e 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+@@ -218,6 +218,12 @@
+     <string name="check_patch_age">%1$s, %2$d days old</string>
+     <string name="settings_install_unknown_apps">Settings &gt; Install unknown apps</string>
+     <string name="privacy_check_info">Read-only: it never changes a setting. Menu opens the Settings page for a check that needs attention.</string>
++    <string name="my_sable">My Sable</string>
++    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
++    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
++    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
++    <string name="my_sable_battery">Battery: usage and health</string>
++    <string name="my_sable_open">Open</string>
+     <string name="device_build_and_security">Device, build and security</string>
+     <string name="keyboard_event_viewer">Keyboard event viewer</string>
+     <string name="keyboard_layout_and_profile">Keyboard layout and profile</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/HomeStyleActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/HomeStyleActivity.kt
+index 4958387..b9f5c13 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/HomeStyleActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/HomeStyleActivity.kt
+@@ -5,15 +5,13 @@ import android.os.Bundle
+ import android.provider.Settings
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+-import androidx.compose.foundation.BorderStroke
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.safeDrawingPadding
+-import androidx.compose.foundation.rememberScrollState
+-import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.HorizontalDivider
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+@@ -23,12 +21,14 @@ import androidx.compose.runtime.remember
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.focus.FocusRequester
+ import androidx.compose.ui.focus.focusRequester
++import androidx.compose.ui.graphics.RectangleShape
+ import androidx.compose.ui.unit.dp
+ import com.sable.start.model.StartText
+ import com.sable.start.model.StartText.t
+ import org.sableos.design.DesignText
+ import org.sableos.design.SableGlobalTheme
+ import org.sableos.design.sableFocusRing
++import org.sableos.design.sableVerticalScroll
+ import org.sableos.start.model.HomeStyle
+ import org.sableos.start.platform.StartStateRepository
+ 
+@@ -81,9 +81,9 @@ private fun HomeStyleChooser(
+                 Modifier
+                     .fillMaxSize()
+                     .safeDrawingPadding()
+-                    .verticalScroll(rememberScrollState())
++                    .sableVerticalScroll()
+                     .padding(12.dp),
+-            verticalArrangement = Arrangement.spacedBy(8.dp),
++            verticalArrangement = Arrangement.spacedBy(4.dp),
+         ) {
+             Text(t("home_screen_style"), style = MaterialTheme.typography.titleLarge)
+             Text(
+@@ -111,6 +111,7 @@ private fun HomeStyleChooser(
+     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+ }
+ 
++/** A flat BlackBerry 10 list row: title and detail on black, a thin line below, the current choice in the blue. */
+ @Composable
+ private fun Choice(
+     title: String,
+@@ -119,20 +120,29 @@ private fun Choice(
+     modifier: Modifier = Modifier,
+     onClick: () -> Unit,
+ ) {
+-    Surface(
+-        onClick = onClick,
+-        modifier = modifier.fillMaxWidth().sableFocusRing(),
+-        shape = MaterialTheme.shapes.medium,
+-        color = MaterialTheme.colorScheme.surfaceVariant,
+-        border =
+-            BorderStroke(
+-                if (active) 2.dp else 1.dp,
+-                if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+-            ),
+-    ) {
+-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+-            Text(title, style = MaterialTheme.typography.titleMedium)
+-            Text(detail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
++    Column(modifier = modifier.fillMaxWidth()) {
++        Surface(
++            onClick = onClick,
++            modifier = Modifier.fillMaxWidth().sableFocusRing(),
++            shape = RectangleShape,
++            color = MaterialTheme.colorScheme.background,
++        ) {
++            Column(
++                modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
++                verticalArrangement = Arrangement.spacedBy(2.dp),
++            ) {
++                Text(
++                    title,
++                    style = MaterialTheme.typography.titleMedium,
++                    color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
++                )
++                Text(
++                    detail,
++                    style = MaterialTheme.typography.bodyMedium,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++            }
+         }
++        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+     }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index aa13ce9..18a03b8 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -751,9 +751,18 @@ class SableStartActivity : ComponentActivity() {
+                 t("close") to {},
+             )
+         val items = contextual + global
+-        AlertDialog.Builder(this)
+-            .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
+-            .show()
++        val dialog =
++            AlertDialog.Builder(this)
++                .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
++                .show()
++        // BlackBerry 10 menu look: flat black sheet, square corners, a thin grey line, no rounded card.
++        dialog.window?.setBackgroundDrawable(
++            android.graphics.drawable.GradientDrawable().apply {
++                setColor(android.graphics.Color.BLACK)
++                setStroke(1, 0xFF4D4D4D.toInt())
++                cornerRadius = 0f
++            },
++        )
+     }
+ 
+     private fun openSystemSettings() {

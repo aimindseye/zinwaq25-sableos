@@ -5,15 +5,13 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,12 +21,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import com.sable.start.model.StartText
 import com.sable.start.model.StartText.t
 import org.sableos.design.DesignText
 import org.sableos.design.SableGlobalTheme
 import org.sableos.design.sableFocusRing
+import org.sableos.design.sableVerticalScroll
 import org.sableos.start.model.HomeStyle
 import org.sableos.start.platform.StartStateRepository
 
@@ -81,9 +81,9 @@ private fun HomeStyleChooser(
                 Modifier
                     .fillMaxSize()
                     .safeDrawingPadding()
-                    .verticalScroll(rememberScrollState())
+                    .sableVerticalScroll()
                     .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(t("home_screen_style"), style = MaterialTheme.typography.titleLarge)
             Text(
@@ -111,6 +111,7 @@ private fun HomeStyleChooser(
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
 }
 
+/** A flat BlackBerry 10 list row: title and detail on black, a thin line below, the current choice in the blue. */
 @Composable
 private fun Choice(
     title: String,
@@ -119,20 +120,29 @@ private fun Choice(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth().sableFocusRing(),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        border =
-            BorderStroke(
-                if (active) 2.dp else 1.dp,
-                if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-            ),
-    ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(detail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(modifier = modifier.fillMaxWidth()) {
+        Surface(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth().sableFocusRing(),
+            shape = RectangleShape,
+            color = MaterialTheme.colorScheme.background,
+        ) {
+            Column(
+                modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    detail,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }

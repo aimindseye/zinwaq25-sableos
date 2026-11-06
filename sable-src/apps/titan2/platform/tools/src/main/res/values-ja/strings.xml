@@ -217,6 +217,12 @@
     <string name="check_patch_age">%1$s（%2$d 日前）</string>
     <string name="settings_install_unknown_apps">設定 &gt; 不明なアプリのインストール</string>
     <string name="privacy_check_info">読み取り専用: 設定は変更しません。メニューで、要確認の項目の設定ページを開けます。</string>
+    <string name="my_sable">My Sable</string>
+    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
+    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
+    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+    <string name="my_sable_battery">Battery: usage and health</string>
+    <string name="my_sable_open">Open</string>
     <string name="device_build_and_security">デバイス、ビルド、セキュリティ</string>
     <string name="keyboard_event_viewer">キーボードイベントビューアー</string>
     <string name="keyboard_layout_and_profile">キーボードレイアウトとプロファイル</string>

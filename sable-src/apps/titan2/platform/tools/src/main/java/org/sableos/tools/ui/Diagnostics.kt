@@ -21,9 +21,11 @@ import org.sableos.tools.core.FieldKind
 import org.sableos.tools.core.HomeModel
 import org.sableos.tools.core.KeyEventFormat
 import org.sableos.tools.core.PrivacyCheck
+import org.sableos.tools.core.PrivacyCheckId
 import org.sableos.tools.core.PrivacyScore
 import org.sableos.tools.core.Redactor
 import org.sableos.tools.core.ReportSection
+import org.sableos.tools.core.SettingsLink
 import org.sableos.tools.core.TextEntryTest
 import org.sableos.tools.core.Tool
 import org.sableos.tools.core.ToolsText.t
@@ -381,4 +383,47 @@ class PrivacyCheckController(private val host: ToolHost) : ToolController {
             .sortedBy { if (it == order) 0 else 1 }
             .map { c -> t("open", c.id.title) to { host.openLink(c.id.link) } }
     }
+}
+
+/**
+ * My Sable: the Sable features that used to sit deep in Settings and Hub menus, on one screen. A privacy rating comes
+ * first (the same read-only check as Privacy check), then one row per feature with its state. Read-only: the Menu
+ * opens the Settings page behind a row.
+ */
+class MySableController(private val host: ToolHost) : ToolController {
+    private val ctx = host.activity
+    private val text: TextView = Ui.mono(ctx)
+    private var rendered = ""
+
+    override fun view(): View = ScrollView(ctx).apply {
+        isFocusable = true
+        addView(text)
+        post { requestFocus() }
+    }
+
+    override fun start() {
+        val checks = PrivacyCollector(ctx).checks()
+        val fix = PrivacyScore.nextFix(checks)
+        val space = checks.firstOrNull { it.id == PrivacyCheckId.PRIVATE_SPACE }
+        rendered = buildString {
+            appendLine("${t("privacy_check")}: ${PrivacyScore.rate(checks).label}")
+            fix?.let { appendLine("${t("check_fix_first")}: ${it.id.title}") }
+            appendLine()
+            appendLine("${t("my_sable_attention")}  ${t("my_sable_open")}")
+            appendLine("${t("my_sable_mobile")}  ${t("my_sable_open")}")
+            appendLine("${t("check_private_space")}  ${space?.detail ?: t("check_unknown")}")
+            appendLine("${t("my_sable_battery")}  ${t("my_sable_open")}")
+        }.trimEnd()
+        text.text = rendered
+    }
+
+    override fun info() = t("my_sable_info")
+    override fun copyText() = rendered
+
+    override fun actions() = listOf(
+        t("my_sable_attention") to { host.openLink(SettingsLink.NOTIFICATIONS) },
+        t("my_sable_mobile") to { host.openLink(SettingsLink.NETWORK) },
+        t("check_private_space") to { host.openLink(SettingsLink.SECURITY) },
+        t("my_sable_battery") to { host.openLink(SettingsLink.BATTERY) }
+    )
 }

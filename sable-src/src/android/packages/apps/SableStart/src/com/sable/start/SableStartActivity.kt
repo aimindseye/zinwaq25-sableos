@@ -751,9 +751,18 @@ class SableStartActivity : ComponentActivity() {
                 t("close") to {},
             )
         val items = contextual + global
-        AlertDialog.Builder(this)
-            .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
-            .show()
+        val dialog =
+            AlertDialog.Builder(this)
+                .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
+                .show()
+        // BlackBerry 10 menu look: flat black sheet, square corners, a thin grey line, no rounded card.
+        dialog.window?.setBackgroundDrawable(
+            android.graphics.drawable.GradientDrawable().apply {
+                setColor(android.graphics.Color.BLACK)
+                setStroke(1, 0xFF4D4D4D.toInt())
+                cornerRadius = 0f
+            },
+        )
     }
 
     private fun openSystemSettings() {

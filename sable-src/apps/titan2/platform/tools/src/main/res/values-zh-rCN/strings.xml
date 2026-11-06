@@ -217,6 +217,12 @@
     <string name="check_patch_age">%1$s，已过去 %2$d 天</string>
     <string name="settings_install_unknown_apps">设置 &gt; 安装未知应用</string>
     <string name="privacy_check_info">只读：不会更改任何设置。菜单可打开需要注意的检查对应的设置页面。</string>
+    <string name="my_sable">My Sable</string>
+    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
+    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
+    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+    <string name="my_sable_battery">Battery: usage and health</string>
+    <string name="my_sable_open">Open</string>
     <string name="device_build_and_security">设备、版本和安全</string>
     <string name="keyboard_event_viewer">键盘事件查看器</string>
     <string name="keyboard_layout_and_profile">键盘布局和配置文件</string>

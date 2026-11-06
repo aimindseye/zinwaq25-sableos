@@ -217,6 +217,12 @@
     <string name="check_patch_age">%1$s, %2$d jours</string>
     <string name="settings_install_unknown_apps">Paramètres &gt; Installer des applis inconnues</string>
     <string name="privacy_check_info">Lecture seule : aucun réglage n’est modifié. Menu ouvre la page des paramètres d’un contrôle à vérifier.</string>
+    <string name="my_sable">My Sable</string>
+    <string name="my_sable_info">Your Sable features and privacy in one place. Read-only: Menu opens the matching Settings page.</string>
+    <string name="my_sable_attention">Attention: alerts and Do not disturb</string>
+    <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+    <string name="my_sable_battery">Battery: usage and health</string>
+    <string name="my_sable_open">Open</string>
     <string name="device_build_and_security">Appareil, version et sécurité</string>
     <string name="keyboard_event_viewer">Visionneuse d\'événements clavier</string>
     <string name="keyboard_layout_and_profile">Disposition et profil du clavier</string>

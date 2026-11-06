@@ -159,6 +159,12 @@ enum class Tool(
     ),
 
     // Diagnostics
+    MY_SABLE(
+        Section.DIAGNOSTICS,
+        "my_sable",
+        ToolKind.INFO,
+        keywords = listOf("attention", "mobile", "private space", "battery", "privacy")
+    ),
     PRIVACY_CHECK(
         Section.DIAGNOSTICS,
         "privacy_check",
