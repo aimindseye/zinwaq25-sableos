@@ -1,0 +1,25 @@
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
+index cf1a10a..089805c 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
+@@ -116,7 +116,7 @@ object HubText {
+             "group_adjacent_messages_from_the" to
+                 "Group adjacent messages from the same conversation into a streamlined thread, " +
+                 "hiding duplicate titles and app icons.",
+-            "sable_attention" to "Sable Attention",
++            "sable_attention" to "Alerts and Do not disturb",
+             "search_installed_apps" to "Search installed apps",
+             "use_one_app_per_email" to
+                 "Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud " +
+@@ -144,9 +144,9 @@ object HubText {
+             "keyboard_backlight" to "Keyboard backlight",
+             "glance_display" to "Glance display",
+             "always_on_display" to "Always-on display",
+-            "sable_attention_2" to "sable attention",
++            "sable_attention_2" to "Alerts",
+             "android_decides_whether_a_notification" to
+-                "Android decides whether a notification alerts. Sable Attention only maps that " +
++                "Android decides whether a notification alerts. Hub only maps that " +
+                 "decision to outputs this device supports, and never bypasses Do Not Disturb.",
+             "android_notification_settings" to "Android notification settings",
+             "notifications_sound_vibration_pop_up" to

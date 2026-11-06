@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 6 Nov 2026 21:30:00 +0000
+Subject: [PATCH] SableOS: no Attention row on the Sable page
+
+Sable 2.0: BlackBerry 10 had one notification story, Hub and the per-app
+alert settings. Sound, vibration and light are Android's own channel
+settings, and the Sable-only outputs are off on the Q25, so the separate
+Attention row only linked on. It leaves the Sable page; Hub's Connected
+apps now carries the per-app Alerts link instead.
+---
+ res/xml/sable_settings.xml | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/res/xml/sable_settings.xml b/res/xml/sable_settings.xml
+--- a/res/xml/sable_settings.xml
++++ b/res/xml/sable_settings.xml
+@@ -50,13 +50,6 @@
+         settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
+ 
+     <Preference
+-        android:key="sable_attention"
+-        android:icon="@drawable/ic_volume_up_filled"
+-        android:title="@string/sable_page_attention_title"
+-        android:summary="@string/sable_page_attention_summary"
+-        settings:controller="com.android.settings.sable.SableLinkPreferenceController" />
+-
+-    <Preference
+         android:key="sable_page_lock"
+         android:icon="@drawable/ic_settings_security_filled"
+         android:title="@string/sable_page_lock_title"
+-- 
+2.43.0
