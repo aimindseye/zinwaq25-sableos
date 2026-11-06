@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,9 +54,11 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-private val RingGreen = Color(0xFF35C66B)
-private val RingPurple = Color(0xFF7A42E8)
-private val RingOrange = Color(0xFFF28C45)
+// SableOS 2.0 is black and white (UI direction, 2026-11-04): every arc is white, and only a value
+// past its limit turns red (the error colour).
+private val RingGreen = Color.White
+private val RingPurple = Color.White
+private val RingOrange = Color.White
 private const val SAMPLE_INTERVAL_MS = 3_000L
 
 /**
@@ -83,7 +86,6 @@ fun SableStatusRings(
     }
 
     val st = stats ?: return
-    val primary = MaterialTheme.colorScheme.primary
     val error = MaterialTheme.colorScheme.error
     Row(
         modifier = modifier,
@@ -92,7 +94,7 @@ fun SableStatusRings(
     ) {
         NetRing(label = "Wi-Fi", up = st.wifiUp, down = st.wifiDown, size = ringSize)
         NetRing(label = t("mobile"), up = st.mobileUp, down = st.mobileDown, size = ringSize)
-        StatRing(label = "CPU", fraction = st.cpu, color = primary, size = ringSize)
+        StatRing(label = "CPU", fraction = st.cpu, color = RingGreen, size = ringSize)
         StatRing(label = "RAM", fraction = st.ram, color = RingPurple, size = ringSize)
         StatRing(
             label =
@@ -122,7 +124,7 @@ fun SableStatusRings(
  * cap at its tip and the value in the middle. A null fraction shows a dash.
  */
 @Composable
-private fun StatRing(
+internal fun StatRing(
     label: String,
     fraction: Float?,
     color: Color,
@@ -228,6 +230,7 @@ private fun StatRing(
             fontSize = 10.sp,
             color = muted,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.offset(y = (-3).dp),
         )
     }
@@ -250,7 +253,7 @@ private fun NetRing(
         color = RingGreen,
         size = size,
         innerFraction = DeviceStatsFormat.heat(up),
-        innerColor = MaterialTheme.colorScheme.primary,
+        innerColor = Color(0xFFA6A6A6),
         center = listOf("↓" + DeviceStatsFormat.rate(down), "↑" + DeviceStatsFormat.rate(up)),
         hotAbove = 2f,
     )

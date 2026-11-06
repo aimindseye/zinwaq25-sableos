@@ -318,4 +318,5 @@
     <string name="dm_charging">%1$s, 충전 중</string>
     <string name="dm_used_of">%2$s 중 %1$s</string>
     <string name="dm_free">%1$s 남음</string>
+    <string name="open_command">명령 (Alt+Space)</string>
 </resources>

@@ -322,4 +322,5 @@
     <string name="dm_charging">%1$s, charging</string>
     <string name="dm_used_of">%1$s of %2$s</string>
     <string name="dm_free">%1$s free</string>
+    <string name="open_command">Command (Alt+Space)</string>
 </resources>

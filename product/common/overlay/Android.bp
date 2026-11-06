@@ -66,6 +66,15 @@ runtime_resource_overlay {
     sdk_version: "current",
 }
 
+// Holding the BlackBerry key opens the app's menu (device-profile/KEYMAP.md).
+runtime_resource_overlay {
+    name: "SableLineagePlatformOverlay",
+    manifest: "SableLineagePlatformOverlay/AndroidManifest.xml",
+    resource_dirs: ["SableLineagePlatformOverlay/res"],
+    product_specific: true,
+    sdk_version: "current",
+}
+
 // Sable Phone is Telecom's system dialer (docs/implementation/sable-phone.md).
 runtime_resource_overlay {
     name: "SableTelecomOverlay",

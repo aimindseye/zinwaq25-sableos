@@ -278,26 +278,26 @@ private data class HomeEdit(
     val framesOptions: FramesOptions = FramesOptions(),
 )
 
-private val SableBlue = Color(0xFF4D9CFF)
-private val SableGreen = Color(0xFF35C66B)
-private val SablePurple = Color(0xFF7A42E8)
-private val SableSlate = Color(0xFF64748B)
-private val SableOrange = Color(0xFFF28C45)
-private val SableSun = Color(0xFFF5C542)
+private val SableBlue = Color(0xFF2E9BD6)
+// 1.0's colour marks, now white and grey: SableOS 2.0 is black and white (2026-11-04).
+private val SableGreen = Color.White
+private val SablePurple = Color.White
+private val SableSlate = Color(0xFFA6A6A6)
+private val SableOrange = Color.White
+private val SableSun = Color.White
+// Letter tiles for apps without a Sable glyph: greys only (2.0 is black and white).
 private val SableTilePalette =
     listOf(
-        SableBlue,
-        SableGreen,
-        SablePurple,
-        SableOrange,
-        SableSlate,
+        Color(0xFF262626),
+        Color(0xFF3A3A3A),
+        Color(0xFF4D4D4D),
     )
 
 // BlackBerry 10 look on the Start pages. Values from the public BB10 look; the UI
 // Guidelines PDF has the exact tokens. The pages follow Android's Dark theme and the
 // Sable accent: dark is the BB10 look, light keeps the layout on light surfaces, and the
 // focus highlight is the accent (BB10 blue for the default Sable Blue).
-private val Bb10DefaultBlue = Color(0xFF00A8DF)
+private val Bb10DefaultBlue = Color(0xFF2E9BD6)
 
 /** Start's page colours for one Dark theme state and accent. */
 @Immutable
@@ -319,8 +319,9 @@ internal fun startPalette(
     dark: Boolean,
     accent: AccentPreset,
 ): StartPalette {
+    // One blue in 2.0; [accent] is kept for callers and is always Blue.
     val accentColor = if (accent == AccentPreset.Blue) Bb10DefaultBlue else accent.color
-    val onAccent = if (accent == AccentPreset.Blue) Color.White else accent.onColor
+    val onAccent = Color.White
     return if (dark) {
         StartPalette(
             accent = accentColor,
@@ -329,12 +330,12 @@ internal fun startPalette(
             // pages, Hub and All Apps are #000000 and cards are a step above it.
             background = Color.Black,
             card = Color(0xFF141414),
-            tile = Color(0xFF1C1C1C),
-            line = Color(0xFF2A2A2A),
-            barTop = Color(0xFF1C1C1C),
+            tile = Color(0xFF262626),
+            line = Color(0xFF262626),
+            barTop = Color(0xFF141414),
             barBottom = Color.Black,
             text = Color.White,
-            muted = Color(0xFF9E9E9E),
+            muted = Color(0xFFA6A6A6),
             dim = Color(0xFF5E5E5E),
         )
     } else {
@@ -1736,29 +1737,36 @@ private fun DeviceMonitorBody(modifier: Modifier) {
             maxLines = 1,
         )
         val shown = stats ?: return@Column
-        DeviceMonitor.rows(shown) { key, args -> t(key, *args) }.forEach { row ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = t(row.labelKey),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Bb10Muted,
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = row.value,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Bb10Text,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(Bb10Line)) {
-                Box(modifier = Modifier.fillMaxWidth(row.fill).fillMaxHeight().background(Bb10Blue))
+        val rows = DeviceMonitor.rows(shown) { key, args -> t(key, *args) }
+        // One row of dials, sized to the frame so all of them fit (the Start header's dial style).
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            val gap = 4.dp
+            val byWidth = (maxWidth - gap * (rows.size - 1)) / rows.size
+            val byHeight = maxHeight - DIAL_LABEL_HEIGHT
+            val dial = minOf(byWidth, byHeight).coerceAtLeast(DIAL_MIN)
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                rows.forEach { row ->
+                    StatRing(
+                        label = t(row.labelKey),
+                        fraction = row.fill,
+                        color = Bb10Blue,
+                        size = dial,
+                        // Only a nearly full memory or storage turns red; battery never does here.
+                        hotAbove = if (row.labelKey == "dm_battery") 2f else DIAL_HOT,
+                    )
+                }
             }
         }
     }
 }
+
+private val DIAL_LABEL_HEIGHT = 14.dp
+private val DIAL_MIN = 24.dp
+private const val DIAL_HOT = 0.9f
 
 /** One line of an app's live state over the bottom of its frame. */
 @Composable
@@ -6318,24 +6326,7 @@ private fun AppearanceScreen(
             )
         }
 
-        item {
-            Spacer(Modifier.height(14.dp))
-            SectionLabel("accent")
-            Spacer(Modifier.height(4.dp))
-        }
-
-        items(AccentPreset.entries) { accent ->
-            val selected = appearance.accent == accent
-            AccentChoiceRow(
-                accent = accent,
-                selected = selected,
-                onClick = {
-                    onAppearanceChanged(
-                        appearance.copy(accent = accent),
-                    )
-                },
-            )
-        }
+        // No accent choice in 2.0: one blue for focus, the rest black and white (2026-11-04).
 
         item {
             Spacer(Modifier.height(14.dp))
@@ -6402,57 +6393,6 @@ private fun AppearanceChoiceRow(
                 text = "✓",
                 fontSize = 20.sp,
                 color = accent,
-            )
-        }
-    }
-    Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-    )
-}
-
-@Composable
-private fun AccentChoiceRow(
-    accent: AccentPreset,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 54.dp)
-                .sableFocusRing()
-                .clickable(onClick = onClick)
-                .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(22.dp)
-                    .background(accent.color),
-        )
-        Spacer(Modifier.width(14.dp))
-        Text(
-            text = accent.displayName.lowercase(Locale.getDefault()),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight =
-                if (selected) {
-                    FontWeight.Medium
-                } else {
-                    FontWeight.Normal
-                },
-        )
-        if (selected) {
-            Text(
-                text = "✓",
-                fontSize = 20.sp,
-                color = accent.color,
             )
         }
     }

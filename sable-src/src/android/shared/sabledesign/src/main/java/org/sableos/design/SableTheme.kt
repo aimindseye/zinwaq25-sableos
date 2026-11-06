@@ -35,11 +35,7 @@ enum class AccentPreset(
     val color: Color,
     val onColor: Color,
 ) {
-    Blue("blue", "Sable Blue", Color(0xFF4D9CFF), Color(0xFF06111F)),
-    Green("green", "Green", Color(0xFF35C66B), Color(0xFF04140A)),
-    Purple("purple", "Purple", Color(0xFF7A42E8), Color.White),
-    Orange("orange", "Orange", Color(0xFFF28C45), Color(0xFF1D0C02)),
-    Slate("slate", "Slate", Color(0xFF64748B), Color.White),
+    Blue("blue", "Sable Blue", Color(0xFF2E9BD6), Color(0xFF000000)),
     ;
 
     companion object {
@@ -106,9 +102,9 @@ object SableSize {
 object SableColorTokens {
     val DarkBackground = Color(0xFF000000)
     val DarkSurface = Color(0xFF141414)
-    val DarkSurfaceRaised = Color(0xFF1C1C1C)
-    val DarkText = Color(0xFFF7F9FC)
-    val DarkTextMuted = Color(0xFFAAB4C0)
+    val DarkSurfaceRaised = Color(0xFF262626)
+    val DarkText = Color(0xFFFFFFFF)
+    val DarkTextMuted = Color(0xFFA6A6A6)
 
     val LightBackground = Color(0xFFF5F7F9)
     val LightSurface = Color(0xFFFFFFFF)
@@ -219,10 +215,10 @@ fun SableTheme(
                 onSurface = SableColorTokens.DarkText,
                 surfaceVariant = SableColorTokens.DarkSurfaceRaised,
                 onSurfaceVariant = SableColorTokens.DarkTextMuted,
-                outline = Color(0xFF526170),
-                outlineVariant = Color(0xFF26313D),
-                error = Color(0xFFFFB4AB),
-                onError = Color(0xFF690005),
+                outline = Color(0xFF4D4D4D),
+                outlineVariant = Color(0xFF262626),
+                error = Color(0xFFE0463C),
+                onError = Color(0xFF000000),
             )
         } else {
             lightColorScheme(

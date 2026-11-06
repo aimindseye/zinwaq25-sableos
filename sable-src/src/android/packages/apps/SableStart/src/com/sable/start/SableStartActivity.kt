@@ -291,6 +291,10 @@ class SableStartActivity : ComponentActivity() {
                         hubGeneration.value += 1
                         startBb10Detour(returnOnHome = true)
                     },
+                    onOpenCommand = {
+                        requestCommand(fromApp = false)
+                        startBb10Detour(returnOnHome = true)
+                    },
                     onFavoritesChanged = { keys ->
                         bb7Favorites.value = keys
                         startStateRepository.saveHomeApps(keys)

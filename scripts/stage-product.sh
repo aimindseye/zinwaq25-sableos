@@ -227,6 +227,7 @@ PRODUCT_PACKAGES += \
     SableSettingsProviderOverlay \
     SableLedOverlay \
     SableTelecomOverlay \
+    SableLineagePlatformOverlay \
     SableNoUpdater
 SABLE_Q25_NO_UPDATER := true
 PRODUCT_SYSTEM_EXT_PROPERTIES += \

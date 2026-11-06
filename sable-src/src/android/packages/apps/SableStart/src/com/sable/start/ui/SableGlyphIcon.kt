@@ -115,7 +115,8 @@ internal fun sableGlyphBrush(
 
 private const val GLYPH_VIEWPORT = 256f
 private const val SHADOW_DROP = 0.035f
-private const val ACCENT_TINT = 0.6f
+// 2.0 is black and white: line glyphs in white to silver, with no per-app colour.
+private const val ACCENT_TINT = 0f
 private const val LIGHT_SURFACE_LUMINANCE = 0.5f
 private val GlyphShadow = Color(0x99000000)
 private val GlyphShadowOnLight = Color(0x26000000)

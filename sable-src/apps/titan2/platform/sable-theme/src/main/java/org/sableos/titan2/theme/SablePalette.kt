@@ -44,11 +44,8 @@ data class SablePalette(
          */
         private val ACCENTS =
             mapOf(
-                "blue" to listOf(0xFF4D9CFF, 0xFF06111F, 0xFF1F6FD1, 0xFFFFFFFF),
-                "green" to listOf(0xFF35C66B, 0xFF04140A, 0xFF1A7F45, 0xFFFFFFFF),
-                "purple" to listOf(0xFFA47CFF, 0xFF0F0526, 0xFF7A42E8, 0xFFFFFFFF),
-                "orange" to listOf(0xFFF28C45, 0xFF1D0C02, 0xFFB35410, 0xFFFFFFFF),
-                "slate" to listOf(0xFF94A3B8, 0xFF0B1220, 0xFF55657A, 0xFFFFFFFF)
+                // 2.0 has one blue, for focus and selection; any old stored preset reads as it.
+                "blue" to listOf(0xFF2E9BD6, 0xFF000000, 0xFF1A6FA0, 0xFFFFFFFF)
             )
 
         /** Surfaces and text are SableSystemTokens (DESIGN-KF-B), the neutral palette every Sable surface uses. */
@@ -59,14 +56,14 @@ data class SablePalette(
                     dark = true,
                     window = 0xFF000000.toInt(),
                     surface = 0xFF141414.toInt(),
-                    focus = 0xFF1C1C1C.toInt(),
-                    text = 0xFFF7F9FC.toInt(),
-                    muted = 0xFFAAB4C0.toInt(),
+                    focus = 0xFF262626.toInt(),
+                    text = 0xFFFFFFFF.toInt(),
+                    muted = 0xFFA6A6A6.toInt(),
                     accent = tones[0],
                     onAccent = tones[1],
                     warn = 0xFFFBBF24.toInt(),
                     ok = 0xFF4ADE80.toInt(),
-                    danger = 0xFFFF8A80.toInt()
+                    danger = 0xFFE0463C.toInt()
                 )
             } else {
                 SablePalette(

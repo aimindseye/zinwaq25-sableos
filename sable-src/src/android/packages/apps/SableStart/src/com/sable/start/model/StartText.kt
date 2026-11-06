@@ -241,6 +241,7 @@ object StartText {
             "best_match" to "best match",
             "assistant" to "assistant",
             "ask_assistant" to "ask %1\$s",
+            "open_command" to "Command (Alt+Space)",
             "device_monitor" to "Device Monitor",
             "dm_battery" to "Battery",
             "dm_cpu" to "CPU",

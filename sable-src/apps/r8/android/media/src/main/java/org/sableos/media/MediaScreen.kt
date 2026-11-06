@@ -62,7 +62,7 @@ import java.util.Locale
 
 internal val MediaPink = Color(0xFFFF4F9A)
 internal val MediaPurple = Color(0xFF7A42E8)
-internal val MediaBlue = Color(0xFF4D9CFF)
+internal val MediaBlue = Color(0xFF2E9BD6)
 internal val MediaGreen = Color(0xFF35C66B)
 internal val MediaOrange = Color(0xFFF28C45)
 

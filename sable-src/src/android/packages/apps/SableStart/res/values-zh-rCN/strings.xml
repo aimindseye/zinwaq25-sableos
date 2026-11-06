@@ -318,4 +318,5 @@
     <string name="dm_charging">%1$s，正在充电</string>
     <string name="dm_used_of">%1$s / %2$s</string>
     <string name="dm_free">可用 %1$s</string>
+    <string name="open_command">命令 (Alt+空格)</string>
 </resources>

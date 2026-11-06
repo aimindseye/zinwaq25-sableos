@@ -36,6 +36,10 @@ data class SableColorRoles(
 }
 
 /**
+ * The Sable accent. SableOS 2.0 is black and white with one blue (#2E9BD6) for focus and
+ * selection, as agreed for the 2.0 UI direction on 2026-11-04; the colour presets of 1.0 are gone.
+ * A stored value of an old preset reads as this one.
+ *
  * A Sable accent preset. [seed] is the stable preset color (the value Sable
  * apps have always used and the seed handed to the system palette). [onDark]
  * and [onLight] are the accent tones used on dark and light surfaces so the
@@ -49,11 +53,7 @@ enum class SableAccentTokens(
     val light: Long,
     val onLight: Long,
 ) {
-    Blue("blue", 0xFF4D9CFF, 0xFF4D9CFF, 0xFF06111F, 0xFF1F6FD1, 0xFFFFFFFF),
-    Green("green", 0xFF35C66B, 0xFF35C66B, 0xFF04140A, 0xFF1A7F45, 0xFFFFFFFF),
-    Purple("purple", 0xFF7A42E8, 0xFFA47CFF, 0xFF0F0526, 0xFF7A42E8, 0xFFFFFFFF),
-    Orange("orange", 0xFFF28C45, 0xFFF28C45, 0xFF1D0C02, 0xFFB35410, 0xFFFFFFFF),
-    Slate("slate", 0xFF64748B, 0xFF94A3B8, 0xFF0B1220, 0xFF55657A, 0xFFFFFFFF),
+    Blue("blue", 0xFF2E9BD6, 0xFF2E9BD6, 0xFF000000, 0xFF1A6FA0, 0xFFFFFFFF),
     ;
 
     fun accent(dark: Boolean): Long = if (dark) this.dark else light
@@ -82,14 +82,14 @@ object SableSystemTokens {
         SableColorRoles(
             surfaceBase = 0xFF000000,
             surfaceRaised = 0xFF141414,
-            surfaceOverlay = 0xFF1C1C1C,
-            textPrimary = 0xFFF7F9FC,
-            textSecondary = 0xFFAAB4C0,
-            textDisabled = 0xFF7D8896,
+            surfaceOverlay = 0xFF262626,
+            textPrimary = 0xFFFFFFFF,
+            textSecondary = 0xFFA6A6A6,
+            textDisabled = 0xFF808080,
             success = 0xFF4ADE80,
             warning = 0xFFFBBF24,
-            danger = 0xFFFF8A80,
-            privacy = 0xFF9FB3C8,
+            danger = 0xFFE0463C,
+            privacy = 0xFFBDBDBD,
         )
 
     val Light =

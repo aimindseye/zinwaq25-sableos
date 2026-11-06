@@ -24,7 +24,7 @@ the Q4 gates in [QUALIFICATION.md](QUALIFICATION.md) apply unchanged.
 
 ## Status
 
-62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Twenty more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), frameworks/base 0317 (the next event on the lock screen), frameworks/base 0318 (the Peek as an app column beside the newest notification), frameworks/base 0319 (Alt+Space opens Command from any app), SetupWizard 0416 (the Full Sable, Essentials or Stock Android step), SetupWizard 0417 (the BlackBerry 10 or BlackBerry 7 look step), frameworks/base 0320 with Settings 1606 (Picture Password), frameworks/base 0321 (built-in Picture Password pictures), Settings 1607 (the homepage in BlackBerry 10 order), Settings 1608 (Deep sleeping apps), and Settings 1605 with device tree 1503 (the trackpad Keys or Pointer choice).
+62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Twenty-two more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), frameworks/base 0317 (the next event on the lock screen), frameworks/base 0318 (the Peek as an app column beside the newest notification), frameworks/base 0319 (Alt+Space opens Command from any app), SetupWizard 0416 (the Full Sable, Essentials or Stock Android step), SetupWizard 0417 (the BlackBerry 10 or BlackBerry 7 look step), frameworks/base 0320 with Settings 1606 (Picture Password), frameworks/base 0321 (built-in Picture Password pictures), Settings 1607 (the homepage in BlackBerry 10 order), Settings 1608 (Deep sleeping apps), and Settings 1605 with device tree 1503 (the trackpad Keys or Pointer choice).
 
 Every patch applies to the 24.0 heads in order. That is not yet a build: the ports below were
 written against the 24.0 sources without compiling them, so the first 24.0 build is the real test.
@@ -139,6 +139,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/Settings/1606-SableOS-Picture-Password-row-on-the-Sable-page.patch` | new on 24.0 |
 | `packages/apps/Settings/1607-SableOS-Settings-top-level-in-BlackBerry-10-order.patch` | new on 24.0 |
 | `packages/apps/Settings/1608-SableOS-Deep-sleeping-apps-with-Put-unused-apps-to-sleep.patch` | new on 24.0 |
+| `packages/apps/Settings/1609-SableOS-one-blue-accent-and-no-accent-row-2.0-black-a.patch` | new on 24.0 |
 | `packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | ported by hand |
 | `packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | ported by hand |
 | `packages/apps/SetupWizard/0403-SableOS-Esc-returns-to-the-previous-setup-step.patch` | ported by hand |
@@ -156,6 +157,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/SetupWizard/0415-SableOS-text-size-choice-on-the-Theme-step.patch` | new on 24.0 |
 | `packages/apps/SetupWizard/0416-SableOS-Sable-apps-step-Full-Essentials-or-Stock.patch` | new on 24.0 |
 | `packages/apps/SetupWizard/0417-SableOS-Look-step-BlackBerry-10-or-BlackBerry-7-style.patch` | new on 24.0 |
+| `packages/apps/SetupWizard/0418-SableOS-no-accent-or-pure-black-choice-on-the-Theme-s.patch` | new on 24.0 |
 | `device/xelex/mt6789-common/1502-SableOS-let-Settings-drive-the-Q25-keyboard-firmware.patch` | ported by hand |
 | `device/xelex/mt6789-common/1503-SableOS-let-init-set-the-Q25-trackpad-mode.patch` | new on 24.0 |
 

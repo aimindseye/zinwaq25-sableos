@@ -177,7 +177,7 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
     grep -q 'overrides: \["LatinIME"\]' "$v/Android.bp" || ok=no
     grep -q 'home=sable' "$proj/config.txt" || ok=no
-    for o in SableFrameworkOverlay SableSystemUIOverlay SableSetupWizardOverlay SableGlimpseOverlay SableGallery2Overlay SableSettingsProviderOverlay SableLedOverlay SableTelecomOverlay; do
+    for o in SableFrameworkOverlay SableSystemUIOverlay SableSetupWizardOverlay SableGlimpseOverlay SableGallery2Overlay SableSettingsProviderOverlay SableLedOverlay SableTelecomOverlay SableLineagePlatformOverlay; do
         grep -q "$o" "$v/sable-q25-framework.mk" || ok=no
         grep -q "name: \"$o\"" "$v/overlay/Android.bp" || ok=no
     done
@@ -638,7 +638,7 @@ fi
 if command -v javac >/dev/null 2>&1; then
     st="$tmp/settings-policy"
     mkdir -p "$st"
-    for p in patches/framework/packages/apps/Settings/010[123]-*.patch; do
+    for p in patches/framework/packages/apps/Settings/010[123]-*.patch patches/framework/packages/apps/Settings/1609-*.patch; do
         (cd "$st" && git apply --include='src/com/android/settings/sable/SableAppearancePolicy.java' \
             --include='src/com/android/settings/sable/SableBuildInfo.java' "$ROOT/$p")
     done

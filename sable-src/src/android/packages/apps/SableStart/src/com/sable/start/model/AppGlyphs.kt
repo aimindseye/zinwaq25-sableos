@@ -13,31 +13,31 @@ enum class AppGlyph(
     /** ARGB accent. */
     val accent: Long,
 ) {
-    PHONE("phone-call", 0xFF4D9CFF),
+    PHONE("phone-call", 0xFF2E9BD6),
     CONTACTS("address-book", 0xFFF28C45),
     MESSAGES("chat-circle-dots", 0xFF35C66B),
     MAIL("envelope-simple", 0xFF64748B),
     CALENDAR("calendar-dots", 0xFFF28C45),
-    WEATHER("cloud-sun", 0xFF4D9CFF),
+    WEATHER("cloud-sun", 0xFF2E9BD6),
     PHOTOS("image-square", 0xFF7A42E8),
     MEDIA("music-notes", 0xFF7A42E8),
     CAMERA("camera", 0xFFE8458F),
 
     /** The base camera beside Sable Camera: Aperture keeps video and the secure camera on the Q25. */
     VIDEO_CAMERA("video-camera", 0xFFE8458F),
-    CALCULATOR("calculator", 0xFF4D9CFF),
+    CALCULATOR("calculator", 0xFF2E9BD6),
     FILES("folder-simple", 0xFFF5C542),
     CLOCK("clock", 0xFF64748B),
-    BROWSER("globe", 0xFF4D9CFF),
+    BROWSER("globe", 0xFF2E9BD6),
     ASSISTANT("call-bell", 0xFFF5C542),
     SETTINGS("gear-six", 0xFF64748B),
     RECORDER("microphone", 0xFFE5534B),
     READER("book-open-text", 0xFF35C66B),
-    TEXT_READER("text-align-left", 0xFF4D9CFF),
+    TEXT_READER("text-align-left", 0xFF2E9BD6),
     NOTES("notepad", 0xFFF5C542),
     TASKS("check-square", 0xFF2BB5A0),
     TERMINAL("terminal-window", 0xFF3FA37A),
-    SUDOKU("grid-nine", 0xFF4D9CFF),
+    SUDOKU("grid-nine", 0xFF2E9BD6),
     MINESWEEPER("bomb", 0xFFF28C45),
     GAME_2048("grid-four", 0xFF64748B),
     BRICKS("wall", 0xFFE34D59),
@@ -54,7 +54,7 @@ enum class AppGlyph(
     DISPLAY("frame-corners", 0xFF34C8E8),
     SETUP("list-checks", 0xFF2BB5A0),
     STORE("shopping-bag", 0xFF35C66B),
-    SERVICES("puzzle-piece", 0xFF4D9CFF),
+    SERVICES("puzzle-piece", 0xFF2E9BD6),
 }
 
 /**

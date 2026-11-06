@@ -318,4 +318,5 @@
     <string name="dm_charging">%1$s, заряжается</string>
     <string name="dm_used_of">%1$s из %2$s</string>
     <string name="dm_free">свободно %1$s</string>
+    <string name="open_command">Команда (Alt+Пробел)</string>
 </resources>

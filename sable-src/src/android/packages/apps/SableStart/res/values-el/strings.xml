@@ -318,4 +318,5 @@
     <string name="dm_charging">%1$s, φόρτιση</string>
     <string name="dm_used_of">%1$s από %2$s</string>
     <string name="dm_free">%1$s ελεύθερα</string>
+    <string name="open_command">Εντολή (Alt+Space)</string>
 </resources>
