@@ -136,7 +136,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Tasks | Tasks with due dates, reminders and repeats, kept on the phone. A reminder shows in Hub with Done and Snooze 1 hour | See [Tasks](#tasks) below; C new, Space done, Z tomorrow |
 | Text Reader | Reads text aloud: paste text, open a file, scan a page with the camera (OCR, English or Spanish) or pick an image from the Gallery. An upstream app with the Sable name and icon. It speaks with eSpeak NG, the offline speech engine SableOS ships (voice, rate and pitch in Settings > Accessibility > Text-to-speech output; see [Accessibility](ACCESSIBILITY.md#speech)). It also adds Speak what's focused (Settings > Accessibility), which speaks the item you move to with the trackpad or keys | Play and stop buttons on screen |
 | Terminal | SSH, Telnet and a local shell (ConnectBot) | See [Terminal](#terminal) below; Menu is Ctrl |
-| Weather | Forecast for your city, refreshed in the background | Feeds Start's header |
+| Weather | Forecast for your city, refreshed in the background. Optional notifications, both off until you turn them on under "notifications": a Morning forecast (the day's forecast once, between 6 and 11 am) and Rain alerts (a heads-up when rain is likely in the next 3 hours, at most one every 6 hours). They show in Hub like any notification, and tapping one opens Sable Weather | Feeds Start's header |
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |
 | Media | Music, photos, FM radio | E shares |
 | Sound Profiles | Normal, Loud, Vibrate only, Phone calls only, All alerts off | Enter uses, E edits, Menu for more; Quick Settings tile |

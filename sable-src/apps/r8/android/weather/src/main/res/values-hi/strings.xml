@@ -37,4 +37,13 @@
     <string name="forecast_unavailable_check_the_connection">पूर्वानुमान उपलब्ध नहीं। कनेक्शन जाँचें और फिर कोशिश करें।</string>
     <string name="provider_response_could_not_be">प्रदाता की प्रतिक्रिया को आवश्यक प्रारूप में नहीं बदला जा सका।</string>
     <string name="updated_from_open_meteo">Open-Meteo से अपडेट किया गया।</string>
+    <string name="alert_notifications">सूचनाएँ</string>
+    <string name="alert_morning_forecast">सुबह का पूर्वानुमान</string>
+    <string name="alert_morning_forecast_detail">दिन का पूर्वानुमान, हर सुबह एक बार</string>
+    <string name="alert_rain_alerts">बारिश की चेतावनी</string>
+    <string name="alert_rain_alerts_detail">अगले 3 घंटों में बारिश की संभावना होने पर सूचना</string>
+    <string name="alert_today_in">आज %1$s में</string>
+    <string name="alert_today_line">%1$s · %2$d° / %3$d° · बारिश %4$d%%</string>
+    <string name="alert_rain_soon_in">%1$s में जल्द बारिश</string>
+    <string name="alert_rain_line">लगभग %1$s बजे संभावित (%2$d%%)</string>
 </resources>

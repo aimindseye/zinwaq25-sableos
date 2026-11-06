@@ -37,4 +37,13 @@
     <string name="forecast_unavailable_check_the_connection">Hava tahmini kullanılamıyor. Bağlantıyı kontrol edip tekrar deneyin.</string>
     <string name="provider_response_could_not_be">Sağlayıcı yanıtı normalleştirilemedi.</string>
     <string name="updated_from_open_meteo">Open-Meteo üzerinden güncellendi.</string>
+    <string name="alert_notifications">bildirimler</string>
+    <string name="alert_morning_forecast">Sabah tahmini</string>
+    <string name="alert_morning_forecast_detail">Günün tahmini, her sabah bir kez</string>
+    <string name="alert_rain_alerts">Yağmur uyarıları</string>
+    <string name="alert_rain_alerts_detail">Önümüzdeki 3 saatte yağmur olasılığı yüksekse uyarı</string>
+    <string name="alert_today_in">Bugün %1$s</string>
+    <string name="alert_today_line">%1$s · %2$d° / %3$d° · yağmur %%%4$d</string>
+    <string name="alert_rain_soon_in">%1$s için yakında yağmur</string>
+    <string name="alert_rain_line">%1$s civarında olası (%%%2$d)</string>
 </resources>

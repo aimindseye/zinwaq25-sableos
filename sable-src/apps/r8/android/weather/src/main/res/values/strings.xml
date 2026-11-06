@@ -39,4 +39,13 @@
     <string name="forecast_unavailable_check_the_connection">Forecast unavailable. Check the connection and retry.</string>
     <string name="provider_response_could_not_be">Provider response could not be normalized.</string>
     <string name="updated_from_open_meteo">Updated from Open-Meteo.</string>
+    <string name="alert_notifications">notifications</string>
+    <string name="alert_morning_forecast">Morning forecast</string>
+    <string name="alert_morning_forecast_detail">The day’s forecast, once each morning</string>
+    <string name="alert_rain_alerts">Rain alerts</string>
+    <string name="alert_rain_alerts_detail">A heads-up when rain is likely in the next 3 hours</string>
+    <string name="alert_today_in">Today in %1$s</string>
+    <string name="alert_today_line">%1$s · %2$d° / %3$d° · rain %4$d%%</string>
+    <string name="alert_rain_soon_in">Rain soon in %1$s</string>
+    <string name="alert_rain_line">Likely around %1$s (%2$d%%)</string>
 </resources>

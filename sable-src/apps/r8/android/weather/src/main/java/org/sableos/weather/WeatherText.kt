@@ -50,6 +50,15 @@ object WeatherText {
                 "Forecast unavailable. Check the connection and retry.",
             "provider_response_could_not_be" to "Provider response could not be normalized.",
             "updated_from_open_meteo" to "Updated from Open-Meteo.",
+            "alert_notifications" to "notifications",
+            "alert_morning_forecast" to "Morning forecast",
+            "alert_morning_forecast_detail" to "The day’s forecast, once each morning",
+            "alert_rain_alerts" to "Rain alerts",
+            "alert_rain_alerts_detail" to "A heads-up when rain is likely in the next 3 hours",
+            "alert_today_in" to "Today in %1\$s",
+            "alert_today_line" to "%1\$s · %2\$d° / %3\$d° · rain %4\$d%%",
+            "alert_rain_soon_in" to "Rain soon in %1\$s",
+            "alert_rain_line" to "Likely around %1\$s (%2\$d%%)",
         )
 
     val t = SableTexts(EN)

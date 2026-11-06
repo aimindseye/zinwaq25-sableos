@@ -453,6 +453,8 @@ grep -q '"org.lineageos.audiofx"' sable-src/src/android/packages/apps/SableStart
 wx=sable-src/apps/r8/android/weather/src/main
 grep -A3 'name=".WeatherRefreshJob"' "$wx/AndroidManifest.xml" | grep -q 'BIND_JOB_SERVICE' || q4_bad="$q4_bad weather-job"
 grep -q 'WeatherRefreshJob.ensureScheduled' "$wx/java/org/sableos/weather/WeatherSnapshotProvider.kt" || q4_bad="$q4_bad weather-provider"
+# Weather alerts are opt-in (both off by default) and post from the background refresh.
+grep -q 'getBoolean(KEY_MORNING, false), preferences.getBoolean(KEY_RAIN, false)' "$wx/java/org/sableos/weather/WeatherNotifier.kt" && grep -q 'WeatherNotifier.afterRefresh' "$wx/java/org/sableos/weather/WeatherRefreshJob.kt" && grep -q 'POST_NOTIFICATIONS' "$wx/AndroidManifest.xml" || q4_bad="$q4_bad weather-alerts"
 grep -q '\.clickable { onClick() }' sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt || q4_bad="$q4_bad displaycompat-tap"
 gm=sable-src/apps/r8/android/games/src/main/java/org/sableos/games
 grep -q 'GameLayout.isSquare(width.value, height.value)' "$gm/GameFrame.kt" || q4_bad="$q4_bad games-square"

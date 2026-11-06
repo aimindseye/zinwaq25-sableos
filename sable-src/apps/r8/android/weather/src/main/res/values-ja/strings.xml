@@ -37,4 +37,13 @@
     <string name="forecast_unavailable_check_the_connection">天気予報を利用できません。接続を確認して再試行してください。</string>
     <string name="provider_response_could_not_be">提供元の応答を必要な形式に変換できませんでした。</string>
     <string name="updated_from_open_meteo">Open-Meteo から更新しました。</string>
+    <string name="alert_notifications">通知</string>
+    <string name="alert_morning_forecast">朝の天気予報</string>
+    <string name="alert_morning_forecast_detail">その日の予報を毎朝1回</string>
+    <string name="alert_rain_alerts">雨の通知</string>
+    <string name="alert_rain_alerts_detail">3時間以内に雨が降りそうなときにお知らせ</string>
+    <string name="alert_today_in">今日の%1$s</string>
+    <string name="alert_today_line">%1$s · %2$d° / %3$d° · 降水 %4$d%%</string>
+    <string name="alert_rain_soon_in">%1$sでまもなく雨</string>
+    <string name="alert_rain_line">%1$s頃の見込み (%2$d%%)</string>
 </resources>
