@@ -59,6 +59,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `kernel/xelex/mt6789/0201-SableOS-report-the-fuel-gauge-s-learned-battery-health.patch` | applies as is |
 | `kernel/xelex/mt6789/0202-SableOS-stop-the-Q25-keyboard-driver-logging-every-k.patch` | applies as is |
 | `kernel/xelex/mt6789/0901-SableOS-let-the-system-set-the-Q25-keyboard-backligh.patch` | applies as is |
+| `kernel/xelex/mt6789/0902-SableOS-no-phantom-Q25-keys-after-the-screen-wakes.patch` | applies as is (driver identical on 24.0) |
 | `lineage-sdk/0150-SableOS-pure-black-dark-theme-by-default.patch` | applies as is |
 | `lineage-sdk/0502-SableOS-default-notification-light-color-unless-the-.patch` | applies as is |
 | `lineage-sdk/0504-SableOS-battery-light-blinks-while-charging-solid-gr.patch` | applies as is |
