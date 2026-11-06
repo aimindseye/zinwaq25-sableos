@@ -4873,33 +4873,41 @@ private fun SearchScreen(
     val (filteredApps, privacyMatches) =
         remember(apps, hiddenKeys, recentKeys, parsed) {
             val searchable = apps.filterNot { it.stableKey() in hiddenKeys }
-            if (parsed.scope == CommandScope.All && hiddenKeys.isNotEmpty() && HiddenApps.reveals(term)) {
-                // "private" or "hidden": the hidden apps, A to Z, then any app the word names.
-                val hiddenFirst = apps.filter { it.stableKey() in hiddenKeys }.sortedBy { it.label.lowercase(locale) }
-                (hiddenFirst + CommandRanking.apps(searchable, { it.label }, { null }, term)) to emptyList()
-            } else if (profileApps != null) {
-                CommandRanking.apps(profileApps, { it.label }, { null }, term) to emptyList()
-            } else if (!parsed.includes(CommandScope.Apps)) {
-                emptyList<AppEntry>() to emptyList()
-            } else {
-                // Recents first, label prefix before contains; apps whose effective
-                // access matches privacy words ("camera", "mic") are their own group.
-                val byName =
-                    CommandRanking.apps(
-                        items = searchable,
-                        label = { it.label },
-                        recentRank = { app -> recentKeys.indexOf(app.stableKey()).takeIf { it >= 0 } },
-                        term = term,
-                    ).take(if (term.isEmpty()) 6 else 12)
-                val byPrivacy =
-                    if (term.isEmpty()) {
-                        emptyList()
-                    } else {
-                        searchable
-                            .filter { app -> app !in byName && PrivacySummaryPolicy.matchesPrivacyQuery(app.privacy, term) }
-                            .take(8)
-                    }
-                byName to byPrivacy
+            when {
+                parsed.scope == CommandScope.All && hiddenKeys.isNotEmpty() && HiddenApps.reveals(term) -> {
+                    // "private" or "hidden": the hidden apps, A to Z, then any app the word names.
+                    val hiddenFirst = apps.filter { it.stableKey() in hiddenKeys }.sortedBy { it.label.lowercase(locale) }
+                    (hiddenFirst + CommandRanking.apps(searchable, { it.label }, { null }, term)) to emptyList()
+                }
+
+                profileApps != null -> {
+                    CommandRanking.apps(profileApps, { it.label }, { null }, term) to emptyList()
+                }
+
+                !parsed.includes(CommandScope.Apps) -> {
+                    emptyList<AppEntry>() to emptyList()
+                }
+
+                else -> {
+                    // Recents first, label prefix before contains; apps whose effective
+                    // access matches privacy words ("camera", "mic") are their own group.
+                    val byName =
+                        CommandRanking.apps(
+                            items = searchable,
+                            label = { it.label },
+                            recentRank = { app -> recentKeys.indexOf(app.stableKey()).takeIf { it >= 0 } },
+                            term = term,
+                        ).take(if (term.isEmpty()) 6 else 12)
+                    val byPrivacy =
+                        if (term.isEmpty()) {
+                            emptyList()
+                        } else {
+                            searchable
+                                .filter { app -> app !in byName && PrivacySummaryPolicy.matchesPrivacyQuery(app.privacy, term) }
+                                .take(8)
+                        }
+                    byName to byPrivacy
+                }
             }
         }
 
@@ -6022,29 +6030,12 @@ private fun SablePeekScreen(
             }
 
             if (shortcutsAvailable) {
-                ContextAction(
-                    mark = "⌨",
-                    label =
-                        if (letterShortcut != null) {
-                            t("letter_shortcut_current", letterShortcut.uppercaseChar().toString())
-                        } else {
-                            t("letter_shortcut")
-                        },
-                    onClick = { capturing = !capturing },
+                LetterShortcutActions(
+                    letter = letterShortcut,
+                    capturing = capturing,
+                    onToggle = { capturing = !capturing },
+                    onCancel = { capturing = false },
                 )
-                if (capturing) {
-                    Text(
-                        text = t("letter_shortcut_press"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 6.dp),
-                    )
-                    ContextAction(
-                        mark = "×",
-                        label = "cancel",
-                        onClick = { capturing = false },
-                    )
-                }
             }
 
             if (foldersAvailable) {
@@ -6064,18 +6055,7 @@ private fun SablePeekScreen(
                     onStartNaming = { naming = "" },
                     onRemoveFromFolder = onRemoveFromFolder,
                 )
-                ContextAction(
-                    mark = if (hidden) "◉" else "◌",
-                    label = if (hidden) t("show_app") else t("hide_app"),
-                    onClick = onToggleHidden,
-                )
-                if (!hidden) {
-                    Text(
-                        text = t("hide_app_hint"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                HideAppAction(hidden = hidden, onToggle = onToggleHidden)
             }
 
             Text(
@@ -6085,6 +6065,50 @@ private fun SablePeekScreen(
                 modifier = Modifier.padding(top = 10.dp),
             )
         }
+    }
+}
+
+/** Peek's hold-a-letter row: the letter set, and while [capturing] the hint and cancel. */
+@Composable
+private fun LetterShortcutActions(
+    letter: Char?,
+    capturing: Boolean,
+    onToggle: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    ContextAction(
+        mark = "⌨",
+        label = letter?.let { t("letter_shortcut_current", it.uppercaseChar().toString()) } ?: t("letter_shortcut"),
+        onClick = onToggle,
+    )
+    if (capturing) {
+        Text(
+            text = t("letter_shortcut_press"),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        ContextAction(mark = "×", label = "cancel", onClick = onCancel)
+    }
+}
+
+/** Peek's Hide app / Show app ([HiddenApps]), with where a hidden app can be found again. */
+@Composable
+private fun HideAppAction(
+    hidden: Boolean,
+    onToggle: () -> Unit,
+) {
+    ContextAction(
+        mark = if (hidden) "◉" else "◌",
+        label = if (hidden) t("show_app") else t("hide_app"),
+        onClick = onToggle,
+    )
+    if (!hidden) {
+        Text(
+            text = t("hide_app_hint"),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
