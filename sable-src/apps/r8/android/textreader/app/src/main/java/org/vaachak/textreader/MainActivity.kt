@@ -236,7 +236,7 @@ fun MainScreen(
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text("V A A C H A K", style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 4.sp), fontWeight = FontWeight.Light) },
+                    title = { Text("Sable Text Reader", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium) },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background)
                 )
             }
