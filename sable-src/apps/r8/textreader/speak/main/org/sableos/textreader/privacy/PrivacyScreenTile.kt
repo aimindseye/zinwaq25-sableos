@@ -5,7 +5,6 @@ import android.content.ComponentName
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.Build
-import android.provider.Settings
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import org.vaachak.textreader.R
@@ -38,9 +37,9 @@ class PrivacyScreenTile : TileService() {
 
     private fun openAccessibilityPage() {
         val intent =
-            Intent(Settings.ACTION_ACCESSIBILITY_DETAILS_SETTINGS)
+            Intent(ACTION_ACCESSIBILITY_DETAILS)
                 .putExtra(
-                    Intent.EXTRA_COMPONENT_NAME,
+                    EXTRA_COMPONENT_NAME,
                     ComponentName(this, PrivacyScreenService::class.java).flattenToString(),
                 ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -50,5 +49,12 @@ class PrivacyScreenTile : TileService() {
             @Suppress("DEPRECATION")
             startActivityAndCollapse(intent)
         }
+    }
+
+    private companion object {
+        const val ACTION_ACCESSIBILITY_DETAILS = "android.settings.ACCESSIBILITY_DETAILS_SETTINGS"
+
+        /** Settings' own extra naming the accessibility service to open (Intent.EXTRA_COMPONENT_NAME). */
+        const val EXTRA_COMPONENT_NAME = "android.intent.extra.COMPONENT_NAME"
     }
 }

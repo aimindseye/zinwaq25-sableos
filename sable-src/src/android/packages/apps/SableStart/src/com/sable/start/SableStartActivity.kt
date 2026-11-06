@@ -25,6 +25,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -38,8 +39,9 @@ import org.sableos.design.writeGlobalSableAppearance
 import org.sableos.start.model.ActiveFrame
 import org.sableos.start.model.AppEntry
 import org.sableos.start.model.Bb7Detour
+import org.sableos.start.model.Bb7Folders
 import org.sableos.start.model.Bb7Layout
-import org.sableos.start.model.Bb7Tab
+import org.sableos.start.model.GridFolder
 import org.sableos.start.model.HomeStyle
 import org.sableos.start.model.TrackpadTouchGuard
 import org.sableos.start.platform.LauncherAppsRepository
@@ -96,6 +98,9 @@ class SableStartActivity : ComponentActivity() {
      * task of the app that was in front, which Back from that Command returns to.
      */
     private val commandGeneration = mutableStateOf(0)
+
+    /** What was typed on the BlackBerry 7 home before Command opened (empty for Alt+Space). */
+    private val commandSeed = mutableStateOf("")
     private val commandReturnTask = mutableStateOf<Int?>(null)
 
     /** Set when Start stops and cleared when it resumes: a request then came from another app. */
@@ -117,7 +122,10 @@ class SableStartActivity : ComponentActivity() {
     private val bb7Favorites = mutableStateOf<List<String>?>(null)
     private val bb7HomeRows = mutableStateOf(1)
     private val bb7Layout = mutableStateOf(Bb7Layout())
-    private val bb7Tabs = mutableStateOf<List<Bb7Tab>>(emptyList())
+    /** The BB10 grid's folders and order, which the BlackBerry 7 home shows as tray places. */
+    private val bb7Folders = mutableStateOf<List<GridFolder>>(emptyList())
+    private val bb7GridOrder = mutableStateOf<List<String>?>(null)
+    private val bb7Shortcuts = mutableStateOf<List<String>>(emptyList())
     private var opaqueWindowBackground: Drawable? = null
 
     private var callbackRegistered = false
@@ -218,7 +226,13 @@ class SableStartActivity : ComponentActivity() {
         bb7Favorites.value = startStateRepository.loadHomeApps()
         bb7HomeRows.value = startStateRepository.loadBb7HomeRows()
         bb7Layout.value = startStateRepository.loadBb7Layout()
-        bb7Tabs.value = startStateRepository.loadBb7Tabs()
+        // The 1.x BlackBerry 7 tray tabs become BB10 grid folders once, so both homes share one set.
+        val oldTabs = startStateRepository.loadBb7Tabs()
+        if (oldTabs.isNotEmpty()) {
+            startStateRepository.saveGridFolders(Bb7Folders.fromTabs(oldTabs, startStateRepository.loadGridFolders()))
+            startStateRepository.saveBb7Tabs(emptyList())
+        }
+        bb7Shortcuts.value = startStateRepository.loadBb7Shortcuts()
         recentTasksRepository = RecentTasksRepository(this)
         homeStyle.value = startStateRepository.loadHomeStyle()
         opaqueWindowBackground = window.decorView.background
@@ -274,6 +288,11 @@ class SableStartActivity : ComponentActivity() {
             val bb7 = homeStyle.value == HomeStyle.Bb7 && !bb10Detour.value
             SideEffect { showWallpaper(bb7) }
             if (bb7) {
+                // Folders may have changed on the BlackBerry 10 screen since the last time.
+                LaunchedEffect(Unit) {
+                    bb7Folders.value = startStateRepository.loadGridFolders()
+                    bb7GridOrder.value = startStateRepository.loadGridOrder()
+                }
                 Bb7HomeScreen(
                     apps = appsState.value,
                     favoriteKeys = bb7Favorites.value,
@@ -291,8 +310,8 @@ class SableStartActivity : ComponentActivity() {
                         hubGeneration.value += 1
                         startBb10Detour(returnOnHome = true)
                     },
-                    onOpenCommand = {
-                        requestCommand(fromApp = false)
+                    onOpenCommand = { seed ->
+                        requestCommand(fromApp = false, seed = seed)
                         startBb10Detour(returnOnHome = true)
                     },
                     onFavoritesChanged = { keys ->
@@ -307,10 +326,20 @@ class SableStartActivity : ComponentActivity() {
                         bb7Layout.value = layout
                         startStateRepository.saveBb7Layout(layout)
                     },
-                    tabs = bb7Tabs.value,
-                    onTabsChanged = { tabs ->
-                        bb7Tabs.value = tabs
-                        startStateRepository.saveBb7Tabs(tabs)
+                    folders = bb7Folders.value,
+                    gridOrder = bb7GridOrder.value,
+                    onFoldersChanged = { folders, order ->
+                        bb7Folders.value = folders
+                        startStateRepository.saveGridFolders(folders)
+                        if (order != null) {
+                            bb7GridOrder.value = order
+                            startStateRepository.saveGridOrder(order)
+                        }
+                    },
+                    shortcuts = bb7Shortcuts.value,
+                    onShortcutsChanged = { keys ->
+                        bb7Shortcuts.value = keys
+                        startStateRepository.saveBb7Shortcuts(keys)
                     },
                     speedDial = speedDialRepository,
                     letterShortcuts = letterShortcutRepository,
@@ -395,6 +424,7 @@ class SableStartActivity : ComponentActivity() {
                     hubGeneration = hubGeneration.value,
                     hubRequestFilter = hubRequestFilter.value,
                     commandGeneration = commandGeneration.value,
+                    commandSeed = commandSeed.value,
                     commandReturnsToApp = commandReturnTask.value != null,
                     onReturnFromCommand = ::returnFromCommand,
                     onCommandClosed = { commandReturnTask.value = null },
@@ -494,8 +524,12 @@ class SableStartActivity : ComponentActivity() {
         if (action in BB10_ONLY_ACTIONS) startBb10Detour(returnOnHome = action != ACTION_SHOW_ACTIVE_FRAMES)
     }
 
-    private fun requestCommand(fromApp: Boolean) {
+    private fun requestCommand(
+        fromApp: Boolean,
+        seed: String = "",
+    ) {
         commandReturnTask.value = null
+        commandSeed.value = seed
         commandGeneration.value += 1
         if (!fromApp) return
         // Start is left out of Recents, so the newest task is the app Alt+Space was pressed in.

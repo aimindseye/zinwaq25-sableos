@@ -303,6 +303,8 @@
     <string name="folder_name">Folder name: %1$s</string>
     <string name="rename_folder">Rename folder</string>
     <string name="ungroup_folder">Ungroup folder</string>
+    <string name="home_shortcut_add">Add to Home screen</string>
+    <string name="home_shortcut_remove">Remove from Home screen</string>
     <string name="folder_of">%1$s folder</string>
     <string name="grid_rows">Grid rows: %1$s</string>
     <string name="grid_rows_fit">Fit</string>

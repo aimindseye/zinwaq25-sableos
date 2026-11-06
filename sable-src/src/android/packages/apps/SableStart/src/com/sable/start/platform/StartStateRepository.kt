@@ -144,6 +144,11 @@ class StartStateRepository(
 
     fun saveGridOrder(keys: List<String>?) = saveOrdered(KEY_GRID_ORDER, keys)
 
+    /** The BB7 home screen's own shortcuts, between the banner and the tray (see Bb7Shortcuts). */
+    fun loadBb7Shortcuts(): List<String> = loadOrdered(KEY_BB7_SHORTCUTS).orEmpty()
+
+    fun saveBb7Shortcuts(keys: List<String>) = saveOrdered(KEY_BB7_SHORTCUTS, keys)
+
     /** The folders on the BB10 app grid (see GridFolders). */
     fun loadGridFolders(): List<GridFolder> = GridFolders.decode(preferences.getString(KEY_GRID_FOLDERS, null))
 
@@ -243,6 +248,7 @@ class StartStateRepository(
         const val KEY_BB7_HOME_ROWS = "bb7_home_rows"
         const val KEY_BB7_LAYOUT = "bb7_layout"
         const val KEY_BB7_TABS = "bb7_tabs"
+        const val KEY_BB7_SHORTCUTS = "bb7_shortcuts"
         const val KEY_GLANCE_WIDGETS = "glance_widgets"
         // v2: the BB10 Home shows the status dials by default; sets saved by the
         // three-page Home hid them without the user choosing, so they are not read.

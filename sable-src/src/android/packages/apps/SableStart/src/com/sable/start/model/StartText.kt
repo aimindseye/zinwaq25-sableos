@@ -324,6 +324,8 @@ object StartText {
             "folder_name" to "Folder name: %1\$s",
             "rename_folder" to "Rename folder",
             "ungroup_folder" to "Ungroup folder",
+            "home_shortcut_add" to "Add to Home screen",
+            "home_shortcut_remove" to "Remove from Home screen",
             "folder_of" to "%1\$s folder",
             "grid_rows" to "Grid rows: %1\$s",
             "grid_rows_fit" to "Fit",

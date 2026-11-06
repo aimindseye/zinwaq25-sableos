@@ -454,6 +454,8 @@ fun SableStartScreen(
     hubRequestFilter: String? = null,
     /** Counts up for each Command request (org.sableos.start.action.COMMAND, Alt+Space anywhere). */
     commandGeneration: Int = 0,
+    /** Text typed on the BlackBerry 7 home that opened Command, to start it with. */
+    commandSeed: String = "",
     /** That Command was opened over another app, so Back returns to it. */
     commandReturnsToApp: Boolean = false,
     onReturnFromCommand: () -> Unit = {},
@@ -655,7 +657,7 @@ fun SableStartScreen(
     LaunchedEffect(commandGeneration) {
         if (commandGeneration > 0) {
             selectedApp = null
-            openSearch(SableStartDestination.Start)
+            openSearch(SableStartDestination.Start, commandSeed)
         }
     }
 
