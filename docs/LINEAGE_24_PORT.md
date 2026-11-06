@@ -55,6 +55,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `frameworks/base/0320-SableOS-Picture-Password-as-a-quick-second-unlock.patch` | new on 24.0 |
 | `frameworks/base/0321-SableOS-built-in-Picture-Password-pictures.patch` | new on 24.0 |
 | `frameworks/base/0322-SableOS-ticker-for-new-notifications-on-the-lock-scr.patch` | new on 24.0 |
+| `frameworks/base/0323-SableOS-no-extra-lock-screen-text-without-notificati.patch` | new on 24.0 |
 | `frameworks/base/0501-SableOS-notification-light-for-every-alerting-channe.patch` | applies as is |
 | `frameworks/base/0550-SableOS-microG-signature-spoofing-on-user-builds-whe.patch` | ported by hand |
 | `kernel/xelex/mt6789/0201-SableOS-report-the-fuel-gauge-s-learned-battery-health.patch` | applies as is |
