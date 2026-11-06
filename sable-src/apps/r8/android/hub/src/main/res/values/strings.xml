@@ -10,6 +10,7 @@
     <string name="priority_messages_calls_email_and">Priority, messages, calls, email and people, kept local to this device.</string>
     <string name="loading_conversations">Loading conversations…</string>
     <string name="local_communication_across_your_enabled">Local communication across your enabled sources.</string>
+    <string name="coming_up">Coming up</string>
     <string name="show_list">Show list</string>
     <string name="show_list_without_previews">Show list without previews</string>
     <string name="unlock_to_view_details">Unlock to view details</string>

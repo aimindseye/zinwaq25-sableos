@@ -8,6 +8,7 @@
     <string name="priority_messages_calls_email_and">Приоритет, сообщения, звонки, почта и контакты хранятся только на этом устройстве.</string>
     <string name="loading_conversations">Загрузка бесед…</string>
     <string name="local_communication_across_your_enabled">Локальное общение из включённых источников.</string>
+    <string name="coming_up">Скоро</string>
     <string name="show_list">Показать список</string>
     <string name="show_list_without_previews">Показать список без предпросмотра</string>
     <string name="unlock_to_view_details">Разблокируйте, чтобы увидеть подробности</string>

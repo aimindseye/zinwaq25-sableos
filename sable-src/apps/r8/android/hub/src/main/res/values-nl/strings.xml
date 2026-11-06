@@ -8,6 +8,7 @@
     <string name="priority_messages_calls_email_and">Prioriteit, berichten, gesprekken, e-mail en personen, alleen op dit apparaat bewaard.</string>
     <string name="loading_conversations">Gesprekken laden…</string>
     <string name="local_communication_across_your_enabled">Lokale communicatie vanuit je ingeschakelde bronnen.</string>
+    <string name="coming_up">Binnenkort</string>
     <string name="show_list">Lijst tonen</string>
     <string name="show_list_without_previews">Lijst zonder voorbeelden tonen</string>
     <string name="unlock_to_view_details">Ontgrendel om details te bekijken</string>

@@ -8,6 +8,7 @@
     <string name="priority_messages_calls_email_and">优先级、消息、通话、邮件和联系人，仅保存在此设备上。</string>
     <string name="loading_conversations">正在加载会话…</string>
     <string name="local_communication_across_your_enabled">来自已启用来源的本地通信。</string>
+    <string name="coming_up">即将到来</string>
     <string name="show_list">显示列表</string>
     <string name="show_list_without_previews">显示不带预览的列表</string>
     <string name="unlock_to_view_details">解锁后查看详情</string>

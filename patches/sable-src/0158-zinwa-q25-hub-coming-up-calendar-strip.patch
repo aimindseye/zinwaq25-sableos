@@ -1,0 +1,472 @@
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt
+index 55b0d93..ed98f98 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt
+@@ -92,7 +92,8 @@ class CalendarSnapshotProvider : ContentProvider() {
+ 
+     /**
+      * Sable Start reads everything; SystemUI reads only the next event, for the lock screen
+-     * (frameworks/base 0317), which names it "Event" while the lock screen hides content.
++     * (frameworks/base 0317), which names it "Event" while the lock screen hides content; Hub reads
++     * the next events for its strip at the top.
+      */
+     private fun enforceCaller(
+         context: android.content.Context,
+@@ -105,7 +106,8 @@ class CalendarSnapshotProvider : ContentProvider() {
+                 .getPackagesForUid(callingUid)
+                 ?.toSet()
+                 .orEmpty()
+-        if ("org.sableos.launcher" !in packages && !(nextOnly && SYSTEM_UI in packages)) {
++        val nextReader = SYSTEM_UI in packages || HUB in packages
++        if ("org.sableos.launcher" !in packages && !(nextOnly && nextReader)) {
+             throw SecurityException(
+                 "Sable live snapshot is restricted to SableLauncher.",
+             )
+@@ -124,5 +126,6 @@ class CalendarSnapshotProvider : ContentProvider() {
+         private const val NEXT_DAYS = 7L
+         private const val MAX_NEXT = 3
+         private const val SYSTEM_UI = "com.android.systemui"
++        private const val HUB = "org.sableos.hub"
+     }
+ }
+diff --git a/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml
+index 9cd895d..555ac66 100644
+--- a/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml
+@@ -20,6 +20,9 @@
+         </intent>
+         <provider android:authorities="org.sableos.appearance" />
+         <provider android:authorities="org.sableos.mail.snapshot" />
++        <!-- The upcoming-events strip at the top of Hub: Sable Calendar's next events. -->
++        <provider android:authorities="org.sableos.calendar.snapshot" />
++        <package android:name="org.sableos.calendar" />
+         <package android:name="org.sableos.mail" />
+         <!-- Remind me (row menu, off unless turned on): Sable Tasks' follow-up entry. -->
+         <package android:name="org.sableos.tasks" />
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt
+index ff22420..d5d1834 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt
+@@ -129,6 +129,16 @@ data class HubSnapshot(
+     val calls: List<HubCall> = emptyList(),
+     /** Locked device / Hub private mode when the snapshot was taken (counts-only view). */
+     val privacy: HubPrivacyState = HubPrivacyState(),
++    /** The next calendar events (BB10's Hub showed them); empty without Sable Calendar or access. */
++    val upcoming: List<HubUpcomingEvent> = emptyList(),
++)
++
++/** One upcoming calendar event as Sable Calendar's `next` snapshot gives it. */
++data class HubUpcomingEvent(
++    val title: String,
++    val beginMillis: Long,
++    val allDay: Boolean,
++    val calendar: String,
+ )
+ 
+ /** A search handed to Hub at launch; [sequence] makes a repeated identical search re-apply. */
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+index 7a87b78..0f93d4e 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+@@ -137,9 +137,38 @@ class HubRepository(
+             mail = loadMailSnapshot(),
+             calls = calls,
+             privacy = privacyState(),
++            upcoming = loadUpcoming(),
+         )
+     }
+ 
++    /**
++     * The next events from Sable Calendar's snapshot provider. Calendar answers only known callers;
++     * a refusal or a missing Calendar is an empty list, never an error in Hub.
++     */
++    private fun loadUpcoming(): List<HubUpcomingEvent> =
++        try {
++            context.contentResolver
++                .query(UPCOMING_URI, null, null, null, null)
++                ?.use { cursor ->
++                    buildList {
++                        while (cursor.moveToNext()) {
++                            add(
++                                HubUpcomingEvent(
++                                    title = cursor.getString(UPCOMING_TITLE).orEmpty(),
++                                    beginMillis = cursor.getLong(UPCOMING_BEGIN),
++                                    allDay = cursor.getInt(UPCOMING_ALL_DAY) != 0,
++                                    calendar = cursor.getString(UPCOMING_CALENDAR).orEmpty(),
++                                ),
++                            )
++                        }
++                    }
++                }.orEmpty()
++        } catch (_: SecurityException) {
++            emptyList()
++        } catch (_: IllegalArgumentException) {
++            emptyList()
++        }
++
+     /** The call log under the same privacy level as Hub's own SMS; empty without READ_CALL_LOG. */
+     private fun visibleCalls(
+         capabilities: HubCapabilities,
+@@ -699,6 +728,11 @@ class HubRepository(
+     )
+ 
+     private companion object {
++        val UPCOMING_URI: Uri = Uri.parse("content://org.sableos.calendar.snapshot/next")
++        const val UPCOMING_TITLE = 0
++        const val UPCOMING_BEGIN = 1
++        const val UPCOMING_ALL_DAY = 2
++        const val UPCOMING_CALENDAR = 3
+         const val MAX_SMS_MESSAGES = 1200
+         const val MAX_CALLS = 150
+         const val MAX_CONTACT_PEOPLE = 300
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
+index 089805c..09c7c62 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
+@@ -18,6 +18,7 @@ object HubText {
+             "loading_conversations" to "Loading conversations…",
+             "local_communication_across_your_enabled" to
+                 "Local communication across your enabled sources.",
++            "coming_up" to "Coming up",
+             "show_list" to "Show list",
+             "show_list_without_previews" to "Show list without previews",
+             "unlock_to_view_details" to "Unlock to view details",
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+index a3846ef..fcefa39 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+@@ -554,6 +554,8 @@ private fun HubRootView(
+             onSelect = state::selectPivot,
+         )
+ 
++        HubUpcomingStrip(snapshot.upcoming)
++
+         state.statusMessage?.let { message ->
+             Text(
+                 text = message,
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubUpcoming.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubUpcoming.kt
+new file mode 100644
+index 0000000..4abe843
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubUpcoming.kt
+@@ -0,0 +1,92 @@
++package org.sableos.hub.ui
++
++import android.content.Context
++import android.content.Intent
++import android.text.format.DateUtils
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.dp
++import org.sableos.design.sableFocusRing
++import org.sableos.hub.HubText.t
++import org.sableos.hub.HubUpcomingEvent
++
++private const val CALENDAR_PACKAGE = "org.sableos.calendar"
++
++/**
++ * "Coming up": the next calendar events at the top of Hub, as BlackBerry 10's Hub showed them. It
++ * is empty (and takes no room) without Sable Calendar, without calendar access, or without events;
++ * a tap opens Sable Calendar.
++ */
++@Composable
++internal fun HubUpcomingStrip(events: List<HubUpcomingEvent>) {
++    if (events.isEmpty()) return
++    val context = LocalContext.current
++    Column(
++        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
++        verticalArrangement = Arrangement.spacedBy(2.dp),
++    ) {
++        Text(
++            text = t("coming_up"),
++            style = MaterialTheme.typography.labelLarge,
++            color = MaterialTheme.colorScheme.primary,
++        )
++        events.forEach { event ->
++            Row(
++                modifier =
++                    Modifier
++                        .fillMaxWidth()
++                        .sableFocusRing()
++                        .clickable { openCalendar(context) }
++                        .padding(vertical = 4.dp),
++                horizontalArrangement = Arrangement.spacedBy(12.dp),
++            ) {
++                Text(
++                    text = whenLabel(context, event),
++                    style = MaterialTheme.typography.bodyMedium,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++                Text(
++                    text = event.title,
++                    style = MaterialTheme.typography.bodyLarge,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                )
++            }
++        }
++    }
++}
++
++/** "Today 14:00", "Tomorrow", "Mon 09:30": the day by name, then the time unless all day. */
++private fun whenLabel(
++    context: Context,
++    event: HubUpcomingEvent,
++): String {
++    val day =
++        DateUtils
++            .getRelativeTimeSpanString(
++                event.beginMillis,
++                System.currentTimeMillis(),
++                DateUtils.DAY_IN_MILLIS,
++                DateUtils.FORMAT_ABBREV_RELATIVE,
++            ).toString()
++    return if (event.allDay) {
++        day
++    } else {
++        "$day ${DateUtils.formatDateTime(context, event.beginMillis, DateUtils.FORMAT_SHOW_TIME)}"
++    }
++}
++
++private fun openCalendar(context: Context) {
++    val launch = context.packageManager.getLaunchIntentForPackage(CALENDAR_PACKAGE) ?: return
++    context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml
+index 78656b2..8cb3e8e 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">الأولوية والرسائل والمكالمات والبريد والأشخاص، محفوظة على هذا الجهاز فقط.</string>
+     <string name="loading_conversations">جارٍ تحميل المحادثات…</string>
+     <string name="local_communication_across_your_enabled">تواصل محلي من المصادر التي فعّلتها.</string>
++    <string name="coming_up">قريبًا</string>
+     <string name="show_list">عرض القائمة</string>
+     <string name="show_list_without_previews">عرض القائمة بدون معاينات</string>
+     <string name="unlock_to_view_details">افتح القفل لعرض التفاصيل</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml
+index 78e8d92..6cb7605 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">Priorität, Nachrichten, Anrufe, E-Mails und Personen, nur auf diesem Gerät gespeichert.</string>
+     <string name="loading_conversations">Unterhaltungen werden geladen…</string>
+     <string name="local_communication_across_your_enabled">Lokale Kommunikation aus deinen aktivierten Quellen.</string>
++    <string name="coming_up">Demnächst</string>
+     <string name="show_list">Liste anzeigen</string>
+     <string name="show_list_without_previews">Liste ohne Vorschau anzeigen</string>
+     <string name="unlock_to_view_details">Zum Anzeigen der Details entsperren</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml
+index ffe15f8..ac7f8e0 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">Προτεραιότητα, μηνύματα, κλήσεις, email και άτομα, αποθηκευμένα μόνο σε αυτήν τη συσκευή.</string>
+     <string name="loading_conversations">Φόρτωση συνομιλιών…</string>
+     <string name="local_communication_across_your_enabled">Τοπική επικοινωνία από τις ενεργοποιημένες πηγές σας.</string>
++    <string name="coming_up">Προσεχώς</string>
+     <string name="show_list">Εμφάνιση λίστας</string>
+     <string name="show_list_without_previews">Εμφάνιση λίστας χωρίς προεπισκοπήσεις</string>
+     <string name="unlock_to_view_details">Ξεκλειδώστε για να δείτε λεπτομέρειες</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml
+index 7d49452..52ea808 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">Prioridad, mensajes, llamadas, correo y personas, guardados solo en este dispositivo.</string>
+     <string name="loading_conversations">Cargando conversaciones…</string>
+     <string name="local_communication_across_your_enabled">Comunicación local de las fuentes que has activado.</string>
++    <string name="coming_up">Próximamente</string>
+     <string name="show_list">Mostrar lista</string>
+     <string name="show_list_without_previews">Mostrar lista sin vistas previas</string>
+     <string name="unlock_to_view_details">Desbloquea para ver los detalles</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml
+index cf4dece..ff801eb 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">Priorité, messages, appels, e-mails et contacts, conservés uniquement sur cet appareil.</string>
+     <string name="loading_conversations">Chargement des conversations…</string>
+     <string name="local_communication_across_your_enabled">Communication locale depuis les sources que vous avez activées.</string>
++    <string name="coming_up">À venir</string>
+     <string name="show_list">Afficher la liste</string>
+     <string name="show_list_without_previews">Afficher la liste sans aperçus</string>
+     <string name="unlock_to_view_details">Déverrouillez pour voir les détails</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml
+index 19e2d24..86a4014 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">प्राथमिकता, संदेश, कॉल, ईमेल और लोग, केवल इस डिवाइस पर रखे गए।</string>
+     <string name="loading_conversations">बातचीत लोड हो रही हैं…</string>
+     <string name="local_communication_across_your_enabled">आपके चालू स्रोतों से स्थानीय संचार।</string>
++    <string name="coming_up">आगामी</string>
+     <string name="show_list">सूची दिखाएँ</string>
+     <string name="show_list_without_previews">पूर्वावलोकन के बिना सूची दिखाएँ</string>
+     <string name="unlock_to_view_details">विवरण देखने के लिए अनलॉक करें</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml
+index 416b040..cd47488 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">Priorità, messaggi, chiamate, e-mail e persone, conservati solo su questo dispositivo.</string>
+     <string name="loading_conversations">Caricamento delle conversazioni…</string>
+     <string name="local_communication_across_your_enabled">Comunicazione locale dalle fonti che hai attivato.</string>
++    <string name="coming_up">In arrivo</string>
+     <string name="show_list">Mostra elenco</string>
+     <string name="show_list_without_previews">Mostra elenco senza anteprime</string>
+     <string name="unlock_to_view_details">Sblocca per vedere i dettagli</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml
+index c92eb21..e54f5c9 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">עדיפות, הודעות, שיחות, אימייל ואנשים, נשמרים במכשיר הזה בלבד.</string>
+     <string name="loading_conversations">טוען שיחות…</string>
+     <string name="local_communication_across_your_enabled">תקשורת מקומית מהמקורות שהפעלתם.</string>
++    <string name="coming_up">בקרוב</string>
+     <string name="show_list">הצגת רשימה</string>
+     <string name="show_list_without_previews">הצגת רשימה ללא תצוגות מקדימות</string>
+     <string name="unlock_to_view_details">בטלו את הנעילה כדי לראות פרטים</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml
+index c953efc..b0deac5 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">優先度、メッセージ、通話、メール、連絡先を、この端末内だけで管理します。</string>
+     <string name="loading_conversations">会話を読み込んでいます…</string>
+     <string name="local_communication_across_your_enabled">有効にしたソースからのローカルなコミュニケーションです。</string>
++    <string name="coming_up">今後の予定</string>
+     <string name="show_list">リストを表示</string>
+     <string name="show_list_without_previews">プレビューなしでリストを表示</string>
+     <string name="unlock_to_view_details">ロックを解除して詳細を表示</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml
+index 1368809..01a2fa6 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">우선순위, 메시지, 통화, 이메일, 사람을 이 기기에만 보관합니다.</string>
+     <string name="loading_conversations">대화를 불러오는 중…</string>
+     <string name="local_communication_across_your_enabled">사용 설정한 소스의 로컬 커뮤니케이션입니다.</string>
++    <string name="coming_up">다가오는 일정</string>
+     <string name="show_list">목록 표시</string>
+     <string name="show_list_without_previews">미리보기 없이 목록 표시</string>
+     <string name="unlock_to_view_details">잠금을 해제하여 세부정보 보기</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml
+index e5d73d3..cba16d0 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">Prioriteit, berichten, gesprekken, e-mail en personen, alleen op dit apparaat bewaard.</string>
+     <string name="loading_conversations">Gesprekken laden…</string>
+     <string name="local_communication_across_your_enabled">Lokale communicatie vanuit je ingeschakelde bronnen.</string>
++    <string name="coming_up">Binnenkort</string>
+     <string name="show_list">Lijst tonen</string>
+     <string name="show_list_without_previews">Lijst zonder voorbeelden tonen</string>
+     <string name="unlock_to_view_details">Ontgrendel om details te bekijken</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml
+index 909efaf..e671757 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">Priorytet, wiadomości, połączenia, poczta i osoby, przechowywane tylko na tym urządzeniu.</string>
+     <string name="loading_conversations">Wczytywanie rozmów…</string>
+     <string name="local_communication_across_your_enabled">Komunikacja lokalna z włączonych źródeł.</string>
++    <string name="coming_up">Wkrótce</string>
+     <string name="show_list">Pokaż listę</string>
+     <string name="show_list_without_previews">Pokaż listę bez podglądów</string>
+     <string name="unlock_to_view_details">Odblokuj, aby zobaczyć szczegóły</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml
+index c89e5b6..893d70e 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">Prioridade, mensagens, chamadas, e-mail e pessoas, mantidos apenas neste dispositivo.</string>
+     <string name="loading_conversations">Carregando conversas…</string>
+     <string name="local_communication_across_your_enabled">Comunicação local das fontes que você ativou.</string>
++    <string name="coming_up">Em breve</string>
+     <string name="show_list">Mostrar lista</string>
+     <string name="show_list_without_previews">Mostrar lista sem prévias</string>
+     <string name="unlock_to_view_details">Desbloqueie para ver os detalhes</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml
+index c23c92c..e3fbcd9 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">Приоритет, сообщения, звонки, почта и контакты хранятся только на этом устройстве.</string>
+     <string name="loading_conversations">Загрузка бесед…</string>
+     <string name="local_communication_across_your_enabled">Локальное общение из включённых источников.</string>
++    <string name="coming_up">Скоро</string>
+     <string name="show_list">Показать список</string>
+     <string name="show_list_without_previews">Показать список без предпросмотра</string>
+     <string name="unlock_to_view_details">Разблокируйте, чтобы увидеть подробности</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml
+index b2eb98c..151b2b6 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">Prioritet, meddelanden, samtal, e-post och personer, lagrade endast på den här enheten.</string>
+     <string name="loading_conversations">Läser in konversationer…</string>
+     <string name="local_communication_across_your_enabled">Lokal kommunikation från dina aktiverade källor.</string>
++    <string name="coming_up">På gång</string>
+     <string name="show_list">Visa lista</string>
+     <string name="show_list_without_previews">Visa lista utan förhandsvisningar</string>
+     <string name="unlock_to_view_details">Lås upp för att se detaljer</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml
+index 7573b6b..721f52b 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">Öncelik, mesajlar, aramalar, e-posta ve kişiler, yalnızca bu cihazda tutulur.</string>
+     <string name="loading_conversations">Sohbetler yükleniyor…</string>
+     <string name="local_communication_across_your_enabled">Etkin kaynaklarınızdan yerel iletişim.</string>
++    <string name="coming_up">Yaklaşanlar</string>
+     <string name="show_list">Listeyi göster</string>
+     <string name="show_list_without_previews">Listeyi önizleme olmadan göster</string>
+     <string name="unlock_to_view_details">Ayrıntıları görmek için kilidi açın</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml
+index 997a126..94d3bf7 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">ترجیح، پیغامات، کالز، ای میل اور لوگ، صرف اس آلے پر محفوظ۔</string>
+     <string name="loading_conversations">گفتگو لوڈ ہو رہی ہیں…</string>
+     <string name="local_communication_across_your_enabled">آپ کے فعال ذرائع سے مقامی مواصلت۔</string>
++    <string name="coming_up">آنے والے</string>
+     <string name="show_list">فہرست دکھائیں</string>
+     <string name="show_list_without_previews">پیش منظر کے بغیر فہرست دکھائیں</string>
+     <string name="unlock_to_view_details">تفصیلات دیکھنے کے لیے انلاک کریں</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml
+index 365afe0..96ab802 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml
+@@ -8,6 +8,7 @@
+     <string name="priority_messages_calls_email_and">优先级、消息、通话、邮件和联系人，仅保存在此设备上。</string>
+     <string name="loading_conversations">正在加载会话…</string>
+     <string name="local_communication_across_your_enabled">来自已启用来源的本地通信。</string>
++    <string name="coming_up">即将到来</string>
+     <string name="show_list">显示列表</string>
+     <string name="show_list_without_previews">显示不带预览的列表</string>
+     <string name="unlock_to_view_details">解锁后查看详情</string>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
+index c81d524..2fd83ae 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
+@@ -10,6 +10,7 @@
+     <string name="priority_messages_calls_email_and">Priority, messages, calls, email and people, kept local to this device.</string>
+     <string name="loading_conversations">Loading conversations…</string>
+     <string name="local_communication_across_your_enabled">Local communication across your enabled sources.</string>
++    <string name="coming_up">Coming up</string>
+     <string name="show_list">Show list</string>
+     <string name="show_list_without_previews">Show list without previews</string>
+     <string name="unlock_to_view_details">Unlock to view details</string>

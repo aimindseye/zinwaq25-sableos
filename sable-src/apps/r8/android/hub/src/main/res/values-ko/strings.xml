@@ -8,6 +8,7 @@
     <string name="priority_messages_calls_email_and">우선순위, 메시지, 통화, 이메일, 사람을 이 기기에만 보관합니다.</string>
     <string name="loading_conversations">대화를 불러오는 중…</string>
     <string name="local_communication_across_your_enabled">사용 설정한 소스의 로컬 커뮤니케이션입니다.</string>
+    <string name="coming_up">다가오는 일정</string>
     <string name="show_list">목록 표시</string>
     <string name="show_list_without_previews">미리보기 없이 목록 표시</string>
     <string name="unlock_to_view_details">잠금을 해제하여 세부정보 보기</string>

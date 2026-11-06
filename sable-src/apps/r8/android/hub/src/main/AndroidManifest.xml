@@ -20,6 +20,9 @@
         </intent>
         <provider android:authorities="org.sableos.appearance" />
         <provider android:authorities="org.sableos.mail.snapshot" />
+        <!-- The upcoming-events strip at the top of Hub: Sable Calendar's next events. -->
+        <provider android:authorities="org.sableos.calendar.snapshot" />
+        <package android:name="org.sableos.calendar" />
         <package android:name="org.sableos.mail" />
         <!-- Remind me (row menu, off unless turned on): Sable Tasks' follow-up entry. -->
         <package android:name="org.sableos.tasks" />

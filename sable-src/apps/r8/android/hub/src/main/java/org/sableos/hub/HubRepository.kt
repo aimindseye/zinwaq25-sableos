@@ -137,8 +137,37 @@ class HubRepository(
             mail = loadMailSnapshot(),
             calls = calls,
             privacy = privacyState(),
+            upcoming = loadUpcoming(),
         )
     }
+
+    /**
+     * The next events from Sable Calendar's snapshot provider. Calendar answers only known callers;
+     * a refusal or a missing Calendar is an empty list, never an error in Hub.
+     */
+    private fun loadUpcoming(): List<HubUpcomingEvent> =
+        try {
+            context.contentResolver
+                .query(UPCOMING_URI, null, null, null, null)
+                ?.use { cursor ->
+                    buildList {
+                        while (cursor.moveToNext()) {
+                            add(
+                                HubUpcomingEvent(
+                                    title = cursor.getString(UPCOMING_TITLE).orEmpty(),
+                                    beginMillis = cursor.getLong(UPCOMING_BEGIN),
+                                    allDay = cursor.getInt(UPCOMING_ALL_DAY) != 0,
+                                    calendar = cursor.getString(UPCOMING_CALENDAR).orEmpty(),
+                                ),
+                            )
+                        }
+                    }
+                }.orEmpty()
+        } catch (_: SecurityException) {
+            emptyList()
+        } catch (_: IllegalArgumentException) {
+            emptyList()
+        }
 
     /** The call log under the same privacy level as Hub's own SMS; empty without READ_CALL_LOG. */
     private fun visibleCalls(
@@ -699,6 +728,11 @@ class HubRepository(
     )
 
     private companion object {
+        val UPCOMING_URI: Uri = Uri.parse("content://org.sableos.calendar.snapshot/next")
+        const val UPCOMING_TITLE = 0
+        const val UPCOMING_BEGIN = 1
+        const val UPCOMING_ALL_DAY = 2
+        const val UPCOMING_CALENDAR = 3
         const val MAX_SMS_MESSAGES = 1200
         const val MAX_CALLS = 150
         const val MAX_CONTACT_PEOPLE = 300

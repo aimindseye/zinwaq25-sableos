@@ -8,6 +8,7 @@
     <string name="priority_messages_calls_email_and">Öncelik, mesajlar, aramalar, e-posta ve kişiler, yalnızca bu cihazda tutulur.</string>
     <string name="loading_conversations">Sohbetler yükleniyor…</string>
     <string name="local_communication_across_your_enabled">Etkin kaynaklarınızdan yerel iletişim.</string>
+    <string name="coming_up">Yaklaşanlar</string>
     <string name="show_list">Listeyi göster</string>
     <string name="show_list_without_previews">Listeyi önizleme olmadan göster</string>
     <string name="unlock_to_view_details">Ayrıntıları görmek için kilidi açın</string>

@@ -554,6 +554,8 @@ private fun HubRootView(
             onSelect = state::selectPivot,
         )
 
+        HubUpcomingStrip(snapshot.upcoming)
+
         state.statusMessage?.let { message ->
             Text(
                 text = message,

@@ -18,6 +18,7 @@ object HubText {
             "loading_conversations" to "Loading conversations…",
             "local_communication_across_your_enabled" to
                 "Local communication across your enabled sources.",
+            "coming_up" to "Coming up",
             "show_list" to "Show list",
             "show_list_without_previews" to "Show list without previews",
             "unlock_to_view_details" to "Unlock to view details",
