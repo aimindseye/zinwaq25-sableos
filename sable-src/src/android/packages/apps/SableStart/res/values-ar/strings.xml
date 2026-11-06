@@ -43,7 +43,7 @@
     <string name="work">العمل</string>
     <string name="weather_and_date">الطقس والتاريخ</string>
     <string name="search_or_command_row">صف البحث أو الأوامر</string>
-    <string name="status_dials">مؤشرات الحالة</string>
+    <string name="status_dials">سطر الحالة</string>
     <string name="temperature_condition_and_place_with">الحرارة والحالة والمكان، والتاريخ تحتها</string>
     <string name="a_command_row_under_the">صف أوامر تحت الطقس؛ الكتابة تعمل بدونه</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi والجوال وCPU وRAM ووقت البطارية المتبقي والخلية والإعدادات</string>

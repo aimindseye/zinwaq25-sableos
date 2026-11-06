@@ -43,7 +43,7 @@
     <string name="work">İş</string>
     <string name="weather_and_date">Hava durumu ve tarih</string>
     <string name="search_or_command_row">Arama veya komut satırı</string>
-    <string name="status_dials">Durum göstergeleri</string>
+    <string name="status_dials">Durum satırı</string>
     <string name="temperature_condition_and_place_with">Sıcaklık, durum ve yer; altında tarih</string>
     <string name="a_command_row_under_the">Hava durumunun altında bir komut satırı; o olmadan da yazılabilir</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, mobil, CPU, RAM, kalan pil süresi, hücre ve Ayarlar</string>

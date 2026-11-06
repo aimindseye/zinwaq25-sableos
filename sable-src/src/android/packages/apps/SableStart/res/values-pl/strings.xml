@@ -43,7 +43,7 @@
     <string name="work">Praca</string>
     <string name="weather_and_date">Pogoda i data</string>
     <string name="search_or_command_row">Wiersz wyszukiwania lub poleceń</string>
-    <string name="status_dials">Wskaźniki stanu</string>
+    <string name="status_dials">Wiersz stanu</string>
     <string name="temperature_condition_and_place_with">Temperatura, warunki i miejsce, a pod nimi data</string>
     <string name="a_command_row_under_the">Wiersz poleceń pod pogodą; pisanie działa także bez niego</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, sieć komórkowa, CPU, RAM, pozostały czas baterii, komórka i Ustawienia</string>

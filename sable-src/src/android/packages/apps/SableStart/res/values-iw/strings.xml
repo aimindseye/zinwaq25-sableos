@@ -43,7 +43,7 @@
     <string name="work">עבודה</string>
     <string name="weather_and_date">מזג אוויר ותאריך</string>
     <string name="search_or_command_row">שורת חיפוש או פקודות</string>
-    <string name="status_dials">מחווני מצב</string>
+    <string name="status_dials">שורת מצב</string>
     <string name="temperature_condition_and_place_with">טמפרטורה, תנאים ומקום, עם התאריך מתחת</string>
     <string name="a_command_row_under_the">שורת פקודות מתחת למזג האוויר; ההקלדה עובדת גם בלעדיה</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, סלולרי, CPU, RAM, זמן סוללה שנותר, תא ו-הגדרות</string>

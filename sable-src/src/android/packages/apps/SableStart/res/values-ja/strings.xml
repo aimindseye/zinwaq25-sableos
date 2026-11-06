@@ -43,7 +43,7 @@
     <string name="work">仕事</string>
     <string name="weather_and_date">天気と日付</string>
     <string name="search_or_command_row">検索またはコマンド行</string>
-    <string name="status_dials">ステータスダイヤル</string>
+    <string name="status_dials">ステータス行</string>
     <string name="temperature_condition_and_place_with">気温、天候、場所。その下に日付</string>
     <string name="a_command_row_under_the">天気の下にコマンド行。なくても入力できます</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi、モバイル、CPU、RAM、バッテリー残り時間、セル、設定</string>

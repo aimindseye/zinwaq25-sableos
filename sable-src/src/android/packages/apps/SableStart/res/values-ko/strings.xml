@@ -43,7 +43,7 @@
     <string name="work">업무</string>
     <string name="weather_and_date">날씨와 날짜</string>
     <string name="search_or_command_row">검색 또는 명령 줄</string>
-    <string name="status_dials">상태 다이얼</string>
+    <string name="status_dials">상태 줄</string>
     <string name="temperature_condition_and_place_with">기온, 날씨, 장소와 그 아래 날짜</string>
     <string name="a_command_row_under_the">날씨 아래의 명령 줄. 없어도 입력할 수 있습니다</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, 모바일, CPU, RAM, 배터리 남은 시간, 셀, 설정</string>

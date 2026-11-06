@@ -43,7 +43,7 @@
     <string name="work">Jobb</string>
     <string name="weather_and_date">Väder och datum</string>
     <string name="search_or_command_row">Sök- eller kommandorad</string>
-    <string name="status_dials">Statusmätare</string>
+    <string name="status_dials">Statusrad</string>
     <string name="temperature_condition_and_place_with">Temperatur, väderlek och plats, med datumet under</string>
     <string name="a_command_row_under_the">En kommandorad under vädret; det går att skriva utan den</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, mobil, CPU, RAM, återstående batteritid, cell och Inställningar</string>

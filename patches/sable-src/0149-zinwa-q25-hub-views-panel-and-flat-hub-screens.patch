@@ -1,0 +1,956 @@
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableComponents.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableComponents.kt
+index 3f1503b..f1c4c4e 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableComponents.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableComponents.kt
+@@ -28,6 +28,7 @@ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.staticCompositionLocalOf
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+@@ -102,11 +103,30 @@ fun SableRefreshableSurface(
+     }
+ }
+ 
++/**
++ * True draws every [SablePanel] below it as a flat BlackBerry 10 list section (black, a divider
++ * above, no card) instead of a card. Sable Hub provides it (Sable 2.0 Hub polish); other apps
++ * keep cards.
++ */
++val LocalSableFlatPanels = staticCompositionLocalOf { false }
++
+ @Composable
+ fun SablePanel(
+     modifier: Modifier = Modifier,
+     content: @Composable ColumnScope.() -> Unit,
+ ) {
++    if (LocalSableFlatPanels.current) {
++        // BlackBerry 10 list section (Sable 2.0): flat on the screen's black, a thin line above.
++        Column(modifier = modifier.fillMaxWidth()) {
++            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
++            Column(
++                modifier = Modifier.padding(vertical = SableSpacing.Md),
++                verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
++                content = content,
++            )
++        }
++        return
++    }
+     Surface(
+         modifier = modifier.fillMaxWidth(),
+         shape = MaterialTheme.shapes.medium,
+diff --git a/sable-src/apps/r8/android/config/detekt.yml b/sable-src/apps/r8/android/config/detekt.yml
+index 8736dc6..c2a42ab 100644
+--- a/sable-src/apps/r8/android/config/detekt.yml
++++ b/sable-src/apps/r8/android/config/detekt.yml
+@@ -50,6 +50,7 @@ naming:
+       - "**/hub/ui/HubScreen.kt"
+       - "**/hub/ui/ConnectedAppsScreen.kt"
+       - "**/hub/ui/AttentionSettingsScreen.kt"
++      - "**/hub/ui/HubTheme.kt"
+ 
+ style:
+   MagicNumber:
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/AttentionSettingsActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/AttentionSettingsActivity.kt
+index 3669b21..3644e22 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/AttentionSettingsActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/AttentionSettingsActivity.kt
+@@ -4,12 +4,12 @@ import android.content.Intent
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+-import org.sableos.design.SableGlobalTheme
+ import org.sableos.hub.platform.AndroidSettingsLauncher
+ import org.sableos.hub.platform.DeviceAttention
+ import org.sableos.hub.policy.AndroidSettingsRoutes
+ import org.sableos.hub.policy.NotificationConcept
+ import org.sableos.hub.ui.AttentionSettingsScreen
++import org.sableos.hub.ui.HubTheme
+ 
+ /**
+  * Settings > Notifications > Sable Attention ([org.sableos.hub.policy.HubIntents.ACTION_ATTENTION_SETTINGS]).
+@@ -24,7 +24,7 @@ class AttentionSettingsActivity : ComponentActivity() {
+         val launcher = AndroidSettingsLauncher(this)
+ 
+         setContent {
+-            SableGlobalTheme(window = window) {
++            HubTheme(window = window) {
+                 AttentionSettingsScreen(
+                     profile = profile,
+                     onOpenAndroid = { concept: NotificationConcept ->
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsActivity.kt
+index 88ea57b..89c7d99 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ConnectedAppsActivity.kt
+@@ -18,7 +18,6 @@ import kotlinx.coroutines.SupervisorJob
+ import kotlinx.coroutines.cancel
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+-import org.sableos.design.SableGlobalTheme
+ import org.sableos.hub.notifications.ConnectedReplyRegistry
+ import org.sableos.hub.notifications.SableNotificationListenerService
+ import org.sableos.hub.platform.AndroidSettingsLauncher
+@@ -34,6 +33,7 @@ import org.sableos.hub.policy.SettingsRoute
+ import org.sableos.hub.policy.SettingsTarget
+ import org.sableos.hub.ui.AttentionUi
+ import org.sableos.hub.ui.ConnectedAppsScreen
++import org.sableos.hub.ui.HubTheme
+ 
+ /**
+  * Connected apps: Hub inclusion, Hub priority, preview and history per Android user/profile +
+@@ -120,7 +120,7 @@ class ConnectedAppsActivity : ComponentActivity() {
+                 loading = false
+             }
+ 
+-            SableGlobalTheme(window = window) {
++            HubTheme(window = window) {
+                 ConnectedAppsScreen(
+                     candidates = candidates,
+                     policies = policies,
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+index 2a9bc49..af170c7 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.asImageBitmap
+ import androidx.lifecycle.Lifecycle
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+-import org.sableos.design.SableGlobalTheme
+ import org.sableos.hub.HubText.t
+ import org.sableos.hub.notifications.HubNotificationCommands
+ import org.sableos.hub.policy.HubDrafts
+@@ -36,6 +35,7 @@ import org.sableos.hub.policy.HubMenuOptions
+ import org.sableos.hub.policy.HubRemindMe
+ import org.sableos.hub.policy.HubRowAction
+ import org.sableos.hub.ui.HubScreen
++import org.sableos.hub.ui.HubTheme
+ import kotlin.math.roundToInt
+ 
+ class MainActivity : ComponentActivity() {
+@@ -149,7 +149,7 @@ class MainActivity : ComponentActivity() {
+                 }
+             }
+ 
+-            SableGlobalTheme(window = window) {
++            HubTheme(window = window) {
+                 HubScreen(
+                     snapshot = snapshot,
+                     isRefreshing = refreshing,
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubTheme.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubTheme.kt
+new file mode 100644
+index 0000000..187e4c3
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubTheme.kt
+@@ -0,0 +1,21 @@
++package org.sableos.hub.ui
++
++import android.view.Window
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.CompositionLocalProvider
++import org.sableos.design.LocalSableFlatPanels
++import org.sableos.design.SableGlobalTheme
++
++/**
++ * Sable Hub's screens in the BlackBerry 10 look (Sable 2.0): the global Sable theme, with every
++ * panel drawn as a flat list section on black instead of a card.
++ */
++@Composable
++internal fun HubTheme(
++    window: Window? = null,
++    content: @Composable () -> Unit,
++) {
++    SableGlobalTheme(window = window) {
++        CompositionLocalProvider(LocalSableFlatPanels provides true, content = content)
++    }
++}
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index c0762d2..cdfefc3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">العمل</string>
+     <string name="weather_and_date">الطقس والتاريخ</string>
+     <string name="search_or_command_row">صف البحث أو الأوامر</string>
+-    <string name="status_dials">مؤشرات الحالة</string>
++    <string name="status_dials">سطر الحالة</string>
+     <string name="temperature_condition_and_place_with">الحرارة والحالة والمكان، والتاريخ تحتها</string>
+     <string name="a_command_row_under_the">صف أوامر تحت الطقس؛ الكتابة تعمل بدونه</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi والجوال وCPU وRAM ووقت البطارية المتبقي والخلية والإعدادات</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index aa1f0de..17b72a3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">Arbeit</string>
+     <string name="weather_and_date">Wetter und Datum</string>
+     <string name="search_or_command_row">Such- oder Befehlszeile</string>
+-    <string name="status_dials">Statusanzeigen</string>
++    <string name="status_dials">Statuszeile</string>
+     <string name="temperature_condition_and_place_with">Temperatur, Wetterlage und Ort, darunter das Datum</string>
+     <string name="a_command_row_under_the">Eine Befehlszeile unter dem Wetter; Tippen funktioniert auch ohne sie</string>
+     <string name="wi_fi_mobile_cpu_ram">WLAN, Mobilfunk, CPU, RAM, Akkurestzeit, Zelle und Einstellungen</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index dfd5649..f1b831f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">Εργασία</string>
+     <string name="weather_and_date">Καιρός και ημερομηνία</string>
+     <string name="search_or_command_row">Γραμμή αναζήτησης ή εντολών</string>
+-    <string name="status_dials">Δείκτες κατάστασης</string>
++    <string name="status_dials">Γραμμή κατάστασης</string>
+     <string name="temperature_condition_and_place_with">Θερμοκρασία, συνθήκες και τοποθεσία, με την ημερομηνία από κάτω</string>
+     <string name="a_command_row_under_the">Μια γραμμή εντολών κάτω από τον καιρό· η πληκτρολόγηση λειτουργεί και χωρίς αυτήν</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, κινητό, CPU, RAM, υπολειπόμενος χρόνος μπαταρίας, κυψέλη και Ρυθμίσεις</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index 78f2b51..de137f3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">Trabajo</string>
+     <string name="weather_and_date">Tiempo y fecha</string>
+     <string name="search_or_command_row">Fila de búsqueda o comandos</string>
+-    <string name="status_dials">Indicadores de estado</string>
++    <string name="status_dials">Línea de estado</string>
+     <string name="temperature_condition_and_place_with">Temperatura, estado del cielo y lugar, con la fecha debajo</string>
+     <string name="a_command_row_under_the">Una fila de comandos bajo el tiempo; escribir funciona sin ella</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, móvil, CPU, RAM, batería restante, celda y Ajustes</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index 9a6041b..c9be53c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">Pro</string>
+     <string name="weather_and_date">Météo et date</string>
+     <string name="search_or_command_row">Ligne de recherche ou de commande</string>
+-    <string name="status_dials">Cadrans d’état</string>
++    <string name="status_dials">Ligne d’état</string>
+     <string name="temperature_condition_and_place_with">Température, conditions et lieu, avec la date en dessous</string>
+     <string name="a_command_row_under_the">Une ligne de commande sous la météo ; la saisie fonctionne sans elle</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, mobile, CPU, RAM, autonomie restante, cellule et Réglages</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index 31b39fd..3cf9c70 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">कार्य</string>
+     <string name="weather_and_date">मौसम और तारीख़</string>
+     <string name="search_or_command_row">खोज या कमांड पंक्ति</string>
+-    <string name="status_dials">स्थिति डायल</string>
++    <string name="status_dials">स्थिति पंक्ति</string>
+     <string name="temperature_condition_and_place_with">तापमान, स्थिति और जगह, नीचे तारीख़ के साथ</string>
+     <string name="a_command_row_under_the">मौसम के नीचे कमांड पंक्ति; इसके बिना भी टाइप करना चलता है</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, मोबाइल, CPU, RAM, बैटरी का बचा समय, सेल और सेटिंग</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index f5f9604..9fac8ba 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">Lavoro</string>
+     <string name="weather_and_date">Meteo e data</string>
+     <string name="search_or_command_row">Riga di ricerca o comando</string>
+-    <string name="status_dials">Indicatori di stato</string>
++    <string name="status_dials">Riga di stato</string>
+     <string name="temperature_condition_and_place_with">Temperatura, condizioni e luogo, con la data sotto</string>
+     <string name="a_command_row_under_the">Una riga di comando sotto il meteo; si può scrivere anche senza</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, rete mobile, CPU, RAM, autonomia residua, cella e Impostazioni</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index a4f124c..0354b8e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">עבודה</string>
+     <string name="weather_and_date">מזג אוויר ותאריך</string>
+     <string name="search_or_command_row">שורת חיפוש או פקודות</string>
+-    <string name="status_dials">מחווני מצב</string>
++    <string name="status_dials">שורת מצב</string>
+     <string name="temperature_condition_and_place_with">טמפרטורה, תנאים ומקום, עם התאריך מתחת</string>
+     <string name="a_command_row_under_the">שורת פקודות מתחת למזג האוויר; ההקלדה עובדת גם בלעדיה</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, סלולרי, CPU, RAM, זמן סוללה שנותר, תא ו-הגדרות</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index b1bf4e1..aead2b3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">仕事</string>
+     <string name="weather_and_date">天気と日付</string>
+     <string name="search_or_command_row">検索またはコマンド行</string>
+-    <string name="status_dials">ステータスダイヤル</string>
++    <string name="status_dials">ステータス行</string>
+     <string name="temperature_condition_and_place_with">気温、天候、場所。その下に日付</string>
+     <string name="a_command_row_under_the">天気の下にコマンド行。なくても入力できます</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi、モバイル、CPU、RAM、バッテリー残り時間、セル、設定</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 5c7486d..8e85476 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">업무</string>
+     <string name="weather_and_date">날씨와 날짜</string>
+     <string name="search_or_command_row">검색 또는 명령 줄</string>
+-    <string name="status_dials">상태 다이얼</string>
++    <string name="status_dials">상태 줄</string>
+     <string name="temperature_condition_and_place_with">기온, 날씨, 장소와 그 아래 날짜</string>
+     <string name="a_command_row_under_the">날씨 아래의 명령 줄. 없어도 입력할 수 있습니다</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, 모바일, CPU, RAM, 배터리 남은 시간, 셀, 설정</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 0ded539..f50567b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">Werk</string>
+     <string name="weather_and_date">Weer en datum</string>
+     <string name="search_or_command_row">Zoek- of opdrachtregel</string>
+-    <string name="status_dials">Statusmeters</string>
++    <string name="status_dials">Statusregel</string>
+     <string name="temperature_condition_and_place_with">Temperatuur, weertype en plaats, met de datum eronder</string>
+     <string name="a_command_row_under_the">Een opdrachtregel onder het weer; typen werkt ook zonder</string>
+     <string name="wi_fi_mobile_cpu_ram">Wifi, mobiel, CPU, RAM, resterende batterijtijd, cel en Instellingen</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index e7d73b8..8540fc7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">Praca</string>
+     <string name="weather_and_date">Pogoda i data</string>
+     <string name="search_or_command_row">Wiersz wyszukiwania lub poleceń</string>
+-    <string name="status_dials">Wskaźniki stanu</string>
++    <string name="status_dials">Wiersz stanu</string>
+     <string name="temperature_condition_and_place_with">Temperatura, warunki i miejsce, a pod nimi data</string>
+     <string name="a_command_row_under_the">Wiersz poleceń pod pogodą; pisanie działa także bez niego</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, sieć komórkowa, CPU, RAM, pozostały czas baterii, komórka i Ustawienia</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index 1204648..a779478 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">Trabalho</string>
+     <string name="weather_and_date">Clima e data</string>
+     <string name="search_or_command_row">Linha de busca ou comando</string>
+-    <string name="status_dials">Indicadores de status</string>
++    <string name="status_dials">Linha de status</string>
+     <string name="temperature_condition_and_place_with">Temperatura, condição e local, com a data abaixo</string>
+     <string name="a_command_row_under_the">Uma linha de comando sob o clima; digitar funciona sem ela</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, rede móvel, CPU, RAM, tempo restante da bateria, célula e Configurações</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 43dda7e..945e606 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">Работа</string>
+     <string name="weather_and_date">Погода и дата</string>
+     <string name="search_or_command_row">Строка поиска или команд</string>
+-    <string name="status_dials">Индикаторы состояния</string>
++    <string name="status_dials">Строка состояния</string>
+     <string name="temperature_condition_and_place_with">Температура, погода и место, под ними дата</string>
+     <string name="a_command_row_under_the">Строка команд под погодой; печатать можно и без неё</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, мобильная сеть, ЦП, ОЗУ, оставшееся время батареи, сота и «Настройки»</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 1dbf44d..1367184 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">Jobb</string>
+     <string name="weather_and_date">Väder och datum</string>
+     <string name="search_or_command_row">Sök- eller kommandorad</string>
+-    <string name="status_dials">Statusmätare</string>
++    <string name="status_dials">Statusrad</string>
+     <string name="temperature_condition_and_place_with">Temperatur, väderlek och plats, med datumet under</string>
+     <string name="a_command_row_under_the">En kommandorad under vädret; det går att skriva utan den</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, mobil, CPU, RAM, återstående batteritid, cell och Inställningar</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index b293222..0c1b996 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">İş</string>
+     <string name="weather_and_date">Hava durumu ve tarih</string>
+     <string name="search_or_command_row">Arama veya komut satırı</string>
+-    <string name="status_dials">Durum göstergeleri</string>
++    <string name="status_dials">Durum satırı</string>
+     <string name="temperature_condition_and_place_with">Sıcaklık, durum ve yer; altında tarih</string>
+     <string name="a_command_row_under_the">Hava durumunun altında bir komut satırı; o olmadan da yazılabilir</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, mobil, CPU, RAM, kalan pil süresi, hücre ve Ayarlar</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index 9131d4f..6fad374 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">کام</string>
+     <string name="weather_and_date">موسم اور تاریخ</string>
+     <string name="search_or_command_row">تلاش یا کمانڈ کی قطار</string>
+-    <string name="status_dials">حالت کے ڈائل</string>
++    <string name="status_dials">حالت کی سطر</string>
+     <string name="temperature_condition_and_place_with">درجہ حرارت، حالت اور مقام، نیچے تاریخ کے ساتھ</string>
+     <string name="a_command_row_under_the">موسم کے نیچے کمانڈ کی قطار؛ اس کے بغیر بھی ٹائپنگ چلتی ہے</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi، موبائل، CPU، RAM، بیٹری کا باقی وقت، سیل اور ترتیبات</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 2b939d5..d429ee7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -43,7 +43,7 @@
+     <string name="work">工作</string>
+     <string name="weather_and_date">天气和日期</string>
+     <string name="search_or_command_row">搜索或命令行</string>
+-    <string name="status_dials">状态表盘</string>
++    <string name="status_dials">状态行</string>
+     <string name="temperature_condition_and_place_with">温度、天气状况和地点，下方是日期</string>
+     <string name="a_command_row_under_the">天气下方的命令行；没有它也可以输入</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi、移动网络、CPU、RAM、电池剩余时间、蜂窝和设置</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 2d68c6f..1173322 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -45,7 +45,7 @@
+     <string name="work">Work</string>
+     <string name="weather_and_date">Weather and date</string>
+     <string name="search_or_command_row">Search or command row</string>
+-    <string name="status_dials">Status dials</string>
++    <string name="status_dials">Status line</string>
+     <string name="temperature_condition_and_place_with">Temperature, condition and place, with the date under it</string>
+     <string name="a_command_row_under_the">A Command row under the weather; typing works without it</string>
+     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, Mobile, CPU, RAM, battery time left, Cell and Settings</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 529370d..b27f954 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -55,7 +55,7 @@ object StartText {
+             "work" to "Work",
+             "weather_and_date" to "Weather and date",
+             "search_or_command_row" to "Search or command row",
+-            "status_dials" to "Status dials",
++            "status_dials" to "Status line",
+             "temperature_condition_and_place_with" to
+                 "Temperature, condition and place, with the date under it",
+             "a_command_row_under_the" to "A Command row under the weather; typing works without it",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index d8ffed2..9e5c9d2 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -2661,10 +2661,11 @@ private fun GlanceCard(
+ }
+ 
+ /**
+- * A rightward swipe on the Hub page opens Hub settings ([HubSwipe]). It watches the drag without
+- * consuming it, so the pager still turns to Active Frames on a leftward swipe and the list scrolls.
++ * A rightward swipe on the Hub page opens the Hub views panel ([HubSwipe], [HubViewsPanel]). It
++ * watches the drag without consuming it, so the pager still turns to Active Frames on a leftward
++ * swipe and the list scrolls.
+  */
+-private fun Modifier.hubSwipeToSettings(
++private fun Modifier.hubSwipeToPanel(
+     thresholdPx: Float,
+     onOpen: () -> Unit,
+ ): Modifier =
+@@ -2726,6 +2727,8 @@ private fun HubPage(
+         }
+     }
+     val tabFocus = remember { FocusRequester() }
++    val panelFocus = remember { FocusRequester() }
++    var panelOpen by remember { mutableStateOf(false) }
+     val personFocus = remember { mutableMapOf<Long, FocusRequester>() }
+     val listState = rememberLazyListState()
+     val scope = rememberCoroutineScope()
+@@ -2733,8 +2736,14 @@ private fun HubPage(
+         if (active) {
+             withFrameNanos { }
+             runCatching { tabFocus.requestFocus() }
++        } else {
++            panelOpen = false
+         }
+     }
++    LaunchedEffect(panelOpen) {
++        withFrameNanos { }
++        runCatching { if (panelOpen) panelFocus.requestFocus() else if (active) tabFocus.requestFocus() }
++    }
+ 
+     fun requesterFor(person: HubPerson): FocusRequester = personFocus.getOrPut(person.id) { FocusRequester() }
+ 
+@@ -2783,64 +2792,247 @@ private fun HubPage(
+     }
+ 
+     val swipeDistance = with(LocalDensity.current) { HubSwipe.DISTANCE_DP.dp.toPx() }
+-    LazyColumn(
++    Box(
+         modifier =
+             Modifier
+                 .fillMaxSize()
+-                .onPreviewKeyEvent(::jumpKey)
+-                .hubSwipeToSettings(swipeDistance, onOpenHubSettings),
+-        state = listState,
+-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp),
+-        verticalArrangement = Arrangement.spacedBy(8.dp),
++                // Menu that no row took (rows open their own menu) opens the views panel.
++                .onKeyEvent { event ->
++                    val native = event.nativeKeyEvent
++                    val menu = native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU && !panelOpen
++                    if (menu && event.type == KeyEventType.KeyDown && native.repeatCount == 0) panelOpen = true
++                    menu
++                },
+     ) {
+-        item(key = "header") {
+-            Text(
+-                text = HUB_LABEL,
+-                style = MaterialTheme.typography.headlineSmall,
+-                fontWeight = FontWeight.Medium,
+-                // The strip's own text colour (BB10 palette), not the appearance's content colour.
+-                color = Bb10Text,
+-                modifier = Modifier.semantics { heading() },
+-            )
+-            Spacer(Modifier.height(6.dp))
+-            HubUnreadBar(
++        LazyColumn(
++            modifier =
++                Modifier
++                    .fillMaxSize()
++                    .onPreviewKeyEvent(::jumpKey)
++                    .hubSwipeToPanel(swipeDistance) { panelOpen = true },
++            state = listState,
++            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp),
++            verticalArrangement = Arrangement.spacedBy(8.dp),
++        ) {
++            item(key = "header") {
++                Text(
++                    text = HUB_LABEL,
++                    style = MaterialTheme.typography.headlineSmall,
++                    fontWeight = FontWeight.Medium,
++                    // The strip's own text colour (BB10 palette), not the appearance's content colour.
++                    color = Bb10Text,
++                    modifier = Modifier.semantics { heading() },
++                )
++                Spacer(Modifier.height(6.dp))
++                HubUnreadBar(
++                    items = barItems,
++                    appFor = { personalApps[it] },
++                    onOpen = ::openBarItem,
++                )
++                HubUpcoming(snapshot = snapshot, onOpen = { findLiveApp(apps, CALENDAR_PACKAGE)?.let(onLaunchApp) })
++                Spacer(Modifier.height(8.dp))
++                HubTabs(filter = filter, firstTab = tabFocus, onFilter = onFilter)
++            }
++            if (contactsTab) {
++                hubContactsItems(
++                    people = people,
++                    loaded = peopleLoaded,
++                    canRead = canReadContacts,
++                    contactsApp = contactsApp,
++                    messagesPackage = messagesApp?.component?.packageName,
++                    requesterFor = ::requesterFor,
++                    actions = actions,
++                )
++            } else {
++                hubMessageItems(
++                    filter = filter,
++                    rows = snapshot.hubMessages,
++                    appFor = { pkg -> pkg?.let { personalApps[it] } ?: messagesApp },
++                    onStartIntent = onStartIntent,
++                )
++                hubSummaryItems(
++                    filter = filter,
++                    snapshot = snapshot,
++                    summary = if (hubInstalled) HubBar.summary(barItems) else null,
++                    messagesApp = messagesApp,
++                    mailApp = mailApp,
++                    actions = actions,
++                )
++            }
++        }
++        if (panelOpen) {
++            HubViewsPanel(
++                filter = filter,
+                 items = barItems,
+                 appFor = { personalApps[it] },
+-                onOpen = ::openBarItem,
++                focus = panelFocus,
++                onFilter = {
++                    panelOpen = false
++                    onFilter(it)
++                },
++                onOpenItem = {
++                    panelOpen = false
++                    openBarItem(it)
++                },
++                onOpenHubSettings = {
++                    panelOpen = false
++                    onOpenHubSettings()
++                },
++                onClose = { panelOpen = false },
+             )
+-            HubUpcoming(snapshot = snapshot, onOpen = { findLiveApp(apps, CALENDAR_PACKAGE)?.let(onLaunchApp) })
+-            Spacer(Modifier.height(8.dp))
+-            HubTabs(filter = filter, firstTab = tabFocus, onFilter = onFilter)
+         }
+-        if (contactsTab) {
+-            hubContactsItems(
+-                people = people,
+-                loaded = peopleLoaded,
+-                canRead = canReadContacts,
+-                contactsApp = contactsApp,
+-                messagesPackage = messagesApp?.component?.packageName,
+-                requesterFor = ::requesterFor,
+-                actions = actions,
+-            )
+-        } else {
+-            hubMessageItems(
+-                filter = filter,
+-                rows = snapshot.hubMessages,
+-                appFor = { pkg -> pkg?.let { personalApps[it] } ?: messagesApp },
+-                onStartIntent = onStartIntent,
+-            )
+-            hubSummaryItems(
+-                filter = filter,
+-                snapshot = snapshot,
+-                summary = if (hubInstalled) HubBar.summary(barItems) else null,
+-                messagesApp = messagesApp,
+-                mailApp = mailApp,
+-                actions = actions,
+-            )
++    }
++}
++
++/**
++ * The Hub views panel, as BlackBerry 10's Hub: a swipe right on the Hub page (or Menu where no
++ * message row takes it) slides in a narrow list on the left while the Hub stays beside it. Hub
++ * (with the total unread), Messages, Calls and Contacts filter the list; each app with unread
++ * notifications opens as it does from the unread bar; Hub settings at the bottom opens Sable Hub's
++ * settings. Back, Esc or a tap on the Hub beside it closes the panel.
++ */
++@Composable
++private fun HubViewsPanel(
++    filter: HubFilter,
++    items: List<HubBar.Item>,
++    appFor: (String) -> AppEntry?,
++    focus: FocusRequester,
++    onFilter: (HubFilter) -> Unit,
++    onOpenItem: (HubBar.Item) -> Unit,
++    onOpenHubSettings: () -> Unit,
++    onClose: () -> Unit,
++) {
++    val line = Bb10Line
++    val total = remember(items) { items.sumOf { it.count } }
++    Row(Modifier.fillMaxSize()) {
++        LazyColumn(
++            modifier =
++                Modifier
++                    .fillMaxHeight()
++                    .fillMaxWidth(HUB_PANEL_WIDTH)
++                    .background(Color.Black)
++                    .drawBehind {
++                        val x = size.width - HUB_ROW_DIVIDER_DP.dp.toPx() / 2
++                        drawLine(line, Offset(x, 0f), Offset(x, size.height), HUB_ROW_DIVIDER_DP.dp.toPx())
++                    }.onPreviewKeyEvent { event ->
++                        val code = event.nativeKeyEvent.keyCode
++                        val close = code == android.view.KeyEvent.KEYCODE_BACK || code == android.view.KeyEvent.KEYCODE_ESCAPE
++                        if (close && event.type == KeyEventType.KeyUp) onClose()
++                        close
++                    },
++            contentPadding = PaddingValues(vertical = 10.dp),
++        ) {
++            item(key = "title") {
++                Text(
++                    text = HUB_LABEL,
++                    style = MaterialTheme.typography.titleMedium,
++                    fontWeight = FontWeight.Medium,
++                    color = Bb10Muted,
++                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp).semantics { heading() },
++                )
++            }
++            items(items = HubFilter.entries, key = { "view:" + it.name }) { view ->
++                HubPanelRow(
++                    label = if (view == HubFilter.All) HUB_LABEL else view.label,
++                    count = if (view == HubFilter.All && total > 0) HubBar.countLabel(total) else null,
++                    selected = view == filter,
++                    app = null,
++                    modifier = if (view == HubFilter.All) Modifier.focusRequester(focus) else Modifier,
++                    onClick = { onFilter(view) },
++                )
++            }
++            items(items = items, key = { "app:" + it.packageName }) { item ->
++                val app = appFor(item.packageName)
++                HubPanelRow(
++                    label = app?.label ?: item.packageName,
++                    count = HubBar.countLabel(item.count),
++                    selected = false,
++                    app = app,
++                    onClick = { onOpenItem(item) },
++                )
++            }
++            item(key = "settings") {
++                HubPanelRow(
++                    label = t("hub_settings"),
++                    count = null,
++                    selected = false,
++                    app = null,
++                    onClick = onOpenHubSettings,
++                )
++            }
+         }
++        // The Hub beside the panel, dimmed; a tap there closes the panel.
++        Box(
++            Modifier
++                .fillMaxHeight()
++                .weight(1f)
++                .background(Color.Black.copy(alpha = HUB_PANEL_SCRIM))
++                .pointerInput(Unit) { detectTapGestures { onClose() } },
++        )
+     }
+ }
+ 
++/** One row of the Hub views panel: icon, label and count; the current view in white, others grey. */
++@Composable
++private fun HubPanelRow(
++    label: String,
++    count: String?,
++    selected: Boolean,
++    app: AppEntry?,
++    onClick: () -> Unit,
++    modifier: Modifier = Modifier,
++) {
++    var focused by remember { mutableStateOf(false) }
++    val ink =
++        when {
++            focused -> Bb10OnBlue
++            selected -> Bb10Text
++            else -> Bb10Muted
++        }
++    val divider = Bb10Line
++    Row(
++        modifier =
++            modifier
++                .fillMaxWidth()
++                .heightIn(min = 48.dp)
++                .onFocusChanged { focused = it.isFocused }
++                .background(if (focused) Bb10Blue else Color.Transparent)
++                .drawBehind {
++                    val y = size.height - HUB_ROW_DIVIDER_DP.dp.toPx() / 2
++                    drawLine(divider, Offset(0f, y), Offset(size.width, y), HUB_ROW_DIVIDER_DP.dp.toPx())
++                }.clickable(onClick = onClick)
++                .padding(horizontal = 12.dp),
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        Box(
++            Modifier
++                .width(HUB_ROW_EDGE_DP.dp)
++                .height(28.dp)
++                .background(if (selected && !focused) Bb10Blue else Color.Transparent),
++        )
++        Spacer(Modifier.width(8.dp))
++        if (app != null) {
++            AppMark(app = app, size = HUB_BAR_ICON_DP)
++            Spacer(Modifier.width(8.dp))
++        }
++        Text(
++            text = label,
++            style = MaterialTheme.typography.titleSmall,
++            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
++            color = ink,
++            maxLines = 1,
++            overflow = TextOverflow.Ellipsis,
++            modifier = Modifier.weight(1f),
++        )
++        if (count != null) {
++            Text(text = count, style = MaterialTheme.typography.labelLarge, color = ink, maxLines = 1)
++        }
++    }
++}
++
++private const val HUB_PANEL_WIDTH = 0.62f
++private const val HUB_PANEL_SCRIM = 0.55f
++
+ /**
+  * The Hub page's Upcoming strip: today's and tomorrow's events from Calendar's snapshot, one line
+  * each, or "Nothing today or tomorrow". Hidden while Calendar is missing or has no permission (the
+@@ -2998,8 +3190,7 @@ private fun HubBarChip(
+                 .height(HUB_BAR_ITEM_HEIGHT)
+                 .onFocusChanged { focused = it.isFocused }
+                 .clip(shape)
+-                .background(if (focused) Bb10Blue else Bb10Card)
+-                .border(1.dp, Bb10Line, shape)
++                .background(if (focused) Bb10Blue else Color.Transparent)
+                 .clickable(onClick = onClick)
+                 .semantics { contentDescription = description }
+                 .padding(horizontal = 4.dp),
+@@ -3047,36 +3238,50 @@ private class HubActions(
+     val onRequestContactsPermission: () -> Unit,
+ )
+ 
+-/** The Hub page tabs: All · Messages · Calls · Contacts; All takes focus when the page opens. */
++/**
++ * The Hub page tabs: All · Messages · Calls · Contacts, BlackBerry 10 style: plain text on black,
++ * the selected tab white with a blue line under it, the others grey; the focused tab fills blue.
++ * All takes focus when the page opens.
++ */
+ @Composable
+ private fun HubTabs(
+     filter: HubFilter,
+     firstTab: FocusRequester,
+     onFilter: (HubFilter) -> Unit,
+ ) {
+-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+         HubFilter.entries.forEach { tab ->
+             val selected = tab == filter
++            var focused by remember { mutableStateOf(false) }
++            val underline = if (selected && !focused) Bb10Blue else Color.Transparent
+             Text(
+                 text = tab.label,
+                 modifier =
+                     Modifier
+                         .then(if (tab == HubFilter.All) Modifier.focusRequester(firstTab) else Modifier)
+-                        .clip(RoundedCornerShape(6.dp))
+-                        .background(
+-                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+-                        ).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+-                        .sableFocusRing()
+-                        .clickable { onFilter(tab) }
+-                        .padding(horizontal = 12.dp, vertical = 6.dp),
++                        .onFocusChanged { focused = it.isFocused }
++                        .background(if (focused) Bb10Blue else Color.Transparent)
++                        .drawBehind {
++                            val line = HUB_TAB_LINE_DP.dp.toPx()
++                            drawRect(underline, Offset(0f, size.height - line), Size(size.width, line))
++                        }.clickable { onFilter(tab) }
++                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                 style = MaterialTheme.typography.labelLarge,
+-                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
++                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
++                color =
++                    when {
++                        focused -> Bb10OnBlue
++                        selected -> Bb10Text
++                        else -> Bb10Muted
++                    },
+                 maxLines = 1,
+             )
+         }
+     }
+ }
+ 
++private const val HUB_TAB_LINE_DP = 2
++
+ /**
+  * The All, Messages and Calls tabs: Messages and Mail, Missed calls, and on All the notification
+  * summary ([summary] is null when Sable Hub is absent, which also hides Hub settings).
+@@ -3212,6 +3417,62 @@ private fun hubRowTime(epochMillis: Long): String {
+     return android.text.format.DateFormat.format(pattern, epochMillis).toString()
+ }
+ 
++/**
++ * A Hub page entry (Messages, Mail, Missed calls, Notifications, Hub settings) as a flat BlackBerry
++ * 10 list row, like the message rows: black with a thin divider, the app's icon when there is one,
++ * the title in white and the detail in grey; the focused row fills blue.
++ */
++@Composable
++private fun HubListRow(
++    title: String,
++    detail: String,
++    app: AppEntry?,
++    onClick: (() -> Unit)?,
++) {
++    var focused by remember { mutableStateOf(false) }
++    val text = if (focused) Bb10OnBlue else Bb10Text
++    val muted = if (focused) Bb10OnBlue else Bb10Muted
++    val divider = Bb10Line
++    Row(
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .heightIn(min = 52.dp)
++                .onFocusChanged { focused = it.isFocused }
++                .background(if (focused) Bb10Blue else Color.Transparent)
++                .drawBehind {
++                    val y = size.height - HUB_ROW_DIVIDER_DP.dp.toPx() / 2
++                    drawLine(divider, Offset(0f, y), Offset(size.width, y), HUB_ROW_DIVIDER_DP.dp.toPx())
++                }.then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier.focusable())
++                .padding(start = (HUB_ROW_EDGE_DP + 8).dp, end = 8.dp),
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        if (app != null) {
++            AppMark(app = app, size = HUB_ROW_ICON_DP)
++            Spacer(Modifier.width(10.dp))
++        }
++        Column(modifier = Modifier.weight(1f).padding(vertical = 6.dp)) {
++            Text(
++                text = title,
++                style = MaterialTheme.typography.titleSmall,
++                fontWeight = FontWeight.Medium,
++                color = text,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++            if (detail.isNotBlank()) {
++                Text(
++                    text = detail,
++                    style = MaterialTheme.typography.bodySmall,
++                    color = muted,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                )
++            }
++        }
++    }
++}
++
+ private const val HUB_ROW_EDGE_DP = 3
+ private const val HUB_ROW_DIVIDER_DP = 1
+ private const val HUB_ROW_ICON_DP = 28
+@@ -3232,18 +3493,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+     val showCalls = filter != HubFilter.Messages
+     if (showMessages) {
+         item(key = "messages") {
+-            GlanceCard(
++            HubListRow(
+                 title = t("messages"),
+                 detail = liveDetail(snapshot.messages, messagesApp),
+-                accent = SableBlue,
++                app = messagesApp,
+                 onClick = actions.onOpenMessages,
+             )
+         }
+         item(key = "mail") {
+-            GlanceCard(
++            HubListRow(
+                 title = t("mail"),
+                 detail = liveDetail(snapshot.mail, mailApp),
+-                accent = Color(0xFFE5484D),
++                app = mailApp,
+                 onClick = mailApp?.let { { actions.onLaunchApp(it) } },
+             )
+         }
+@@ -3251,10 +3512,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+     if (showCalls) {
+         item(key = "calls") {
+             // Start holds no call-log permission: the Phone app shows the missed calls.
+-            GlanceCard(
++            HubListRow(
+                 title = t("missed_calls"),
+                 detail = t("recent_calls_in_phone"),
+-                accent = SableGreen,
++                app = null,
+                 onClick = { actions.onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
+             )
+         }
+@@ -3262,18 +3523,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
+     if (filter == HubFilter.All) {
+         item(key = "notifications") {
+             // Android owns the notifications; its history lists what was dismissed too.
+-            GlanceCard(
++            HubListRow(
+                 title = t("notifications"),
+                 detail = summary ?: t("sable_hub_not_installed"),
+-                accent = SableSun,
++                app = null,
+                 onClick = { actions.onStartIntent(Intent(ACTION_NOTIFICATION_HISTORY)) },
+             )
+         }
+     }
+     if (summary != null) {
+         item(key = "settings") {
+-            Spacer(Modifier.height(4.dp))
+-            MetroLink(text = t("hub_settings"), onClick = actions.onOpenHubSettings)
++            HubListRow(title = t("hub_settings"), detail = "", app = null, onClick = actions.onOpenHubSettings)
+         }
+     }
+ }

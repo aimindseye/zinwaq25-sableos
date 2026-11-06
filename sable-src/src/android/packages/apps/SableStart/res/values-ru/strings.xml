@@ -43,7 +43,7 @@
     <string name="work">Работа</string>
     <string name="weather_and_date">Погода и дата</string>
     <string name="search_or_command_row">Строка поиска или команд</string>
-    <string name="status_dials">Индикаторы состояния</string>
+    <string name="status_dials">Строка состояния</string>
     <string name="temperature_condition_and_place_with">Температура, погода и место, под ними дата</string>
     <string name="a_command_row_under_the">Строка команд под погодой; печатать можно и без неё</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, мобильная сеть, ЦП, ОЗУ, оставшееся время батареи, сота и «Настройки»</string>

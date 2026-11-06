@@ -43,7 +43,7 @@
     <string name="work">Pro</string>
     <string name="weather_and_date">Météo et date</string>
     <string name="search_or_command_row">Ligne de recherche ou de commande</string>
-    <string name="status_dials">Cadrans d’état</string>
+    <string name="status_dials">Ligne d’état</string>
     <string name="temperature_condition_and_place_with">Température, conditions et lieu, avec la date en dessous</string>
     <string name="a_command_row_under_the">Une ligne de commande sous la météo ; la saisie fonctionne sans elle</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, mobile, CPU, RAM, autonomie restante, cellule et Réglages</string>

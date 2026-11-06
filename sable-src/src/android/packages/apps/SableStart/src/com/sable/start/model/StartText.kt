@@ -55,7 +55,7 @@ object StartText {
             "work" to "Work",
             "weather_and_date" to "Weather and date",
             "search_or_command_row" to "Search or command row",
-            "status_dials" to "Status dials",
+            "status_dials" to "Status line",
             "temperature_condition_and_place_with" to
                 "Temperature, condition and place, with the date under it",
             "a_command_row_under_the" to "A Command row under the weather; typing works without it",

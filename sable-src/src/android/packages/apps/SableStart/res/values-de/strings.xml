@@ -43,7 +43,7 @@
     <string name="work">Arbeit</string>
     <string name="weather_and_date">Wetter und Datum</string>
     <string name="search_or_command_row">Such- oder Befehlszeile</string>
-    <string name="status_dials">Statusanzeigen</string>
+    <string name="status_dials">Statuszeile</string>
     <string name="temperature_condition_and_place_with">Temperatur, Wetterlage und Ort, darunter das Datum</string>
     <string name="a_command_row_under_the">Eine Befehlszeile unter dem Wetter; Tippen funktioniert auch ohne sie</string>
     <string name="wi_fi_mobile_cpu_ram">WLAN, Mobilfunk, CPU, RAM, Akkurestzeit, Zelle und Einstellungen</string>
