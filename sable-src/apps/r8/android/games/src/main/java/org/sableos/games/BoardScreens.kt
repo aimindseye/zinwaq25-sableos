@@ -39,14 +39,14 @@ import kotlinx.coroutines.delay
 import org.sableos.games.GamesText.t
 import kotlin.random.Random
 
-private val CardRed = Color(0xFFD32F45)
+private val CardRed = Color(0xFF1F6E96)
 private val CardBlack = Color(0xFF12171C)
 private val CardFace = Color(0xFFF7F9FC)
-private val TileFace = Color(0xFFF2EBDD)
-private val SuitColors = listOf(Color(0xFF2F6FD0), Color(0xFF2E8B57), Color(0xFFC0392B))
+private val TileFace = Color(0xFFEDEDED)
+private val SuitColors = listOf(Color(0xFF1F6E96), Color(0xFF262626), Color(0xFF6B6B6B))
 private val SuitMarks = listOf("●", "▮", "✦")
-private val MarkRight = Color(0xFF35C66B)
-private val MarkElsewhere = Color(0xFFD9A441)
+private val MarkRight = Color(0xFF2E9BD6)
+private val MarkElsewhere = Color(0xFFA6A6A6)
 private const val PHONE_THINK_MS = 450L
 private const val BLOCKED_ALPHA = 0.55f
 
@@ -601,7 +601,7 @@ private fun MahjongTile(
                 } else {
                     1.dp
                 },
-                if (hinted) MarkElsewhere else Color(0xFF8A7F6A),
+                if (hinted) MarkElsewhere else Color(0xFF8C8C8C),
                 RoundedCornerShape(5.dp),
             ),
         contentAlignment = Alignment.Center,

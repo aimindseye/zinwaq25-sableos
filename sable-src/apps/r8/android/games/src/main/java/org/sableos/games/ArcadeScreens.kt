@@ -32,13 +32,13 @@ import kotlin.random.Random
 /** Shape colours for the blocks (I, O, T, S, Z, J, L) and the brick rows, chosen to read on dark and light. */
 private val PieceColors =
     listOf(
-        Color(0xFF3FC5F0),
-        Color(0xFFFFC857),
-        Color(0xFF9A63E8),
-        Color(0xFF35C66B),
-        Color(0xFFE34D59),
-        Color(0xFF3189D8),
-        Color(0xFFF08A4B),
+        Color(0xFF2E9BD6),
+        Color(0xFF1F6E96),
+        Color(0xFF5A5A5A),
+        Color(0xFF7D7D7D),
+        Color(0xFF9A9A9A),
+        Color(0xFFB0B0B0),
+        Color(0xFF6B6B6B),
     )
 
 private const val PADDLE_STEP = 0.06f

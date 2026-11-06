@@ -27,7 +27,6 @@
 package org.vaachak.textreader
 
 import android.Manifest
-import org.vaachak.textreader.ui.theme.MyApplicationTheme
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -93,7 +92,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         setContent {
             val isDark = isSystemInDarkTheme()
-            MyApplicationTheme(darkTheme = isDark) {
+            MaterialTheme(colorScheme = if (isDark) darkColorScheme() else lightColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     MainScreen(
                         ttsEngine = tts,
@@ -236,7 +235,7 @@ fun MainScreen(
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text("Sable Text Reader", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium) },
+                    title = { Text("V A A C H A K", style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 4.sp), fontWeight = FontWeight.Light) },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background)
                 )
             }

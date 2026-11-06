@@ -24,11 +24,11 @@ import org.sableos.games.GamesText.t
 
 private const val MINE_FIELD_SIZE = 9
 
-private val MineOne = Color(0xFF5EA8FF)
-private val MineTwo = Color(0xFF52D680)
-private val MineThree = Color(0xFFFF7A6B)
-private val MineFour = Color(0xFFB38AFF)
-private val MineFive = Color(0xFFFF6FB5)
+private val MineOne = Color(0xFF2E9BD6)
+private val MineTwo = Color(0xFF7D7D7D)
+private val MineThree = Color(0xFF1F6E96)
+private val MineFour = Color(0xFFB0B0B0)
+private val MineFive = Color(0xFF8C8C8C)
 
 @Composable
 internal fun MinesweeperScreen() {
