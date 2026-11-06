@@ -228,7 +228,7 @@ new file mode 100644
 index 000000000..d3209cc81
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/row/SableNotificationKeyCommands.kt
-@@ -0,0 +1,169 @@
+@@ -0,0 +1,168 @@
 +/*
 + * Copyright (C) 2026 The SableOS Project
 + *
@@ -256,7 +256,6 @@ index 000000000..d3209cc81
 +import android.view.ViewGroup
 +import com.android.systemui.res.R
 +import com.android.systemui.statusbar.notification.sable.SableHubRoute
-+import com.android.systemui.statusbar.notification.shared.NotificationBundleUi
 +
 +/**
 + * Executes [SableNotificationKeyRouter] commands on a focused [ExpandableNotificationRow].
@@ -383,7 +382,7 @@ index 000000000..d3209cc81
 +            ).isNotEmpty()
 +
 +    private fun sbnOf(row: ExpandableNotificationRow): StatusBarNotification? =
-+        if (NotificationBundleUi.isEnabled) row.entryAdapter.sbn else row.entryLegacy.sbn
++        row.entryAdapter.sbn
 +
 +    /** The source's own RemoteInput action button, if the visible layout shows one. */
 +    private fun findReplyButton(view: View): View? {

@@ -172,16 +172,12 @@ diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/Q
 index f814fce..bc842f4 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt
-@@ -50,8 +50,22 @@ constructor(
+@@ -50,8 +50,18 @@ constructor(
      private val mediaInRowViewModel =
          mediaInRowInLandscapeViewModelFactory.create(LOCATION_QQS, mediaUiBehavior)
  
 +    private val sableColumns by
-+        hydrator.hydratedStateOf(
-+            traceName = "sableColumns",
-+            initialValue = 0,
-+            source = quickQuickSettingsRowInteractor.sableColumns,
-+        )
++        quickQuickSettingsRowInteractor.sableColumns.hydratedStateOf(initialValue = 0)
 +
 +    // Sable: the compact row may have its own column count (config_sableQuickQsNumColumns). Media
 +    // in a row keeps upstream's halved grid.

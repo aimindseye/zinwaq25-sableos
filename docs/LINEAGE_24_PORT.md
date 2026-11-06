@@ -35,14 +35,14 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `frameworks/base/0101-SableOS-read-default-large-Quick-Settings-tiles-from.patch` | ported by hand |
 | `frameworks/base/0102-SableOS-Quick-Settings-tiles-use-the-Sable-card-and-.patch` | ported by hand |
 | `frameworks/base/0103-SableOS-apply-the-pure-black-theme-at-boot-and-after-setup.patch` | ported by hand |
-| `frameworks/base/0301-SableOS-keyboard-notification-commands-in-the-shade.patch` | applies as is |
+| `frameworks/base/0301-SableOS-keyboard-notification-commands-in-the-shade.patch` | applies as is; the row's notification now always comes from `entryAdapter`, since 24.0 removed `NotificationBundleUi` and `entryLegacy` |
 | `frameworks/base/0302-SableOS-Alt-shade-shortcuts-for-keyboards-without-Fn.patch` | refreshed (context moved) |
 | `frameworks/base/0303-SableOS-Space-toggles-and-Alt-Enter-opens-details-on.patch` | ported by hand |
 | `frameworks/base/0304-SableOS-keyboard-hint-line-and-type-ahead-on-the-loc.patch` | ported by hand |
 | `frameworks/base/0305-SableOS-Sable-lock-screen-clock-and-unlock-text.patch` | refreshed (context moved) |
 | `frameworks/base/0306-SableOS-keep-the-lock-screen-clock-on-the-current-ti.patch` | applies as is |
 | `frameworks/base/0307-SableOS-Sable-locked-glance-emergency-shortcut-and-b.patch` | ported by hand |
-| `frameworks/base/0310-SableOS-three-column-labeled-Quick-Settings-grid-fou.patch` | ported by hand |
+| `frameworks/base/0310-SableOS-three-column-labeled-Quick-Settings-grid-fou.patch` | ported by hand; the compact-row column count uses `Flow.hydratedStateOf(initialValue)`, since 24.0 made `HydratedActivatable.hydrator` private |
 | `frameworks/base/0311-SableOS-Sable-Quick-Settings-header-Hub-summary-row-.patch` | ported by hand |
 | `frameworks/base/0312-SableOS-slash-searches-the-notifications-in-the-shade.patch` | ported by hand |
 | `frameworks/base/0313-SableOS-Alt-Shift-R-cycles-the-Tall-canvas-of-the-ap.patch` | refreshed (context moved) |
