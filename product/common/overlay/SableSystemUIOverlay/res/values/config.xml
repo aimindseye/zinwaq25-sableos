@@ -11,8 +11,8 @@
         internet,bt,dark,dnd,battery,flashlight,hotspot,location,airplane
     </string>
     <!-- Lock screen clock alignment (frameworks/base patch 0305). The owner's
-         approved lock screen design (sable-lockscreen-titan2.svg) centers the
-         large clock, so Sable keeps it centered; true moves it to the start
-         edge with sable_keyguard_clock_margin_start (Panther UI6A). -->
-    <bool name="config_sableKeyguardClockStartAligned">false</bool>
+         BlackBerry 10 lock screen puts the clock at the start edge, and the owner
+         chose that on 2026-11-06: true moves the large clock to the start edge
+         with sable_keyguard_clock_margin_start (Panther UI6A). -->
+    <bool name="config_sableKeyguardClockStartAligned">true</bool>
 </resources>
