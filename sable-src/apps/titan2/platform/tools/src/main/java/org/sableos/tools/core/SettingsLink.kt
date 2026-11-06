@@ -62,6 +62,13 @@ enum class SettingsLink(private val labelKey: String, val candidates: List<LinkI
         "app_info",
         listOf(LinkIntent("android.settings.APPLICATION_DETAILS_SETTINGS", packageUri = true))
     ),
+    INSTALL_UNKNOWN(
+        "settings_install_unknown_apps",
+        listOf(
+            LinkIntent("android.settings.MANAGE_UNKNOWN_APP_SOURCES"),
+            LinkIntent("android.settings.SECURITY_SETTINGS")
+        )
+    ),
     PRIVACY("settings_privacy", listOf(LinkIntent("android.settings.PRIVACY_SETTINGS"))),
     SECURITY("settings_security", listOf(LinkIntent("android.settings.SECURITY_SETTINGS"))),
     DEVELOPER(
@@ -90,6 +97,7 @@ object Handoffs {
         Tool.APPS -> listOf(SettingsLink.APP_SECURITY)
         Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS, SettingsLink.KEYBOARD)
         Tool.DEVICE_IDENTITY -> listOf(SettingsLink.ABOUT, SettingsLink.SECURITY)
+        Tool.PRIVACY_CHECK -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
         Tool.BUGREPORT -> listOf(SettingsLink.DEVELOPER)
         else -> emptyList()
     }

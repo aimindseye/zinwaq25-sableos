@@ -1,0 +1,1109 @@
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/PrivacyCollector.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/PrivacyCollector.kt
+new file mode 100644
+index 0000000..0925432
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/PrivacyCollector.kt
+@@ -0,0 +1,165 @@
++package org.sableos.tools.android
++
++import android.app.AppOpsManager
++import android.app.KeyguardManager
++import android.app.admin.DevicePolicyManager
++import android.content.Context
++import android.content.pm.ApplicationInfo
++import android.content.pm.LauncherApps
++import android.content.pm.PackageInfo
++import android.content.pm.PackageManager
++import android.os.Build
++import android.os.UserManager
++import android.provider.Settings
++import java.time.LocalDate
++import java.time.temporal.ChronoUnit
++import org.sableos.tools.core.CheckState
++import org.sableos.tools.core.PrivacyCheck
++import org.sableos.tools.core.PrivacyCheckId
++import org.sableos.tools.core.PrivacyScore
++import org.sableos.tools.core.ToolsText.t
++
++/**
++ * Reads the privacy checks from public platform APIs (KeyguardManager, DevicePolicyManager, PackageManager,
++ * AppOpsManager, Settings). Read-only: it never changes a setting. A value that cannot be read is
++ * [CheckState.UNKNOWN], never a guess.
++ */
++class PrivacyCollector(private val ctx: Context) {
++    private val pm: PackageManager = ctx.packageManager
++
++    fun checks(): List<PrivacyCheck> {
++        val packages = userApps()
++        return listOf(
++            flag(PrivacyCheckId.SCREEN_LOCK, screenLock(), goodWhenOn = true),
++            flag(PrivacyCheckId.ENCRYPTION, encrypted(), goodWhenOn = true),
++            counted(
++                PrivacyCheckId.INSTALL_APPS,
++                installers(packages),
++                PrivacyScore::installAppsState
++            ),
++            counted(
++                PrivacyCheckId.SENSITIVE_APPS,
++                sensitive(packages),
++                PrivacyScore::sensitiveAppsState
++            ),
++            privateSpace(),
++            flag(PrivacyCheckId.USB_DEBUGGING, usbDebugging(), goodWhenOn = false),
++            patch()
++        )
++    }
++
++    private fun flag(id: PrivacyCheckId, on: Boolean?, goodWhenOn: Boolean) = PrivacyCheck(
++        id,
++        PrivacyScore.flagState(on, goodWhenOn),
++        when (on) {
++            null -> t("check_unknown")
++            true -> t("check_on")
++            false -> t("check_off")
++        }
++    )
++
++    private fun counted(id: PrivacyCheckId, count: Int?, state: (Int?) -> CheckState) =
++        PrivacyCheck(
++            id,
++            state(count),
++            count?.let { t("check_apps_count", it) } ?: t("check_unknown")
++        )
++
++    private fun screenLock(): Boolean? =
++        ctx.getSystemService(KeyguardManager::class.java)?.isDeviceSecure
++
++    private fun encrypted(): Boolean? =
++        ctx.getSystemService(DevicePolicyManager::class.java)?.storageEncryptionStatus?.let {
++            it == DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE ||
++                it == DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE_PER_USER ||
++                it == DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE_DEFAULT_KEY
++        }
++
++    private fun usbDebugging(): Boolean? = runCatching {
++        Settings.Global.getInt(ctx.contentResolver, Settings.Global.ADB_ENABLED) == 1
++    }.getOrNull()
++
++    /** Apps the user installed (system apps that were never updated are the phone's own). */
++    private fun userApps(): List<PackageInfo>? = runCatching {
++        pm.getInstalledPackages(
++            PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong())
++        )
++            .filter { info ->
++                val flags = info.applicationInfo?.flags ?: 0
++                flags and ApplicationInfo.FLAG_SYSTEM == 0 ||
++                    flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
++            }
++            .filter { it.packageName != ctx.packageName }
++    }.getOrNull()
++
++    private fun installers(packages: List<PackageInfo>?): Int? {
++        val ops = ctx.getSystemService(AppOpsManager::class.java) ?: return null
++        return packages?.count { info ->
++            val uid = info.applicationInfo?.uid ?: return@count false
++            INSTALL_PERMISSION in info.requestedPermissions.orEmpty() &&
++                runCatching {
++                    ops.unsafeCheckOpNoThrow(INSTALL_OP, uid, info.packageName) ==
++                        AppOpsManager.MODE_ALLOWED
++                }.getOrDefault(false)
++        }
++    }
++
++    private fun sensitive(packages: List<PackageInfo>?): Int? = packages?.count { info ->
++        val requested = info.requestedPermissions.orEmpty()
++        val flags = info.requestedPermissionsFlags.orEmpty()
++        SENSITIVE_PERMISSIONS.any { perm ->
++            val i = requested.indexOf(perm)
++            i >= 0 && flags.getOrElse(i) { 0 } and PackageInfo.REQUESTED_PERMISSION_GRANTED != 0
++        }
++    }
++
++    /** Private Space is a profile of type private; shown as On when one is set up. */
++    private fun privateSpace(): PrivacyCheck {
++        val set =
++            runCatching {
++                val launcher = ctx.getSystemService(LauncherApps::class.java)
++                ctx.getSystemService(UserManager::class.java)?.userProfiles?.any { user ->
++                    launcher?.getLauncherUserInfo(user)?.userType == PRIVATE_PROFILE
++                }
++            }.getOrNull()
++        // Not set up is not a problem, only worth knowing: it never counts against the phone.
++        return PrivacyCheck(
++            PrivacyCheckId.PRIVATE_SPACE,
++            if (set == null) CheckState.UNKNOWN else CheckState.GOOD,
++            when (set) {
++                null -> t("check_unknown")
++                true -> t("check_on")
++                false -> t("check_off")
++            }
++        )
++    }
++
++    private fun patch(): PrivacyCheck {
++        val date = runCatching { LocalDate.parse(Build.VERSION.SECURITY_PATCH) }.getOrNull()
++        val age = date?.let { ChronoUnit.DAYS.between(it, LocalDate.now()) }
++        return PrivacyCheck(
++            PrivacyCheckId.SECURITY_PATCH,
++            PrivacyScore.patchState(age),
++            if (date == null ||
++                age == null
++            ) {
++                t("check_unknown")
++            } else {
++                t("check_patch_age", date.toString(), age.toInt())
++            }
++        )
++    }
++
++    private companion object {
++        const val INSTALL_PERMISSION = "android.permission.REQUEST_INSTALL_PACKAGES"
++        const val INSTALL_OP = "android:request_install_packages"
++        const val PRIVATE_PROFILE = "android.os.usertype.profile.PRIVATE"
++        val SENSITIVE_PERMISSIONS =
++            listOf(
++                "android.permission.ACCESS_FINE_LOCATION",
++                "android.permission.ACCESS_COARSE_LOCATION",
++                "android.permission.RECORD_AUDIO",
++                "android.permission.CAMERA"
++            )
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/PrivacyCheck.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/PrivacyCheck.kt
+new file mode 100644
+index 0000000..3906190
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/PrivacyCheck.kt
+@@ -0,0 +1,89 @@
++package org.sableos.tools.core
++
++import org.sableos.tools.core.ToolsText.t
++
++/** How one privacy check came out. [UNKNOWN] is never counted against the phone: the app could not tell. */
++enum class CheckState { GOOD, NEEDS_ATTENTION, UNKNOWN }
++
++/** The checks, in the order they are listed and in the order a fix is offered. */
++enum class PrivacyCheckId(
++    private val titleKey: String,
++    /** A phone without this is exposed to anyone who picks it up, so it weighs more than the rest. */
++    val critical: Boolean,
++    val link: SettingsLink
++) {
++    SCREEN_LOCK("check_screen_lock", true, SettingsLink.SECURITY),
++    ENCRYPTION("check_encryption", true, SettingsLink.SECURITY),
++    INSTALL_APPS("check_install_apps", false, SettingsLink.INSTALL_UNKNOWN),
++    SENSITIVE_APPS("check_sensitive_apps", false, SettingsLink.PRIVACY),
++    PRIVATE_SPACE("check_private_space", false, SettingsLink.SECURITY),
++    USB_DEBUGGING("check_usb_debugging", false, SettingsLink.DEVELOPER),
++    SECURITY_PATCH("check_security_patch", false, SettingsLink.ABOUT);
++
++    val title: String get() = t(titleKey)
++}
++
++/** One row of the privacy check: what was checked, how it came out, and the short value to show. */
++data class PrivacyCheck(val id: PrivacyCheckId, val state: CheckState, val detail: String)
++
++enum class PrivacyRating(private val labelKey: String) {
++    GOOD("privacy_good"),
++    FAIR("privacy_fair"),
++    POOR("privacy_poor");
++
++    val label: String get() = t(labelKey)
++}
++
++/**
++ * The DTEK-style rating. Pure and read-only: it rates what the platform layer read and never changes a setting.
++ *
++ * Good: nothing needs attention. Poor: the screen lock or encryption needs attention, or three or more checks do.
++ * Fair: anything else.
++ */
++object PrivacyScore {
++    /** More apps than this holding location, microphone or camera needs a look. */
++    const val SENSITIVE_APPS_LIMIT = 8
++
++    /** A security patch older than this many days needs attention. */
++    const val PATCH_MAX_AGE_DAYS = 180
++
++    private const val POOR_COUNT = 3
++
++    fun rate(checks: List<PrivacyCheck>): PrivacyRating {
++        val bad = checks.filter { it.state == CheckState.NEEDS_ATTENTION }
++        return when {
++            bad.isEmpty() -> PrivacyRating.GOOD
++            bad.any { it.id.critical } || bad.size >= POOR_COUNT -> PrivacyRating.POOR
++            else -> PrivacyRating.FAIR
++        }
++    }
++
++    /** The one fix to offer first: the first check, in list order, that needs attention. */
++    fun nextFix(checks: List<PrivacyCheck>): PrivacyCheck? =
++        checks.sortedBy { it.id.ordinal }.firstOrNull { it.state == CheckState.NEEDS_ATTENTION }
++
++    fun sensitiveAppsState(count: Int?): CheckState = when {
++        count == null -> CheckState.UNKNOWN
++        count > SENSITIVE_APPS_LIMIT -> CheckState.NEEDS_ATTENTION
++        else -> CheckState.GOOD
++    }
++
++    /** Apps that may install other apps: none is good; any is worth a look, so the user sees which. */
++    fun installAppsState(count: Int?): CheckState = when {
++        count == null -> CheckState.UNKNOWN
++        count > 0 -> CheckState.NEEDS_ATTENTION
++        else -> CheckState.GOOD
++    }
++
++    fun patchState(ageDays: Long?): CheckState = when {
++        ageDays == null -> CheckState.UNKNOWN
++        ageDays > PATCH_MAX_AGE_DAYS -> CheckState.NEEDS_ATTENTION
++        else -> CheckState.GOOD
++    }
++
++    fun flagState(isOn: Boolean?, goodWhenOn: Boolean): CheckState = when (isOn) {
++        null -> CheckState.UNKNOWN
++        goodWhenOn -> CheckState.GOOD
++        else -> CheckState.NEEDS_ATTENTION
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+index f2ab782..9430042 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+@@ -62,6 +62,13 @@ enum class SettingsLink(private val labelKey: String, val candidates: List<LinkI
+         "app_info",
+         listOf(LinkIntent("android.settings.APPLICATION_DETAILS_SETTINGS", packageUri = true))
+     ),
++    INSTALL_UNKNOWN(
++        "settings_install_unknown_apps",
++        listOf(
++            LinkIntent("android.settings.MANAGE_UNKNOWN_APP_SOURCES"),
++            LinkIntent("android.settings.SECURITY_SETTINGS")
++        )
++    ),
+     PRIVACY("settings_privacy", listOf(LinkIntent("android.settings.PRIVACY_SETTINGS"))),
+     SECURITY("settings_security", listOf(LinkIntent("android.settings.SECURITY_SETTINGS"))),
+     DEVELOPER(
+@@ -90,6 +97,7 @@ object Handoffs {
+         Tool.APPS -> listOf(SettingsLink.APP_SECURITY)
+         Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS, SettingsLink.KEYBOARD)
+         Tool.DEVICE_IDENTITY -> listOf(SettingsLink.ABOUT, SettingsLink.SECURITY)
++        Tool.PRIVACY_CHECK -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
+         Tool.BUGREPORT -> listOf(SettingsLink.DEVELOPER)
+         else -> emptyList()
+     }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
+index 6d10a84..75ceb17 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
+@@ -159,6 +159,12 @@ enum class Tool(
+     ),
+ 
+     // Diagnostics
++    PRIVACY_CHECK(
++        Section.DIAGNOSTICS,
++        "privacy_check",
++        ToolKind.INFO,
++        keywords = listOf("dtek", "security", "permissions", "lock", "encryption", "usb debugging")
++    ),
+     DEVICE_IDENTITY(
+         Section.DIAGNOSTICS,
+         "device_build_and_security",
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+index 92d758f..1fad5b7 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+@@ -267,6 +267,27 @@ object ToolsText {
+             "speedometer" to "Speedometer",
+             "pedometer" to "Pedometer",
+             "ir_remote" to "IR remote",
++            "privacy_check" to "Privacy check",
++            "privacy_good" to "Good",
++            "privacy_fair" to "Fair",
++            "privacy_poor" to "Needs work",
++            "check_needs_attention" to "Needs attention",
++            "check_unknown" to "Unknown",
++            "check_fix_first" to "Fix first",
++            "check_screen_lock" to "Screen lock",
++            "check_encryption" to "Encryption",
++            "check_install_apps" to "Apps that can install apps",
++            "check_sensitive_apps" to "Apps with location, microphone or camera",
++            "check_private_space" to "Private Space",
++            "check_usb_debugging" to "USB debugging",
++            "check_security_patch" to "Security patch",
++            "check_on" to "On",
++            "check_off" to "Off",
++            "check_apps_count" to "%1\$d apps",
++            "check_patch_age" to "%1\$s, %2\$d days old",
++            "settings_install_unknown_apps" to "Settings > Install unknown apps",
++            "privacy_check_info" to
++                "Read-only: it never changes a setting. Menu opens the Settings page for a check that needs attention.",
+             "device_build_and_security" to "Device, build and security",
+             "keyboard_event_viewer" to "Keyboard event viewer",
+             "keyboard_layout_and_profile" to "Keyboard layout and profile",
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt
+index 8274305..6c66e44 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt
+@@ -25,6 +25,7 @@ object Controllers {
+         Tool.SPEEDOMETER to ::SpeedController,
+         Tool.PEDOMETER to ::PedometerController,
+         Tool.IR_REMOTE to ::IrRemoteController,
++        Tool.PRIVACY_CHECK to ::PrivacyCheckController,
+         Tool.DEVICE_IDENTITY to info(ReportCategory.DEVICE),
+         Tool.KEY_VIEWER to ::KeyViewerController,
+         Tool.KEYBOARD_PROFILE to info(ReportCategory.INPUT),
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+index ca6c18d..3c52dc1 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+@@ -12,12 +12,16 @@ import android.widget.EditText
+ import android.widget.LinearLayout
+ import android.widget.ScrollView
+ import android.widget.TextView
++import org.sableos.tools.android.PrivacyCollector
+ import org.sableos.tools.core.CaseResult
++import org.sableos.tools.core.CheckState
+ import org.sableos.tools.core.DiagTarget
+ import org.sableos.tools.core.DialerCodes
+ import org.sableos.tools.core.FieldKind
+ import org.sableos.tools.core.HomeModel
+ import org.sableos.tools.core.KeyEventFormat
++import org.sableos.tools.core.PrivacyCheck
++import org.sableos.tools.core.PrivacyScore
+ import org.sableos.tools.core.Redactor
+ import org.sableos.tools.core.ReportSection
+ import org.sableos.tools.core.TextEntryTest
+@@ -331,3 +335,50 @@ class FactoryBridgeController(host: ToolHost) :
+         }
+     )
+ }
++
++/**
++ * Privacy check (DTEK style): an overall rating and one row per check, each Good or Needs attention. Read-only; the
++ * Menu offers to open the Settings page behind every check that needs attention, the first fix first.
++ */
++class PrivacyCheckController(private val host: ToolHost) : ToolController {
++    private val ctx = host.activity
++    private val text: TextView = Ui.mono(ctx)
++    private var rendered = ""
++    private var checks: List<PrivacyCheck> = emptyList()
++
++    override fun view(): View = ScrollView(ctx).apply {
++        isFocusable = true
++        addView(text)
++        post { requestFocus() }
++    }
++
++    override fun start() {
++        checks = PrivacyCollector(ctx).checks()
++        val rating = PrivacyScore.rate(checks)
++        val fix = PrivacyScore.nextFix(checks)
++        rendered = buildString {
++            appendLine("${t("privacy_check")}: ${rating.label}")
++            fix?.let { appendLine("${t("check_fix_first")}: ${it.id.title}") }
++            appendLine()
++            checks.forEach { appendLine("${stateLabel(it.state)}  ${it.id.title}: ${it.detail}") }
++        }.trimEnd()
++        text.text = rendered
++    }
++
++    private fun stateLabel(state: CheckState) = when (state) {
++        CheckState.GOOD -> t("privacy_good")
++        CheckState.NEEDS_ATTENTION -> t("check_needs_attention")
++        CheckState.UNKNOWN -> t("check_unknown")
++    }
++
++    override fun info() = t("privacy_check_info")
++    override fun copyText() = rendered
++
++    override fun actions(): List<Pair<String, () -> Unit>> {
++        val order = PrivacyScore.nextFix(checks)
++        return checks
++            .filter { it.state == CheckState.NEEDS_ATTENTION }
++            .sortedBy { if (it == order) 0 else 1 }
++            .map { c -> t("open", c.id.title) to { host.openLink(c.id.link) } }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+index 7fc1878..3ecfc2d 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">عدّاد السرعة</string>
+     <string name="pedometer">عدّاد الخطوات</string>
+     <string name="ir_remote">جهاز تحكم IR</string>
++    <string name="privacy_check">فحص الخصوصية</string>
++    <string name="privacy_good">جيد</string>
++    <string name="privacy_fair">مقبول</string>
++    <string name="privacy_poor">يحتاج إلى عمل</string>
++    <string name="check_needs_attention">يحتاج إلى انتباه</string>
++    <string name="check_unknown">غير معروف</string>
++    <string name="check_fix_first">أصلح أولًا</string>
++    <string name="check_screen_lock">قفل الشاشة</string>
++    <string name="check_encryption">التشفير</string>
++    <string name="check_install_apps">تطبيقات تثبّت تطبيقات</string>
++    <string name="check_sensitive_apps">تطبيقات بالموقع أو الميكروفون أو الكاميرا</string>
++    <string name="check_private_space">المساحة الخاصة</string>
++    <string name="check_usb_debugging">تصحيح أخطاء USB</string>
++    <string name="check_security_patch">تصحيح الأمان</string>
++    <string name="check_on">مفعّل</string>
++    <string name="check_off">متوقف</string>
++    <string name="check_apps_count">%1$d تطبيقًا</string>
++    <string name="check_patch_age">%1$s، عمره %2$d يومًا</string>
++    <string name="settings_install_unknown_apps">الإعدادات &gt; تثبيت التطبيقات غير المعروفة</string>
++    <string name="privacy_check_info">للقراءة فقط: لا يغيّر أي إعداد. تفتح القائمة صفحة الإعدادات للفحص الذي يحتاج إلى انتباه.</string>
+     <string name="device_build_and_security">الجهاز والإصدار والأمان</string>
+     <string name="keyboard_event_viewer">عارض أحداث لوحة المفاتيح</string>
+     <string name="keyboard_layout_and_profile">تخطيط لوحة المفاتيح وملفها</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+index ac3066b..8b827f2 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">Tachometer</string>
+     <string name="pedometer">Schrittzähler</string>
+     <string name="ir_remote">IR-Fernbedienung</string>
++    <string name="privacy_check">Datenschutz-Check</string>
++    <string name="privacy_good">Gut</string>
++    <string name="privacy_fair">Mittel</string>
++    <string name="privacy_poor">Verbesserung nötig</string>
++    <string name="check_needs_attention">Braucht Aufmerksamkeit</string>
++    <string name="check_unknown">Unbekannt</string>
++    <string name="check_fix_first">Zuerst beheben</string>
++    <string name="check_screen_lock">Displaysperre</string>
++    <string name="check_encryption">Verschlüsselung</string>
++    <string name="check_install_apps">Apps, die Apps installieren können</string>
++    <string name="check_sensitive_apps">Apps mit Standort, Mikrofon oder Kamera</string>
++    <string name="check_private_space">Privater Bereich</string>
++    <string name="check_usb_debugging">USB-Debugging</string>
++    <string name="check_security_patch">Sicherheitspatch</string>
++    <string name="check_on">An</string>
++    <string name="check_off">Aus</string>
++    <string name="check_apps_count">%1$d Apps</string>
++    <string name="check_patch_age">%1$s, %2$d Tage alt</string>
++    <string name="settings_install_unknown_apps">Einstellungen &gt; Unbekannte Apps installieren</string>
++    <string name="privacy_check_info">Nur lesen: Es ändert keine Einstellung. Menü öffnet die Einstellungen zu einer Prüfung, die Aufmerksamkeit braucht.</string>
+     <string name="device_build_and_security">Gerät, Build und Sicherheit</string>
+     <string name="keyboard_event_viewer">Tastaturereignis-Anzeige</string>
+     <string name="keyboard_layout_and_profile">Tastaturlayout und Profil</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+index 90f2f9b..eb46213 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">Ταχύμετρο</string>
+     <string name="pedometer">Βηματόμετρο</string>
+     <string name="ir_remote">Τηλεχειριστήριο IR</string>
++    <string name="privacy_check">Έλεγχος απορρήτου</string>
++    <string name="privacy_good">Καλό</string>
++    <string name="privacy_fair">Μέτριο</string>
++    <string name="privacy_poor">Χρειάζεται δουλειά</string>
++    <string name="check_needs_attention">Χρειάζεται προσοχή</string>
++    <string name="check_unknown">Άγνωστο</string>
++    <string name="check_fix_first">Διορθώστε πρώτα</string>
++    <string name="check_screen_lock">Κλείδωμα οθόνης</string>
++    <string name="check_encryption">Κρυπτογράφηση</string>
++    <string name="check_install_apps">Εφαρμογές που εγκαθιστούν εφαρμογές</string>
++    <string name="check_sensitive_apps">Εφαρμογές με τοποθεσία, μικρόφωνο ή κάμερα</string>
++    <string name="check_private_space">Ιδιωτικός χώρος</string>
++    <string name="check_usb_debugging">Εντοπισμός σφαλμάτων USB</string>
++    <string name="check_security_patch">Ενημέρωση ασφαλείας</string>
++    <string name="check_on">Ενεργό</string>
++    <string name="check_off">Ανενεργό</string>
++    <string name="check_apps_count">%1$d εφαρμογές</string>
++    <string name="check_patch_age">%1$s, %2$d ημερών</string>
++    <string name="settings_install_unknown_apps">Ρυθμίσεις &gt; Εγκατάσταση άγνωστων εφαρμογών</string>
++    <string name="privacy_check_info">Μόνο ανάγνωση: δεν αλλάζει καμία ρύθμιση. Το Μενού ανοίγει τη σελίδα ρυθμίσεων για έναν έλεγχο που χρειάζεται προσοχή.</string>
+     <string name="device_build_and_security">Συσκευή, έκδοση και ασφάλεια</string>
+     <string name="keyboard_event_viewer">Προβολή συμβάντων πληκτρολογίου</string>
+     <string name="keyboard_layout_and_profile">Διάταξη και προφίλ πληκτρολογίου</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+index 133a31b..5ee637a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">Velocímetro</string>
+     <string name="pedometer">Podómetro</string>
+     <string name="ir_remote">Mando IR</string>
++    <string name="privacy_check">Revisión de privacidad</string>
++    <string name="privacy_good">Bien</string>
++    <string name="privacy_fair">Regular</string>
++    <string name="privacy_poor">Necesita mejoras</string>
++    <string name="check_needs_attention">Necesita atención</string>
++    <string name="check_unknown">Desconocido</string>
++    <string name="check_fix_first">Arreglar primero</string>
++    <string name="check_screen_lock">Bloqueo de pantalla</string>
++    <string name="check_encryption">Cifrado</string>
++    <string name="check_install_apps">Apps que pueden instalar apps</string>
++    <string name="check_sensitive_apps">Apps con ubicación, micrófono o cámara</string>
++    <string name="check_private_space">Espacio privado</string>
++    <string name="check_usb_debugging">Depuración USB</string>
++    <string name="check_security_patch">Parche de seguridad</string>
++    <string name="check_on">Activado</string>
++    <string name="check_off">Desactivado</string>
++    <string name="check_apps_count">%1$d apps</string>
++    <string name="check_patch_age">%1$s, %2$d días de antigüedad</string>
++    <string name="settings_install_unknown_apps">Ajustes &gt; Instalar apps desconocidas</string>
++    <string name="privacy_check_info">Solo lectura: no cambia ningún ajuste. Menú abre la página de Ajustes de una revisión que necesita atención.</string>
+     <string name="device_build_and_security">Dispositivo, compilación y seguridad</string>
+     <string name="keyboard_event_viewer">Visor de eventos de teclado</string>
+     <string name="keyboard_layout_and_profile">Distribución y perfil del teclado</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+index 2ef64e0..93cd189 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">Compteur de vitesse</string>
+     <string name="pedometer">Podomètre</string>
+     <string name="ir_remote">Télécommande IR</string>
++    <string name="privacy_check">Contrôle de confidentialité</string>
++    <string name="privacy_good">Bon</string>
++    <string name="privacy_fair">Moyen</string>
++    <string name="privacy_poor">À améliorer</string>
++    <string name="check_needs_attention">À vérifier</string>
++    <string name="check_unknown">Inconnu</string>
++    <string name="check_fix_first">À corriger d’abord</string>
++    <string name="check_screen_lock">Verrouillage de l’écran</string>
++    <string name="check_encryption">Chiffrement</string>
++    <string name="check_install_apps">Applis pouvant installer des applis</string>
++    <string name="check_sensitive_apps">Applis avec position, micro ou appareil photo</string>
++    <string name="check_private_space">Espace privé</string>
++    <string name="check_usb_debugging">Débogage USB</string>
++    <string name="check_security_patch">Correctif de sécurité</string>
++    <string name="check_on">Activé</string>
++    <string name="check_off">Désactivé</string>
++    <string name="check_apps_count">%1$d applis</string>
++    <string name="check_patch_age">%1$s, %2$d jours</string>
++    <string name="settings_install_unknown_apps">Paramètres &gt; Installer des applis inconnues</string>
++    <string name="privacy_check_info">Lecture seule : aucun réglage n’est modifié. Menu ouvre la page des paramètres d’un contrôle à vérifier.</string>
+     <string name="device_build_and_security">Appareil, version et sécurité</string>
+     <string name="keyboard_event_viewer">Visionneuse d\'événements clavier</string>
+     <string name="keyboard_layout_and_profile">Disposition et profil du clavier</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+index d045896..628452f 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">स्पीडोमीटर</string>
+     <string name="pedometer">पेडोमीटर</string>
+     <string name="ir_remote">IR रिमोट</string>
++    <string name="privacy_check">गोपनीयता जाँच</string>
++    <string name="privacy_good">अच्छा</string>
++    <string name="privacy_fair">ठीक-ठाक</string>
++    <string name="privacy_poor">सुधार चाहिए</string>
++    <string name="check_needs_attention">ध्यान चाहिए</string>
++    <string name="check_unknown">अज्ञात</string>
++    <string name="check_fix_first">पहले ठीक करें</string>
++    <string name="check_screen_lock">स्क्रीन लॉक</string>
++    <string name="check_encryption">एन्क्रिप्शन</string>
++    <string name="check_install_apps">ऐप्स जो ऐप्स इंस्टॉल कर सकते हैं</string>
++    <string name="check_sensitive_apps">स्थान, माइक्रोफ़ोन या कैमरा वाले ऐप्स</string>
++    <string name="check_private_space">निजी स्थान</string>
++    <string name="check_usb_debugging">USB डीबगिंग</string>
++    <string name="check_security_patch">सुरक्षा पैच</string>
++    <string name="check_on">चालू</string>
++    <string name="check_off">बंद</string>
++    <string name="check_apps_count">%1$d ऐप्स</string>
++    <string name="check_patch_age">%1$s, %2$d दिन पुराना</string>
++    <string name="settings_install_unknown_apps">सेटिंग &gt; अज्ञात ऐप्स इंस्टॉल करें</string>
++    <string name="privacy_check_info">केवल पढ़ने के लिए: यह कोई सेटिंग नहीं बदलता। मेनू ध्यान चाहने वाली जाँच का सेटिंग पेज खोलता है।</string>
+     <string name="device_build_and_security">डिवाइस, बिल्ड और सुरक्षा</string>
+     <string name="keyboard_event_viewer">कीबोर्ड इवेंट व्यूअर</string>
+     <string name="keyboard_layout_and_profile">कीबोर्ड लेआउट और प्रोफ़ाइल</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+index ded582a..d687166 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">Tachimetro</string>
+     <string name="pedometer">Contapassi</string>
+     <string name="ir_remote">Telecomando IR</string>
++    <string name="privacy_check">Controllo privacy</string>
++    <string name="privacy_good">Buono</string>
++    <string name="privacy_fair">Discreto</string>
++    <string name="privacy_poor">Da migliorare</string>
++    <string name="check_needs_attention">Richiede attenzione</string>
++    <string name="check_unknown">Sconosciuto</string>
++    <string name="check_fix_first">Correggi prima</string>
++    <string name="check_screen_lock">Blocco schermo</string>
++    <string name="check_encryption">Crittografia</string>
++    <string name="check_install_apps">App che possono installare app</string>
++    <string name="check_sensitive_apps">App con posizione, microfono o fotocamera</string>
++    <string name="check_private_space">Spazio privato</string>
++    <string name="check_usb_debugging">Debug USB</string>
++    <string name="check_security_patch">Patch di sicurezza</string>
++    <string name="check_on">Attivo</string>
++    <string name="check_off">Disattivo</string>
++    <string name="check_apps_count">%1$d app</string>
++    <string name="check_patch_age">%1$s, %2$d giorni</string>
++    <string name="settings_install_unknown_apps">Impostazioni &gt; Installa app sconosciute</string>
++    <string name="privacy_check_info">Sola lettura: non cambia nessuna impostazione. Menu apre la pagina delle impostazioni di un controllo che richiede attenzione.</string>
+     <string name="device_build_and_security">Dispositivo, build e sicurezza</string>
+     <string name="keyboard_event_viewer">Visualizzatore eventi tastiera</string>
+     <string name="keyboard_layout_and_profile">Layout e profilo tastiera</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+index c793da3..6a65a03 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">מד מהירות</string>
+     <string name="pedometer">מד צעדים</string>
+     <string name="ir_remote">שלט IR</string>
++    <string name="privacy_check">בדיקת פרטיות</string>
++    <string name="privacy_good">טוב</string>
++    <string name="privacy_fair">סביר</string>
++    <string name="privacy_poor">דורש שיפור</string>
++    <string name="check_needs_attention">דורש תשומת לב</string>
++    <string name="check_unknown">לא ידוע</string>
++    <string name="check_fix_first">לתקן קודם</string>
++    <string name="check_screen_lock">נעילת מסך</string>
++    <string name="check_encryption">הצפנה</string>
++    <string name="check_install_apps">אפליקציות שיכולות להתקין אפליקציות</string>
++    <string name="check_sensitive_apps">אפליקציות עם מיקום, מיקרופון או מצלמה</string>
++    <string name="check_private_space">מרחב פרטי</string>
++    <string name="check_usb_debugging">ניפוי באגים ב-USB</string>
++    <string name="check_security_patch">תיקון אבטחה</string>
++    <string name="check_on">פועל</string>
++    <string name="check_off">כבוי</string>
++    <string name="check_apps_count">%1$d אפליקציות</string>
++    <string name="check_patch_age">%1$s, בן %2$d ימים</string>
++    <string name="settings_install_unknown_apps">הגדרות &gt; התקנת אפליקציות לא מוכרות</string>
++    <string name="privacy_check_info">לקריאה בלבד: אינו משנה שום הגדרה. התפריט פותח את דף ההגדרות של בדיקה שדורשת תשומת לב.</string>
+     <string name="device_build_and_security">מכשיר, גרסה ואבטחה</string>
+     <string name="keyboard_event_viewer">מציג אירועי מקלדת</string>
+     <string name="keyboard_layout_and_profile">פריסת מקלדת ופרופיל</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+index 5e0940c..d39be27 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">速度計</string>
+     <string name="pedometer">歩数計</string>
+     <string name="ir_remote">IR リモコン</string>
++    <string name="privacy_check">プライバシーチェック</string>
++    <string name="privacy_good">良好</string>
++    <string name="privacy_fair">まずまず</string>
++    <string name="privacy_poor">要改善</string>
++    <string name="check_needs_attention">要確認</string>
++    <string name="check_unknown">不明</string>
++    <string name="check_fix_first">最初に修正</string>
++    <string name="check_screen_lock">画面ロック</string>
++    <string name="check_encryption">暗号化</string>
++    <string name="check_install_apps">アプリをインストールできるアプリ</string>
++    <string name="check_sensitive_apps">位置情報・マイク・カメラを使うアプリ</string>
++    <string name="check_private_space">プライベートスペース</string>
++    <string name="check_usb_debugging">USBデバッグ</string>
++    <string name="check_security_patch">セキュリティパッチ</string>
++    <string name="check_on">オン</string>
++    <string name="check_off">オフ</string>
++    <string name="check_apps_count">%1$d 個のアプリ</string>
++    <string name="check_patch_age">%1$s（%2$d 日前）</string>
++    <string name="settings_install_unknown_apps">設定 &gt; 不明なアプリのインストール</string>
++    <string name="privacy_check_info">読み取り専用: 設定は変更しません。メニューで、要確認の項目の設定ページを開けます。</string>
+     <string name="device_build_and_security">デバイス、ビルド、セキュリティ</string>
+     <string name="keyboard_event_viewer">キーボードイベントビューアー</string>
+     <string name="keyboard_layout_and_profile">キーボードレイアウトとプロファイル</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+index 1bf01c1..b46304b 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">속도계</string>
+     <string name="pedometer">만보기</string>
+     <string name="ir_remote">IR 리모컨</string>
++    <string name="privacy_check">개인정보 점검</string>
++    <string name="privacy_good">좋음</string>
++    <string name="privacy_fair">보통</string>
++    <string name="privacy_poor">개선 필요</string>
++    <string name="check_needs_attention">확인 필요</string>
++    <string name="check_unknown">알 수 없음</string>
++    <string name="check_fix_first">먼저 해결</string>
++    <string name="check_screen_lock">화면 잠금</string>
++    <string name="check_encryption">암호화</string>
++    <string name="check_install_apps">앱을 설치할 수 있는 앱</string>
++    <string name="check_sensitive_apps">위치, 마이크, 카메라를 쓰는 앱</string>
++    <string name="check_private_space">비공개 공간</string>
++    <string name="check_usb_debugging">USB 디버깅</string>
++    <string name="check_security_patch">보안 패치</string>
++    <string name="check_on">켜짐</string>
++    <string name="check_off">꺼짐</string>
++    <string name="check_apps_count">앱 %1$d개</string>
++    <string name="check_patch_age">%1$s, %2$d일 전</string>
++    <string name="settings_install_unknown_apps">설정 &gt; 알 수 없는 앱 설치</string>
++    <string name="privacy_check_info">읽기 전용: 어떤 설정도 바꾸지 않습니다. 메뉴에서 확인이 필요한 항목의 설정 페이지를 엽니다.</string>
+     <string name="device_build_and_security">기기, 빌드 및 보안</string>
+     <string name="keyboard_event_viewer">키보드 이벤트 뷰어</string>
+     <string name="keyboard_layout_and_profile">키보드 레이아웃 및 프로필</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+index d4bf859..e7b26f9 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">Snelheidsmeter</string>
+     <string name="pedometer">Stappenteller</string>
+     <string name="ir_remote">IR-afstandsbediening</string>
++    <string name="privacy_check">Privacycontrole</string>
++    <string name="privacy_good">Goed</string>
++    <string name="privacy_fair">Matig</string>
++    <string name="privacy_poor">Verbetering nodig</string>
++    <string name="check_needs_attention">Aandacht nodig</string>
++    <string name="check_unknown">Onbekend</string>
++    <string name="check_fix_first">Eerst oplossen</string>
++    <string name="check_screen_lock">Schermvergrendeling</string>
++    <string name="check_encryption">Versleuteling</string>
++    <string name="check_install_apps">Apps die apps kunnen installeren</string>
++    <string name="check_sensitive_apps">Apps met locatie, microfoon of camera</string>
++    <string name="check_private_space">Privéruimte</string>
++    <string name="check_usb_debugging">USB-foutopsporing</string>
++    <string name="check_security_patch">Beveiligingspatch</string>
++    <string name="check_on">Aan</string>
++    <string name="check_off">Uit</string>
++    <string name="check_apps_count">%1$d apps</string>
++    <string name="check_patch_age">%1$s, %2$d dagen oud</string>
++    <string name="settings_install_unknown_apps">Instellingen &gt; Onbekende apps installeren</string>
++    <string name="privacy_check_info">Alleen lezen: er wordt geen instelling gewijzigd. Menu opent de instellingenpagina van een controle die aandacht nodig heeft.</string>
+     <string name="device_build_and_security">Apparaat, build en beveiliging</string>
+     <string name="keyboard_event_viewer">Toetsenbordgebeurtenissen-viewer</string>
+     <string name="keyboard_layout_and_profile">Toetsenbordindeling en profiel</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+index cc092ee..778f1b0 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">Prędkościomierz</string>
+     <string name="pedometer">Krokomierz</string>
+     <string name="ir_remote">Pilot IR</string>
++    <string name="privacy_check">Kontrola prywatności</string>
++    <string name="privacy_good">Dobrze</string>
++    <string name="privacy_fair">Średnio</string>
++    <string name="privacy_poor">Wymaga poprawy</string>
++    <string name="check_needs_attention">Wymaga uwagi</string>
++    <string name="check_unknown">Nieznane</string>
++    <string name="check_fix_first">Napraw najpierw</string>
++    <string name="check_screen_lock">Blokada ekranu</string>
++    <string name="check_encryption">Szyfrowanie</string>
++    <string name="check_install_apps">Aplikacje mogące instalować aplikacje</string>
++    <string name="check_sensitive_apps">Aplikacje z lokalizacją, mikrofonem lub aparatem</string>
++    <string name="check_private_space">Przestrzeń prywatna</string>
++    <string name="check_usb_debugging">Debugowanie USB</string>
++    <string name="check_security_patch">Poprawka zabezpieczeń</string>
++    <string name="check_on">Włączone</string>
++    <string name="check_off">Wyłączone</string>
++    <string name="check_apps_count">Aplikacje: %1$d</string>
++    <string name="check_patch_age">%1$s, %2$d dni temu</string>
++    <string name="settings_install_unknown_apps">Ustawienia &gt; Instalowanie nieznanych aplikacji</string>
++    <string name="privacy_check_info">Tylko do odczytu: nie zmienia żadnego ustawienia. Menu otwiera stronę ustawień dla sprawdzenia wymagającego uwagi.</string>
+     <string name="device_build_and_security">Urządzenie, kompilacja i bezpieczeństwo</string>
+     <string name="keyboard_event_viewer">Podgląd zdarzeń klawiatury</string>
+     <string name="keyboard_layout_and_profile">Układ i profil klawiatury</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+index ebc9f6a..eb54395 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">Velocímetro</string>
+     <string name="pedometer">Pedômetro</string>
+     <string name="ir_remote">Controle remoto IR</string>
++    <string name="privacy_check">Verificação de privacidade</string>
++    <string name="privacy_good">Bom</string>
++    <string name="privacy_fair">Razoável</string>
++    <string name="privacy_poor">Precisa melhorar</string>
++    <string name="check_needs_attention">Precisa de atenção</string>
++    <string name="check_unknown">Desconhecido</string>
++    <string name="check_fix_first">Corrigir primeiro</string>
++    <string name="check_screen_lock">Bloqueio de ecrã</string>
++    <string name="check_encryption">Encriptação</string>
++    <string name="check_install_apps">Apps que podem instalar apps</string>
++    <string name="check_sensitive_apps">Apps com localização, microfone ou câmara</string>
++    <string name="check_private_space">Espaço privado</string>
++    <string name="check_usb_debugging">Depuração USB</string>
++    <string name="check_security_patch">Patch de segurança</string>
++    <string name="check_on">Ativado</string>
++    <string name="check_off">Desativado</string>
++    <string name="check_apps_count">%1$d apps</string>
++    <string name="check_patch_age">%1$s, %2$d dias</string>
++    <string name="settings_install_unknown_apps">Definições &gt; Instalar apps desconhecidas</string>
++    <string name="privacy_check_info">Só de leitura: não altera nenhuma definição. Menu abre a página de definições de uma verificação que precisa de atenção.</string>
+     <string name="device_build_and_security">Dispositivo, versão e segurança</string>
+     <string name="keyboard_event_viewer">Visualizador de eventos do teclado</string>
+     <string name="keyboard_layout_and_profile">Layout e perfil do teclado</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+index 2363cb2..26cf8eb 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">Спидометр</string>
+     <string name="pedometer">Шагомер</string>
+     <string name="ir_remote">ИК-пульт</string>
++    <string name="privacy_check">Проверка конфиденциальности</string>
++    <string name="privacy_good">Хорошо</string>
++    <string name="privacy_fair">Средне</string>
++    <string name="privacy_poor">Нужно улучшить</string>
++    <string name="check_needs_attention">Требует внимания</string>
++    <string name="check_unknown">Неизвестно</string>
++    <string name="check_fix_first">Исправить сначала</string>
++    <string name="check_screen_lock">Блокировка экрана</string>
++    <string name="check_encryption">Шифрование</string>
++    <string name="check_install_apps">Приложения, устанавливающие приложения</string>
++    <string name="check_sensitive_apps">Приложения с геолокацией, микрофоном или камерой</string>
++    <string name="check_private_space">Приватное пространство</string>
++    <string name="check_usb_debugging">Отладка по USB</string>
++    <string name="check_security_patch">Обновление безопасности</string>
++    <string name="check_on">Вкл.</string>
++    <string name="check_off">Выкл.</string>
++    <string name="check_apps_count">Приложений: %1$d</string>
++    <string name="check_patch_age">%1$s, %2$d дн. назад</string>
++    <string name="settings_install_unknown_apps">Настройки &gt; Установка неизвестных приложений</string>
++    <string name="privacy_check_info">Только чтение: ни одна настройка не меняется. Меню открывает страницу настроек для проверки, требующей внимания.</string>
+     <string name="device_build_and_security">Устройство, сборка и безопасность</string>
+     <string name="keyboard_event_viewer">Просмотр событий клавиатуры</string>
+     <string name="keyboard_layout_and_profile">Раскладка и профиль клавиатуры</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+index b9e89b8..becaf27 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">Hastighetsmätare</string>
+     <string name="pedometer">Stegräknare</string>
+     <string name="ir_remote">IR-fjärrkontroll</string>
++    <string name="privacy_check">Integritetskontroll</string>
++    <string name="privacy_good">Bra</string>
++    <string name="privacy_fair">Okej</string>
++    <string name="privacy_poor">Behöver förbättras</string>
++    <string name="check_needs_attention">Behöver åtgärdas</string>
++    <string name="check_unknown">Okänt</string>
++    <string name="check_fix_first">Åtgärda först</string>
++    <string name="check_screen_lock">Skärmlås</string>
++    <string name="check_encryption">Kryptering</string>
++    <string name="check_install_apps">Appar som kan installera appar</string>
++    <string name="check_sensitive_apps">Appar med plats, mikrofon eller kamera</string>
++    <string name="check_private_space">Privat utrymme</string>
++    <string name="check_usb_debugging">USB-felsökning</string>
++    <string name="check_security_patch">Säkerhetsuppdatering</string>
++    <string name="check_on">På</string>
++    <string name="check_off">Av</string>
++    <string name="check_apps_count">%1$d appar</string>
++    <string name="check_patch_age">%1$s, %2$d dagar gammal</string>
++    <string name="settings_install_unknown_apps">Inställningar &gt; Installera okända appar</string>
++    <string name="privacy_check_info">Skrivskyddad: ändrar ingen inställning. Meny öppnar inställningssidan för en kontroll som behöver åtgärdas.</string>
+     <string name="device_build_and_security">Enhet, version och säkerhet</string>
+     <string name="keyboard_event_viewer">Visare för tangenthändelser</string>
+     <string name="keyboard_layout_and_profile">Tangentbordslayout och profil</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+index d816d1a..1b28f14 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">Hız göstergesi</string>
+     <string name="pedometer">Adımsayar</string>
+     <string name="ir_remote">IR kumanda</string>
++    <string name="privacy_check">Gizlilik kontrolü</string>
++    <string name="privacy_good">İyi</string>
++    <string name="privacy_fair">Orta</string>
++    <string name="privacy_poor">Geliştirilmeli</string>
++    <string name="check_needs_attention">Dikkat gerekiyor</string>
++    <string name="check_unknown">Bilinmiyor</string>
++    <string name="check_fix_first">Önce düzelt</string>
++    <string name="check_screen_lock">Ekran kilidi</string>
++    <string name="check_encryption">Şifreleme</string>
++    <string name="check_install_apps">Uygulama yükleyebilen uygulamalar</string>
++    <string name="check_sensitive_apps">Konum, mikrofon veya kamera kullanan uygulamalar</string>
++    <string name="check_private_space">Özel Alan</string>
++    <string name="check_usb_debugging">USB hata ayıklama</string>
++    <string name="check_security_patch">Güvenlik yaması</string>
++    <string name="check_on">Açık</string>
++    <string name="check_off">Kapalı</string>
++    <string name="check_apps_count">%1$d uygulama</string>
++    <string name="check_patch_age">%1$s, %2$d gün önce</string>
++    <string name="settings_install_unknown_apps">Ayarlar &gt; Bilinmeyen uygulamaları yükle</string>
++    <string name="privacy_check_info">Salt okunur: hiçbir ayarı değiştirmez. Menü, dikkat gerektiren bir kontrolün ayar sayfasını açar.</string>
+     <string name="device_build_and_security">Cihaz, sürüm ve güvenlik</string>
+     <string name="keyboard_event_viewer">Klavye olay görüntüleyici</string>
+     <string name="keyboard_layout_and_profile">Klavye düzeni ve profili</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+index 28773d2..3382954 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">اسپیڈومیٹر</string>
+     <string name="pedometer">پیڈومیٹر</string>
+     <string name="ir_remote">IR ریموٹ</string>
++    <string name="privacy_check">رازداری کی جانچ</string>
++    <string name="privacy_good">اچھا</string>
++    <string name="privacy_fair">ٹھیک ٹھاک</string>
++    <string name="privacy_poor">بہتری درکار</string>
++    <string name="check_needs_attention">توجہ درکار</string>
++    <string name="check_unknown">نامعلوم</string>
++    <string name="check_fix_first">پہلے درست کریں</string>
++    <string name="check_screen_lock">اسکرین لاک</string>
++    <string name="check_encryption">خفیہ کاری</string>
++    <string name="check_install_apps">ایسی ایپس جو ایپس انسٹال کر سکتی ہیں</string>
++    <string name="check_sensitive_apps">مقام، مائیکروفون یا کیمرا والی ایپس</string>
++    <string name="check_private_space">نجی اسپیس</string>
++    <string name="check_usb_debugging">USB ڈیبگنگ</string>
++    <string name="check_security_patch">سیکیورٹی پیچ</string>
++    <string name="check_on">آن</string>
++    <string name="check_off">آف</string>
++    <string name="check_apps_count">%1$d ایپس</string>
++    <string name="check_patch_age">%1$s، %2$d دن پرانا</string>
++    <string name="settings_install_unknown_apps">ترتیبات &gt; نامعلوم ایپس انسٹال کریں</string>
++    <string name="privacy_check_info">صرف پڑھنے کے لیے: یہ کوئی ترتیب نہیں بدلتا۔ مینو توجہ طلب جانچ کا ترتیبات صفحہ کھولتا ہے۔</string>
+     <string name="device_build_and_security">ڈیوائس، بلڈ اور سیکیورٹی</string>
+     <string name="keyboard_event_viewer">کی بورڈ ایونٹ ویور</string>
+     <string name="keyboard_layout_and_profile">کی بورڈ لے آؤٹ اور پروفائل</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+index c0f1b91..b64a1ef 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+@@ -197,6 +197,26 @@
+     <string name="speedometer">速度计</string>
+     <string name="pedometer">计步器</string>
+     <string name="ir_remote">红外遥控器</string>
++    <string name="privacy_check">隐私检查</string>
++    <string name="privacy_good">良好</string>
++    <string name="privacy_fair">一般</string>
++    <string name="privacy_poor">需要改进</string>
++    <string name="check_needs_attention">需要注意</string>
++    <string name="check_unknown">未知</string>
++    <string name="check_fix_first">优先修复</string>
++    <string name="check_screen_lock">屏幕锁定</string>
++    <string name="check_encryption">加密</string>
++    <string name="check_install_apps">可安装应用的应用</string>
++    <string name="check_sensitive_apps">使用位置、麦克风或相机的应用</string>
++    <string name="check_private_space">私密空间</string>
++    <string name="check_usb_debugging">USB 调试</string>
++    <string name="check_security_patch">安全补丁</string>
++    <string name="check_on">开</string>
++    <string name="check_off">关</string>
++    <string name="check_apps_count">%1$d 个应用</string>
++    <string name="check_patch_age">%1$s，已过去 %2$d 天</string>
++    <string name="settings_install_unknown_apps">设置 &gt; 安装未知应用</string>
++    <string name="privacy_check_info">只读：不会更改任何设置。菜单可打开需要注意的检查对应的设置页面。</string>
+     <string name="device_build_and_security">设备、版本和安全</string>
+     <string name="keyboard_event_viewer">键盘事件查看器</string>
+     <string name="keyboard_layout_and_profile">键盘布局和配置文件</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+index c457d82..e6d92c7 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+@@ -198,6 +198,26 @@
+     <string name="speedometer">Speedometer</string>
+     <string name="pedometer">Pedometer</string>
+     <string name="ir_remote">IR remote</string>
++    <string name="privacy_check">Privacy check</string>
++    <string name="privacy_good">Good</string>
++    <string name="privacy_fair">Fair</string>
++    <string name="privacy_poor">Needs work</string>
++    <string name="check_needs_attention">Needs attention</string>
++    <string name="check_unknown">Unknown</string>
++    <string name="check_fix_first">Fix first</string>
++    <string name="check_screen_lock">Screen lock</string>
++    <string name="check_encryption">Encryption</string>
++    <string name="check_install_apps">Apps that can install apps</string>
++    <string name="check_sensitive_apps">Apps with location, microphone or camera</string>
++    <string name="check_private_space">Private Space</string>
++    <string name="check_usb_debugging">USB debugging</string>
++    <string name="check_security_patch">Security patch</string>
++    <string name="check_on">On</string>
++    <string name="check_off">Off</string>
++    <string name="check_apps_count">%1$d apps</string>
++    <string name="check_patch_age">%1$s, %2$d days old</string>
++    <string name="settings_install_unknown_apps">Settings &gt; Install unknown apps</string>
++    <string name="privacy_check_info">Read-only: it never changes a setting. Menu opens the Settings page for a check that needs attention.</string>
+     <string name="device_build_and_security">Device, build and security</string>
+     <string name="keyboard_event_viewer">Keyboard event viewer</string>
+     <string name="keyboard_layout_and_profile">Keyboard layout and profile</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/PrivacyScoreTest.kt b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/PrivacyScoreTest.kt
+new file mode 100644
+index 0000000..a494147
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/PrivacyScoreTest.kt
+@@ -0,0 +1,89 @@
++package org.sableos.tools.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class PrivacyScoreTest {
++    private fun check(id: PrivacyCheckId, state: CheckState) = PrivacyCheck(id, state, "")
++
++    private fun all(
++        state: CheckState,
++        vararg except: Pair<PrivacyCheckId, CheckState>
++    ): List<PrivacyCheck> =
++        PrivacyCheckId.entries.map { id -> check(id, except.toMap()[id] ?: state) }
++
++    @Test
++    fun allGoodIsGood() {
++        assertEquals(PrivacyRating.GOOD, PrivacyScore.rate(all(CheckState.GOOD)))
++    }
++
++    @Test
++    fun unknownIsNeverCountedAgainstThePhone() {
++        assertEquals(PrivacyRating.GOOD, PrivacyScore.rate(all(CheckState.UNKNOWN)))
++    }
++
++    @Test
++    fun aCriticalCheckMakesItPoor() {
++        val checks = all(CheckState.GOOD, PrivacyCheckId.SCREEN_LOCK to CheckState.NEEDS_ATTENTION)
++        assertEquals(PrivacyRating.POOR, PrivacyScore.rate(checks))
++    }
++
++    @Test
++    fun oneOrTwoMinorChecksIsFairAndThreeIsPoor() {
++        val one = all(CheckState.GOOD, PrivacyCheckId.USB_DEBUGGING to CheckState.NEEDS_ATTENTION)
++        assertEquals(PrivacyRating.FAIR, PrivacyScore.rate(one))
++        val three =
++            all(
++                CheckState.GOOD,
++                PrivacyCheckId.USB_DEBUGGING to CheckState.NEEDS_ATTENTION,
++                PrivacyCheckId.SECURITY_PATCH to CheckState.NEEDS_ATTENTION,
++                PrivacyCheckId.INSTALL_APPS to CheckState.NEEDS_ATTENTION
++            )
++        assertEquals(PrivacyRating.POOR, PrivacyScore.rate(three))
++    }
++
++    @Test
++    fun theFirstFixIsTheFirstCheckInListOrder() {
++        val checks =
++            listOf(
++                check(PrivacyCheckId.SECURITY_PATCH, CheckState.NEEDS_ATTENTION),
++                check(PrivacyCheckId.ENCRYPTION, CheckState.NEEDS_ATTENTION),
++                check(PrivacyCheckId.SCREEN_LOCK, CheckState.GOOD)
++            )
++        assertEquals(PrivacyCheckId.ENCRYPTION, PrivacyScore.nextFix(checks)?.id)
++        assertNull(PrivacyScore.nextFix(all(CheckState.GOOD)))
++    }
++
++    @Test
++    fun thresholds() {
++        assertEquals(
++            CheckState.GOOD,
++            PrivacyScore.sensitiveAppsState(PrivacyScore.SENSITIVE_APPS_LIMIT)
++        )
++        assertEquals(
++            CheckState.NEEDS_ATTENTION,
++            PrivacyScore.sensitiveAppsState(PrivacyScore.SENSITIVE_APPS_LIMIT + 1)
++        )
++        assertEquals(CheckState.UNKNOWN, PrivacyScore.sensitiveAppsState(null))
++        assertEquals(CheckState.GOOD, PrivacyScore.installAppsState(0))
++        assertEquals(CheckState.NEEDS_ATTENTION, PrivacyScore.installAppsState(2))
++        assertEquals(
++            CheckState.GOOD,
++            PrivacyScore.patchState(PrivacyScore.PATCH_MAX_AGE_DAYS.toLong())
++        )
++        assertEquals(
++            CheckState.NEEDS_ATTENTION,
++            PrivacyScore.patchState(PrivacyScore.PATCH_MAX_AGE_DAYS + 1L)
++        )
++        assertEquals(CheckState.UNKNOWN, PrivacyScore.patchState(null))
++    }
++
++    @Test
++    fun flagsReadAsGoodWhenOnOrOffAsTheCheckWants() {
++        assertEquals(CheckState.GOOD, PrivacyScore.flagState(true, goodWhenOn = true))
++        assertEquals(CheckState.NEEDS_ATTENTION, PrivacyScore.flagState(false, goodWhenOn = true))
++        assertEquals(CheckState.GOOD, PrivacyScore.flagState(false, goodWhenOn = false))
++        assertEquals(CheckState.UNKNOWN, PrivacyScore.flagState(null, goodWhenOn = false))
++    }
++}

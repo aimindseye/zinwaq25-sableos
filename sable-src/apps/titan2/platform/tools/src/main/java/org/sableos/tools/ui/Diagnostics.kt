@@ -12,12 +12,16 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import org.sableos.tools.android.PrivacyCollector
 import org.sableos.tools.core.CaseResult
+import org.sableos.tools.core.CheckState
 import org.sableos.tools.core.DiagTarget
 import org.sableos.tools.core.DialerCodes
 import org.sableos.tools.core.FieldKind
 import org.sableos.tools.core.HomeModel
 import org.sableos.tools.core.KeyEventFormat
+import org.sableos.tools.core.PrivacyCheck
+import org.sableos.tools.core.PrivacyScore
 import org.sableos.tools.core.Redactor
 import org.sableos.tools.core.ReportSection
 import org.sableos.tools.core.TextEntryTest
@@ -330,4 +334,51 @@ class FactoryBridgeController(host: ToolHost) :
             host.openTool(Tool.HARDWARE_TESTS)
         }
     )
+}
+
+/**
+ * Privacy check (DTEK style): an overall rating and one row per check, each Good or Needs attention. Read-only; the
+ * Menu offers to open the Settings page behind every check that needs attention, the first fix first.
+ */
+class PrivacyCheckController(private val host: ToolHost) : ToolController {
+    private val ctx = host.activity
+    private val text: TextView = Ui.mono(ctx)
+    private var rendered = ""
+    private var checks: List<PrivacyCheck> = emptyList()
+
+    override fun view(): View = ScrollView(ctx).apply {
+        isFocusable = true
+        addView(text)
+        post { requestFocus() }
+    }
+
+    override fun start() {
+        checks = PrivacyCollector(ctx).checks()
+        val rating = PrivacyScore.rate(checks)
+        val fix = PrivacyScore.nextFix(checks)
+        rendered = buildString {
+            appendLine("${t("privacy_check")}: ${rating.label}")
+            fix?.let { appendLine("${t("check_fix_first")}: ${it.id.title}") }
+            appendLine()
+            checks.forEach { appendLine("${stateLabel(it.state)}  ${it.id.title}: ${it.detail}") }
+        }.trimEnd()
+        text.text = rendered
+    }
+
+    private fun stateLabel(state: CheckState) = when (state) {
+        CheckState.GOOD -> t("privacy_good")
+        CheckState.NEEDS_ATTENTION -> t("check_needs_attention")
+        CheckState.UNKNOWN -> t("check_unknown")
+    }
+
+    override fun info() = t("privacy_check_info")
+    override fun copyText() = rendered
+
+    override fun actions(): List<Pair<String, () -> Unit>> {
+        val order = PrivacyScore.nextFix(checks)
+        return checks
+            .filter { it.state == CheckState.NEEDS_ATTENTION }
+            .sortedBy { if (it == order) 0 else 1 }
+            .map { c -> t("open", c.id.title) to { host.openLink(c.id.link) } }
+    }
 }

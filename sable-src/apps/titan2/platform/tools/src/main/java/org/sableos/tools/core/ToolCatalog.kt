@@ -159,6 +159,12 @@ enum class Tool(
     ),
 
     // Diagnostics
+    PRIVACY_CHECK(
+        Section.DIAGNOSTICS,
+        "privacy_check",
+        ToolKind.INFO,
+        keywords = listOf("dtek", "security", "permissions", "lock", "encryption", "usb debugging")
+    ),
     DEVICE_IDENTITY(
         Section.DIAGNOSTICS,
         "device_build_and_security",
