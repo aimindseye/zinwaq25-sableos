@@ -50,7 +50,8 @@ class SpeedDialActivity : Activity() {
             rows[letter] = row
             list.addView(row)
         }
-        setContentView(ScrollView(this).apply { addView(list) })
+        actionBar?.hide()
+        setContentView(ScrollView(this).apply { addView(list) }.also(ui::fitSystemBars))
         show()
         val assign = intent.getStringExtra(EXTRA_ASSIGN)?.singleOrNull()
         if (savedInstanceState == null && assign != null) {

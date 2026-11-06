@@ -68,7 +68,8 @@ class PhoneActivity : Activity() {
         palette = SablePalette.read(this).also { it.applyTo(this) }
         ui = Ui(this, palette)
         settings = PhoneSettings(this)
-        setContentView(build())
+        actionBar?.hide()
+        setContentView(build().also(ui::fitSystemBars))
         askPermissions()
         handle(intent, savedInstanceState == null)
     }
@@ -97,6 +98,17 @@ class PhoneActivity : Activity() {
                 )
             }
         }
+        // An on-screen Menu as well as the Menu key (hold the BlackBerry key on the Q25).
+        bar.addView(
+            ui.text(Ui.BODY_SP, palette.accent, bold = true, s = t("menu")).apply {
+                gravity = android.view.Gravity.CENTER
+                isFocusable = true
+                isClickable = true
+                background = ui.focusBackground()
+                setPadding(ui.dp(Ui.PAD), ui.dp(TAB_PAD), ui.dp(Ui.PAD), ui.dp(TAB_PAD))
+                setOnClickListener { menu() }
+            }
+        )
         root.addView(bar)
         banner = ui.text(Ui.SMALL_SP, palette.onAccent, s = t("make_default")).apply {
             isFocusable = true
@@ -268,7 +280,7 @@ class PhoneActivity : Activity() {
     private fun refresh() {
         if (!::adapter.isInitialized) return
         val query = search.text.toString().trim()
-        adapter.items = when {
+        val items = when {
             query.isNotEmpty() -> searchItems(query)
 
             tab == TAB_CONTACTS -> people.sortedBy {
@@ -277,6 +289,8 @@ class PhoneActivity : Activity() {
 
             else -> callItems(calls)
         }
+        val empty = if (tab == TAB_CONTACTS) t("no_contacts") else t("no_calls")
+        adapter.items = items.ifEmpty { listOf(PhoneListAdapter.Item.Header(empty)) }
     }
 
     private fun callItems(source: List<CallHistory.Call>): List<PhoneListAdapter.Item> {

@@ -7,6 +7,8 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.StateListDrawable
 import android.view.Gravity
+import android.view.View
+import android.view.WindowInsets
 import android.widget.TextView
 import org.sableos.titan2.theme.SablePalette
 
@@ -70,6 +72,18 @@ class Ui(private val context: Context, val palette: SablePalette) {
             background = RippleDrawable(ColorStateList.valueOf(palette.focus), states, null)
             setOnClickListener { onClick() }
         }
+
+    /**
+     * Keeps [root] clear of the status bar, the navigation bar and the on-screen keyboard: Android 15+
+     * draws apps edge to edge, so without this the top of the screen sits under the status bar.
+     */
+    fun fitSystemBars(root: View) {
+        root.setOnApplyWindowInsetsListener { v, insets ->
+            val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            WindowInsets.CONSUMED
+        }
+    }
 
     companion object {
         const val PAD = 12

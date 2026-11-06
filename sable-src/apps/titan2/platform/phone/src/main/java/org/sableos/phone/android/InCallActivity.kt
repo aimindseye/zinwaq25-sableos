@@ -69,7 +69,7 @@ class InCallActivity :
         palette.applyTo(this)
         ui = Ui(this, palette)
         keypadOpen = intent.getBooleanExtra(EXTRA_KEYPAD, false)
-        setContentView(build())
+        setContentView(build().also(ui::fitSystemBars))
     }
 
     private fun build(): View {

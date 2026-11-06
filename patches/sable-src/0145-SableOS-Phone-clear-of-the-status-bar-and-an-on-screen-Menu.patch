@@ -1,0 +1,137 @@
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
+index 6a083af..100ba36 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
+@@ -69,7 +69,7 @@ class InCallActivity :
+         palette.applyTo(this)
+         ui = Ui(this, palette)
+         keypadOpen = intent.getBooleanExtra(EXTRA_KEYPAD, false)
+-        setContentView(build())
++        setContentView(build().also(ui::fitSystemBars))
+     }
+ 
+     private fun build(): View {
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt
+index 5ad5761..8a0f25d 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt
+@@ -68,7 +68,8 @@ class PhoneActivity : Activity() {
+         palette = SablePalette.read(this).also { it.applyTo(this) }
+         ui = Ui(this, palette)
+         settings = PhoneSettings(this)
+-        setContentView(build())
++        actionBar?.hide()
++        setContentView(build().also(ui::fitSystemBars))
+         askPermissions()
+         handle(intent, savedInstanceState == null)
+     }
+@@ -97,6 +98,17 @@ class PhoneActivity : Activity() {
+                 )
+             }
+         }
++        // An on-screen Menu as well as the Menu key (hold the BlackBerry key on the Q25).
++        bar.addView(
++            ui.text(Ui.BODY_SP, palette.accent, bold = true, s = t("menu")).apply {
++                gravity = android.view.Gravity.CENTER
++                isFocusable = true
++                isClickable = true
++                background = ui.focusBackground()
++                setPadding(ui.dp(Ui.PAD), ui.dp(TAB_PAD), ui.dp(Ui.PAD), ui.dp(TAB_PAD))
++                setOnClickListener { menu() }
++            }
++        )
+         root.addView(bar)
+         banner = ui.text(Ui.SMALL_SP, palette.onAccent, s = t("make_default")).apply {
+             isFocusable = true
+@@ -268,7 +280,7 @@ class PhoneActivity : Activity() {
+     private fun refresh() {
+         if (!::adapter.isInitialized) return
+         val query = search.text.toString().trim()
+-        adapter.items = when {
++        val items = when {
+             query.isNotEmpty() -> searchItems(query)
+ 
+             tab == TAB_CONTACTS -> people.sortedBy {
+@@ -277,6 +289,8 @@ class PhoneActivity : Activity() {
+ 
+             else -> callItems(calls)
+         }
++        val empty = if (tab == TAB_CONTACTS) t("no_contacts") else t("no_calls")
++        adapter.items = items.ifEmpty { listOf(PhoneListAdapter.Item.Header(empty)) }
+     }
+ 
+     private fun callItems(source: List<CallHistory.Call>): List<PhoneListAdapter.Item> {
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialActivity.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialActivity.kt
+index 1e0fbfb..643787b 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialActivity.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/SpeedDialActivity.kt
+@@ -50,7 +50,8 @@ class SpeedDialActivity : Activity() {
+             rows[letter] = row
+             list.addView(row)
+         }
+-        setContentView(ScrollView(this).apply { addView(list) })
++        actionBar?.hide()
++        setContentView(ScrollView(this).apply { addView(list) }.also(ui::fitSystemBars))
+         show()
+         val assign = intent.getStringExtra(EXTRA_ASSIGN)?.singleOrNull()
+         if (savedInstanceState == null && assign != null) {
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ui.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ui.kt
+index a72d8f7..47a2277 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ui.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ui.kt
+@@ -7,6 +7,8 @@ import android.graphics.drawable.GradientDrawable
+ import android.graphics.drawable.RippleDrawable
+ import android.graphics.drawable.StateListDrawable
+ import android.view.Gravity
++import android.view.View
++import android.view.WindowInsets
+ import android.widget.TextView
+ import org.sableos.titan2.theme.SablePalette
+ 
+@@ -71,6 +73,18 @@ class Ui(private val context: Context, val palette: SablePalette) {
+             setOnClickListener { onClick() }
+         }
+ 
++    /**
++     * Keeps [root] clear of the status bar, the navigation bar and the on-screen keyboard: Android 15+
++     * draws apps edge to edge, so without this the top of the screen sits under the status bar.
++     */
++    fun fitSystemBars(root: View) {
++        root.setOnApplyWindowInsetsListener { v, insets ->
++            val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
++            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
++            WindowInsets.CONSUMED
++        }
++    }
++
+     companion object {
+         const val PAD = 12
+         const val STROKE = 2
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt
+index d5bc6e8..2770a66 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt
+@@ -19,6 +19,9 @@ object PhoneText {
+             "today" to "Today",
+             "yesterday" to "Yesterday",
+             "no_matches" to "No matches",
++            "no_calls" to "No calls yet",
++            "no_contacts" to "No contacts with a phone number",
++            "menu" to "Menu",
+             "contact_hidden" to "Contact hidden",
+             "private_number" to "Private number",
+             "call_count" to "%1\$s (%2\$d)",
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml
+index 756fdce..31df9c0 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml
+@@ -12,6 +12,9 @@
+     <string name="today">Today</string>
+     <string name="yesterday">Yesterday</string>
+     <string name="no_matches">No matches</string>
++    <string name="no_calls">No calls yet</string>
++    <string name="no_contacts">No contacts with a phone number</string>
++    <string name="menu">Menu</string>
+     <string name="contact_hidden">Contact hidden</string>
+     <string name="private_number">Private number</string>
+     <string name="call_count">%1$s (%2$d)</string>
