@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sable_privacy_screen_label">Privacy Screen</string>
+    <string name="sable_privacy_screen_summary">Dims everything but the item you are on</string>
+    <string name="sable_privacy_screen_description">Lets the Privacy Screen tile in Quick Settings dim the whole screen except a band around the item that has focus, so people beside you cannot read it. The band follows the trackpad and keys. It is never shown on the lock screen or over a call. It reads where the focused item is, never what it says, and it does not change how touch or the keyboard work.</string>
+</resources>

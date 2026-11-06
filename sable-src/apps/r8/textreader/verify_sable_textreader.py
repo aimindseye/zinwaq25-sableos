@@ -54,6 +54,7 @@ def main() -> None:
     print("SABLE_TEXT_READER_TEXT_INPUT=PASS_BOUNDED_2_MIB")
     print("SABLE_TEXT_READER_TTS_NETWORK_VOICES=PASS_FILTERED")
     print("SABLE_TEXT_READER_SPEAK_FOCUS=PASS_NO_TOUCH_NO_KEYS_QUIET_LOCKED")
+    print("SABLE_TEXT_READER_PRIVACY_SCREEN=PASS_NO_TOUCH_NO_KEYS_OFF_IN_CALLS")
 
     if len(sys.argv) == 3:
         verify_apk(root, pathlib.Path(sys.argv[2]).resolve())
@@ -130,6 +131,13 @@ def verify_sources(root: pathlib.Path) -> None:
     forbid(config, "flagRequestTouchExplorationMode", "SABLE_TEXT_READER_SPEAK_FOCUS_TOUCH")
     forbid(config, "flagRequestFilterKeyEvents", "SABLE_TEXT_READER_SPEAK_FOCUS_KEYS")
     forbid(config, "canRequestFilterKeyEvents", "SABLE_TEXT_READER_SPEAK_FOCUS_KEYS")
+    privacy = root / "app/src/main/java/org/sableos/textreader/privacy"
+    require(privacy / "PrivacyBand.kt", "CALL_PACKAGES", "SABLE_TEXT_READER_PRIVACY_SCREEN_CALLS")
+    require(privacy / "PrivacyScreenService.kt", "PrivacyBand.mayShow(", "SABLE_TEXT_READER_PRIVACY_SCREEN_POLICY")
+    require(privacy / "PrivacyScreenService.kt", "FLAG_NOT_TOUCHABLE", "SABLE_TEXT_READER_PRIVACY_SCREEN_NO_TOUCH")
+    shade = root / "app/src/main/res/xml/sable_privacy_screen_service.xml"
+    forbid(shade, "flagRequestTouchExplorationMode", "SABLE_TEXT_READER_PRIVACY_SCREEN_TOUCH")
+    forbid(shade, "flagRequestFilterKeyEvents", "SABLE_TEXT_READER_PRIVACY_SCREEN_KEYS")
 
 
 def is_launcher_filter(intent_filter: ET.Element, android: str) -> bool:
@@ -170,6 +178,9 @@ def verify_manifest(manifest_path: pathlib.Path) -> None:
         'android:mimeType="text/plain"',
         'android:authorities="org.sableos.appearance"',
         "org.sableos.textreader.speak.SpeakFocusService",
+        "org.sableos.textreader.privacy.PrivacyScreenService",
+        "org.sableos.textreader.privacy.PrivacyScreenTile",
+        "android.permission.BIND_QUICK_SETTINGS_TILE",
         "android.permission.BIND_ACCESSIBILITY_SERVICE",
     ):
         if token not in manifest_text:

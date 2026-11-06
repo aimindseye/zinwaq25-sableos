@@ -1215,6 +1215,15 @@ grep -q 'BIND_ACCESSIBILITY_SERVICE' "$tr/apply_sable_flavor.py" || focus_bad="$
 grep -Eq 'flagRequestTouchExplorationMode|FilterKeyEvents' "$tr/res/xml/sable_speak_focus_service.xml" && focus_bad="$focus_bad takes-input"
 if [[ -z "$focus_bad" ]]; then pass "Speak what's focused: focus only, no touch or key capture, quiet while locked, passwords never read"; else fail "speak focus:$focus_bad"; fi
 
+# 20b. Privacy Screen (sable-src 0151) in the Text Reader flavor: never over calls, never takes input.
+pv_bad=""
+grep -q 'CALL_PACKAGES' "$tr/speak/main/org/sableos/textreader/privacy/PrivacyBand.kt" || pv_bad="$pv_bad calls"
+grep -q 'FLAG_NOT_TOUCHABLE' "$tr/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt" || pv_bad="$pv_bad touch"
+[[ -f "$tr/speak/test/org/sableos/textreader/privacy/PrivacyBandTest.kt" ]] || pv_bad="$pv_bad test"
+grep -q 'PRIVACY_SCREEN_SERVICES' "$tr/apply_sable_flavor.py" || pv_bad="$pv_bad manifest"
+grep -Eq 'flagRequestTouchExplorationMode|FilterKeyEvents' "$tr/res/xml/sable_privacy_screen_service.xml" && pv_bad="$pv_bad takes-input"
+if [[ -z "$pv_bad" ]]; then pass "Privacy Screen: dark outside the focused field, off in calls and when locked, no touch or key capture"; else fail "privacy screen:$pv_bad"; fi
+
 # 19. Translatable Sable apps (sable-src 0085, docs/LANGUAGES.md): every app keeps its English in one
 #     table, repeats it in values/strings.xml, binds the table to the resources and tests the two equal.
 i18n_bad=""
