@@ -49,7 +49,7 @@ PUBLIC_FLASH=NO
 | VoLTE | NOT_RUN | |
 | Camera (rear 50 MP, front 8 MP) | NOT_RUN | |
 | Wi-Fi / BT / NFC / GPS / FM | NOT_RUN | |
-| USB host (OTG drives, keyboards) | DECLARED, drive NOT_RUN | owner, 2026-11-06, rooted Q25: `pm list features` has `android.hardware.usb.host` and `usb.accessory`; `dumpsys usb` port `supported_modes=dual` (seen as device/sink on a computer, `can_change_data_role=false`, so the role follows the cable or OTG adapter); no `/sys/class/typec` ports. A mounted drive is still to be seen |
+| USB host (OTG drives, keyboards) | PASS (drive) | owner, 2026-11-06, rooted Q25: `pm list features` has `android.hardware.usb.host` and `usb.accessory`; `dumpsys usb` port `supported_modes=dual` (seen as device/sink on a computer, `can_change_data_role=false`, so the role follows the cable or OTG adapter); no `/sys/class/typec` ports. With an OTG adapter the phone reports "USB charging connected device" and a SanDisk Phone Drive mounts and shows in Files (owner, 2026-11-06, current build before SableOS) |
 | Wired video out (USB-C DisplayPort) | NO | owner, 2026-11-06: `/sys/class/drm` has only `card0-DSI-1` (the built-in panel) and writeback connectors, no DP connector; MT6789 has no DisplayPort Alt Mode. Casting is the only video out |
 | Battery health facts (capacity, cycles, dates) | UNKNOWN | [`BATTERY.md`](BATTERY.md); shown as unavailable until evidence |
 | Charging controls (limit, adaptive, overnight) | NOT_AUTHORIZED | BH6; capability discovery only |
