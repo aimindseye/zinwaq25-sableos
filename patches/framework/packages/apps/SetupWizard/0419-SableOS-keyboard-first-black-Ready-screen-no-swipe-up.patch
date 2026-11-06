@@ -1,0 +1,90 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 6 Nov 2026 17:45:00 +0000
+Subject: [PATCH] SableOS: keyboard-first black Ready screen, no swipe-up arrow
+
+On the Q25 the LineageOS 24 final screen showed the blurred wallpaper with a
+large swipe-up arrow, which looked frozen, and a swipe from the bottom edge
+is the system Home gesture, which during setup reopens setup. The Ready
+screen now stays black and says Press Enter to start; Enter, the trackpad
+press or a tap on the icon finishes setup with a fade.
+---
+ .../lineageos/setupwizard/FinishActivity.kt   | 26 +++++--------------
+ app/src/main/res/values/sable_strings.xml     |  2 ++
+ 2 files changed, 9 insertions(+), 19 deletions(-)
+
+diff --git a/app/src/main/java/org/lineageos/setupwizard/FinishActivity.kt b/app/src/main/java/org/lineageos/setupwizard/FinishActivity.kt
+index 0b721aa..83d35ad 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/FinishActivity.kt
++++ b/app/src/main/java/org/lineageos/setupwizard/FinishActivity.kt
+@@ -23,7 +23,6 @@ import android.view.MotionEvent
+ import android.view.VelocityTracker
+ import android.view.View
+ import android.view.ViewGroup.MarginLayoutParams
+-import android.view.WindowManagerPolicyConstants.NAV_BAR_MODE_GESTURAL_OVERLAY
+ import android.view.animation.AccelerateDecelerateInterpolator
+ import android.widget.ImageView
+ import android.widget.TextView
+@@ -55,7 +54,9 @@ class FinishActivity : BaseSetupWizardActivity() {
+     private var logoPunched = false
+ 
+     private var edgeToEdgeWallpaperBackgroundTheme: Resources.Theme? = null
+-    private val revealWallpaper by lazy { !SetupWizardUtils.hasLeanback(this) }
++    // SableOS: the Ready screen stays black (2.0 black and white look); the blurred wallpaper and
++    // its reveal read as a frozen screen on the Q25, so setup fades out instead.
++    private val revealWallpaper = false
+ 
+     private val logoStartScale by lazy {
+         ResourcesCompat.getFloat(resources, R.dimen.finish_logo_scale)
+@@ -124,16 +125,11 @@ class FinishActivity : BaseSetupWizardActivity() {
+         }
+     }
+ 
++    // SableOS: keyboard first. The big swipe-up arrow is gone even with gesture navigation, since
++    // a swipe from the bottom edge is the system Home gesture, which during setup reopens setup.
++    // The hint names Enter (or the trackpad press) and the icon can be tapped.
+     private fun applyHomeAffordance() {
+-        if (usesGestureNavigation()) {
+-            return
+-        }
+-        val hintResId =
+-            if (SetupWizardUtils.hasLeanback(this)) {
+-                R.string.press_center_to_go_home
+-            } else {
+-                R.string.tap_home_to_go_home
+-            }
++        val hintResId = R.string.sable_finish_hint
+         swipeHintIcon.setImageResource(R.drawable.ic_nav_home)
+         swipeHintText.setText(hintResId)
+ 
+@@ -155,14 +151,6 @@ class FinishActivity : BaseSetupWizardActivity() {
+         return value.resourceId.takeIf { resolved && it != 0 }
+     }
+ 
+-    private fun usesGestureNavigation(): Boolean {
+-        if (SetupWizardUtils.hasLeanback(this)) {
+-            return false
+-        }
+-        val selected = SetupWizardApp.settingsBundle.getString(NAVIGATION_OPTION_KEY) ?: return true
+-        return selected == NAV_BAR_MODE_GESTURAL_OVERLAY
+-    }
+-
+     override fun onDestroy() {
+         super.onDestroy()
+         velocityTracker?.recycle()
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
+index a18779c..12c784c 100644
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
+@@ -105,6 +105,8 @@
+          Start is laid out BlackBerry 10 style: Hub on the left, Active Frames home, app pages
+          on the right. -->
+     <string name="sable_ready_done">Setup complete</string>
++    <!-- Final screen hint: Enter or the trackpad press finishes setup. -->
++    <string name="sable_finish_hint">Press Enter to start</string>
+     <string name="sable_ready_title">Ready for Sable Start</string>
+     <string name="sable_ready_home">Home is Sable Start: Active Frames shows your open apps, with Hub to the left and your app grid to the right (Alt+Left / Alt+Right).</string>
+     <string name="sable_ready_bar">The bottom row shows the page dots. Start typing on the home screen to search, or press Alt+Space in any app.</string>
+-- 
+2.43.0
+
