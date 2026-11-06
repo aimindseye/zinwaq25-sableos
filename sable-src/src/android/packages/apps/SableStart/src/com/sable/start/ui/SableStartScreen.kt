@@ -3130,6 +3130,7 @@ private fun HubMessageRowItem(
     var focused by remember { mutableStateOf(false) }
     val text = if (focused) Bb10OnBlue else Bb10Text
     val muted = if (focused) Bb10OnBlue else Bb10Muted
+    val divider = Bb10Line
     val time = remember(row.dateMillis) { hubRowTime(row.dateMillis) }
     Row(
         modifier =
@@ -3140,7 +3141,7 @@ private fun HubMessageRowItem(
                 .background(if (focused) Bb10Blue else Color.Transparent)
                 .drawBehind {
                     val y = size.height - HUB_ROW_DIVIDER_DP.dp.toPx() / 2
-                    drawLine(Bb10Line, Offset(0f, y), Offset(size.width, y), HUB_ROW_DIVIDER_DP.dp.toPx())
+                    drawLine(divider, Offset(0f, y), Offset(size.width, y), HUB_ROW_DIVIDER_DP.dp.toPx())
                 }.onPreviewKeyEvent { event ->
                     val native = event.nativeKeyEvent
                     val alt = native.metaState and (QuickBar.META_ALT_ON or QuickBar.META_FUNCTION_ON) != 0
