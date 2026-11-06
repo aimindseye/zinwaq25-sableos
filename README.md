@@ -21,6 +21,9 @@ Titan 2 or Q27 SableOS lanes.
 > Frames, lock-screen Peek and Picture Password, Command from any app, folders
 > and hidden apps, Sable Speech, Tasks, Browser, Spaces, Print To Go, Compass,
 > the Cosgrove assistant, weather alerts and Deep sleeping apps.
+> The 2.0 image has no Google software and no app store: microG and Aurora
+> Store are an optional [add-on](docs/MICROG.md) installed after setup, and Sable
+> Mail is no longer built by default.
 > The Q25 was first flashed on 2026-10-15/17 (board `q20_v12_factory`, stock
 > `Q25_20.01.2026`); earlier device reviews are in
 > [docs/implementation/q4-review.md](docs/implementation/q4-review.md).

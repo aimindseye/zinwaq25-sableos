@@ -130,7 +130,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Phone (Sable Phone) | Calls by day, Contacts and Dial pad, BlackBerry 10 style, with its own call screen | Letters search, digits dial, hold a letter to speed dial (Menu > Speed dial). Call key calls; on an empty dial pad it fills in the last number. In a call: M mute, S speaker, H hold, D keypad, End hangs up. Call key or Space answers |
 | Sable Messages | Default SMS app: sends SMS, receives SMS and MMS (no MMS sending yet) | T/B, N/P, Space pages |
 | Hub (in Start) | One inbox for messages, calls and notifications | H on a notification opens it in Hub |
-| Mail | Email; Gmail sign-in is covered in [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |
+| Mail | Not built by default from 2.0. Install any mail app (K-9, FairEmail) and Hub shows its mail in the Mail filter. Sable Mail can still be built with `apps --all`; Gmail sign-in: [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |
 | Calendar | The month with busy rings over the day's agenda, a week view with a NOW line, and every calendar on the phone. A ring fills with how much of 8:00 to 20:00 is booked; a thin outer ring marks an all-day event. L lists your calendars to show or hide each one | C, T, V, J, K, R, L |
 | Notes | Notes and checklists with colour labels, kept on the phone | See [Notes](#notes) below; C new, S find, K tasks |
 | Tasks | Tasks with due dates, reminders and repeats, kept on the phone. A reminder shows in Hub with Done and Snooze 1 hour | See [Tasks](#tasks) below; C new, Space done, Z tomorrow |
@@ -149,7 +149,7 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Tools | Device reports you can save to Download/SableTools. Its utilities (SOS and alarm, pedometer with a goal and 7-day history, flashlight, compass and more) show on the Q25 only when Developer options and Tools' developer mode are on, until each is proven on the phone | C copy, S save, M more. In the pedometer, Menu sets height, weight and goal |
 | Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, Deep sleeping apps, Focus and Student mode) | Deep sleeping apps: Settings > Apps > Mobile Manager > Deep sleeping apps. To see what an app can do and what changed in it, open Settings > Apps > App security & privacy (signing, permissions, exposed parts, tracker signals, changes seen on this phone) |
 | App display compatibility | Taller canvas per app for apps that don't fit a square screen | Alt+Shift+R |
-| Aurora Store + microG | Install Play Store apps without Google Play | See [MICROG.md](MICROG.md) |
+| Aurora Store + microG (add-on) | Not installed from 2.0. Install them from a computer to run Play Store apps without Google Play | See [MICROG.md](MICROG.md) |
 
 <p>
 <img src="images/q25/phone.png" alt="Phone" width="150">
@@ -399,9 +399,9 @@ SableOS favours privacy over Google compatibility, but it is not hardened yet. T
 
 | Area | Default on a fresh install | Why |
 | --- | --- | --- |
-| Google services | None. microG Services and Companion and Aurora Store are installed instead | No Google Play services polling location or syncing in the background |
+| Google services | None, and from 2.0 no microG or app store either; the microG add-on is optional | No Google Play services polling location or syncing in the background |
 | microG SafetyNet / Play Integrity | Off | Apps that require it (many banking apps) may refuse to run |
-| Signature spoofing | Only for official microG builds, and only on this image | No other app can pretend to be Google |
+| Signature spoofing | Only for official microG builds (the add-on) | No other app can pretend to be Google |
 | Data encryption | On (Android file-based encryption, set up by Format data) | Your data needs your PIN to unlock after a restart |
 | Lock screen | No PIN until you set one in setup | You choose; the keyboard types the PIN |
 | Private Space | Available, off until you create it | Keeps chosen apps behind a separate lock; Hub and Active Frames leave them out |
@@ -421,8 +421,8 @@ Do these once after setup. The first group protects you; the second makes the Q2
 - [ ] Set a PIN or password: Settings > Security > Screen lock. Without one the Sable lock glance is not shown and encryption only protects the phone while it is off.
 - [ ] Hide sensitive notification content on the lock screen: Settings > Notifications > Notifications on lock screen.
 - [ ] Turn off USB debugging when you are not collecting logs: Settings > System > Developer options. Debugging gives root over a cable on this build.
-- [ ] In microG Settings, turn on only what you use: Google account (for Gmail and apps that sign in), Cloud Messaging (for push in apps like Signal or WhatsApp), and Location (for maps). Leave SafetyNet off unless an app needs it.
-- [ ] Sign in to Aurora Store anonymously unless you need apps you bought.
+- [ ] If you installed the microG add-on, in microG Settings turn on only what you use: Google account (for Gmail and apps that sign in), Cloud Messaging (for push in apps like Signal or WhatsApp), and Location (for maps). Leave SafetyNet off unless an app needs it.
+- [ ] If you installed Aurora Store, sign in anonymously unless you need apps you bought.
 - [ ] Review app permissions after installing apps: Settings > Security & privacy > Privacy > Permission manager.
 - [ ] Put sensitive apps in Private Space (Vault) so they stay out of Hub, Active Frames and search.
 - [ ] Keep your mtkclient backup and stock firmware off the phone. It is the only copy of your IMEI partitions.
@@ -448,7 +448,7 @@ Do these once after setup. The first group protects you; the second makes the Q2
 | Start says "open Sable Weather to set it up" | Open Weather and choose a city. On alpha-20261028 this was a bug fixed by PR #38 |
 | Keyboard light stays dark | The stock keyboard firmware ignores the light; see the Keyboard firmware notes in [KEYBOARD_AND_INPUT.md](KEYBOARD_AND_INPUT.md) |
 | Lock screen time is wrong | Set the time zone in Settings > System > Date & time |
-| An app needs Google Play services | Turn on the matching microG feature; some apps that require Play Integrity will not run |
+| An app needs Google Play services | Install the microG add-on ([MICROG.md](MICROG.md)) and turn on the matching feature; some apps that require Play Integrity will not run |
 | Phone won't start, or lost signal | Go back to stock with [FLASHING_RELEASE.md](FLASHING_RELEASE.md#going-back-to-stock) |
 | Start or an app crashes on first boot | Run `scripts/capture-crash-evidence.sh` before clearing anything, and attach its `SUMMARY.txt` to a GitHub issue |
 

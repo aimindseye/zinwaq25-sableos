@@ -177,7 +177,8 @@ restore stock.
 4. Choose *Reboot system now*. The first boot takes several minutes.
 
 The phone opens Sable Setup, then Sable Start. Sable Keyboard is the keyboard,
-and microG with Aurora Store replaces Google Play
+and there is no Google software or app store. For apps that need Google Play
+services, install the microG add-on after setup
 ([`MICROG.md`](https://github.com/aimindseye/zinwaq25-sableos/blob/main/docs/MICROG.md)).
 
 ## Updating from an earlier SableOS release
