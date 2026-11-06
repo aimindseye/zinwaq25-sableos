@@ -10,6 +10,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -18,8 +22,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import org.sableos.design.SableGlobalTheme
+import org.sableos.design.SableUndoBar
 
 internal data class MediaRepositories(
     val localAudio: LocalAudioRepository,
@@ -139,20 +146,33 @@ internal fun MediaApp(
             LocalMediaTextInputFocus provides state.textInputFocus,
             LocalFmAvailable provides fmState.available,
         ) {
-            MediaScreen(
-                state = state.screenState(playbackState, fmState),
-                actions =
-                    mediaScreenActions(
-                        state = state,
-                        controllers = controllers,
-                        host = host,
-                        pickers =
-                            MediaPickers(
-                                audioFiles = { localAudioPicker.launch(arrayOf(AUDIO_MIME_FILTER)) },
-                                audioFolder = { localAudioFolderPicker.launch(null) },
-                            ),
-                    ),
-            )
+            Box(Modifier.fillMaxSize()) {
+                MediaScreen(
+                    state = state.screenState(playbackState, fmState),
+                    actions =
+                        mediaScreenActions(
+                            state = state,
+                            controllers = controllers,
+                            host = host,
+                            pickers =
+                                MediaPickers(
+                                    audioFiles = { localAudioPicker.launch(arrayOf(AUDIO_MIME_FILTER)) },
+                                    audioFolder = { localAudioFolderPicker.launch(null) },
+                                ),
+                        ),
+                )
+                state.deletedPlaylist?.let {
+                    SableUndoBar(
+                        message = MediaText.t("playlist_removed"),
+                        onUndo = controllers.playlists::undoDelete,
+                        onExpire = controllers.playlists::endUndo,
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .background(MaterialTheme.colorScheme.background),
+                    )
+                }
+            }
         }
     }
 }

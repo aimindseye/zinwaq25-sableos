@@ -1,0 +1,444 @@
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt
+index aa47c45..2fde2d6 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt
+@@ -10,6 +10,10 @@ import androidx.activity.compose.BackHandler
+ import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+ import androidx.activity.compose.rememberLauncherForActivityResult
+ import androidx.activity.result.contract.ActivityResultContracts
++import androidx.compose.foundation.background
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.material3.MaterialTheme
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.CompositionLocalProvider
+ import androidx.compose.runtime.DisposableEffect
+@@ -18,8 +22,11 @@ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.rememberCoroutineScope
+ import androidx.compose.runtime.rememberUpdatedState
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
+ import androidx.compose.ui.platform.LocalContext
+ import org.sableos.design.SableGlobalTheme
++import org.sableos.design.SableUndoBar
+ 
+ internal data class MediaRepositories(
+     val localAudio: LocalAudioRepository,
+@@ -139,20 +146,33 @@ internal fun MediaApp(
+             LocalMediaTextInputFocus provides state.textInputFocus,
+             LocalFmAvailable provides fmState.available,
+         ) {
+-            MediaScreen(
+-                state = state.screenState(playbackState, fmState),
+-                actions =
+-                    mediaScreenActions(
+-                        state = state,
+-                        controllers = controllers,
+-                        host = host,
+-                        pickers =
+-                            MediaPickers(
+-                                audioFiles = { localAudioPicker.launch(arrayOf(AUDIO_MIME_FILTER)) },
+-                                audioFolder = { localAudioFolderPicker.launch(null) },
+-                            ),
+-                    ),
+-            )
++            Box(Modifier.fillMaxSize()) {
++                MediaScreen(
++                    state = state.screenState(playbackState, fmState),
++                    actions =
++                        mediaScreenActions(
++                            state = state,
++                            controllers = controllers,
++                            host = host,
++                            pickers =
++                                MediaPickers(
++                                    audioFiles = { localAudioPicker.launch(arrayOf(AUDIO_MIME_FILTER)) },
++                                    audioFolder = { localAudioFolderPicker.launch(null) },
++                                ),
++                        ),
++                )
++                state.deletedPlaylist?.let {
++                    SableUndoBar(
++                        message = MediaText.t("playlist_removed"),
++                        onUndo = controllers.playlists::undoDelete,
++                        onExpire = controllers.playlists::endUndo,
++                        modifier =
++                            Modifier
++                                .align(Alignment.BottomCenter)
++                                .background(MaterialTheme.colorScheme.background),
++                    )
++                }
++            }
+         }
+     }
+ }
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
+index 8c366f2..a5cdf92 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
+@@ -263,9 +263,21 @@ internal class MediaPlaylistController(
+                 current = state.playlists,
+                 playlistId = playlist.id,
+             )
++        state.deletedPlaylist = playlist
+         state.message = t("playlist_removed")
+     }
+ 
++    fun undoDelete() {
++        val playlist = state.deletedPlaylist ?: return
++        state.deletedPlaylist = null
++        state.playlists = libraryState.restorePlaylist(state.playlists, playlist)
++        state.message = null
++    }
++
++    fun endUndo() {
++        state.deletedPlaylist = null
++    }
++
+     fun play(playlist: MediaPlaylist) {
+         val itemsSnapshot = state.localItems
+         scope.launch {
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt
+index c25129b..3723183 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt
+@@ -41,6 +41,9 @@ internal class MediaAppState(
+ 
+     var message by mutableStateOf<String?>(null)
+ 
++    /** The playlist just deleted, kept for the Undo bar until it expires. */
++    var deletedPlaylist by mutableStateOf<MediaPlaylist?>(null)
++
+     /** Library search: null while closed, the typed query while open. */
+     var searchQuery by mutableStateOf<String?>(null)
+     var searchFocusToken by mutableIntStateOf(0)
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaLibraryStateRepository.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaLibraryStateRepository.kt
+index 0048086..11158a8 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaLibraryStateRepository.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaLibraryStateRepository.kt
+@@ -100,6 +100,15 @@ internal class MediaLibraryStateRepository(
+         return updated
+     }
+ 
++    fun restorePlaylist(
++        current: List<MediaPlaylist>,
++        playlist: MediaPlaylist,
++    ): List<MediaPlaylist> {
++        val updated = (current.filterNot { it.id == playlist.id } + playlist).sortedBy { it.name.lowercase() }
++        persistPlaylists(updated)
++        return updated
++    }
++
+     fun pruneMissingAudio(
+         current: List<MediaPlaylist>,
+         validUris: Set<String>,
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+index 97488ca..3b608e3 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+@@ -25,6 +25,10 @@ enum class SettingsLink(private val labelKey: String, val candidates: List<LinkI
+             LinkIntent("android.intent.action.MAIN", "org.sableos.titan2.displaycompat")
+         )
+     ),
++    ACCESSIBILITY(
++        "settings_accessibility",
++        listOf(LinkIntent("android.settings.ACCESSIBILITY_SETTINGS"))
++    ),
+     DISPLAY("settings_display", listOf(LinkIntent("android.settings.DISPLAY_SETTINGS"))),
+     SOUND("settings_sound", listOf(LinkIntent("android.settings.SOUND_SETTINGS"))),
+     BATTERY(
+@@ -98,7 +102,11 @@ object Handoffs {
+         Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS, SettingsLink.KEYBOARD)
+         Tool.DEVICE_IDENTITY -> listOf(SettingsLink.ABOUT, SettingsLink.SECURITY)
+         Tool.PRIVACY_CHECK -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
+-        Tool.MY_SABLE -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
++        Tool.MY_SABLE -> listOf(
++            SettingsLink.SECURITY,
++            SettingsLink.PRIVACY,
++            SettingsLink.ACCESSIBILITY
++        )
+         Tool.BUGREPORT -> listOf(SettingsLink.DEVELOPER)
+         else -> emptyList()
+     }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+index 9e0c27d..6ef26b3 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+@@ -295,6 +295,8 @@ object ToolsText {
+             "my_sable_mobile" to "Mobile Manager: network and mobile data",
+             "my_sable_battery" to "Battery: usage and health",
+             "my_sable_open" to "Open",
++            "my_sable_privacy_screen" to "Privacy Screen: dims all but the line you are on",
++            "settings_accessibility" to "Settings > Accessibility",
+             "device_build_and_security" to "Device, build and security",
+             "keyboard_event_viewer" to "Keyboard event viewer",
+             "keyboard_layout_and_profile" to "Keyboard layout and profile",
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+index fd8cfb8..ec0e50f 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+@@ -413,6 +413,7 @@ class MySableController(private val host: ToolHost) : ToolController {
+             appendLine("${t("my_sable_mobile")}  ${t("my_sable_open")}")
+             appendLine("${t("check_private_space")}  ${space?.detail ?: t("check_unknown")}")
+             appendLine("${t("my_sable_battery")}  ${t("my_sable_open")}")
++            appendLine("${t("my_sable_privacy_screen")}  ${t("my_sable_open")}")
+         }.trimEnd()
+         text.text = rendered
+     }
+@@ -424,6 +425,7 @@ class MySableController(private val host: ToolHost) : ToolController {
+         t("my_sable_attention") to { host.openLink(SettingsLink.NOTIFICATIONS) },
+         t("my_sable_mobile") to { host.openLink(SettingsLink.NETWORK) },
+         t("check_private_space") to { host.openLink(SettingsLink.SECURITY) },
+-        t("my_sable_battery") to { host.openLink(SettingsLink.BATTERY) }
++        t("my_sable_battery") to { host.openLink(SettingsLink.BATTERY) },
++        t("my_sable_privacy_screen") to { host.openLink(SettingsLink.ACCESSIBILITY) }
+     )
+ }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+index b7fe91d..12273f3 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">الجهاز والإصدار والأمان</string>
+     <string name="keyboard_event_viewer">عارض أحداث لوحة المفاتيح</string>
+     <string name="keyboard_layout_and_profile">تخطيط لوحة المفاتيح وملفها</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+index a080b04..f7ecb2f 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">Gerät, Build und Sicherheit</string>
+     <string name="keyboard_event_viewer">Tastaturereignis-Anzeige</string>
+     <string name="keyboard_layout_and_profile">Tastaturlayout und Profil</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+index 9f5baa0..a1dae39 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">Συσκευή, έκδοση και ασφάλεια</string>
+     <string name="keyboard_event_viewer">Προβολή συμβάντων πληκτρολογίου</string>
+     <string name="keyboard_layout_and_profile">Διάταξη και προφίλ πληκτρολογίου</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+index 60dfc50..fded4d2 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">Dispositivo, compilación y seguridad</string>
+     <string name="keyboard_event_viewer">Visor de eventos de teclado</string>
+     <string name="keyboard_layout_and_profile">Distribución y perfil del teclado</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+index 3ed16c5..ec4b0a0 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">Appareil, version et sécurité</string>
+     <string name="keyboard_event_viewer">Visionneuse d\'événements clavier</string>
+     <string name="keyboard_layout_and_profile">Disposition et profil du clavier</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+index 97d637e..b3c0177 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">डिवाइस, बिल्ड और सुरक्षा</string>
+     <string name="keyboard_event_viewer">कीबोर्ड इवेंट व्यूअर</string>
+     <string name="keyboard_layout_and_profile">कीबोर्ड लेआउट और प्रोफ़ाइल</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+index c5c7b4a..40d3b44 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">Dispositivo, build e sicurezza</string>
+     <string name="keyboard_event_viewer">Visualizzatore eventi tastiera</string>
+     <string name="keyboard_layout_and_profile">Layout e profilo tastiera</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+index f4fcdc0..b70d3b6 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">מכשיר, גרסה ואבטחה</string>
+     <string name="keyboard_event_viewer">מציג אירועי מקלדת</string>
+     <string name="keyboard_layout_and_profile">פריסת מקלדת ופרופיל</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+index b56d105..c87d18b 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">デバイス、ビルド、セキュリティ</string>
+     <string name="keyboard_event_viewer">キーボードイベントビューアー</string>
+     <string name="keyboard_layout_and_profile">キーボードレイアウトとプロファイル</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+index 2e10e9c..5857a61 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">기기, 빌드 및 보안</string>
+     <string name="keyboard_event_viewer">키보드 이벤트 뷰어</string>
+     <string name="keyboard_layout_and_profile">키보드 레이아웃 및 프로필</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+index cd4f75d..9bdc5f6 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">Apparaat, build en beveiliging</string>
+     <string name="keyboard_event_viewer">Toetsenbordgebeurtenissen-viewer</string>
+     <string name="keyboard_layout_and_profile">Toetsenbordindeling en profiel</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+index 6a605c9..b98225d 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">Urządzenie, kompilacja i bezpieczeństwo</string>
+     <string name="keyboard_event_viewer">Podgląd zdarzeń klawiatury</string>
+     <string name="keyboard_layout_and_profile">Układ i profil klawiatury</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+index 5753dd7..ea10f28 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">Dispositivo, versão e segurança</string>
+     <string name="keyboard_event_viewer">Visualizador de eventos do teclado</string>
+     <string name="keyboard_layout_and_profile">Layout e perfil do teclado</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+index 029dff5..7b935ab 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">Устройство, сборка и безопасность</string>
+     <string name="keyboard_event_viewer">Просмотр событий клавиатуры</string>
+     <string name="keyboard_layout_and_profile">Раскладка и профиль клавиатуры</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+index 718d8cc..e65b261 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">Enhet, version och säkerhet</string>
+     <string name="keyboard_event_viewer">Visare för tangenthändelser</string>
+     <string name="keyboard_layout_and_profile">Tangentbordslayout och profil</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+index c328d09..b7851da 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">Cihaz, sürüm ve güvenlik</string>
+     <string name="keyboard_event_viewer">Klavye olay görüntüleyici</string>
+     <string name="keyboard_layout_and_profile">Klavye düzeni ve profili</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+index 35c4152..a6a73a7 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">ڈیوائس، بلڈ اور سیکیورٹی</string>
+     <string name="keyboard_event_viewer">کی بورڈ ایونٹ ویور</string>
+     <string name="keyboard_layout_and_profile">کی بورڈ لے آؤٹ اور پروفائل</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+index 481ab32..750476e 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+@@ -223,6 +223,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">设备、版本和安全</string>
+     <string name="keyboard_event_viewer">键盘事件查看器</string>
+     <string name="keyboard_layout_and_profile">键盘布局和配置文件</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+index f6fed7e..d4cddf9 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+@@ -224,6 +224,8 @@
+     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
+     <string name="my_sable_battery">Battery: usage and health</string>
+     <string name="my_sable_open">Open</string>
++    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
++    <string name="settings_accessibility">Settings > Accessibility</string>
+     <string name="device_build_and_security">Device, build and security</string>
+     <string name="keyboard_event_viewer">Keyboard event viewer</string>
+     <string name="keyboard_layout_and_profile">Keyboard layout and profile</string>

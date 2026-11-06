@@ -413,6 +413,7 @@ class MySableController(private val host: ToolHost) : ToolController {
             appendLine("${t("my_sable_mobile")}  ${t("my_sable_open")}")
             appendLine("${t("check_private_space")}  ${space?.detail ?: t("check_unknown")}")
             appendLine("${t("my_sable_battery")}  ${t("my_sable_open")}")
+            appendLine("${t("my_sable_privacy_screen")}  ${t("my_sable_open")}")
         }.trimEnd()
         text.text = rendered
     }
@@ -424,6 +425,7 @@ class MySableController(private val host: ToolHost) : ToolController {
         t("my_sable_attention") to { host.openLink(SettingsLink.NOTIFICATIONS) },
         t("my_sable_mobile") to { host.openLink(SettingsLink.NETWORK) },
         t("check_private_space") to { host.openLink(SettingsLink.SECURITY) },
-        t("my_sable_battery") to { host.openLink(SettingsLink.BATTERY) }
+        t("my_sable_battery") to { host.openLink(SettingsLink.BATTERY) },
+        t("my_sable_privacy_screen") to { host.openLink(SettingsLink.ACCESSIBILITY) }
     )
 }

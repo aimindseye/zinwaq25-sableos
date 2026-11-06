@@ -25,6 +25,10 @@ enum class SettingsLink(private val labelKey: String, val candidates: List<LinkI
             LinkIntent("android.intent.action.MAIN", "org.sableos.titan2.displaycompat")
         )
     ),
+    ACCESSIBILITY(
+        "settings_accessibility",
+        listOf(LinkIntent("android.settings.ACCESSIBILITY_SETTINGS"))
+    ),
     DISPLAY("settings_display", listOf(LinkIntent("android.settings.DISPLAY_SETTINGS"))),
     SOUND("settings_sound", listOf(LinkIntent("android.settings.SOUND_SETTINGS"))),
     BATTERY(
@@ -98,7 +102,11 @@ object Handoffs {
         Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS, SettingsLink.KEYBOARD)
         Tool.DEVICE_IDENTITY -> listOf(SettingsLink.ABOUT, SettingsLink.SECURITY)
         Tool.PRIVACY_CHECK -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
-        Tool.MY_SABLE -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
+        Tool.MY_SABLE -> listOf(
+            SettingsLink.SECURITY,
+            SettingsLink.PRIVACY,
+            SettingsLink.ACCESSIBILITY
+        )
         Tool.BUGREPORT -> listOf(SettingsLink.DEVELOPER)
         else -> emptyList()
     }

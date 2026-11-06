@@ -263,7 +263,19 @@ internal class MediaPlaylistController(
                 current = state.playlists,
                 playlistId = playlist.id,
             )
+        state.deletedPlaylist = playlist
         state.message = t("playlist_removed")
+    }
+
+    fun undoDelete() {
+        val playlist = state.deletedPlaylist ?: return
+        state.deletedPlaylist = null
+        state.playlists = libraryState.restorePlaylist(state.playlists, playlist)
+        state.message = null
+    }
+
+    fun endUndo() {
+        state.deletedPlaylist = null
     }
 
     fun play(playlist: MediaPlaylist) {

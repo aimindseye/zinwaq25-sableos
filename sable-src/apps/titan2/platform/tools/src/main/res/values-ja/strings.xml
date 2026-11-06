@@ -223,6 +223,8 @@
     <string name="my_sable_mobile">Mobile Manager: network and mobile data</string>
     <string name="my_sable_battery">Battery: usage and health</string>
     <string name="my_sable_open">Open</string>
+    <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+    <string name="settings_accessibility">Settings > Accessibility</string>
     <string name="device_build_and_security">デバイス、ビルド、セキュリティ</string>
     <string name="keyboard_event_viewer">キーボードイベントビューアー</string>
     <string name="keyboard_layout_and_profile">キーボードレイアウトとプロファイル</string>

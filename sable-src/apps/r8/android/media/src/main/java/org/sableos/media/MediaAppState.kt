@@ -41,6 +41,9 @@ internal class MediaAppState(
 
     var message by mutableStateOf<String?>(null)
 
+    /** The playlist just deleted, kept for the Undo bar until it expires. */
+    var deletedPlaylist by mutableStateOf<MediaPlaylist?>(null)
+
     /** Library search: null while closed, the typed query while open. */
     var searchQuery by mutableStateOf<String?>(null)
     var searchFocusToken by mutableIntStateOf(0)
