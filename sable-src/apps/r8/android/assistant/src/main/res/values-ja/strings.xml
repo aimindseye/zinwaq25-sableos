@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">ごきげんよう。%1$sがお仕えいたします。ご用件をどうぞ。</string>
+    <string name="message_hint">%1$sに尋ねる</string>
+    <string name="thinking">%1$sが考えています…</string>
+    <string name="keys_hint">Enterで送信 · Shift+Enterで改行 · Spaceを長押しで話す · Menuで設定</string>
+    <string name="send">送信</string>
+    <string name="settings">設定</string>
+    <string name="new_chat">新しい会話</string>
+    <string name="done">完了</string>
+    <string name="setup_first">設定で、私の回答の取得先を選んでください。</string>
+    <string name="name">名前</string>
+    <string name="name_detail">Commandで /%1$s と入力すると開きます</string>
+    <string name="provider">回答の取得先</string>
+    <string name="provider_ollama">ネットワーク上のOllama</string>
+    <string name="provider_ollama_detail">無料。家庭内ネットワークの外には何も出ません。</string>
+    <string name="provider_custom">ネットワーク上の別のサーバー</string>
+    <string name="provider_custom_detail">LM Studio、llama.cpp、またはOpenAI形式のAPIを持つ任意のサーバー。</string>
+    <string name="provider_hosted_detail">ご自身のキーで使う無料プラン。メッセージは%1$sに送られます。無料プランには制限があり、メッセージが学習に使われる場合があります。</string>
+    <string name="address">サーバーのアドレス</string>
+    <string name="address_hint">例: 192.168.1.20</string>
+    <string name="ollama_address_detail">お使いのコンピューターのアドレス。Ollamaはネットワークで待ち受ける必要があります: OLLAMA_HOST=0.0.0.0 を設定して再起動してください。</string>
+    <string name="api_key">APIキー</string>
+    <string name="api_key_hint">プロバイダーのウェブサイトからキーを貼り付けてください</string>
+    <string name="model">モデル</string>
+    <string name="model_none">モデルが選ばれていません。接続をテストすると一覧が出ます。</string>
+    <string name="test_connection">接続をテスト</string>
+    <string name="testing">接続しています…</string>
+    <string name="models_found">接続しました。%1$s 個のモデルが見つかりました。下から選んでください。</string>
+    <string name="no_models">接続しましたが、サーバーにモデルがありません。</string>
+    <string name="error_provider">先に回答の取得先を選んでください。</string>
+    <string name="error_address">サーバーのアドレスを入力してください。例: 192.168.1.20。</string>
+    <string name="error_plain_http">暗号化されていないhttpは自宅のネットワーク内でのみ使えます。httpsのアドレスを使ってください。</string>
+    <string name="error_key">先にAPIキーを入力してください。</string>
+    <string name="error_model">先に設定でモデルを選んでください。</string>
+    <string name="error_unreachable">サーバーに接続できませんでした。アドレスと、起動しているかを確認してください。</string>
+    <string name="error_timeout">サーバーの応答に時間がかかりすぎました。</string>
+    <string name="error_server">サーバーの応答: %1$s</string>
+    <string name="privacy_note">会話はメモリ上にのみ保持され、新しい会話を始めると消えます。</string>
+    <string name="talk">長押しで話す</string>
+    <string name="listening">聞いています… 話し終えたら離してください。</string>
+    <string name="voice">音声</string>
+    <string name="voice_detail">空のメッセージ欄でSpaceを長押しするか、「話す」を長押しして話してください(現在は英語のみ)。音声はこの電話でテキストになり、送信を待ちます。長押ししていない間は何も聞いていません。</string>
+    <string name="voice_download">音声モデルをダウンロード (%1$s MB)</string>
+    <string name="voice_downloading">音声モデルをダウンロードしています…</string>
+    <string name="voice_ready">音声モデルの準備ができました。</string>
+    <string name="voice_remove">音声モデルを削除</string>
+    <string name="voice_missing">話すには、設定で音声モデルをダウンロードしてください。</string>
+    <string name="voice_failed">音声モデルをダウンロードできませんでした。</string>
+    <string name="voice_permission">長押し中にお声を聞けるよう、マイクを許可してください。</string>
+    <string name="voice_nothing">聞き取れませんでした。</string>
+</resources>

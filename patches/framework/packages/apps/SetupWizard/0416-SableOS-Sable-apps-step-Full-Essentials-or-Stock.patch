@@ -27,14 +27,14 @@ Pure policy: sable/SableAppSet.java.
 ---
  app/src/main/AndroidManifest.xml                                |  14 +++
  .../main/java/org/lineageos/setupwizard/SableAppsActivity.java  | 105 +++++++++++++++++
- .../main/java/org/lineageos/setupwizard/sable/SableAppSet.java  | 171 ++++++++++++++++++++++++++++
+ .../main/java/org/lineageos/setupwizard/sable/SableAppSet.java  | 172 ++++++++++++++++++++++++++++
  .../main/java/org/lineageos/setupwizard/sable/SableSteps.java   |   1 +
  app/src/main/res/drawable/ic_sable_apps.xml                     |  15 +++
  app/src/main/res/layout/sable_apps_page.xml                     |  70 ++++++++++++
  app/src/main/res/raw/lineage_wizard_script.xml                  |   7 ++
  app/src/main/res/raw/lineage_wizard_script_user.xml             |   7 ++
  app/src/main/res/values/sable_strings.xml                       |  11 +-
- 9 files changed, 400 insertions(+), 1 deletion(-)
+ 9 files changed, 401 insertions(+), 1 deletion(-)
 
 diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
 index 04a6b82..49f3e78 100644
@@ -177,7 +177,7 @@ new file mode 100644
 index 0000000..53fbd7d
 --- /dev/null
 +++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java
-@@ -0,0 +1,171 @@
+@@ -0,0 +1,172 @@
 +/*
 + * SPDX-FileCopyrightText: The SableOS Project
 + * SPDX-License-Identifier: Apache-2.0
@@ -264,6 +264,7 @@ index 0000000..53fbd7d
 +            "org.sableos.notes",
 +            "org.sableos.tasks",
 +            "org.sableos.browser",
++            "org.sableos.assistant",
 +            "org.sableos.reader",
 +            "org.sableos.mail",
 +            "org.sableos.terminal"));

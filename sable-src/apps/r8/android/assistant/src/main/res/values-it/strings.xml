@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">Buongiorno. %1$s al suo servizio. Come posso aiutarla?</string>
+    <string name="message_hint">Chiedi a %1$s</string>
+    <string name="thinking">%1$s sta riflettendo…</string>
+    <string name="keys_hint">Invio invia · Maiusc+Invio nuova riga · tieni premuto Spazio per parlare · Menu impostazioni</string>
+    <string name="send">Invia</string>
+    <string name="settings">Impostazioni</string>
+    <string name="new_chat">Nuova conversazione</string>
+    <string name="done">Fatto</string>
+    <string name="setup_first">Scegli nelle Impostazioni da dove arrivano le mie risposte.</string>
+    <string name="name">Nome</string>
+    <string name="name_detail">Command mi apre con /%1$s</string>
+    <string name="provider">Da dove arrivano le mie risposte</string>
+    <string name="provider_ollama">Ollama sulla tua rete</string>
+    <string name="provider_ollama_detail">Gratis. Niente esce dalla tua rete di casa.</string>
+    <string name="provider_custom">Altro server sulla tua rete</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp o qualsiasi server con un’API in stile OpenAI.</string>
+    <string name="provider_hosted_detail">Piano gratuito con la tua chiave. I tuoi messaggi vanno a %1$s; i piani gratuiti hanno limiti e possono usare i messaggi per l’addestramento.</string>
+    <string name="address">Indirizzo del server</string>
+    <string name="address_hint">Per esempio 192.168.1.20</string>
+    <string name="ollama_address_detail">L’indirizzo del tuo computer. Ollama deve ascoltare sulla rete: imposta OLLAMA_HOST=0.0.0.0 e riavvialo.</string>
+    <string name="api_key">Chiave API</string>
+    <string name="api_key_hint">Incolla la chiave dal sito del fornitore</string>
+    <string name="model">Modello</string>
+    <string name="model_none">Nessun modello scelto. Prova la connessione per elencarli.</string>
+    <string name="test_connection">Prova connessione</string>
+    <string name="testing">Connessione…</string>
+    <string name="models_found">Connesso. Trovati %1$s modelli; scegline uno qui sotto.</string>
+    <string name="no_models">Connesso, ma il server non elenca modelli.</string>
+    <string name="error_provider">Prima scegli da dove arrivano le mie risposte.</string>
+    <string name="error_address">Inserisci l’indirizzo del server, per esempio 192.168.1.20.</string>
+    <string name="error_plain_http">L’http semplice funziona solo sulla tua rete. Usa un indirizzo https.</string>
+    <string name="error_key">Prima inserisci la chiave API.</string>
+    <string name="error_model">Prima scegli un modello nelle Impostazioni.</string>
+    <string name="error_unreachable">Non sono riuscito a raggiungere il server. Controlla l’indirizzo e che sia attivo.</string>
+    <string name="error_timeout">Il server ha impiegato troppo a rispondere.</string>
+    <string name="error_server">Il server ha risposto: %1$s</string>
+    <string name="privacy_note">Le conversazioni restano solo in memoria e spariscono quando ne inizi una nuova.</string>
+    <string name="talk">Tieni premuto per parlare</string>
+    <string name="listening">Ascolto… rilascia quando hai finito.</string>
+    <string name="voice">Voce</string>
+    <string name="voice_detail">Tieni premuto Spazio in una casella vuota, o tieni premuto Parla, e parla (per ora in inglese). La voce diventa testo su questo telefono e aspetta che tu la invii. Niente ascolta se non tieni premuto.</string>
+    <string name="voice_download">Scarica il modello vocale (%1$s MB)</string>
+    <string name="voice_downloading">Download del modello vocale…</string>
+    <string name="voice_ready">Modello vocale pronto.</string>
+    <string name="voice_remove">Rimuovi modello vocale</string>
+    <string name="voice_missing">Per parlare, scarica il modello vocale nelle Impostazioni.</string>
+    <string name="voice_failed">Impossibile scaricare il modello vocale.</string>
+    <string name="voice_permission">Consenti il microfono così posso sentirti mentre tieni premuto.</string>
+    <string name="voice_nothing">Non ho capito.</string>
+</resources>

@@ -183,6 +183,7 @@ import org.sableos.start.model.StartTypeToSearch
 import org.sableos.start.model.TrackpadFlick
 import org.sableos.start.model.inLauncherUser
 import org.sableos.start.model.stableKey
+import org.sableos.start.platform.AssistantPersona
 import org.sableos.start.platform.FrameMediaRepository
 import org.sableos.start.platform.LetterShortcutRepository
 import org.sableos.start.platform.LiveSurfaceRepository
@@ -4853,7 +4854,11 @@ private fun SearchScreen(
     var chip by remember { mutableStateOf<CommandScope?>(null) }
     // The result whose actions are open ("app:<key>" or "cmd:<title>").
     var actionsFor by remember { mutableStateOf<String?>(null) }
-    val typed = CommandQuery.parse(query.text)
+    val context = LocalContext.current
+    val persona by produceState<AssistantPersona?>(null) {
+        value = withContext(Dispatchers.IO) { AssistantPersona.read(context) }
+    }
+    val typed = CommandQuery.parse(query.text, persona?.word)
     val parsed = CommandGroups.apply(typed, chip)
     val term = parsed.term
     val locale = Locale.getDefault()
@@ -4946,6 +4951,16 @@ private fun SearchScreen(
     val bestApp = filteredApps.firstOrNull()?.takeIf { bestIsApp == true && chosenInstant == null }
     val bestOther = chosenInstant ?: firstOther?.takeIf { bestIsApp == false }
     val lockedPrivate = privateSpaceLocked == true && (parsed.scope == CommandScope.Private || term.isNotEmpty())
+    // "/ask …" or "/cosgrove …": one row that hands the question to the assistant.
+    val assistantResult =
+        if (parsed.scope == CommandScope.Assistant) {
+            val name = persona?.name ?: AssistantPersona.DEFAULT_NAME
+            SearchCommand(t("ask_assistant", name), term, "✦", t("assistant"), {
+                onStartIntent(AssistantPersona.ask(term))
+            })
+        } else {
+            null
+        }
 
     fun appActions(app: AppEntry): List<Pair<String, () -> Unit>> =
         buildList {
@@ -5015,7 +5030,8 @@ private fun SearchScreen(
             },
             // Enter opens the best match: else the first app, else the first other result.
             onSubmit = {
-                bestApp?.let(onLaunchApp)
+                assistantResult?.onClick?.invoke()
+                    ?: bestApp?.let(onLaunchApp)
                     ?: bestOther?.onClick?.invoke()
                     ?: filteredApps.firstOrNull()?.let(onLaunchApp)
                     ?: firstOther?.onClick?.invoke()
@@ -5041,6 +5057,9 @@ private fun SearchScreen(
                     },
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
+            assistantResult?.let { ask ->
+                item(key = "assistant") { CommandResult(ask) }
+            }
             if (lockedPrivate) {
                 item(key = "locked") {
                     PrivateLockedCard(onUnlock = onTogglePrivateSpace, full = parsed.scope == CommandScope.Private)

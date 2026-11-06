@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">طاب يومك. %1$s في خدمتك. كيف يمكنني المساعدة؟</string>
+    <string name="message_hint">اسأل %1$s</string>
+    <string name="thinking">%1$s يفكّر…</string>
+    <string name="keys_hint">Enter للإرسال · Shift+Enter سطر جديد · اضغط مطولًا على المسافة للتحدث · القائمة للإعدادات</string>
+    <string name="send">إرسال</string>
+    <string name="settings">الإعدادات</string>
+    <string name="new_chat">محادثة جديدة</string>
+    <string name="done">تم</string>
+    <string name="setup_first">اختر من الإعدادات مصدر إجاباتي.</string>
+    <string name="name">الاسم</string>
+    <string name="name_detail">يفتحني Command بالأمر ‎/%1$s</string>
+    <string name="provider">مصدر إجاباتي</string>
+    <string name="provider_ollama">Ollama على شبكتك</string>
+    <string name="provider_ollama_detail">مجاني. لا شيء يغادر شبكتك المنزلية.</string>
+    <string name="provider_custom">خادم آخر على شبكتك</string>
+    <string name="provider_custom_detail">LM Studio أو llama.cpp أو أي خادم بواجهة API على نمط OpenAI.</string>
+    <string name="provider_hosted_detail">خطة مجانية بمفتاحك الخاص. تذهب رسائلك إلى %1$s؛ للخطط المجانية حدود وقد تستخدم الرسائل للتدريب.</string>
+    <string name="address">عنوان الخادم</string>
+    <string name="address_hint">مثلًا 192.168.1.20</string>
+    <string name="ollama_address_detail">عنوان حاسوبك. يجب أن يستمع Ollama على الشبكة: اضبط OLLAMA_HOST=0.0.0.0 وأعد تشغيله.</string>
+    <string name="api_key">مفتاح API</string>
+    <string name="api_key_hint">الصق المفتاح من موقع المزوّد</string>
+    <string name="model">النموذج</string>
+    <string name="model_none">لم يُختر نموذج. اختبر الاتصال لعرضها.</string>
+    <string name="test_connection">اختبار الاتصال</string>
+    <string name="testing">جارٍ الاتصال…</string>
+    <string name="models_found">تم الاتصال. عُثر على %1$s نموذج؛ اختر واحدًا أدناه.</string>
+    <string name="no_models">تم الاتصال، لكن الخادم لا يعرض أي نماذج.</string>
+    <string name="error_provider">اختر أولًا مصدر إجاباتي.</string>
+    <string name="error_address">أدخل عنوان خادمك، مثلًا 192.168.1.20.</string>
+    <string name="error_plain_http">يعمل http العادي على شبكتك فقط. استخدم عنوان https.</string>
+    <string name="error_key">أدخل مفتاح API أولًا.</string>
+    <string name="error_model">اختر نموذجًا من الإعدادات أولًا.</string>
+    <string name="error_unreachable">تعذّر الوصول إلى الخادم. تحقق من العنوان ومن أنه يعمل.</string>
+    <string name="error_timeout">استغرق الخادم وقتًا طويلًا للرد.</string>
+    <string name="error_server">ردّ الخادم: %1$s</string>
+    <string name="privacy_note">تبقى المحادثات في الذاكرة فقط وتختفي عند بدء محادثة جديدة.</string>
+    <string name="talk">اضغط مطولًا للتحدث</string>
+    <string name="listening">أستمع… اترك الزر عند الانتهاء.</string>
+    <string name="voice">الصوت</string>
+    <string name="voice_detail">اضغط مطولًا على المسافة في مربع رسالة فارغ، أو على تحدّث، وتكلّم (بالإنجليزية حاليًا). يتحوّل الكلام إلى نص على هذا الهاتف وينتظر أن ترسله. لا شيء يستمع ما لم تضغط.</string>
+    <string name="voice_download">تنزيل نموذج الكلام (%1$s ميغابايت)</string>
+    <string name="voice_downloading">جارٍ تنزيل نموذج الكلام…</string>
+    <string name="voice_ready">نموذج الكلام جاهز.</string>
+    <string name="voice_remove">إزالة نموذج الكلام</string>
+    <string name="voice_missing">للتحدث، نزّل نموذج الكلام من الإعدادات.</string>
+    <string name="voice_failed">تعذّر تنزيل نموذج الكلام.</string>
+    <string name="voice_permission">اسمح بالميكروفون لأسمعك أثناء الضغط.</string>
+    <string name="voice_nothing">لم أفهم ذلك.</string>
+</resources>

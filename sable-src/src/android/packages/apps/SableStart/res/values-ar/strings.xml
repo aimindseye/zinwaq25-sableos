@@ -201,6 +201,8 @@
     <string name="open_personal_app">فتح التطبيق الشخصي</string>
     <string name="more_actions">مزيد من الإجراءات</string>
     <string name="best_match">أفضل تطابق</string>
+    <string name="assistant">المساعد</string>
+    <string name="ask_assistant">اسأل %1$s</string>
     <string name="recent_apps">الأخيرة + التطبيقات</string>
     <string name="permission_matches">تطابقات الأذونات</string>
     <string name="quick_actions">إجراءات سريعة</string>

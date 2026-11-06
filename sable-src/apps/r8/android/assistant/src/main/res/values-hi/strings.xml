@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">नमस्कार। %1$s आपकी सेवा में। मैं कैसे मदद करूँ?</string>
+    <string name="message_hint">%1$s से पूछें</string>
+    <string name="thinking">%1$s सोच रहे हैं…</string>
+    <string name="keys_hint">Enter भेजता है · Shift+Enter नई पंक्ति · बोलने के लिए Space दबाए रखें · Menu सेटिंग्स</string>
+    <string name="send">भेजें</string>
+    <string name="settings">सेटिंग्स</string>
+    <string name="new_chat">नई बातचीत</string>
+    <string name="done">हो गया</string>
+    <string name="setup_first">सेटिंग्स में चुनें कि मेरे जवाब कहाँ से आएँ।</string>
+    <string name="name">नाम</string>
+    <string name="name_detail">Command मुझे /%1$s से खोलता है</string>
+    <string name="provider">मेरे जवाब कहाँ से आते हैं</string>
+    <string name="provider_ollama">आपके नेटवर्क पर Ollama</string>
+    <string name="provider_ollama_detail">मुफ़्त। कुछ भी आपके घरेलू नेटवर्क से बाहर नहीं जाता।</string>
+    <string name="provider_custom">आपके नेटवर्क पर दूसरा सर्वर</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp या OpenAI जैसी API वाला कोई भी सर्वर।</string>
+    <string name="provider_hosted_detail">आपकी अपनी कुंजी के साथ मुफ़्त प्लान। आपके संदेश %1$s को जाते हैं; मुफ़्त प्लान की सीमाएँ हैं और वे संदेशों को प्रशिक्षण के लिए इस्तेमाल कर सकते हैं।</string>
+    <string name="address">सर्वर का पता</string>
+    <string name="address_hint">उदाहरण के लिए 192.168.1.20</string>
+    <string name="ollama_address_detail">आपके कंप्यूटर का पता। Ollama को नेटवर्क पर सुनना चाहिए: OLLAMA_HOST=0.0.0.0 सेट करें और उसे फिर से शुरू करें।</string>
+    <string name="api_key">API कुंजी</string>
+    <string name="api_key_hint">प्रदाता की वेबसाइट से कुंजी चिपकाएँ</string>
+    <string name="model">मॉडल</string>
+    <string name="model_none">कोई मॉडल नहीं चुना। सूची देखने के लिए कनेक्शन जाँचें।</string>
+    <string name="test_connection">कनेक्शन जाँचें</string>
+    <string name="testing">कनेक्ट हो रहा है…</string>
+    <string name="models_found">कनेक्ट हो गया। %1$s मॉडल मिले; नीचे से एक चुनें।</string>
+    <string name="no_models">कनेक्ट हो गया, पर सर्वर कोई मॉडल नहीं दिखाता।</string>
+    <string name="error_provider">पहले चुनें कि मेरे जवाब कहाँ से आएँ।</string>
+    <string name="error_address">अपने सर्वर का पता डालें, उदाहरण के लिए 192.168.1.20।</string>
+    <string name="error_plain_http">सादा http सिर्फ़ आपके अपने नेटवर्क पर चलता है। https पता इस्तेमाल करें।</string>
+    <string name="error_key">पहले अपनी API कुंजी डालें।</string>
+    <string name="error_model">पहले सेटिंग्स में मॉडल चुनें।</string>
+    <string name="error_unreachable">मैं सर्वर तक नहीं पहुँच सका। पता जाँचें और देखें कि वह चल रहा है।</string>
+    <string name="error_timeout">सर्वर ने जवाब देने में बहुत देर लगाई।</string>
+    <string name="error_server">सर्वर का जवाब: %1$s</string>
+    <string name="privacy_note">बातचीत सिर्फ़ मेमोरी में रहती है और नई शुरू करने पर मिट जाती है।</string>
+    <string name="talk">बोलने के लिए दबाए रखें</string>
+    <string name="listening">सुन रहा हूँ… पूरा होने पर छोड़ दें।</string>
+    <string name="voice">आवाज़</string>
+    <string name="voice_detail">खाली संदेश बॉक्स में Space या बोलें दबाए रखें और बोलें (अभी अंग्रेज़ी में)। बोली इसी फ़ोन पर टेक्स्ट बनती है और आपके भेजने का इंतज़ार करती है। जब तक आप दबाए न रखें, कुछ नहीं सुनता।</string>
+    <string name="voice_download">वाणी मॉडल डाउनलोड करें (%1$s MB)</string>
+    <string name="voice_downloading">वाणी मॉडल डाउनलोड हो रहा है…</string>
+    <string name="voice_ready">वाणी मॉडल तैयार है।</string>
+    <string name="voice_remove">वाणी मॉडल हटाएँ</string>
+    <string name="voice_missing">बोलने के लिए सेटिंग्स में वाणी मॉडल डाउनलोड करें।</string>
+    <string name="voice_failed">वाणी मॉडल डाउनलोड नहीं हो सका।</string>
+    <string name="voice_permission">माइक्रोफ़ोन की अनुमति दें ताकि दबाए रखने पर मैं आपको सुन सकूँ।</string>
+    <string name="voice_nothing">मैं समझ नहीं पाया।</string>
+</resources>

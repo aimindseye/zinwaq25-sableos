@@ -254,6 +254,34 @@ microphone, and other sites can't follow you with third-party cookies. Downloads
 Jelly, LineageOS's browser, is still installed; pick your default in Settings > Apps > Default
 apps > Browser app.
 
+### Cosgrove, the assistant
+
+Cosgrove is a butler you can talk to. He answers questions using a language model you choose, and
+he can't act on the phone (no calls, messages or settings). Open him from All apps, or type
+**/cosgrove** followed by your question in Command (**/ask** works too). If you rename him in
+Settings, the command follows the new name.
+
+Choose where his answers come from in his Settings (**Menu**):
+
+- **Ollama on your network** is free, and nothing leaves your home. On your computer, set
+  `OLLAMA_HOST=0.0.0.0` and restart Ollama so the phone can reach it. Then type the computer's
+  address, such as `192.168.1.20`; the port `11434` is added for you. Press **Test connection** and
+  pick a model from the list.
+- **OpenRouter**, **Groq** or **Gemini** use a free plan with your own API key, made on that
+  company's website. Your messages go to that company, free plans have limits, and they may use
+  messages for training.
+- **Other server on your network** is for LM Studio, llama.cpp or anything with an OpenAI-style
+  API.
+
+Plain `http://` addresses only work on your own network (home ranges, `.local`, Tailscale); an
+internet address must be `https://`. Conversations live in memory only: **New conversation**
+clears them, and nothing is saved or backed up. The API key stays on the phone.
+
+**Enter** sends and **Shift+Enter** starts a new line. To talk instead of typing, download the
+speech model once in Settings (about 40 MB, English for now). Then hold **Space** in an empty
+message box, or hold **Talk**, speak, and let go. Your words appear in the box for you to check
+and send. Recognition runs on the phone, and the microphone is on only while you hold.
+
 ### Terminal
 
 Sable Terminal is ConnectBot 1.10.9 with the Sable name and icon. It connects over SSH or Telnet, or opens a shell on the phone itself (choose Local when adding a host). Hosts and SSH keys stay on the phone, and backup is off.

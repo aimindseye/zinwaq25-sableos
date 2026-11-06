@@ -201,6 +201,8 @@
     <string name="open_personal_app">פתיחת אפליקציה אישית</string>
     <string name="more_actions">עוד פעולות</string>
     <string name="best_match">ההתאמה הטובה ביותר</string>
+    <string name="assistant">עוזר</string>
+    <string name="ask_assistant">לשאול את %1$s</string>
     <string name="recent_apps">אחרונים + אפליקציות</string>
     <string name="permission_matches">התאמות הרשאות</string>
     <string name="quick_actions">פעולות מהירות</string>

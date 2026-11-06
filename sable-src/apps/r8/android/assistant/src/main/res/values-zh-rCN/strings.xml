@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">您好。%1$s 为您效劳。有什么可以帮您?</string>
+    <string name="message_hint">问 %1$s</string>
+    <string name="thinking">%1$s 正在思考…</string>
+    <string name="keys_hint">Enter 发送 · Shift+Enter 换行 · 按住空格说话 · Menu 设置</string>
+    <string name="send">发送</string>
+    <string name="settings">设置</string>
+    <string name="new_chat">新对话</string>
+    <string name="done">完成</string>
+    <string name="setup_first">请在设置中选择我的回答来源。</string>
+    <string name="name">名字</string>
+    <string name="name_detail">在 Command 中用 /%1$s 打开我</string>
+    <string name="provider">我的回答来源</string>
+    <string name="provider_ollama">你网络中的 Ollama</string>
+    <string name="provider_ollama_detail">免费。任何内容都不会离开你的家庭网络。</string>
+    <string name="provider_custom">你网络中的其他服务器</string>
+    <string name="provider_custom_detail">LM Studio、llama.cpp 或任何提供 OpenAI 风格 API 的服务器。</string>
+    <string name="provider_hosted_detail">使用你自己密钥的免费套餐。你的消息会发送给 %1$s;免费套餐有使用限制,并可能用消息训练模型。</string>
+    <string name="address">服务器地址</string>
+    <string name="address_hint">例如 192.168.1.20</string>
+    <string name="ollama_address_detail">你电脑的地址。Ollama 必须在网络上监听:设置 OLLAMA_HOST=0.0.0.0 后重启它。</string>
+    <string name="api_key">API 密钥</string>
+    <string name="api_key_hint">粘贴服务商网站上的密钥</string>
+    <string name="model">模型</string>
+    <string name="model_none">尚未选择模型。测试连接即可列出模型。</string>
+    <string name="test_connection">测试连接</string>
+    <string name="testing">正在连接…</string>
+    <string name="models_found">已连接。找到 %1$s 个模型,请在下方选择一个。</string>
+    <string name="no_models">已连接,但服务器没有列出任何模型。</string>
+    <string name="error_provider">请先选择我的回答来源。</string>
+    <string name="error_address">请输入服务器地址,例如 192.168.1.20。</string>
+    <string name="error_plain_http">普通 http 只能在你自己的网络中使用。请使用 https 地址。</string>
+    <string name="error_key">请先输入 API 密钥。</string>
+    <string name="error_model">请先在设置中选择模型。</string>
+    <string name="error_unreachable">无法连接服务器。请检查地址以及它是否在运行。</string>
+    <string name="error_timeout">服务器响应时间过长。</string>
+    <string name="error_server">服务器回复:%1$s</string>
+    <string name="privacy_note">对话只保存在内存中,开始新对话后即消失。</string>
+    <string name="talk">按住说话</string>
+    <string name="listening">正在听… 说完后松开。</string>
+    <string name="voice">语音</string>
+    <string name="voice_detail">在空的消息框中按住空格,或按住“说话”,然后开口(目前仅英语)。语音在本机转为文字,等你发送。只要你不按住,就不会有任何监听。</string>
+    <string name="voice_download">下载语音模型(%1$s MB)</string>
+    <string name="voice_downloading">正在下载语音模型…</string>
+    <string name="voice_ready">语音模型已就绪。</string>
+    <string name="voice_remove">移除语音模型</string>
+    <string name="voice_missing">要说话,请在设置中下载语音模型。</string>
+    <string name="voice_failed">无法下载语音模型。</string>
+    <string name="voice_permission">请允许使用麦克风,以便你按住时我能听到。</string>
+    <string name="voice_nothing">我没听清。</string>
+</resources>

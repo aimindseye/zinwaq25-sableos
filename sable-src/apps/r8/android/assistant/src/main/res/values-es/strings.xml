@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">Buenos días. %1$s a su servicio. ¿En qué puedo ayudarle?</string>
+    <string name="message_hint">Preguntar a %1$s</string>
+    <string name="thinking">%1$s está pensando…</string>
+    <string name="keys_hint">Intro envía · Mayús+Intro nueva línea · mantén Espacio para hablar · Menú ajustes</string>
+    <string name="send">Enviar</string>
+    <string name="settings">Ajustes</string>
+    <string name="new_chat">Nueva conversación</string>
+    <string name="done">Listo</string>
+    <string name="setup_first">Elige en Ajustes de dónde vienen mis respuestas.</string>
+    <string name="name">Nombre</string>
+    <string name="name_detail">Command me abre con /%1$s</string>
+    <string name="provider">De dónde vienen mis respuestas</string>
+    <string name="provider_ollama">Ollama en tu red</string>
+    <string name="provider_ollama_detail">Gratis. Nada sale de tu red doméstica.</string>
+    <string name="provider_custom">Otro servidor en tu red</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp o cualquier servidor con una API tipo OpenAI.</string>
+    <string name="provider_hosted_detail">Plan gratuito con tu propia clave. Tus mensajes van a %1$s; los planes gratuitos tienen límites y pueden usar los mensajes para entrenar.</string>
+    <string name="address">Dirección del servidor</string>
+    <string name="address_hint">Por ejemplo 192.168.1.20</string>
+    <string name="ollama_address_detail">La dirección de tu ordenador. Ollama debe escuchar en la red: define OLLAMA_HOST=0.0.0.0 y reinícialo.</string>
+    <string name="api_key">Clave de API</string>
+    <string name="api_key_hint">Pega la clave de la web del proveedor</string>
+    <string name="model">Modelo</string>
+    <string name="model_none">Ningún modelo elegido. Prueba la conexión para listarlos.</string>
+    <string name="test_connection">Probar conexión</string>
+    <string name="testing">Conectando…</string>
+    <string name="models_found">Conectado. %1$s modelos encontrados; elige uno abajo.</string>
+    <string name="no_models">Conectado, pero el servidor no lista modelos.</string>
+    <string name="error_provider">Primero elige de dónde vienen mis respuestas.</string>
+    <string name="error_address">Escribe la dirección de tu servidor, por ejemplo 192.168.1.20.</string>
+    <string name="error_plain_http">El http simple solo funciona en tu propia red. Usa una dirección https.</string>
+    <string name="error_key">Primero escribe tu clave de API.</string>
+    <string name="error_model">Primero elige un modelo en Ajustes.</string>
+    <string name="error_unreachable">No pude llegar al servidor. Comprueba la dirección y que esté en marcha.</string>
+    <string name="error_timeout">El servidor tardó demasiado en responder.</string>
+    <string name="error_server">El servidor respondió: %1$s</string>
+    <string name="privacy_note">Las conversaciones solo quedan en memoria y desaparecen al empezar una nueva.</string>
+    <string name="talk">Mantén para hablar</string>
+    <string name="listening">Escuchando… suelta cuando termines.</string>
+    <string name="voice">Voz</string>
+    <string name="voice_detail">Mantén Espacio en un cuadro de mensaje vacío, o mantén Hablar, y habla (en inglés por ahora). La voz se convierte en texto en este teléfono y espera a que la envíes. Nada escucha si no mantienes.</string>
+    <string name="voice_download">Descargar modelo de voz (%1$s MB)</string>
+    <string name="voice_downloading">Descargando el modelo de voz…</string>
+    <string name="voice_ready">Modelo de voz listo.</string>
+    <string name="voice_remove">Quitar modelo de voz</string>
+    <string name="voice_missing">Para hablar, descarga el modelo de voz en Ajustes.</string>
+    <string name="voice_failed">No se pudo descargar el modelo de voz.</string>
+    <string name="voice_permission">Permite el micrófono para que pueda oírte mientras mantienes.</string>
+    <string name="voice_nothing">No lo entendí.</string>
+</resources>

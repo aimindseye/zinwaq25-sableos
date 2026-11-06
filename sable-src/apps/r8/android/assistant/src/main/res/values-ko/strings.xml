@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">안녕하십니까. %1$s, 분부만 내리십시오. 무엇을 도와드릴까요?</string>
+    <string name="message_hint">%1$s에게 묻기</string>
+    <string name="thinking">%1$s 생각 중…</string>
+    <string name="keys_hint">Enter 보내기 · Shift+Enter 줄 바꿈 · Space 길게 눌러 말하기 · Menu 설정</string>
+    <string name="send">보내기</string>
+    <string name="settings">설정</string>
+    <string name="new_chat">새 대화</string>
+    <string name="done">완료</string>
+    <string name="setup_first">설정에서 제 답변을 어디서 가져올지 선택하세요.</string>
+    <string name="name">이름</string>
+    <string name="name_detail">Command에서 /%1$s 로 저를 엽니다</string>
+    <string name="provider">답변을 가져올 곳</string>
+    <string name="provider_ollama">내 네트워크의 Ollama</string>
+    <string name="provider_ollama_detail">무료. 집 네트워크 밖으로 아무것도 나가지 않습니다.</string>
+    <string name="provider_custom">내 네트워크의 다른 서버</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp 또는 OpenAI 방식 API를 갖춘 모든 서버.</string>
+    <string name="provider_hosted_detail">내 키로 쓰는 무료 요금제. 메시지는 %1$s(으)로 전송됩니다. 무료 요금제는 한도가 있고 메시지를 학습에 사용할 수 있습니다.</string>
+    <string name="address">서버 주소</string>
+    <string name="address_hint">예: 192.168.1.20</string>
+    <string name="ollama_address_detail">컴퓨터의 주소입니다. Ollama가 네트워크에서 수신해야 합니다: OLLAMA_HOST=0.0.0.0 을 설정하고 다시 시작하세요.</string>
+    <string name="api_key">API 키</string>
+    <string name="api_key_hint">제공업체 웹사이트의 키를 붙여 넣으세요</string>
+    <string name="model">모델</string>
+    <string name="model_none">선택한 모델이 없습니다. 연결을 테스트하면 목록이 나옵니다.</string>
+    <string name="test_connection">연결 테스트</string>
+    <string name="testing">연결 중…</string>
+    <string name="models_found">연결됨. 모델 %1$s개를 찾았습니다. 아래에서 하나를 선택하세요.</string>
+    <string name="no_models">연결되었지만 서버에 모델이 없습니다.</string>
+    <string name="error_provider">먼저 답변을 가져올 곳을 선택하세요.</string>
+    <string name="error_address">서버 주소를 입력하세요. 예: 192.168.1.20.</string>
+    <string name="error_plain_http">일반 http는 내 네트워크에서만 작동합니다. https 주소를 사용하세요.</string>
+    <string name="error_key">먼저 API 키를 입력하세요.</string>
+    <string name="error_model">먼저 설정에서 모델을 선택하세요.</string>
+    <string name="error_unreachable">서버에 연결할 수 없습니다. 주소와 서버 실행 여부를 확인하세요.</string>
+    <string name="error_timeout">서버 응답이 너무 오래 걸렸습니다.</string>
+    <string name="error_server">서버 응답: %1$s</string>
+    <string name="privacy_note">대화는 메모리에만 남고 새 대화를 시작하면 사라집니다.</string>
+    <string name="talk">길게 눌러 말하기</string>
+    <string name="listening">듣고 있습니다… 다 말씀하시면 손을 떼세요.</string>
+    <string name="voice">음성</string>
+    <string name="voice_detail">빈 메시지 칸에서 Space를 길게 누르거나 말하기를 길게 누른 채 말씀하세요(지금은 영어만). 음성은 이 휴대전화에서 텍스트가 되어 보내기를 기다립니다. 누르고 있지 않으면 아무것도 듣지 않습니다.</string>
+    <string name="voice_download">음성 모델 다운로드 (%1$s MB)</string>
+    <string name="voice_downloading">음성 모델 다운로드 중…</string>
+    <string name="voice_ready">음성 모델 준비 완료.</string>
+    <string name="voice_remove">음성 모델 삭제</string>
+    <string name="voice_missing">말하려면 설정에서 음성 모델을 다운로드하세요.</string>
+    <string name="voice_failed">음성 모델을 다운로드할 수 없습니다.</string>
+    <string name="voice_permission">누르고 있는 동안 들을 수 있도록 마이크를 허용하세요.</string>
+    <string name="voice_nothing">알아듣지 못했습니다.</string>
+</resources>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">آداب۔ %1$s آپ کی خدمت میں۔ میں کیسے مدد کروں؟</string>
+    <string name="message_hint">%1$s سے پوچھیں</string>
+    <string name="thinking">%1$s سوچ رہے ہیں…</string>
+    <string name="keys_hint">Enter بھیجتا ہے · Shift+Enter نئی لائن · بولنے کے لیے Space دبائے رکھیں · Menu ترتیبات</string>
+    <string name="send">بھیجیں</string>
+    <string name="settings">ترتیبات</string>
+    <string name="new_chat">نئی گفتگو</string>
+    <string name="done">ہو گیا</string>
+    <string name="setup_first">ترتیبات میں چنیں کہ میرے جواب کہاں سے آئیں۔</string>
+    <string name="name">نام</string>
+    <string name="name_detail">Command مجھے ‎/%1$s سے کھولتا ہے</string>
+    <string name="provider">میرے جواب کہاں سے آتے ہیں</string>
+    <string name="provider_ollama">آپ کے نیٹ ورک پر Ollama</string>
+    <string name="provider_ollama_detail">مفت۔ کچھ بھی آپ کے گھریلو نیٹ ورک سے باہر نہیں جاتا۔</string>
+    <string name="provider_custom">آپ کے نیٹ ورک پر کوئی اور سرور</string>
+    <string name="provider_custom_detail">LM Studio، llama.cpp یا OpenAI طرز کی API والا کوئی بھی سرور۔</string>
+    <string name="provider_hosted_detail">آپ کی اپنی کلید کے ساتھ مفت پلان۔ آپ کے پیغامات %1$s کو جاتے ہیں؛ مفت پلانز کی حدود ہیں اور وہ پیغامات تربیت کے لیے استعمال کر سکتے ہیں۔</string>
+    <string name="address">سرور کا پتہ</string>
+    <string name="address_hint">مثلاً 192.168.1.20</string>
+    <string name="ollama_address_detail">آپ کے کمپیوٹر کا پتہ۔ Ollama کو نیٹ ورک پر سننا چاہیے: OLLAMA_HOST=0.0.0.0 سیٹ کریں اور اسے دوبارہ شروع کریں۔</string>
+    <string name="api_key">API کلید</string>
+    <string name="api_key_hint">فراہم کنندہ کی ویب سائٹ سے کلید چسپاں کریں</string>
+    <string name="model">ماڈل</string>
+    <string name="model_none">کوئی ماڈل نہیں چنا۔ فہرست دیکھنے کے لیے کنکشن جانچیں۔</string>
+    <string name="test_connection">کنکشن جانچیں</string>
+    <string name="testing">جڑ رہا ہے…</string>
+    <string name="models_found">جڑ گیا۔ %1$s ماڈل ملے؛ نیچے سے ایک چنیں۔</string>
+    <string name="no_models">جڑ گیا، مگر سرور کوئی ماڈل نہیں دکھاتا۔</string>
+    <string name="error_provider">پہلے چنیں کہ میرے جواب کہاں سے آئیں۔</string>
+    <string name="error_address">اپنے سرور کا پتہ درج کریں، مثلاً 192.168.1.20۔</string>
+    <string name="error_plain_http">سادہ http صرف آپ کے اپنے نیٹ ورک پر چلتا ہے۔ https پتہ استعمال کریں۔</string>
+    <string name="error_key">پہلے اپنی API کلید درج کریں۔</string>
+    <string name="error_model">پہلے ترتیبات میں ماڈل چنیں۔</string>
+    <string name="error_unreachable">میں سرور تک نہیں پہنچ سکا۔ پتہ جانچیں اور دیکھیں کہ وہ چل رہا ہے۔</string>
+    <string name="error_timeout">سرور نے جواب دینے میں بہت دیر لگائی۔</string>
+    <string name="error_server">سرور کا جواب: %1$s</string>
+    <string name="privacy_note">گفتگو صرف میموری میں رہتی ہے اور نئی شروع کرنے پر مٹ جاتی ہے۔</string>
+    <string name="talk">بولنے کے لیے دبائے رکھیں</string>
+    <string name="listening">سن رہا ہوں… مکمل ہونے پر چھوڑ دیں۔</string>
+    <string name="voice">آواز</string>
+    <string name="voice_detail">خالی پیغام خانے میں Space یا بولیں دبائے رکھیں اور بولیں (فی الحال انگریزی میں)۔ بولی اسی فون پر متن بنتی ہے اور آپ کے بھیجنے کا انتظار کرتی ہے۔ جب تک آپ دبائے نہ رکھیں، کچھ نہیں سنتا۔</string>
+    <string name="voice_download">تقریری ماڈل ڈاؤن لوڈ کریں (%1$s MB)</string>
+    <string name="voice_downloading">تقریری ماڈل ڈاؤن لوڈ ہو رہا ہے…</string>
+    <string name="voice_ready">تقریری ماڈل تیار ہے۔</string>
+    <string name="voice_remove">تقریری ماڈل ہٹائیں</string>
+    <string name="voice_missing">بولنے کے لیے ترتیبات میں تقریری ماڈل ڈاؤن لوڈ کریں۔</string>
+    <string name="voice_failed">تقریری ماڈل ڈاؤن لوڈ نہیں ہو سکا۔</string>
+    <string name="voice_permission">مائیکروفون کی اجازت دیں تاکہ دبائے رکھنے پر میں آپ کو سن سکوں۔</string>
+    <string name="voice_nothing">میں سمجھ نہیں سکا۔</string>
+</resources>

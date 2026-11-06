@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">Bom dia. %1$s ao seu dispor. Em que posso ajudar?</string>
+    <string name="message_hint">Perguntar a %1$s</string>
+    <string name="thinking">%1$s está pensando…</string>
+    <string name="keys_hint">Enter envia · Shift+Enter nova linha · segure Espaço para falar · Menu configurações</string>
+    <string name="send">Enviar</string>
+    <string name="settings">Configurações</string>
+    <string name="new_chat">Nova conversa</string>
+    <string name="done">Concluído</string>
+    <string name="setup_first">Escolha em Configurações de onde vêm minhas respostas.</string>
+    <string name="name">Nome</string>
+    <string name="name_detail">O Command me abre com /%1$s</string>
+    <string name="provider">De onde vêm minhas respostas</string>
+    <string name="provider_ollama">Ollama na sua rede</string>
+    <string name="provider_ollama_detail">Grátis. Nada sai da sua rede doméstica.</string>
+    <string name="provider_custom">Outro servidor na sua rede</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp ou qualquer servidor com uma API no estilo OpenAI.</string>
+    <string name="provider_hosted_detail">Plano gratuito com sua própria chave. Suas mensagens vão para %1$s; planos gratuitos têm limites e podem usar as mensagens para treinamento.</string>
+    <string name="address">Endereço do servidor</string>
+    <string name="address_hint">Por exemplo 192.168.1.20</string>
+    <string name="ollama_address_detail">O endereço do seu computador. O Ollama precisa escutar na rede: defina OLLAMA_HOST=0.0.0.0 e reinicie-o.</string>
+    <string name="api_key">Chave de API</string>
+    <string name="api_key_hint">Cole a chave do site do provedor</string>
+    <string name="model">Modelo</string>
+    <string name="model_none">Nenhum modelo escolhido. Teste a conexão para listá-los.</string>
+    <string name="test_connection">Testar conexão</string>
+    <string name="testing">Conectando…</string>
+    <string name="models_found">Conectado. %1$s modelos encontrados; escolha um abaixo.</string>
+    <string name="no_models">Conectado, mas o servidor não lista modelos.</string>
+    <string name="error_provider">Primeiro escolha de onde vêm minhas respostas.</string>
+    <string name="error_address">Digite o endereço do seu servidor, por exemplo 192.168.1.20.</string>
+    <string name="error_plain_http">http simples só funciona na sua própria rede. Use um endereço https.</string>
+    <string name="error_key">Primeiro digite sua chave de API.</string>
+    <string name="error_model">Primeiro escolha um modelo em Configurações.</string>
+    <string name="error_unreachable">Não consegui alcançar o servidor. Verifique o endereço e se ele está rodando.</string>
+    <string name="error_timeout">O servidor demorou demais para responder.</string>
+    <string name="error_server">O servidor respondeu: %1$s</string>
+    <string name="privacy_note">As conversas ficam só na memória e somem quando você começa uma nova.</string>
+    <string name="talk">Segure para falar</string>
+    <string name="listening">Ouvindo… solte quando terminar.</string>
+    <string name="voice">Voz</string>
+    <string name="voice_detail">Segure Espaço numa caixa de mensagem vazia, ou segure Falar, e fale (em inglês por enquanto). A fala vira texto neste telefone e espera você enviar. Nada escuta se você não segurar.</string>
+    <string name="voice_download">Baixar modelo de fala (%1$s MB)</string>
+    <string name="voice_downloading">Baixando o modelo de fala…</string>
+    <string name="voice_ready">Modelo de fala pronto.</string>
+    <string name="voice_remove">Remover modelo de fala</string>
+    <string name="voice_missing">Para falar, baixe o modelo de fala em Configurações.</string>
+    <string name="voice_failed">Não foi possível baixar o modelo de fala.</string>
+    <string name="voice_permission">Permita o microfone para que eu ouça você enquanto segura.</string>
+    <string name="voice_nothing">Não entendi.</string>
+</resources>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Answers come from the owner's own server or a hosted provider they chose. No contacts,
+         location, files or phone actions. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Hold-to-talk only: the microphone is open while the owner holds Space or Talk, and the
+         sound is recognized on the phone. Never in the background, never a wake word. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <queries>
+        <provider android:authorities="org.sableos.appearance" />
+    </queries>
+
+    <!-- Plain http is needed for Ollama on the home network; ServerAddress.allowed refuses plain
+         http to anything outside it, so a hosted provider is always https. Never backed up, so an
+         API key stays on this phone. -->
+    <application
+        android:name=".AssistantApplication"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="true"
+        android:icon="@mipmap/ic_sable_assistant"
+        android:roundIcon="@mipmap/ic_sable_assistant_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Text shared from another app, and Command's /cosgrove question. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="org.sableos.assistant.action.ASK" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <!-- Read-only: the name and its command word for Command. -->
+        <provider
+            android:name=".platform.PersonaProvider"
+            android:authorities="org.sableos.assistant.persona"
+            android:exported="true" />
+    </application>
+</manifest>

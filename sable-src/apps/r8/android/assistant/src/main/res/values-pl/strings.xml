@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">Dzień dobry. %1$s do usług. W czym mogę pomóc?</string>
+    <string name="message_hint">Zapytaj: %1$s</string>
+    <string name="thinking">%1$s się zastanawia…</string>
+    <string name="keys_hint">Enter wysyła · Shift+Enter nowa linia · przytrzymaj Spację, aby mówić · Menu ustawienia</string>
+    <string name="send">Wyślij</string>
+    <string name="settings">Ustawienia</string>
+    <string name="new_chat">Nowa rozmowa</string>
+    <string name="done">Gotowe</string>
+    <string name="setup_first">Wybierz w Ustawieniach, skąd mają pochodzić moje odpowiedzi.</string>
+    <string name="name">Nazwa</string>
+    <string name="name_detail">Command otwiera mnie przez /%1$s</string>
+    <string name="provider">Skąd pochodzą moje odpowiedzi</string>
+    <string name="provider_ollama">Ollama w Twojej sieci</string>
+    <string name="provider_ollama_detail">Za darmo. Nic nie opuszcza Twojej sieci domowej.</string>
+    <string name="provider_custom">Inny serwer w Twojej sieci</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp lub dowolny serwer z API w stylu OpenAI.</string>
+    <string name="provider_hosted_detail">Darmowy plan z własnym kluczem. Twoje wiadomości trafiają do %1$s; darmowe plany mają limity i mogą używać wiadomości do trenowania.</string>
+    <string name="address">Adres serwera</string>
+    <string name="address_hint">Na przykład 192.168.1.20</string>
+    <string name="ollama_address_detail">Adres Twojego komputera. Ollama musi nasłuchiwać w sieci: ustaw OLLAMA_HOST=0.0.0.0 i uruchom go ponownie.</string>
+    <string name="api_key">Klucz API</string>
+    <string name="api_key_hint">Wklej klucz ze strony dostawcy</string>
+    <string name="model">Model</string>
+    <string name="model_none">Nie wybrano modelu. Przetestuj połączenie, aby je wyświetlić.</string>
+    <string name="test_connection">Testuj połączenie</string>
+    <string name="testing">Łączenie…</string>
+    <string name="models_found">Połączono. Znaleziono modele: %1$s; wybierz jeden poniżej.</string>
+    <string name="no_models">Połączono, ale serwer nie podaje modeli.</string>
+    <string name="error_provider">Najpierw wybierz, skąd mają pochodzić moje odpowiedzi.</string>
+    <string name="error_address">Wpisz adres serwera, na przykład 192.168.1.20.</string>
+    <string name="error_plain_http">Zwykły http działa tylko w Twojej sieci. Użyj adresu https.</string>
+    <string name="error_key">Najpierw wpisz klucz API.</string>
+    <string name="error_model">Najpierw wybierz model w Ustawieniach.</string>
+    <string name="error_unreachable">Nie mogłem połączyć się z serwerem. Sprawdź adres i czy działa.</string>
+    <string name="error_timeout">Serwer odpowiadał zbyt długo.</string>
+    <string name="error_server">Serwer odpowiedział: %1$s</string>
+    <string name="privacy_note">Rozmowy są tylko w pamięci i znikają, gdy zaczniesz nową.</string>
+    <string name="talk">Przytrzymaj, aby mówić</string>
+    <string name="listening">Słucham… puść, gdy skończysz.</string>
+    <string name="voice">Głos</string>
+    <string name="voice_detail">Przytrzymaj Spację w pustym polu wiadomości lub przytrzymaj Mów i mów (na razie po angielsku). Mowa zamienia się w tekst na tym telefonie i czeka, aż ją wyślesz. Nic nie słucha, jeśli nie trzymasz.</string>
+    <string name="voice_download">Pobierz model mowy (%1$s MB)</string>
+    <string name="voice_downloading">Pobieranie modelu mowy…</string>
+    <string name="voice_ready">Model mowy gotowy.</string>
+    <string name="voice_remove">Usuń model mowy</string>
+    <string name="voice_missing">Aby mówić, pobierz model mowy w Ustawieniach.</string>
+    <string name="voice_failed">Nie udało się pobrać modelu mowy.</string>
+    <string name="voice_permission">Zezwól na mikrofon, abym słyszał Cię, gdy trzymasz.</string>
+    <string name="voice_nothing">Nie zrozumiałem.</string>
+</resources>

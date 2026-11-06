@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Cosgrove</string>
+    <string name="greeting">Good day. %1$s at your service. How may I help?</string>
+    <string name="message_hint">Ask %1$s</string>
+    <string name="thinking">%1$s is considering…</string>
+    <string name="keys_hint">Enter sends · Shift+Enter new line · hold Space to talk · Menu settings</string>
+    <string name="send">Send</string>
+    <string name="settings">Settings</string>
+    <string name="new_chat">New conversation</string>
+    <string name="done">Done</string>
+    <string name="setup_first">Choose where my answers come from in Settings.</string>
+    <string name="name">Name</string>
+    <string name="name_detail">Command opens me with /%1$s</string>
+    <string name="provider">Where my answers come from</string>
+    <string name="provider_ollama">Ollama on your network</string>
+    <string name="provider_ollama_detail">Free. Nothing leaves your home network.</string>
+    <string name="provider_custom">Other server on your network</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp or any server with an OpenAI-style API.</string>
+    <string name="provider_hosted_detail">Free plan with your own key. Your messages go to %1$s; free plans have limits and may use messages for training.</string>
+    <string name="address">Server address</string>
+    <string name="address_hint">For example 192.168.1.20</string>
+    <string name="ollama_address_detail">Your computer\'s address. Ollama must listen on the network: set OLLAMA_HOST=0.0.0.0 and restart it.</string>
+    <string name="api_key">API key</string>
+    <string name="api_key_hint">Paste the key from the provider\'s website</string>
+    <string name="model">Model</string>
+    <string name="model_none">No model chosen. Test the connection to list them.</string>
+    <string name="test_connection">Test connection</string>
+    <string name="testing">Connecting…</string>
+    <string name="models_found">Connected. %1$s models found; choose one below.</string>
+    <string name="no_models">Connected, but the server lists no models.</string>
+    <string name="error_provider">Choose where my answers come from first.</string>
+    <string name="error_address">Enter your server\'s address, for example 192.168.1.20.</string>
+    <string name="error_plain_http">Plain http only works on your own network. Use an https address.</string>
+    <string name="error_key">Enter your API key first.</string>
+    <string name="error_model">Choose a model in Settings first.</string>
+    <string name="error_unreachable">I couldn\'t reach the server. Check the address and that it is running.</string>
+    <string name="error_timeout">The server took too long to answer.</string>
+    <string name="error_server">The server answered: %1$s</string>
+    <string name="privacy_note">Conversations stay in memory only and are gone when you start a new one.</string>
+    <string name="talk">Hold to talk</string>
+    <string name="listening">Listening… let go when you\'re done.</string>
+    <string name="voice">Voice</string>
+    <string name="voice_detail">Hold Space in an empty message box, or hold Talk, and speak (English for now). Speech becomes text on this phone and waits for you to send it. Nothing listens unless you hold.</string>
+    <string name="voice_download">Download speech model (%1$s MB)</string>
+    <string name="voice_downloading">Downloading the speech model…</string>
+    <string name="voice_ready">Speech model ready.</string>
+    <string name="voice_remove">Remove speech model</string>
+    <string name="voice_missing">To talk, download the speech model in Settings.</string>
+    <string name="voice_failed">The speech model couldn\'t be downloaded.</string>
+    <string name="voice_permission">Allow the microphone so I can hear you while you hold.</string>
+    <string name="voice_nothing">I didn\'t catch that.</string>
+</resources>

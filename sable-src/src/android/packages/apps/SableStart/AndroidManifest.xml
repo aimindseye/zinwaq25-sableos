@@ -56,6 +56,8 @@
         <provider android:authorities="org.sableos.mail.snapshot" />
         <provider android:authorities="org.sableos.media.snapshot" />
         <provider android:authorities="org.sableos.dialer.speeddial" />
+        <!-- Command's /cosgrove: the assistant's name, nothing else. -->
+        <provider android:authorities="org.sableos.assistant.persona" />
         <!-- The Hub page's Messages card and Contacts tab Message action. -->
         <package android:name="org.sableos.messages" />
     </queries>

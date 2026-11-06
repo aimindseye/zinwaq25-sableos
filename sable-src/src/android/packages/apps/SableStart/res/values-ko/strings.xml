@@ -201,6 +201,8 @@
     <string name="open_personal_app">개인 앱 열기</string>
     <string name="more_actions">작업 더 보기</string>
     <string name="best_match">가장 일치</string>
+    <string name="assistant">비서</string>
+    <string name="ask_assistant">%1$s에게 묻기</string>
     <string name="recent_apps">최근 + 앱</string>
     <string name="permission_matches">권한 일치</string>
     <string name="quick_actions">빠른 작업</string>

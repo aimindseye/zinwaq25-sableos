@@ -239,6 +239,8 @@ object StartText {
             "open_personal_app" to "open personal app",
             "more_actions" to "more actions",
             "best_match" to "best match",
+            "assistant" to "assistant",
+            "ask_assistant" to "ask %1\$s",
             "recent_apps" to "recent + apps",
             "permission_matches" to "permission matches",
             "quick_actions" to "quick actions",

@@ -201,6 +201,8 @@
     <string name="open_personal_app">otwórz aplikację osobistą</string>
     <string name="more_actions">więcej działań</string>
     <string name="best_match">najlepsze dopasowanie</string>
+    <string name="assistant">asystent</string>
+    <string name="ask_assistant">zapytaj: %1$s</string>
     <string name="recent_apps">ostatnie + aplikacje</string>
     <string name="permission_matches">dopasowania uprawnień</string>
     <string name="quick_actions">szybkie działania</string>
