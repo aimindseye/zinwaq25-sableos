@@ -182,4 +182,31 @@ class SableLockGlanceTest {
         assertEquals("Today 9:30 · Event", SableLockGlance.eventLine("Today 9:30", "Standup", true, "Event"))
         assertEquals("Now · Event", SableLockGlance.eventLine("Now", " ", false, "Event"))
     }
+
+    @Test
+    fun tickerTicksForNewAlertsOnly() {
+        assertEquals(true, SableLockGlance.tickerWorthy(true, false, false, false, 100L, 0L))
+        // Silent, ongoing and group summaries never tick.
+        assertEquals(false, SableLockGlance.tickerWorthy(false, false, false, false, 100L, 0L))
+        assertEquals(false, SableLockGlance.tickerWorthy(true, true, false, false, 100L, 0L))
+        assertEquals(false, SableLockGlance.tickerWorthy(true, false, true, false, 100L, 0L))
+        // An update ticks when it is newer and may alert again.
+        assertEquals(true, SableLockGlance.tickerWorthy(true, false, false, false, 200L, 100L))
+        assertEquals(false, SableLockGlance.tickerWorthy(true, false, false, true, 200L, 100L))
+        assertEquals(false, SableLockGlance.tickerWorthy(true, false, false, false, 100L, 100L))
+    }
+
+    @Test
+    fun tickerLineShowsContentOnlyWhenAllowed() {
+        val hidden = "New notification"
+        assertEquals("WhatsApp: Maya · See you at 6", SableLockGlance.tickerLine("WhatsApp", "Maya", "See you\n at  6", true, hidden))
+        assertEquals("WhatsApp: New notification", SableLockGlance.tickerLine("WhatsApp", "Maya", "See you at 6", false, hidden))
+        assertEquals("Mail: Invoice", SableLockGlance.tickerLine("Mail", "Invoice", null, true, hidden))
+        assertEquals("Mail: Invoice", SableLockGlance.tickerLine("Mail", "Invoice", " Invoice ", true, hidden))
+        assertEquals("Mail: New notification", SableLockGlance.tickerLine("Mail", " ", "", true, hidden))
+        assertEquals("See you", SableLockGlance.tickerLine(null, null, "See you", true, hidden))
+        val long = SableLockGlance.tickerLine("App", "x".repeat(400), null, true, hidden)
+        assertEquals(SableLockGlance.TICKER_MAX_CHARS, long.length)
+        assertEquals(true, long.endsWith("…"))
+    }
 }

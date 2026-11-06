@@ -1,0 +1,351 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 6 Nov 2026 19:00:00 +0000
+Subject: [PATCH] SableOS: ticker for new notifications on the lock screen
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A one-line ticker at the top of the Sable locked glance (Sable 2.0
+plan): when a notification the lock screen shows arrives, or alerts
+again, while the lock screen is up and the screen is on, one line
+scrolls across for 10 seconds: "WhatsApp: Maya · See you at 6". The
+title and text show only when the lock screen may show that
+notification's content (no public mode with content hidden, no
+redaction); otherwise it reads "WhatsApp: New notification". Silent,
+ambient, ongoing and group summary notifications get no ticker, nor do
+updates that only alert once. The line goes when its notification is
+removed, on unlock and while dozing; Lock screen size scales it. The
+rules are pure Java (SableLockGlance.tickerWorthy and tickerLine, unit
+tested).
+---
+ .../res/layout/sable_keyguard_glance.xml      |  19 ++-
+ .../res/values/sable_keyguard_strings.xml     |   2 +
+ .../keyguard/sable/SableLockGlance.java       |  65 +++++++++-
+ .../layout/sections/SableLockGlanceSection.kt | 116 ++++++++++++++++--
+ 4 files changed, 190 insertions(+), 12 deletions(-)
+
+diff --git a/packages/SystemUI/res/layout/sable_keyguard_glance.xml b/packages/SystemUI/res/layout/sable_keyguard_glance.xml
+index 7d7e1c512..365d83dfa 100644
+--- a/packages/SystemUI/res/layout/sable_keyguard_glance.xml
++++ b/packages/SystemUI/res/layout/sable_keyguard_glance.xml
+@@ -14,7 +14,7 @@
+      See the License for the specific language governing permissions and
+      limitations under the License.
+ -->
+-<!-- Sable locked glance under the lock screen clock (sable-lockscreen-titan2): "Locked", the
++<!-- Sable locked glance under the lock screen clock (sable-lockscreen-titan2): the ticker, "Locked", the
+      next calendar event, the Peek (an app column and the newest notification), the private mode card and the unlock line. Counts only unless the
+      user lets the lock screen show notification content. -->
+ <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+@@ -25,6 +25,23 @@
+     android:importantForAccessibility="yes"
+     android:visibility="gone">
+ 
++    <!-- Ticker: one line that scrolls across for a new notification while the lock screen
++         shows, then goes after a few seconds. The app and, only when the lock screen may show
++         its content, the title and text; else "New notification". Set in code. -->
++    <TextView
++        android:id="@+id/sable_keyguard_ticker"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_marginBottom="@dimen/sable_keyguard_card_gap"
++        android:singleLine="true"
++        android:ellipsize="marquee"
++        android:marqueeRepeatLimit="2"
++        android:focusable="false"
++        android:accessibilityLiveRegion="polite"
++        android:textColor="@color/sable_keyguard_text_primary"
++        android:textSize="15sp"
++        android:visibility="gone" />
++
+     <TextView
+         android:id="@+id/sable_keyguard_locked"
+         android:layout_width="match_parent"
+diff --git a/packages/SystemUI/res/values/sable_keyguard_strings.xml b/packages/SystemUI/res/values/sable_keyguard_strings.xml
+index e798797ab..cd40ada51 100644
+--- a/packages/SystemUI/res/values/sable_keyguard_strings.xml
++++ b/packages/SystemUI/res/values/sable_keyguard_strings.xml
+@@ -84,4 +84,6 @@
+     <string name="sable_keyguard_event_all_day">all day</string>
+     <!-- Next event's name while the lock screen hides notification content. [CHAR LIMIT=16] -->
+     <string name="sable_keyguard_event_hidden">Event</string>
++    <!-- Lock screen ticker for a new notification whose content the lock screen hides, after the app's name ("WhatsApp: New notification"). [CHAR LIMIT=30] -->
++    <string name="sable_keyguard_ticker_hidden">New notification</string>
+ </resources>
+diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+index d40d5ae97..9331d10ca 100644
+--- a/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
++++ b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+@@ -35,8 +35,9 @@ import java.util.Set;
+  * bucket a lock screen notification falls in ("2 Messages · 1 Mail · 1 Missed call"), what each
+  * part of the glance shows, and the "N new · content hidden" count of a redacted notification.
+  *
+- * <p>Counts only: nothing here reads a title, a text or a sender. Pure (no android.* imports) so
+- * it can be tested off-device; android.app.Notification category values are copied.
++ * <p>Counts, plus the event and ticker lines, which take a title or text only when the caller says
++ * the lock screen may show it. Pure (no android.* imports) so it can be tested off-device;
++ * android.app.Notification category values are copied.
+  */
+ public final class SableLockGlance {
+     /** Not counted. */
+@@ -306,4 +307,64 @@ public final class SableLockGlance {
+         boolean blank = title == null || title.trim().isEmpty();
+         return when + " · " + (hideTitle || blank ? hiddenTitle : title.trim());
+     }
++
++    /** How long the ticker line shows for a new notification. */
++    public static final long TICKER_SHOW_MILLIS = 10_000L;
++    /** The longest ticker line; the marquee scrolls what does not fit the width. */
++    public static final int TICKER_MAX_CHARS = 160;
++
++    /**
++     * Whether a notification that just arrived gets the ticker: it alerts (not silent or
++     * ambient), is not ongoing and is not a group summary, and it is new or an update that alerts
++     * again with a newer time (not "only alert once"). {@code previousWhen} is the time the ticker
++     * last saw for this notification, or 0 for a new one.
++     */
++    public static boolean tickerWorthy(boolean alerting, boolean ongoing, boolean groupSummary,
++            boolean onlyAlertOnce, long when, long previousWhen) {
++        if (!alerting || ongoing || groupSummary) {
++            return false;
++        }
++        if (previousWhen == 0) {
++            return true;
++        }
++        return !onlyAlertOnce && when > previousWhen;
++    }
++
++    /**
++     * The ticker line, one line: "WhatsApp: Maya · See you at 6". While the lock screen hides
++     * this notification's content it is "WhatsApp: {@code hiddenText}" ("New notification"), so
++     * it never shows more than the lock screen would. Line breaks and runs of spaces collapse, and
++     * the line stops at {@link #TICKER_MAX_CHARS}.
++     */
++    public static String tickerLine(String app, String title, String text, boolean showContent,
++            String hiddenText) {
++        String body;
++        if (!showContent) {
++            body = hiddenText;
++        } else {
++            String t = oneLine(title);
++            String x = oneLine(text);
++            if (t.isEmpty() && x.isEmpty()) {
++                body = hiddenText;
++            } else if (t.isEmpty() || x.isEmpty() || t.equals(x)) {
++                body = t.isEmpty() ? x : t;
++            } else {
++                body = t + " · " + x;
++            }
++        }
++        String a = oneLine(app);
++        String line = a.isEmpty() ? body : a + ": " + body;
++        if (line.length() > TICKER_MAX_CHARS) {
++            int end = TICKER_MAX_CHARS - 1;
++            if (Character.isHighSurrogate(line.charAt(end - 1))) {
++                end--;
++            }
++            line = line.substring(0, end).trim() + "…";
++        }
++        return line;
++    }
++
++    private static String oneLine(String s) {
++        return s == null ? "" : s.replaceAll("\\s+", " ").trim();
++    }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+index 053ff4e41..3ac80372a 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/SableLockGlanceSection.kt
+@@ -17,6 +17,7 @@
+ package com.android.systemui.keyguard.ui.view.layout.sections
+ 
+ import android.app.Notification
++import android.app.NotificationManager
+ import android.content.Context
+ import android.database.ContentObserver
+ import android.graphics.drawable.Drawable
+@@ -87,6 +88,12 @@ import javax.inject.Inject
+  * notification content its name is "Event". Sable Calendar answers only SystemUI and Start, from
+  * the calendars the user shows, and only with READ_CALENDAR. Hidden while dozing. The
+  * notification stack starts below the glance. Legacy (blueprint) keyguard only.
++ *
++ * At the top, the ticker: when a notification the lock screen shows arrives (or alerts again)
++ * while the lock screen is up and the screen is on, one line scrolls across for
++ * [SableLockGlance.TICKER_SHOW_MILLIS]: the app, and its title and text only when the lock screen
++ * may show this notification's content, else "New notification". Silent, ongoing and group
++ * summary notifications get none; the line goes when its notification does or on unlock.
+  */
+ @SysUISingleton
+ class SableLockGlanceSection
+@@ -110,6 +117,18 @@ constructor(
+             override fun onChange(selfChange: Boolean) = loadNextEvent()
+         }
+     private var glanceView: View? = null
++
++    /** The ticker line showing now and its notification's key; null when none shows. */
++    private var ticker: String? = null
++    private var tickerKey: String? = null
++
++    /** The post time the ticker last saw for each notification, so only new alerts tick. */
++    private val tickerSeen = HashMap<String, Long>()
++    private val hideTicker = Runnable {
++        ticker = null
++        tickerKey = null
++        refresh()
++    }
+     private var textScale = 1f
+     private val notifPipeline
+         get() = notifPipelineLazy.get()
+@@ -124,11 +143,21 @@ constructor(
+ 
+     private val collectionListener =
+         object : NotifCollectionListener {
+-            override fun onEntryAdded(entry: NotificationEntry) = refresh()
++            override fun onEntryAdded(entry: NotificationEntry) {
++                tick(entry)
++                refresh()
++            }
+ 
+-            override fun onEntryUpdated(entry: NotificationEntry) = refresh()
++            override fun onEntryUpdated(entry: NotificationEntry) {
++                tick(entry)
++                refresh()
++            }
+ 
+-            override fun onEntryRemoved(entry: NotificationEntry, reason: Int) = refresh()
++            override fun onEntryRemoved(entry: NotificationEntry, reason: Int) {
++                tickerSeen.remove(entry.key)
++                if (entry.key == tickerKey) clearTicker()
++                refresh()
++            }
+ 
+             override fun onRankingApplied() = refresh()
+         }
+@@ -138,7 +167,7 @@ constructor(
+             override fun onUnlockedChanged() = refresh()
+ 
+             override fun onKeyguardShowingChanged() {
+-                if (keyguardStateController.isShowing) loadNextEvent()
++                if (keyguardStateController.isShowing) loadNextEvent() else clearTicker()
+                 refresh()
+             }
+         }
+@@ -200,6 +229,8 @@ constructor(
+     private fun startListening() {
+         if (listening) return
+         listening = true
++        // Notifications already posted are not new: only later posts tick.
++        for (entry in notifPipeline.allNotifs) tickerSeen[entry.key] = entry.sbn.postTime
+         notifPipeline.addCollectionListener(collectionListener)
+         visibilityProvider.addOnStateChangedListener { refresh() }
+         lockscreenUserManager.addNotificationStateChangedListener { refresh() }
+@@ -273,10 +304,7 @@ constructor(
+         val peek = SableLockGlance.Peek()
+         val icons = HashMap<String, Notification>()
+         val userId = lockscreenUserManager.currentUserId
+-        val privateMode =
+-            lockscreenUserManager.isLockscreenPublicMode(userId) &&
+-                lockscreenUserManager.shouldShowLockscreenNotifications() &&
+-                !lockscreenUserManager.userAllowsPrivateNotificationsInPublic(userId)
++        val privateMode = privateMode(userId)
+         if (keyguardStateController.isShowing) {
+             for (entry in notifPipeline.allNotifs) {
+                 if (visibilityProvider.shouldHideNotification(entry)) continue
+@@ -311,6 +339,16 @@ constructor(
+         textScale = scale
+         for (id in SCALED_TEXT) view.findViewById<TextView>(id)?.scaleText(scale)
+ 
++        val tickerLine =
++            if (statusBarStateController.isDozing || !keyguardStateController.isShowing) null else ticker
++        view.findViewById<TextView>(R.id.sable_keyguard_ticker).apply {
++            visibleIf(tickerLine != null)
++            if (tickerLine != null) {
++                if (text?.toString() != tickerLine) text = tickerLine
++                // A marquee scrolls only while its view is selected.
++                isSelected = true
++            }
++        }
+         view.findViewById<View>(R.id.sable_keyguard_locked).visibleIf(glance.lockedLabel)
+         val event = if (statusBarStateController.isDozing) null else eventLine(privateMode)
+         view.findViewById<TextView>(R.id.sable_keyguard_next_event).apply {
+@@ -335,7 +373,66 @@ constructor(
+                 )
+             }
+         }
+-        view.visibleIf(glance.any() || event != null)
++        view.visibleIf(glance.any() || event != null || tickerLine != null)
++    }
++
++    /** The user is in public mode and the lock screen hides notification content. */
++    private fun privateMode(userId: Int): Boolean =
++        lockscreenUserManager.isLockscreenPublicMode(userId) &&
++            lockscreenUserManager.shouldShowLockscreenNotifications() &&
++            !lockscreenUserManager.userAllowsPrivateNotificationsInPublic(userId)
++
++    /**
++     * Starts the ticker for [entry] when it is a new alert the lock screen shows, while the lock
++     * screen is up and the screen is on. Content only as far as the lock screen would show it.
++     */
++    private fun tick(entry: NotificationEntry) {
++        val sbn = entry.sbn
++        val notification = sbn.notification
++        val previous = tickerSeen.put(entry.key, sbn.postTime) ?: 0L
++        if (!keyguardStateController.isShowing || statusBarStateController.isDozing) return
++        if (visibilityProvider.shouldHideNotification(entry)) return
++        val alerting = entry.importance >= NotificationManager.IMPORTANCE_DEFAULT && !entry.isAmbient
++        val worthy =
++            SableLockGlance.tickerWorthy(
++                alerting,
++                sbn.isOngoing,
++                notification.isGroupSummary,
++                (notification.flags and Notification.FLAG_ONLY_ALERT_ONCE) != 0,
++                sbn.postTime,
++                previous,
++            )
++        if (!worthy) return
++        val showContent =
++            !privateMode(lockscreenUserManager.currentUserId) &&
++                lockscreenUserManager.getRedactionType(entry) ==
++                    NotificationLockscreenUserManager.REDACTION_TYPE_NONE
++        val extras = notification.extras
++        val title =
++            extras?.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
++                ?: extras?.getCharSequence(Notification.EXTRA_TITLE)
++        val text =
++            extras?.getCharSequence(Notification.EXTRA_TEXT)
++                ?: extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)
++        ticker =
++            SableLockGlance.tickerLine(
++                labelFor(sbn.packageName).toString(),
++                title?.toString(),
++                text?.toString(),
++                showContent,
++                context.getString(R.string.sable_keyguard_ticker_hidden),
++            )
++        tickerKey = entry.key
++        glanceView?.let {
++            it.removeCallbacks(hideTicker)
++            it.postDelayed(hideTicker, SableLockGlance.TICKER_SHOW_MILLIS)
++        }
++    }
++
++    private fun clearTicker() {
++        glanceView?.removeCallbacks(hideTicker)
++        ticker = null
++        tickerKey = null
+     }
+ 
+     /**
+@@ -476,6 +573,7 @@ constructor(
+         val ANDROID_CALENDAR_URI: Uri = Uri.parse("content://com.android.calendar")
+         val SCALED_TEXT =
+             intArrayOf(
++                R.id.sable_keyguard_ticker,
+                 R.id.sable_keyguard_locked,
+                 R.id.sable_keyguard_next_event,
+                 R.id.sable_keyguard_requires_unlock,
+-- 
+2.43.0
+
