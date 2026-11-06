@@ -1,0 +1,136 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 6 Nov 2026 22:30:00 +0000
+Subject: [PATCH] SableOS: Use Sable Keyboard button in the Keyboard step
+
+When another keyboard (for example Gboard from sideloaded Google apps) is the
+default, the Keyboard step now has one primary button that turns Sable
+Keyboard on and makes it the default. If the platform refuses, the input
+method picker opens instead.
+---
+  .../setupwizard/SableKeyboardActivity.java         | 27 ++++++++++++++++++++++
+  .../setupwizard/sable/SableKeyboardState.java      | 16 +++++++++++++
+  app/src/main/res/layout/sable_keyboard_page.xml    |  9 ++++++++
+  app/src/main/res/values/sable_strings.xml          |  1 +
+  4 files changed, 53 insertions(+)
+
+diff --git a/app/src/main/java/org/lineageos/setupwizard/SableKeyboardActivity.java b/app/src/main/java/org/lineageos/setupwizard/SableKeyboardActivity.java
+index 98bb28e..26bb054 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/SableKeyboardActivity.java
++++ b/app/src/main/java/org/lineageos/setupwizard/SableKeyboardActivity.java
+@@ -38,6 +38,7 @@ public class SableKeyboardActivity extends BaseSetupWizardActivity {
+ 
+     private TextView mStatus;
+     private Button mOffer;
++    private Button mUse;
+ 
+     @Override
+     protected void onCreate(@Nullable Bundle savedInstanceState) {
+@@ -45,6 +46,8 @@ public class SableKeyboardActivity extends BaseSetupWizardActivity {
+         getGlifLayout().setDescriptionText(getString(R.string.sable_keyboard_summary));
+         mStatus = findViewById(R.id.sable_keyboard_status);
+         mOffer = findViewById(R.id.sable_keyboard_offer);
++        mUse = findViewById(R.id.sable_keyboard_use);
++        mUse.setOnClickListener(v -> useSableKeyboard());
+         setNextAllowed(true);
+         // SableOS setup design: no separate keyboard screen when Sable Keyboard is ready.
+         if (savedInstanceState == null && !SableKeyboardState.showStep(readAvailability())) {
+@@ -63,6 +66,8 @@ public class SableKeyboardActivity extends BaseSetupWizardActivity {
+         final Availability availability = readAvailability();
+         mStatus.setText(statusText(availability));
+         bindOffer(SableKeyboardState.offer(availability));
++        mUse.setVisibility(SableKeyboardState.canMakeDefault(availability)
++                ? View.VISIBLE : View.GONE);
+         setNextAllowed(SableKeyboardState.canContinue(availability));
+     }
+ 
+@@ -92,6 +97,28 @@ public class SableKeyboardActivity extends BaseSetupWizardActivity {
+         }
+     }
+ 
++    /**
++     * Turns Sable Keyboard on and makes it the default in one tap, as the user asked for it.
++     * Setup Wizard is a privileged app; if the platform refuses, the picker opens instead.
++     */
++    private void useSableKeyboard() {
++        final String id = SableKeyboardState.PACKAGE + "/" + SableKeyboardState.IME_CLASS;
++        try {
++            final String enabled = Settings.Secure.getString(getContentResolver(),
++                    Settings.Secure.ENABLED_INPUT_METHODS);
++            final String merged = SableKeyboardState.withEnabled(enabled, id);
++            Settings.Secure.putString(getContentResolver(),
++                    Settings.Secure.ENABLED_INPUT_METHODS, merged);
++            Settings.Secure.putString(getContentResolver(),
++                    Settings.Secure.DEFAULT_INPUT_METHOD, id);
++        } catch (RuntimeException e) {
++            Log.w(TAG, "could not make Sable Keyboard the default", e);
++            final InputMethodManager imm = getSystemService(InputMethodManager.class);
++            if (imm != null) imm.showInputMethodPicker();
++        }
++        refresh();
++    }
++
+     private int statusText(Availability availability) {
+         switch (availability) {
+             case SABLE_SELECTED: return R.string.sable_keyboard_selected;
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyboardState.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyboardState.java
+index c4cb0f6..bf111df 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyboardState.java
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableKeyboardState.java
+@@ -81,6 +81,22 @@ public final class SableKeyboardState {
+         }
+     }
+ 
++    /** The one-tap button is offered whenever Sable Keyboard is installed but not selected. */
++    public static boolean canMakeDefault(Availability availability) {
++        return availability == Availability.SABLE_ENABLED_NOT_SELECTED
++                || availability == Availability.SABLE_NOT_ENABLED
++                || availability == Availability.UNKNOWN;
++    }
++
++    /** Adds the id to a colon-separated enabled input method list without duplicating it. */
++    public static String withEnabled(String enabledList, String id) {
++        if (enabledList == null || enabledList.trim().isEmpty()) return id;
++        for (String part : enabledList.split(":")) {
++            if (part.equals(id) || isSableIme(part)) return enabledList;
++        }
++        return enabledList + ":" + id;
++    }
++
+     /** Setup never stops here: every state may continue. */
+     public static boolean canContinue(Availability availability) {
+         return true;
+diff --git a/app/src/main/res/layout/sable_keyboard_page.xml b/app/src/main/res/layout/sable_keyboard_page.xml
+index d569f3e..7f4c1b1 100644
+--- a/app/src/main/res/layout/sable_keyboard_page.xml
++++ b/app/src/main/res/layout/sable_keyboard_page.xml
+@@ -44,6 +44,15 @@
+                     android:text="@string/sable_keyboard_hint"
+                     android:textColor="?android:attr/textColorSecondary" />
+ 
++                <Button
++                    android:id="@+id/sable_keyboard_use"
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:minHeight="48dp"
++                    android:text="@string/sable_keyboard_use"
++                    android:visibility="gone"
++                    style="@style/SudGlifButton.Primary" />
++
+                 <Button
+                     android:id="@+id/sable_keyboard_offer"
+                     android:layout_width="wrap_content"
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
+index 631e8ad..c0989fb 100644
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
+@@ -33,6 +33,7 @@
+     <string name="sable_keyboard_hint">Arrows and Tab move between items, Enter selects. Back returns to the previous step. You can change keyboards later in Settings, and Sable Setup checks keyboard and home defaults after setup.</string>
+     <string name="sable_keyboard_offer_settings">Keyboard settings</string>
+     <string name="sable_keyboard_offer_pick">Choose keyboard</string>
++    <string name="sable_keyboard_use">Use Sable Keyboard</string>
+     <string name="sable_keyboard_offer_enable">Turn on keyboard</string>
+ 
+     <!-- SableOS keyboard test step (IR-014). The Q25 has no Fn key: Shift, Alt and Sym only. -->
+-- 
+2.43.0

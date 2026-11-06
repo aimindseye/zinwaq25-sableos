@@ -106,6 +106,7 @@ class SableImeService : InputMethodService() {
         }) { event -> softKey(event) }
             .also {
                 it.setLanguage(language)
+                applyNumericPad(it)
                 softView = it
             }
 
@@ -114,9 +115,14 @@ class SableImeService : InputMethodService() {
         // currentInputMethodSubtype is an InputMethodManager property, not an InputMethodService one.
         val subtype = getSystemService(InputMethodManager::class.java)?.currentInputMethodSubtype
         applyLanguage(subtype?.locale, subtype?.extraValue, announce = false)
+        softView?.let { applyNumericPad(it) }
         softView?.refreshAutoCap()
         refreshStrip()
     }
+
+    /** PIN, number and phone fields get a number-only pad, not the full keyboard. */
+    private fun applyNumericPad(v: SoftKeyboardView) =
+        v.setNumeric(fieldClass in FieldPolicy.DIGIT_ENTRY_CLASSES, fieldClass == InputClass.Phone)
 
     override fun onCurrentInputMethodSubtypeChanged(newSubtype: InputMethodSubtype?) {
         super.onCurrentInputMethodSubtypeChanged(newSubtype)
