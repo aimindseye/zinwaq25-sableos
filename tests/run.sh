@@ -1228,6 +1228,20 @@ EOF_APOS
 )"
 if [[ -z "$apostrophe_bad" ]]; then pass "framework patches: no unescaped apostrophe in an added string resource"; else fail "unescaped apostrophe: $apostrophe_bad"; fi
 
+# Sable Start's Android.bp lists its Kotlin files one by one; a file it leaves out breaks the image
+# build (an unresolved reference) or, for a manifest class, crashes at run time.
+start_unlisted="$(python3 - <<'EOF_START'
+import os, re
+root = "sable-src/src/android/packages/apps/SableStart"
+listed = set(re.findall(r'"(src/[^"]+\.kt)"', open(os.path.join(root, "Android.bp")).read()))
+present = set()
+for d, _, files in os.walk(os.path.join(root, "src")):
+    present |= {os.path.relpath(os.path.join(d, f), root) for f in files if f.endswith(".kt")}
+print(" ".join(sorted(present - listed)))
+EOF_START
+)"
+if [[ -z "$start_unlisted" ]]; then pass "Sable Start: every Kotlin file is in Android.bp"; else fail "Sable Start Android.bp misses: $start_unlisted"; fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"
