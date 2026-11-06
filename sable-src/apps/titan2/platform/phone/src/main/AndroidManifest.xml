@@ -2,7 +2,8 @@
 <!-- Sable Phone: the default Phone app (android.app.role.DIALER, config_defaultDialer in SableFrameworkOverlay).
      It qualifies for the role with the DIAL activity and the UI InCallService below. Calls go through Telecom;
      the call log and contacts are read from their providers and never copied. No internet, no backup. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
@@ -28,7 +29,9 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- *#06# shows the IMEI (privileged; product/q25/permissions/privapp-permissions-sable-q25.xml). -->
-    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
+    <uses-permission
+        android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
+        tools:ignore="ProtectedPermissions" />
 
     <queries>
         <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
