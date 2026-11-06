@@ -1,0 +1,13 @@
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt
+index 2f0f28d..79dad0c 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt
+@@ -27,7 +27,7 @@ class WeatherRefreshJob : JobService() {
+                     WeatherNotifier.afterRefresh(
+                         applicationContext,
+                         repository.alerts,
+-                        result?.snapshot,
++                        result.snapshot,
+                     )
+                 }
+             }

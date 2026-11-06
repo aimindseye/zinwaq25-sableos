@@ -27,7 +27,7 @@ class WeatherRefreshJob : JobService() {
                     WeatherNotifier.afterRefresh(
                         applicationContext,
                         repository.alerts,
-                        result?.snapshot,
+                        result.snapshot,
                     )
                 }
             }
