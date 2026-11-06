@@ -1535,7 +1535,7 @@ private fun AgendaDetailPreview(
 }
 
 private const val NOW_TICK_MS = 60_000L
-private val nowLineColor = Color(0xFFFF6978)
+private val nowLineColor = Color(0xFF2E9BD6)
 private val hourHeight = 44.dp
 private val timeColumnWidth = 44.dp
 private val minBlockHeight = 22.dp

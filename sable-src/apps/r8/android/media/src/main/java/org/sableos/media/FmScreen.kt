@@ -207,7 +207,7 @@ private fun FmStationRow(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, if (current) MediaPink else MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, if (current) MediaAccent else MaterialTheme.colorScheme.outlineVariant),
     ) {
         SableDenseRow(
             title = "${FmBand.format(station.station)} MHz" + if (starred) " ★" else "",
@@ -234,14 +234,14 @@ private fun FmStationRow(
                 Surface(
                     modifier = Modifier.width(FmBadgeSize),
                     shape = MaterialTheme.shapes.small,
-                    color = MediaPink.copy(alpha = 0.18f),
-                    border = BorderStroke(1.dp, MediaPink.copy(alpha = 0.7f)),
+                    color = MediaAccent.copy(alpha = 0.18f),
+                    border = BorderStroke(1.dp, MediaAccent.copy(alpha = 0.7f)),
                 ) {
                     Box(modifier = Modifier.aspectRatio(1f), contentAlignment = Alignment.Center) {
                         Text(
                             text = "FM",
                             style = MaterialTheme.typography.labelLarge,
-                            color = MediaPink,
+                            color = MediaAccent,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Clip,

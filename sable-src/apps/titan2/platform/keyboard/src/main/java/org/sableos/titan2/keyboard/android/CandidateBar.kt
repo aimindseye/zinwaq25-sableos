@@ -44,7 +44,7 @@ class CandidateBar(
 
     init {
         isHorizontalScrollBarEnabled = false
-        setBackgroundColor(Color.parseColor("#091621"))
+        setBackgroundColor(Color.parseColor("#000000"))
         addView(row)
         setPadding(px(BAR_PAD_DP), px(BAR_PAD_DP), px(BAR_PAD_DP), px(BAR_PAD_DP))
         if (handleInsets) {
@@ -82,9 +82,9 @@ class CandidateBar(
                             cornerRadius = CAND_CORNER_DP * dp
                             setColor(
                                 if (i == selected) {
-                                    Color.parseColor("#2F7FB8")
+                                    Color.parseColor("#2E9BD6")
                                 } else {
-                                    Color.parseColor("#1E3A52")
+                                    Color.parseColor("#262626")
                                 }
                             )
                         }

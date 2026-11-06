@@ -123,7 +123,7 @@ internal fun PodcastScreen(
             destinations = PODCAST_DESTINATIONS,
             selectedId = pivot.name,
             onSelect = { id -> pivot = PodcastPivot.valueOf(id) },
-            accent = MediaPink,
+            accent = MediaAccent,
         )
 
         when (pivot) {
@@ -464,7 +464,7 @@ private fun PodcastPrivacyNote() {
         Text(
             text = t("network_model"),
             style = MaterialTheme.typography.labelLarge,
-            color = MediaPink,
+            color = MediaAccent,
         )
         Text(
             text =
@@ -483,11 +483,11 @@ private fun PodcastArtworkTile(
 ) {
     val palette =
         listOf(
-            MediaPurple,
-            MediaBlue,
-            MediaPink,
-            MediaOrange,
-            MediaGreen,
+            MediaGreyDark,
+            MediaAccent,
+            MediaAccent,
+            MediaGreyMid,
+            MediaGreyLight,
         )
     val accent = palette[Math.floorMod(seed, palette.size)]
 
@@ -501,8 +501,8 @@ private fun PodcastArtworkTile(
                         Brush.linearGradient(
                             listOf(
                                 accent,
-                                MediaPurple,
-                                MediaPink,
+                                MediaGreyDark,
+                                MediaAccent,
                             ),
                         ),
                     shape = MaterialTheme.shapes.medium,

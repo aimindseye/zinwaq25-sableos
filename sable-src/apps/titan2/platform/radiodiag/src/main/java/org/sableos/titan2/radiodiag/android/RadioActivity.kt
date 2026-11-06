@@ -68,7 +68,7 @@ class RadioActivity : Activity() {
         }
         setContentView(
             ScrollView(this).apply {
-                setBackgroundColor(Color.parseColor("#0C1E2D"))
+                setBackgroundColor(Color.parseColor("#000000"))
                 addView(col)
             }
         )

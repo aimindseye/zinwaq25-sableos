@@ -27,6 +27,7 @@
 package org.vaachak.textreader
 
 import android.Manifest
+import org.vaachak.textreader.ui.theme.MyApplicationTheme
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -92,7 +93,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         setContent {
             val isDark = isSystemInDarkTheme()
-            MaterialTheme(colorScheme = if (isDark) darkColorScheme() else lightColorScheme()) {
+            MyApplicationTheme(darkTheme = isDark) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     MainScreen(
                         ttsEngine = tts,
