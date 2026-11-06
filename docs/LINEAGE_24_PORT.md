@@ -96,7 +96,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/Jelly/1044-SableOS-Browser-start-page-command-dock-reader-mode-.patch` | applies as is |
 | `packages/apps/Launcher3/0001-SableOS-keep-Launcher3QuickStep-for-Recents-only-not.patch` | refreshed (context moved) |
 | `packages/apps/Launcher3/0002-SableOS-hide-the-Launcher3QuickStep-home-settings-la.patch` | ported by hand |
-| `packages/apps/Launcher3/0003-SableOS-Recents-key-and-button-open-Sable-Start-s-Ac.patch` | refreshed (context moved) |
+| `packages/apps/Launcher3/0003-SableOS-Recents-key-and-button-open-Sable-Start-s-Ac.patch` | refreshed; 24.0 dropped `touchInteractionService` and `CommandType.SHOW_WITH_FOCUS` from OverviewCommandHelper, so Active Frames open from the process's application and the Recents set is TOGGLE and TOGGLE_WITH_FOCUS |
 | `packages/apps/LineageParts/0503-SableOS-show-Automagic-notification-light-color-off-.patch` | applies as is |
 | `packages/apps/LineageParts/0504-SableOS-keep-the-battery-light-on-when-fully-charged.patch` | applies as is |
 | `packages/apps/LineageParts/0601-SableOS-no-LineageOS-contributors-statistics-or-Trus.patch` | ported by hand |

@@ -14,11 +14,11 @@ cannot show Active Frames) every command behaves as before.
 ---
  .../quickstep/OverviewCommandHelper.kt        | 12 +++++
  .../quickstep/sable/SableActiveFrames.kt      | 53 +++++++++++++++++++
- 2 files changed, 65 insertions(+)
+ 2 files changed, 72 insertions(+)
  create mode 100644 quickstep/src/com/android/quickstep/sable/SableActiveFrames.kt
 
 diff --git a/quickstep/src/com/android/quickstep/OverviewCommandHelper.kt b/quickstep/src/com/android/quickstep/OverviewCommandHelper.kt
-index 779d413..13871ae 100644
+index 779d413..3212acc 100644
 --- a/quickstep/src/com/android/quickstep/OverviewCommandHelper.kt
 +++ b/quickstep/src/com/android/quickstep/OverviewCommandHelper.kt
 @@ -55,6 +55,7 @@ import com.android.quickstep.OverviewCommandHelper.CommandType.SHOW_ALT_TAB
@@ -36,7 +36,7 @@ index 779d413..13871ae 100644
 +        // SableOS: the Recents key and button open Sable Start's Active Frames.
 +        if (type in SABLE_ACTIVE_FRAMES_COMMANDS &&
 +            displayId == DEFAULT_DISPLAY &&
-+            SableActiveFrames.open(touchInteractionService)
++            SableActiveFrames.open()
 +        ) {
 +            return null
 +        }
@@ -50,15 +50,15 @@ index 779d413..13871ae 100644
 +
 +        /** Commands from the Recents key and button; Alt+Tab and gestures keep the overview. */
 +        private val SABLE_ACTIVE_FRAMES_COMMANDS =
-+            setOf(CommandType.TOGGLE, CommandType.TOGGLE_WITH_FOCUS, CommandType.SHOW_WITH_FOCUS)
++            setOf(CommandType.TOGGLE, CommandType.TOGGLE_WITH_FOCUS)
      }
  }
 diff --git a/quickstep/src/com/android/quickstep/sable/SableActiveFrames.kt b/quickstep/src/com/android/quickstep/sable/SableActiveFrames.kt
 new file mode 100644
-index 0000000..3cfbbc0
+index 0000000..8638526
 --- /dev/null
 +++ b/quickstep/src/com/android/quickstep/sable/SableActiveFrames.kt
-@@ -0,0 +1,53 @@
+@@ -0,0 +1,60 @@
 +/*
 + * Copyright (C) 2026 The SableOS Project
 + *
@@ -77,6 +77,7 @@ index 0000000..3cfbbc0
 +
 +package com.android.quickstep.sable
 +
++import android.app.ActivityThread
 +import android.content.ActivityNotFoundException
 +import android.content.Context
 +import android.content.Intent
@@ -95,6 +96,12 @@ index 0000000..3cfbbc0
 +
 +    /** The Sable home package, or null when the build has none. */
 +    fun homePackage(): String? = SystemProperties.get(HOME_PROPERTY, "").ifEmpty { null }
++
++    /**
++     * Opens Active Frames from Launcher3's own process (OverviewCommandHelper has no Context of
++     * its own on 24.0); false when there is no Sable home or no application yet.
++     */
++    fun open(): Boolean = ActivityThread.currentApplication()?.let(::open) ?: false
 +
 +    /** Opens Active Frames in Sable Start; false when there is no Sable home to open. */
 +    fun open(context: Context): Boolean {
