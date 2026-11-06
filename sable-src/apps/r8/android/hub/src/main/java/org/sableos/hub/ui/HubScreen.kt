@@ -367,6 +367,7 @@ private class HubActions(
     val onNotificationCommand: (String, HubMenuEntry) -> String?,
     val menuOptions: HubMenuOptions,
     val onRemindMe: (HubConversation) -> String?,
+    val onPriority: (HubConversation, HubRowAction) -> String?,
 )
 
 @Composable
@@ -400,6 +401,8 @@ fun HubScreen(
     onPendingMenuConsumed: () -> Unit = {},
     menuOptions: HubMenuOptions = HubMenuOptions(),
     onRemindMe: (HubConversation) -> String? = { null },
+    /** Priority Hub from the row menu: add or remove the sender or the whole app; the status line. */
+    onPriority: (HubConversation, HubRowAction) -> String? = { _, _ -> null },
 ) {
     val state = remember { HubUiState() }
 
@@ -462,6 +465,7 @@ fun HubScreen(
             onNotificationCommand = onNotificationCommand,
             menuOptions = menuOptions,
             onRemindMe = onRemindMe,
+            onPriority = onPriority,
         )
 
     SableRefreshableSurface(
@@ -1473,6 +1477,14 @@ private fun runConversationAction(
 
         HubRowAction.RemindMe -> {
             actions.onRemindMe(conversation)?.let { state.statusMessage = it }
+        }
+
+        HubRowAction.AddPersonPriority,
+        HubRowAction.RemovePersonPriority,
+        HubRowAction.AddAppPriority,
+        HubRowAction.RemoveAppPriority,
+        -> {
+            actions.onPriority(conversation, action)?.let { state.statusMessage = it }
         }
 
         HubRowAction.Text,

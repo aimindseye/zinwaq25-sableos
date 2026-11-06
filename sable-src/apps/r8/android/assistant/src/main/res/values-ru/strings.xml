@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">Добрый день. %1$s к вашим услугам. Чем могу помочь?</string>
+    <string name="message_hint">Спросить %1$s</string>
+    <string name="thinking">%1$s обдумывает…</string>
+    <string name="keys_hint">Enter отправляет · Shift+Enter новая строка · удерживайте Пробел, чтобы говорить · Меню настройки</string>
+    <string name="send">Отправить</string>
+    <string name="settings">Настройки</string>
+    <string name="new_chat">Новый разговор</string>
+    <string name="done">Готово</string>
+    <string name="setup_first">Выберите в настройках, откуда берутся мои ответы.</string>
+    <string name="name">Имя</string>
+    <string name="name_detail">Command открывает меня по /%1$s</string>
+    <string name="provider">Откуда берутся мои ответы</string>
+    <string name="provider_ollama">Ollama в вашей сети</string>
+    <string name="provider_ollama_detail">Бесплатно. Ничего не покидает вашу домашнюю сеть.</string>
+    <string name="provider_custom">Другой сервер в вашей сети</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp или любой сервер с API в стиле OpenAI.</string>
+    <string name="provider_hosted_detail">Бесплатный план с вашим ключом. Сообщения уходят в %1$s; у бесплатных планов есть лимиты, и сообщения могут использоваться для обучения.</string>
+    <string name="address">Адрес сервера</string>
+    <string name="address_hint">Например, 192.168.1.20</string>
+    <string name="ollama_address_detail">Адрес вашего компьютера. Ollama должна слушать сеть: задайте OLLAMA_HOST=0.0.0.0 и перезапустите её.</string>
+    <string name="api_key">Ключ API</string>
+    <string name="api_key_hint">Вставьте ключ с сайта провайдера</string>
+    <string name="model">Модель</string>
+    <string name="model_none">Модель не выбрана. Проверьте подключение, чтобы увидеть список.</string>
+    <string name="test_connection">Проверить подключение</string>
+    <string name="testing">Подключение…</string>
+    <string name="models_found">Подключено. Найдено моделей: %1$s; выберите одну ниже.</string>
+    <string name="no_models">Подключено, но сервер не перечисляет модели.</string>
+    <string name="error_provider">Сначала выберите, откуда берутся мои ответы.</string>
+    <string name="error_address">Введите адрес сервера, например 192.168.1.20.</string>
+    <string name="error_plain_http">Обычный http работает только в вашей сети. Используйте адрес https.</string>
+    <string name="error_key">Сначала введите ключ API.</string>
+    <string name="error_model">Сначала выберите модель в настройках.</string>
+    <string name="error_unreachable">Не удалось связаться с сервером. Проверьте адрес и что он запущен.</string>
+    <string name="error_timeout">Сервер слишком долго не отвечал.</string>
+    <string name="error_server">Сервер ответил: %1$s</string>
+    <string name="privacy_note">Разговоры хранятся только в памяти и исчезают, когда вы начинаете новый.</string>
+    <string name="talk">Удерживайте, чтобы говорить</string>
+    <string name="listening">Слушаю… отпустите, когда закончите.</string>
+    <string name="voice">Голос</string>
+    <string name="voice_detail">Удерживайте Пробел в пустом поле сообщения или удерживайте «Говорить» и говорите (пока по-английски). Речь превращается в текст на этом телефоне и ждёт, пока вы её отправите. Ничего не слушает, пока вы не удерживаете.</string>
+    <string name="voice_download">Скачать речевую модель (%1$s МБ)</string>
+    <string name="voice_downloading">Скачивание речевой модели…</string>
+    <string name="voice_ready">Речевая модель готова.</string>
+    <string name="voice_remove">Удалить речевую модель</string>
+    <string name="voice_missing">Чтобы говорить, скачайте речевую модель в настройках.</string>
+    <string name="voice_failed">Не удалось скачать речевую модель.</string>
+    <string name="voice_permission">Разрешите микрофон, чтобы я слышал вас, пока вы удерживаете.</string>
+    <string name="voice_nothing">Я не расслышал.</string>
+</resources>

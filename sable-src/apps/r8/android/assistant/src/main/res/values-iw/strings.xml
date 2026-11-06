@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">יום טוב. %1$s לשירותך. במה אוכל לעזור?</string>
+    <string name="message_hint">לשאול את %1$s</string>
+    <string name="thinking">%1$s שוקל…</string>
+    <string name="keys_hint">Enter שולח · Shift+Enter שורה חדשה · החזק רווח כדי לדבר · תפריט הגדרות</string>
+    <string name="send">שליחה</string>
+    <string name="settings">הגדרות</string>
+    <string name="new_chat">שיחה חדשה</string>
+    <string name="done">סיום</string>
+    <string name="setup_first">בחר בהגדרות מאיפה מגיעות התשובות שלי.</string>
+    <string name="name">שם</string>
+    <string name="name_detail">Command פותח אותי עם ‎/%1$s</string>
+    <string name="provider">מאיפה מגיעות התשובות שלי</string>
+    <string name="provider_ollama">Ollama ברשת שלך</string>
+    <string name="provider_ollama_detail">חינם. שום דבר לא יוצא מהרשת הביתית שלך.</string>
+    <string name="provider_custom">שרת אחר ברשת שלך</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp או כל שרת עם API בסגנון OpenAI.</string>
+    <string name="provider_hosted_detail">תוכנית חינמית עם מפתח משלך. ההודעות שלך נשלחות אל %1$s; לתוכניות חינמיות יש מגבלות והן עשויות להשתמש בהודעות לאימון.</string>
+    <string name="address">כתובת השרת</string>
+    <string name="address_hint">לדוגמה 192.168.1.20</string>
+    <string name="ollama_address_detail">הכתובת של המחשב שלך. Ollama צריך להאזין ברשת: הגדר OLLAMA_HOST=0.0.0.0 והפעל אותו מחדש.</string>
+    <string name="api_key">מפתח API</string>
+    <string name="api_key_hint">הדבק את המפתח מאתר הספק</string>
+    <string name="model">מודל</string>
+    <string name="model_none">לא נבחר מודל. בדוק את החיבור כדי להציג אותם.</string>
+    <string name="test_connection">בדיקת חיבור</string>
+    <string name="testing">מתחבר…</string>
+    <string name="models_found">מחובר. נמצאו %1$s מודלים; בחר אחד למטה.</string>
+    <string name="no_models">מחובר, אבל השרת לא מציג מודלים.</string>
+    <string name="error_provider">קודם בחר מאיפה מגיעות התשובות שלי.</string>
+    <string name="error_address">הזן את כתובת השרת, לדוגמה 192.168.1.20.</string>
+    <string name="error_plain_http">http רגיל עובד רק ברשת שלך. השתמש בכתובת https.</string>
+    <string name="error_key">קודם הזן את מפתח ה-API.</string>
+    <string name="error_model">קודם בחר מודל בהגדרות.</string>
+    <string name="error_unreachable">לא הצלחתי להגיע לשרת. בדוק את הכתובת ושהוא פועל.</string>
+    <string name="error_timeout">לשרת לקח יותר מדי זמן לענות.</string>
+    <string name="error_server">השרת ענה: %1$s</string>
+    <string name="privacy_note">השיחות נשמרות בזיכרון בלבד ונעלמות כשמתחילים שיחה חדשה.</string>
+    <string name="talk">החזק כדי לדבר</string>
+    <string name="listening">מקשיב… שחרר כשתסיים.</string>
+    <string name="voice">קול</string>
+    <string name="voice_detail">החזק רווח בתיבת הודעה ריקה, או החזק את דבר, ודבר (באנגלית בינתיים). הדיבור הופך לטקסט בטלפון הזה ומחכה שתשלח. שום דבר לא מקשיב אם אינך מחזיק.</string>
+    <string name="voice_download">הורדת מודל דיבור (%1$s MB)</string>
+    <string name="voice_downloading">מוריד את מודל הדיבור…</string>
+    <string name="voice_ready">מודל הדיבור מוכן.</string>
+    <string name="voice_remove">הסרת מודל הדיבור</string>
+    <string name="voice_missing">כדי לדבר, הורד את מודל הדיבור בהגדרות.</string>
+    <string name="voice_failed">לא ניתן היה להוריד את מודל הדיבור.</string>
+    <string name="voice_permission">אפשר גישה למיקרופון כדי שאשמע אותך בזמן שאתה מחזיק.</string>
+    <string name="voice_nothing">לא הבנתי.</string>
+</resources>

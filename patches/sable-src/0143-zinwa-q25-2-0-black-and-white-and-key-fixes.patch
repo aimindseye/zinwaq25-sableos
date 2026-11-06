@@ -1,0 +1,1206 @@
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt
+index 1c421a4..33023e1 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt
+@@ -32,11 +32,7 @@ enum class AccentPreset(
+     val color: Color,
+     val onColor: Color,
+ ) {
+-    Blue("blue", "Sable Blue", Color(0xFF4D9CFF), Color(0xFF06111F)),
+-    Green("green", "Green", Color(0xFF35C66B), Color(0xFF04140A)),
+-    Purple("purple", "Purple", Color(0xFF7A42E8), Color.White),
+-    Orange("orange", "Orange", Color(0xFFF28C45), Color(0xFF1D0C02)),
+-    Slate("slate", "Slate", Color(0xFF64748B), Color.White);
++    Blue("blue", "Sable Blue", Color(0xFF2E9BD6), Color(0xFF000000));
+ 
+     companion object {
+         fun fromStableValue(value: String?): AccentPreset =
+@@ -95,9 +91,9 @@ object SableSize {
+ object SableColorTokens {
+     val DarkBackground = Color(0xFF000000)
+     val DarkSurface = Color(0xFF141414)
+-    val DarkSurfaceRaised = Color(0xFF1C1C1C)
+-    val DarkText = Color(0xFFF7F9FC)
+-    val DarkTextMuted = Color(0xFFAAB4C0)
++    val DarkSurfaceRaised = Color(0xFF262626)
++    val DarkText = Color(0xFFFFFFFF)
++    val DarkTextMuted = Color(0xFFA6A6A6)
+ 
+     val LightBackground = Color(0xFFF5F7F9)
+     val LightSurface = Color(0xFFFFFFFF)
+@@ -184,10 +180,10 @@ fun SableTheme(
+             onSurface = SableColorTokens.DarkText,
+             surfaceVariant = SableColorTokens.DarkSurfaceRaised,
+             onSurfaceVariant = SableColorTokens.DarkTextMuted,
+-            outline = Color(0xFF526170),
+-            outlineVariant = Color(0xFF26313D),
+-            error = Color(0xFFFFB4AB),
+-            onError = Color(0xFF690005),
++            outline = Color(0xFF4D4D4D),
++            outlineVariant = Color(0xFF262626),
++            error = Color(0xFFE0463C),
++            onError = Color(0xFF000000),
+         )
+     } else {
+         lightColorScheme(
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser.xml b/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser.xml
+index d9b44ff..d8dd195 100644
+--- a/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser.xml
++++ b/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser.xml
+@@ -16,6 +16,6 @@
+             android:pathData="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm88,104a87.61,87.61,0,0,1-3.33,24H174.16a157.44,157.44,0,0,0,0-48h38.51A87.61,87.61,0,0,1,216,128ZM102,168H154a115.11,115.11,0,0,1-26,45A115.27,115.27,0,0,1,102,168Zm-3.9-16a140.84,140.84,0,0,1,0-48h59.88a140.84,140.84,0,0,1,0,48ZM40,128a87.61,87.61,0,0,1,3.33-24H81.84a157.44,157.44,0,0,0,0,48H43.33A87.61,87.61,0,0,1,40,128ZM154,88H102a115.11,115.11,0,0,1,26-45A115.27,115.27,0,0,1,154,88Zm52.33,0H170.71a135.28,135.28,0,0,0-22.3-45.6A88.29,88.29,0,0,1,206.37,88ZM107.59,42.4A135.28,135.28,0,0,0,85.29,88H49.63A88.29,88.29,0,0,1,107.59,42.4ZM49.63,168H85.29a135.28,135.28,0,0,0,22.3,45.6A88.29,88.29,0,0,1,49.63,168Zm98.78,45.6a135.28,135.28,0,0,0,22.3-45.6h35.66A88.29,88.29,0,0,1,148.41,213.6Z" />
+     </group>
+     <path
+-        android:fillColor="#4D9CFF"
++        android:fillColor="#2E9BD6"
+         android:pathData="M28,226h200v6H28z" />
+ </vector>
+diff --git a/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_foreground.xml b/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_foreground.xml
+index a3e15db..38e53c0 100644
+--- a/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_foreground.xml
++++ b/sable-src/apps/r8/android/browser/src/main/res/drawable/ic_sable_browser_foreground.xml
+@@ -14,6 +14,6 @@
+             android:pathData="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm88,104a87.61,87.61,0,0,1-3.33,24H174.16a157.44,157.44,0,0,0,0-48h38.51A87.61,87.61,0,0,1,216,128ZM102,168H154a115.11,115.11,0,0,1-26,45A115.27,115.27,0,0,1,102,168Zm-3.9-16a140.84,140.84,0,0,1,0-48h59.88a140.84,140.84,0,0,1,0,48ZM40,128a87.61,87.61,0,0,1,3.33-24H81.84a157.44,157.44,0,0,0,0,48H43.33A87.61,87.61,0,0,1,40,128ZM154,88H102a115.11,115.11,0,0,1,26-45A115.27,115.27,0,0,1,154,88Zm52.33,0H170.71a135.28,135.28,0,0,0-22.3-45.6A88.29,88.29,0,0,1,206.37,88ZM107.59,42.4A135.28,135.28,0,0,0,85.29,88H49.63A88.29,88.29,0,0,1,107.59,42.4ZM49.63,168H85.29a135.28,135.28,0,0,0,22.3,45.6A88.29,88.29,0,0,1,49.63,168Zm98.78,45.6a135.28,135.28,0,0,0,22.3-45.6h35.66A88.29,88.29,0,0,1,148.41,213.6Z" />
+     </group>
+     <path
+-        android:fillColor="#4D9CFF"
++        android:fillColor="#2E9BD6"
+         android:pathData="M38,76.5h32v1.5H38z" />
+ </vector>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/drawable/ic_sable_calculator.xml b/sable-src/apps/r8/android/calculator/src/main/res/drawable/ic_sable_calculator.xml
+index 2daf085..aaa50f7 100644
+--- a/sable-src/apps/r8/android/calculator/src/main/res/drawable/ic_sable_calculator.xml
++++ b/sable-src/apps/r8/android/calculator/src/main/res/drawable/ic_sable_calculator.xml
+@@ -16,6 +16,6 @@
+             android:pathData="M80,120h96a8,8,0,0,0,8-8V64a8,8,0,0,0-8-8H80a8,8,0,0,0-8,8v48A8,8,0,0,0,80,120Zm8-48h80v32H88ZM200,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V40A16,16,0,0,0,200,24Zm0,192H56V40H200ZM100,148a12,12,0,1,1-12-12A12,12,0,0,1,100,148Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,140,148Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,180,148Zm-80,40a12,12,0,1,1-12-12A12,12,0,0,1,100,188Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,140,188Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,180,188Z" />
+     </group>
+     <path
+-        android:fillColor="#4D9CFF"
++        android:fillColor="#2E9BD6"
+         android:pathData="M28,226h200v6H28z" />
+ </vector>
+diff --git a/sable-src/apps/r8/android/calculator/src/main/res/drawable/ic_sable_calculator_foreground.xml b/sable-src/apps/r8/android/calculator/src/main/res/drawable/ic_sable_calculator_foreground.xml
+index 659b0cf..700f485 100644
+--- a/sable-src/apps/r8/android/calculator/src/main/res/drawable/ic_sable_calculator_foreground.xml
++++ b/sable-src/apps/r8/android/calculator/src/main/res/drawable/ic_sable_calculator_foreground.xml
+@@ -14,6 +14,6 @@
+             android:pathData="M80,120h96a8,8,0,0,0,8-8V64a8,8,0,0,0-8-8H80a8,8,0,0,0-8,8v48A8,8,0,0,0,80,120Zm8-48h80v32H88ZM200,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V40A16,16,0,0,0,200,24Zm0,192H56V40H200ZM100,148a12,12,0,1,1-12-12A12,12,0,0,1,100,148Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,140,148Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,180,148Zm-80,40a12,12,0,1,1-12-12A12,12,0,0,1,100,188Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,140,188Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,180,188Z" />
+     </group>
+     <path
+-        android:fillColor="#4D9CFF"
++        android:fillColor="#2E9BD6"
+         android:pathData="M38,76.5h32v1.5H38z" />
+ </vector>
+diff --git a/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game.xml
+index 4e390bb..99f6459 100644
+--- a/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game.xml
++++ b/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game.xml
+@@ -16,6 +16,6 @@
+             android:pathData="M216,48H40A16,16,0,0,0,24,64V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48ZM104,144V112h48v32Zm48,16v32H104V160ZM40,112H88v32H40Zm64-16V64h48V96Zm64,16h48v32H168Zm48-16H168V64h48ZM88,64V96H40V64ZM40,160H88v32H40Zm176,32H168V160h48v32Z" />
+     </group>
+     <path
+-        android:fillColor="#4D9CFF"
++        android:fillColor="#2E9BD6"
+         android:pathData="M28,226h200v6H28z" />
+ </vector>
+diff --git a/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game_foreground.xml
+index 02a3846..e566e06 100644
+--- a/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game_foreground.xml
++++ b/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game_foreground.xml
+@@ -14,6 +14,6 @@
+             android:pathData="M216,48H40A16,16,0,0,0,24,64V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V64A16,16,0,0,0,216,48ZM104,144V112h48v32Zm48,16v32H104V160ZM40,112H88v32H40Zm64-16V64h48V96Zm64,16h48v32H168Zm48-16H168V64h48ZM88,64V96H40V64ZM40,160H88v32H40Zm176,32H168V160h48v32Z" />
+     </group>
+     <path
+-        android:fillColor="#4D9CFF"
++        android:fillColor="#2E9BD6"
+         android:pathData="M38,76.5h32v1.5H38z" />
+ </vector>
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
+index 90af115..bff8ecd 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
+@@ -62,7 +62,7 @@ import java.util.Locale
+ 
+ internal val MediaPink = Color(0xFFFF4F9A)
+ internal val MediaPurple = Color(0xFF7A42E8)
+-internal val MediaBlue = Color(0xFF4D9CFF)
++internal val MediaBlue = Color(0xFF2E9BD6)
+ internal val MediaGreen = Color(0xFF35C66B)
+ internal val MediaOrange = Color(0xFFF28C45)
+ 
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StartPaletteTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StartPaletteTest.kt
+index 5fe61f9..39d4472 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StartPaletteTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StartPaletteTest.kt
+@@ -7,21 +7,19 @@ import org.junit.Assert.assertTrue
+ import org.junit.Test
+ import org.sableos.design.AccentPreset
+ 
+-/** Start's pages follow Android's Dark theme and the Sable accent. */
++/** Start's pages follow Android's Dark theme; the one accent is the 2.0 blue. */
+ class StartPaletteTest {
+     @Test
+-    fun defaultBlueKeepsTheBb10BlueAndOtherAccentsAreUsedAsIs() {
+-        assertEquals(Color(0xFF00A8DF), startPalette(dark = true, accent = AccentPreset.Blue).accent)
+-        for (accent in AccentPreset.entries.filter { it != AccentPreset.Blue }) {
+-            assertEquals(accent.color, startPalette(dark = true, accent = accent).accent)
+-            assertEquals(accent.onColor, startPalette(dark = false, accent = accent).onAccent)
+-        }
++    fun oneBlueForFocusAndSelection() {
++        // 2.0 is black and white with one blue (UI direction, 2026-11-04).
++        assertEquals(Color(0xFF2E9BD6), startPalette(dark = true, accent = AccentPreset.Blue).accent)
++        assertEquals(Color(0xFF2E9BD6), startPalette(dark = false, accent = AccentPreset.Blue).accent)
+     }
+ 
+     @Test
+     fun darkIsPureBlackAndLightUsesLightSurfacesWithDarkText() {
+-        val dark = startPalette(dark = true, accent = AccentPreset.Green)
+-        val light = startPalette(dark = false, accent = AccentPreset.Green)
++        val dark = startPalette(dark = true, accent = AccentPreset.Blue)
++        val light = startPalette(dark = false, accent = AccentPreset.Blue)
+         assertEquals(Color.Black, dark.background)
+         assertTrue(dark.card.luminance() < 0.02f)
+         assertEquals(Color.White, dark.text)
+diff --git a/sable-src/apps/r8/android/sablestart-visual-review/src/main/java/org/sableos/start/visualreview/R9DailyDriverDesignReviewActivity.kt b/sable-src/apps/r8/android/sablestart-visual-review/src/main/java/org/sableos/start/visualreview/R9DailyDriverDesignReviewActivity.kt
+index 8fe0d8f..f19fd0b 100644
+--- a/sable-src/apps/r8/android/sablestart-visual-review/src/main/java/org/sableos/start/visualreview/R9DailyDriverDesignReviewActivity.kt
++++ b/sable-src/apps/r8/android/sablestart-visual-review/src/main/java/org/sableos/start/visualreview/R9DailyDriverDesignReviewActivity.kt
+@@ -123,7 +123,7 @@ private data class ReviewApp(
+     val accent: Color,
+ )
+ 
+-private val SableBlue = Color(0xFF4D9CFF)
++private val SableBlue = Color(0xFF2E9BD6)
+ private val SableGreen = Color(0xFF35C66B)
+ private val SablePurple = Color(0xFF7A42E8)
+ private val SableOrange = Color(0xFFF28C45)
+diff --git a/sable-src/apps/r8/android/sablestart-visual-review/src/main/res/drawable/ic_review_calculator.xml b/sable-src/apps/r8/android/sablestart-visual-review/src/main/res/drawable/ic_review_calculator.xml
+index 69c4ac6..6ff576e 100644
+--- a/sable-src/apps/r8/android/sablestart-visual-review/src/main/res/drawable/ic_review_calculator.xml
++++ b/sable-src/apps/r8/android/sablestart-visual-review/src/main/res/drawable/ic_review_calculator.xml
+@@ -10,5 +10,5 @@
+         <path android:fillColor="#F7F9FC"
+             android:pathData="M80,120h96a8,8,0,0,0,8-8V64a8,8,0,0,0-8-8H80a8,8,0,0,0-8,8v48A8,8,0,0,0,80,120Zm8-48h80v32H88ZM200,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V40A16,16,0,0,0,200,24Zm0,192H56V40H200ZM100,148a12,12,0,1,1-12-12A12,12,0,0,1,100,148Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,140,148Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,180,148Zm-80,40a12,12,0,1,1-12-12A12,12,0,0,1,100,188Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,140,188Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,180,188Z" />
+     </group>
+-    <path android:fillColor="#4D9CFF" android:pathData="M28,226h200v6H28z" />
++    <path android:fillColor="#2E9BD6" android:pathData="M28,226h200v6H28z" />
+ </vector>
+diff --git a/sable-src/apps/r8/android/sablestart-visual-review/src/main/res/drawable/ic_review_weather.xml b/sable-src/apps/r8/android/sablestart-visual-review/src/main/res/drawable/ic_review_weather.xml
+index 1c4bc83..134fd7d 100644
+--- a/sable-src/apps/r8/android/sablestart-visual-review/src/main/res/drawable/ic_review_weather.xml
++++ b/sable-src/apps/r8/android/sablestart-visual-review/src/main/res/drawable/ic_review_weather.xml
+@@ -10,5 +10,5 @@
+         <path android:fillColor="#F7F9FC"
+             android:pathData="M164,72a76.2,76.2,0,0,0-20.26,2.73,55.63,55.63,0,0,0-9.41-11.54l9.51-13.57a8,8,0,1,0-13.11-9.18L121.22,54A55.9,55.9,0,0,0,96,48c-.58,0-1.16,0-1.74,0L91.37,31.71a8,8,0,1,0-15.75,2.77L78.5,50.82A56.1,56.1,0,0,0,55.23,65.67L41.61,56.14a8,8,0,1,0-9.17,13.11L46,78.77A55.55,55.55,0,0,0,40,104c0,.57,0,1.15,0,1.72L23.71,108.6a8,8,0,0,0,1.38,15.88,8.24,8.24,0,0,0,1.39-.12l16.32-2.88a55.74,55.74,0,0,0,5.86,12.42A52,52,0,0,0,84,224h80a76,76,0,0,0,0-152ZM56,104a40,40,0,0,1,72.54-23.24,76.26,76.26,0,0,0-35.62,40,52.14,52.14,0,0,0-31,4.17A40,40,0,0,1,56,104ZM164,208H84a36,36,0,1,1,4.78-71.69c-.37,2.37-.63,4.79-.77,7.23a8,8,0,0,0,16,.92,58.91,58.91,0,0,1,1.88-11.81c0-.16.09-.32.12-.48A60.06,60.06,0,1,1,164,208Z" />
+     </group>
+-    <path android:fillColor="#4D9CFF" android:pathData="M28,226h200v6H28z" />
++    <path android:fillColor="#2E9BD6" android:pathData="M28,226h200v6H28z" />
+ </vector>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/drawable/ic_sable_weather.xml b/sable-src/apps/r8/android/weather/src/main/res/drawable/ic_sable_weather.xml
+index 2cec5f3..5de27b2 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/drawable/ic_sable_weather.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/drawable/ic_sable_weather.xml
+@@ -16,6 +16,6 @@
+             android:pathData="M164,72a76.2,76.2,0,0,0-20.26,2.73,55.63,55.63,0,0,0-9.41-11.54l9.51-13.57a8,8,0,1,0-13.11-9.18L121.22,54A55.9,55.9,0,0,0,96,48c-.58,0-1.16,0-1.74,0L91.37,31.71a8,8,0,1,0-15.75,2.77L78.5,50.82A56.1,56.1,0,0,0,55.23,65.67L41.61,56.14a8,8,0,1,0-9.17,13.11L46,78.77A55.55,55.55,0,0,0,40,104c0,.57,0,1.15,0,1.72L23.71,108.6a8,8,0,0,0,1.38,15.88,8.24,8.24,0,0,0,1.39-.12l16.32-2.88a55.74,55.74,0,0,0,5.86,12.42A52,52,0,0,0,84,224h80a76,76,0,0,0,0-152ZM56,104a40,40,0,0,1,72.54-23.24,76.26,76.26,0,0,0-35.62,40,52.14,52.14,0,0,0-31,4.17A40,40,0,0,1,56,104ZM164,208H84a36,36,0,1,1,4.78-71.69c-.37,2.37-.63,4.79-.77,7.23a8,8,0,0,0,16,.92,58.91,58.91,0,0,1,1.88-11.81c0-.16.09-.32.12-.48A60.06,60.06,0,1,1,164,208Z" />
+     </group>
+     <path
+-        android:fillColor="#4D9CFF"
++        android:fillColor="#2E9BD6"
+         android:pathData="M28,226h200v6H28z" />
+ </vector>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/drawable/ic_sable_weather_foreground.xml b/sable-src/apps/r8/android/weather/src/main/res/drawable/ic_sable_weather_foreground.xml
+index 07e8148..0e37f3c 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/drawable/ic_sable_weather_foreground.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/drawable/ic_sable_weather_foreground.xml
+@@ -14,6 +14,6 @@
+             android:pathData="M164,72a76.2,76.2,0,0,0-20.26,2.73,55.63,55.63,0,0,0-9.41-11.54l9.51-13.57a8,8,0,1,0-13.11-9.18L121.22,54A55.9,55.9,0,0,0,96,48c-.58,0-1.16,0-1.74,0L91.37,31.71a8,8,0,1,0-15.75,2.77L78.5,50.82A56.1,56.1,0,0,0,55.23,65.67L41.61,56.14a8,8,0,1,0-9.17,13.11L46,78.77A55.55,55.55,0,0,0,40,104c0,.57,0,1.15,0,1.72L23.71,108.6a8,8,0,0,0,1.38,15.88,8.24,8.24,0,0,0,1.39-.12l16.32-2.88a55.74,55.74,0,0,0,5.86,12.42A52,52,0,0,0,84,224h80a76,76,0,0,0,0-152ZM56,104a40,40,0,0,1,72.54-23.24,76.26,76.26,0,0,0-35.62,40,52.14,52.14,0,0,0-31,4.17A40,40,0,0,1,56,104ZM164,208H84a36,36,0,1,1,4.78-71.69c-.37,2.37-.63,4.79-.77,7.23a8,8,0,0,0,16,.92,58.91,58.91,0,0,1,1.88-11.81c0-.16.09-.32.12-.48A60.06,60.06,0,1,1,164,208Z" />
+     </group>
+     <path
+-        android:fillColor="#4D9CFF"
++        android:fillColor="#2E9BD6"
+         android:pathData="M38,76.5h32v1.5H38z" />
+ </vector>
+diff --git a/sable-src/apps/r8/textreader/res/drawable/ic_sable_text_reader.xml b/sable-src/apps/r8/textreader/res/drawable/ic_sable_text_reader.xml
+index e1ad2d6..150262e 100644
+--- a/sable-src/apps/r8/textreader/res/drawable/ic_sable_text_reader.xml
++++ b/sable-src/apps/r8/textreader/res/drawable/ic_sable_text_reader.xml
+@@ -16,6 +16,6 @@
+             android:pathData="M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm8,48H168a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,24H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-48,40H40a8,8,0,0,0,0,16H168a8,8,0,0,0,0-16Z" />
+     </group>
+     <path
+-        android:fillColor="#4D9CFF"
++        android:fillColor="#2E9BD6"
+         android:pathData="M28,226h200v6H28z" />
+ </vector>
+diff --git a/sable-src/apps/r8/textreader/res/drawable/ic_sable_text_reader_foreground.xml b/sable-src/apps/r8/textreader/res/drawable/ic_sable_text_reader_foreground.xml
+index 6053158..82ec3c4 100644
+--- a/sable-src/apps/r8/textreader/res/drawable/ic_sable_text_reader_foreground.xml
++++ b/sable-src/apps/r8/textreader/res/drawable/ic_sable_text_reader_foreground.xml
+@@ -14,6 +14,6 @@
+             android:pathData="M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm8,48H168a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,24H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-48,40H40a8,8,0,0,0,0,16H168a8,8,0,0,0,0-16Z" />
+     </group>
+     <path
+-        android:fillColor="#4D9CFF"
++        android:fillColor="#2E9BD6"
+         android:pathData="M38,76.5h32v1.5H38z" />
+ </vector>
+diff --git a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt
+index 3aac529..26e4050 100644
+--- a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt
++++ b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SablePalette.kt
+@@ -44,11 +44,8 @@ data class SablePalette(
+          */
+         private val ACCENTS =
+             mapOf(
+-                "blue" to listOf(0xFF4D9CFF, 0xFF06111F, 0xFF1F6FD1, 0xFFFFFFFF),
+-                "green" to listOf(0xFF35C66B, 0xFF04140A, 0xFF1A7F45, 0xFFFFFFFF),
+-                "purple" to listOf(0xFFA47CFF, 0xFF0F0526, 0xFF7A42E8, 0xFFFFFFFF),
+-                "orange" to listOf(0xFFF28C45, 0xFF1D0C02, 0xFFB35410, 0xFFFFFFFF),
+-                "slate" to listOf(0xFF94A3B8, 0xFF0B1220, 0xFF55657A, 0xFFFFFFFF)
++                // 2.0 has one blue, for focus and selection; any old stored preset reads as it.
++                "blue" to listOf(0xFF2E9BD6, 0xFF000000, 0xFF1A6FA0, 0xFFFFFFFF)
+             )
+ 
+         /** Surfaces and text are SableSystemTokens (DESIGN-KF-B), the neutral palette every Sable surface uses. */
+@@ -59,14 +56,14 @@ data class SablePalette(
+                     dark = true,
+                     window = 0xFF000000.toInt(),
+                     surface = 0xFF141414.toInt(),
+-                    focus = 0xFF1C1C1C.toInt(),
+-                    text = 0xFFF7F9FC.toInt(),
+-                    muted = 0xFFAAB4C0.toInt(),
++                    focus = 0xFF262626.toInt(),
++                    text = 0xFFFFFFFF.toInt(),
++                    muted = 0xFFA6A6A6.toInt(),
+                     accent = tones[0],
+                     onAccent = tones[1],
+                     warn = 0xFFFBBF24.toInt(),
+                     ok = 0xFF4ADE80.toInt(),
+-                    danger = 0xFFFF8A80.toInt()
++                    danger = 0xFFE0463C.toInt()
+                 )
+             } else {
+                 SablePalette(
+diff --git a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
+index 5e23633..a8ba866 100644
+--- a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
++++ b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SablePaletteTest.kt
+@@ -17,9 +17,10 @@ class SablePaletteTest {
+         assertNotEquals(dark.text, light.text)
+     }
+ 
+-    @Test fun accentComesFromTheSableAppearance() {
+-        assertEquals(0xFF35C66B.toInt(), SablePalette.of(dark = true, accent = "green").accent)
+-        assertEquals(0xFF7A42E8.toInt(), SablePalette.of(dark = false, accent = "purple").accent)
++    @Test fun oneBlueAccentInEveryTheme() {
++        // 2.0 is black and white with one blue; a 1.0 preset still stored reads as it.
++        assertEquals(0xFF2E9BD6.toInt(), SablePalette.of(dark = true, accent = "green").accent)
++        assertEquals(0xFF1A6FA0.toInt(), SablePalette.of(dark = false, accent = "purple").accent)
+     }
+ 
+     @Test fun surfacesAreTheSableSystemTokens() {
+@@ -27,7 +28,7 @@ class SablePaletteTest {
+         assertEquals(0xFF000000.toInt(), SablePalette.of(dark = true, accent = null).window)
+         assertEquals(0xFF141414.toInt(), SablePalette.of(dark = true, accent = null).surface)
+         assertEquals(0xFFF5F7F9.toInt(), SablePalette.of(dark = false, accent = null).window)
+-        assertEquals(0xFF1F6FD1.toInt(), SablePalette.of(dark = false, accent = "blue").accent)
++        assertEquals(0xFF1A6FA0.toInt(), SablePalette.of(dark = false, accent = "blue").accent)
+     }
+ 
+     @Test fun unknownOrMissingAccentIsSableBlue() {
+diff --git a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+index 0ebdf69..461a76b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
++++ b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+@@ -37,6 +37,8 @@
+     <uses-permission android:name="android.permission.REMOVE_TASKS" />
+     <uses-permission android:name="android.permission.START_TASKS_FROM_RECENTS" />
+     <uses-permission android:name="android.permission.READ_FRAME_BUFFER" />
++    <!-- Android 17 TaskSnapshotManager (Active Frames' live pictures) also needs this one. -->
++    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_TASKS" />
+     <!-- Media controls on Active Frames: the active media sessions and their own transport
+          controls, as the shade's media player uses. Signature permission (platform-signed). -->
+     <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" />
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index e1d0f36..c0762d2 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s، قيد الشحن</string>
+     <string name="dm_used_of">%1$s من %2$s</string>
+     <string name="dm_free">%1$s متاحة</string>
++    <string name="open_command">الأوامر (Alt+Space)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index d072df2..aa1f0de 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, lädt</string>
+     <string name="dm_used_of">%1$s von %2$s</string>
+     <string name="dm_free">%1$s frei</string>
++    <string name="open_command">Befehl (Alt+Leertaste)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index 5dcc6db..dfd5649 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, φόρτιση</string>
+     <string name="dm_used_of">%1$s από %2$s</string>
+     <string name="dm_free">%1$s ελεύθερα</string>
++    <string name="open_command">Εντολή (Alt+Space)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index 8bd242b..78f2b51 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, cargando</string>
+     <string name="dm_used_of">%1$s de %2$s</string>
+     <string name="dm_free">%1$s libres</string>
++    <string name="open_command">Comando (Alt+Espacio)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index f8b57ca..9a6041b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, en charge</string>
+     <string name="dm_used_of">%1$s sur %2$s</string>
+     <string name="dm_free">%1$s libres</string>
++    <string name="open_command">Commande (Alt+Espace)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index 9241d5a..31b39fd 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, चार्ज हो रही है</string>
+     <string name="dm_used_of">%2$s में से %1$s</string>
+     <string name="dm_free">%1$s खाली</string>
++    <string name="open_command">कमांड (Alt+Space)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index 1d1f1be..f5f9604 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, in carica</string>
+     <string name="dm_used_of">%1$s di %2$s</string>
+     <string name="dm_free">%1$s liberi</string>
++    <string name="open_command">Comando (Alt+Spazio)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index fd2c9ab..a4f124c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, בטעינה</string>
+     <string name="dm_used_of">%1$s מתוך %2$s</string>
+     <string name="dm_free">%1$s פנויים</string>
++    <string name="open_command">פקודה (Alt+Space)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index e957dfb..b1bf4e1 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s、充電中</string>
+     <string name="dm_used_of">%2$s中 %1$s</string>
+     <string name="dm_free">空き %1$s</string>
++    <string name="open_command">コマンド (Alt+Space)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 252bdc8..5c7486d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, 충전 중</string>
+     <string name="dm_used_of">%2$s 중 %1$s</string>
+     <string name="dm_free">%1$s 남음</string>
++    <string name="open_command">명령 (Alt+Space)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 0bf1fea..0ded539 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, wordt opgeladen</string>
+     <string name="dm_used_of">%1$s van %2$s</string>
+     <string name="dm_free">%1$s vrij</string>
++    <string name="open_command">Opdracht (Alt+Spatie)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index f50771e..e7d73b8 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, ładowanie</string>
+     <string name="dm_used_of">%1$s z %2$s</string>
+     <string name="dm_free">%1$s wolne</string>
++    <string name="open_command">Polecenie (Alt+Spacja)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index bb697e1..1204648 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, carregando</string>
+     <string name="dm_used_of">%1$s de %2$s</string>
+     <string name="dm_free">%1$s livres</string>
++    <string name="open_command">Comando (Alt+Espaço)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index e9c9d1e..43dda7e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, заряжается</string>
+     <string name="dm_used_of">%1$s из %2$s</string>
+     <string name="dm_free">свободно %1$s</string>
++    <string name="open_command">Команда (Alt+Пробел)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 7aa23e6..1dbf44d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, laddas</string>
+     <string name="dm_used_of">%1$s av %2$s</string>
+     <string name="dm_free">%1$s ledigt</string>
++    <string name="open_command">Kommando (Alt+Mellanslag)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 29eb86d..b293222 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s, şarj oluyor</string>
+     <string name="dm_used_of">%1$s / %2$s</string>
+     <string name="dm_free">%1$s boş</string>
++    <string name="open_command">Komut (Alt+Boşluk)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index 88ac19c..9131d4f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s، چارج ہو رہی ہے</string>
+     <string name="dm_used_of">%2$s میں سے %1$s</string>
+     <string name="dm_free">%1$s خالی</string>
++    <string name="open_command">کمانڈ (Alt+Space)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 2be869a..2b939d5 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -318,4 +318,5 @@
+     <string name="dm_charging">%1$s，正在充电</string>
+     <string name="dm_used_of">%1$s / %2$s</string>
+     <string name="dm_free">可用 %1$s</string>
++    <string name="open_command">命令 (Alt+空格)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index df8e8b8..2d68c6f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -322,4 +322,5 @@
+     <string name="dm_charging">%1$s, charging</string>
+     <string name="dm_used_of">%1$s of %2$s</string>
+     <string name="dm_free">%1$s free</string>
++    <string name="open_command">Command (Alt+Space)</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/styles.xml b/sable-src/src/android/packages/apps/SableStart/res/values/styles.xml
+index d2a4eaf..5320560 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/styles.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/styles.xml
+@@ -4,7 +4,7 @@
+         <item name="android:fontFamily">sans</item>
+         <item name="android:windowActionModeOverlay">true</item>
+         <item name="android:windowNoTitle">true</item>
+-        <item name="android:colorAccent">#4D9CFF</item>
++        <item name="android:colorAccent">#2E9BD6</item>
+         <item name="android:navigationBarColor">#000000</item>
+         <item name="android:statusBarColor">#000000</item>
+         <item name="android:windowLightStatusBar">false</item>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index 7e9b816..1131d83 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -291,6 +291,10 @@ class SableStartActivity : ComponentActivity() {
+                         hubGeneration.value += 1
+                         startBb10Detour(returnOnHome = true)
+                     },
++                    onOpenCommand = {
++                        requestCommand(fromApp = false)
++                        startBb10Detour(returnOnHome = true)
++                    },
+                     onFavoritesChanged = { keys ->
+                         bb7Favorites.value = keys
+                         startStateRepository.saveHomeApps(keys)
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
+index 26fab4e..c7e286a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt
+@@ -13,31 +13,31 @@ enum class AppGlyph(
+     /** ARGB accent. */
+     val accent: Long,
+ ) {
+-    PHONE("phone-call", 0xFF4D9CFF),
++    PHONE("phone-call", 0xFF2E9BD6),
+     CONTACTS("address-book", 0xFFF28C45),
+     MESSAGES("chat-circle-dots", 0xFF35C66B),
+     MAIL("envelope-simple", 0xFF64748B),
+     CALENDAR("calendar-dots", 0xFFF28C45),
+-    WEATHER("cloud-sun", 0xFF4D9CFF),
++    WEATHER("cloud-sun", 0xFF2E9BD6),
+     PHOTOS("image-square", 0xFF7A42E8),
+     MEDIA("music-notes", 0xFF7A42E8),
+     CAMERA("camera", 0xFFE8458F),
+ 
+     /** The base camera beside Sable Camera: Aperture keeps video and the secure camera on the Q25. */
+     VIDEO_CAMERA("video-camera", 0xFFE8458F),
+-    CALCULATOR("calculator", 0xFF4D9CFF),
++    CALCULATOR("calculator", 0xFF2E9BD6),
+     FILES("folder-simple", 0xFFF5C542),
+     CLOCK("clock", 0xFF64748B),
+-    BROWSER("globe", 0xFF4D9CFF),
++    BROWSER("globe", 0xFF2E9BD6),
+     ASSISTANT("call-bell", 0xFFF5C542),
+     SETTINGS("gear-six", 0xFF64748B),
+     RECORDER("microphone", 0xFFE5534B),
+     READER("book-open-text", 0xFF35C66B),
+-    TEXT_READER("text-align-left", 0xFF4D9CFF),
++    TEXT_READER("text-align-left", 0xFF2E9BD6),
+     NOTES("notepad", 0xFFF5C542),
+     TASKS("check-square", 0xFF2BB5A0),
+     TERMINAL("terminal-window", 0xFF3FA37A),
+-    SUDOKU("grid-nine", 0xFF4D9CFF),
++    SUDOKU("grid-nine", 0xFF2E9BD6),
+     MINESWEEPER("bomb", 0xFFF28C45),
+     GAME_2048("grid-four", 0xFF64748B),
+     BRICKS("wall", 0xFFE34D59),
+@@ -54,7 +54,7 @@ enum class AppGlyph(
+     DISPLAY("frame-corners", 0xFF34C8E8),
+     SETUP("list-checks", 0xFF2BB5A0),
+     STORE("shopping-bag", 0xFF35C66B),
+-    SERVICES("puzzle-piece", 0xFF4D9CFF),
++    SERVICES("puzzle-piece", 0xFF2E9BD6),
+ }
+ 
+ /**
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 02f138d..529370d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -241,6 +241,7 @@ object StartText {
+             "best_match" to "best match",
+             "assistant" to "assistant",
+             "ask_assistant" to "ask %1\$s",
++            "open_command" to "Command (Alt+Space)",
+             "device_monitor" to "Device Monitor",
+             "dm_battery" to "Battery",
+             "dm_cpu" to "CPU",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/RecentTasksRepository.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/RecentTasksRepository.kt
+index 883aea9..43f7cbe 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/RecentTasksRepository.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/RecentTasksRepository.kt
+@@ -99,6 +99,39 @@ class RecentTasksRepository(
+     private fun snapshot(
+         taskId: Int,
+         lowResolution: Boolean,
++    ): Bitmap? = snapshotManagerSnapshot(taskId, lowResolution) ?: legacySnapshot(taskId, lowResolution)
++
++    /**
++     * Android 17 moved snapshots out of IActivityTaskManager into android.window.TaskSnapshotManager
++     * (getTaskSnapshot(taskId, resolution); RESOLUTION_HIGH 1, RESOLUTION_LOW 2), which needs
++     * MANAGE_ACTIVITY_TASKS and READ_FRAME_BUFFER. Without it every frame showed "running".
++     */
++    private fun snapshotManagerSnapshot(
++        taskId: Int,
++        lowResolution: Boolean,
++    ): Bitmap? =
++        runCatching {
++            val managerClass = Class.forName("android.window.TaskSnapshotManager")
++            val manager = managerClass.getMethod("getInstance").invoke(null) ?: return@runCatching null
++            val method =
++                managerClass.getMethod("getTaskSnapshot", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
++            val resolution = if (lowResolution) RESOLUTION_LOW else RESOLUTION_HIGH
++            val snapshot = method.invoke(manager, taskId, resolution) ?: return@runCatching null
++            bitmapOf(snapshot)
++        }.getOrNull()
++
++    private fun bitmapOf(snapshot: Any): Bitmap? {
++        val buffer = snapshot.javaClass.getMethod("getHardwareBuffer").invoke(snapshot) as? HardwareBuffer ?: return null
++        val colorSpace =
++            runCatching { snapshot.javaClass.getMethod("getColorSpace").invoke(snapshot) as? ColorSpace }.getOrNull()
++                ?: ColorSpace.get(ColorSpace.Named.SRGB)
++        return Bitmap.wrapHardwareBuffer(buffer, colorSpace)
++    }
++
++    /** Android 16 and earlier: IActivityTaskManager.getTaskSnapshot. */
++    private fun legacySnapshot(
++        taskId: Int,
++        lowResolution: Boolean,
+     ): Bitmap? =
+         runCatching {
+             val service = taskService() ?: return@runCatching null
+@@ -113,13 +146,7 @@ class RecentTasksRepository(
+             val flags: List<Any> = method.parameterTypes.drop(1).mapIndexed { index, _ -> index == 0 && lowResolution }
+             val args: Array<Any> = (listOf<Any>(taskId) + flags).toTypedArray()
+             val snapshot = method.invoke(service, *args) ?: return@runCatching null
+-            val buffer =
+-                snapshot.javaClass.getMethod("getHardwareBuffer").invoke(snapshot) as? HardwareBuffer
+-                    ?: return@runCatching null
+-            val colorSpace =
+-                runCatching { snapshot.javaClass.getMethod("getColorSpace").invoke(snapshot) as? ColorSpace }.getOrNull()
+-                    ?: ColorSpace.get(ColorSpace.Named.SRGB)
+-            Bitmap.wrapHardwareBuffer(buffer, colorSpace)
++            bitmapOf(snapshot)
+         }.getOrNull()
+ 
+     private fun taskService(): Any? =
+@@ -137,6 +164,9 @@ class RecentTasksRepository(
+         appContext.packageManager.getLaunchIntentForPackage(frame.packageName)?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+ 
+     private companion object {
++        const val RESOLUTION_HIGH = 1
++        const val RESOLUTION_LOW = 2
++
+         /** More than [ActiveFrames.MAX], since some recent tasks are filtered out. */
+         const val QUERY_LIMIT = 16
+ 
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+index 52b60fc..bebb8c7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+@@ -88,7 +88,7 @@ import java.util.Date
+  * twice) on the wallpaper, and a tray along the bottom with one row of Favorites that opens into
+  * the whole panel. Keys as on BlackBerry 7: arrows move, Enter opens, Up opens the tray and
+  * Escape closes it, Space switches panels (Favorites, All, Downloads), typing searches apps, Menu
+- * opens the home options. As on the BlackBerry 10 home, Hub is to the left and the apps to the
++ * opens the home options, Alt+Space opens Command. As on the BlackBerry 10 home, Hub is to the left and the apps to the
+  * right: a swipe to the right or Alt+Left opens Hub, a swipe to the left or Alt+Right opens All;
+  * with the tray open, Alt+Left/Right switch panels. The home screen shows [homeRows] rows of the
+  * panel's icons; dragging the tray up or down shows more or fewer, as on BlackBerry 7. Menu on an
+@@ -121,6 +121,8 @@ fun Bb7HomeScreen(
+     speedDial: SpeedDialRepository? = null,
+     letterShortcuts: LetterShortcutRepository? = null,
+     onOpenMenu: (List<Pair<String, () -> Unit>>) -> Unit,
++    /** Command search, as Alt+Space opens it from any app (shown on the BlackBerry 10 screen). */
++    onOpenCommand: () -> Unit = {},
+ ) {
+     // The tray place: the three panels, then the user's tabs (see Bb7Home.trayPlaces).
+     var place by remember { mutableIntStateOf(0) }
+@@ -224,6 +226,7 @@ fun Bb7HomeScreen(
+                 add(t("app_info") to { onOpenAppInfo(app) })
+                 if (app.canUninstall && app.inLauncherUser) add(t("delete_app") to { onUninstallApp(app) })
+             }
++            if (!searching) add(t("open_command") to onOpenCommand)
+             if (!searching && tabs.size < Bb7Tabs.MAX) add(t("new_tab") to { naming = "" })
+             if (!searching && tab != null) {
+                 add(
+@@ -367,6 +370,7 @@ fun Bb7HomeScreen(
+                                 native.keyCode == KeyEvent.KEYCODE_ENTER ||
+                                     native.keyCode == KeyEvent.KEYCODE_DPAD_CENTER ->
+                                     shown.getOrNull(selected)?.let { onLaunchApp(it) }
++                                native.keyCode == KeyEvent.KEYCODE_SPACE && native.isAltPressed -> onOpenCommand()
+                                 native.keyCode == KeyEvent.KEYCODE_SPACE && !searching -> {
+                                     place = Bb7Home.stepPlace(at, 1, tabs.size)
+                                     selected = 0
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt
+index 1b54b25..21882bf 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableGlyphIcon.kt
+@@ -115,7 +115,8 @@ internal fun sableGlyphBrush(
+ 
+ private const val GLYPH_VIEWPORT = 256f
+ private const val SHADOW_DROP = 0.035f
+-private const val ACCENT_TINT = 0.6f
++// 2.0 is black and white: line glyphs in white to silver, with no per-app colour.
++private const val ACCENT_TINT = 0f
+ private const val LIGHT_SURFACE_LUMINANCE = 0.5f
+ private val GlyphShadow = Color(0x99000000)
+ private val GlyphShadowOnLight = Color(0x26000000)
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 335f0b2..812cffa 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -278,26 +278,26 @@ private data class HomeEdit(
+     val framesOptions: FramesOptions = FramesOptions(),
+ )
+ 
+-private val SableBlue = Color(0xFF4D9CFF)
+-private val SableGreen = Color(0xFF35C66B)
+-private val SablePurple = Color(0xFF7A42E8)
+-private val SableSlate = Color(0xFF64748B)
+-private val SableOrange = Color(0xFFF28C45)
+-private val SableSun = Color(0xFFF5C542)
++private val SableBlue = Color(0xFF2E9BD6)
++// 1.0's colour marks, now white and grey: SableOS 2.0 is black and white (2026-11-04).
++private val SableGreen = Color.White
++private val SablePurple = Color.White
++private val SableSlate = Color(0xFFA6A6A6)
++private val SableOrange = Color.White
++private val SableSun = Color.White
++// Letter tiles for apps without a Sable glyph: greys only (2.0 is black and white).
+ private val SableTilePalette =
+     listOf(
+-        SableBlue,
+-        SableGreen,
+-        SablePurple,
+-        SableOrange,
+-        SableSlate,
++        Color(0xFF262626),
++        Color(0xFF3A3A3A),
++        Color(0xFF4D4D4D),
+     )
+ 
+ // BlackBerry 10 look on the Start pages. Values from the public BB10 look; the UI
+ // Guidelines PDF has the exact tokens. The pages follow Android's Dark theme and the
+ // Sable accent: dark is the BB10 look, light keeps the layout on light surfaces, and the
+ // focus highlight is the accent (BB10 blue for the default Sable Blue).
+-private val Bb10DefaultBlue = Color(0xFF00A8DF)
++private val Bb10DefaultBlue = Color(0xFF2E9BD6)
+ 
+ /** Start's page colours for one Dark theme state and accent. */
+ @Immutable
+@@ -319,8 +319,9 @@ internal fun startPalette(
+     dark: Boolean,
+     accent: AccentPreset,
+ ): StartPalette {
++    // One blue in 2.0; [accent] is kept for callers and is always Blue.
+     val accentColor = if (accent == AccentPreset.Blue) Bb10DefaultBlue else accent.color
+-    val onAccent = if (accent == AccentPreset.Blue) Color.White else accent.onColor
++    val onAccent = Color.White
+     return if (dark) {
+         StartPalette(
+             accent = accentColor,
+@@ -329,12 +330,12 @@ internal fun startPalette(
+             // pages, Hub and All Apps are #000000 and cards are a step above it.
+             background = Color.Black,
+             card = Color(0xFF141414),
+-            tile = Color(0xFF1C1C1C),
+-            line = Color(0xFF2A2A2A),
+-            barTop = Color(0xFF1C1C1C),
++            tile = Color(0xFF262626),
++            line = Color(0xFF262626),
++            barTop = Color(0xFF141414),
+             barBottom = Color.Black,
+             text = Color.White,
+-            muted = Color(0xFF9E9E9E),
++            muted = Color(0xFFA6A6A6),
+             dim = Color(0xFF5E5E5E),
+         )
+     } else {
+@@ -1736,30 +1737,37 @@ private fun DeviceMonitorBody(modifier: Modifier) {
+             maxLines = 1,
+         )
+         val shown = stats ?: return@Column
+-        DeviceMonitor.rows(shown) { key, args -> t(key, *args) }.forEach { row ->
+-            Row(verticalAlignment = Alignment.CenterVertically) {
+-                Text(
+-                    text = t(row.labelKey),
+-                    style = MaterialTheme.typography.labelMedium,
+-                    color = Bb10Muted,
+-                    maxLines = 1,
+-                    modifier = Modifier.weight(1f),
+-                )
+-                Text(
+-                    text = row.value,
+-                    style = MaterialTheme.typography.labelMedium,
+-                    color = Bb10Text,
+-                    maxLines = 1,
+-                    overflow = TextOverflow.Ellipsis,
+-                )
+-            }
+-            Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(Bb10Line)) {
+-                Box(modifier = Modifier.fillMaxWidth(row.fill).fillMaxHeight().background(Bb10Blue))
++        val rows = DeviceMonitor.rows(shown) { key, args -> t(key, *args) }
++        // One row of dials, sized to the frame so all of them fit (the Start header's dial style).
++        BoxWithConstraints(modifier = Modifier.fillMaxWidth().weight(1f)) {
++            val gap = 4.dp
++            val byWidth = (maxWidth - gap * (rows.size - 1)) / rows.size
++            val byHeight = maxHeight - DIAL_LABEL_HEIGHT
++            val dial = minOf(byWidth, byHeight).coerceAtLeast(DIAL_MIN)
++            Row(
++                modifier = Modifier.fillMaxSize(),
++                horizontalArrangement = Arrangement.SpaceEvenly,
++                verticalAlignment = Alignment.CenterVertically,
++            ) {
++                rows.forEach { row ->
++                    StatRing(
++                        label = t(row.labelKey),
++                        fraction = row.fill,
++                        color = Bb10Blue,
++                        size = dial,
++                        // Only a nearly full memory or storage turns red; battery never does here.
++                        hotAbove = if (row.labelKey == "dm_battery") 2f else DIAL_HOT,
++                    )
++                }
+             }
+         }
+     }
+ }
+ 
++private val DIAL_LABEL_HEIGHT = 14.dp
++private val DIAL_MIN = 24.dp
++private const val DIAL_HOT = 0.9f
++
+ /** One line of an app's live state over the bottom of its frame. */
+ @Composable
+ private fun FrameLiveLine(
+@@ -6318,24 +6326,7 @@ private fun AppearanceScreen(
+             )
+         }
+ 
+-        item {
+-            Spacer(Modifier.height(14.dp))
+-            SectionLabel("accent")
+-            Spacer(Modifier.height(4.dp))
+-        }
+-
+-        items(AccentPreset.entries) { accent ->
+-            val selected = appearance.accent == accent
+-            AccentChoiceRow(
+-                accent = accent,
+-                selected = selected,
+-                onClick = {
+-                    onAppearanceChanged(
+-                        appearance.copy(accent = accent),
+-                    )
+-                },
+-            )
+-        }
++        // No accent choice in 2.0: one blue for focus, the rest black and white (2026-11-04).
+ 
+         item {
+             Spacer(Modifier.height(14.dp))
+@@ -6414,57 +6405,6 @@ private fun AppearanceChoiceRow(
+     )
+ }
+ 
+-@Composable
+-private fun AccentChoiceRow(
+-    accent: AccentPreset,
+-    selected: Boolean,
+-    onClick: () -> Unit,
+-) {
+-    Row(
+-        modifier =
+-            Modifier
+-                .fillMaxWidth()
+-                .heightIn(min = 54.dp)
+-                .sableFocusRing()
+-                .clickable(onClick = onClick)
+-                .padding(vertical = 8.dp),
+-        verticalAlignment = Alignment.CenterVertically,
+-    ) {
+-        Box(
+-            modifier =
+-                Modifier
+-                    .size(22.dp)
+-                    .background(accent.color),
+-        )
+-        Spacer(Modifier.width(14.dp))
+-        Text(
+-            text = accent.displayName.lowercase(Locale.getDefault()),
+-            modifier = Modifier.weight(1f),
+-            style = MaterialTheme.typography.titleLarge,
+-            fontWeight =
+-                if (selected) {
+-                    FontWeight.Medium
+-                } else {
+-                    FontWeight.Normal
+-                },
+-        )
+-        if (selected) {
+-            Text(
+-                text = "✓",
+-                fontSize = 20.sp,
+-                color = accent.color,
+-            )
+-        }
+-    }
+-    Box(
+-        modifier =
+-            Modifier
+-                .fillMaxWidth()
+-                .height(1.dp)
+-                .background(MaterialTheme.colorScheme.surfaceVariant),
+-    )
+-}
+-
+ private fun findLiveApp(
+     apps: List<AppEntry>,
+     packageName: String,
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt
+index c15d0c9..e5f1117 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt
+@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.contentDescription
+ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextAlign
++import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+@@ -53,9 +54,11 @@ import kotlin.math.cos
+ import kotlin.math.roundToInt
+ import kotlin.math.sin
+ 
+-private val RingGreen = Color(0xFF35C66B)
+-private val RingPurple = Color(0xFF7A42E8)
+-private val RingOrange = Color(0xFFF28C45)
++// SableOS 2.0 is black and white (UI direction, 2026-11-04): every arc is white, and only a value
++// past its limit turns red (the error colour).
++private val RingGreen = Color.White
++private val RingPurple = Color.White
++private val RingOrange = Color.White
+ private const val SAMPLE_INTERVAL_MS = 3_000L
+ 
+ /**
+@@ -83,7 +86,6 @@ fun SableStatusRings(
+     }
+ 
+     val st = stats ?: return
+-    val primary = MaterialTheme.colorScheme.primary
+     val error = MaterialTheme.colorScheme.error
+     Row(
+         modifier = modifier,
+@@ -92,7 +94,7 @@ fun SableStatusRings(
+     ) {
+         NetRing(label = "Wi-Fi", up = st.wifiUp, down = st.wifiDown, size = ringSize)
+         NetRing(label = t("mobile"), up = st.mobileUp, down = st.mobileDown, size = ringSize)
+-        StatRing(label = "CPU", fraction = st.cpu, color = primary, size = ringSize)
++        StatRing(label = "CPU", fraction = st.cpu, color = RingGreen, size = ringSize)
+         StatRing(label = "RAM", fraction = st.ram, color = RingPurple, size = ringSize)
+         StatRing(
+             label =
+@@ -122,7 +124,7 @@ fun SableStatusRings(
+  * cap at its tip and the value in the middle. A null fraction shows a dash.
+  */
+ @Composable
+-private fun StatRing(
++internal fun StatRing(
+     label: String,
+     fraction: Float?,
+     color: Color,
+@@ -228,6 +230,7 @@ private fun StatRing(
+             fontSize = 10.sp,
+             color = muted,
+             maxLines = 1,
++            overflow = TextOverflow.Ellipsis,
+             modifier = Modifier.offset(y = (-3).dp),
+         )
+     }
+@@ -250,7 +253,7 @@ private fun NetRing(
+         color = RingGreen,
+         size = size,
+         innerFraction = DeviceStatsFormat.heat(up),
+-        innerColor = MaterialTheme.colorScheme.primary,
++        innerColor = Color(0xFFA6A6A6),
+         center = listOf("↓" + DeviceStatsFormat.rate(down), "↑" + DeviceStatsFormat.rate(up)),
+         hotAbove = 2f,
+     )
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
+index 3d0c5d3..de7343c 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
+@@ -36,6 +36,10 @@ data class SableColorRoles(
+ }
+ 
+ /**
++ * The Sable accent. SableOS 2.0 is black and white with one blue (#2E9BD6) for focus and
++ * selection, as agreed for the 2.0 UI direction on 2026-11-04; the colour presets of 1.0 are gone.
++ * A stored value of an old preset reads as this one.
++ *
+  * A Sable accent preset. [seed] is the stable preset color (the value Sable
+  * apps have always used and the seed handed to the system palette). [onDark]
+  * and [onLight] are the accent tones used on dark and light surfaces so the
+@@ -49,11 +53,7 @@ enum class SableAccentTokens(
+     val light: Long,
+     val onLight: Long,
+ ) {
+-    Blue("blue", 0xFF4D9CFF, 0xFF4D9CFF, 0xFF06111F, 0xFF1F6FD1, 0xFFFFFFFF),
+-    Green("green", 0xFF35C66B, 0xFF35C66B, 0xFF04140A, 0xFF1A7F45, 0xFFFFFFFF),
+-    Purple("purple", 0xFF7A42E8, 0xFFA47CFF, 0xFF0F0526, 0xFF7A42E8, 0xFFFFFFFF),
+-    Orange("orange", 0xFFF28C45, 0xFFF28C45, 0xFF1D0C02, 0xFFB35410, 0xFFFFFFFF),
+-    Slate("slate", 0xFF64748B, 0xFF94A3B8, 0xFF0B1220, 0xFF55657A, 0xFFFFFFFF),
++    Blue("blue", 0xFF2E9BD6, 0xFF2E9BD6, 0xFF000000, 0xFF1A6FA0, 0xFFFFFFFF),
+     ;
+ 
+     fun accent(dark: Boolean): Long = if (dark) this.dark else light
+@@ -82,14 +82,14 @@ object SableSystemTokens {
+         SableColorRoles(
+             surfaceBase = 0xFF000000,
+             surfaceRaised = 0xFF141414,
+-            surfaceOverlay = 0xFF1C1C1C,
+-            textPrimary = 0xFFF7F9FC,
+-            textSecondary = 0xFFAAB4C0,
+-            textDisabled = 0xFF7D8896,
++            surfaceOverlay = 0xFF262626,
++            textPrimary = 0xFFFFFFFF,
++            textSecondary = 0xFFA6A6A6,
++            textDisabled = 0xFF808080,
+             success = 0xFF4ADE80,
+             warning = 0xFFFBBF24,
+-            danger = 0xFFFF8A80,
+-            privacy = 0xFF9FB3C8,
++            danger = 0xFFE0463C,
++            privacy = 0xFFBDBDBD,
+         )
+ 
+     val Light =
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
+index d54940e..2bf62ce 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
+@@ -35,11 +35,7 @@ enum class AccentPreset(
+     val color: Color,
+     val onColor: Color,
+ ) {
+-    Blue("blue", "Sable Blue", Color(0xFF4D9CFF), Color(0xFF06111F)),
+-    Green("green", "Green", Color(0xFF35C66B), Color(0xFF04140A)),
+-    Purple("purple", "Purple", Color(0xFF7A42E8), Color.White),
+-    Orange("orange", "Orange", Color(0xFFF28C45), Color(0xFF1D0C02)),
+-    Slate("slate", "Slate", Color(0xFF64748B), Color.White),
++    Blue("blue", "Sable Blue", Color(0xFF2E9BD6), Color(0xFF000000)),
+     ;
+ 
+     companion object {
+@@ -106,9 +102,9 @@ object SableSize {
+ object SableColorTokens {
+     val DarkBackground = Color(0xFF000000)
+     val DarkSurface = Color(0xFF141414)
+-    val DarkSurfaceRaised = Color(0xFF1C1C1C)
+-    val DarkText = Color(0xFFF7F9FC)
+-    val DarkTextMuted = Color(0xFFAAB4C0)
++    val DarkSurfaceRaised = Color(0xFF262626)
++    val DarkText = Color(0xFFFFFFFF)
++    val DarkTextMuted = Color(0xFFA6A6A6)
+ 
+     val LightBackground = Color(0xFFF5F7F9)
+     val LightSurface = Color(0xFFFFFFFF)
+@@ -219,10 +215,10 @@ fun SableTheme(
+                 onSurface = SableColorTokens.DarkText,
+                 surfaceVariant = SableColorTokens.DarkSurfaceRaised,
+                 onSurfaceVariant = SableColorTokens.DarkTextMuted,
+-                outline = Color(0xFF526170),
+-                outlineVariant = Color(0xFF26313D),
+-                error = Color(0xFFFFB4AB),
+-                onError = Color(0xFF690005),
++                outline = Color(0xFF4D4D4D),
++                outlineVariant = Color(0xFF262626),
++                error = Color(0xFFE0463C),
++                onError = Color(0xFF000000),
+             )
+         } else {
+             lightColorScheme(
+diff --git a/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt b/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt
+index eac0a01..0d5030c 100644
+--- a/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt
++++ b/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt
+@@ -16,49 +16,40 @@ class SableSystemTokensTest {
+     fun contrastMatchesWcagReferenceValues() {
+         assertEquals(21.0, SableContrast.ratio(0xFF000000, 0xFFFFFFFF), 0.01)
+         assertEquals(1.0, SableContrast.ratio(0xFF777777, 0xFF777777), 0.0001)
+-        // Sable Blue on white is why the light theme needs its own accent tone.
+-        assertEquals(2.79, SableContrast.ratio(0xFF4D9CFF, 0xFFFFFFFF), 0.01)
++        // The 2.0 blue on white is why the light theme needs its own, darker tone.
++        assertEquals(3.09, SableContrast.ratio(0xFF2E9BD6, 0xFFFFFFFF), 0.01)
+     }
+ 
+     @Test
+-    fun seedAccentsAloneWouldFailOnLightSurfaces() {
+-        // Guards the reason for the dark/light accent split: if someone collapses it,
+-        // this documents which presets break the 3:1 non-text rule.
+-        val failing =
+-            SableAccentTokens.entries
+-                .filter { SableContrast.ratio(it.seed, SableSystemTokens.Light.surfaceRaised) < 3.0 }
+-                .map { it.stableValue }
+-        assertEquals(listOf("blue", "green", "orange"), failing)
++    fun seedAloneWouldFailOnTheLightBase() {
++        // Guards the reason for the dark/light accent split: the seed blue is under 3:1 on the light base.
++        assertTrue(SableContrast.ratio(SableAccentTokens.Blue.seed, SableSystemTokens.Light.surfaceBase) < 3.0)
+     }
+ 
+     @Test
+     fun rulesCoverBothThemesEverySurfaceAndEveryAccent() {
+         val rules = SableTokenRules.contrastRules()
+-        // 2 themes x 3 surfaces x (7 roles + 5 accents x 2) + 2 themes x 5 onAccent
+-        assertEquals(2 * 3 * (7 + 5 * 2) + 2 * 5, rules.size)
++        // 2 themes x 3 surfaces x (7 roles + 1 accent x 2) + 2 themes x 1 onAccent
++        assertEquals(2 * 3 * (7 + 1 * 2) + 2 * 1, rules.size)
+         assertTrue(rules.any { it.name == "light.surface1 blue focus" })
+-        assertTrue(rules.any { it.name == "dark.slate onAccent" })
++        assertTrue(rules.any { it.name == "dark.blue onAccent" })
+     }
+ 
+     @Test
+-    fun accentSeedsMatchExistingSablePresets() {
+-        // AccentPreset (SableTheme.kt) and these seeds must stay identical; Sable apps and
+-        // the system palette are seeded from the same value.
+-        assertEquals("4D9CFF", SableAccentTokens.Blue.seedHex)
+-        assertEquals("35C66B", SableAccentTokens.Green.seedHex)
+-        assertEquals("7A42E8", SableAccentTokens.Purple.seedHex)
+-        assertEquals("F28C45", SableAccentTokens.Orange.seedHex)
+-        assertEquals("64748B", SableAccentTokens.Slate.seedHex)
++    fun oneBlueAccentFor2point0() {
++        // AccentPreset (SableTheme.kt) and this seed must stay identical; Sable apps and
++        // the system palette are seeded from the same value. 1.0's presets read as it.
++        assertEquals(listOf(SableAccentTokens.Blue), SableAccentTokens.entries.toList())
++        assertEquals("2E9BD6", SableAccentTokens.Blue.seedHex)
+         assertEquals(SableAccentTokens.Blue, SableAccentTokens.fromStableValue(null))
+-        assertEquals(SableAccentTokens.Blue, SableAccentTokens.fromStableValue("magenta"))
+-        assertEquals(SableAccentTokens.Slate, SableAccentTokens.fromStableValue("slate"))
++        assertEquals(SableAccentTokens.Blue, SableAccentTokens.fromStableValue("slate"))
+     }
+ 
+     @Test
+     fun surfacesKeepExistingSableColorTokenValues() {
+         assertEquals(0xFF000000L, SableSystemTokens.Dark.surfaceBase)
+         assertEquals(0xFF141414L, SableSystemTokens.Dark.surfaceRaised)
+-        assertEquals(0xFF1C1C1CL, SableSystemTokens.Dark.surfaceOverlay)
++        assertEquals(0xFF262626L, SableSystemTokens.Dark.surfaceOverlay)
+         assertEquals(0xFFF5F7F9L, SableSystemTokens.Light.surfaceBase)
+         assertEquals(0xFFFFFFFFL, SableSystemTokens.Light.surfaceRaised)
+         assertEquals(0xFFE9EDF2L, SableSystemTokens.Light.surfaceOverlay)
+diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+index 969692d..961c576 100644
+--- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
++++ b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+@@ -5,18 +5,18 @@ keyboard	ic_sable_keyboard	keyboard	96646775c552eb7944a88071ec3d7b93f28fd0e19ae9
+ camera	ic_sable_camera	camera	e1fb071d5326bc4de193746b38457a6f73c89df90d65d33eaa8386eb22b219f5	#E8458F	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/camera/src/main/res	none
+ displaycompat	ic_sable_displaycompat	frame-corners	76491dff75b5b3df3ffd90225e53f6f904be11d50e16fab490e69f82a1b13c78	#34C8E8	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/displaycompat/src/main/res	none
+ tools	ic_sable_tools	wrench	690d657aa4a9c99d620583cf6247cfefa5372c10e2bc60e9255a3ce19e3e9c47	#E5534B	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/tools/src/main/res	none
+-calculator	ic_sable_calculator	calculator	83c7343dba80b2359cfe617ffdc89b80f7555a53cb2d6ff13b48ce16a062f644	#4D9CFF	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_calculator	apps/r8/android/calculator/src/main/res	none
+-sudoku	ic_sable_game	grid-nine	681e079d321141f657f9461428fe54bc864d2452837b4122827e344d065d6e8a	#4D9CFF	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_game	apps/r8/android/games/src/sudoku/res	none
++calculator	ic_sable_calculator	calculator	83c7343dba80b2359cfe617ffdc89b80f7555a53cb2d6ff13b48ce16a062f644	#2E9BD6	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_calculator	apps/r8/android/calculator/src/main/res	none
++sudoku	ic_sable_game	grid-nine	681e079d321141f657f9461428fe54bc864d2452837b4122827e344d065d6e8a	#2E9BD6	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_game	apps/r8/android/games/src/sudoku/res	none
+ minesweeper	ic_sable_game	bomb	b63bde971c113ac1eca3f879487d1c442c8bcd48e5153dc67755e37405117b0d	#F28C45	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_game	apps/r8/android/games/src/minesweeper/res	none
+ game2048	ic_sable_game	grid-four	9e48ec8047eb0f26a0a59ffa2dbd6cb33d972390d52197ddc37e3a56859e879c	#64748B	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_game	apps/r8/android/games/src/game2048/res	none
+ media	ic_sable_media	music-notes	b991d76e24e781b864f9ad8b7aa14e516d4fd851871a979928917e20d492eca0	#7A42E8	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_media	apps/r8/android/media/src/main/res	none
+ hub	ic_sable_messages	chat-circle-dots	2af44e36757c90c999e070065ae61c495c66c8e88f43c5f07964dc3367cad60d	#35C66B	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_messages	apps/r8/android/hub/src/main/res	none
+-weather	ic_sable_weather	cloud-sun	568d1629b9cff658ebcf9405bb6dc9af46b8fbc676ee4924690d96842e8bb324	#4D9CFF	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_weather	apps/r8/android/weather/src/main/res	none
++weather	ic_sable_weather	cloud-sun	568d1629b9cff658ebcf9405bb6dc9af46b8fbc676ee4924690d96842e8bb324	#2E9BD6	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_weather	apps/r8/android/weather/src/main/res	none
+ calendar	ic_sable_calendar	calendar-dots	7911ba8e60afd4506bdc5fcef0549a9c1bc22c0439d1d946507116dfd8acf3d9	#F28C45	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_calendar	apps/r8/android/calendar/src/main/res	none
+ messages	ic_sable_messages	chat-text	efdb68b49cb030dcc6d04abf6f4e9368a0a9e7870d0145e62badcc99e58ca288	#34D399	R9_ART_REPLACED_BY_PHOSPHOR_REGULAR	NONE	apps/r8/android/messages/src/main/res	none
+ reader	ic_sable_reader	book-open-text	5eb0c8daceb5a6ffa004118720ea712a3eb8b7d2b6ab5bae750c3efca9d35450	#35C66B	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_reader	apps/common/reader/leisure/src/main/res	none
+ mail	ic_sable_mail	envelope-simple	f114441afbd3c3da8aee24ba4cddea1576cf55aa304eb507410fca494c8ee169	#64748B	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_mail	apps/r8/mail/res	mipmap
+-textreader	ic_sable_text_reader	text-align-left	4d166977720d3beb386288a8607fbb36134fef06fdd99496ab09cf2d2da211b5	#4D9CFF	R9_ART_REPLACED_BY_PHOSPHOR_REGULAR	ic_sable_text_reader	apps/r8/textreader/res	none
++textreader	ic_sable_text_reader	text-align-left	4d166977720d3beb386288a8607fbb36134fef06fdd99496ab09cf2d2da211b5	#2E9BD6	R9_ART_REPLACED_BY_PHOSPHOR_REGULAR	ic_sable_text_reader	apps/r8/textreader/res	none
+ vault	ic_sable_vault	vault	f4cedeb0419725587ff38c725cd2e0f05e888aa4b3d526d652bc61123d98e136	#8B5CF6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/vault/src/main/res	none
+ profiles	ic_sable_profiles	speaker-high	caca5fc1ee8489ac19232301d2c96f6d4048802491d75d761bbb89d5c98e459d	#F28C45	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/profiles/src/main/res	none
+ bricks	ic_sable_game	wall	ff673d6e917fa094771079158a97e56075d6c5602636b529a4f9fc77850b143b	#E34D59	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/bricks/res	none
+@@ -29,7 +29,7 @@ words	ic_sable_game	text-aa	e964560ce335191f6bfc660ee8be894d6459561516152f9fcead
+ notes	ic_sable_notes	notepad	65f069445f9cbf08b9dbbcab5069512095d25c4b0a17113cf98ca9fdc380cf82	#F5C542	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/notes/src/main/res	none
+ terminal	ic_sable_terminal	terminal-window	5ee2be45ae5f7ff95d51e142baad1103cd8b473f89e69f983f3f5b40c884327d	#3FA37A	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/connectbot/res	none
+ tasks	ic_sable_tasks	check-square	69fc9a39cab4af71874d4cc56eaa6d8943962f2619f5c9a7e2e38d01e232c928	#2BB5A0	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/tasks/src/main/res	none
+-browser	ic_sable_browser	globe	3b53d207c09fc72de699c8b2149892e065b570b3ae144412ae53244b0a0f7977	#4D9CFF	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/browser/src/main/res	none
++browser	ic_sable_browser	globe	3b53d207c09fc72de699c8b2149892e065b570b3ae144412ae53244b0a0f7977	#2E9BD6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/browser/src/main/res	none
+ spaces	ic_sable_spaces	briefcase	c908360aa8ffeff3b78be469066aa9faf7df2eda8f34a3596c44157dddc96453	#3FA7D6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/spaces/src/main/res	none
+ printtogo	ic_sable_printtogo	printer	398705192743d7ced5da5ca18f2b9e69759284276596f3dd3787720093d3f57e	#C77DDB	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/printtogo/src/main/res	none
+ compass	ic_sable_compass	compass	00c7e42415f795fcea90bd9dc0b2c8266b4e9601d2937cb122cd03b7e9e9e198	#E0703A	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/compass/src/main/res	none

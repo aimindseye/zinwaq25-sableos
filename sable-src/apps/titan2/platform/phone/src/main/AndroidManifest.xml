@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sable Phone: the default Phone app (android.app.role.DIALER, config_defaultDialer in SableFrameworkOverlay).
+     It qualifies for the role with the DIAL activity and the UI InCallService below. Calls go through Telecom;
+     the call log and contacts are read from their providers and never copied. No internet, no backup. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+
+    <!-- Sable speed dial: Sable Start reads which letters are assigned and asks Phone to call. Any app on the
+         system image may hold it (Start is platform-signed, Sable Phone is not). -->
+    <permission
+        android:name="org.sableos.permission.SPEED_DIAL"
+        android:protectionLevel="signature|preinstalled" />
+
+    <!-- The speed dial provider is read-only; writes need this, which only Sable Phone's own signature holds. -->
+    <permission
+        android:name="org.sableos.permission.SPEED_DIAL_WRITE"
+        android:protectionLevel="signature" />
+
+    <!-- Granted with the Phone role. -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- *#06# shows the IMEI (privileged; product/q25/permissions/privapp-permissions-sable-q25.xml). -->
+    <uses-permission
+        android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
+        tools:ignore="ProtectedPermissions" />
+
+    <queries>
+        <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
+        <provider android:authorities="org.sableos.appearance" />
+        <!-- Sable private mode (Sable Hub): the call list hides names while it is on. -->
+        <provider android:authorities="org.sableos.hub.privacy" />
+        <intent>
+            <action android:name="android.intent.action.PICK" />
+            <data android:mimeType="vnd.android.cursor.dir/phone_v2" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+    </queries>
+
+    <application
+        android:name="org.sableos.phone.PhoneApplication"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        android:icon="@mipmap/ic_sable_phone"
+        android:roundIcon="@mipmap/ic_sable_phone_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.DeviceDefault.DayNight">
+
+        <activity
+            android:name=".android.PhoneActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="stateHidden|adjustResize"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- The Phone role needs DIAL both with and without a tel: number. -->
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tel" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".android.InCallActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:taskAffinity="org.sableos.phone.incall"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode" />
+
+        <activity
+            android:name=".android.SpeedDialActivity"
+            android:exported="false"
+            android:label="@string/app_name" />
+
+        <activity
+            android:name=".android.SpeedDialCallActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:permission="org.sableos.permission.SPEED_DIAL"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="org.sableos.dialer.action.SPEED_DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name=".android.SpeedDialProvider"
+            android:authorities="org.sableos.dialer.speeddial"
+            android:exported="true"
+            android:readPermission="org.sableos.permission.SPEED_DIAL"
+            android:writePermission="org.sableos.permission.SPEED_DIAL_WRITE" />
+
+        <!-- The call screen: Telecom binds it for the default Phone app (only Telecom holds BIND_INCALL_SERVICE). -->
+        <service
+            android:name=".android.PhoneInCallService"
+            android:exported="true"
+            android:permission="android.permission.BIND_INCALL_SERVICE">
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="false" />
+            <intent-filter>
+                <action android:name="android.telecom.InCallService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".android.CallActionReceiver"
+            android:exported="false" />
+
+        <!-- Only Telecom (MODIFY_PHONE_STATE) can hand over the missed call notification. -->
+        <receiver
+            android:name=".android.MissedCallReceiver"
+            android:exported="true"
+            android:permission="android.permission.MODIFY_PHONE_STATE">
+            <intent-filter>
+                <action android:name="android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -1,6 +1,7 @@
 package org.sableos.weather
 
 import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -147,6 +148,34 @@ private fun WeatherApp() {
         if (useCurrent) locateNow()
     }
 
+    var alerts by remember {
+        mutableStateOf(repository.alerts.settings.takeIf { WeatherNotifier.canPost(context) } ?: AlertSettings())
+    }
+    var pendingAlerts by remember { mutableStateOf<AlertSettings?>(null) }
+
+    fun applyAlerts(next: AlertSettings) {
+        repository.alerts.settings = next
+        alerts = next
+        if (next.any) WeatherRefreshJob.ensureScheduled(context, needsFetch = false)
+    }
+
+    val notificationLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val next = pendingAlerts
+            pendingAlerts = null
+            if (granted && next != null) applyAlerts(next)
+        }
+
+    fun setAlerts(next: AlertSettings) {
+        val turningOn = next.any && !WeatherNotifier.canPost(context)
+        if (turningOn && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pendingAlerts = next
+            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        applyAlerts(next)
+    }
+
     SableRefreshableSurface(
         isRefreshing = refreshing,
         onRefresh = ::refresh,
@@ -204,6 +233,9 @@ private fun WeatherApp() {
             )
 
             Spacer(Modifier.height(SableSpacing.Lg))
+            AlertsSection(alerts = alerts, onChange = ::setAlerts)
+
+            Spacer(Modifier.height(SableSpacing.Lg))
             CitiesSection(
                 repository = repository,
                 onActiveCityChanged = { location ->
@@ -222,6 +254,58 @@ private fun WeatherApp() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** The opt-in alerts: a morning forecast and a heads-up before rain. Each opens Sable Weather when tapped. */
+@Composable
+private fun AlertsSection(
+    alerts: AlertSettings,
+    onChange: (AlertSettings) -> Unit,
+) {
+    SectionHeader(t("alert_notifications"))
+    SwitchRow(
+        title = t("alert_morning_forecast"),
+        detail = t("alert_morning_forecast_detail"),
+        on = alerts.morning,
+        onChange = { onChange(alerts.copy(morning = it)) },
+    )
+    SwitchRow(
+        title = t("alert_rain_alerts"),
+        detail = t("alert_rain_alerts_detail"),
+        on = alerts.rain,
+        onChange = { onChange(alerts.copy(rain = it)) },
+    )
+}
+
+@Composable
+private fun SwitchRow(
+    title: String,
+    detail: String,
+    on: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp)
+                .toggleable(value = on, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = on, onCheckedChange = null)
     }
 }
 
@@ -501,18 +585,6 @@ private fun statusLine(state: WeatherUiState): String {
         WeatherAvailability.Local -> prefix + t("local")
     }
 }
-
-private fun conditionLabel(condition: WeatherCondition): String =
-    when (condition) {
-        WeatherCondition.Clear -> "clear"
-        WeatherCondition.PartlyCloudy -> t("partly_cloudy")
-        WeatherCondition.Cloudy -> "cloudy"
-        WeatherCondition.Fog -> "fog"
-        WeatherCondition.Rain -> "rain"
-        WeatherCondition.Snow -> "snow"
-        WeatherCondition.Storm -> "storms"
-        WeatherCondition.Unknown -> t("conditions_unavailable")
-    }
 
 private fun windDirection(degrees: Int): String {
     val normalized = Math.floorMod(degrees, 360)

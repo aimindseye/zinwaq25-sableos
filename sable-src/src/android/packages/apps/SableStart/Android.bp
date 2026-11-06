@@ -20,9 +20,12 @@ filegroup {
         "src/com/sable/start/model/LetterShortcuts.kt",
         "src/com/sable/start/model/QuickBar.kt",
         "src/com/sable/start/model/SpeedDial.kt",
+        "src/com/sable/start/model/StartLook.kt",
         "src/com/sable/start/model/StartMonth.kt",
         "src/com/sable/start/model/StartText.kt",
+        "src/com/sable/start/platform/AssistantPersona.kt",
         "src/com/sable/start/platform/DeviceStatsSampler.kt",
+        "src/com/sable/start/platform/DeviceStatsReader.kt",
         "src/com/sable/start/platform/FrameMediaRepository.kt",
         "src/com/sable/start/platform/LetterShortcutRepository.kt",
         "src/com/sable/start/platform/LiveSurfaceRepository.kt",
@@ -55,6 +58,8 @@ android_app {
         ":sable_design_shared_srcs",
         "src/com/sable/start/SableStartActivity.kt",
         "src/com/sable/start/HomeStyleActivity.kt",
+        // Setup's Look step (manifest receiver org.sableos.start.LookReceiver).
+        "src/com/sable/start/LookReceiver.kt",
         "src/com/sable/start/platform/LauncherAppsRepository.kt",
     ],
 

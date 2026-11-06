@@ -244,3 +244,95 @@ object HomeHeader {
 
     private const val DAY_MS = 24L * 60 * 60 * 1000
 }
+
+/**
+ * The BB10 app grid's size and labels, set in Edit Home (owner request 2026-11-05, after
+ * JLauncher's Home screen options; ideas only): 4 to 6 columns, Fit or 3 to 5 rows, app
+ * names on or off. Saved as "columns:rows:names"; anything unreadable gives the default.
+ */
+data class GridShape(
+    val columns: Int = DEFAULT_COLUMNS,
+    /** [FIT]: as many rows as the screen holds ([AppGrid.rowsFor]). */
+    val rows: Int = FIT,
+    val names: Boolean = true,
+) {
+    fun encode(): String = "$columns:$rows:${if (names) 1 else 0}"
+
+    fun nextColumns(): GridShape = copy(columns = if (columns >= MAX_COLUMNS) MIN_COLUMNS else columns + 1)
+
+    fun nextRows(): GridShape =
+        copy(
+            rows =
+                when {
+                    rows == FIT -> MIN_ROWS
+                    rows >= MAX_ROWS -> FIT
+                    else -> rows + 1
+                },
+        )
+
+    fun toggleNames(): GridShape = copy(names = !names)
+
+    /** The rows to draw when the screen fits [fitted]. */
+    fun rowsFor(fitted: Int): Int = if (rows == FIT) fitted else rows
+
+    companion object {
+        const val FIT = 0
+        const val MIN_COLUMNS = 4
+        const val MAX_COLUMNS = 6
+        const val DEFAULT_COLUMNS = 5
+        const val MIN_ROWS = 3
+        const val MAX_ROWS = 5
+
+        fun decode(text: String?): GridShape {
+            val parts = text.orEmpty().split(':')
+            if (parts.size != 3) return GridShape()
+            val columns = parts[0].toIntOrNull()?.takeIf { it in MIN_COLUMNS..MAX_COLUMNS } ?: DEFAULT_COLUMNS
+            val rows = parts[1].toIntOrNull()?.takeIf { it == FIT || it in MIN_ROWS..MAX_ROWS } ?: FIT
+            return GridShape(columns, rows, parts[2] != "0")
+        }
+    }
+}
+
+/**
+ * Active Frames options in Edit Home (after JLauncher's Active Frames page; ideas only): at most
+ * 2, 4, 6 or 8 frames, and live frames, which show each app's last picture; off shows only its
+ * icon and name, so no picture is kept. Saved as "max:live".
+ */
+data class FramesOptions(
+    val max: Int = ActiveFrames.MAX,
+    val live: Boolean = true,
+) {
+    fun encode(): String = "$max:${if (live) 1 else 0}"
+
+    fun nextMax(): FramesOptions = copy(max = if (max >= ActiveFrames.MAX) STEP else max + STEP)
+
+    fun toggleLive(): FramesOptions = copy(live = !live)
+
+    companion object {
+        const val STEP = 2
+
+        fun decode(text: String?): FramesOptions {
+            val parts = text.orEmpty().split(':')
+            if (parts.size != 2) return FramesOptions()
+            val max = parts[0].toIntOrNull()?.takeIf { it in STEP..ActiveFrames.MAX && it % STEP == 0 } ?: ActiveFrames.MAX
+            return FramesOptions(max, parts[1] != "0")
+        }
+    }
+}
+
+/**
+ * Hidden apps (after JLauncher's Hidden apps; ideas only): Menu on an app hides it from the
+ * app grid, All Apps and search. Searching "private" or "hidden" (or "/private") lists them,
+ * where Menu shows it again. Hiding is not a lock: the app still runs and still notifies.
+ */
+object HiddenApps {
+    private val WORDS = setOf("private", "hidden")
+
+    /** Whether a search for [term] lists the hidden apps. */
+    fun reveals(term: String): Boolean = term.trim().lowercase() in WORDS
+
+    fun toggle(
+        keys: Set<String>,
+        key: String,
+    ): Set<String> = if (key in keys) keys - key else keys + key
+}

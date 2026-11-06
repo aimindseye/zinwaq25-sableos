@@ -7,6 +7,14 @@
          setup the Settings > Display > Accent choice rewrites
          THEME_CUSTOMIZATION_OVERLAY_PACKAGES with the chosen preset. -->
     <string-array name="theming_defaults" translatable="false">
-        <item>*|TONAL_SPOT|#4D9CFF</item>
+        <item>*|TONAL_SPOT|#2E9BD6</item>
     </string-array>
+    <!-- Sable 2.0 type (UI direction 2026-11-04): Source Sans 3, the named family
+         "source-sans" that product/common/fonts/fonts_customization.xml adds.
+         Settings, SystemUI, SetupWizard and other apps that read these
+         configs use it; anything else keeps the default sans-serif. -->
+    <string name="config_headlineFontFamily" translatable="false">source-sans</string>
+    <string name="config_headlineFontFamilyMedium" translatable="false">source-sans-medium</string>
+    <string name="config_bodyFontFamily" translatable="false">source-sans</string>
+    <string name="config_bodyFontFamilyMedium" translatable="false">source-sans-medium</string>
 </resources>

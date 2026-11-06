@@ -110,7 +110,7 @@ def contrast(a: int, b: int) -> float:
 text = TOKENS.read_text(encoding="utf-8")
 roles = {"dark": parse_roles(text, "Dark"), "light": parse_roles(text, "Light")}
 accents = parse_accents(text)
-report(list(accents) == ["blue", "green", "purple", "orange", "slate"], "token accents parsed", str(list(accents)))
+report(list(accents) == ["blue"], "token accents parsed (2.0: one blue)", str(list(accents)))
 report(all(len(r) == 10 for r in roles.values()), "token roles parsed", str({k: len(v) for k, v in roles.items()}))
 
 bad = []
@@ -279,8 +279,10 @@ report(
         "SableSettingsProviderOverlay": ("com.android.providers.settings", "true"),
         "SableSetupWizardOverlay": ("org.lineageos.setupwizard", "true"),
         "SableSystemUIOverlay": ("com.android.systemui", "true"),
+        "SableTelecomOverlay": ("com.android.server.telecom", "true"),
+        "SableLineagePlatformOverlay": ("lineageos.platform", "true"),
     },
-    "overlay manifests target framework, SettingsProvider, SystemUI, SetupWizard and the daily-driver apps as static overlays",
+    "overlay manifests target framework, SettingsProvider, SystemUI, SetupWizard, Telecom and the daily-driver apps as static overlays",
     str(targets),
 )
 bp = (OVERLAY / "Android.bp").read_text(encoding="utf-8")
@@ -413,11 +415,16 @@ report(
 # --- Settings patch shares the accent table ----------------------------------
 
 settings_patch = next(SETTINGS_PATCHES.glob("0101-*.patch")).read_text(encoding="utf-8")
+# The newest Settings patch that sets the accent table wins (1609: one blue in 2.0).
+accent_patches = [p.read_text(encoding="utf-8") for p in sorted(SETTINGS_PATCHES.glob("*.patch"))]
 
 
 def java_array(name: str) -> list[str]:
-    m = re.search(rf"{name} = \{{([^}}]*)\}}", settings_patch)
-    return re.findall(r'"(\w+)"', m.group(1)) if m else []
+    for src in reversed(accent_patches):
+        m = re.search(rf"^\+.*{name} = \{{([^}}]*)\}}", src, re.M)
+        if m:
+            return re.findall(r'"(\w+)"', m.group(1))
+    return []
 
 
 report(java_array("ACCENTS") == list(accents), "Settings accent values equal the token accents", str(java_array("ACCENTS")))

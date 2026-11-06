@@ -110,6 +110,7 @@ object HubPrivacyCallers {
     val ALLOWED_PACKAGES: Set<String> =
         setOf(
             "com.android.dialer",
+            "org.sableos.phone",
             "com.android.contacts",
             "org.sableos.launcher",
         )

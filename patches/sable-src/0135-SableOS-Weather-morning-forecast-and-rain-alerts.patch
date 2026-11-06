@@ -1,0 +1,906 @@
+diff --git a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
+index 48e0908..3cf2622 100644
+--- a/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/weather/src/main/AndroidManifest.xml
+@@ -7,6 +7,8 @@
+     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+     <!-- Keeps the periodic background refresh scheduled across reboots. -->
+     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
++    <!-- The morning forecast and rain alerts. Both are off until turned on in Sable Weather, which asks then. -->
++    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+ 
+     <queries>
+         <provider android:authorities="org.sableos.appearance" />
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
+index 498353a..dbf6746 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.weather
+ 
+ import android.Manifest
++import android.os.Build
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.rememberLauncherForActivityResult
+@@ -147,6 +148,34 @@ private fun WeatherApp() {
+         if (useCurrent) locateNow()
+     }
+ 
++    var alerts by remember {
++        mutableStateOf(repository.alerts.settings.takeIf { WeatherNotifier.canPost(context) } ?: AlertSettings())
++    }
++    var pendingAlerts by remember { mutableStateOf<AlertSettings?>(null) }
++
++    fun applyAlerts(next: AlertSettings) {
++        repository.alerts.settings = next
++        alerts = next
++        if (next.any) WeatherRefreshJob.ensureScheduled(context, needsFetch = false)
++    }
++
++    val notificationLauncher =
++        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
++            val next = pendingAlerts
++            pendingAlerts = null
++            if (granted && next != null) applyAlerts(next)
++        }
++
++    fun setAlerts(next: AlertSettings) {
++        val turningOn = next.any && !WeatherNotifier.canPost(context)
++        if (turningOn && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
++            pendingAlerts = next
++            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
++            return
++        }
++        applyAlerts(next)
++    }
++
+     SableRefreshableSurface(
+         isRefreshing = refreshing,
+         onRefresh = ::refresh,
+@@ -203,6 +232,9 @@ private fun WeatherApp() {
+                 onChange = ::setUseCurrent,
+             )
+ 
++            Spacer(Modifier.height(SableSpacing.Lg))
++            AlertsSection(alerts = alerts, onChange = ::setAlerts)
++
+             Spacer(Modifier.height(SableSpacing.Lg))
+             CitiesSection(
+                 repository = repository,
+@@ -225,6 +257,58 @@ private fun WeatherApp() {
+     }
+ }
+ 
++/** The opt-in alerts: a morning forecast and a heads-up before rain. Each opens Sable Weather when tapped. */
++@Composable
++private fun AlertsSection(
++    alerts: AlertSettings,
++    onChange: (AlertSettings) -> Unit,
++) {
++    SectionHeader(t("alert_notifications"))
++    SwitchRow(
++        title = t("alert_morning_forecast"),
++        detail = t("alert_morning_forecast_detail"),
++        on = alerts.morning,
++        onChange = { onChange(alerts.copy(morning = it)) },
++    )
++    SwitchRow(
++        title = t("alert_rain_alerts"),
++        detail = t("alert_rain_alerts_detail"),
++        on = alerts.rain,
++        onChange = { onChange(alerts.copy(rain = it)) },
++    )
++}
++
++@Composable
++private fun SwitchRow(
++    title: String,
++    detail: String,
++    on: Boolean,
++    onChange: (Boolean) -> Unit,
++) {
++    Row(
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .padding(vertical = 6.dp)
++                .toggleable(value = on, role = Role.Switch, onValueChange = onChange),
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        Column(modifier = Modifier.weight(1f)) {
++            Text(
++                text = title,
++                style = MaterialTheme.typography.titleMedium,
++                color = MaterialTheme.colorScheme.onBackground,
++            )
++            Text(
++                text = detail,
++                style = MaterialTheme.typography.bodyMedium,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        }
++        Switch(checked = on, onCheckedChange = null)
++    }
++}
++
+ /** "Use current location": approximate location, asked for the first time it is turned on. */
+ @Composable
+ private fun CurrentLocationRow(
+@@ -502,18 +586,6 @@ private fun statusLine(state: WeatherUiState): String {
+     }
+ }
+ 
+-private fun conditionLabel(condition: WeatherCondition): String =
+-    when (condition) {
+-        WeatherCondition.Clear -> "clear"
+-        WeatherCondition.PartlyCloudy -> t("partly_cloudy")
+-        WeatherCondition.Cloudy -> "cloudy"
+-        WeatherCondition.Fog -> "fog"
+-        WeatherCondition.Rain -> "rain"
+-        WeatherCondition.Snow -> "snow"
+-        WeatherCondition.Storm -> "storms"
+-        WeatherCondition.Unknown -> t("conditions_unavailable")
+-    }
+-
+ private fun windDirection(degrees: Int): String {
+     val normalized = Math.floorMod(degrees, 360)
+     val directions =
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherAlerts.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherAlerts.kt
+new file mode 100644
+index 0000000..6d3ad55
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherAlerts.kt
+@@ -0,0 +1,117 @@
++package org.sableos.weather
++
++import org.sableos.weather.WeatherText.t
++import kotlin.math.roundToInt
++
++/** The two opt-in alerts, both off until turned on in Sable Weather. */
++internal data class AlertSettings(
++    val morning: Boolean = false,
++    val rain: Boolean = false,
++) {
++    val any: Boolean get() = morning || rain
++}
++
++/** What was last posted, so a forecast is sent once a day and a rain alert once per spell. */
++internal data class AlertMemory(
++    val morningDate: String? = null,
++    val rainAtEpochSeconds: Long = 0L,
++)
++
++/** A notification to post: a title and one line, both already in the phone's language. */
++internal sealed interface WeatherAlert {
++    val title: String
++    val text: String
++
++    data class Morning(
++        override val title: String,
++        override val text: String,
++        val date: String,
++    ) : WeatherAlert
++
++    data class RainSoon(
++        override val title: String,
++        override val text: String,
++    ) : WeatherAlert
++}
++
++/**
++ * Decides, after a background refresh, which alerts are due. Pure: the caller passes the phone's local date
++ * (yyyy-MM-dd) and hour, and the clock.
++ */
++internal object WeatherAlerts {
++    /** The morning forecast goes out on the first refresh in this window (the refresh runs every 3 hours). */
++    const val MORNING_FROM_HOUR = 6
++    const val MORNING_UNTIL_HOUR = 11
++
++    /** An hour this likely to be wet, within the next [RAIN_LOOKAHEAD_HOURS], raises a rain alert. */
++    const val RAIN_CHANCE = 60
++    const val RAIN_LOOKAHEAD_HOURS = 3
++
++    /** After a rain alert, another waits this long, so one wet afternoon is one alert. */
++    const val RAIN_QUIET_SECONDS = 6L * 60 * 60
++
++    fun due(
++        settings: AlertSettings,
++        memory: AlertMemory,
++        snapshot: WeatherSnapshot?,
++        localDate: String,
++        localHour: Int,
++        nowEpochSeconds: Long,
++    ): List<WeatherAlert> {
++        if (snapshot == null || snapshot.availability != WeatherAvailability.Live) return emptyList()
++        return listOfNotNull(
++            morning(snapshot, localDate, localHour).takeIf { settings.morning && memory.morningDate != localDate },
++            rainSoon(snapshot).takeIf {
++                settings.rain && nowEpochSeconds - memory.rainAtEpochSeconds >= RAIN_QUIET_SECONDS
++            },
++        )
++    }
++
++    fun morning(
++        snapshot: WeatherSnapshot,
++        localDate: String,
++        localHour: Int,
++    ): WeatherAlert.Morning? {
++        if (localHour !in MORNING_FROM_HOUR until MORNING_UNTIL_HOUR) return null
++        val today = snapshot.daily.firstOrNull { it.date == localDate } ?: return null
++        return WeatherAlert.Morning(
++            title = t("alert_today_in").format(snapshot.location.name),
++            text =
++                t("alert_today_line").format(
++                    conditionLabel(today.condition),
++                    today.high.roundToInt(),
++                    today.low.roundToInt(),
++                    today.precipitationProbability,
++                ),
++            date = localDate,
++        )
++    }
++
++    /** The first wet hour coming up, unless it is raining already (then the phone owner knows). */
++    fun rainSoon(snapshot: WeatherSnapshot): WeatherAlert.RainSoon? {
++        if (snapshot.current.condition in WET) return null
++        val hour =
++            snapshot.hourly.take(RAIN_LOOKAHEAD_HOURS).firstOrNull {
++                it.condition in WET || it.precipitationProbability >= RAIN_CHANCE
++            } ?: return null
++        return WeatherAlert.RainSoon(
++            title = t("alert_rain_soon_in").format(snapshot.location.name),
++            text = t("alert_rain_line").format(hour.time.substringAfter('T', hour.time), hour.precipitationProbability),
++        )
++    }
++
++    private val WET = setOf(WeatherCondition.Rain, WeatherCondition.Storm, WeatherCondition.Snow)
++}
++
++/** A condition in words, as the app and its alerts show it. */
++internal fun conditionLabel(condition: WeatherCondition): String =
++    when (condition) {
++        WeatherCondition.Clear -> "clear"
++        WeatherCondition.PartlyCloudy -> t("partly_cloudy")
++        WeatherCondition.Cloudy -> "cloudy"
++        WeatherCondition.Fog -> "fog"
++        WeatherCondition.Rain -> "rain"
++        WeatherCondition.Snow -> "snow"
++        WeatherCondition.Storm -> "storms"
++        WeatherCondition.Unknown -> t("conditions_unavailable")
++    }
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherNotifier.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherNotifier.kt
+new file mode 100644
+index 0000000..5d647a5
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherNotifier.kt
+@@ -0,0 +1,130 @@
++package org.sableos.weather
++
++import android.Manifest
++import android.annotation.SuppressLint
++import android.app.Notification
++import android.app.NotificationChannel
++import android.app.NotificationManager
++import android.app.PendingIntent
++import android.content.Context
++import android.content.Intent
++import android.content.SharedPreferences
++import android.content.pm.PackageManager
++import android.os.Build
++import org.sableos.weather.WeatherText.t
++import java.time.LocalDateTime
++
++/** The alert switches and what was last posted, in Weather's private preferences. */
++internal class AlertStore(
++    private val preferences: SharedPreferences,
++) {
++    var settings: AlertSettings
++        get() = AlertSettings(preferences.getBoolean(KEY_MORNING, false), preferences.getBoolean(KEY_RAIN, false))
++        set(value) {
++            preferences
++                .edit()
++                .putBoolean(KEY_MORNING, value.morning)
++                .putBoolean(KEY_RAIN, value.rain)
++                .apply()
++        }
++
++    var memory: AlertMemory
++        get() = AlertMemory(preferences.getString(KEY_MORNING_DATE, null), preferences.getLong(KEY_RAIN_AT, 0L))
++        set(value) {
++            preferences
++                .edit()
++                .putString(KEY_MORNING_DATE, value.morningDate)
++                .putLong(KEY_RAIN_AT, value.rainAtEpochSeconds)
++                .apply()
++        }
++
++    private companion object {
++        const val KEY_MORNING = "alert_morning"
++        const val KEY_RAIN = "alert_rain"
++        const val KEY_MORNING_DATE = "alert_morning_date"
++        const val KEY_RAIN_AT = "alert_rain_at"
++    }
++}
++
++/**
++ * Posts the opt-in weather alerts after a background refresh. Each one opens Sable Weather. Nothing is posted
++ * while both switches are off or notifications are not allowed.
++ */
++internal object WeatherNotifier {
++    private const val CHANNEL_MORNING = "morning_forecast"
++    private const val CHANNEL_RAIN = "rain_alerts"
++    private const val ID_MORNING = 1
++    private const val ID_RAIN = 2
++
++    fun canPost(context: Context): Boolean {
++        val granted =
++            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
++                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
++        return granted && context.getSystemService(NotificationManager::class.java)?.areNotificationsEnabled() == true
++    }
++
++    // canPost() checks POST_NOTIFICATIONS first; lint only sees a check made in the same function.
++    @SuppressLint("MissingPermission")
++    fun afterRefresh(
++        context: Context,
++        store: AlertStore,
++        snapshot: WeatherSnapshot?,
++        nowEpochSeconds: Long = System.currentTimeMillis() / 1000,
++    ) {
++        val settings = store.settings
++        if (!settings.any || !canPost(context)) return
++        val now = LocalDateTime.now()
++        val alerts =
++            WeatherAlerts.due(settings, store.memory, snapshot, now.toLocalDate().toString(), now.hour, nowEpochSeconds)
++        if (alerts.isEmpty()) return
++        val manager = context.getSystemService(NotificationManager::class.java) ?: return
++        createChannels(manager)
++        var memory = store.memory
++        alerts.forEach { alert ->
++            when (alert) {
++                is WeatherAlert.Morning -> {
++                    manager.notify(ID_MORNING, build(context, CHANNEL_MORNING, alert))
++                    memory = memory.copy(morningDate = alert.date)
++                }
++
++                is WeatherAlert.RainSoon -> {
++                    manager.notify(ID_RAIN, build(context, CHANNEL_RAIN, alert))
++                    memory = memory.copy(rainAtEpochSeconds = nowEpochSeconds)
++                }
++            }
++        }
++        store.memory = memory
++    }
++
++    private fun createChannels(manager: NotificationManager) {
++        manager.createNotificationChannel(
++            NotificationChannel(CHANNEL_MORNING, t("alert_morning_forecast"), NotificationManager.IMPORTANCE_LOW),
++        )
++        manager.createNotificationChannel(
++            NotificationChannel(CHANNEL_RAIN, t("alert_rain_alerts"), NotificationManager.IMPORTANCE_DEFAULT),
++        )
++    }
++
++    private fun build(
++        context: Context,
++        channel: String,
++        alert: WeatherAlert,
++    ): Notification {
++        val open =
++            PendingIntent.getActivity(
++                context,
++                0,
++                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
++                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
++            )
++        return Notification
++            .Builder(context, channel)
++            .setSmallIcon(R.drawable.ic_sable_weather_monochrome)
++            .setContentTitle(alert.title)
++            .setContentText(alert.text)
++            .setContentIntent(open)
++            .setAutoCancel(true)
++            .setCategory(Notification.CATEGORY_RECOMMENDATION)
++            .build()
++    }
++}
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt
+index 2404771..2f0f28d 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRefreshJob.kt
+@@ -21,6 +21,16 @@ class WeatherRefreshJob : JobService() {
+             runCatching { repository.updateCurrentPlace() }
+             val result = runCatching { repository.refresh(repository.loadLocation()) }.getOrNull()
+             val fetched = result?.availability == WeatherAvailability.Live
++            // The opt-in morning forecast and rain alerts (off unless turned on in Sable Weather).
++            if (fetched) {
++                runCatching {
++                    WeatherNotifier.afterRefresh(
++                        applicationContext,
++                        repository.alerts,
++                        result?.snapshot,
++                    )
++                }
++            }
+             // A failed one-off fetch is retried with back-off; the periodic job just waits for its next run.
+             jobFinished(params, !fetched && params.jobId == ONE_OFF_JOB_ID)
+         }, "sable-weather-refresh").start()
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
+index b0f636f..3fac5a8 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherRepository.kt
+@@ -32,6 +32,9 @@ internal class WeatherRepository(
+     /** "Use current location" and the last place found ([CurrentLocationStore]). */
+     val currentLocation = CurrentLocationStore(preferences)
+ 
++    /** The opt-in morning forecast and rain alerts ([WeatherNotifier]). */
++    val alerts = AlertStore(preferences)
++
+     init {
+         LegacyWeatherCache.migrate(store)
+     }
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherText.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherText.kt
+index 8590bb7..59cbbd6 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherText.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherText.kt
+@@ -50,6 +50,15 @@ object WeatherText {
+                 "Forecast unavailable. Check the connection and retry.",
+             "provider_response_could_not_be" to "Provider response could not be normalized.",
+             "updated_from_open_meteo" to "Updated from Open-Meteo.",
++            "alert_notifications" to "notifications",
++            "alert_morning_forecast" to "Morning forecast",
++            "alert_morning_forecast_detail" to "The day’s forecast, once each morning",
++            "alert_rain_alerts" to "Rain alerts",
++            "alert_rain_alerts_detail" to "A heads-up when rain is likely in the next 3 hours",
++            "alert_today_in" to "Today in %1\$s",
++            "alert_today_line" to "%1\$s · %2\$d° / %3\$d° · rain %4\$d%%",
++            "alert_rain_soon_in" to "Rain soon in %1\$s",
++            "alert_rain_line" to "Likely around %1\$s (%2\$d%%)",
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-ar/strings.xml
+index 6ecbe19..f6d824b 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-ar/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">التوقعات غير متاحة. تحقّق من الاتصال وأعد المحاولة.</string>
+     <string name="provider_response_could_not_be">تعذّرت معالجة استجابة المزوّد بالتنسيق المطلوب.</string>
+     <string name="updated_from_open_meteo">تم التحديث من Open-Meteo.</string>
++    <string name="alert_notifications">الإشعارات</string>
++    <string name="alert_morning_forecast">توقعات الصباح</string>
++    <string name="alert_morning_forecast_detail">توقعات اليوم، مرة كل صباح</string>
++    <string name="alert_rain_alerts">تنبيهات المطر</string>
++    <string name="alert_rain_alerts_detail">تنبيه عندما يُرجَّح هطول المطر خلال 3 ساعات</string>
++    <string name="alert_today_in">اليوم في %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · مطر %4$d%%</string>
++    <string name="alert_rain_soon_in">مطر قريبًا في %1$s</string>
++    <string name="alert_rain_line">مرجّح نحو %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-de/strings.xml
+index 29034b6..4442cfe 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-de/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">Vorhersage nicht verfügbar. Verbindung prüfen und erneut versuchen.</string>
+     <string name="provider_response_could_not_be">Antwort des Anbieters konnte nicht normalisiert werden.</string>
+     <string name="updated_from_open_meteo">Von Open-Meteo aktualisiert.</string>
++    <string name="alert_notifications">Benachrichtigungen</string>
++    <string name="alert_morning_forecast">Morgenvorhersage</string>
++    <string name="alert_morning_forecast_detail">Die Tagesvorhersage, einmal jeden Morgen</string>
++    <string name="alert_rain_alerts">Regenwarnungen</string>
++    <string name="alert_rain_alerts_detail">Ein Hinweis, wenn in den nächsten 3 Stunden Regen wahrscheinlich ist</string>
++    <string name="alert_today_in">Heute in %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · Regen %4$d%%</string>
++    <string name="alert_rain_soon_in">Bald Regen in %1$s</string>
++    <string name="alert_rain_line">Wahrscheinlich gegen %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-el/strings.xml
+index 984214a..0dbfc95 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-el/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">Η πρόγνωση δεν είναι διαθέσιμη. Ελέγξτε τη σύνδεση και δοκιμάστε ξανά.</string>
+     <string name="provider_response_could_not_be">Δεν ήταν δυνατή η κανονικοποίηση της απόκρισης του παρόχου.</string>
+     <string name="updated_from_open_meteo">Ενημερώθηκε από το Open-Meteo.</string>
++    <string name="alert_notifications">ειδοποιήσεις</string>
++    <string name="alert_morning_forecast">Πρωινή πρόγνωση</string>
++    <string name="alert_morning_forecast_detail">Η πρόγνωση της ημέρας, μία φορά κάθε πρωί</string>
++    <string name="alert_rain_alerts">Ειδοποιήσεις βροχής</string>
++    <string name="alert_rain_alerts_detail">Ειδοποίηση όταν είναι πιθανή βροχή τις επόμενες 3 ώρες</string>
++    <string name="alert_today_in">Σήμερα σε %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · βροχή %4$d%%</string>
++    <string name="alert_rain_soon_in">Βροχή σύντομα σε %1$s</string>
++    <string name="alert_rain_line">Πιθανή γύρω στις %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-es/strings.xml
+index d6392f7..a3549f4 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-es/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">Pronóstico no disponible. Comprueba la conexión y vuelve a intentarlo.</string>
+     <string name="provider_response_could_not_be">No se pudo normalizar la respuesta del proveedor.</string>
+     <string name="updated_from_open_meteo">Actualizado desde Open-Meteo.</string>
++    <string name="alert_notifications">notificaciones</string>
++    <string name="alert_morning_forecast">Pronóstico matutino</string>
++    <string name="alert_morning_forecast_detail">El pronóstico del día, una vez cada mañana</string>
++    <string name="alert_rain_alerts">Avisos de lluvia</string>
++    <string name="alert_rain_alerts_detail">Un aviso cuando es probable que llueva en las próximas 3 horas</string>
++    <string name="alert_today_in">Hoy en %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · lluvia %4$d%%</string>
++    <string name="alert_rain_soon_in">Lluvia pronto en %1$s</string>
++    <string name="alert_rain_line">Probable hacia las %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-fr/strings.xml
+index d8f9cdb..0a0c22b 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-fr/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">Prévisions indisponibles. Vérifiez la connexion et réessayez.</string>
+     <string name="provider_response_could_not_be">Impossible de normaliser la réponse du fournisseur.</string>
+     <string name="updated_from_open_meteo">Mis à jour depuis Open-Meteo.</string>
++    <string name="alert_notifications">notifications</string>
++    <string name="alert_morning_forecast">Prévisions du matin</string>
++    <string name="alert_morning_forecast_detail">Les prévisions du jour, une fois chaque matin</string>
++    <string name="alert_rain_alerts">Alertes pluie</string>
++    <string name="alert_rain_alerts_detail">Un avertissement quand la pluie est probable dans les 3 prochaines heures</string>
++    <string name="alert_today_in">Aujourd’hui à %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · pluie %4$d%%</string>
++    <string name="alert_rain_soon_in">Pluie bientôt à %1$s</string>
++    <string name="alert_rain_line">Probable vers %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-hi/strings.xml
+index 796bba4..42f9431 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-hi/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">पूर्वानुमान उपलब्ध नहीं। कनेक्शन जाँचें और फिर कोशिश करें।</string>
+     <string name="provider_response_could_not_be">प्रदाता की प्रतिक्रिया को आवश्यक प्रारूप में नहीं बदला जा सका।</string>
+     <string name="updated_from_open_meteo">Open-Meteo से अपडेट किया गया।</string>
++    <string name="alert_notifications">सूचनाएँ</string>
++    <string name="alert_morning_forecast">सुबह का पूर्वानुमान</string>
++    <string name="alert_morning_forecast_detail">दिन का पूर्वानुमान, हर सुबह एक बार</string>
++    <string name="alert_rain_alerts">बारिश की चेतावनी</string>
++    <string name="alert_rain_alerts_detail">अगले 3 घंटों में बारिश की संभावना होने पर सूचना</string>
++    <string name="alert_today_in">आज %1$s में</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · बारिश %4$d%%</string>
++    <string name="alert_rain_soon_in">%1$s में जल्द बारिश</string>
++    <string name="alert_rain_line">लगभग %1$s बजे संभावित (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-it/strings.xml
+index 3fd03de..c1b91ab 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-it/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">Previsioni non disponibili. Controlla la connessione e riprova.</string>
+     <string name="provider_response_could_not_be">Impossibile normalizzare la risposta del fornitore.</string>
+     <string name="updated_from_open_meteo">Aggiornato da Open-Meteo.</string>
++    <string name="alert_notifications">notifiche</string>
++    <string name="alert_morning_forecast">Previsioni del mattino</string>
++    <string name="alert_morning_forecast_detail">Le previsioni del giorno, una volta ogni mattina</string>
++    <string name="alert_rain_alerts">Avvisi di pioggia</string>
++    <string name="alert_rain_alerts_detail">Un avviso quando la pioggia è probabile nelle prossime 3 ore</string>
++    <string name="alert_today_in">Oggi a %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · pioggia %4$d%%</string>
++    <string name="alert_rain_soon_in">Pioggia in arrivo a %1$s</string>
++    <string name="alert_rain_line">Probabile verso le %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-iw/strings.xml
+index ad55eae..7b10a13 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-iw/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">התחזית לא זמינה. בדקו את החיבור ונסו שוב.</string>
+     <string name="provider_response_could_not_be">לא ניתן לעבד את תגובת הספק לתבנית הנדרשת.</string>
+     <string name="updated_from_open_meteo">עודכן מ־Open-Meteo.</string>
++    <string name="alert_notifications">התראות</string>
++    <string name="alert_morning_forecast">תחזית בוקר</string>
++    <string name="alert_morning_forecast_detail">תחזית היום, פעם אחת בכל בוקר</string>
++    <string name="alert_rain_alerts">התראות גשם</string>
++    <string name="alert_rain_alerts_detail">התראה כשצפוי גשם ב-3 השעות הקרובות</string>
++    <string name="alert_today_in">היום ב%1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · גשם %4$d%%</string>
++    <string name="alert_rain_soon_in">גשם בקרוב ב%1$s</string>
++    <string name="alert_rain_line">צפוי בסביבות %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-ja/strings.xml
+index dbd99fe..398953b 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-ja/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">天気予報を利用できません。接続を確認して再試行してください。</string>
+     <string name="provider_response_could_not_be">提供元の応答を必要な形式に変換できませんでした。</string>
+     <string name="updated_from_open_meteo">Open-Meteo から更新しました。</string>
++    <string name="alert_notifications">通知</string>
++    <string name="alert_morning_forecast">朝の天気予報</string>
++    <string name="alert_morning_forecast_detail">その日の予報を毎朝1回</string>
++    <string name="alert_rain_alerts">雨の通知</string>
++    <string name="alert_rain_alerts_detail">3時間以内に雨が降りそうなときにお知らせ</string>
++    <string name="alert_today_in">今日の%1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · 降水 %4$d%%</string>
++    <string name="alert_rain_soon_in">%1$sでまもなく雨</string>
++    <string name="alert_rain_line">%1$s頃の見込み (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-ko/strings.xml
+index 1d75cb3..3924646 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-ko/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">예보를 사용할 수 없습니다. 연결 상태를 확인하고 다시 시도하세요.</string>
+     <string name="provider_response_could_not_be">제공업체 응답을 필요한 형식으로 변환하지 못했습니다.</string>
+     <string name="updated_from_open_meteo">Open-Meteo에서 업데이트했습니다.</string>
++    <string name="alert_notifications">알림</string>
++    <string name="alert_morning_forecast">아침 예보</string>
++    <string name="alert_morning_forecast_detail">하루 예보를 매일 아침 한 번</string>
++    <string name="alert_rain_alerts">비 알림</string>
++    <string name="alert_rain_alerts_detail">3시간 이내에 비가 올 가능성이 높으면 알림</string>
++    <string name="alert_today_in">오늘 %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · 강수 %4$d%%</string>
++    <string name="alert_rain_soon_in">%1$s에 곧 비</string>
++    <string name="alert_rain_line">%1$s경 예상 (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-nl/strings.xml
+index 72a9b68..1b90d4c 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-nl/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">Voorspelling niet beschikbaar. Controleer de verbinding en probeer opnieuw.</string>
+     <string name="provider_response_could_not_be">Reactie van aanbieder kon niet worden genormaliseerd.</string>
+     <string name="updated_from_open_meteo">Bijgewerkt vanuit Open-Meteo.</string>
++    <string name="alert_notifications">meldingen</string>
++    <string name="alert_morning_forecast">Ochtendverwachting</string>
++    <string name="alert_morning_forecast_detail">De verwachting voor de dag, elke ochtend één keer</string>
++    <string name="alert_rain_alerts">Regenwaarschuwingen</string>
++    <string name="alert_rain_alerts_detail">Een seintje als regen waarschijnlijk is in de komende 3 uur</string>
++    <string name="alert_today_in">Vandaag in %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · regen %4$d%%</string>
++    <string name="alert_rain_soon_in">Binnenkort regen in %1$s</string>
++    <string name="alert_rain_line">Waarschijnlijk rond %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-pl/strings.xml
+index 912e82c..fb7ce6b 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-pl/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">Prognoza niedostępna. Sprawdź połączenie i spróbuj ponownie.</string>
+     <string name="provider_response_could_not_be">Nie udało się znormalizować odpowiedzi dostawcy.</string>
+     <string name="updated_from_open_meteo">Zaktualizowano z Open-Meteo.</string>
++    <string name="alert_notifications">powiadomienia</string>
++    <string name="alert_morning_forecast">Prognoza poranna</string>
++    <string name="alert_morning_forecast_detail">Prognoza na dzień, raz każdego ranka</string>
++    <string name="alert_rain_alerts">Alerty o deszczu</string>
++    <string name="alert_rain_alerts_detail">Ostrzeżenie, gdy deszcz jest prawdopodobny w ciągu 3 godzin</string>
++    <string name="alert_today_in">Dziś: %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · deszcz %4$d%%</string>
++    <string name="alert_rain_soon_in">Wkrótce deszcz: %1$s</string>
++    <string name="alert_rain_line">Prawdopodobnie około %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-pt/strings.xml
+index 8de7203..0c8876e 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-pt/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">Previsão indisponível. Verifique a conexão e tente novamente.</string>
+     <string name="provider_response_could_not_be">Não foi possível normalizar a resposta do provedor.</string>
+     <string name="updated_from_open_meteo">Atualizado pelo Open-Meteo.</string>
++    <string name="alert_notifications">notificações</string>
++    <string name="alert_morning_forecast">Previsão da manhã</string>
++    <string name="alert_morning_forecast_detail">A previsão do dia, uma vez cada manhã</string>
++    <string name="alert_rain_alerts">Alertas de chuva</string>
++    <string name="alert_rain_alerts_detail">Um aviso quando a chuva é provável nas próximas 3 horas</string>
++    <string name="alert_today_in">Hoje em %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · chuva %4$d%%</string>
++    <string name="alert_rain_soon_in">Chuva em breve em %1$s</string>
++    <string name="alert_rain_line">Provável por volta das %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-ru/strings.xml
+index 15c40e0..928b0c9 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-ru/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">Прогноз недоступен. Проверьте подключение и повторите попытку.</string>
+     <string name="provider_response_could_not_be">Не удалось преобразовать ответ поставщика в нужный формат.</string>
+     <string name="updated_from_open_meteo">Обновлено из Open-Meteo.</string>
++    <string name="alert_notifications">уведомления</string>
++    <string name="alert_morning_forecast">Утренний прогноз</string>
++    <string name="alert_morning_forecast_detail">Прогноз на день, раз в утро</string>
++    <string name="alert_rain_alerts">Оповещения о дожде</string>
++    <string name="alert_rain_alerts_detail">Предупреждение, если в ближайшие 3 часа вероятен дождь</string>
++    <string name="alert_today_in">Сегодня: %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · дождь %4$d%%</string>
++    <string name="alert_rain_soon_in">Скоро дождь: %1$s</string>
++    <string name="alert_rain_line">Вероятно около %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-sv/strings.xml
+index fbf2ca4..35ba785 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-sv/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">Prognosen är inte tillgänglig. Kontrollera anslutningen och försök igen.</string>
+     <string name="provider_response_could_not_be">Leverantörens svar kunde inte normaliseras.</string>
+     <string name="updated_from_open_meteo">Uppdaterad från Open-Meteo.</string>
++    <string name="alert_notifications">aviseringar</string>
++    <string name="alert_morning_forecast">Morgonprognos</string>
++    <string name="alert_morning_forecast_detail">Dagens prognos, en gång varje morgon</string>
++    <string name="alert_rain_alerts">Regnvarningar</string>
++    <string name="alert_rain_alerts_detail">En förvarning när regn är troligt de närmaste 3 timmarna</string>
++    <string name="alert_today_in">Idag i %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · regn %4$d%%</string>
++    <string name="alert_rain_soon_in">Regn snart i %1$s</string>
++    <string name="alert_rain_line">Troligt runt %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-tr/strings.xml
+index b0b4bac..01e5fa3 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-tr/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">Hava tahmini kullanılamıyor. Bağlantıyı kontrol edip tekrar deneyin.</string>
+     <string name="provider_response_could_not_be">Sağlayıcı yanıtı normalleştirilemedi.</string>
+     <string name="updated_from_open_meteo">Open-Meteo üzerinden güncellendi.</string>
++    <string name="alert_notifications">bildirimler</string>
++    <string name="alert_morning_forecast">Sabah tahmini</string>
++    <string name="alert_morning_forecast_detail">Günün tahmini, her sabah bir kez</string>
++    <string name="alert_rain_alerts">Yağmur uyarıları</string>
++    <string name="alert_rain_alerts_detail">Önümüzdeki 3 saatte yağmur olasılığı yüksekse uyarı</string>
++    <string name="alert_today_in">Bugün %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · yağmur %%%4$d</string>
++    <string name="alert_rain_soon_in">%1$s için yakında yağmur</string>
++    <string name="alert_rain_line">%1$s civarında olası (%%%2$d)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-ur/strings.xml
+index b451046..214f94e 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-ur/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">پیش گوئی دستیاب نہیں۔ کنکشن چیک کریں اور دوبارہ کوشش کریں۔</string>
+     <string name="provider_response_could_not_be">فراہم کنندہ کے جواب کو مطلوبہ شکل میں تبدیل نہیں کیا جا سکا۔</string>
+     <string name="updated_from_open_meteo">Open-Meteo سے تازہ کیا گیا۔</string>
++    <string name="alert_notifications">اطلاعات</string>
++    <string name="alert_morning_forecast">صبح کی پیش گوئی</string>
++    <string name="alert_morning_forecast_detail">دن کی پیش گوئی، ہر صبح ایک بار</string>
++    <string name="alert_rain_alerts">بارش کی اطلاعات</string>
++    <string name="alert_rain_alerts_detail">اگلے 3 گھنٹوں میں بارش کا امکان ہو تو اطلاع</string>
++    <string name="alert_today_in">آج %1$s میں</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · بارش %4$d%%</string>
++    <string name="alert_rain_soon_in">%1$s میں جلد بارش</string>
++    <string name="alert_rain_line">تقریباً %1$s بجے متوقع (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values-zh-rCN/strings.xml
+index 93f2a1c..2e4eb55 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values-zh-rCN/strings.xml
+@@ -37,4 +37,13 @@
+     <string name="forecast_unavailable_check_the_connection">天气预报不可用。请检查网络连接后重试。</string>
+     <string name="provider_response_could_not_be">无法将提供商的响应转换为所需格式。</string>
+     <string name="updated_from_open_meteo">已从 Open-Meteo 更新。</string>
++    <string name="alert_notifications">通知</string>
++    <string name="alert_morning_forecast">早间预报</string>
++    <string name="alert_morning_forecast_detail">当天的天气预报，每天早上一次</string>
++    <string name="alert_rain_alerts">降雨提醒</string>
++    <string name="alert_rain_alerts_detail">未来 3 小时内可能下雨时提醒</string>
++    <string name="alert_today_in">今天 %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · 降水 %4$d%%</string>
++    <string name="alert_rain_soon_in">%1$s 即将下雨</string>
++    <string name="alert_rain_line">约 %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/main/res/values/strings.xml b/sable-src/apps/r8/android/weather/src/main/res/values/strings.xml
+index 7b8b7eb..d678fc8 100644
+--- a/sable-src/apps/r8/android/weather/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/weather/src/main/res/values/strings.xml
+@@ -39,4 +39,13 @@
+     <string name="forecast_unavailable_check_the_connection">Forecast unavailable. Check the connection and retry.</string>
+     <string name="provider_response_could_not_be">Provider response could not be normalized.</string>
+     <string name="updated_from_open_meteo">Updated from Open-Meteo.</string>
++    <string name="alert_notifications">notifications</string>
++    <string name="alert_morning_forecast">Morning forecast</string>
++    <string name="alert_morning_forecast_detail">The day’s forecast, once each morning</string>
++    <string name="alert_rain_alerts">Rain alerts</string>
++    <string name="alert_rain_alerts_detail">A heads-up when rain is likely in the next 3 hours</string>
++    <string name="alert_today_in">Today in %1$s</string>
++    <string name="alert_today_line">%1$s · %2$d° / %3$d° · rain %4$d%%</string>
++    <string name="alert_rain_soon_in">Rain soon in %1$s</string>
++    <string name="alert_rain_line">Likely around %1$s (%2$d%%)</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherAlertsTest.kt b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherAlertsTest.kt
+new file mode 100644
+index 0000000..99ec7ed
+--- /dev/null
++++ b/sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherAlertsTest.kt
+@@ -0,0 +1,96 @@
++package org.sableos.weather
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class WeatherAlertsTest {
++    private val place = WeatherLocation("Toronto", 43.65, -79.38, "America/Toronto")
++
++    private fun hour(
++        time: String,
++        chance: Int,
++        condition: WeatherCondition = WeatherCondition.Cloudy,
++    ) = HourWeather(time, 10.0, chance, 3, condition)
++
++    private fun snapshot(
++        hourly: List<HourWeather> = listOf(hour("2026-11-06T08:00", 10), hour("2026-11-06T09:00", 20)),
++        now: WeatherCondition = WeatherCondition.Cloudy,
++        availability: WeatherAvailability = WeatherAvailability.Live,
++    ) = WeatherSnapshot(
++        location = place,
++        current = CurrentWeather(9.6, 7.0, 80, 3, 5.0, 180, now),
++        hourly = hourly,
++        daily =
++            listOf(
++                DayWeather("2026-11-06", 61, 12.4, 4.6, 70, WeatherCondition.Rain),
++                DayWeather("2026-11-07", 1, 9.0, 2.0, 0, WeatherCondition.Clear),
++            ),
++        availability = availability,
++        observedAtEpochSeconds = NOW,
++    )
++
++    private fun due(
++        settings: AlertSettings,
++        memory: AlertMemory = AlertMemory(),
++        snap: WeatherSnapshot? = snapshot(),
++        hour: Int = 8,
++    ) = WeatherAlerts.due(settings, memory, snap, "2026-11-06", hour, NOW)
++
++    @Test
++    fun nothingIsPostedUntilTurnedOn() {
++        val wet = snapshot(hourly = listOf(hour("2026-11-06T09:00", 90)))
++        assertTrue(due(AlertSettings(), snap = wet).isEmpty())
++        assertTrue(due(AlertSettings(morning = true, rain = true), snap = null).isEmpty())
++        val cached = snapshot(hourly = wet.hourly, availability = WeatherAvailability.Stale)
++        assertTrue(due(AlertSettings(morning = true, rain = true), snap = cached).isEmpty())
++    }
++
++    @Test
++    fun theMorningForecastGoesOutOnceInTheMorning() {
++        val alert = due(AlertSettings(morning = true)).single() as WeatherAlert.Morning
++        assertEquals("Today in Toronto", alert.title)
++        assertEquals("rain · 12° / 5° · rain 70%", alert.text)
++        assertEquals("2026-11-06", alert.date)
++        assertTrue(due(AlertSettings(morning = true), AlertMemory(morningDate = "2026-11-06")).isEmpty())
++        assertTrue(due(AlertSettings(morning = true), hour = 5).isEmpty())
++        assertTrue(due(AlertSettings(morning = true), hour = 14).isEmpty())
++    }
++
++    @Test
++    fun rainSoonNamesTheFirstWetHourOncePerSpell() {
++        val wet = snapshot(hourly = listOf(hour("2026-11-06T13:00", 20), hour("2026-11-06T14:00", 65)))
++        val alert = due(AlertSettings(rain = true), snap = wet, hour = 13).single()
++        assertEquals("Rain soon in Toronto", alert.title)
++        assertEquals("Likely around 14:00 (65%)", alert.text)
++        val justSent = AlertMemory(rainAtEpochSeconds = NOW - 60)
++        assertTrue(due(AlertSettings(rain = true), justSent, wet).isEmpty())
++        val longAgo = AlertMemory(rainAtEpochSeconds = NOW - WeatherAlerts.RAIN_QUIET_SECONDS)
++        assertEquals(1, due(AlertSettings(rain = true), longAgo, wet).size)
++    }
++
++    @Test
++    fun noRainAlertWhenDryFarOffOrAlreadyRaining() {
++        assertNull(WeatherAlerts.rainSoon(snapshot()))
++        val later =
++            snapshot(
++                hourly =
++                    listOf(
++                        hour("2026-11-06T13:00", 0),
++                        hour("2026-11-06T14:00", 0),
++                        hour("2026-11-06T15:00", 0),
++                        hour("2026-11-06T16:00", 95),
++                    ),
++            )
++        assertNull(WeatherAlerts.rainSoon(later))
++        val raining = snapshot(hourly = listOf(hour("2026-11-06T13:00", 90)), now = WeatherCondition.Rain)
++        assertNull(WeatherAlerts.rainSoon(raining))
++        val storm = snapshot(hourly = listOf(hour("2026-11-06T13:00", 30, WeatherCondition.Storm)))
++        assertEquals("Likely around 13:00 (30%)", WeatherAlerts.rainSoon(storm)?.text)
++    }
++
++    private companion object {
++        const val NOW = 1_794_000_000L
++    }
++}

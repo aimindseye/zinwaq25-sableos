@@ -14,7 +14,7 @@
                                                     ^
                                               vendor/extra/product.mk  (LineageOS hook)
                                                     ^
- LineageOS 23.2 (Android 16 QPR2)             vendor/lineage/config/common.mk
+ LineageOS 24.0 (Android 17)                  vendor/lineage/config/common.mk
  lineage_Q25 product, unmodified              device/xelex/Q25, kernel/xelex/mt6789,
                                               hardware/mediatek, sepolicy_vndr,
                                               vendor/xelex/Q25 (TheMuppets blobs)

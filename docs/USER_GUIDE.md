@@ -1,10 +1,10 @@
 # SableOS on the Zinwa Q25: User Guide
 
-As of 2026-10-28. Editable copy: [SableOS User Guide (Claude Doc)](https://claude.ai/artifact/KmYo2jeSg6d4z5dXuvzvMf).
+As of 2026-11-06. Editable copy: [SableOS User Guide (Claude Doc)](https://claude.ai/artifact/KmYo2jeSg6d4z5dXuvzvMf).
 
 ## About this guide
 
-SableOS is a BlackBerry-style Android for the Zinwa Q25. It is built on LineageOS 23.2 (Android 16), and almost everything can be done from the keyboard. This guide covers SableOS 1.0, which includes the earlier alpha-20261028 test build plus the changes in PR #38 (pure black Dark theme, BlackBerry 7 home icons and swipes, Sound Profiles look, weather fix).
+SableOS is a BlackBerry-style Android for the Zinwa Q25. It is built on LineageOS 24.0 (Android 17), and almost everything can be done from the keyboard. This guide covers SableOS 2.0; what is new since 1.0 is listed in [releases/2.0.md](../releases/2.0.md).
 
 Features whose gate in [QUALIFICATION.md](QUALIFICATION.md) says `NOT_RUN` have not been checked on a Q25 yet. Settings marked "default" below are what a fresh install ships with.
 
@@ -23,7 +23,7 @@ Installing erases the phone. Back up first, and keep the stock firmware package.
 
 ### First-boot setup and Sable Setup
 
-The first-boot setup walks through language, Wi-Fi, theme and Weather city. Every step fits the square screen with Next on screen. Sable Setup opens next, and later from Settings > Sable Setup. Its first rows are the choices most people change:
+The first-boot setup walks through language, Wi-Fi, look, theme, Sable apps and Weather city. The Look step offers BlackBerry 10 style (Hub, Active Frames and app pages, with status dials) or BlackBerry 7 style (banner and icon tray); both turn pure black on, and each can be changed later. The Sable apps step offers Full Sable (every Sable app), Essentials (Start, Keyboard, Hub, Messages, Camera, Tools, Vault and Setup) or Stock Android (the standard Android app wherever the phone has one, such as its Camera and Browser). Apps left out are turned off, not uninstalled: Settings > Apps > See all apps > the app > Enable brings one back. Every step fits the square screen with Next on screen. Sable Setup opens next, and later from Settings > Sable Setup. Its first rows are the choices most people change:
 
 | Setup row | Default | What it does |
 | --- | --- | --- |
@@ -57,16 +57,41 @@ The keyboard does almost everything. Typing on the home screen searches, arrows 
 
 | Page | What it shows | Keys |
 | --- | --- | --- |
-| Hub (left) | All · Messages · Calls · Contacts, an unread bar per app, and your newest messages (sender, one line, time; unread ones have a blue edge). Locked or in private mode it shows counts only | T/B top and bottom, Enter opens the message in Hub, Menu (or Alt+Enter, or a long press) opens its BB10 menu |
-| Active Frames (home) | Your recent apps as live frames. With no apps open, widgets: Month (this month with busy rings and your next three events), Weather, Battery and Media; Edit Home adds Calendar, Hub, Mail and Photos | Arrows move, Enter resumes or opens, × closes |
-| App pages (right) | 5-column grid of every app | Arrows move, a letter jumps |
+| Hub (left) | All · Messages · Calls · Contacts, an unread bar per app, and your newest messages (sender, one line, time; unread ones have a blue edge). Locked or in private mode it shows counts only | T/B top and bottom, Enter opens the message in Hub, Menu (or Alt+Enter, or a long press) opens its BB10 menu. Swipe right on Hub to open Hub settings (from the BlackBerry 7 home too) |
+| Active Frames (home) | Your recent apps as live frames. With no apps open, widgets: Month (this month with busy rings and your next three events), Weather, Battery and Media; Edit Home adds Calendar, Hub, Mail and Photos | Arrows move, Enter resumes or opens, × closes. A Settings frame shows Device Monitor: battery, CPU, memory and free storage |
+| App pages (right) | 5-column grid of every app, and your folders | Arrows move, a letter jumps, Enter on a folder opens it |
 | Bottom row | Page dots only; Edit Home can add up to two slots around them, such as Hub (a dot shows unread items) and Camera | Alt+1, Alt+2 open the slots; the call key opens Phone, typing or Alt+Space opens Search |
 
 In the Hub app (H or Enter from Start), Menu, Alt+Enter or a long press on a message opens its menu on the right edge, as on BB10: Open, Reply, Mark read (when the app offers it), Dismiss notification, then the app's own actions such as Archive or Delete. On a focused message R replies, U marks read and Del dismisses without opening the menu. They need the phone unlocked; an SMS can be opened, replied to or called back.
 
 Two more entries are off until you turn them on in Hub > Connected apps (Sable Setup's Hub row menu line opens that page): **Snooze in the row menu** adds Snooze 1 hour and the Z key, and Android brings the notification back after an hour; **Remind me in the row menu** adds Remind me, which opens Sable Tasks with a follow-up for tomorrow morning named after the app ("Follow up in Gmail"). Only the app is saved, never the message, and asking again for the same message moves that task instead of adding another.
 
-Alt+Left and Alt+Right move between pages. Alt+Space opens Command, and any letter starts a search of apps, contacts and commands. Menu opens Edit Home, where you choose Home apps, the quick bar and widgets. The status dials at the top show Wi-Fi, Mobile, CPU, RAM, battery and Cell.
+**Priority Hub.** The row menu also has Add sender to Priority Hub, and on a connected app's row Add all of this app to Priority Hub (the same switch as the app's Hub priority in Connected apps). Priority rows sort first and show under the Priority filter; the same entries then read Remove. Priority only orders Hub: it never lets anything through Do Not Disturb. In private mode, or when a row hides who it is from, there is no sender entry.
+
+**Folders on the app pages.** Menu on an app (or a long press) shows Add to folder, which lists your folders and New folder: type the name and press Enter (Esc cancels). The folder takes the app's place on the grid and shows up to four of its apps. Enter opens a folder; Menu on an app in it shows Remove from (the app goes back on the grid next to the folder), and at the bottom Rename folder and Ungroup folder (all its apps go back on the grid). A folder left with no apps goes away. Edit Home moves folders like apps. You can have up to 12 folders of up to 25 apps each.
+
+An open folder is a panel over the dimmed grid. Back, Esc or a tap outside it closes it.
+
+**Grid size, frames and hidden apps.** Edit Home sets the app grid's columns (4, 5 or 6), its rows (Fit, which uses as many as the screen holds, or 3, 4 or 5) and whether app names show under the icons. Under the Active Frames header it sets the maximum number of frames (2, 4, 6 or 8) and Live frames: off, each frame shows only its app's icon and name. Menu on an app also has Hide app. A hidden app leaves the app grid, its folder, All Apps and search; search for "private" or "hidden" to list your hidden apps, then use Menu and Show app to bring one back. Hiding is not a lock: the app still runs and still sends notifications. For apps nobody else should open, use Private Space.
+
+Alt+Left and Alt+Right move between pages. Alt+Space opens Command, from any app as well as from Start (Back returns to the app you were in; on the lock screen Alt+Space is still Emergency), and any letter starts a search of apps, contacts and commands. Menu opens Edit Home, where you choose Home apps, the quick bar and widgets. The status dials at the top show Wi-Fi, Mobile, CPU, RAM, battery and Cell.
+
+Command understands these prefixes and words, typed first:
+
+| Type | What you get |
+|---|---|
+| `-buy milk` | A to-do in Sable Tasks named "buy milk" |
+| `/call the bank` | A note in Sable Notes |
+| `+dentist friday` | Calendar's new-event screen with the title filled in |
+| `example.com`, `www.example.com/page` | Open address in the browser (Search the web is the second row) |
+| `?cam` | Apps only |
+| `@ana` or `#ana` | People only |
+| `!wifi` | Actions only |
+| `/settings`, `/apps`, `/hub`, `/private`, `/dual`, `/work` | Just that group |
+| `remind me`, `note`, `call`, `text`, `email`, `map`, `web` or `g`, then text | That one action, so Enter runs it |
+| A phone number, `+44 20…` included | Call first, then Text |
+
+Nothing is sent or saved from Command: each app opens with the text filled in, and you confirm there.
 
 ### Sable Start, BlackBerry 7 style
 
@@ -102,16 +127,16 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 
 | App | What it's for | Keyboard tips |
 | --- | --- | --- |
-| Phone | Calls, recents, contacts | Type a name to jump. In a call: M mute, S speaker, D dial pad. Space answers. Hold a letter to speed dial (set in Menu > Speed dial) |
+| Phone (Sable Phone) | Calls by day, Contacts and Dial pad, BlackBerry 10 style, with its own call screen | Letters search, digits dial, hold a letter to speed dial (Menu > Speed dial). Call key calls; on an empty dial pad it fills in the last number. In a call: M mute, S speaker, H hold, D keypad, End hangs up. Call key or Space answers |
 | Sable Messages | Default SMS app: sends SMS, receives SMS and MMS (no MMS sending yet) | T/B, N/P, Space pages |
 | Hub (in Start) | One inbox for messages, calls and notifications | H on a notification opens it in Hub |
-| Mail | Email; Gmail sign-in is covered in [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |
+| Mail | Not built by default from 2.0. Install any mail app (K-9, FairEmail) and Hub shows its mail in the Mail filter. Sable Mail can still be built with `apps --all`; Gmail sign-in: [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md) | B to bottom |
 | Calendar | The month with busy rings over the day's agenda, a week view with a NOW line, and every calendar on the phone. A ring fills with how much of 8:00 to 20:00 is booked; a thin outer ring marks an all-day event. L lists your calendars to show or hide each one | C, T, V, J, K, R, L |
 | Notes | Notes and checklists with colour labels, kept on the phone | See [Notes](#notes) below; C new, S find, K tasks |
 | Tasks | Tasks with due dates, reminders and repeats, kept on the phone. A reminder shows in Hub with Done and Snooze 1 hour | See [Tasks](#tasks) below; C new, Space done, Z tomorrow |
 | Text Reader | Reads text aloud: paste text, open a file, scan a page with the camera (OCR, English or Spanish) or pick an image from the Gallery. An upstream app with the Sable name and icon. It speaks with eSpeak NG, the offline speech engine SableOS ships (voice, rate and pitch in Settings > Accessibility > Text-to-speech output; see [Accessibility](ACCESSIBILITY.md#speech)). It also adds Speak what's focused (Settings > Accessibility), which speaks the item you move to with the trackpad or keys | Play and stop buttons on screen |
 | Terminal | SSH, Telnet and a local shell (ConnectBot) | See [Terminal](#terminal) below; Menu is Ctrl |
-| Weather | Forecast for your city, refreshed in the background | Feeds Start's header |
+| Weather | Forecast for your city, refreshed in the background. Optional notifications, both off until you turn them on under "notifications": a Morning forecast (the day's forecast once, between 6 and 11 am) and Rain alerts (a heads-up when rain is likely in the next 3 hours, at most one every 6 hours). They show in Hub like any notification, and tapping one opens Sable Weather | Feeds Start's header |
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |
 | Media | Music, photos, FM radio | E shares |
 | Sound Profiles | Normal, Loud, Vibrate only, Phone calls only, All alerts off | Enter uses, E edits, Menu for more; Quick Settings tile |
@@ -122,9 +147,9 @@ Every Sable app follows the Dark theme and your Sable accent, and has single-key
 | Calculator | Keyboard-first | Digits and operators from the keys |
 | Games | Ten games, each its own app: Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words | See [Games](#games) below |
 | Tools | Device reports you can save to Download/SableTools. Its utilities (SOS and alarm, pedometer with a goal and 7-day history, flashlight, compass and more) show on the Q25 only when Developer options and Tools' developer mode are on, until each is proven on the phone | C copy, S save, M more. In the pedometer, Menu sets height, weight and goal |
-| Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, App blocker, Focus and Student mode) | App blocker: Settings > Apps > Mobile Manager > App blocker. To see what an app can do and what changed in it, open Settings > Apps > App security & privacy (signing, permissions, exposed parts, tracker signals, changes seen on this phone) |
+| Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, Deep sleeping apps, Focus and Student mode) | Deep sleeping apps: Settings > Apps > Mobile Manager > Deep sleeping apps. To see what an app can do and what changed in it, open Settings > Apps > App security & privacy (signing, permissions, exposed parts, tracker signals, changes seen on this phone) |
 | App display compatibility | Taller canvas per app for apps that don't fit a square screen | Alt+Shift+R |
-| Aurora Store + microG | Install Play Store apps without Google Play | See [MICROG.md](MICROG.md) |
+| Aurora Store + microG (add-on) | Not installed from 2.0. Install them from a computer to run Play Store apps without Google Play | See [MICROG.md](MICROG.md) |
 
 <p>
 <img src="images/q25/phone.png" alt="Phone" width="150">
@@ -229,6 +254,34 @@ microphone, and other sites can't follow you with third-party cookies. Downloads
 Jelly, LineageOS's browser, is still installed; pick your default in Settings > Apps > Default
 apps > Browser app.
 
+### Cosgrove, the assistant
+
+Cosgrove is a butler you can talk to. He answers questions using a language model you choose, and
+he can't act on the phone (no calls, messages or settings). Open him from All apps, or type
+**/cosgrove** followed by your question in Command (**/ask** works too). If you rename him in
+Settings, the command follows the new name.
+
+Choose where his answers come from in his Settings (**Menu**):
+
+- **Ollama on your network** is free, and nothing leaves your home. On your computer, set
+  `OLLAMA_HOST=0.0.0.0` and restart Ollama so the phone can reach it. Then type the computer's
+  address, such as `192.168.1.20`; the port `11434` is added for you. Press **Test connection** and
+  pick a model from the list.
+- **OpenRouter**, **Groq** or **Gemini** use a free plan with your own API key, made on that
+  company's website. Your messages go to that company, free plans have limits, and they may use
+  messages for training.
+- **Other server on your network** is for LM Studio, llama.cpp or anything with an OpenAI-style
+  API.
+
+Plain `http://` addresses only work on your own network (home ranges, `.local`, Tailscale); an
+internet address must be `https://`. Conversations live in memory only: **New conversation**
+clears them, and nothing is saved or backed up. The API key stays on the phone.
+
+**Enter** sends and **Shift+Enter** starts a new line. To talk instead of typing, download the
+speech model once in Settings (about 40 MB, English for now). Then hold **Space** in an empty
+message box, or hold **Talk**, speak, and let go. Your words appear in the box for you to check
+and send. Recognition runs on the phone, and the microphone is on only while you hold.
+
 ### Terminal
 
 Sable Terminal is ConnectBot 1.10.9 with the Sable name and icon. It connects over SSH or Telnet, or opens a shell on the phone itself (choose Local when adding a host). Hosts and SSH keys stay on the phone, and backup is off.
@@ -287,7 +340,7 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Display > Text size | Small, Medium, Large or Larger text. Larger is the biggest size SableOS lays out for the square screen. Display size and text, next to it, has Android's Font size slider, bold text and high contrast text for anything bigger; a size set there shows as custom. Setup's Theme step has the same choice |
 | Accessibility | Android's own options: magnification, colour correction, colour inversion, extra dim, remove animations, caption preferences, mono audio, time to take action, and for the keyboard sticky, slow and bounce keys. TalkBack, Select to Speak and Switch Access are Google apps and are not included; see [ACCESSIBILITY.md](ACCESSIBILITY.md) for adding a screen reader |
 | Display > App display compatibility | A taller canvas per app, and **Sable app style**: compact corners (default) or rounded. Open Sable apps restyle at once |
-| About phone > SableOS version | Release number, release name, the LineageOS base and the source commit, for example `1.0 · full · lineage-23.2 · 0afdeef1c2d3`. LineageOS legal information stays under Legal information |
+| About phone > SableOS version | Release number, release name, the LineageOS base and the source commit, for example `2.0 · full · lineage-24.0 · 0afdeef1c2d3`. LineageOS legal information stays under Legal information |
 | Battery > Battery health | Cycle count, capacity health, temperature and voltage, each with its source. A value the phone cannot read says "Not reported", never a guess. A chart below shows Today, 24 hours and 7 days |
 | Battery > Charging & protection | Shows what the phone can and cannot do. Charge limit and adaptive charging are listed as "not available on this device" on the Q25 |
 | Notifications > Sable Attention | Hub's hardware-attention settings. Each app's notification page also has a Sable Hub and Attention row |
@@ -319,7 +372,7 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Apps > Mobile Manager | The home of the controls below, plus a plain list of what is not available yet |
 | Mobile Manager > App Control Center | Every app with its network access, background mode and paused state (Frozen, Student mode or Focus mode). Filter by network blocked, background restricted, paused, frozen or hidden. Enter on an app: Freeze, Hide, Network access, App security, App info |
 | Mobile Manager > Freezer | Freeze an app so it stops running; its data stays. You can also hide a frozen app from the launcher. Apps the phone needs cannot be frozen |
-| Mobile Manager > App blocker | Puts an app on Android's Restricted background mode and stops it now, so it only runs when you open it |
+| Mobile Manager > Deep sleeping apps (was App blocker) | Puts an app into deep sleep: Android's Restricted background mode, and it stops now, so it only runs when you open it. Put unused apps to sleep (off until you turn it on) does this once a day for apps you have not opened for 3 days; Sable apps, apps Android needs and apps you wake on the page are left alone |
 | Mobile Manager > Focus mode | Only priority apps, alarms, media and repeat callers can notify you. "Pause while Focus mode is on" suspends the apps you choose. It also appears in Settings > Modes and Quick Settings |
 | Mobile Manager > Student mode | Focus mode on a schedule (days and times; weekdays 08:00-17:00 once you turn it on): every app you have not allowed is paused. Turning it off by hand lasts until the next boundary. It is a local control, not parental control or a site filter |
 | Private Space & Dual Apps | Private Space state and setup, Dual Apps (a second copy of an app, from Apps > Cloned apps) and the work profile. There is no app lock, because Android 16 on this build has no way to gate an app launch honestly; use Private Space for apps you want behind a lock |
@@ -330,11 +383,15 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 <img src="images/q25/mobile-manager.png" alt="Mobile Manager" width="200">
 <img src="images/q25/app-control-center.png" alt="App Control Center" width="200">
 <img src="images/q25/freezer.png" alt="Freezer" width="200">
-<img src="images/q25/app-blocker.png" alt="App blocker" width="200">
+<img src="images/q25/app-blocker.png" alt="Deep sleeping apps" width="200">
 <img src="images/q25/focus-mode.png" alt="Focus mode" width="200">
 <img src="images/q25/student-mode.png" alt="Student mode" width="200">
 <img src="images/q25/private-space.png" alt="Private Space and Dual Apps" width="200">
 </p>
+
+### Picture Password
+
+Settings > Sable > Picture Password sets up a quicker unlock over a picture: pick one of your photos or one of the four built-in pictures, a number (0 to 9) and a spot in the photo. To unlock, move the grid of numbers with the trackpad until your number sits on your spot, then press Enter. The numbers start in a different place and order every time, so watching or smudges give nothing away. **Stronger** adds a second number and spot (off unless you turn it on). Your PIN or password is still needed after a restart, after 72 hours and after 5 wrong pictures, and Esc always switches to it.
 
 ## Privacy and security defaults
 
@@ -342,9 +399,9 @@ SableOS favours privacy over Google compatibility, but it is not hardened yet. T
 
 | Area | Default on a fresh install | Why |
 | --- | --- | --- |
-| Google services | None. microG Services and Companion and Aurora Store are installed instead | No Google Play services polling location or syncing in the background |
+| Google services | None, and from 2.0 no microG or app store either; the microG add-on is optional | No Google Play services polling location or syncing in the background |
 | microG SafetyNet / Play Integrity | Off | Apps that require it (many banking apps) may refuse to run |
-| Signature spoofing | Only for official microG builds, and only on this image | No other app can pretend to be Google |
+| Signature spoofing | Only for official microG builds (the add-on) | No other app can pretend to be Google |
 | Data encryption | On (Android file-based encryption, set up by Format data) | Your data needs your PIN to unlock after a restart |
 | Lock screen | No PIN until you set one in setup | You choose; the keyboard types the PIN |
 | Private Space | Available, off until you create it | Keeps chosen apps behind a separate lock; Hub and Active Frames leave them out |
@@ -364,8 +421,8 @@ Do these once after setup. The first group protects you; the second makes the Q2
 - [ ] Set a PIN or password: Settings > Security > Screen lock. Without one the Sable lock glance is not shown and encryption only protects the phone while it is off.
 - [ ] Hide sensitive notification content on the lock screen: Settings > Notifications > Notifications on lock screen.
 - [ ] Turn off USB debugging when you are not collecting logs: Settings > System > Developer options. Debugging gives root over a cable on this build.
-- [ ] In microG Settings, turn on only what you use: Google account (for Gmail and apps that sign in), Cloud Messaging (for push in apps like Signal or WhatsApp), and Location (for maps). Leave SafetyNet off unless an app needs it.
-- [ ] Sign in to Aurora Store anonymously unless you need apps you bought.
+- [ ] If you installed the microG add-on, in microG Settings turn on only what you use: Google account (for Gmail and apps that sign in), Cloud Messaging (for push in apps like Signal or WhatsApp), and Location (for maps). Leave SafetyNet off unless an app needs it.
+- [ ] If you installed Aurora Store, sign in anonymously unless you need apps you bought.
 - [ ] Review app permissions after installing apps: Settings > Security & privacy > Privacy > Permission manager.
 - [ ] Put sensitive apps in Private Space (Vault) so they stay out of Hub, Active Frames and search.
 - [ ] Keep your mtkclient backup and stock firmware off the phone. It is the only copy of your IMEI partitions.
@@ -391,7 +448,7 @@ Do these once after setup. The first group protects you; the second makes the Q2
 | Start says "open Sable Weather to set it up" | Open Weather and choose a city. On alpha-20261028 this was a bug fixed by PR #38 |
 | Keyboard light stays dark | The stock keyboard firmware ignores the light; see the Keyboard firmware notes in [KEYBOARD_AND_INPUT.md](KEYBOARD_AND_INPUT.md) |
 | Lock screen time is wrong | Set the time zone in Settings > System > Date & time |
-| An app needs Google Play services | Turn on the matching microG feature; some apps that require Play Integrity will not run |
+| An app needs Google Play services | Install the microG add-on ([MICROG.md](MICROG.md)) and turn on the matching feature; some apps that require Play Integrity will not run |
 | Phone won't start, or lost signal | Go back to stock with [FLASHING_RELEASE.md](FLASHING_RELEASE.md#going-back-to-stock) |
 | Start or an app crashes on first boot | Run `scripts/capture-crash-evidence.sh` before clearing anything, and attach its `SUMMARY.txt` to a GitHub issue |
 

@@ -21,6 +21,16 @@ class WeatherRefreshJob : JobService() {
             runCatching { repository.updateCurrentPlace() }
             val result = runCatching { repository.refresh(repository.loadLocation()) }.getOrNull()
             val fetched = result?.availability == WeatherAvailability.Live
+            // The opt-in morning forecast and rain alerts (off unless turned on in Sable Weather).
+            if (fetched) {
+                runCatching {
+                    WeatherNotifier.afterRefresh(
+                        applicationContext,
+                        repository.alerts,
+                        result.snapshot,
+                    )
+                }
+            }
             // A failed one-off fetch is retried with back-off; the periodic job just waits for its next run.
             jobFinished(params, !fetched && params.jobId == ONE_OFF_JOB_ID)
         }, "sable-weather-refresh").start()

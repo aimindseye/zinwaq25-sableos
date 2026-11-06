@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">Goedendag. %1$s tot uw dienst. Waarmee kan ik helpen?</string>
+    <string name="message_hint">Vraag het %1$s</string>
+    <string name="thinking">%1$s denkt na…</string>
+    <string name="keys_hint">Enter verstuurt · Shift+Enter nieuwe regel · houd Spatie vast om te praten · Menu instellingen</string>
+    <string name="send">Versturen</string>
+    <string name="settings">Instellingen</string>
+    <string name="new_chat">Nieuw gesprek</string>
+    <string name="done">Klaar</string>
+    <string name="setup_first">Kies in Instellingen waar mijn antwoorden vandaan komen.</string>
+    <string name="name">Naam</string>
+    <string name="name_detail">Command opent mij met /%1$s</string>
+    <string name="provider">Waar mijn antwoorden vandaan komen</string>
+    <string name="provider_ollama">Ollama op je netwerk</string>
+    <string name="provider_ollama_detail">Gratis. Niets verlaat je thuisnetwerk.</string>
+    <string name="provider_custom">Andere server op je netwerk</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp of elke server met een OpenAI-achtige API.</string>
+    <string name="provider_hosted_detail">Gratis abonnement met je eigen sleutel. Je berichten gaan naar %1$s; gratis abonnementen hebben limieten en kunnen berichten gebruiken voor training.</string>
+    <string name="address">Serveradres</string>
+    <string name="address_hint">Bijvoorbeeld 192.168.1.20</string>
+    <string name="ollama_address_detail">Het adres van je computer. Ollama moet op het netwerk luisteren: stel OLLAMA_HOST=0.0.0.0 in en herstart het.</string>
+    <string name="api_key">API-sleutel</string>
+    <string name="api_key_hint">Plak de sleutel van de website van de aanbieder</string>
+    <string name="model">Model</string>
+    <string name="model_none">Geen model gekozen. Test de verbinding om ze te tonen.</string>
+    <string name="test_connection">Verbinding testen</string>
+    <string name="testing">Verbinden…</string>
+    <string name="models_found">Verbonden. %1$s modellen gevonden; kies er hieronder een.</string>
+    <string name="no_models">Verbonden, maar de server toont geen modellen.</string>
+    <string name="error_provider">Kies eerst waar mijn antwoorden vandaan komen.</string>
+    <string name="error_address">Voer het adres van je server in, bijvoorbeeld 192.168.1.20.</string>
+    <string name="error_plain_http">Gewone http werkt alleen op je eigen netwerk. Gebruik een https-adres.</string>
+    <string name="error_key">Voer eerst je API-sleutel in.</string>
+    <string name="error_model">Kies eerst een model in Instellingen.</string>
+    <string name="error_unreachable">Ik kon de server niet bereiken. Controleer het adres en of hij draait.</string>
+    <string name="error_timeout">De server deed er te lang over om te antwoorden.</string>
+    <string name="error_server">De server antwoordde: %1$s</string>
+    <string name="privacy_note">Gesprekken blijven alleen in het geheugen en zijn weg zodra je een nieuw begint.</string>
+    <string name="talk">Vasthouden om te praten</string>
+    <string name="listening">Ik luister… laat los als je klaar bent.</string>
+    <string name="voice">Spraak</string>
+    <string name="voice_detail">Houd Spatie vast in een leeg berichtvak, of houd Praten vast, en spreek (voorlopig Engels). Spraak wordt tekst op deze telefoon en wacht tot je het verstuurt. Niets luistert als je niet vasthoudt.</string>
+    <string name="voice_download">Spraakmodel downloaden (%1$s MB)</string>
+    <string name="voice_downloading">Spraakmodel downloaden…</string>
+    <string name="voice_ready">Spraakmodel klaar.</string>
+    <string name="voice_remove">Spraakmodel verwijderen</string>
+    <string name="voice_missing">Download het spraakmodel in Instellingen om te praten.</string>
+    <string name="voice_failed">Het spraakmodel kon niet worden gedownload.</string>
+    <string name="voice_permission">Sta de microfoon toe zodat ik je hoor terwijl je vasthoudt.</string>
+    <string name="voice_nothing">Dat heb ik niet verstaan.</string>
+</resources>

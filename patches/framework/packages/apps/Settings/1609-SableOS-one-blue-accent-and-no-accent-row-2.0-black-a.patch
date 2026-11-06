@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 6 Nov 2026 17:45:00 +0000
+Subject: [PATCH] SableOS: one blue accent and no accent row (2.0 black and
+ white)
+
+SableOS 2.0 is black and white with one blue (#2E9BD6) for focus and
+selection (UI direction agreed 2026-11-04). The appearance authority
+keeps a single accent, blue, seeded 2E9BD6, and Display > Accent is
+hidden because there is nothing left to choose. A 1.0 preset still
+stored reads as blue.
+---
+ .../settings/sable/SableAccentPreferenceController.java     | 5 ++++-
+ src/com/android/settings/sable/SableAppearancePolicy.java   | 6 ++++--
+ 2 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/src/com/android/settings/sable/SableAccentPreferenceController.java b/src/com/android/settings/sable/SableAccentPreferenceController.java
+index ebd79c9..cec4a20 100644
+--- a/src/com/android/settings/sable/SableAccentPreferenceController.java
++++ b/src/com/android/settings/sable/SableAccentPreferenceController.java
+@@ -37,9 +37,12 @@ public class SableAccentPreferenceController extends BasePreferenceController
+ 
+     @Override
+     public int getAvailabilityStatus() {
+-        return AVAILABLE;
++        // SableOS 2.0 has one accent, so there is nothing to choose: the row is hidden.
++        return ACCENTS_TO_CHOOSE > 1 ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
+     }
+ 
++    private static final int ACCENTS_TO_CHOOSE = SableAppearancePolicy.ACCENTS.length;
++
+     @Override
+     public void updateState(Preference preference) {
+         super.updateState(preference);
+diff --git a/src/com/android/settings/sable/SableAppearancePolicy.java b/src/com/android/settings/sable/SableAppearancePolicy.java
+index cde2380..1807ade 100644
+--- a/src/com/android/settings/sable/SableAppearancePolicy.java
++++ b/src/com/android/settings/sable/SableAppearancePolicy.java
+@@ -47,9 +47,11 @@ public final class SableAppearancePolicy {
+     public static final String MODE_DARK = "dark";
+ 
+     /** Stable accent values, in display order. */
+-    public static final String[] ACCENTS = {"blue", "green", "purple", "orange", "slate"};
++    // SableOS 2.0 is black and white with one blue for focus and selection (UI direction,
++    // 2026-11-04); a 1.0 preset still stored reads as it.
++    public static final String[] ACCENTS = {"blue"};
+     /** System palette seeds (RRGGBB), parallel to {@link #ACCENTS}. */
+-    public static final String[] ACCENT_SEEDS = {"4D9CFF", "35C66B", "7A42E8", "F28C45", "64748B"};
++    public static final String[] ACCENT_SEEDS = {"2E9BD6"};
+     public static final String DEFAULT_ACCENT = "blue";
+ 
+     /**
+-- 
+2.43.0
+

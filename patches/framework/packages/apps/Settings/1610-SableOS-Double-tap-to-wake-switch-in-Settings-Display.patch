@@ -1,0 +1,142 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 6 Nov 2026 18:10:00 +0000
+Subject: [PATCH] SableOS: Double-tap to wake switch in Settings > Display
+
+The Zinwa Q25 touch panel can wake the screen on a double tap once the
+touch driver arms its wakeup gesture (kernel patch 0903). Settings >
+Display gets a Double-tap to wake switch after Screen timeout. Settings
+only stores the choice in persist.sys.sable.dt2w (1 or 0); init copies
+it to the driver's wake_gesture module parameter (sable-dt2w.rc). Shown
+only where the product sets ro.sable.double_tap_wake. Off by default.
+---
+ res/values/sable_dt2w_strings.xml             | 23 +++++++
+ res/xml/display_settings.xml                  |  9 +++
+ ...ableDoubleTapWakePreferenceController.java | 65 +++++++++++++++++++
+ 3 files changed, 97 insertions(+)
+ create mode 100644 res/values/sable_dt2w_strings.xml
+ create mode 100644 src/com/android/settings/sable/SableDoubleTapWakePreferenceController.java
+
+diff --git a/res/values/sable_dt2w_strings.xml b/res/values/sable_dt2w_strings.xml
+new file mode 100644
+index 0000000..7b025c1
+--- /dev/null
++++ b/res/values/sable_dt2w_strings.xml
+@@ -0,0 +1,23 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- Settings > Display: switch that lets a double tap on the screen turn it on. -->
++    <string name="sable_double_tap_wake_title">Double-tap to wake</string>
++    <!-- Summary of the double-tap to wake switch. -->
++    <string name="sable_double_tap_wake_summary">Double-tap the screen to turn it on. Uses a little more battery while the screen is off.</string>
++    <!-- Search keywords for the double-tap to wake switch. -->
++    <string name="keywords_sable_double_tap_wake">double tap, tap to wake, wake, screen on, touch</string>
++</resources>
+diff --git a/res/xml/display_settings.xml b/res/xml/display_settings.xml
+index a9f19e8..dddabe3 100644
+--- a/res/xml/display_settings.xml
++++ b/res/xml/display_settings.xml
+@@ -94,6 +94,15 @@
+             android:summary="@string/summary_placeholder"
+             android:fragment="com.android.settings.display.ScreenTimeoutSettings"
+             settings:controller="com.android.settings.display.ScreenTimeoutPreferenceController"/>
++
++        <!-- SableOS: double-tap to wake (Zinwa Q25 touch panel), where the product says so. -->
++        <SwitchPreferenceCompat
++            android:key="sable_double_tap_wake"
++            android:title="@string/sable_double_tap_wake_title"
++            android:summary="@string/sable_double_tap_wake_summary"
++            android:persistent="false"
++            settings:keywords="@string/keywords_sable_double_tap_wake"
++            settings:controller="com.android.settings.sable.SableDoubleTapWakePreferenceController" />
+     </PreferenceCategory>
+ 
+     <PreferenceCategory
+diff --git a/src/com/android/settings/sable/SableDoubleTapWakePreferenceController.java b/src/com/android/settings/sable/SableDoubleTapWakePreferenceController.java
+new file mode 100644
+index 0000000..573a35a
+--- /dev/null
++++ b/src/com/android/settings/sable/SableDoubleTapWakePreferenceController.java
+@@ -0,0 +1,65 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++import android.os.SystemProperties;
++
++import androidx.preference.Preference;
++import androidx.preference.TwoStatePreference;
++
++import com.android.settings.core.BasePreferenceController;
++
++/**
++ * Settings > Display > Double-tap to wake (Zinwa Q25). Settings only stores the choice in
++ * persist.sys.sable.dt2w (1 or 0); init copies it to the touch driver's wake_gesture module
++ * parameter (sable-dt2w.rc, kernel patch 0903). Shown only where the product sets
++ * ro.sable.double_tap_wake. Off by default.
++ */
++public class SableDoubleTapWakePreferenceController extends BasePreferenceController
++        implements Preference.OnPreferenceChangeListener {
++
++    static final String PROP = "persist.sys.sable.dt2w";
++    static final String SUPPORTED = "ro.sable.double_tap_wake";
++
++    public SableDoubleTapWakePreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return SystemProperties.getBoolean(SUPPORTED, false) ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
++    }
++
++    static boolean isOn() {
++        return SystemProperties.getBoolean(PROP, false);
++    }
++
++    @Override
++    public void updateState(Preference preference) {
++        super.updateState(preference);
++        if (preference instanceof TwoStatePreference) {
++            ((TwoStatePreference) preference).setChecked(isOn());
++        }
++    }
++
++    @Override
++    public boolean onPreferenceChange(Preference preference, Object newValue) {
++        SystemProperties.set(PROP, Boolean.TRUE.equals(newValue) ? "1" : "0");
++        return true;
++    }
++}
+-- 
+2.43.0
+

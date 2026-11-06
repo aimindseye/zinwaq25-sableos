@@ -117,6 +117,11 @@ if [[ -f "$manifest" ]]; then
         if [[ "$FRAMEWORK" == YES && "$module" == SableKeyboard ]]; then
             if [[ "$overrides" == - || -z "$overrides" ]]; then overrides=LatinIME; else overrides="$overrides,LatinIME"; fi
         fi
+        # Q4: Sable Phone becomes the default and system Phone app and replaces the LineageOS
+        # Dialer (the Sable Dialer patches 0701-0710 then build but do not ship).
+        if [[ "$FRAMEWORK" == YES && "$module" == SablePhone ]]; then
+            if [[ "$overrides" == - || -z "$overrides" ]]; then overrides=Dialer; else overrides="$overrides,Dialer"; fi
+        fi
         {
             echo
             echo "// $group app $package sha256=$sha"
@@ -188,6 +193,8 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # Trackpad mode (Settings > Keyboard > Trackpad): init writes the bbqX0kbd mode switch
     # (device patch 1503 labels it for init only).
     cp "$SABLE_REPO_ROOT/product/q25/init/sable-trackpad.rc" "$VENDOR_SABLE/etc/init/"
+    # Double-tap to wake (Settings 1610): init hands the choice to the touch driver (kernel 0903).
+    cp "$SABLE_REPO_ROOT/product/q25/init/sable-dt2w.rc" "$VENDOR_SABLE/etc/init/"
     # Privileged permission allowlist for the apps.tsv "platform" and "privileged" rows
     # (App display compatibility, Secure Vault).
     mkdir -p "$VENDOR_SABLE/etc/permissions"
@@ -208,6 +215,18 @@ if [[ "$FRAMEWORK" == YES ]]; then
     # because the repo tracks no archives. vendor/lineage's bootanimation.zip
     # module installs TARGET_BOOTANIMATION as is when it is set;
     # bootanimation-dark.zip is a symlink to it.
+    # Sable 2.0 type: Source Sans 3 (OFL) as the named family "source-sans"
+    # (product/common/fonts; SableFrameworkOverlay's font configs point at it).
+    mkdir -p "$VENDOR_SABLE/fonts"
+    cp "$SABLE_REPO_ROOT"/product/common/fonts/*.ttf "$SABLE_REPO_ROOT/product/common/fonts/fonts_customization.xml" \
+        "$VENDOR_SABLE/fonts/"
+    for f in "$SABLE_REPO_ROOT"/product/common/fonts/*.ttf; do
+        # shellcheck disable=SC2016 # $(TARGET_COPY_OUT_PRODUCT) is make syntax, written literally
+        printf 'PRODUCT_COPY_FILES += vendor/sable/q25/fonts/%s:$(TARGET_COPY_OUT_PRODUCT)/fonts/%s\n' \
+            "$(basename "$f")" "$(basename "$f")" >> "$fw_mk"
+    done
+    # shellcheck disable=SC2016 # make syntax, written literally
+    echo 'PRODUCT_COPY_FILES += vendor/sable/q25/fonts/fonts_customization.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/fonts_customization.xml' >> "$fw_mk"
     python3 -I "$SABLE_REPO_ROOT/product/q25/bootanimation/pack-bootanimation.py" \
         "$SABLE_REPO_ROOT/product/q25/bootanimation/frames" "$VENDOR_SABLE/media/bootanimation.zip"
     cat >> "$fw_mk" <<'MK'
@@ -221,11 +240,14 @@ PRODUCT_PACKAGES += \
     SableGallery2Overlay \
     SableSettingsProviderOverlay \
     SableLedOverlay \
+    SableTelecomOverlay \
+    SableLineagePlatformOverlay \
     SableNoUpdater
 SABLE_Q25_NO_UPDATER := true
 PRODUCT_SYSTEM_EXT_PROPERTIES += \
     ro.sable.home=org.sableos.launcher \
-    ro.sable.keyboard_backlight=true
+    ro.sable.keyboard_backlight=true \
+    ro.sable.double_tap_wake=true
 # App display compatibility applies profiles: the framework overlay turns on per-app user
 # aspect ratios (SableFrameworkOverlay sable_displaycompat.xml) and this opens the app's gate.
 PRODUCT_PRODUCT_PROPERTIES += \
@@ -237,6 +259,7 @@ PRODUCT_COPY_FILES += \
     vendor/sable/q25/etc/battery/zinwa-q25.conf:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/sable/battery/zinwa-q25.conf \
     vendor/sable/q25/etc/init/sable-keyboard-backlight.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-keyboard-backlight.rc \
     vendor/sable/q25/etc/init/sable-trackpad.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-trackpad.rc \
+    vendor/sable/q25/etc/init/sable-dt2w.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/sable-dt2w.rc \
     vendor/sable/q25/etc/init/sable-power.rc:$(TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc \
     vendor/sable/q25/media/sable_default_wallpaper.png:$(TARGET_COPY_OUT_PRODUCT)/media/wallpaper/sable_default_wallpaper.png
 MK

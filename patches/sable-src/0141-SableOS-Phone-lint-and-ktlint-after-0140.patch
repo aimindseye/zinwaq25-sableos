@@ -1,0 +1,76 @@
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Dialing.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Dialing.kt
+index c999209..0e254aa 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Dialing.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Dialing.kt
+@@ -36,6 +36,8 @@ object Dialing {
+     }
+ 
+     /** Handles [typed] when it is a complete special code; true when it was one (the dial pad then clears). */
++    // sendDialerSpecialCode is for the default Phone app, which Sable Phone is; a refusal is caught.
++    @Suppress("MissingPermission")
+     fun special(context: Context, typed: String): Boolean =
+         when (val code = SpecialCodes.parse(typed)) {
+             null -> false
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
+index 5f3ee05..6a083af 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
+@@ -263,24 +263,19 @@ class InCallActivity :
+     }
+ 
+     /** The SIMs that can place a call; none when Android refuses (no phone state permission). */
+-    private fun capableAccounts(telecom: TelecomManager): List<PhoneAccountHandle> =
+-        try {
+-            telecom.callCapablePhoneAccounts
+-        } catch (e: SecurityException) {
+-            Log.w(TAG, "Cannot list the SIMs", e)
+-            emptyList()
+-        }
++    private fun capableAccounts(telecom: TelecomManager): List<PhoneAccountHandle> = try {
++        telecom.callCapablePhoneAccounts
++    } catch (e: SecurityException) {
++        Log.w(TAG, "Cannot list the SIMs", e)
++        emptyList()
++    }
+ 
+-    private fun accountLabel(
+-        telecom: TelecomManager,
+-        handle: PhoneAccountHandle,
+-    ): String? =
+-        try {
+-            telecom.getPhoneAccount(handle)?.label?.toString()
+-        } catch (e: SecurityException) {
+-            Log.w(TAG, "Cannot read a SIM's name", e)
+-            null
+-        }
++    private fun accountLabel(telecom: TelecomManager, handle: PhoneAccountHandle): String? = try {
++        telecom.getPhoneAccount(handle)?.label?.toString()
++    } catch (e: SecurityException) {
++        Log.w(TAG, "Cannot read a SIM's name", e)
++        null
++    }
+ 
+     /** The call timer's next tick, a second on. */
+     private fun postTick() {
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt
+index 36ff153..5ad5761 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneActivity.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.phone.android
+ 
+ import android.Manifest
++import android.annotation.SuppressLint
+ import android.app.Activity
+ import android.app.AlertDialog
+ import android.app.role.RoleManager
+@@ -525,6 +526,9 @@ class PhoneActivity : Activity() {
+         }
+     }
+ 
++    // The default Phone app may clear its missed call notification without MODIFY_PHONE_STATE, which lint
++    // cannot know; a refusal is caught and logged.
++    @SuppressLint("MissingPermission")
+     private fun clearMissed() {
+         try {
+             getSystemService(TelecomManager::class.java).cancelMissedCallsNotification()

@@ -6,7 +6,7 @@
 > layout this build produces. Do not follow them unless you can recover the device yourself (see
 > [`RETURN_TO_STOCK.md`](RETURN_TO_STOCK.md)).
 > Unlocking the bootloader erases all data.
-> Built on LineageOS 23.2 (Android 16 QPR2).
+> SableOS 2.0 is built on LineageOS 24.0 (Android 17). SableOS 1.0 was built on LineageOS 23.2 (Android 16 QPR2).
 
 ## Before you start
 
@@ -37,7 +37,7 @@ command must name the Q25. Set its serial once per shell; both tools read it:
 
 ```bash
 adb devices                       # note the Q25's serial
-export ANDROID_SERIAL=<q25-serial>  # e.g. 36022310232425 on the test phone
+export ANDROID_SERIAL=<q25-serial>  # e.g. 3602XXXXXXXXXX (14 digits; the rest of the test phone's serial is hidden)
 ```
 
 `restore-stock.sh --execute` and `capture-crash-evidence.sh` refuse to run
@@ -85,8 +85,9 @@ The fastboot step only puts the boot images on the phone (kernel, recovery, veri
 
 4. *Reboot system now*. The first boot can take several minutes. A full (Q4) image
    opens the Sable setup wizard, then Sable Start as HOME; Sable Keyboard is the
-   only keyboard, and microG and Aurora Store are installed (see
-   [`MICROG.md`](MICROG.md) to sign in or skip).
+   only keyboard. From SableOS 2.0 the image has no Google software and no app
+   store: microG and Aurora Store are not installed. If you need apps that use
+   Google Play services, install the microG add-on after setup (section 5).
 
 ## 4. After first boot
 
@@ -95,12 +96,32 @@ Q4-* gates for a full image), including `adb shell getprop ro.sable.profile.id`
 (expect `zinwa-q25`), `adb shell getprop ro.sable.release` and
 `adb shell getprop ro.build.fingerprint`. For the full image also run
 `adb shell aflags list | grep scene_container` (expect disabled, or no line
-because read-only flags may not be listed; gate Q4-LOCK-SCENE-CONTAINER) and the microG checks in gate Q4-MICROG.
+because read-only flags may not be listed; gate Q4-LOCK-SCENE-CONTAINER) and, if you install the microG add-on, the checks in gate Q4-MICROG.
+
+## 5. Optional: the microG add-on (Play Store apps)
+
+SableOS 2.0 ships without Google Play services. To run apps that need them, finish
+setup, turn on USB debugging (Settings > System > Developer options), connect the
+phone and run from this repository:
+
+```bash
+NETWORK_FETCH_AUTHORIZED=YES bash scripts/fetch-microg.sh
+SABLE_MICROG_PREBUILTS=product/q25/microg/addon.tsv NETWORK_FETCH_AUTHORIZED=YES bash scripts/fetch-microg.sh
+bash scripts/install-microg-addon.sh --with-aurora    # add --with-gsf for old C2DM apps
+```
+
+This installs microG Services, microG Companion and Aurora Store as normal apps,
+each checked against its pinned sha256. Then open microG Settings > Self-Check.
+Every APK, the defaults and how to remove it are in [`MICROG.md`](MICROG.md).
 
 ## Updating
 
 Sideload a newer package from recovery the same way, without the factory reset.
 Preserved-data updates are not qualified yet.
+
+Moving from SableOS 1.0 (Android 16) to 2.0 (Android 17), back up and do the
+*Format data* step: the Android version changes and microG is no longer built in,
+so reinstall the add-on afterwards if you used it.
 
 Moving to the 2026-10-22 Q4 image from Q1, Q2 or an earlier Q4 image, do the
 *Format data* step as well: Q4 changes the keyboard, HOME and adds microG, and

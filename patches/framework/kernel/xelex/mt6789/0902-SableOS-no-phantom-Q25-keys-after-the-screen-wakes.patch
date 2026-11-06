@@ -1,0 +1,121 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 6 Nov 2026 13:38:33 +0000
+Subject: [PATCH] SableOS: no phantom Q25 keys after the screen wakes
+
+The bbqX0kbd screen-off path cuts the keyboard's power (or parks its
+IRQ for wake) without releasing keys the input core still holds, so a
+key or trackpad click down at that moment never gets its release and
+Android repeats it until another key goes down. On wake the IRQ was
+enabled before the controller's stale FIFO and REG_INT were cleared,
+and the trackpad's arrow-key accumulators kept their old values.
+
+At screen off, flush queued key work and release every held key; at
+screen on, drain the FIFO, clear REG_INT and reset the trackpad state
+before enabling the IRQ. Num lock is kept.
+---
+ .../input/keyboard/bbqX0kbd/bbqX0kbd_main.c   | 74 +++++++++++++++++++
+ 1 file changed, 74 insertions(+)
+
+diff --git a/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c b/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c
+index 1b83edf..24cb01c 100644
+--- a/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c
++++ b/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c
+@@ -1238,6 +1238,66 @@ static void bbqX0kbd_shutdown(struct i2c_client *client)
+ }
+ 
+ #ifdef CONFIG_PM_SLEEP
++/*
++ * SableOS: no phantom keys after the screen wakes.
++ *
++ * The screen-off path below cuts the keyboard's power (or parks its IRQ for
++ * wake) without telling the input core that keys are up. A key or the
++ * trackpad click still down at that moment never gets its release, and
++ * Android repeats a held key until another key goes down: the "phantom
++ * input after wake until I press any button" seen on the Q25. On the way
++ * back, the IRQ was enabled before the controller's stale FIFO and REG_INT
++ * were cleared, and the trackpad's arrow-key accumulators kept their
++ * pre-sleep values, so the first IRQ after wake could replay old keys or
++ * send an arrow for a tiny move.
++ *
++ * Release every key the input core still holds when the screen goes off,
++ * and throw away whatever the controller queued while it was powering up
++ * before the IRQ is enabled again. Num lock (a toggle) is kept.
++ */
++static void bbqX0kbd_release_keys(struct bbqX0kbd_data *bbqX0kbd_data)
++{
++	struct input_dev *input_dev = bbqX0kbd_data->input_dev;
++	unsigned int code;
++	bool released = false;
++
++	if (!input_dev)
++		return;
++	for_each_set_bit(code, input_dev->key, KEY_CNT) {
++		input_report_key(input_dev, code, 0);
++		released = true;
++	}
++	if (released)
++		input_sync(input_dev);
++	bbqX0kbd_data->modifier_keys_status = 0x00;
++}
++
++static void bbqX0kbd_reset_trackpad(struct bbqX0kbd_data *bbqX0kbd_data)
++{
++#if (BBQX0KBD_TYPE == BBQ20KBD_PMOD)
++	bbqX0kbd_data->touchInt = 0;
++	bbqX0kbd_data->relX_offset = 0;
++	bbqX0kbd_data->relY_offset = 0;
++#endif
++}
++
++static void bbqX0kbd_drain_fifo(struct i2c_client *client)
++{
++	uint8_t count = 0;
++	uint8_t fifo_data[2];
++	uint8_t registerValue = 0x00;
++
++	if (bbqX0kbd_read(client, BBQX0KBD_I2C_ADDRESS, REG_KEY, &count, sizeof(uint8_t)) == 0) {
++		count &= REG_KEY_KEYCOUNT_MASK;
++		while (count--) {
++			if (bbqX0kbd_read(client, BBQX0KBD_I2C_ADDRESS, REG_FIF, fifo_data, 2*sizeof(uint8_t)) != 0)
++				break;
++		}
++	}
++	if (bbqX0kbd_write(client, BBQX0KBD_I2C_ADDRESS, REG_INT, &registerValue, sizeof(uint8_t)) < 0)
++		BBQX0KBD_KEYBOARD_ERR("%s Could not clear REG_INT.\n", __func__);
++}
++
+ static int bbqX0kbd_suspend(struct device *dev)
+ {
+ 	int returnValue;
+@@ -1263,6 +1323,13 @@ static int bbqX0kbd_suspend(struct device *dev)
+ 			gpio_set_value(bbqX0kbd_data->power_vdd_gpio, 0);
+ 		}
+     }
++
++	/* SableOS: finish queued key work, then let go of every held key */
++#if (BBQX0KBD_INT == BBQX0KBD_USE_INT)
++	flush_work(&bbqX0kbd_data->work_struct);
++#endif
++	bbqX0kbd_release_keys(bbqX0kbd_data);
++	bbqX0kbd_reset_trackpad(bbqX0kbd_data);
+     
+     return 0;
+ }
+@@ -1284,6 +1351,13 @@ static int bbqX0kbd_resume(struct device *dev)
+ 		mdelay(400);
+ 		
+ 		bbqX0kbd_resume_register_init(client);
++
++		/* SableOS: drop what the controller queued while powering up */
++#if (BBQX0KBD_INT == BBQX0KBD_USE_INT)
++		bbqX0kbd_data->fifoCount = 0;
++#endif
++		bbqX0kbd_reset_trackpad(bbqX0kbd_data);
++		bbqX0kbd_drain_fifo(client);
+ 		
+         enable_irq(client->irq);
+ 	}
+-- 
+2.43.0
+

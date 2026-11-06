@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- LineageOS platform resources (lineage-sdk lineage/res). The Q25's BlackBerry key sends HOME:
+     a tap goes home and a hold opens the app's menu, as on BlackBerry (owner decision 2026-11-04,
+     device-profile/KEYMAP.md). Settings, Buttons can still change the hold action. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.sableos.overlay.lineageplatform">
+    <overlay
+        android:targetPackage="lineageos.platform"
+        android:isStatic="true"
+        android:priority="20" />
+    <application
+        android:hasCode="false"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false" />
+</manifest>

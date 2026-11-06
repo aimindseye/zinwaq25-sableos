@@ -302,6 +302,9 @@
     <string name="provider_credentials">poświadczenia dostawców</string>
     <string name="select_at_least_one_section">Wybierz co najmniej jedną sekcję</string>
     <string name="tv">TV</string>
+    <string name="ruler">Linijka</string>
+    <string name="ruler_hint">Przyłóż wzdłuż lewej (cm) lub prawej (cale) krawędzi, od góry ekranu.</string>
+    <string name="ruler_info">Rysuje centymetry i cale na podstawie gęstości ekranu, tak dokładnie, jak podaje panel. Nic nie jest zapisywane.</string>
     <string name="sos_alert">SOS i alarm</string>
     <string name="sos_light">Światło SOS</string>
     <string name="sos_screen_flash">Błysk ekranu</string>

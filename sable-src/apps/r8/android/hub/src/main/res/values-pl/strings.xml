@@ -200,4 +200,10 @@
     <string name="row_menu_snooze_detail">Dodaje Odłóż o 1 godzinę i klawisz Z dla aktywnego powiadomienia.</string>
     <string name="row_menu_remind_me">Przypomnij mi w menu wiersza</string>
     <string name="row_menu_remind_me_detail">Dodaje w Sable Tasks zadanie na jutro rano. Zapisywana jest tylko aplikacja, nigdy wiadomość.</string>
+    <string name="add_sender_to_priority">Dodaj nadawcę do Hub priorytetowego</string>
+    <string name="remove_sender_from_priority">Usuń nadawcę z Hub priorytetowego</string>
+    <string name="add_app_to_priority">Dodaj całą aplikację do Hub priorytetowego</string>
+    <string name="remove_app_from_priority">Usuń aplikację z Hub priorytetowego</string>
+    <string name="added_to_priority">Dodano do Hub priorytetowego</string>
+    <string name="removed_from_priority">Usunięto z Hub priorytetowego</string>
 </resources>

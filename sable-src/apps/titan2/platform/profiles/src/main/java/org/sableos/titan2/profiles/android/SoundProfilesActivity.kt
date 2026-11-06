@@ -3,7 +3,6 @@ package org.sableos.titan2.profiles.android
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.RingtoneManager
 import android.net.Uri
@@ -19,6 +18,7 @@ import org.sableos.titan2.profiles.core.ProfileSettings
 import org.sableos.titan2.profiles.core.ProfilesText.t
 import org.sableos.titan2.profiles.core.SoundProfile
 import org.sableos.titan2.profiles.core.SoundProfiles
+import org.sableos.titan2.theme.SableFonts
 import org.sableos.titan2.theme.SablePalette
 
 /**
@@ -336,7 +336,7 @@ class SoundProfilesActivity : Activity() {
             text = s
             textSize = sp
             setTextColor(color)
-            if (bold) typeface = Typeface.DEFAULT_BOLD
+            typeface = SableFonts.of(bold)
         }
 
     private fun box(fill: Int, stroke: Int) = GradientDrawable().apply {

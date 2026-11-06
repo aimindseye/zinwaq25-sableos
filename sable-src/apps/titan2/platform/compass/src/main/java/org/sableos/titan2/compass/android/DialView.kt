@@ -5,12 +5,12 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import android.graphics.Typeface
 import android.view.View
 import kotlin.math.min
 import kotlin.math.sqrt
 import org.sableos.titan2.compass.core.CompassText.t
 import org.sableos.titan2.compass.core.Heading
+import org.sableos.titan2.theme.SableFonts
 import org.sableos.titan2.theme.SablePalette
 
 /**
@@ -27,7 +27,7 @@ class DialView(context: Context, private val palette: SablePalette) : View(conte
     }
     private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        typeface = Typeface.DEFAULT_BOLD
+        typeface = SableFonts.BOLD
     }
     private val oval = RectF()
     private val mark = Path()

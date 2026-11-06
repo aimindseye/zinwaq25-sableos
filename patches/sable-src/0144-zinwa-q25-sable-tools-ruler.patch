@@ -1,0 +1,499 @@
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/RulerScale.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/RulerScale.kt
+new file mode 100644
+index 0000000..9a3e84e
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/RulerScale.kt
+@@ -0,0 +1,48 @@
++package org.sableos.tools.core
++
++/** One tick on the on-screen ruler: where it sits in pixels and how long it is drawn. */
++data class RulerTick(val px: Float, val size: RulerTick.Size, val label: String?) {
++    enum class Size { SHORT, MEDIUM, LONG }
++}
++
++/**
++ * Tick marks for Sable Tools' ruler, from the panel's physical density (pixels per inch along
++ * the ruler). Pure Kotlin. Metric: a tick every millimetre, a medium one every 5 mm and a long,
++ * numbered one every centimetre. Imperial: a tick every 1/8 inch, medium every 1/2, long and
++ * numbered every inch.
++ */
++object RulerScale {
++    private const val MM_PER_INCH = 25.4f
++    private const val MM_PER_CM = 10
++    private const val MM_PER_HALF_CM = 5
++    private const val EIGHTHS = 8
++    private const val HALF = 4
++
++    fun metric(lengthPx: Float, pxPerInch: Float): List<RulerTick> {
++        if (lengthPx <= 0f || pxPerInch <= 0f) return emptyList()
++        val pxPerMm = pxPerInch / MM_PER_INCH
++        val count = (lengthPx / pxPerMm).toInt()
++        return (0..count).map { mm ->
++            when {
++                mm % MM_PER_CM == 0 ->
++                    RulerTick(mm * pxPerMm, RulerTick.Size.LONG, (mm / MM_PER_CM).toString())
++                mm % MM_PER_HALF_CM == 0 -> RulerTick(mm * pxPerMm, RulerTick.Size.MEDIUM, null)
++                else -> RulerTick(mm * pxPerMm, RulerTick.Size.SHORT, null)
++            }
++        }
++    }
++
++    fun imperial(lengthPx: Float, pxPerInch: Float): List<RulerTick> {
++        if (lengthPx <= 0f || pxPerInch <= 0f) return emptyList()
++        val pxPerEighth = pxPerInch / EIGHTHS
++        val count = (lengthPx / pxPerEighth).toInt()
++        return (0..count).map { e ->
++            when {
++                e % EIGHTHS == 0 ->
++                    RulerTick(e * pxPerEighth, RulerTick.Size.LONG, (e / EIGHTHS).toString())
++                e % HALF == 0 -> RulerTick(e * pxPerEighth, RulerTick.Size.MEDIUM, null)
++                else -> RulerTick(e * pxPerEighth, RulerTick.Size.SHORT, null)
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
+index 40947ba..029d70b 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
+@@ -90,6 +90,12 @@ enum class Tool(
+         Capability.PICTURE_HANGING,
+         keywords = listOf("level guide", "frame")
+     ),
++    RULER(
++        Section.UTILITIES,
++        "ruler",
++        ToolKind.ACTION,
++        keywords = listOf("measure", "length", "cm", "inch")
++    ),
+     FLASHLIGHT(
+         Section.UTILITIES,
+         "flashlight",
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+index d1ea76c..54673e4 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+@@ -379,6 +379,9 @@ object ToolsText {
+             "provider_credentials" to "provider credentials",
+             "select_at_least_one_section" to "Select at least one section",
+             "tv" to "TV",
++            "ruler" to "Ruler",
++            "ruler_hint" to "Lay it along the left (cm) or right (inch) edge, from the top of the screen.",
++            "ruler_info" to "Draws centimetres and inches from the screen's own density, so it is as accurate as the panel reports. Nothing is kept.",
+             "sos_alert" to "SOS and alarm",
+             "sos_light" to "SOS light",
+             "sos_screen_flash" to "Screen flash",
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt
+index e523a04..8274305 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Controllers.kt
+@@ -17,6 +17,7 @@ object Controllers {
+         Tool.PROTRACTOR to { h -> TiltController(h, Capability.PROTRACTOR) },
+         Tool.PICTURE_HANGING to { h -> TiltController(h, Capability.PICTURE_HANGING) },
+         Tool.HEIGHT_ESTIMATE to ::HeightController,
++        Tool.RULER to ::RulerController,
+         Tool.FLASHLIGHT to ::FlashlightController,
+         Tool.SOS_ALERT to ::SosController,
+         Tool.MAGNIFIER to ::MagnifierController,
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/RulerController.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/RulerController.kt
+new file mode 100644
+index 0000000..643537f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/RulerController.kt
+@@ -0,0 +1,94 @@
++package org.sableos.tools.ui
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.util.TypedValue
++import android.view.View
++import android.widget.LinearLayout
++import org.sableos.tools.core.RulerScale
++import org.sableos.tools.core.RulerTick
++import org.sableos.tools.core.ToolsText.t
++
++/**
++ * An on-screen ruler: centimetres down the left edge and inches down the right, drawn from the
++ * panel's own density (DisplayMetrics.ydpi), so it is only as true as the panel reports. Lay the
++ * object along the left or right edge of the glass, starting at the top. No sensors, nothing kept.
++ */
++class RulerController(private val host: ToolHost) : ToolController {
++    private val ctx = host.activity
++
++    override fun view(): View = LinearLayout(ctx).apply {
++        orientation = LinearLayout.VERTICAL
++        addView(Ui.body(ctx, t("ruler_hint")))
++        addView(
++            RulerView(ctx),
++            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
++        )
++    }
++
++    override fun info() = t("ruler_info")
++}
++
++private class RulerView(ctx: Context) : View(ctx) {
++    private val density = ctx.resources.displayMetrics
++    private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++        color = Color.WHITE
++        strokeWidth = density.density
++    }
++    private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++        color = Color.WHITE
++        textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, LABEL_SP, density)
++    }
++
++    init {
++        isFocusable = false
++    }
++
++    override fun onDraw(canvas: Canvas) {
++        super.onDraw(canvas)
++        val top = topOnScreen()
++        val length = height.toFloat()
++        // Ticks are placed from the top of the glass, so the scale starts at the screen edge.
++        RulerScale.metric(length + top, density.ydpi).forEach {
++            drawTick(canvas, it, top, onLeft = true)
++        }
++        RulerScale.imperial(length + top, density.ydpi).forEach {
++            drawTick(canvas, it, top, onLeft = false)
++        }
++    }
++
++    private fun topOnScreen(): Float {
++        val at = IntArray(2)
++        getLocationOnScreen(at)
++        return at[1].toFloat()
++    }
++
++    private fun drawTick(canvas: Canvas, tick: RulerTick, top: Float, onLeft: Boolean) {
++        val y = tick.px - top
++        if (y < 0f || y > height) return
++        val size = when (tick.size) {
++            RulerTick.Size.SHORT -> SHORT_MM
++            RulerTick.Size.MEDIUM -> MEDIUM_MM
++            RulerTick.Size.LONG -> LONG_MM
++        } * density.xdpi / MM_PER_INCH
++        val x0 = if (onLeft) 0f else width.toFloat()
++        val x1 = if (onLeft) size else width - size
++        canvas.drawLine(x0, y, x1, y, line)
++        tick.label?.let {
++            val gap = GAP_MM * density.xdpi / MM_PER_INCH
++            val tx = if (onLeft) x1 + gap else x1 - gap - text.measureText(it)
++            canvas.drawText(it, tx, y + text.textSize / 2, text)
++        }
++    }
++
++    private companion object {
++        const val LABEL_SP = 12f
++        const val MM_PER_INCH = 25.4f
++        const val SHORT_MM = 2f
++        const val MEDIUM_MM = 3.5f
++        const val LONG_MM = 5f
++        const val GAP_MM = 1f
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+index 517f598..7fc1878 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">بيانات اعتماد المزوّدين</string>
+     <string name="select_at_least_one_section">اختر قسمًا واحدًا على الأقل</string>
+     <string name="tv">التلفزيون</string>
++    <string name="ruler">المسطرة</string>
++    <string name="ruler_hint">ضعه على الحافة اليسرى (سم) أو اليمنى (إنش) بدءًا من أعلى الشاشة.</string>
++    <string name="ruler_info">يرسم السنتيمترات والبوصات من كثافة الشاشة نفسها، فدقته بقدر ما تبلغ عنه الشاشة. لا يُحفظ شيء.</string>
+     <string name="sos_alert">SOS والإنذار</string>
+     <string name="sos_light">ضوء SOS</string>
+     <string name="sos_screen_flash">وميض الشاشة</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+index 0c8ec4a..ac3066b 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">Anbieter-Zugangsdaten</string>
+     <string name="select_at_least_one_section">Wähle mindestens einen Abschnitt</string>
+     <string name="tv">TV</string>
++    <string name="ruler">Lineal</string>
++    <string name="ruler_hint">Links (cm) oder rechts (Zoll) anlegen, oben am Bildschirm beginnend.</string>
++    <string name="ruler_info">Zeichnet Zentimeter und Zoll aus der Pixeldichte des Bildschirms, so genau wie das Display sie meldet. Nichts wird gespeichert.</string>
+     <string name="sos_alert">SOS und Alarm</string>
+     <string name="sos_light">SOS-Licht</string>
+     <string name="sos_screen_flash">Bildschirmblitz</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+index 0fe41d0..90f2f9b 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">διαπιστευτήρια παρόχων</string>
+     <string name="select_at_least_one_section">Επιλέξτε τουλάχιστον μία ενότητα</string>
+     <string name="tv">Τηλεόραση</string>
++    <string name="ruler">Χάρακας</string>
++    <string name="ruler_hint">Τοποθετήστε το στο αριστερό (cm) ή δεξί (ίντσες) άκρο, από την κορυφή της οθόνης.</string>
++    <string name="ruler_info">Σχεδιάζει εκατοστά και ίντσες από την πυκνότητα της οθόνης, με την ακρίβεια που αναφέρει η οθόνη. Δεν αποθηκεύεται τίποτα.</string>
+     <string name="sos_alert">SOS και συναγερμός</string>
+     <string name="sos_light">Φως SOS</string>
+     <string name="sos_screen_flash">Αναλαμπή οθόνης</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+index e295b16..133a31b 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">credenciales de proveedores</string>
+     <string name="select_at_least_one_section">Selecciona al menos una sección</string>
+     <string name="tv">TV</string>
++    <string name="ruler">Regla</string>
++    <string name="ruler_hint">Apóyalo en el borde izquierdo (cm) o derecho (pulgadas), desde arriba de la pantalla.</string>
++    <string name="ruler_info">Dibuja centímetros y pulgadas según la densidad de la pantalla, con la precisión que indica el panel. No se guarda nada.</string>
+     <string name="sos_alert">SOS y alarma</string>
+     <string name="sos_light">Luz SOS</string>
+     <string name="sos_screen_flash">Destello de pantalla</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+index 19b4666..2ef64e0 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">identifiants des fournisseurs</string>
+     <string name="select_at_least_one_section">Sélectionnez au moins une section</string>
+     <string name="tv">TV</string>
++    <string name="ruler">Règle</string>
++    <string name="ruler_hint">Posez-le le long du bord gauche (cm) ou droit (pouces), depuis le haut de l\'écran.</string>
++    <string name="ruler_info">Trace centimètres et pouces selon la densité de l\'écran, aussi précis que ce que la dalle indique. Rien n\'est conservé.</string>
+     <string name="sos_alert">SOS et alarme</string>
+     <string name="sos_light">Lumière SOS</string>
+     <string name="sos_screen_flash">Flash d\'écran</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+index 9766484..d045896 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">प्रदाता क्रेडेंशियल</string>
+     <string name="select_at_least_one_section">कम से कम एक अनुभाग चुनें</string>
+     <string name="tv">टीवी</string>
++    <string name="ruler">रूलर</string>
++    <string name="ruler_hint">स्क्रीन के ऊपर से, बाएँ (सेमी) या दाएँ (इंच) किनारे पर रखें।</string>
++    <string name="ruler_info">स्क्रीन के अपने घनत्व से सेंटीमीटर और इंच बनाता है, इसलिए उतना ही सटीक है जितना पैनल बताता है। कुछ भी सहेजा नहीं जाता।</string>
+     <string name="sos_alert">SOS और अलार्म</string>
+     <string name="sos_light">SOS लाइट</string>
+     <string name="sos_screen_flash">स्क्रीन फ़्लैश</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+index 451bdbb..ded582a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">credenziali dei fornitori</string>
+     <string name="select_at_least_one_section">Seleziona almeno una sezione</string>
+     <string name="tv">TV</string>
++    <string name="ruler">Righello</string>
++    <string name="ruler_hint">Appoggialo al bordo sinistro (cm) o destro (pollici), partendo dall\'alto dello schermo.</string>
++    <string name="ruler_info">Disegna centimetri e pollici dalla densità dello schermo, preciso quanto indica il pannello. Nulla viene salvato.</string>
+     <string name="sos_alert">SOS e allarme</string>
+     <string name="sos_light">Luce SOS</string>
+     <string name="sos_screen_flash">Lampeggio schermo</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+index 2bbaa6a..c793da3 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">אישורי ספקים</string>
+     <string name="select_at_least_one_section">בחרו לפחות מקטע אחד</string>
+     <string name="tv">טלוויזיה</string>
++    <string name="ruler">סרגל</string>
++    <string name="ruler_hint">הניחו לאורך הקצה השמאלי (ס״מ) או הימני (אינץ׳), מראש המסך.</string>
++    <string name="ruler_info">משרטט סנטימטרים ואינצ׳ים לפי צפיפות המסך, מדויק כפי שהמסך מדווח. דבר אינו נשמר.</string>
+     <string name="sos_alert">SOS והתראה</string>
+     <string name="sos_light">אור SOS</string>
+     <string name="sos_screen_flash">הבהוב מסך</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+index 8d71907..5e0940c 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">プロバイダーの認証情報</string>
+     <string name="select_at_least_one_section">少なくとも 1 つのセクションを選択してください</string>
+     <string name="tv">テレビ</string>
++    <string name="ruler">定規</string>
++    <string name="ruler_hint">画面の上端から、左端(cm)または右端(インチ)に沿って当ててください。</string>
++    <string name="ruler_info">画面自身の密度から cm とインチを描きます。精度はパネルの報告どおりです。何も保存しません。</string>
+     <string name="sos_alert">SOSとアラーム</string>
+     <string name="sos_light">SOSライト</string>
+     <string name="sos_screen_flash">画面フラッシュ</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+index ab3b315..1bf01c1 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">제공업체 자격 증명</string>
+     <string name="select_at_least_one_section">섹션을 하나 이상 선택하세요</string>
+     <string name="tv">TV</string>
++    <string name="ruler">자</string>
++    <string name="ruler_hint">화면 위쪽부터 왼쪽(cm) 또는 오른쪽(인치) 가장자리에 대세요.</string>
++    <string name="ruler_info">화면 자체의 밀도로 센티미터와 인치를 그리므로 패널이 알려 주는 만큼 정확합니다. 아무것도 저장하지 않습니다.</string>
+     <string name="sos_alert">SOS 및 경보</string>
+     <string name="sos_light">SOS 조명</string>
+     <string name="sos_screen_flash">화면 깜박임</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+index 311673d..d4bf859 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">inloggegevens van providers</string>
+     <string name="select_at_least_one_section">Selecteer ten minste één sectie</string>
+     <string name="tv">Tv</string>
++    <string name="ruler">Liniaal</string>
++    <string name="ruler_hint">Leg het langs de linkerrand (cm) of rechterrand (inch), vanaf de bovenkant van het scherm.</string>
++    <string name="ruler_info">Tekent centimeters en inches uit de dichtheid van het scherm, zo nauwkeurig als het paneel meldt. Er wordt niets bewaard.</string>
+     <string name="sos_alert">SOS en alarm</string>
+     <string name="sos_light">SOS-licht</string>
+     <string name="sos_screen_flash">Schermflits</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+index 30f3322..cc092ee 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">poświadczenia dostawców</string>
+     <string name="select_at_least_one_section">Wybierz co najmniej jedną sekcję</string>
+     <string name="tv">TV</string>
++    <string name="ruler">Linijka</string>
++    <string name="ruler_hint">Przyłóż wzdłuż lewej (cm) lub prawej (cale) krawędzi, od góry ekranu.</string>
++    <string name="ruler_info">Rysuje centymetry i cale na podstawie gęstości ekranu, tak dokładnie, jak podaje panel. Nic nie jest zapisywane.</string>
+     <string name="sos_alert">SOS i alarm</string>
+     <string name="sos_light">Światło SOS</string>
+     <string name="sos_screen_flash">Błysk ekranu</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+index d4b99d0..ebc9f6a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">credenciais de provedores</string>
+     <string name="select_at_least_one_section">Selecione pelo menos uma seção</string>
+     <string name="tv">TV</string>
++    <string name="ruler">Régua</string>
++    <string name="ruler_hint">Encoste na borda esquerda (cm) ou direita (polegadas), a partir do topo da tela.</string>
++    <string name="ruler_info">Desenha centímetros e polegadas pela densidade da tela, com a precisão que o painel informa. Nada é guardado.</string>
+     <string name="sos_alert">SOS e alarme</string>
+     <string name="sos_light">Luz SOS</string>
+     <string name="sos_screen_flash">Flash da tela</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+index d46db4f..2363cb2 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">учётные данные провайдеров</string>
+     <string name="select_at_least_one_section">Выберите хотя бы один раздел</string>
+     <string name="tv">ТВ</string>
++    <string name="ruler">Линейка</string>
++    <string name="ruler_hint">Приложите к левому (см) или правому (дюймы) краю, начиная от верха экрана.</string>
++    <string name="ruler_info">Рисует сантиметры и дюймы по плотности экрана, с той точностью, которую сообщает панель. Ничего не сохраняется.</string>
+     <string name="sos_alert">SOS и сигнал тревоги</string>
+     <string name="sos_light">Свет SOS</string>
+     <string name="sos_screen_flash">Вспышка экрана</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+index 1e8bcec..b9e89b8 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">leverantörsuppgifter</string>
+     <string name="select_at_least_one_section">Välj minst ett avsnitt</string>
+     <string name="tv">TV</string>
++    <string name="ruler">Linjal</string>
++    <string name="ruler_hint">Lägg det längs vänster (cm) eller höger (tum) kant, från skärmens överkant.</string>
++    <string name="ruler_info">Ritar centimeter och tum utifrån skärmens täthet, så noggrant som panelen anger. Inget sparas.</string>
+     <string name="sos_alert">SOS och larm</string>
+     <string name="sos_light">SOS-ljus</string>
+     <string name="sos_screen_flash">Skärmblixt</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+index 0306225..d816d1a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">sağlayıcı kimlik bilgileri</string>
+     <string name="select_at_least_one_section">En az bir bölüm seçin</string>
+     <string name="tv">TV</string>
++    <string name="ruler">Cetvel</string>
++    <string name="ruler_hint">Ekranın üstünden başlayarak sol (cm) veya sağ (inç) kenara yaslayın.</string>
++    <string name="ruler_info">Santimetre ve inçleri ekranın kendi yoğunluğundan çizer; panelin bildirdiği kadar doğrudur. Hiçbir şey saklanmaz.</string>
+     <string name="sos_alert">SOS ve alarm</string>
+     <string name="sos_light">SOS ışığı</string>
+     <string name="sos_screen_flash">Ekran flaşı</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+index 07080de..28773d2 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">فراہم کنندگان کی اسناد</string>
+     <string name="select_at_least_one_section">کم از کم ایک حصہ منتخب کریں</string>
+     <string name="tv">ٹی وی</string>
++    <string name="ruler">رولر</string>
++    <string name="ruler_hint">اسکرین کے اوپر سے، بائیں (سینٹی میٹر) یا دائیں (انچ) کنارے کے ساتھ رکھیں۔</string>
++    <string name="ruler_info">اسکرین کی اپنی کثافت سے سینٹی میٹر اور انچ بناتا ہے، اس لیے اتنا ہی درست ہے جتنا پینل بتاتا ہے۔ کچھ محفوظ نہیں ہوتا۔</string>
+     <string name="sos_alert">SOS اور الارم</string>
+     <string name="sos_light">SOS لائٹ</string>
+     <string name="sos_screen_flash">اسکرین فلیش</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+index 78cbb15..c0f1b91 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+@@ -302,6 +302,9 @@
+     <string name="provider_credentials">提供商凭据</string>
+     <string name="select_at_least_one_section">请至少选择一个部分</string>
+     <string name="tv">电视</string>
++    <string name="ruler">尺子</string>
++    <string name="ruler_hint">从屏幕顶部开始,沿左边缘(厘米)或右边缘(英寸)放置。</string>
++    <string name="ruler_info">根据屏幕自身的像素密度绘制厘米和英寸,精度取决于屏幕报告的数值。不保存任何内容。</string>
+     <string name="sos_alert">SOS与警报</string>
+     <string name="sos_light">SOS灯光</string>
+     <string name="sos_screen_flash">屏幕闪烁</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+index 320beb1..c457d82 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+@@ -303,6 +303,9 @@
+     <string name="provider_credentials">provider credentials</string>
+     <string name="select_at_least_one_section">Select at least one section</string>
+     <string name="tv">TV</string>
++    <string name="ruler">Ruler</string>
++    <string name="ruler_hint">Lay it along the left (cm) or right (inch) edge, from the top of the screen.</string>
++    <string name="ruler_info">Draws centimetres and inches from the screen\'s own density, so it is as accurate as the panel reports. Nothing is kept.</string>
+     <string name="sos_alert">SOS and alarm</string>
+     <string name="sos_light">SOS light</string>
+     <string name="sos_screen_flash">Screen flash</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/RulerScaleTest.kt b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/RulerScaleTest.kt
+new file mode 100644
+index 0000000..e2c6611
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/core/RulerScaleTest.kt
+@@ -0,0 +1,30 @@
++package org.sableos.tools.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class RulerScaleTest {
++    @Test fun metricTicksEveryMillimetreNumberedEveryCentimetre() {
++        val ticks = RulerScale.metric(lengthPx = 254f, pxPerInch = 254f)
++        assertEquals(26, ticks.size)
++        assertEquals("0", ticks[0].label)
++        assertEquals("1", ticks[10].label)
++        assertEquals(100f, ticks[10].px, 0.01f)
++        assertEquals(RulerTick.Size.MEDIUM, ticks[5].size)
++        assertEquals(RulerTick.Size.SHORT, ticks[3].size)
++    }
++
++    @Test fun imperialTicksEveryEighthNumberedEveryInch() {
++        val ticks = RulerScale.imperial(lengthPx = 400f, pxPerInch = 160f)
++        assertEquals(21, ticks.size)
++        assertEquals("2", ticks[16].label)
++        assertEquals(320f, ticks[16].px, 0.01f)
++        assertEquals(RulerTick.Size.MEDIUM, ticks[4].size)
++    }
++
++    @Test fun nothingWithoutADensity() {
++        assertTrue(RulerScale.metric(100f, 0f).isEmpty())
++        assertTrue(RulerScale.imperial(0f, 160f).isEmpty())
++    }
++}

@@ -37,4 +37,13 @@
     <string name="forecast_unavailable_check_the_connection">התחזית לא זמינה. בדקו את החיבור ונסו שוב.</string>
     <string name="provider_response_could_not_be">לא ניתן לעבד את תגובת הספק לתבנית הנדרשת.</string>
     <string name="updated_from_open_meteo">עודכן מ־Open-Meteo.</string>
+    <string name="alert_notifications">התראות</string>
+    <string name="alert_morning_forecast">תחזית בוקר</string>
+    <string name="alert_morning_forecast_detail">תחזית היום, פעם אחת בכל בוקר</string>
+    <string name="alert_rain_alerts">התראות גשם</string>
+    <string name="alert_rain_alerts_detail">התראה כשצפוי גשם ב-3 השעות הקרובות</string>
+    <string name="alert_today_in">היום ב%1$s</string>
+    <string name="alert_today_line">%1$s · %2$d° / %3$d° · גשם %4$d%%</string>
+    <string name="alert_rain_soon_in">גשם בקרוב ב%1$s</string>
+    <string name="alert_rain_line">צפוי בסביבות %1$s (%2$d%%)</string>
 </resources>

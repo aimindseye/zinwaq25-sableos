@@ -1,0 +1,90 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 6 Nov 2026 17:50:00 +0000
+Subject: [PATCH] SableOS: no accent or pure black choice on the Theme step
+ (2.0)
+
+SableOS 2.0 is black and white with one blue for focus (UI direction
+agreed 2026-11-04; Settings 1609 keeps a single accent). The Theme step
+no longer shows the accent and its link to Settings, and no longer
+offers the pure black switch: choosing Dark turns pure black on. The
+Look step's note says so.
+---
+ .../org/lineageos/setupwizard/sable/SableAccent.java | 12 ++++++++++--
+ .../setupwizard/settings/ThemeSettingsActivity.kt    |  9 +++++++--
+ app/src/main/res/values/sable_strings.xml            |  2 +-
+ 3 files changed, 18 insertions(+), 5 deletions(-)
+
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableAccent.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableAccent.java
+index c514286..fd2c74b 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/sable/SableAccent.java
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableAccent.java
+@@ -23,8 +23,11 @@ public final class SableAccent {
+     public static final String CONTENT_URI = "content://" + AUTHORITY + "/appearance";
+     public static final String COLUMN_ACCENT = "accent";
+ 
+-    /** Values in display order; equal to SableAppearancePolicy.ACCENTS in Settings. */
+-    private static final String[] VALUES = {"blue", "green", "purple", "orange", "slate"};
++    /**
++     * Values in display order; equal to SableAppearancePolicy.ACCENTS in Settings. SableOS 2.0
++     * has one blue (Settings 1609), so there is nothing to choose and the step hides the accent.
++     */
++    private static final String[] VALUES = {"blue"};
+ 
+     /** Settings > Display > Accent preference key (Settings patch 0101). */
+     public static final String SETTINGS_PREFERENCE_KEY = "sable_accent";
+@@ -37,6 +40,11 @@ public final class SableAccent {
+         return VALUES.length;
+     }
+ 
++    /** True when there is more than one accent to choose from (never in 2.0). */
++    public static boolean hasChoice() {
++        return VALUES.length > 1;
++    }
++
+     /**
+      * Index of a stored accent value for its label, or -1 when the value is missing or not a
+      * Sable preset (the step then shows no accent rather than guessing).
+diff --git a/app/src/main/java/org/lineageos/setupwizard/settings/ThemeSettingsActivity.kt b/app/src/main/java/org/lineageos/setupwizard/settings/ThemeSettingsActivity.kt
+index cf9b019..af91743 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/settings/ThemeSettingsActivity.kt
++++ b/app/src/main/java/org/lineageos/setupwizard/settings/ThemeSettingsActivity.kt
+@@ -123,7 +123,7 @@ class ThemeSettingsActivity : BaseSetupWizardActivity() {
+         val current = findViewById<TextView>(R.id.sable_accent_current) ?: return
+         val note = findViewById<View>(R.id.sable_accent_note) ?: return
+         val change = findViewById<Button>(R.id.sable_accent_change) ?: return
+-        val index = SableAccent.indexOf(readSableAccent())
++        val index = if (SableAccent.hasChoice()) SableAccent.indexOf(readSableAccent()) else -1
+         val labels = resources.getStringArray(R.array.sable_accent_entries)
+         if (index < 0 || index >= labels.size) {
+             current.visibility = View.GONE
+@@ -194,7 +194,12 @@ class ThemeSettingsActivity : BaseSetupWizardActivity() {
+     }
+ 
+     private fun setBlackThemeRevealed(revealed: Boolean) {
+-        blackThemeCard.visibility = if (revealed) View.VISIBLE else View.GONE
++        // SableOS 2.0: the dark theme is always pure black (black and white look, 2026-11-04),
++        // so the switch is not offered; choosing Dark turns it on.
++        blackThemeCard.visibility = View.GONE
++        if (revealed) {
++            LineageSettings.Secure.putInt(contentResolver, LineageSettings.Secure.BERRY_BLACK_THEME, 1)
++        }
+     }
+ 
+     override val layoutResId = R.layout.setup_theme
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
+index 92ead55..a18779c 100644
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
+@@ -90,7 +90,7 @@
+     <string name="sable_look_summary">Choose how the home screen looks. You can change it later.</string>
+     <string name="sable_look_bb10"><b>BlackBerry 10 style</b>\nHub on the left, your open apps as Active Frames, the app grid on the right, status dials on top and pure black.</string>
+     <string name="sable_look_bb7"><b>BlackBerry 7 style</b>\nA banner with the clock and status over a tray of app icons, with pure black.</string>
+-    <string name="sable_look_note">Change the home later from Sable Setup or the home screen’s menu, the dials in Edit Home, and pure black on the next step or in Settings, Display.</string>
++    <string name="sable_look_note">Change the home later from Sable Setup or the home screen’s menu, the dials in Edit Home. The look is black and white with one blue for focus.</string>
+ 
+     <!-- SableOS Sable apps step (plan phase C), after Theme. Apps left out are disabled, never
+          uninstalled. -->
+-- 
+2.43.0
+

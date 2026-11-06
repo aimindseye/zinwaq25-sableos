@@ -28,6 +28,13 @@
 # vendor/lineage/config/telephony.mk). Sable Hub and Start's Hub page read and send through the
 # same provider without the role. It ships R8-shrunk (release, ~2 MB) to save partition space.
 #
+# SablePhone is the Phone app, BlackBerry 10 style: call list, dial pad, contacts search, speed dial
+# on letter keys and its own call screens (an InCallService). From Q4 it is the default Phone app
+# (android.app.role.DIALER; config_defaultDialer in SableFrameworkOverlay) and the system dialer
+# Telecom falls back to for emergency calls (SableTelecomOverlay), and it overrides the LineageOS
+# Dialer (Soong module "Dialer"; stage-product.sh adds the override at Q4 only, like LatinIME for
+# the keyboard). Before Q4 it ships next to the stock Dialer as an ordinary app.
+#
 # Package ids stay as they are in SableOS (for example org.sableos.titan2.keyboard):
 # the Q25 does not fork common apps.
 module	group	gradle_root	gradle_task	apk	package	signing	overrides	enabled
@@ -40,6 +47,7 @@ SableProfiles	platform	apps/titan2/platform	:profiles:assembleRelease	profiles/b
 SableSpaces	platform	apps/titan2/platform	:spaces:assembleRelease	spaces/build/outputs/apk/release/*.apk	org.sableos.titan2.spaces	unsigned	-	yes
 SablePrintToGo	platform	apps/titan2/platform	:printtogo:assembleRelease	printtogo/build/outputs/apk/release/*.apk	org.sableos.titan2.printtogo	unsigned	-	yes
 SableCompass	platform	apps/titan2/platform	:compass:assembleRelease	compass/build/outputs/apk/release/*.apk	org.sableos.titan2.compass	unsigned	-	yes
+SablePhone	platform	apps/titan2/platform	:phone:assembleRelease	phone/build/outputs/apk/release/*.apk	org.sableos.phone	privileged	-	yes
 SableRadioDiag	platform	apps/titan2/platform	:radiodiag:assembleRelease	radiodiag/build/outputs/apk/release/*.apk	org.sableos.titan2.radiodiag	unsigned	-	no
 SableTools	platform	apps/titan2/platform	:tools:assembleRelease	tools/build/outputs/apk/release/*.apk	org.sableos.tools	unsigned	SableRadioDiag	yes
 # Sable Calculator ships as a shrunk release build for the same reason: Q4 with microG overflowed the
@@ -76,6 +84,9 @@ SableTasks	common	apps/r8/android	:tasks:assembleRelease	tasks/build/outputs/apk
 # pointer that speeds up on long strokes, slows over links and scrolls at the edges, and BB10 keys.
 # Shrunk release build like Notes. Jelly stays installed; the user picks the default browser.
 SableBrowser	common	apps/r8/android	:browser:assembleRelease	browser/build/outputs/apk/release/*.apk	org.sableos.browser	unsigned	-	yes
+# Cosgrove, the Sable assistant (owner request 2026-11-06): a chat with the owner's own Ollama or a
+# hosted model under their key, and hold-to-talk recognized on the phone (Vosk). No wake word.
+SableAssistant	common	apps/r8/android	:assistant:assembleRelease	assistant/build/outputs/apk/release/*.apk	org.sableos.assistant	unsigned	-	yes
 SableMessages	common	apps/r8/android	:messages:assembleRelease	messages/build/outputs/apk/release/*.apk	org.sableos.messages	unsigned	messaging	yes
 SableReader	common	apps/common/reader	:leisure:assembleSableDebug	leisure/build/outputs/apk/sable/debug/*.apk	org.sableos.reader	presigned	-	yes
 # Sable Mail (Thunderbird flavor) is off from 2.0 (owner decision 2026-11-04: account setup was

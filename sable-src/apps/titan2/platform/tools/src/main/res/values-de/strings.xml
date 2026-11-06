@@ -302,6 +302,9 @@
     <string name="provider_credentials">Anbieter-Zugangsdaten</string>
     <string name="select_at_least_one_section">Wähle mindestens einen Abschnitt</string>
     <string name="tv">TV</string>
+    <string name="ruler">Lineal</string>
+    <string name="ruler_hint">Links (cm) oder rechts (Zoll) anlegen, oben am Bildschirm beginnend.</string>
+    <string name="ruler_info">Zeichnet Zentimeter und Zoll aus der Pixeldichte des Bildschirms, so genau wie das Display sie meldet. Nichts wird gespeichert.</string>
     <string name="sos_alert">SOS und Alarm</string>
     <string name="sos_light">SOS-Licht</string>
     <string name="sos_screen_flash">Bildschirmblitz</string>

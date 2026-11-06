@@ -200,4 +200,10 @@
     <string name="row_menu_snooze_detail">Voegt 1 uur uitstellen en de toets Z toe voor een actieve melding.</string>
     <string name="row_menu_remind_me">Herinner me in het rijmenu</string>
     <string name="row_menu_remind_me_detail">Voegt een opvolgtaak toe in Sable Tasks voor morgenochtend. Alleen de app wordt bewaard, nooit het bericht.</string>
+    <string name="add_sender_to_priority">Afzender toevoegen aan Prioriteits-Hub</string>
+    <string name="remove_sender_from_priority">Afzender verwijderen uit Prioriteits-Hub</string>
+    <string name="add_app_to_priority">Hele app toevoegen aan Prioriteits-Hub</string>
+    <string name="remove_app_from_priority">Deze app verwijderen uit Prioriteits-Hub</string>
+    <string name="added_to_priority">Toegevoegd aan Prioriteits-Hub</string>
+    <string name="removed_from_priority">Verwijderd uit Prioriteits-Hub</string>
 </resources>

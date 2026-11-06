@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">Bonjour. %1$s à votre service. Que puis-je faire pour vous ?</string>
+    <string name="message_hint">Demander à %1$s</string>
+    <string name="thinking">%1$s réfléchit…</string>
+    <string name="keys_hint">Entrée envoie · Maj+Entrée nouvelle ligne · maintenir Espace pour parler · Menu réglages</string>
+    <string name="send">Envoyer</string>
+    <string name="settings">Réglages</string>
+    <string name="new_chat">Nouvelle conversation</string>
+    <string name="done">Terminé</string>
+    <string name="setup_first">Choisissez dans les réglages d’où viennent mes réponses.</string>
+    <string name="name">Nom</string>
+    <string name="name_detail">Command m’ouvre avec /%1$s</string>
+    <string name="provider">D’où viennent mes réponses</string>
+    <string name="provider_ollama">Ollama sur votre réseau</string>
+    <string name="provider_ollama_detail">Gratuit. Rien ne quitte votre réseau domestique.</string>
+    <string name="provider_custom">Autre serveur sur votre réseau</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp ou tout serveur avec une API de type OpenAI.</string>
+    <string name="provider_hosted_detail">Offre gratuite avec votre propre clé. Vos messages vont à %1$s ; les offres gratuites sont limitées et peuvent utiliser les messages pour l’entraînement.</string>
+    <string name="address">Adresse du serveur</string>
+    <string name="address_hint">Par exemple 192.168.1.20</string>
+    <string name="ollama_address_detail">L’adresse de votre ordinateur. Ollama doit écouter sur le réseau : définissez OLLAMA_HOST=0.0.0.0 et redémarrez-le.</string>
+    <string name="api_key">Clé API</string>
+    <string name="api_key_hint">Collez la clé du site du fournisseur</string>
+    <string name="model">Modèle</string>
+    <string name="model_none">Aucun modèle choisi. Testez la connexion pour les lister.</string>
+    <string name="test_connection">Tester la connexion</string>
+    <string name="testing">Connexion…</string>
+    <string name="models_found">Connecté. %1$s modèles trouvés ; choisissez-en un ci-dessous.</string>
+    <string name="no_models">Connecté, mais le serveur ne liste aucun modèle.</string>
+    <string name="error_provider">Choisissez d’abord d’où viennent mes réponses.</string>
+    <string name="error_address">Saisissez l’adresse de votre serveur, par exemple 192.168.1.20.</string>
+    <string name="error_plain_http">Le http simple ne fonctionne que sur votre propre réseau. Utilisez une adresse https.</string>
+    <string name="error_key">Saisissez d’abord votre clé API.</string>
+    <string name="error_model">Choisissez d’abord un modèle dans les réglages.</string>
+    <string name="error_unreachable">Je n’ai pas pu joindre le serveur. Vérifiez l’adresse et qu’il est démarré.</string>
+    <string name="error_timeout">Le serveur a mis trop de temps à répondre.</string>
+    <string name="error_server">Le serveur a répondu : %1$s</string>
+    <string name="privacy_note">Les conversations restent en mémoire seulement et disparaissent quand vous en commencez une nouvelle.</string>
+    <string name="talk">Maintenir pour parler</string>
+    <string name="listening">J’écoute… relâchez quand vous avez fini.</string>
+    <string name="voice">Voix</string>
+    <string name="voice_detail">Maintenez Espace dans une zone de message vide, ou maintenez Parler, et parlez (anglais pour l’instant). La parole devient du texte sur ce téléphone et attend que vous l’envoyiez. Rien n’écoute si vous ne maintenez pas.</string>
+    <string name="voice_download">Télécharger le modèle vocal (%1$s Mo)</string>
+    <string name="voice_downloading">Téléchargement du modèle vocal…</string>
+    <string name="voice_ready">Modèle vocal prêt.</string>
+    <string name="voice_remove">Supprimer le modèle vocal</string>
+    <string name="voice_missing">Pour parler, téléchargez le modèle vocal dans les réglages.</string>
+    <string name="voice_failed">Le modèle vocal n’a pas pu être téléchargé.</string>
+    <string name="voice_permission">Autorisez le micro pour que je vous entende pendant que vous maintenez.</string>
+    <string name="voice_nothing">Je n’ai pas compris.</string>
+</resources>

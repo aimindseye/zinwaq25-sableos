@@ -61,7 +61,7 @@ Paths default to `~/sable-q25`. Put the tree elsewhere with
 NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q2 bootstrap
 ```
 
-This runs `repo init` on LineageOS `lineage-23.2`, installs
+This runs `repo init` on LineageOS `lineage-24.0` (an existing lineage-23.2 tree is moved over, after its Sable patches are taken out), installs
 `manifests/local_manifests/sable_q25.xml` (device tree, kernel, MediaTek
 hardware, sepolicy and TheMuppets blobs, all pinned), syncs, and writes the exact
 revisions to `~/sable-q25/evidence/manifest-*.xml`.
@@ -209,7 +209,7 @@ What the scripts do, for reference:
 
 ```bash
 cd ~/sable-q25/android
-repo init -u https://github.com/LineageOS/android.git -b lineage-23.2 --git-lfs
+repo init -u https://github.com/LineageOS/android.git -b lineage-24.0 --git-lfs
 cp <this repo>/manifests/local_manifests/sable_q25.xml .repo/local_manifests/
 repo sync -c -j$(nproc) --no-tags
 # Q2 only:

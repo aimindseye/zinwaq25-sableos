@@ -88,7 +88,7 @@ import java.util.Date
  * twice) on the wallpaper, and a tray along the bottom with one row of Favorites that opens into
  * the whole panel. Keys as on BlackBerry 7: arrows move, Enter opens, Up opens the tray and
  * Escape closes it, Space switches panels (Favorites, All, Downloads), typing searches apps, Menu
- * opens the home options. As on the BlackBerry 10 home, Hub is to the left and the apps to the
+ * opens the home options, Alt+Space opens Command. As on the BlackBerry 10 home, Hub is to the left and the apps to the
  * right: a swipe to the right or Alt+Left opens Hub, a swipe to the left or Alt+Right opens All;
  * with the tray open, Alt+Left/Right switch panels. The home screen shows [homeRows] rows of the
  * panel's icons; dragging the tray up or down shows more or fewer, as on BlackBerry 7. Menu on an
@@ -121,6 +121,8 @@ fun Bb7HomeScreen(
     speedDial: SpeedDialRepository? = null,
     letterShortcuts: LetterShortcutRepository? = null,
     onOpenMenu: (List<Pair<String, () -> Unit>>) -> Unit,
+    /** Command search, as Alt+Space opens it from any app (shown on the BlackBerry 10 screen). */
+    onOpenCommand: () -> Unit = {},
 ) {
     // The tray place: the three panels, then the user's tabs (see Bb7Home.trayPlaces).
     var place by remember { mutableIntStateOf(0) }
@@ -224,6 +226,7 @@ fun Bb7HomeScreen(
                 add(t("app_info") to { onOpenAppInfo(app) })
                 if (app.canUninstall && app.inLauncherUser) add(t("delete_app") to { onUninstallApp(app) })
             }
+            if (!searching) add(t("open_command") to onOpenCommand)
             if (!searching && tabs.size < Bb7Tabs.MAX) add(t("new_tab") to { naming = "" })
             if (!searching && tab != null) {
                 add(
@@ -367,6 +370,7 @@ fun Bb7HomeScreen(
                                 native.keyCode == KeyEvent.KEYCODE_ENTER ||
                                     native.keyCode == KeyEvent.KEYCODE_DPAD_CENTER ->
                                     shown.getOrNull(selected)?.let { onLaunchApp(it) }
+                                native.keyCode == KeyEvent.KEYCODE_SPACE && native.isAltPressed -> onOpenCommand()
                                 native.keyCode == KeyEvent.KEYCODE_SPACE && !searching -> {
                                     place = Bb7Home.stepPlace(at, 1, tabs.size)
                                     selected = 0
@@ -485,7 +489,7 @@ private fun Bb7Banner(
                 .background(BANNER_SCRIM)
                 .padding(horizontal = 12.dp, vertical = if (compact) 4.dp else 8.dp),
     ) {
-        if (!compact) SableStatusRings(modifier = Modifier.fillMaxWidth(), ringSize = RING_DP.dp)
+        if (!compact) SableStatusLabels(modifier = Modifier.fillMaxWidth())
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f).padding(top = if (compact) 0.dp else 6.dp)) {
                 Text(
@@ -685,7 +689,6 @@ private fun TrayArrow(
 private const val CHORD_META = 0xc1 or 0x32 or 0x4 or 0x8 or 0x7000 or 0x70000
 
 private const val DATE_TICK_MS = 60_000L
-private const val RING_DP = 34
 private const val SWIPE_DP = 72
 
 /** A tray row's height, the drag that shows one more or one fewer row. */

@@ -302,6 +302,9 @@
     <string name="provider_credentials">بيانات اعتماد المزوّدين</string>
     <string name="select_at_least_one_section">اختر قسمًا واحدًا على الأقل</string>
     <string name="tv">التلفزيون</string>
+    <string name="ruler">المسطرة</string>
+    <string name="ruler_hint">ضعه على الحافة اليسرى (سم) أو اليمنى (إنش) بدءًا من أعلى الشاشة.</string>
+    <string name="ruler_info">يرسم السنتيمترات والبوصات من كثافة الشاشة نفسها، فدقته بقدر ما تبلغ عنه الشاشة. لا يُحفظ شيء.</string>
     <string name="sos_alert">SOS والإنذار</string>
     <string name="sos_light">ضوء SOS</string>
     <string name="sos_screen_flash">وميض الشاشة</string>

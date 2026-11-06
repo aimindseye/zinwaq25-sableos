@@ -1,0 +1,598 @@
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt
+index 33023e1..19eda50 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableTheme.kt
+@@ -1,5 +1,6 @@
+ package org.sableos.design
+ 
++import android.graphics.Typeface
+ import androidx.compose.foundation.isSystemInDarkTheme
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.material3.MaterialTheme
+@@ -11,6 +12,7 @@ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.remember
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.text.TextStyle
++import androidx.compose.ui.text.font.FontFamily
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+@@ -102,50 +104,67 @@ object SableColorTokens {
+     val LightTextMuted = Color(0xFF515B66)
+ }
+ 
+-private val SableTypography = Typography(
++/**
++ * Source Sans 3 (Sable 2.0 type, UI direction 2026-11-04): the "source-sans" family the image adds
++ * in /product/etc/fonts_customization.xml. Where it is missing, Typeface.create returns the default
++ * sans-serif, so nothing breaks.
++ */
++val SableFontFamily: FontFamily by lazy { FontFamily(Typeface.create("source-sans", Typeface.NORMAL)) }
++
++private val SableTypography by lazy {
++Typography(
+     displayLarge = TextStyle(
++        fontFamily = SableFontFamily,
+         fontSize = 44.sp,
+         lineHeight = 50.sp,
+         fontWeight = FontWeight.Light,
+         letterSpacing = (-0.8).sp,
+     ),
+     headlineLarge = TextStyle(
++        fontFamily = SableFontFamily,
+         fontSize = 34.sp,
+         lineHeight = 40.sp,
+         fontWeight = FontWeight.Light,
+         letterSpacing = (-0.4).sp,
+     ),
+     headlineMedium = TextStyle(
++        fontFamily = SableFontFamily,
+         fontSize = 26.sp,
+         lineHeight = 32.sp,
+         fontWeight = FontWeight.Normal,
+     ),
+     titleLarge = TextStyle(
++        fontFamily = SableFontFamily,
+         fontSize = 21.sp,
+         lineHeight = 27.sp,
+         fontWeight = FontWeight.Medium,
+     ),
+     titleMedium = TextStyle(
++        fontFamily = SableFontFamily,
+         fontSize = 17.sp,
+         lineHeight = 23.sp,
+         fontWeight = FontWeight.Medium,
+     ),
+     bodyLarge = TextStyle(
++        fontFamily = SableFontFamily,
+         fontSize = 17.sp,
+         lineHeight = 24.sp,
+         fontWeight = FontWeight.Normal,
+     ),
+     bodyMedium = TextStyle(
++        fontFamily = SableFontFamily,
+         fontSize = 15.sp,
+         lineHeight = 21.sp,
+         fontWeight = FontWeight.Normal,
+     ),
+     labelLarge = TextStyle(
++        fontFamily = SableFontFamily,
+         fontSize = 14.sp,
+         lineHeight = 18.sp,
+         fontWeight = FontWeight.Medium,
+     ),
+ )
++}
+ 
+ /** Material shapes for a corner style, built from [SableShapeTable]. */
+ fun sableShapes(style: SableCornerStyle): Shapes {
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/CompassActivity.kt b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/CompassActivity.kt
+index 989ad9e..be00632 100644
+--- a/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/CompassActivity.kt
++++ b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/CompassActivity.kt
+@@ -4,7 +4,6 @@ import android.Manifest
+ import android.app.Activity
+ import android.content.Context
+ import android.content.pm.PackageManager
+-import android.graphics.Typeface
+ import android.hardware.GeomagneticField
+ import android.hardware.Sensor
+ import android.hardware.SensorEvent
+@@ -24,6 +23,7 @@ import android.window.OnBackInvokedDispatcher
+ import org.sableos.titan2.compass.core.Accuracy
+ import org.sableos.titan2.compass.core.CompassText.t
+ import org.sableos.titan2.compass.core.Heading
++import org.sableos.titan2.theme.SableFonts
+ import org.sableos.titan2.theme.SablePalette
+ 
+ /**
+@@ -317,7 +317,7 @@ class CompassActivity :
+         textSize = sp
+         setTextColor(color)
+         gravity = Gravity.CENTER_HORIZONTAL
+-        if (bold) typeface = Typeface.DEFAULT_BOLD
++        typeface = SableFonts.of(bold)
+     }
+ 
+     private companion object {
+diff --git a/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/DialView.kt b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/DialView.kt
+index d465074..33b50d8 100644
+--- a/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/DialView.kt
++++ b/sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/android/DialView.kt
+@@ -5,12 +5,12 @@ import android.graphics.Canvas
+ import android.graphics.Paint
+ import android.graphics.Path
+ import android.graphics.RectF
+-import android.graphics.Typeface
+ import android.view.View
+ import kotlin.math.min
+ import kotlin.math.sqrt
+ import org.sableos.titan2.compass.core.CompassText.t
+ import org.sableos.titan2.compass.core.Heading
++import org.sableos.titan2.theme.SableFonts
+ import org.sableos.titan2.theme.SablePalette
+ 
+ /**
+@@ -27,7 +27,7 @@ class DialView(context: Context, private val palette: SablePalette) : View(conte
+     }
+     private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+         textAlign = Paint.Align.CENTER
+-        typeface = Typeface.DEFAULT_BOLD
++        typeface = SableFonts.BOLD
+     }
+     private val oval = RectF()
+     private val mark = Path()
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ui.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ui.kt
+index 47a2277..bf6ab8b 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ui.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ui.kt
+@@ -2,7 +2,6 @@ package org.sableos.phone.android
+ 
+ import android.content.Context
+ import android.content.res.ColorStateList
+-import android.graphics.Typeface
+ import android.graphics.drawable.GradientDrawable
+ import android.graphics.drawable.RippleDrawable
+ import android.graphics.drawable.StateListDrawable
+@@ -10,6 +9,7 @@ import android.view.Gravity
+ import android.view.View
+ import android.view.WindowInsets
+ import android.widget.TextView
++import org.sableos.titan2.theme.SableFonts
+ import org.sableos.titan2.theme.SablePalette
+ 
+ /**
+@@ -30,7 +30,7 @@ class Ui(private val context: Context, val palette: SablePalette) {
+         text = s
+         textSize = sp
+         setTextColor(color)
+-        if (bold) typeface = Typeface.DEFAULT_BOLD
++        typeface = SableFonts.of(bold)
+     }
+ 
+     /** A focusable list row or tile: [fill] at rest, the focus surface with an accent outline when focused. */
+diff --git a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoActivity.kt b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoActivity.kt
+index e420f74..c0f76d9 100644
+--- a/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoActivity.kt
++++ b/sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/android/PrintToGoActivity.kt
+@@ -4,7 +4,6 @@ import android.Manifest
+ import android.app.Activity
+ import android.content.Intent
+ import android.content.pm.PackageManager
+-import android.graphics.Typeface
+ import android.os.Bundle
+ import android.provider.DocumentsContract
+ import android.view.KeyEvent
+@@ -16,6 +15,7 @@ import android.window.OnBackInvokedDispatcher
+ import org.sableos.titan2.printtogo.android.PrintToGoState.Phase
+ import org.sableos.titan2.printtogo.core.PrintToGo
+ import org.sableos.titan2.printtogo.core.PrintToGoText.t
++import org.sableos.titan2.theme.SableFonts
+ import org.sableos.titan2.theme.SablePalette
+ 
+ /**
+@@ -140,7 +140,7 @@ class PrintToGoActivity : Activity() {
+             text = s
+             textSize = sp
+             setTextColor(color)
+-            if (bold) typeface = Typeface.DEFAULT_BOLD
++            typeface = SableFonts.of(bold)
+             setPadding(0, (GAP * resources.displayMetrics.density).toInt(), 0, 0)
+         }
+ 
+diff --git a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfilesActivity.kt b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfilesActivity.kt
+index f15f0c8..6fdd7a6 100644
+--- a/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfilesActivity.kt
++++ b/sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profiles/android/SoundProfilesActivity.kt
+@@ -3,7 +3,6 @@ package org.sableos.titan2.profiles.android
+ import android.app.Activity
+ import android.app.AlertDialog
+ import android.content.Intent
+-import android.graphics.Typeface
+ import android.graphics.drawable.GradientDrawable
+ import android.media.RingtoneManager
+ import android.net.Uri
+@@ -19,6 +18,7 @@ import org.sableos.titan2.profiles.core.ProfileSettings
+ import org.sableos.titan2.profiles.core.ProfilesText.t
+ import org.sableos.titan2.profiles.core.SoundProfile
+ import org.sableos.titan2.profiles.core.SoundProfiles
++import org.sableos.titan2.theme.SableFonts
+ import org.sableos.titan2.theme.SablePalette
+ 
+ /**
+@@ -336,7 +336,7 @@ class SoundProfilesActivity : Activity() {
+             text = s
+             textSize = sp
+             setTextColor(color)
+-            if (bold) typeface = Typeface.DEFAULT_BOLD
++            typeface = SableFonts.of(bold)
+         }
+ 
+     private fun box(fill: Int, stroke: Int) = GradientDrawable().apply {
+diff --git a/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableFonts.kt b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableFonts.kt
+new file mode 100644
+index 0000000..b4bb5ce
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/sable-theme/src/main/java/org/sableos/titan2/theme/SableFonts.kt
+@@ -0,0 +1,18 @@
++package org.sableos.titan2.theme
++
++import android.graphics.Typeface
++
++/**
++ * Source Sans 3 for the platform apps' own text views (Sable 2.0 type, UI direction
++ * 2026-11-04): the "source-sans" family the image adds in
++ * /product/etc/fonts_customization.xml. Where it is missing, Typeface.create returns the
++ * default sans-serif, so nothing breaks.
++ */
++object SableFonts {
++    private const val FAMILY = "source-sans"
++
++    val REGULAR: Typeface by lazy { Typeface.create(FAMILY, Typeface.NORMAL) }
++    val BOLD: Typeface by lazy { Typeface.create(FAMILY, Typeface.BOLD) }
++
++    fun of(bold: Boolean): Typeface = if (bold) BOLD else REGULAR
++}
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt
+index 11a447e..5b2c8ad 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt
+@@ -2,7 +2,6 @@ package org.sableos.titan2.setup.android
+ 
+ import android.app.Activity
+ import android.content.Context
+-import android.graphics.Typeface
+ import android.os.Bundle
+ import android.view.KeyEvent
+ import android.widget.Button
+@@ -32,6 +31,7 @@ import org.sableos.titan2.setup.core.SetupModel
+ import org.sableos.titan2.setup.core.SetupRows
+ import org.sableos.titan2.setup.core.SetupText
+ import org.sableos.titan2.setup.core.TargetStatus
++import org.sableos.titan2.theme.SableFonts
+ import org.sableos.titan2.theme.SablePalette
+ import org.sableos.titan2.theme.bindTo
+ 
+@@ -182,7 +182,7 @@ class SetupActivity : Activity() {
+         text = s
+         textSize = sp
+         setTextColor(color)
+-        if (bold) typeface = Typeface.DEFAULT_BOLD
++        typeface = SableFonts.of(bold)
+     }
+ 
+     private companion object {
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/WeatherCityView.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/WeatherCityView.kt
+index ab6a11e..1bc6f8c 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/WeatherCityView.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/WeatherCityView.kt
+@@ -1,7 +1,6 @@
+ package org.sableos.titan2.setup.android
+ 
+ import android.app.Activity
+-import android.graphics.Typeface
+ import android.text.Editable
+ import android.text.InputType
+ import android.text.TextWatcher
+@@ -14,6 +13,7 @@ import android.widget.EditText
+ import android.widget.LinearLayout
+ import android.widget.TextView
+ import org.sableos.titan2.setup.core.WeatherCityStep
++import org.sableos.titan2.theme.SableFonts
+ 
+ /**
+  * The Weather city step: a filter field over Sable Weather's bundled catalog, up to
+@@ -178,7 +178,7 @@ class WeatherCityView(
+             text = s
+             textSize = sp
+             setTextColor(color)
+-            if (bold) typeface = Typeface.DEFAULT_BOLD
++            typeface = SableFonts.of(bold)
+         }
+ 
+     private companion object {
+diff --git a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/SpacesViews.kt b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/SpacesViews.kt
+index 5164452..285e28e 100644
+--- a/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/SpacesViews.kt
++++ b/sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/android/SpacesViews.kt
+@@ -1,10 +1,10 @@
+ package org.sableos.titan2.spaces.android
+ 
+ import android.content.Context
+-import android.graphics.Typeface
+ import android.graphics.drawable.GradientDrawable
+ import android.widget.Button
+ import android.widget.TextView
++import org.sableos.titan2.theme.SableFonts
+ import org.sableos.titan2.theme.SablePalette
+ 
+ /** The few views Sable Spaces draws, in the Sable theme. Keys go to the screen, not to a focused button. */
+@@ -16,7 +16,7 @@ class SpacesViews(private val context: Context, val palette: SablePalette) {
+             text = s
+             textSize = sp
+             setTextColor(color)
+-            if (bold) typeface = Typeface.DEFAULT_BOLD
++            typeface = SableFonts.of(bold)
+             setPadding(0, px(GAP), 0, 0)
+         }
+ 
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Capability.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Capability.kt
+index c898ea9..27c5e5a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Capability.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/Capability.kt
+@@ -46,6 +46,9 @@ enum class Capability(
+     IR_REMOTE(setOf(Hardware.IR_EMITTER)),
+     SOS_ALERT(setOf(Hardware.CAMERA_FLASH)),
+ 
++    /** Needs only the panel's reported density, which still has to be checked against a real ruler. */
++    RULER(emptySet()),
++
+     /** Android has no public IR receive API; this stays off unless a profile proves a platform-owned path. */
+     IR_LEARNING(setOf(Hardware.IR_EMITTER, Hardware.IR_RECEIVER)),
+ 
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/RulerScale.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/RulerScale.kt
+index 9a3e84e..e21cd95 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/RulerScale.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/RulerScale.kt
+@@ -26,7 +26,9 @@ object RulerScale {
+             when {
+                 mm % MM_PER_CM == 0 ->
+                     RulerTick(mm * pxPerMm, RulerTick.Size.LONG, (mm / MM_PER_CM).toString())
++
+                 mm % MM_PER_HALF_CM == 0 -> RulerTick(mm * pxPerMm, RulerTick.Size.MEDIUM, null)
++
+                 else -> RulerTick(mm * pxPerMm, RulerTick.Size.SHORT, null)
+             }
+         }
+@@ -40,7 +42,9 @@ object RulerScale {
+             when {
+                 e % EIGHTHS == 0 ->
+                     RulerTick(e * pxPerEighth, RulerTick.Size.LONG, (e / EIGHTHS).toString())
++
+                 e % HALF == 0 -> RulerTick(e * pxPerEighth, RulerTick.Size.MEDIUM, null)
++
+                 else -> RulerTick(e * pxPerEighth, RulerTick.Size.SHORT, null)
+             }
+         }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
+index 029d70b..6d10a84 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolCatalog.kt
+@@ -94,6 +94,7 @@ enum class Tool(
+         Section.UTILITIES,
+         "ruler",
+         ToolKind.ACTION,
++        Capability.RULER,
+         keywords = listOf("measure", "length", "cm", "inch")
+     ),
+     FLASHLIGHT(
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsDeviceProfile.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsDeviceProfile.kt
+index da95792..918fbe4 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsDeviceProfile.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsDeviceProfile.kt
+@@ -102,6 +102,11 @@ data class ToolsDeviceProfile(
+                     Capability.IR_LEARNING
+                 ) +
+                 all(Declared.DIAGNOSTIC_ONLY, "MT6631 FM in spec; NOT_RUN", Capability.FM_RADIO) +
++                all(
++                    Declared.DIAGNOSTIC_ONLY,
++                    "ruler drawn from the panel's reported density; NOT_RUN against a real ruler",
++                    Capability.RULER
++                ) +
+                 all(
+                     Declared.UNKNOWN,
+                     "no factory-test dialer code observed on Q25",
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+index 54673e4..92d758f 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+@@ -380,8 +380,11 @@ object ToolsText {
+             "select_at_least_one_section" to "Select at least one section",
+             "tv" to "TV",
+             "ruler" to "Ruler",
+-            "ruler_hint" to "Lay it along the left (cm) or right (inch) edge, from the top of the screen.",
+-            "ruler_info" to "Draws centimetres and inches from the screen's own density, so it is as accurate as the panel reports. Nothing is kept.",
++            "ruler_hint" to
++                "Lay it along the left (cm) or right (inch) edge, from the top of the screen.",
++            "ruler_info" to
++                "Draws centimetres and inches from the screen's own density, so it is as " +
++                "accurate as the panel reports. Nothing is kept.",
+             "sos_alert" to "SOS and alarm",
+             "sos_light" to "SOS light",
+             "sos_screen_flash" to "Screen flash",
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Ui.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Ui.kt
+index 3a07720..80398aa 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Ui.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Ui.kt
+@@ -11,6 +11,7 @@ import android.view.Gravity
+ import android.view.View
+ import android.widget.LinearLayout
+ import android.widget.TextView
++import org.sableos.titan2.theme.SableFonts
+ import org.sableos.titan2.theme.SablePalette
+ 
+ /**
+@@ -56,7 +57,7 @@ object Ui {
+         this.text = text
+         setTextColor(TEXT)
+         setTextSize(TypedValue.COMPLEX_UNIT_SP, TITLE_SP)
+-        typeface = Typeface.DEFAULT_BOLD
++        typeface = SableFonts.BOLD
+     }
+ 
+     fun subtitle(ctx: Context, text: String) = TextView(ctx).apply {
+@@ -69,7 +70,7 @@ object Ui {
+         this.text = text.uppercase()
+         setTextColor(ACCENT)
+         setTextSize(TypedValue.COMPLEX_UNIT_SP, HEADER_SP)
+-        typeface = Typeface.DEFAULT_BOLD
++        typeface = SableFonts.BOLD
+         setPadding(0, dp(ctx, PAD), 0, dp(ctx, PAD_SMALL))
+     }
+ 
+@@ -131,7 +132,7 @@ object Ui {
+     fun reading(ctx: Context) = TextView(ctx).apply {
+         setTextColor(TEXT)
+         setTextSize(TypedValue.COMPLEX_UNIT_SP, READING_SP)
+-        typeface = Typeface.DEFAULT_BOLD
++        typeface = SableFonts.BOLD
+         gravity = Gravity.CENTER
+     }
+ 
+diff --git a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
+index a1148b3..abe89d0 100644
+--- a/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
++++ b/sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/android/VaultActivity.kt
+@@ -3,7 +3,6 @@ package org.sableos.titan2.vault.android
+ import android.app.Activity
+ import android.content.ActivityNotFoundException
+ import android.content.Intent
+-import android.graphics.Typeface
+ import android.graphics.drawable.GradientDrawable
+ import android.net.Uri
+ import android.os.Bundle
+@@ -18,6 +17,7 @@ import android.widget.TextView
+ import android.widget.Toast
+ import android.window.OnBackInvokedDispatcher
+ import androidx.core.content.FileProvider
++import org.sableos.titan2.theme.SableFonts
+ import org.sableos.titan2.theme.SablePalette
+ import org.sableos.titan2.vault.core.ConfirmAction
+ import org.sableos.titan2.vault.core.Confirmation
+@@ -441,7 +441,7 @@ class VaultActivity : Activity() {
+             text = s
+             textSize = sp
+             setTextColor(color)
+-            if (bold) typeface = Typeface.DEFAULT_BOLD
++            typeface = SableFonts.of(bold)
+         }
+ 
+     private fun box(fill: Int, stroke: Int) = GradientDrawable().apply {
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
+index 2bf62ce..6e677d2 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableTheme.kt
+@@ -1,5 +1,6 @@
+ package org.sableos.design
+ 
++import android.graphics.Typeface
+ import androidx.compose.foundation.isSystemInDarkTheme
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.material3.MaterialTheme
+@@ -12,6 +13,7 @@ import androidx.compose.runtime.remember
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.text.TextStyle
++import androidx.compose.ui.text.font.FontFamily
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+@@ -113,10 +115,18 @@ object SableColorTokens {
+     val LightTextMuted = Color(0xFF515B66)
+ }
+ 
+-private val SableTypography =
++/**
++ * Source Sans 3 (Sable 2.0 type, UI direction 2026-11-04): the "source-sans" family the image adds
++ * in /product/etc/fonts_customization.xml. Where it is missing, Typeface.create returns the default
++ * sans-serif, so nothing breaks.
++ */
++val SableFontFamily: FontFamily by lazy { FontFamily(Typeface.create("source-sans", Typeface.NORMAL)) }
++
++private val SableTypography by lazy {
+     Typography(
+         displayLarge =
+             TextStyle(
++                fontFamily = SableFontFamily,
+                 fontSize = 44.sp,
+                 lineHeight = 50.sp,
+                 fontWeight = FontWeight.Light,
+@@ -124,6 +134,7 @@ private val SableTypography =
+             ),
+         headlineLarge =
+             TextStyle(
++                fontFamily = SableFontFamily,
+                 fontSize = 34.sp,
+                 lineHeight = 40.sp,
+                 fontWeight = FontWeight.Light,
+@@ -131,44 +142,51 @@ private val SableTypography =
+             ),
+         headlineMedium =
+             TextStyle(
++                fontFamily = SableFontFamily,
+                 fontSize = 26.sp,
+                 lineHeight = 32.sp,
+                 fontWeight = FontWeight.Normal,
+             ),
+         titleLarge =
+             TextStyle(
++                fontFamily = SableFontFamily,
+                 fontSize = 21.sp,
+                 lineHeight = 27.sp,
+                 fontWeight = FontWeight.Medium,
+             ),
+         titleMedium =
+             TextStyle(
++                fontFamily = SableFontFamily,
+                 fontSize = 17.sp,
+                 lineHeight = 23.sp,
+                 fontWeight = FontWeight.Medium,
+             ),
+         bodyLarge =
+             TextStyle(
++                fontFamily = SableFontFamily,
+                 fontSize = 17.sp,
+                 lineHeight = 24.sp,
+                 fontWeight = FontWeight.Normal,
+             ),
+         bodyMedium =
+             TextStyle(
++                fontFamily = SableFontFamily,
+                 fontSize = 15.sp,
+                 lineHeight = 21.sp,
+                 fontWeight = FontWeight.Normal,
+             ),
+         labelLarge =
+             TextStyle(
++                fontFamily = SableFontFamily,
+                 fontSize = 14.sp,
+                 lineHeight = 18.sp,
+                 fontWeight = FontWeight.Medium,
+             ),
+     )
++}
+ 
+ /** The type scale in a short window: the same roles, one step smaller, display and headline the most. */
+-private val SableShortTypography =
++private val SableShortTypography by lazy {
+     SableTypography.copy(
+         displayLarge = SableTypography.displayLarge.copy(fontSize = 28.sp, lineHeight = 32.sp, letterSpacing = (-0.4).sp),
+         headlineLarge = SableTypography.headlineLarge.copy(fontSize = 24.sp, lineHeight = 28.sp, letterSpacing = 0.sp),
+@@ -179,6 +197,7 @@ private val SableShortTypography =
+         bodyMedium = SableTypography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 19.sp),
+         labelLarge = SableTypography.labelLarge.copy(fontSize = 13.sp, lineHeight = 17.sp),
+     )
++}
+ 
+ /** Material shapes for a corner style, built from [SableShapeTable]. */
+ fun sableShapes(style: SableCornerStyle): Shapes {

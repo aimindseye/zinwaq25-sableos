@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Holding the BlackBerry key (HOME) opens the menu of the app in front (1 = MENU in
+         DeviceKeysConstants.Action). LineageOS's default, 3, opened the notification panel. -->
+    <integer name="config_longPressOnHomeBehavior">1</integer>
+</resources>

@@ -47,6 +47,7 @@ class AppGlyphsTest {
     @Test
     fun keptLineageAppsMapByPackage() {
         assertEquals(AppGlyph.PHONE, AppGlyphs.forPackage("com.android.dialer"))
+        assertEquals(AppGlyph.PHONE, AppGlyphs.forPackage("org.sableos.phone"))
         assertEquals(AppGlyph.CONTACTS, AppGlyphs.forPackage("com.android.contacts"))
         assertEquals(AppGlyph.SETTINGS, AppGlyphs.forPackage("com.android.settings"))
         assertEquals(AppGlyph.PHOTOS, AppGlyphs.forPackage("org.lineageos.glimpse"))

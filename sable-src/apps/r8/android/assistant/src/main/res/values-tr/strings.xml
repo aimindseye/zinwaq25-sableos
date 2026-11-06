@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">İyi günler. %1$s hizmetinizde. Nasıl yardımcı olabilirim?</string>
+    <string name="message_hint">%1$s\'e sor</string>
+    <string name="thinking">%1$s düşünüyor…</string>
+    <string name="keys_hint">Enter gönderir · Shift+Enter yeni satır · konuşmak için Boşluk\'u basılı tut · Menü ayarlar</string>
+    <string name="send">Gönder</string>
+    <string name="settings">Ayarlar</string>
+    <string name="new_chat">Yeni sohbet</string>
+    <string name="done">Bitti</string>
+    <string name="setup_first">Yanıtlarımın nereden geleceğini Ayarlar\'dan seçin.</string>
+    <string name="name">Ad</string>
+    <string name="name_detail">Command beni /%1$s ile açar</string>
+    <string name="provider">Yanıtlarım nereden gelir</string>
+    <string name="provider_ollama">Ağınızdaki Ollama</string>
+    <string name="provider_ollama_detail">Ücretsiz. Hiçbir şey ev ağınızdan çıkmaz.</string>
+    <string name="provider_custom">Ağınızdaki başka bir sunucu</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp veya OpenAI tarzı API\'si olan herhangi bir sunucu.</string>
+    <string name="provider_hosted_detail">Kendi anahtarınızla ücretsiz plan. Mesajlarınız %1$s\'e gider; ücretsiz planların sınırları vardır ve mesajları eğitim için kullanabilir.</string>
+    <string name="address">Sunucu adresi</string>
+    <string name="address_hint">Örneğin 192.168.1.20</string>
+    <string name="ollama_address_detail">Bilgisayarınızın adresi. Ollama ağı dinlemeli: OLLAMA_HOST=0.0.0.0 ayarlayıp yeniden başlatın.</string>
+    <string name="api_key">API anahtarı</string>
+    <string name="api_key_hint">Anahtarı sağlayıcının web sitesinden yapıştırın</string>
+    <string name="model">Model</string>
+    <string name="model_none">Model seçilmedi. Listelemek için bağlantıyı test edin.</string>
+    <string name="test_connection">Bağlantıyı test et</string>
+    <string name="testing">Bağlanıyor…</string>
+    <string name="models_found">Bağlandı. %1$s model bulundu; aşağıdan birini seçin.</string>
+    <string name="no_models">Bağlandı, ancak sunucu hiç model listelemiyor.</string>
+    <string name="error_provider">Önce yanıtlarımın nereden geleceğini seçin.</string>
+    <string name="error_address">Sunucunuzun adresini girin, örneğin 192.168.1.20.</string>
+    <string name="error_plain_http">Düz http yalnızca kendi ağınızda çalışır. Bir https adresi kullanın.</string>
+    <string name="error_key">Önce API anahtarınızı girin.</string>
+    <string name="error_model">Önce Ayarlar\'dan bir model seçin.</string>
+    <string name="error_unreachable">Sunucuya ulaşamadım. Adresi ve çalıştığını kontrol edin.</string>
+    <string name="error_timeout">Sunucunun yanıtı çok uzun sürdü.</string>
+    <string name="error_server">Sunucu yanıtladı: %1$s</string>
+    <string name="privacy_note">Sohbetler yalnızca bellekte kalır ve yenisini başlattığınızda silinir.</string>
+    <string name="talk">Konuşmak için basılı tut</string>
+    <string name="listening">Dinliyorum… bitirince bırakın.</string>
+    <string name="voice">Ses</string>
+    <string name="voice_detail">Boş bir mesaj kutusunda Boşluk\'u ya da Konuş\'u basılı tutup konuşun (şimdilik İngilizce). Konuşma bu telefonda metne dönüşür ve göndermenizi bekler. Basılı tutmadıkça hiçbir şey dinlemez.</string>
+    <string name="voice_download">Konuşma modelini indir (%1$s MB)</string>
+    <string name="voice_downloading">Konuşma modeli indiriliyor…</string>
+    <string name="voice_ready">Konuşma modeli hazır.</string>
+    <string name="voice_remove">Konuşma modelini kaldır</string>
+    <string name="voice_missing">Konuşmak için Ayarlar\'dan konuşma modelini indirin.</string>
+    <string name="voice_failed">Konuşma modeli indirilemedi.</string>
+    <string name="voice_permission">Basılı tutarken sizi duyabilmem için mikrofona izin verin.</string>
+    <string name="voice_nothing">Anlayamadım.</string>
+</resources>

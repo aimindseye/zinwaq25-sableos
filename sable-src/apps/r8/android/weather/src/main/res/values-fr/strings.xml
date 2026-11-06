@@ -37,4 +37,13 @@
     <string name="forecast_unavailable_check_the_connection">Prévisions indisponibles. Vérifiez la connexion et réessayez.</string>
     <string name="provider_response_could_not_be">Impossible de normaliser la réponse du fournisseur.</string>
     <string name="updated_from_open_meteo">Mis à jour depuis Open-Meteo.</string>
+    <string name="alert_notifications">notifications</string>
+    <string name="alert_morning_forecast">Prévisions du matin</string>
+    <string name="alert_morning_forecast_detail">Les prévisions du jour, une fois chaque matin</string>
+    <string name="alert_rain_alerts">Alertes pluie</string>
+    <string name="alert_rain_alerts_detail">Un avertissement quand la pluie est probable dans les 3 prochaines heures</string>
+    <string name="alert_today_in">Aujourd’hui à %1$s</string>
+    <string name="alert_today_line">%1$s · %2$d° / %3$d° · pluie %4$d%%</string>
+    <string name="alert_rain_soon_in">Pluie bientôt à %1$s</string>
+    <string name="alert_rain_line">Probable vers %1$s (%2$d%%)</string>
 </resources>

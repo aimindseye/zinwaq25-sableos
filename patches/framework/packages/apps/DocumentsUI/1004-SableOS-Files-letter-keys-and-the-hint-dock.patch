@@ -15,8 +15,8 @@ Subject: [PATCH 1004/1004] SableOS: Files letter keys and the hint dock
   Material 3 layouts, and the Files layout keeps its full height
   above it. The picker is unchanged.
 ---
- src/com/android/documentsui/BaseActivity.java |   7 ++
- .../documentsui/files/FilesActivity.java      | 117 ++++++++++++++++++
+ src/com/android/documentsui/BaseActivity.java        |   7 +++
+ src/com/android/documentsui/files/FilesActivity.java | 117 +++++++++++++++++++++++++++++++++++++++
  2 files changed, 124 insertions(+)
 
 diff --git a/src/com/android/documentsui/BaseActivity.java b/src/com/android/documentsui/BaseActivity.java
@@ -38,10 +38,10 @@ index c919edb..5a7e8c2 100644
       * Set mode based on explicit user action.
       */
 diff --git a/src/com/android/documentsui/files/FilesActivity.java b/src/com/android/documentsui/files/FilesActivity.java
-index 5c053ba..3c30f76 100644
+index 5b3f1a0..65bd202 100644
 --- a/src/com/android/documentsui/files/FilesActivity.java
 +++ b/src/com/android/documentsui/files/FilesActivity.java
-@@ -33,15 +33,23 @@ import android.graphics.Color;
+@@ -33,16 +33,24 @@ import android.graphics.Color;
  import android.net.Uri;
  import android.os.Build;
  import android.os.Bundle;
@@ -60,12 +60,13 @@ index 5c053ba..3c30f76 100644
 +import android.widget.TextView;
  
  import androidx.annotation.CallSuper;
+ import androidx.annotation.Nullable;
  import androidx.annotation.RequiresApi;
 +import androidx.coordinatorlayout.widget.CoordinatorLayout;
  import androidx.fragment.app.FragmentManager;
  import androidx.lifecycle.LifecycleOwnerKt;
  import androidx.lifecycle.ViewModel;
-@@ -308,6 +316,7 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
+@@ -309,6 +317,7 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
          }
  
          presentFileErrors(icicle, intent);
@@ -73,7 +74,7 @@ index 5c053ba..3c30f76 100644
      }
  
      private AppsRowManager getAppsRowManager() {
-@@ -547,11 +556,28 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
+@@ -548,11 +557,28 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
          if (action == SableFilesKeys.Action.UPSTREAM) {
              return false;
          }
@@ -102,7 +103,7 @@ index 5c053ba..3c30f76 100644
              case SEARCH:
                  mInjector.searchManager.onSearchBarClicked();
                  break;
-@@ -593,6 +619,97 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
+@@ -594,6 +620,97 @@ public class FilesActivity extends BaseActivity implements AbstractActionHandler
          }
      }
  

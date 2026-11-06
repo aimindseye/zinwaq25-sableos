@@ -37,4 +37,13 @@
     <string name="forecast_unavailable_check_the_connection">Прогноз недоступен. Проверьте подключение и повторите попытку.</string>
     <string name="provider_response_could_not_be">Не удалось преобразовать ответ поставщика в нужный формат.</string>
     <string name="updated_from_open_meteo">Обновлено из Open-Meteo.</string>
+    <string name="alert_notifications">уведомления</string>
+    <string name="alert_morning_forecast">Утренний прогноз</string>
+    <string name="alert_morning_forecast_detail">Прогноз на день, раз в утро</string>
+    <string name="alert_rain_alerts">Оповещения о дожде</string>
+    <string name="alert_rain_alerts_detail">Предупреждение, если в ближайшие 3 часа вероятен дождь</string>
+    <string name="alert_today_in">Сегодня: %1$s</string>
+    <string name="alert_today_line">%1$s · %2$d° / %3$d° · дождь %4$d%%</string>
+    <string name="alert_rain_soon_in">Скоро дождь: %1$s</string>
+    <string name="alert_rain_line">Вероятно около %1$s (%2$d%%)</string>
 </resources>

@@ -177,7 +177,7 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
     grep -q 'overrides: \["LatinIME"\]' "$v/Android.bp" || ok=no
     grep -q 'home=sable' "$proj/config.txt" || ok=no
-    for o in SableFrameworkOverlay SableSystemUIOverlay SableSetupWizardOverlay SableGlimpseOverlay SableGallery2Overlay SableSettingsProviderOverlay SableLedOverlay; do
+    for o in SableFrameworkOverlay SableSystemUIOverlay SableSetupWizardOverlay SableGlimpseOverlay SableGallery2Overlay SableSettingsProviderOverlay SableLedOverlay SableTelecomOverlay SableLineagePlatformOverlay; do
         grep -q "$o" "$v/sable-q25-framework.mk" || ok=no
         grep -q "name: \"$o\"" "$v/overlay/Android.bp" || ok=no
     done
@@ -453,6 +453,8 @@ grep -q '"org.lineageos.audiofx"' sable-src/src/android/packages/apps/SableStart
 wx=sable-src/apps/r8/android/weather/src/main
 grep -A3 'name=".WeatherRefreshJob"' "$wx/AndroidManifest.xml" | grep -q 'BIND_JOB_SERVICE' || q4_bad="$q4_bad weather-job"
 grep -q 'WeatherRefreshJob.ensureScheduled' "$wx/java/org/sableos/weather/WeatherSnapshotProvider.kt" || q4_bad="$q4_bad weather-provider"
+# Weather alerts are opt-in (both off by default) and post from the background refresh.
+grep -q 'getBoolean(KEY_MORNING, false), preferences.getBoolean(KEY_RAIN, false)' "$wx/java/org/sableos/weather/WeatherNotifier.kt" && grep -q 'WeatherNotifier.afterRefresh' "$wx/java/org/sableos/weather/WeatherRefreshJob.kt" && grep -q 'POST_NOTIFICATIONS' "$wx/AndroidManifest.xml" || q4_bad="$q4_bad weather-alerts"
 grep -q '\.clickable { onClick() }' sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt || q4_bad="$q4_bad displaycompat-tap"
 gm=sable-src/apps/r8/android/games/src/main/java/org/sableos/games
 grep -q 'GameLayout.isSquare(width.value, height.value)' "$gm/GameFrame.kt" || q4_bad="$q4_bad games-square"
@@ -461,7 +463,7 @@ grep -q 'ro.sable.keyboard.compact_strip=false' product/q25/sable-q25.mk || q4_b
 grep -q 'COMPACT_STRIP_PROP = "ro.sable.keyboard.compact_strip"' sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt || q4_bad="$q4_bad strip-default"
 grep -q 'ro.config.wallpaper=/product/media/wallpaper/sable_default_wallpaper.png' scripts/stage-product.sh || q4_bad="$q4_bad wallpaper-prop"
 python3 -I -c 'import struct,sys; d=open(sys.argv[1],"rb").read(24); sys.exit(0 if d[:8]==b"\x89PNG\r\n\x1a\n" and struct.unpack(">II",d[16:24])==(720,720) else 1)' product/q25/wallpaper/sable_default_wallpaper.png || q4_bad="$q4_bad wallpaper-png"
-grep -qF '+            SableActiveFrames.open(touchInteractionService)' patches/framework/packages/apps/Launcher3/0003-*.patch || q4_bad="$q4_bad recents-frames"
+grep -qF '+            SableActiveFrames.open()' patches/framework/packages/apps/Launcher3/0003-*.patch || q4_bad="$q4_bad recents-frames"
 grep -q 'METHOD_SELECT = "setup_select_city"' sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSetupAccess.kt || q4_bad="$q4_bad weather-setup-call"
 grep -q 'android:authorities="org.sableos.weather.snapshot"' sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml || q4_bad="$q4_bad setup-queries"
 grep -q 'org.sableos.start.action.SHOW_ACTIVE_FRAMES' sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml || q4_bad="$q4_bad start-recents-filter"
@@ -508,6 +510,42 @@ for s in android.provider.Telephony.SMS_DELIVER android.provider.Telephony.WAP_P
     grep -q "$s" "$msg_m" || msg_bad="$msg_bad manifest:$s"
 done
 if [[ -z "$msg_bad" ]]; then pass "Sable Messages is the default SMS app (role default, grants, SMS/MMS components)"; else fail "Sable Messages default SMS:$msg_bad"; fi
+
+# 6b1c. Sable Phone is the default and system Phone app from Q4 (sable-src 0138, docs/implementation/sable-phone.md):
+# shipped privileged, the DIALER role default, Telecom's system dialer, the Dialer replaced at Q4 only, the role's
+# components declared, no internet, and the speed dial contract Sable Start reads unchanged.
+ph_bad=""
+grep -qP '^SablePhone\tplatform\tapps/titan2/platform\t:phone:assembleRelease\tphone/build/outputs/apk/release/\*\.apk\torg\.sableos\.phone\tprivileged\t-\tyes$' product/q25/apps.tsv || ph_bad="$ph_bad apps.tsv"
+grep -q '<string name="config_defaultDialer"[^>]*>org.sableos.phone<' product/common/overlay/SableFrameworkOverlay/res/values/sable_phone.xml || ph_bad="$ph_bad default-dialer"
+tov=product/common/overlay/SableTelecomOverlay
+grep -q 'android:targetPackage="com.android.server.telecom"' "$tov/AndroidManifest.xml" || ph_bad="$ph_bad telecom-target"
+grep -q '<string name="incall_default_class"[^>]*>org.sableos.phone.android.PhoneInCallService<' "$tov/res/values/config.xml" || ph_bad="$ph_bad incall-class"
+grep -q '<string name="dialer_default_class"[^>]*>org.sableos.phone.android.PhoneActivity<' "$tov/res/values/config.xml" || ph_bad="$ph_bad dialer-class"
+# shellcheck disable=SC2016  # a literal $ in the pattern
+grep -q '"$FRAMEWORK" == YES && "$module" == SablePhone' scripts/stage-product.sh || ph_bad="$ph_bad q4-override"
+grep -q 'overrides=Dialer' scripts/stage-product.sh || ph_bad="$ph_bad override-dialer"
+grep -q 'SableTelecomOverlay' scripts/stage-product.sh || ph_bad="$ph_bad overlay-staged"
+grep -A3 'package="org.sableos.phone"' product/q25/permissions/privapp-permissions-sable-q25.xml | grep -q 'READ_PRIVILEGED_PHONE_STATE' || ph_bad="$ph_bad privapp"
+grep -A8 'package="org.sableos.phone"' product/q25/permissions/default-permissions-sable-q25.xml | grep -q 'android.permission.CALL_PHONE' || ph_bad="$ph_bad grants"
+phm=sable-src/apps/titan2/platform/phone/src/main
+pha=$phm/java/org/sableos/phone/android
+[[ -f "$pha/PhoneInCallService.kt" && -f "$pha/PhoneActivity.kt" ]] || ph_bad="$ph_bad classes"
+for s in android.intent.action.DIAL 'android:scheme="tel"' android.telecom.InCallService android.permission.BIND_INCALL_SERVICE android.telecom.IN_CALL_SERVICE_UI \
+    android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION 'android:permission="android.permission.MODIFY_PHONE_STATE"' 'android:allowBackup="false"' \
+    'android:authorities="org.sableos.dialer.speeddial"' 'android:readPermission="org.sableos.permission.SPEED_DIAL"' org.sableos.dialer.action.SPEED_DIAL; do
+    grep -q "$s" "$phm/AndroidManifest.xml" || ph_bad="$ph_bad manifest:$s"
+done
+grep -q 'android.permission.INTERNET' "$phm/AndroidManifest.xml" && ph_bad="$ph_bad internet"
+grep -A1 'name="org.sableos.permission.SPEED_DIAL"' "$phm/AndroidManifest.xml" | grep -q 'signature|preinstalled' || ph_bad="$ph_bad speed-dial-permission"
+# Nothing another app sends places a call: only DIAL/VIEW intents reach PhoneActivity, Call back goes through the
+# unexported receiver, and the speed dial trampoline needs the SPEED_DIAL permission.
+grep -q 'CALL_BACK' "$pha/PhoneActivity.kt" && ph_bad="$ph_bad exported-call-back"
+grep -B1 -A1 'name=".android.CallActionReceiver"' "$phm/AndroidManifest.xml" | grep -q 'android:exported="false"' || ph_bad="$ph_bad receiver-exported"
+grep -q '"org.sableos.phone" to DIALER' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CoreAppIdentity.kt || ph_bad="$ph_bad start-identity"
+grep -q 'PHONE_PACKAGES = listOf("org.sableos.phone", DIALER_PACKAGE)' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/SpeedDial.kt || ph_bad="$ph_bad start-speed-dial"
+grep -q '"org.sableos.phone",' sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt || ph_bad="$ph_bad hub-privacy"
+grep -q "^| Q4-SABLE-PHONE |" docs/QUALIFICATION.md && grep -q "^| Q4-SABLE-PHONE-EMERGENCY |" docs/QUALIFICATION.md || ph_bad="$ph_bad gates"
+if [[ -z "$ph_bad" ]]; then pass "Sable Phone is the default and system Phone app at Q4 (role, Telecom, Dialer replaced, speed dial contract)"; else fail "Sable Phone:$ph_bad"; fi
 
 # 6b1c. Framework Hub links open Start's Hub page, Hub settings or Sable Messages, never the old Hub UI.
 hl_bad=""
@@ -600,7 +638,7 @@ fi
 if command -v javac >/dev/null 2>&1; then
     st="$tmp/settings-policy"
     mkdir -p "$st"
-    for p in patches/framework/packages/apps/Settings/010[123]-*.patch; do
+    for p in patches/framework/packages/apps/Settings/010[123]-*.patch patches/framework/packages/apps/Settings/1609-*.patch; do
         (cd "$st" && git apply --include='src/com/android/settings/sable/SableAppearancePolicy.java' \
             --include='src/com/android/settings/sable/SableBuildInfo.java' "$ROOT/$p")
     done
@@ -889,6 +927,11 @@ all_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_BUILD_ROOT=/nonexistent/sable b
 tree_t="$(mktemp -d)"
 mkdir -p "$tree_t/.repo" "$tree_t/build" "$tree_t/device/xelex/Q25" "$tree_t/device/xelex/mt6789-common" "$tree_t/vendor/xelex/mt6789-common" "$tree_t/kernel/xelex/mt6789" "$tree_t/hardware/mediatek" "$tree_t/device/mediatek/sepolicy_vndr" "$tree_t/vendor/xelex/Q25"
 touch "$tree_t/build/envsetup.sh"
+git init -q "$tree_t/.repo/manifests"
+git -C "$tree_t/.repo/manifests" config branch.default.merge refs/heads/lineage-23.2
+boot_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_ANDROID_ROOT="$tree_t" bash build/sable.sh q25 bootstrap 2>&1 || true)"
+[[ "$boot_out" == *"follows lineage-23.2, not lineage-24.0"* && "$boot_out" != *"not downloading again"* ]] && pass "bootstrap moves a lineage-23.2 tree to 24.0" || fail "bootstrap keeps a lineage-23.2 tree"
+git -C "$tree_t/.repo/manifests" config branch.default.merge refs/heads/lineage-24.0
 boot_out="$(env -u NETWORK_FETCH_AUTHORIZED SABLE_ANDROID_ROOT="$tree_t" bash build/sable.sh q25 bootstrap 2>&1 || true)"
 [[ "$boot_out" == *"not downloading again"* ]] && pass "bootstrap skips a finished download" || fail "bootstrap re-downloads"
 rm -rf "$tree_t"
@@ -1192,6 +1235,7 @@ sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/Messa
 sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/core/NotesText.kt sable-src/apps/r8/android/notes/src/main/res/values/strings.xml sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesApplication.kt sable-src/apps/r8/android/notes/src/test/java/org/sableos/notes/NotesTextTest.kt
 sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TasksText.kt sable-src/apps/r8/android/tasks/src/main/res/values/strings.xml sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/TasksApplication.kt sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/TasksTextTest.kt
 sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/core/BrowserText.kt sable-src/apps/r8/android/browser/src/main/res/values/strings.xml sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/BrowserApplication.kt sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/BrowserTextTest.kt
+sable-src/apps/r8/android/assistant/src/main/java/org/sableos/assistant/core/AssistantText.kt sable-src/apps/r8/android/assistant/src/main/res/values/strings.xml sable-src/apps/r8/android/assistant/src/main/java/org/sableos/assistant/AssistantApplication.kt sable-src/apps/r8/android/assistant/src/test/java/org/sableos/assistant/AssistantTextTest.kt
 sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherText.kt sable-src/apps/r8/android/weather/src/main/res/values/strings.xml sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherApplication.kt sable-src/apps/r8/android/weather/src/test/java/org/sableos/weather/WeatherTextTest.kt
 sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/core/CameraText.kt sable-src/apps/titan2/platform/camera/src/main/res/values/strings.xml sable-src/apps/titan2/platform/camera/src/main/java/org/sableos/titan2/camera/CameraApplication.kt sable-src/apps/titan2/platform/camera/src/test/java/org/sableos/titan2/camera/CameraTextTest.kt
 sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/DisplayCompatTextTest.kt
@@ -1200,6 +1244,7 @@ sable-src/apps/titan2/platform/profiles/src/main/java/org/sableos/titan2/profile
 sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/core/SpacesText.kt sable-src/apps/titan2/platform/spaces/src/main/res/values/strings.xml sable-src/apps/titan2/platform/spaces/src/main/java/org/sableos/titan2/spaces/SpacesApplication.kt sable-src/apps/titan2/platform/spaces/src/test/java/org/sableos/titan2/spaces/SpacesTextTest.kt
 sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/core/PrintToGoText.kt sable-src/apps/titan2/platform/printtogo/src/main/res/values/strings.xml sable-src/apps/titan2/platform/printtogo/src/main/java/org/sableos/titan2/printtogo/PrintToGoApplication.kt sable-src/apps/titan2/platform/printtogo/src/test/java/org/sableos/titan2/printtogo/PrintToGoTextTest.kt
 sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/core/CompassText.kt sable-src/apps/titan2/platform/compass/src/main/res/values/strings.xml sable-src/apps/titan2/platform/compass/src/main/java/org/sableos/titan2/compass/CompassApplication.kt sable-src/apps/titan2/platform/compass/src/test/java/org/sableos/titan2/compass/CompassTextTest.kt
+sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/PhoneApplication.kt sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/PhoneTextTest.kt
 sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupTextTest.kt
 sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ToolsApplication.kt sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/ToolsTextTest.kt
 sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultLines.kt sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/VaultApplication.kt sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/VaultLinesTest.kt
@@ -1207,6 +1252,34 @@ sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartTe
 sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/DesignTextTest.kt
 EOF_I18N
 if [[ -z "$i18n_bad" ]]; then pass "Sable apps: English in one table per app, equal to values/strings.xml, bound to the resources"; else fail "translations:$i18n_bad"; fi
+
+# aapt2 refuses a bare ' in a string resource; a patch that adds one fails the image build.
+apostrophe_bad="$(python3 - <<'EOF_APOS'
+import glob, re
+bad = []
+for f in sorted(glob.glob("patches/framework/**/*.patch", recursive=True)):
+    for n, line in enumerate(open(f, encoding="utf-8", errors="replace"), 1):
+        m = re.search(r"^\+.*<string[^>]*>(.*)</string>", line)
+        if m and not (m.group(1).startswith('"') and m.group(1).endswith('"')) and re.search(r"(?<!\\)'", m.group(1)):
+            bad.append(f"{f}:{n}")
+print(" ".join(bad))
+EOF_APOS
+)"
+if [[ -z "$apostrophe_bad" ]]; then pass "framework patches: no unescaped apostrophe in an added string resource"; else fail "unescaped apostrophe: $apostrophe_bad"; fi
+
+# Sable Start's Android.bp lists its Kotlin files one by one; a file it leaves out breaks the image
+# build (an unresolved reference) or, for a manifest class, crashes at run time.
+start_unlisted="$(python3 - <<'EOF_START'
+import os, re
+root = "sable-src/src/android/packages/apps/SableStart"
+listed = set(re.findall(r'"(src/[^"]+\.kt)"', open(os.path.join(root, "Android.bp")).read()))
+present = set()
+for d, _, files in os.walk(os.path.join(root, "src")):
+    present |= {os.path.relpath(os.path.join(d, f), root) for f in files if f.endswith(".kt")}
+print(" ".join(sorted(present - listed)))
+EOF_START
+)"
+if [[ -z "$start_unlisted" ]]; then pass "Sable Start: every Kotlin file is in Android.bp"; else fail "Sable Start Android.bp misses: $start_unlisted"; fi
 
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi

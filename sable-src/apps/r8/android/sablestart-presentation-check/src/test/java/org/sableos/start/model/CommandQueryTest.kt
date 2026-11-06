@@ -23,6 +23,20 @@ class CommandQueryTest {
     }
 
     @Test
+    fun askAndTheAssistantsNameAskTheAssistant() {
+        assertEquals(CommandQuery(CommandScope.Assistant, "what is on today"), CommandQuery.parse("/ask what is on today"))
+        assertEquals(CommandQuery(CommandScope.Assistant, "hello"), CommandQuery.parse("/cosgrove hello", "cosgrove"))
+        assertEquals(CommandQuery(CommandScope.Assistant, ""), CommandQuery.parse("/Cosgrove", "cosgrove"))
+        // Without the name (not installed), "/cosgrove" is plain text; a name can't take another command's word.
+        assertEquals(CommandScope.All, CommandQuery.parse("/cosgrove hello").scope)
+        assertEquals(CommandScope.Hub, CommandQuery.parse("/hub x", "hub").scope)
+        assertEquals(CommandScope.All, CommandQuery.parse("/a b", "a b").scope)
+        // A group chip does not turn a question into a search.
+        val ask = CommandQuery.parse("/ask hi")
+        assertEquals(ask, CommandGroups.apply(ask, CommandScope.People))
+    }
+
+    @Test
     fun onlyNumbersAreDialable() {
         assertEquals("+15551234", CommandQuery.dialable("+1 555-1234"))
         assertNull(CommandQuery.dialable("12"))

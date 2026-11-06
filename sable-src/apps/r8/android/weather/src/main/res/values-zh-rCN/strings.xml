@@ -37,4 +37,13 @@
     <string name="forecast_unavailable_check_the_connection">天气预报不可用。请检查网络连接后重试。</string>
     <string name="provider_response_could_not_be">无法将提供商的响应转换为所需格式。</string>
     <string name="updated_from_open_meteo">已从 Open-Meteo 更新。</string>
+    <string name="alert_notifications">通知</string>
+    <string name="alert_morning_forecast">早间预报</string>
+    <string name="alert_morning_forecast_detail">当天的天气预报，每天早上一次</string>
+    <string name="alert_rain_alerts">降雨提醒</string>
+    <string name="alert_rain_alerts_detail">未来 3 小时内可能下雨时提醒</string>
+    <string name="alert_today_in">今天 %1$s</string>
+    <string name="alert_today_line">%1$s · %2$d° / %3$d° · 降水 %4$d%%</string>
+    <string name="alert_rain_soon_in">%1$s 即将下雨</string>
+    <string name="alert_rain_line">约 %1$s (%2$d%%)</string>
 </resources>

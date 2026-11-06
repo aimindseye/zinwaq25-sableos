@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">God dag. %1$s till er tjänst. Hur kan jag hjälpa till?</string>
+    <string name="message_hint">Fråga %1$s</string>
+    <string name="thinking">%1$s funderar…</string>
+    <string name="keys_hint">Enter skickar · Skift+Enter ny rad · håll Mellanslag för att prata · Meny inställningar</string>
+    <string name="send">Skicka</string>
+    <string name="settings">Inställningar</string>
+    <string name="new_chat">Nytt samtal</string>
+    <string name="done">Klar</string>
+    <string name="setup_first">Välj i Inställningar var mina svar kommer ifrån.</string>
+    <string name="name">Namn</string>
+    <string name="name_detail">Command öppnar mig med /%1$s</string>
+    <string name="provider">Var mina svar kommer ifrån</string>
+    <string name="provider_ollama">Ollama i ditt nätverk</string>
+    <string name="provider_ollama_detail">Gratis. Inget lämnar ditt hemnätverk.</string>
+    <string name="provider_custom">Annan server i ditt nätverk</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp eller vilken server som helst med ett OpenAI-liknande API.</string>
+    <string name="provider_hosted_detail">Gratisplan med din egen nyckel. Dina meddelanden går till %1$s; gratisplaner har gränser och kan använda meddelanden för träning.</string>
+    <string name="address">Serveradress</string>
+    <string name="address_hint">Till exempel 192.168.1.20</string>
+    <string name="ollama_address_detail">Din dators adress. Ollama måste lyssna på nätverket: sätt OLLAMA_HOST=0.0.0.0 och starta om det.</string>
+    <string name="api_key">API-nyckel</string>
+    <string name="api_key_hint">Klistra in nyckeln från leverantörens webbplats</string>
+    <string name="model">Modell</string>
+    <string name="model_none">Ingen modell vald. Testa anslutningen för att lista dem.</string>
+    <string name="test_connection">Testa anslutning</string>
+    <string name="testing">Ansluter…</string>
+    <string name="models_found">Ansluten. %1$s modeller hittades; välj en nedan.</string>
+    <string name="no_models">Ansluten, men servern listar inga modeller.</string>
+    <string name="error_provider">Välj först var mina svar kommer ifrån.</string>
+    <string name="error_address">Ange serverns adress, till exempel 192.168.1.20.</string>
+    <string name="error_plain_http">Vanlig http fungerar bara i ditt eget nätverk. Använd en https-adress.</string>
+    <string name="error_key">Ange först din API-nyckel.</string>
+    <string name="error_model">Välj först en modell i Inställningar.</string>
+    <string name="error_unreachable">Jag nådde inte servern. Kontrollera adressen och att den är igång.</string>
+    <string name="error_timeout">Servern tog för lång tid att svara.</string>
+    <string name="error_server">Servern svarade: %1$s</string>
+    <string name="privacy_note">Samtal finns bara i minnet och försvinner när du börjar ett nytt.</string>
+    <string name="talk">Håll för att prata</string>
+    <string name="listening">Lyssnar… släpp när du är klar.</string>
+    <string name="voice">Röst</string>
+    <string name="voice_detail">Håll Mellanslag i en tom meddelanderuta, eller håll Prata, och tala (engelska tills vidare). Talet blir text på den här telefonen och väntar på att du skickar det. Inget lyssnar om du inte håller.</string>
+    <string name="voice_download">Ladda ner talmodell (%1$s MB)</string>
+    <string name="voice_downloading">Laddar ner talmodellen…</string>
+    <string name="voice_ready">Talmodellen är klar.</string>
+    <string name="voice_remove">Ta bort talmodell</string>
+    <string name="voice_missing">Ladda ner talmodellen i Inställningar för att prata.</string>
+    <string name="voice_failed">Talmodellen kunde inte laddas ner.</string>
+    <string name="voice_permission">Tillåt mikrofonen så att jag hör dig medan du håller.</string>
+    <string name="voice_nothing">Det uppfattade jag inte.</string>
+</resources>

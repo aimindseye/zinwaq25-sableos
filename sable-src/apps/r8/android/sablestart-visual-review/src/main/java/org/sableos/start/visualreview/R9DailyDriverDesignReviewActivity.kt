@@ -123,7 +123,7 @@ private data class ReviewApp(
     val accent: Color,
 )
 
-private val SableBlue = Color(0xFF4D9CFF)
+private val SableBlue = Color(0xFF2E9BD6)
 private val SableGreen = Color(0xFF35C66B)
 private val SablePurple = Color(0xFF7A42E8)
 private val SableOrange = Color(0xFFF28C45)

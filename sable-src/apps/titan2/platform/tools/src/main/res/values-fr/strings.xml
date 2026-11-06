@@ -302,6 +302,9 @@
     <string name="provider_credentials">identifiants des fournisseurs</string>
     <string name="select_at_least_one_section">Sélectionnez au moins une section</string>
     <string name="tv">TV</string>
+    <string name="ruler">Règle</string>
+    <string name="ruler_hint">Posez-le le long du bord gauche (cm) ou droit (pouces), depuis le haut de l\'écran.</string>
+    <string name="ruler_info">Trace centimètres et pouces selon la densité de l\'écran, aussi précis que ce que la dalle indique. Rien n\'est conservé.</string>
     <string name="sos_alert">SOS et alarme</string>
     <string name="sos_light">Lumière SOS</string>
     <string name="sos_screen_flash">Flash d\'écran</string>

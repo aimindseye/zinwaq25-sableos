@@ -33,12 +33,14 @@ class SpeedDialRepository(
     fun call(letter: Char): Boolean = shortcuts?.launch(letter) == true || callPhone(letter)
 
     private fun callPhone(letter: Char): Boolean =
-        runCatching {
-            context.startActivity(
-                Intent(SpeedDialKeys.ACTION_SPEED_DIAL)
-                    .setPackage(SpeedDialKeys.DIALER_PACKAGE)
-                    .putExtra(SpeedDialKeys.EXTRA_LETTER, letter.toString())
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-        }.isSuccess
+        SpeedDialKeys.PHONE_PACKAGES.any { pkg ->
+            runCatching {
+                context.startActivity(
+                    Intent(SpeedDialKeys.ACTION_SPEED_DIAL)
+                        .setPackage(pkg)
+                        .putExtra(SpeedDialKeys.EXTRA_LETTER, letter.toString())
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }.isSuccess
+        }
 }

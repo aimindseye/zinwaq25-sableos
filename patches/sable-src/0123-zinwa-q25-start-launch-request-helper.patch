@@ -1,0 +1,36 @@
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+index 2386683..1e0d6f4 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt
+@@ -255,14 +255,7 @@ class SableStartActivity : ComponentActivity() {
+         registerPrivacySignals()
+         scheduleInventoryRefresh()
+         // A recreated activity keeps its own place instead of reopening the requested screen.
+-        if (savedInstanceState == null) {
+-            startRequest.value = StartRequest(screenFor(intent), 0)
+-            if (intent?.action == ACTION_SHOW_HUB) requestHub(intent)
+-            if (intent?.action == ACTION_COMMAND) requestCommand(fromApp = true)
+-            if (intent?.action in BB10_ONLY_ACTIONS) {
+-                startBb10Detour(returnOnHome = intent?.action != ACTION_SHOW_ACTIVE_FRAMES)
+-            }
+-        }
++        if (savedInstanceState == null) openLaunchRequest(intent)
+ 
+         setContent {
+             val appearance = rememberGlobalSableAppearance()
+@@ -480,6 +473,15 @@ class SableStartActivity : ComponentActivity() {
+         }
+     }
+ 
++    /** The screen the launching intent asked for (Settings, Recents, Hub, Command). */
++    private fun openLaunchRequest(intent: Intent?) {
++        startRequest.value = StartRequest(screenFor(intent), 0)
++        val action = intent?.action
++        if (intent != null && action == ACTION_SHOW_HUB) requestHub(intent)
++        if (action == ACTION_COMMAND) requestCommand(fromApp = true)
++        if (action in BB10_ONLY_ACTIONS) startBb10Detour(returnOnHome = action != ACTION_SHOW_ACTIVE_FRAMES)
++    }
++
+     private fun requestCommand(fromApp: Boolean) {
+         commandReturnTask.value = null
+         commandGeneration.value += 1

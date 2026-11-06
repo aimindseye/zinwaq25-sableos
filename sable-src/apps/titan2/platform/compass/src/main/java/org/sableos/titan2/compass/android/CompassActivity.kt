@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Typeface
 import android.hardware.GeomagneticField
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -24,6 +23,7 @@ import android.window.OnBackInvokedDispatcher
 import org.sableos.titan2.compass.core.Accuracy
 import org.sableos.titan2.compass.core.CompassText.t
 import org.sableos.titan2.compass.core.Heading
+import org.sableos.titan2.theme.SableFonts
 import org.sableos.titan2.theme.SablePalette
 
 /**
@@ -317,7 +317,7 @@ class CompassActivity :
         textSize = sp
         setTextColor(color)
         gravity = Gravity.CENTER_HORIZONTAL
-        if (bold) typeface = Typeface.DEFAULT_BOLD
+        typeface = SableFonts.of(bold)
     }
 
     private companion object {

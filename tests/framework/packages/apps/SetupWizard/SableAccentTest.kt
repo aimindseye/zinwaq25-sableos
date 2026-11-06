@@ -5,12 +5,12 @@ import org.junit.Test
 
 /** Pure tests for the Sable accent on the Theme step carried in patches/framework/packages/apps/SetupWizard/0406. */
 class SableAccentTest {
-    @Test fun presetsInSettingsOrder() {
-        // Same order as SableAppearancePolicy.ACCENTS (Settings 0101) and the label array.
-        assertEquals(5, SableAccent.count())
-        listOf("blue", "green", "purple", "orange", "slate").forEachIndexed { i, v ->
-            assertEquals(i, SableAccent.indexOf(v))
-        }
+    @Test fun oneBlueAndNothingToChoose() {
+        // Same as SableAppearancePolicy.ACCENTS (Settings 1609): 2.0 has one blue (SetupWizard 0418).
+        assertEquals(1, SableAccent.count())
+        assertEquals(false, SableAccent.hasChoice())
+        assertEquals(0, SableAccent.indexOf("blue"))
+        assertEquals(-1, SableAccent.indexOf("slate"))
     }
 
     @Test fun unknownOrMissingShowsNoAccent() {

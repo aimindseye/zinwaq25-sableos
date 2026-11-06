@@ -37,4 +37,13 @@
     <string name="forecast_unavailable_check_the_connection">Vorhersage nicht verfügbar. Verbindung prüfen und erneut versuchen.</string>
     <string name="provider_response_could_not_be">Antwort des Anbieters konnte nicht normalisiert werden.</string>
     <string name="updated_from_open_meteo">Von Open-Meteo aktualisiert.</string>
+    <string name="alert_notifications">Benachrichtigungen</string>
+    <string name="alert_morning_forecast">Morgenvorhersage</string>
+    <string name="alert_morning_forecast_detail">Die Tagesvorhersage, einmal jeden Morgen</string>
+    <string name="alert_rain_alerts">Regenwarnungen</string>
+    <string name="alert_rain_alerts_detail">Ein Hinweis, wenn in den nächsten 3 Stunden Regen wahrscheinlich ist</string>
+    <string name="alert_today_in">Heute in %1$s</string>
+    <string name="alert_today_line">%1$s · %2$d° / %3$d° · Regen %4$d%%</string>
+    <string name="alert_rain_soon_in">Bald Regen in %1$s</string>
+    <string name="alert_rain_line">Wahrscheinlich gegen %1$s (%2$d%%)</string>
 </resources>

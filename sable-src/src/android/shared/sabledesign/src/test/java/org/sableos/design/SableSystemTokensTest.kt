@@ -16,49 +16,40 @@ class SableSystemTokensTest {
     fun contrastMatchesWcagReferenceValues() {
         assertEquals(21.0, SableContrast.ratio(0xFF000000, 0xFFFFFFFF), 0.01)
         assertEquals(1.0, SableContrast.ratio(0xFF777777, 0xFF777777), 0.0001)
-        // Sable Blue on white is why the light theme needs its own accent tone.
-        assertEquals(2.79, SableContrast.ratio(0xFF4D9CFF, 0xFFFFFFFF), 0.01)
+        // The 2.0 blue on white is why the light theme needs its own, darker tone.
+        assertEquals(3.09, SableContrast.ratio(0xFF2E9BD6, 0xFFFFFFFF), 0.01)
     }
 
     @Test
-    fun seedAccentsAloneWouldFailOnLightSurfaces() {
-        // Guards the reason for the dark/light accent split: if someone collapses it,
-        // this documents which presets break the 3:1 non-text rule.
-        val failing =
-            SableAccentTokens.entries
-                .filter { SableContrast.ratio(it.seed, SableSystemTokens.Light.surfaceRaised) < 3.0 }
-                .map { it.stableValue }
-        assertEquals(listOf("blue", "green", "orange"), failing)
+    fun seedAloneWouldFailOnTheLightBase() {
+        // Guards the reason for the dark/light accent split: the seed blue is under 3:1 on the light base.
+        assertTrue(SableContrast.ratio(SableAccentTokens.Blue.seed, SableSystemTokens.Light.surfaceBase) < 3.0)
     }
 
     @Test
     fun rulesCoverBothThemesEverySurfaceAndEveryAccent() {
         val rules = SableTokenRules.contrastRules()
-        // 2 themes x 3 surfaces x (7 roles + 5 accents x 2) + 2 themes x 5 onAccent
-        assertEquals(2 * 3 * (7 + 5 * 2) + 2 * 5, rules.size)
+        // 2 themes x 3 surfaces x (7 roles + 1 accent x 2) + 2 themes x 1 onAccent
+        assertEquals(2 * 3 * (7 + 1 * 2) + 2 * 1, rules.size)
         assertTrue(rules.any { it.name == "light.surface1 blue focus" })
-        assertTrue(rules.any { it.name == "dark.slate onAccent" })
+        assertTrue(rules.any { it.name == "dark.blue onAccent" })
     }
 
     @Test
-    fun accentSeedsMatchExistingSablePresets() {
-        // AccentPreset (SableTheme.kt) and these seeds must stay identical; Sable apps and
-        // the system palette are seeded from the same value.
-        assertEquals("4D9CFF", SableAccentTokens.Blue.seedHex)
-        assertEquals("35C66B", SableAccentTokens.Green.seedHex)
-        assertEquals("7A42E8", SableAccentTokens.Purple.seedHex)
-        assertEquals("F28C45", SableAccentTokens.Orange.seedHex)
-        assertEquals("64748B", SableAccentTokens.Slate.seedHex)
+    fun oneBlueAccentFor2point0() {
+        // AccentPreset (SableTheme.kt) and this seed must stay identical; Sable apps and
+        // the system palette are seeded from the same value. 1.0's presets read as it.
+        assertEquals(listOf(SableAccentTokens.Blue), SableAccentTokens.entries.toList())
+        assertEquals("2E9BD6", SableAccentTokens.Blue.seedHex)
         assertEquals(SableAccentTokens.Blue, SableAccentTokens.fromStableValue(null))
-        assertEquals(SableAccentTokens.Blue, SableAccentTokens.fromStableValue("magenta"))
-        assertEquals(SableAccentTokens.Slate, SableAccentTokens.fromStableValue("slate"))
+        assertEquals(SableAccentTokens.Blue, SableAccentTokens.fromStableValue("slate"))
     }
 
     @Test
     fun surfacesKeepExistingSableColorTokenValues() {
         assertEquals(0xFF000000L, SableSystemTokens.Dark.surfaceBase)
         assertEquals(0xFF141414L, SableSystemTokens.Dark.surfaceRaised)
-        assertEquals(0xFF1C1C1CL, SableSystemTokens.Dark.surfaceOverlay)
+        assertEquals(0xFF262626L, SableSystemTokens.Dark.surfaceOverlay)
         assertEquals(0xFFF5F7F9L, SableSystemTokens.Light.surfaceBase)
         assertEquals(0xFFFFFFFFL, SableSystemTokens.Light.surfaceRaised)
         assertEquals(0xFFE9EDF2L, SableSystemTokens.Light.surfaceOverlay)

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default holder of android.app.role.DIALER (PermissionController roles.xml reads
+         config_defaultDialer), and Telecom's system dialer: with incall_default_class in
+         SableTelecomOverlay, Sable Phone's call screen is the one Telecom binds for emergency
+         calls too. The LineageOS Dialer (module "Dialer") is removed at Q4 by
+         scripts/stage-product.sh for the SablePhone row of product/q25/apps.tsv. The user can
+         still pick another Phone app in Settings > Apps > Default apps. -->
+    <string name="config_defaultDialer" translatable="false">org.sableos.phone</string>
+</resources>

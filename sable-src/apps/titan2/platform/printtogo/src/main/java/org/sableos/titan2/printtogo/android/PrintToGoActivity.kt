@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Typeface
 import android.os.Bundle
 import android.provider.DocumentsContract
 import android.view.KeyEvent
@@ -16,6 +15,7 @@ import android.window.OnBackInvokedDispatcher
 import org.sableos.titan2.printtogo.android.PrintToGoState.Phase
 import org.sableos.titan2.printtogo.core.PrintToGo
 import org.sableos.titan2.printtogo.core.PrintToGoText.t
+import org.sableos.titan2.theme.SableFonts
 import org.sableos.titan2.theme.SablePalette
 
 /**
@@ -140,7 +140,7 @@ class PrintToGoActivity : Activity() {
             text = s
             textSize = sp
             setTextColor(color)
-            if (bold) typeface = Typeface.DEFAULT_BOLD
+            typeface = SableFonts.of(bold)
             setPadding(0, (GAP * resources.displayMetrics.density).toInt(), 0, 0)
         }
 

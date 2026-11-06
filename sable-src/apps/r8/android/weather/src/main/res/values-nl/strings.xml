@@ -37,4 +37,13 @@
     <string name="forecast_unavailable_check_the_connection">Voorspelling niet beschikbaar. Controleer de verbinding en probeer opnieuw.</string>
     <string name="provider_response_could_not_be">Reactie van aanbieder kon niet worden genormaliseerd.</string>
     <string name="updated_from_open_meteo">Bijgewerkt vanuit Open-Meteo.</string>
+    <string name="alert_notifications">meldingen</string>
+    <string name="alert_morning_forecast">Ochtendverwachting</string>
+    <string name="alert_morning_forecast_detail">De verwachting voor de dag, elke ochtend één keer</string>
+    <string name="alert_rain_alerts">Regenwaarschuwingen</string>
+    <string name="alert_rain_alerts_detail">Een seintje als regen waarschijnlijk is in de komende 3 uur</string>
+    <string name="alert_today_in">Vandaag in %1$s</string>
+    <string name="alert_today_line">%1$s · %2$d° / %3$d° · regen %4$d%%</string>
+    <string name="alert_rain_soon_in">Binnenkort regen in %1$s</string>
+    <string name="alert_rain_line">Waarschijnlijk rond %1$s (%2$d%%)</string>
 </resources>

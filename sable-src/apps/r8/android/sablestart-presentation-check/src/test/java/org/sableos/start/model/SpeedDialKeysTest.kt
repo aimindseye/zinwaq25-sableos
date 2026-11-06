@@ -60,4 +60,9 @@ class SpeedDialKeysTest {
         assertEquals('z', SpeedDialKeys.letterFor(54))
         assertEquals(null, SpeedDialKeys.letterFor(62))
     }
+
+    @Test
+    fun speedDialGoesToSablePhoneFirstThenTheDialer() {
+        assertEquals(listOf("org.sableos.phone", "com.android.dialer"), SpeedDialKeys.PHONE_PACKAGES)
+    }
 }

@@ -302,6 +302,9 @@
     <string name="provider_credentials">فراہم کنندگان کی اسناد</string>
     <string name="select_at_least_one_section">کم از کم ایک حصہ منتخب کریں</string>
     <string name="tv">ٹی وی</string>
+    <string name="ruler">رولر</string>
+    <string name="ruler_hint">اسکرین کے اوپر سے، بائیں (سینٹی میٹر) یا دائیں (انچ) کنارے کے ساتھ رکھیں۔</string>
+    <string name="ruler_info">اسکرین کی اپنی کثافت سے سینٹی میٹر اور انچ بناتا ہے، اس لیے اتنا ہی درست ہے جتنا پینل بتاتا ہے۔ کچھ محفوظ نہیں ہوتا۔</string>
     <string name="sos_alert">SOS اور الارم</string>
     <string name="sos_light">SOS لائٹ</string>
     <string name="sos_screen_flash">اسکرین فلیش</string>

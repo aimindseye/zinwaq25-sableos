@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">Καλημέρα. Ο %1$s στη διάθεσή σας. Πώς μπορώ να βοηθήσω;</string>
+    <string name="message_hint">Ρωτήστε τον %1$s</string>
+    <string name="thinking">Ο %1$s σκέφτεται…</string>
+    <string name="keys_hint">Enter αποστολή · Shift+Enter νέα γραμμή · κρατήστε το Διάστημα για ομιλία · Μενού ρυθμίσεις</string>
+    <string name="send">Αποστολή</string>
+    <string name="settings">Ρυθμίσεις</string>
+    <string name="new_chat">Νέα συζήτηση</string>
+    <string name="done">Τέλος</string>
+    <string name="setup_first">Επιλέξτε στις Ρυθμίσεις από πού έρχονται οι απαντήσεις μου.</string>
+    <string name="name">Όνομα</string>
+    <string name="name_detail">Το Command με ανοίγει με /%1$s</string>
+    <string name="provider">Από πού έρχονται οι απαντήσεις μου</string>
+    <string name="provider_ollama">Ollama στο δίκτυό σας</string>
+    <string name="provider_ollama_detail">Δωρεάν. Τίποτα δεν φεύγει από το οικιακό σας δίκτυο.</string>
+    <string name="provider_custom">Άλλος διακομιστής στο δίκτυό σας</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp ή οποιοσδήποτε διακομιστής με API τύπου OpenAI.</string>
+    <string name="provider_hosted_detail">Δωρεάν πρόγραμμα με δικό σας κλειδί. Τα μηνύματά σας πάνε στην %1$s· τα δωρεάν προγράμματα έχουν όρια και ίσως χρησιμοποιούν τα μηνύματα για εκπαίδευση.</string>
+    <string name="address">Διεύθυνση διακομιστή</string>
+    <string name="address_hint">Για παράδειγμα 192.168.1.20</string>
+    <string name="ollama_address_detail">Η διεύθυνση του υπολογιστή σας. Το Ollama πρέπει να ακούει στο δίκτυο: ορίστε OLLAMA_HOST=0.0.0.0 και επανεκκινήστε το.</string>
+    <string name="api_key">Κλειδί API</string>
+    <string name="api_key_hint">Επικολλήστε το κλειδί από τον ιστότοπο του παρόχου</string>
+    <string name="model">Μοντέλο</string>
+    <string name="model_none">Δεν επιλέχθηκε μοντέλο. Δοκιμάστε τη σύνδεση για να εμφανιστούν.</string>
+    <string name="test_connection">Δοκιμή σύνδεσης</string>
+    <string name="testing">Σύνδεση…</string>
+    <string name="models_found">Συνδέθηκε. Βρέθηκαν %1$s μοντέλα· επιλέξτε ένα παρακάτω.</string>
+    <string name="no_models">Συνδέθηκε, αλλά ο διακομιστής δεν δείχνει μοντέλα.</string>
+    <string name="error_provider">Πρώτα επιλέξτε από πού έρχονται οι απαντήσεις μου.</string>
+    <string name="error_address">Πληκτρολογήστε τη διεύθυνση του διακομιστή, για παράδειγμα 192.168.1.20.</string>
+    <string name="error_plain_http">Το απλό http λειτουργεί μόνο στο δικό σας δίκτυο. Χρησιμοποιήστε διεύθυνση https.</string>
+    <string name="error_key">Πρώτα πληκτρολογήστε το κλειδί API.</string>
+    <string name="error_model">Πρώτα επιλέξτε μοντέλο στις Ρυθμίσεις.</string>
+    <string name="error_unreachable">Δεν μπόρεσα να φτάσω τον διακομιστή. Ελέγξτε τη διεύθυνση και ότι λειτουργεί.</string>
+    <string name="error_timeout">Ο διακομιστής άργησε πολύ να απαντήσει.</string>
+    <string name="error_server">Ο διακομιστής απάντησε: %1$s</string>
+    <string name="privacy_note">Οι συζητήσεις μένουν μόνο στη μνήμη και χάνονται όταν ξεκινάτε νέα.</string>
+    <string name="talk">Κρατήστε για ομιλία</string>
+    <string name="listening">Ακούω… αφήστε όταν τελειώσετε.</string>
+    <string name="voice">Φωνή</string>
+    <string name="voice_detail">Κρατήστε το Διάστημα σε κενό πλαίσιο μηνύματος, ή κρατήστε το Ομιλία, και μιλήστε (αγγλικά προς το παρόν). Η ομιλία γίνεται κείμενο σε αυτό το τηλέφωνο και περιμένει να το στείλετε. Τίποτα δεν ακούει αν δεν κρατάτε.</string>
+    <string name="voice_download">Λήψη μοντέλου ομιλίας (%1$s MB)</string>
+    <string name="voice_downloading">Λήψη του μοντέλου ομιλίας…</string>
+    <string name="voice_ready">Το μοντέλο ομιλίας είναι έτοιμο.</string>
+    <string name="voice_remove">Αφαίρεση μοντέλου ομιλίας</string>
+    <string name="voice_missing">Για ομιλία, κατεβάστε το μοντέλο ομιλίας στις Ρυθμίσεις.</string>
+    <string name="voice_failed">Η λήψη του μοντέλου ομιλίας απέτυχε.</string>
+    <string name="voice_permission">Επιτρέψτε το μικρόφωνο για να σας ακούω όσο κρατάτε.</string>
+    <string name="voice_nothing">Δεν το έπιασα.</string>
+</resources>

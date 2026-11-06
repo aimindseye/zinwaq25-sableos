@@ -2,7 +2,7 @@
 
 | Upstream | Used for | Pin | Licence |
 |---|---|---|---|
-| [LineageOS/android](https://github.com/LineageOS/android) `lineage-23.2` | OS base manifest | branch; exact revisions recorded per sync | Apache-2.0 and others (AOSP) |
+| [LineageOS/android](https://github.com/LineageOS/android) `lineage-24.0` | OS base manifest (SableOS 1.0 used `lineage-23.2`) | branch; exact revisions recorded per sync | Apache-2.0 and others (AOSP) |
 | [LineageOS/android_device_xelex_Q25](https://github.com/LineageOS/android_device_xelex_Q25) | Device tree | `1f4e295b5b972bd5e5ea0ec01f8a87154973b464` | Apache-2.0 |
 | [LineageOS/android_kernel_xelex_mt6789](https://github.com/LineageOS/android_kernel_xelex_mt6789) | Kernel | `2a873a3511ee0eeead1442e60145093192a4535d` | GPL-2.0 |
 | [LineageOS/android_hardware_mediatek](https://github.com/LineageOS/android_hardware_mediatek) | MTK HALs, IMS frameworks | `68f9be72a32bca66e7c63d69e9739b18f13c8b48` | Apache-2.0 |
@@ -15,6 +15,7 @@
 | [connectbot/connectbot](https://github.com/connectbot/connectbot) | Upstream for the Sable Terminal flavor | `v1.10.9` (`21ce6f47cf16785bf2314b4ea931900164c179c1`) | Apache-2.0 |
 | [aimindseye/tenseven-launcher](https://github.com/aimindseye/tenseven-launcher) | Tasks/Remind domain ported into Sable Tasks (`sable-src/apps/r8/android/tasks`) | `72ee8251091c338cda9c4b7fc9a9b91de266cb3d` | Apache-2.0 |
 | [espeak-ng/espeak-ng](https://github.com/espeak-ng/espeak-ng) | Upstream for the Sable Speech flavor (text-to-speech engine) | `1.52.0` (`4870adfa25b1a32b4361592f1be8a40337c58d6c`) | GPL-3.0-or-later |
+| [alphacep/vosk-api](https://github.com/alphacep/vosk-api) | Cosgrove hold-to-talk: `com.alphacephei:vosk-android` (with JNA) from Maven Central, and the small English model `vosk-model-small-en-us-0.15` the phone downloads when the owner asks | `0.3.75` (aar sha256 `ab2f8b91ac8051561aa325546b35fed9a68b36b8121bac5c6fb927525c4adfad`, in `gradle/verification-metadata.xml`) | Apache-2.0 (JNA: Apache-2.0 or LGPL-2.1, used under Apache-2.0) |
 | [bellhopsw/q25-50mp](https://github.com/bellhopsw/q25-50mp) | Optional 50 MP camera (`product/q25/camera-50mp`, off by default) | `caf855d5adc9578f3231f73947b6872b8786db8a` | MIT (library, tools); GPL-2.0 (kernel change) |
 | [microg/GmsCore](https://github.com/microg/GmsCore) releases | microG Services and Companion APKs (`product/q25/microg`, `SABLE_Q25_MICROG`, Q4+) | `v0.3.17.252432` (`32bc8954ff872d0e1a05ddfae81561b6dbecef69`); APK sha256 in `prebuilts.tsv` | Apache-2.0 |
 | [AuroraOSS/AuroraStore](https://gitlab.com/AuroraOSS/AuroraStore) releases | Aurora Store APK (same) | `4.8.4`; APK sha256 in `prebuilts.tsv` | GPL-3.0 |

@@ -91,6 +91,16 @@ class SableStartActivity : ComponentActivity() {
     private val hubGeneration = mutableStateOf(0)
     private val hubRequestFilter = mutableStateOf<String?>(null)
 
+    /**
+     * Command requests (ACTION_COMMAND, Alt+Space from any app through PhoneWindowManager), and the
+     * task of the app that was in front, which Back from that Command returns to.
+     */
+    private val commandGeneration = mutableStateOf(0)
+    private val commandReturnTask = mutableStateOf<Int?>(null)
+
+    /** Set when Start stops and cleared when it resumes: a request then came from another app. */
+    private var stoppedSinceResume = true
+
     /** Screen asked for by Settings (EDIT_HOME, EDIT_QUICK_BAR), and a serial so a repeat opens it again. */
     private val startRequest = mutableStateOf(StartRequest(SCREEN_START, 0))
 
@@ -245,13 +255,7 @@ class SableStartActivity : ComponentActivity() {
         registerPrivacySignals()
         scheduleInventoryRefresh()
         // A recreated activity keeps its own place instead of reopening the requested screen.
-        if (savedInstanceState == null) {
-            startRequest.value = StartRequest(screenFor(intent), 0)
-            if (intent?.action == ACTION_SHOW_HUB) requestHub(intent)
-            if (intent?.action in BB10_ONLY_ACTIONS) {
-                startBb10Detour(returnOnHome = intent?.action != ACTION_SHOW_ACTIVE_FRAMES)
-            }
-        }
+        if (savedInstanceState == null) openLaunchRequest(intent)
 
         setContent {
             val appearance = rememberGlobalSableAppearance()
@@ -285,6 +289,10 @@ class SableStartActivity : ComponentActivity() {
                     onOpenHub = {
                         hubRequestFilter.value = null
                         hubGeneration.value += 1
+                        startBb10Detour(returnOnHome = true)
+                    },
+                    onOpenCommand = {
+                        requestCommand(fromApp = false)
                         startBb10Detour(returnOnHome = true)
                     },
                     onFavoritesChanged = { keys ->
@@ -336,6 +344,14 @@ class SableStartActivity : ComponentActivity() {
                     initialHomeApps = startStateRepository.loadHomeApps(),
                     initialGridOrder = startStateRepository.loadGridOrder(),
                     onGridOrderChanged = startStateRepository::saveGridOrder,
+                    initialGridFolders = startStateRepository.loadGridFolders(),
+                    onGridFoldersChanged = startStateRepository::saveGridFolders,
+                    initialGridShape = startStateRepository.loadGridShape(),
+                    onGridShapeChanged = startStateRepository::saveGridShape,
+                    initialFramesOptions = startStateRepository.loadFramesOptions(),
+                    onFramesOptionsChanged = startStateRepository::saveFramesOptions,
+                    initialHiddenApps = startStateRepository.loadHiddenApps(),
+                    onHiddenAppsChanged = startStateRepository::saveHiddenApps,
                     initialQuickBar = startStateRepository.loadQuickBar(),
                     onQuickBarChanged = startStateRepository::saveQuickBar,
                     initialGlanceWidgets = startStateRepository.loadGlanceWidgets(),
@@ -378,6 +394,10 @@ class SableStartActivity : ComponentActivity() {
                     },
                     hubGeneration = hubGeneration.value,
                     hubRequestFilter = hubRequestFilter.value,
+                    commandGeneration = commandGeneration.value,
+                    commandReturnsToApp = commandReturnTask.value != null,
+                    onReturnFromCommand = ::returnFromCommand,
+                    onCommandClosed = { commandReturnTask.value = null },
                     onRequestContactsPermission = ::requestContactsPermission,
                 )
             }
@@ -424,6 +444,7 @@ class SableStartActivity : ComponentActivity() {
         scheduleInventoryRefresh()
         refreshFrames()
         liveRefreshGeneration.value += 1
+        stoppedSinceResume = false
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -456,10 +477,52 @@ class SableStartActivity : ComponentActivity() {
                 requestHub(intent)
                 startBb10Detour(returnOnHome = true)
             }
+            // Alt+Space from any app: Command over Start, and Back returns to that app.
+            ACTION_COMMAND -> {
+                requestCommand(fromApp = stoppedSinceResume)
+                startBb10Detour(returnOnHome = true)
+            }
+        }
+    }
+
+    /** The screen the launching intent asked for (Settings, Recents, Hub, Command). */
+    private fun openLaunchRequest(intent: Intent?) {
+        startRequest.value = StartRequest(screenFor(intent), 0)
+        val action = intent?.action
+        if (intent != null && action == ACTION_SHOW_HUB) requestHub(intent)
+        if (action == ACTION_COMMAND) requestCommand(fromApp = true)
+        if (action in BB10_ONLY_ACTIONS) startBb10Detour(returnOnHome = action != ACTION_SHOW_ACTIVE_FRAMES)
+    }
+
+    private fun requestCommand(fromApp: Boolean) {
+        commandReturnTask.value = null
+        commandGeneration.value += 1
+        if (!fromApp) return
+        // Start is left out of Recents, so the newest task is the app Alt+Space was pressed in.
+        runCatching {
+            framesExecutor.execute {
+                val task = recentTasksRepository.loadFrames(privateUsers()).firstOrNull()?.taskId
+                runOnUiThread { if (!isDestroyed) commandReturnTask.value = task }
+            }
+        }
+    }
+
+    /** Back from a Command opened over another app: that app again, as it was. */
+    private fun returnFromCommand() {
+        val task = commandReturnTask.value ?: return
+        commandReturnTask.value = null
+        val frame = framesState.value.firstOrNull { it.taskId == task }
+        if (frame != null) {
+            resumeFrame(frame)
+        } else {
+            runCatching { framesExecutor.execute { recentTasksRepository.resume(task) } }
         }
     }
 
     override fun onStop() {
+        stoppedSinceResume = true
+        // An app opened from Command: Back there belongs to that app now.
+        commandReturnTask.value = null
         if (callbackRegistered) {
             launcherAppsRepository.unregisterCallback(launcherCallback)
             callbackRegistered = false
@@ -720,12 +783,21 @@ class SableStartActivity : ComponentActivity() {
 
         /** The Recents key or button (sent by Launcher3QuickStep): Active Frames, the BB10 Recents. */
         const val ACTION_SHOW_ACTIVE_FRAMES = "org.sableos.start.action.SHOW_ACTIVE_FRAMES"
+
+        /** Alt+Space from any app (frameworks/base PhoneWindowManager): Start's Command search. */
+        const val ACTION_COMMAND = "org.sableos.start.action.COMMAND"
         const val SCREEN_START = "start"
         const val SCREEN_EDIT_HOME = "home"
 
         /** Requests the BlackBerry 7 home shows on the BlackBerry 10 screen. */
         val BB10_ONLY_ACTIONS =
-            setOf(ACTION_EDIT_HOME, ACTION_EDIT_QUICK_BAR, ACTION_SHOW_HUB, ACTION_SHOW_ACTIVE_FRAMES)
+            setOf(
+                ACTION_EDIT_HOME,
+                ACTION_EDIT_QUICK_BAR,
+                ACTION_SHOW_HUB,
+                ACTION_SHOW_ACTIVE_FRAMES,
+                ACTION_COMMAND,
+            )
 
         fun screenFor(intent: Intent?): String =
             when (intent?.action) {

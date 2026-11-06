@@ -20,11 +20,11 @@ the Q4 gates in [QUALIFICATION.md](QUALIFICATION.md) apply unchanged.
   pinned in `build/config/q25.env` and `manifests/local_manifests/sable_q25.xml`.
 * `device/xelex/Q25` still sets `TARGET_SCREEN_DENSITY := 193`; SableOS keeps 280
   (`SABLE_LCD_DENSITY`, [DISPLAY](../device-profile/DISPLAY.md)).
-* An existing 23.2 tree is re-initialised by `bootstrap`, because the new projects are missing.
+* An existing 23.2 tree is moved to 24.0 by `bootstrap`: it reverts the Sable framework patches, runs `repo init -b lineage-24.0` and syncs, keeping the downloaded objects.
 
 ## Status
 
-62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Twelve more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), frameworks/base 0317 (the next event on the lock screen), frameworks/base 0318 (the Peek as an app column beside the newest notification), and Settings 1605 with device tree 1503 (the trackpad Keys or Pointer choice).
+62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Twenty-five more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), frameworks/base 0317 (the next event on the lock screen), frameworks/base 0318 (the Peek as an app column beside the newest notification), frameworks/base 0319 (Alt+Space opens Command from any app), SetupWizard 0416 (the Full Sable, Essentials or Stock Android step), SetupWizard 0417 (the BlackBerry 10 or BlackBerry 7 look step), frameworks/base 0320 with Settings 1606 (Picture Password), frameworks/base 0321 (built-in Picture Password pictures), Settings 1607 (the homepage in BlackBerry 10 order), Settings 1608 (Deep sleeping apps), and Settings 1605 with device tree 1503 (the trackpad Keys or Pointer choice), Settings 1610 with kernel 0903 (double-tap to wake), and frameworks/base 0322 (the lock screen ticker).
 
 Every patch applies to the 24.0 heads in order. That is not yet a build: the ports below were
 written against the 24.0 sources without compiling them, so the first 24.0 build is the real test.
@@ -35,14 +35,14 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `frameworks/base/0101-SableOS-read-default-large-Quick-Settings-tiles-from.patch` | ported by hand |
 | `frameworks/base/0102-SableOS-Quick-Settings-tiles-use-the-Sable-card-and-.patch` | ported by hand |
 | `frameworks/base/0103-SableOS-apply-the-pure-black-theme-at-boot-and-after-setup.patch` | ported by hand |
-| `frameworks/base/0301-SableOS-keyboard-notification-commands-in-the-shade.patch` | applies as is |
+| `frameworks/base/0301-SableOS-keyboard-notification-commands-in-the-shade.patch` | applies as is; the row's notification now always comes from `entryAdapter`, since 24.0 removed `NotificationBundleUi` and `entryLegacy` |
 | `frameworks/base/0302-SableOS-Alt-shade-shortcuts-for-keyboards-without-Fn.patch` | refreshed (context moved) |
 | `frameworks/base/0303-SableOS-Space-toggles-and-Alt-Enter-opens-details-on.patch` | ported by hand |
 | `frameworks/base/0304-SableOS-keyboard-hint-line-and-type-ahead-on-the-loc.patch` | ported by hand |
 | `frameworks/base/0305-SableOS-Sable-lock-screen-clock-and-unlock-text.patch` | refreshed (context moved) |
 | `frameworks/base/0306-SableOS-keep-the-lock-screen-clock-on-the-current-ti.patch` | applies as is |
 | `frameworks/base/0307-SableOS-Sable-locked-glance-emergency-shortcut-and-b.patch` | ported by hand |
-| `frameworks/base/0310-SableOS-three-column-labeled-Quick-Settings-grid-fou.patch` | ported by hand |
+| `frameworks/base/0310-SableOS-three-column-labeled-Quick-Settings-grid-fou.patch` | ported by hand; the compact-row column count uses `Flow.hydratedStateOf(initialValue)`, since 24.0 made `HydratedActivatable.hydrator` private |
 | `frameworks/base/0311-SableOS-Sable-Quick-Settings-header-Hub-summary-row-.patch` | ported by hand |
 | `frameworks/base/0312-SableOS-slash-searches-the-notifications-in-the-shade.patch` | ported by hand |
 | `frameworks/base/0313-SableOS-Alt-Shift-R-cycles-the-Tall-canvas-of-the-ap.patch` | refreshed (context moved) |
@@ -51,11 +51,17 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `frameworks/base/0316-SableOS-compact-Settings-rows-on-short-screens.patch` | new on 24.0 |
 | `frameworks/base/0317-SableOS-next-calendar-event-on-the-lock-screen.patch` | new on 24.0 |
 | `frameworks/base/0318-SableOS-lock-screen-Peek-as-an-app-column-beside-the.patch` | new on 24.0 |
+| `frameworks/base/0319-SableOS-Alt-Space-opens-Sable-Command-from-any-app.patch` | new on 24.0 |
+| `frameworks/base/0320-SableOS-Picture-Password-as-a-quick-second-unlock.patch` | new on 24.0 |
+| `frameworks/base/0321-SableOS-built-in-Picture-Password-pictures.patch` | new on 24.0 |
+| `frameworks/base/0322-SableOS-ticker-for-new-notifications-on-the-lock-scr.patch` | new on 24.0 |
 | `frameworks/base/0501-SableOS-notification-light-for-every-alerting-channe.patch` | applies as is |
 | `frameworks/base/0550-SableOS-microG-signature-spoofing-on-user-builds-whe.patch` | ported by hand |
 | `kernel/xelex/mt6789/0201-SableOS-report-the-fuel-gauge-s-learned-battery-health.patch` | applies as is |
 | `kernel/xelex/mt6789/0202-SableOS-stop-the-Q25-keyboard-driver-logging-every-k.patch` | applies as is |
 | `kernel/xelex/mt6789/0901-SableOS-let-the-system-set-the-Q25-keyboard-backligh.patch` | applies as is |
+| `kernel/xelex/mt6789/0902-SableOS-no-phantom-Q25-keys-after-the-screen-wakes.patch` | applies as is (driver identical on 24.0) |
+| `kernel/xelex/mt6789/0903-SableOS-double-tap-to-wake-on-the-Q25-touch-panel.patch` | new; the kernel is the same on 24.0 |
 | `lineage-sdk/0150-SableOS-pure-black-dark-theme-by-default.patch` | applies as is |
 | `lineage-sdk/0502-SableOS-default-notification-light-color-unless-the-.patch` | applies as is |
 | `lineage-sdk/0504-SableOS-battery-light-blinks-while-charging-solid-gr.patch` | applies as is |
@@ -77,7 +83,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/Dialer/0709-SableOS-Phone-follows-the-system-Dark-theme.patch` | applies as is |
 | `packages/apps/Dialer/0710-SableOS-speed-dial-on-letter-keys.patch` | applies as is |
 | `packages/apps/DocumentsUI/1001-SableOS-pure-Files-keyboard-model.patch` | applies as is |
-| `packages/apps/DocumentsUI/1002-SableOS-Files-keys-for-copy-move-rename-new-folder-a.patch` | refreshed (context moved) |
+| `packages/apps/DocumentsUI/1002-SableOS-Files-keys-for-copy-move-rename-new-folder-a.patch` | refreshed (context moved); adds `androidx.annotation.Nullable`, which 24.0 FilesActivity no longer imports (first 24.0 build, 2026-11-05) |
 | `packages/apps/DocumentsUI/1003-SableOS-Files-single-letter-keys-per-the-design.patch` | applies as is |
 | `packages/apps/DocumentsUI/1004-SableOS-Files-letter-keys-and-the-hint-dock.patch` | refreshed (context moved) |
 | `packages/apps/FMRadio/1061-SableOS-pure-FM-bridge-protocol-for-Sable-Media.patch` | applies as is |
@@ -93,7 +99,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/Jelly/1044-SableOS-Browser-start-page-command-dock-reader-mode-.patch` | applies as is |
 | `packages/apps/Launcher3/0001-SableOS-keep-Launcher3QuickStep-for-Recents-only-not.patch` | refreshed (context moved) |
 | `packages/apps/Launcher3/0002-SableOS-hide-the-Launcher3QuickStep-home-settings-la.patch` | ported by hand |
-| `packages/apps/Launcher3/0003-SableOS-Recents-key-and-button-open-Sable-Start-s-Ac.patch` | refreshed (context moved) |
+| `packages/apps/Launcher3/0003-SableOS-Recents-key-and-button-open-Sable-Start-s-Ac.patch` | refreshed; 24.0 dropped `touchInteractionService` and `CommandType.SHOW_WITH_FOCUS` from OverviewCommandHelper, so Active Frames open from the process's application and the Recents set is TOGGLE and TOGGLE_WITH_FOCUS |
 | `packages/apps/LineageParts/0503-SableOS-show-Automagic-notification-light-color-off-.patch` | applies as is |
 | `packages/apps/LineageParts/0504-SableOS-keep-the-battery-light-on-when-fully-charged.patch` | applies as is |
 | `packages/apps/LineageParts/0601-SableOS-no-LineageOS-contributors-statistics-or-Trus.patch` | ported by hand |
@@ -132,6 +138,11 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/Settings/1603-SableOS-size-tiles-for-Display-Text-and-Lock-screen.patch` | new on 24.0 |
 | `packages/apps/Settings/1604-SableOS-Sable-settings-page-in-one-list.patch` | new on 24.0 |
 | `packages/apps/Settings/1605-SableOS-Trackpad-Keys-or-Pointer-in-Settings-Keyboard.patch` | new on 24.0 |
+| `packages/apps/Settings/1606-SableOS-Picture-Password-row-on-the-Sable-page.patch` | new on 24.0 |
+| `packages/apps/Settings/1607-SableOS-Settings-top-level-in-BlackBerry-10-order.patch` | new on 24.0 |
+| `packages/apps/Settings/1608-SableOS-Deep-sleeping-apps-with-Put-unused-apps-to-sleep.patch` | new on 24.0 |
+| `packages/apps/Settings/1609-SableOS-one-blue-accent-and-no-accent-row-2.0-black-a.patch` | new on 24.0 |
+| `packages/apps/Settings/1610-SableOS-Double-tap-to-wake-switch-in-Settings-Display.patch` | new on 24.0 |
 | `packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | ported by hand |
 | `packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | ported by hand |
 | `packages/apps/SetupWizard/0403-SableOS-Esc-returns-to-the-previous-setup-step.patch` | ported by hand |
@@ -147,6 +158,10 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/SetupWizard/0413-SableOS-Ready-screen-rows-as-the-setup-design-shows-.patch` | ported by hand |
 | `packages/apps/SetupWizard/0414-SableOS-keep-Next-on-screen-in-short-windows.patch` | ported by hand |
 | `packages/apps/SetupWizard/0415-SableOS-text-size-choice-on-the-Theme-step.patch` | new on 24.0 |
+| `packages/apps/SetupWizard/0416-SableOS-Sable-apps-step-Full-Essentials-or-Stock.patch` | new on 24.0 |
+| `packages/apps/SetupWizard/0417-SableOS-Look-step-BlackBerry-10-or-BlackBerry-7-style.patch` | new on 24.0 |
+| `packages/apps/SetupWizard/0418-SableOS-no-accent-or-pure-black-choice-on-the-Theme-s.patch` | new on 24.0 |
+| `packages/apps/SetupWizard/0419-SableOS-keyboard-first-black-Ready-screen-no-swipe-up.patch` | new on 24.0 |
 | `device/xelex/mt6789-common/1502-SableOS-let-Settings-drive-the-Q25-keyboard-firmware.patch` | ported by hand |
 | `device/xelex/mt6789-common/1503-SableOS-let-init-set-the-Q25-trackpad-mode.patch` | new on 24.0 |
 
@@ -168,8 +183,11 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
     under the scroll view.
   * The Java classes were compile-checked against stubs of the 24.0 base API. The Kotlin was
     not compiled (no Kotlin toolchain here).
-  * The Full Sable / Essentials / Stock Android choice is not in setup yet; it is a separate
-    change on top of these ports.
+  * The Full Sable / Essentials / Stock Android choice is SetupWizard 0416, a step after
+    Theme. The image still leaves out the LineageOS apps that a Sable app overrides in
+    `product/q25/apps.tsv` (Messaging, Etar, Twelve, ExactCalculator), so Stock Android uses
+    the LineageOS apps the image has (Aperture, Jelly) and keeps the Sable app elsewhere.
+    Dropping an override ships that stock app too, and the step then picks it up.
 * **SystemUI Quick Settings, lock screen and theme (frameworks/base 0101-0103, 0303, 0304,
   0307, 0310-0312), Launcher3 0002, LineageParts 0601 and Settings 1002, 1201, 1202, 1205:**
   ported by hand on 2026-11-04. Notes:

@@ -1,0 +1,738 @@
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt
+index 9dc65c1..ff22420 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubModels.kt
+@@ -43,6 +43,11 @@ data class HubConversation(
+     val category: String? = null,
+     /** Each message on its own: the message this row shows, or null for a conversation row. */
+     val messageId: Long? = null,
++    /** Priority Hub: the sender's key ([org.sableos.hub.policy.HubPriority]); null once the name is hidden. */
++    val priorityKey: String? = null,
++    /** This sender, or this row's whole app, is in Priority Hub. */
++    val personPriority: Boolean = false,
++    val appPriority: Boolean = false,
+ )
+ 
+ data class HubPerson(
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt
+index 8b9ce61..42e9448 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubPreferences.kt
+@@ -84,7 +84,16 @@ class HubPreferences(
+             .apply()
+     }
+ 
++    /** Priority Hub senders ([org.sableos.hub.policy.HubPriority.personKey]), set from the row menu. */
++    fun priorityPeople(): Set<String> = preferences.getStringSet(KEY_PRIORITY_PEOPLE, emptySet()).orEmpty().toSet()
++
++    fun setPriorityPeople(people: Set<String>) {
++        preferences.edit().putStringSet(KEY_PRIORITY_PEOPLE, people).apply()
++        appContext.contentResolver.notifyChange(ConnectedAppsRepository.HISTORY_URI, null)
++    }
++
+     private companion object {
++        const val KEY_PRIORITY_PEOPLE = "priority_people"
+         const val KEY_ATTENTION_RECORDS = "attention_records"
+         const val KEY_PRIVATE_MODE = "private_mode"
+         const val KEY_COMBINE_CONVERSATIONS = "combine_conversations"
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+index 6696d63..b1f7248 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+@@ -25,6 +25,7 @@ import org.sableos.hub.policy.AndroidSettingsRoutes
+ import org.sableos.hub.policy.HubCallRedaction
+ import org.sableos.hub.policy.HubHandoffRouter
+ import org.sableos.hub.policy.HubHandoffTarget
++import org.sableos.hub.policy.HubPriority
+ import org.sableos.hub.policy.HubPrivacyState
+ import org.sableos.hub.policy.HubRedaction
+ import org.sableos.hub.policy.HubSourcePrivacy
+@@ -45,7 +46,7 @@ class HubRepository(
+     private val privacyReader = PrivacyReader(context)
+ 
+     /** Conversations and messages from opted-in connected apps, with Hub priority applied. */
+-    private fun loadConnected(): ConnectedLoad {
++    private fun loadConnected(priorityPeople: Set<String>): ConnectedLoad {
+         val connectedPolicies =
+             connectedApps
+                 .loadPolicies()
+@@ -68,7 +69,8 @@ class HubRepository(
+                     conversation.sourcePackage?.let { pkg ->
+                         conversation.sourceUserSerial?.let { serial -> ConnectedAppKey(pkg, serial) }
+                     }
+-                conversation.copy(hubPriority = key?.let { connectedPolicies[it]?.favorite } == true)
++                val appPriority = key?.let { connectedPolicies[it]?.favorite } == true
++                HubPriority.apply(conversation, priorityPeople, appPriority)
+             }
+         return ConnectedLoad(prioritized, reduced.messages, sourcePrivacy(connectedPolicies))
+     }
+@@ -106,11 +108,13 @@ class HubRepository(
+                     ?: address
+             }
+ 
+-        val connected = loadConnected()
++        val priorityPeople = HubPreferences(context).priorityPeople()
++        val connected = loadConnected(priorityPeople)
+         val smsPrivacy = smsPrivacy()
++        val prioritizedSms = smsConversations.map { sms -> HubPriority.apply(sms, priorityPeople) }
+         val (conversations, visibleMessages) =
+             HubRedaction.apply(
+-                conversations = smsConversations + connected.conversations,
++                conversations = prioritizedSms + connected.conversations,
+                 messages = messages + connected.messages,
+                 smsPrivacy = smsPrivacy,
+                 privacyFor = connected.privacyFor,
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
+index cbe40b3..cf1a10a 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt
+@@ -238,6 +238,12 @@ object HubText {
+             "each_message_on_its_own" to "Each message on its own",
+             "one_row_per_received_message" to "One row per received message. Turns off Combine conversations.",
+             "remind_me" to "Remind me",
++            "add_sender_to_priority" to "Add sender to Priority Hub",
++            "remove_sender_from_priority" to "Remove sender from Priority Hub",
++            "add_app_to_priority" to "Add all of this app to Priority Hub",
++            "remove_app_from_priority" to "Remove this app from Priority Hub",
++            "added_to_priority" to "Added to Priority Hub",
++            "removed_from_priority" to "Removed from Priority Hub",
+             "tasks_unavailable" to "Sable Tasks is not installed.",
+             "row_menu_snooze" to "Snooze in the row menu",
+             "row_menu_snooze_detail" to "Adds Snooze 1 hour and the Z key for a live notification.",
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+index 264f588..7ce0be9 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/MainActivity.kt
+@@ -34,6 +34,7 @@ import org.sableos.hub.policy.HubHandoffTarget
+ import org.sableos.hub.policy.HubIntents
+ import org.sableos.hub.policy.HubMenuOptions
+ import org.sableos.hub.policy.HubRemindMe
++import org.sableos.hub.policy.HubRowAction
+ import org.sableos.hub.ui.HubScreen
+ import kotlin.math.roundToInt
+ 
+@@ -260,11 +261,46 @@ class MainActivity : ComponentActivity() {
+                     },
+                     menuOptions = menuOptions,
+                     onRemindMe = ::remindMe,
++                    onPriority = { conversation, action ->
++                        setPriority(conversation, action).also { refreshGeneration += 1 }
++                    },
+                 )
+             }
+         }
+     }
+ 
++    /**
++     * Priority Hub from the row menu: a sender in Hub's preferences, a whole app as its Hub
++     * priority in Connected apps (the same switch). Ordering only, never a Do Not Disturb exception.
++     */
++    private fun setPriority(
++        conversation: HubConversation,
++        action: HubRowAction,
++    ): String? {
++        val preferences = HubPreferences(this)
++        val add = action == HubRowAction.AddPersonPriority || action == HubRowAction.AddAppPriority
++        when (action) {
++            HubRowAction.AddPersonPriority, HubRowAction.RemovePersonPriority -> {
++                val key = conversation.priorityKey ?: return null
++                val people = preferences.priorityPeople()
++                preferences.setPriorityPeople(if (add) people + key else people - key)
++            }
++
++            HubRowAction.AddAppPriority, HubRowAction.RemoveAppPriority -> {
++                val pkg = conversation.sourcePackage ?: return null
++                val serial = conversation.sourceUserSerial ?: return null
++                val connectedApps = ConnectedAppsRepository(this)
++                val policy = connectedApps.policyFor(ConnectedAppKey(pkg, serial))
++                connectedApps.update(policy.copy(favorite = add))
++            }
++
++            else -> {
++                return null
++            }
++        }
++        return if (add) t("added_to_priority") else t("removed_from_priority")
++    }
++
+     /** Remind me: Sable Tasks opens its new follow-up; null status when it opened. */
+     private fun remindMe(conversation: HubConversation): String? {
+         val followUp =
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMessageMenu.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMessageMenu.kt
+index 98769c2..e5532ab 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMessageMenu.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubMessageMenu.kt
+@@ -61,8 +61,9 @@ enum class HubRowKey { R, U, Z, Delete }
+ /**
+  * The BB10 row menu of a Hub message (Menu, Alt+Enter or a long press; it opens on the right
+  * edge): Open and Reply first, then Mark read, Snooze (when turned on) and Dismiss when the row's
+- * notification is live, then the source's own actions under their own names, then Mark prior read
+- * and Remind me (when turned on), then the routes that leave Hub.
++ * notification is live, then the source's own actions under their own names, then Priority Hub
++ * (the sender, and a connected app as a whole), Mark prior read and Remind me (when turned on), then
++ * the routes that leave Hub.
+  *
+  * Mark read and the app actions run the source's own PendingIntent, so Hub still invents nothing
+  * (`INVENT_UNSUPPORTED_ACTIONS=NO`): an SMS cannot be marked read from Hub and gets none of them.
+@@ -84,6 +85,11 @@ object HubMessageMenu {
+         val entries = rowEntries(item, privacy, facts, options.snooze)
+         if (privacy.deviceLocked) return entries
+         val extra = mutableListOf<HubMenuEntry>()
++        // Priority Hub: not in private mode, where the row may not show who it is from.
++        val conversation = (item as? HubInboxItem.Conversation)?.conversation
++        if (conversation != null && !privacy.privateMode) {
++            extra += HubPriority.menuActions(conversation).map { HubMenuEntry.Hub(it) }
++        }
+         if (priorToMarkRead > 0) extra += HubMenuEntry.Hub(HubRowAction.MarkPriorRead)
+         if (options.remindMe && canRemind(item)) extra += HubMenuEntry.Hub(HubRowAction.RemindMe)
+         // These go after the row's own commands, before the routes that leave Hub.
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubPriority.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubPriority.kt
+new file mode 100644
+index 0000000..d095433
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubPriority.kt
+@@ -0,0 +1,62 @@
++package org.sableos.hub.policy
++
++import org.sableos.hub.HubConversation
++import org.sableos.hub.HubConversationSource
++
++/**
++ * Priority Hub, set from a row's menu: one sender (an SMS number, or a name in one connected
++ * app) or every row of a connected app (that app's Hub priority, as in Connected apps). Priority
++ * rows show under the Priority filter and sort first; it orders Hub only and is never a Do Not
++ * Disturb exception. The sender keys stay on the phone in Hub's own preferences.
++ */
++object HubPriority {
++    private const val SMS = "sms:"
++    private const val APP = "app:"
++
++    /** The sender's key, from the unredacted row; null when the row names no sender. */
++    fun personKey(conversation: HubConversation): String? =
++        if (conversation.source == HubConversationSource.Sms) {
++            val number = conversation.address.filter { it.isDigit() || it == '+' }
++            val address = number.ifEmpty { conversation.address.trim().lowercase() }
++            address.takeIf { it.isNotEmpty() }?.let { SMS + it }
++        } else {
++            val name = conversation.displayName.trim().lowercase()
++            val pkg = conversation.sourcePackage
++            val serial = conversation.sourceUserSerial
++            if (pkg == null || serial == null || name.isEmpty()) null else "$APP$pkg:$serial:$name"
++        }
++
++    /** The row with its sender key and Priority Hub state; [appPriority] is the app's own Hub priority. */
++    fun apply(
++        conversation: HubConversation,
++        people: Set<String>,
++        appPriority: Boolean = false,
++    ): HubConversation {
++        val key = personKey(conversation)
++        val person = key != null && key in people
++        return conversation.copy(
++            priorityKey = key,
++            personPriority = person,
++            appPriority = appPriority,
++            hubPriority = person || appPriority,
++        )
++    }
++
++    /** Whether the row can add its whole app: connected apps only, Hub's own SMS has no app switch. */
++    fun canAddApp(conversation: HubConversation): Boolean =
++        conversation.source != HubConversationSource.Sms &&
++            conversation.sourcePackage != null &&
++            conversation.sourceUserSerial != null
++
++    /** The two row menu entries for [conversation], add or remove as it stands. */
++    fun menuActions(conversation: HubConversation): List<HubRowAction> =
++        buildList {
++            if (conversation.priorityKey != null) {
++                val person = conversation.personPriority
++                add(if (person) HubRowAction.RemovePersonPriority else HubRowAction.AddPersonPriority)
++            }
++            if (canAddApp(conversation)) {
++                add(if (conversation.appPriority) HubRowAction.RemoveAppPriority else HubRowAction.AddAppPriority)
++            }
++        }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRedaction.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRedaction.kt
+index 373ec83..18c86ed 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRedaction.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRedaction.kt
+@@ -75,6 +75,7 @@ object HubRedaction {
+                 badged.copy(
+                     displayName = conversation.sourceLabel ?: conversation.sourceFallbackLabel(),
+                     lastBody = "",
++                    priorityKey = null,
+                 )
+             }
+ 
+@@ -84,6 +85,7 @@ object HubRedaction {
+                     lastBody = "",
+                     sourceLabel = WORK_PROFILE_LABEL,
+                     canQuickReply = false,
++                    priorityKey = null,
+                 )
+             }
+ 
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt
+index 681cd7f..3c696f9 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubRowActions.kt
+@@ -16,6 +16,10 @@ enum class HubRowAction(
+     Snooze("snooze_1_hour"),
+     Dismiss("dismiss_notification"),
+     RemindMe("remind_me"),
++    AddPersonPriority("add_sender_to_priority"),
++    RemovePersonPriority("remove_sender_from_priority"),
++    AddAppPriority("add_app_to_priority"),
++    RemoveAppPriority("remove_app_from_priority"),
+     CallBack("call_back"),
+     Text("text"),
+     OpenInMessages("open_in_messages"),
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+index 1065b59..55cff0c 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/HubScreen.kt
+@@ -367,6 +367,7 @@ private class HubActions(
+     val onNotificationCommand: (String, HubMenuEntry) -> String?,
+     val menuOptions: HubMenuOptions,
+     val onRemindMe: (HubConversation) -> String?,
++    val onPriority: (HubConversation, HubRowAction) -> String?,
+ )
+ 
+ @Composable
+@@ -400,6 +401,8 @@ fun HubScreen(
+     onPendingMenuConsumed: () -> Unit = {},
+     menuOptions: HubMenuOptions = HubMenuOptions(),
+     onRemindMe: (HubConversation) -> String? = { null },
++    /** Priority Hub from the row menu: add or remove the sender or the whole app; the status line. */
++    onPriority: (HubConversation, HubRowAction) -> String? = { _, _ -> null },
+ ) {
+     val state = remember { HubUiState() }
+ 
+@@ -462,6 +465,7 @@ fun HubScreen(
+             onNotificationCommand = onNotificationCommand,
+             menuOptions = menuOptions,
+             onRemindMe = onRemindMe,
++            onPriority = onPriority,
+         )
+ 
+     SableRefreshableSurface(
+@@ -1475,6 +1479,14 @@ private fun runConversationAction(
+             actions.onRemindMe(conversation)?.let { state.statusMessage = it }
+         }
+ 
++        HubRowAction.AddPersonPriority,
++        HubRowAction.RemovePersonPriority,
++        HubRowAction.AddAppPriority,
++        HubRowAction.RemoveAppPriority,
++        -> {
++            actions.onPriority(conversation, action)?.let { state.statusMessage = it }
++        }
++
+         HubRowAction.Text,
+         HubRowAction.MarkRead,
+         HubRowAction.MarkPriorRead,
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml
+index e4a0a12..78656b2 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ar/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">يضيف غفوة لمدة ساعة والمفتاح Z لإشعار نشط.</string>
+     <string name="row_menu_remind_me">ذكّرني في قائمة الصف</string>
+     <string name="row_menu_remind_me_detail">يضيف متابعة في Sable Tasks لصباح الغد. يُحفظ التطبيق فقط، وليس الرسالة أبدًا.</string>
++    <string name="add_sender_to_priority">إضافة المرسل إلى Hub ذي الأولوية</string>
++    <string name="remove_sender_from_priority">إزالة المرسل من Hub ذي الأولوية</string>
++    <string name="add_app_to_priority">إضافة كل هذا التطبيق إلى Hub ذي الأولوية</string>
++    <string name="remove_app_from_priority">إزالة هذا التطبيق من Hub ذي الأولوية</string>
++    <string name="added_to_priority">تمت الإضافة إلى Hub ذي الأولوية</string>
++    <string name="removed_from_priority">تمت الإزالة من Hub ذي الأولوية</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml
+index 54aab4f..78e8d92 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-de/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">Fügt „1 Stunde schlummern“ und die Taste Z für eine aktive Benachrichtigung hinzu.</string>
+     <string name="row_menu_remind_me">Erinnern im Zeilenmenü</string>
+     <string name="row_menu_remind_me_detail">Legt in Sable Tasks eine Nachfass-Aufgabe für morgen früh an. Gespeichert wird nur die App, nie die Nachricht.</string>
++    <string name="add_sender_to_priority">Absender zum Prioritäts-Hub hinzufügen</string>
++    <string name="remove_sender_from_priority">Absender aus dem Prioritäts-Hub entfernen</string>
++    <string name="add_app_to_priority">Die ganze App zum Prioritäts-Hub hinzufügen</string>
++    <string name="remove_app_from_priority">Diese App aus dem Prioritäts-Hub entfernen</string>
++    <string name="added_to_priority">Zum Prioritäts-Hub hinzugefügt</string>
++    <string name="removed_from_priority">Aus dem Prioritäts-Hub entfernt</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml
+index 45d8b95..ffe15f8 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-el/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">Προσθέτει Αναβολή 1 ώρας και το πλήκτρο Z για ενεργή ειδοποίηση.</string>
+     <string name="row_menu_remind_me">Υπενθύμισέ μου στο μενού γραμμής</string>
+     <string name="row_menu_remind_me_detail">Προσθέτει υπενθύμιση στο Sable Tasks για αύριο το πρωί. Αποθηκεύεται μόνο η εφαρμογή, ποτέ το μήνυμα.</string>
++    <string name="add_sender_to_priority">Προσθήκη αποστολέα στο Hub προτεραιότητας</string>
++    <string name="remove_sender_from_priority">Αφαίρεση αποστολέα από το Hub προτεραιότητας</string>
++    <string name="add_app_to_priority">Προσθήκη όλης της εφαρμογής στο Hub προτεραιότητας</string>
++    <string name="remove_app_from_priority">Αφαίρεση της εφαρμογής από το Hub προτεραιότητας</string>
++    <string name="added_to_priority">Προστέθηκε στο Hub προτεραιότητας</string>
++    <string name="removed_from_priority">Αφαιρέθηκε από το Hub προτεραιότητας</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml
+index 4edfc08..7d49452 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-es/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">Añade Posponer 1 hora y la tecla Z para una notificación activa.</string>
+     <string name="row_menu_remind_me">Recordármelo en el menú de fila</string>
+     <string name="row_menu_remind_me_detail">Añade un seguimiento en Sable Tasks para mañana por la mañana. Solo se guarda la app, nunca el mensaje.</string>
++    <string name="add_sender_to_priority">Añadir remitente al Hub prioritario</string>
++    <string name="remove_sender_from_priority">Quitar remitente del Hub prioritario</string>
++    <string name="add_app_to_priority">Añadir toda esta app al Hub prioritario</string>
++    <string name="remove_app_from_priority">Quitar esta app del Hub prioritario</string>
++    <string name="added_to_priority">Añadido al Hub prioritario</string>
++    <string name="removed_from_priority">Quitado del Hub prioritario</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml
+index b659744..cf4dece 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-fr/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">Ajoute Reporter d’1 heure et la touche Z pour une notification active.</string>
+     <string name="row_menu_remind_me">Me le rappeler dans le menu de ligne</string>
+     <string name="row_menu_remind_me_detail">Ajoute une relance dans Sable Tasks pour demain matin. Seule l’app est enregistrée, jamais le message.</string>
++    <string name="add_sender_to_priority">Ajouter l\'expéditeur au Hub prioritaire</string>
++    <string name="remove_sender_from_priority">Retirer l\'expéditeur du Hub prioritaire</string>
++    <string name="add_app_to_priority">Ajouter toute cette app au Hub prioritaire</string>
++    <string name="remove_app_from_priority">Retirer cette app du Hub prioritaire</string>
++    <string name="added_to_priority">Ajouté au Hub prioritaire</string>
++    <string name="removed_from_priority">Retiré du Hub prioritaire</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml
+index 1c707c8..19e2d24 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-hi/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">सक्रिय सूचना के लिए 1 घंटा स्नूज़ और Z कुंजी जोड़ता है।</string>
+     <string name="row_menu_remind_me">पंक्ति मेनू में मुझे याद दिलाएँ</string>
+     <string name="row_menu_remind_me_detail">Sable Tasks में कल सुबह के लिए फ़ॉलो-अप जोड़ता है। केवल ऐप सहेजा जाता है, संदेश कभी नहीं।</string>
++    <string name="add_sender_to_priority">भेजने वाले को प्राथमिकता Hub में जोड़ें</string>
++    <string name="remove_sender_from_priority">भेजने वाले को प्राथमिकता Hub से हटाएँ</string>
++    <string name="add_app_to_priority">इस पूरे ऐप को प्राथमिकता Hub में जोड़ें</string>
++    <string name="remove_app_from_priority">इस ऐप को प्राथमिकता Hub से हटाएँ</string>
++    <string name="added_to_priority">प्राथमिकता Hub में जोड़ा गया</string>
++    <string name="removed_from_priority">प्राथमिकता Hub से हटाया गया</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml
+index 96571fb..416b040 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-it/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">Aggiunge Posticipa di 1 ora e il tasto Z per una notifica attiva.</string>
+     <string name="row_menu_remind_me">Ricordamelo nel menu della riga</string>
+     <string name="row_menu_remind_me_detail">Aggiunge un promemoria in Sable Tasks per domattina. Viene salvata solo l’app, mai il messaggio.</string>
++    <string name="add_sender_to_priority">Aggiungi mittente all\'Hub prioritario</string>
++    <string name="remove_sender_from_priority">Rimuovi mittente dall\'Hub prioritario</string>
++    <string name="add_app_to_priority">Aggiungi tutta questa app all\'Hub prioritario</string>
++    <string name="remove_app_from_priority">Rimuovi questa app dall\'Hub prioritario</string>
++    <string name="added_to_priority">Aggiunto all\'Hub prioritario</string>
++    <string name="removed_from_priority">Rimosso dall\'Hub prioritario</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml
+index 1298e2e..c92eb21 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-iw/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">מוסיף נודניק לשעה ואת המקש Z להתראה פעילה.</string>
+     <string name="row_menu_remind_me">תזכיר לי בתפריט השורה</string>
+     <string name="row_menu_remind_me_detail">מוסיף מעקב ב-Sable Tasks למחר בבוקר. נשמרת רק האפליקציה, אף פעם לא ההודעה.</string>
++    <string name="add_sender_to_priority">הוספת השולח ל-Hub בעדיפות</string>
++    <string name="remove_sender_from_priority">הסרת השולח מ-Hub בעדיפות</string>
++    <string name="add_app_to_priority">הוספת כל האפליקציה ל-Hub בעדיפות</string>
++    <string name="remove_app_from_priority">הסרת האפליקציה מ-Hub בעדיפות</string>
++    <string name="added_to_priority">נוסף ל-Hub בעדיפות</string>
++    <string name="removed_from_priority">הוסר מ-Hub בעדיפות</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml
+index 62383b0..c953efc 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ja/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">表示中の通知に「1 時間スヌーズ」と Z キーを追加します。</string>
+     <string name="row_menu_remind_me">行メニューにリマインド</string>
+     <string name="row_menu_remind_me_detail">Sable Tasks に明日の朝のフォローアップを追加します。保存されるのはアプリだけで、メッセージは保存されません。</string>
++    <string name="add_sender_to_priority">送信者を優先 Hub に追加</string>
++    <string name="remove_sender_from_priority">送信者を優先 Hub から削除</string>
++    <string name="add_app_to_priority">このアプリ全体を優先 Hub に追加</string>
++    <string name="remove_app_from_priority">このアプリを優先 Hub から削除</string>
++    <string name="added_to_priority">優先 Hub に追加しました</string>
++    <string name="removed_from_priority">優先 Hub から削除しました</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml
+index fa4b178..1368809 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ko/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">활성 알림에 1시간 후 다시 알림과 Z 키를 추가합니다.</string>
+     <string name="row_menu_remind_me">행 메뉴에 나중에 알림</string>
+     <string name="row_menu_remind_me_detail">Sable Tasks에 내일 아침 후속 조치를 추가합니다. 앱만 저장되며 메시지는 저장되지 않습니다.</string>
++    <string name="add_sender_to_priority">보낸 사람을 우선 Hub에 추가</string>
++    <string name="remove_sender_from_priority">보낸 사람을 우선 Hub에서 제거</string>
++    <string name="add_app_to_priority">이 앱 전체를 우선 Hub에 추가</string>
++    <string name="remove_app_from_priority">이 앱을 우선 Hub에서 제거</string>
++    <string name="added_to_priority">우선 Hub에 추가됨</string>
++    <string name="removed_from_priority">우선 Hub에서 제거됨</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml
+index 0a1eac3..e5d73d3 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-nl/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">Voegt 1 uur uitstellen en de toets Z toe voor een actieve melding.</string>
+     <string name="row_menu_remind_me">Herinner me in het rijmenu</string>
+     <string name="row_menu_remind_me_detail">Voegt een opvolgtaak toe in Sable Tasks voor morgenochtend. Alleen de app wordt bewaard, nooit het bericht.</string>
++    <string name="add_sender_to_priority">Afzender toevoegen aan Prioriteits-Hub</string>
++    <string name="remove_sender_from_priority">Afzender verwijderen uit Prioriteits-Hub</string>
++    <string name="add_app_to_priority">Hele app toevoegen aan Prioriteits-Hub</string>
++    <string name="remove_app_from_priority">Deze app verwijderen uit Prioriteits-Hub</string>
++    <string name="added_to_priority">Toegevoegd aan Prioriteits-Hub</string>
++    <string name="removed_from_priority">Verwijderd uit Prioriteits-Hub</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml
+index 6724fd4..909efaf 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-pl/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">Dodaje Odłóż o 1 godzinę i klawisz Z dla aktywnego powiadomienia.</string>
+     <string name="row_menu_remind_me">Przypomnij mi w menu wiersza</string>
+     <string name="row_menu_remind_me_detail">Dodaje w Sable Tasks zadanie na jutro rano. Zapisywana jest tylko aplikacja, nigdy wiadomość.</string>
++    <string name="add_sender_to_priority">Dodaj nadawcę do Hub priorytetowego</string>
++    <string name="remove_sender_from_priority">Usuń nadawcę z Hub priorytetowego</string>
++    <string name="add_app_to_priority">Dodaj całą aplikację do Hub priorytetowego</string>
++    <string name="remove_app_from_priority">Usuń aplikację z Hub priorytetowego</string>
++    <string name="added_to_priority">Dodano do Hub priorytetowego</string>
++    <string name="removed_from_priority">Usunięto z Hub priorytetowego</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml
+index 7cc1b93..c89e5b6 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-pt/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">Adiciona Adiar 1 hora e a tecla Z para uma notificação ativa.</string>
+     <string name="row_menu_remind_me">Lembrar-me no menu da linha</string>
+     <string name="row_menu_remind_me_detail">Adiciona um acompanhamento no Sable Tasks para amanhã de manhã. Só a app é guardada, nunca a mensagem.</string>
++    <string name="add_sender_to_priority">Adicionar remetente ao Hub prioritário</string>
++    <string name="remove_sender_from_priority">Remover remetente do Hub prioritário</string>
++    <string name="add_app_to_priority">Adicionar todo este app ao Hub prioritário</string>
++    <string name="remove_app_from_priority">Remover este app do Hub prioritário</string>
++    <string name="added_to_priority">Adicionado ao Hub prioritário</string>
++    <string name="removed_from_priority">Removido do Hub prioritário</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml
+index 51b4c0b..c23c92c 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ru/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">Добавляет «Отложить на 1 час» и клавишу Z для активного уведомления.</string>
+     <string name="row_menu_remind_me">«Напомнить» в меню строки</string>
+     <string name="row_menu_remind_me_detail">Добавляет в Sable Tasks напоминание на завтра утром. Сохраняется только приложение, не сообщение.</string>
++    <string name="add_sender_to_priority">Добавить отправителя в приоритетный Hub</string>
++    <string name="remove_sender_from_priority">Убрать отправителя из приоритетного Hub</string>
++    <string name="add_app_to_priority">Добавить всё приложение в приоритетный Hub</string>
++    <string name="remove_app_from_priority">Убрать приложение из приоритетного Hub</string>
++    <string name="added_to_priority">Добавлено в приоритетный Hub</string>
++    <string name="removed_from_priority">Убрано из приоритетного Hub</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml
+index 8fca50b..b2eb98c 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-sv/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">Lägger till Snooza 1 timme och tangenten Z för en aktiv avisering.</string>
+     <string name="row_menu_remind_me">Påminn mig i radmenyn</string>
+     <string name="row_menu_remind_me_detail">Lägger till en uppföljning i Sable Tasks till i morgon bitti. Bara appen sparas, aldrig meddelandet.</string>
++    <string name="add_sender_to_priority">Lägg till avsändaren i Prioriterad Hub</string>
++    <string name="remove_sender_from_priority">Ta bort avsändaren från Prioriterad Hub</string>
++    <string name="add_app_to_priority">Lägg till hela appen i Prioriterad Hub</string>
++    <string name="remove_app_from_priority">Ta bort appen från Prioriterad Hub</string>
++    <string name="added_to_priority">Tillagd i Prioriterad Hub</string>
++    <string name="removed_from_priority">Borttagen från Prioriterad Hub</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml
+index 6a322a7..7573b6b 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-tr/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">Etkin bir bildirim için 1 saat ertele ve Z tuşunu ekler.</string>
+     <string name="row_menu_remind_me">Satır menüsünde bana hatırlat</string>
+     <string name="row_menu_remind_me_detail">Sable Tasks\'e yarın sabah için takip ekler. Yalnızca uygulama kaydedilir, mesaj asla.</string>
++    <string name="add_sender_to_priority">Göndereni Öncelikli Hub\'a ekle</string>
++    <string name="remove_sender_from_priority">Göndereni Öncelikli Hub\'dan çıkar</string>
++    <string name="add_app_to_priority">Bu uygulamanın tümünü Öncelikli Hub\'a ekle</string>
++    <string name="remove_app_from_priority">Bu uygulamayı Öncelikli Hub\'dan çıkar</string>
++    <string name="added_to_priority">Öncelikli Hub\'a eklendi</string>
++    <string name="removed_from_priority">Öncelikli Hub\'dan çıkarıldı</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml
+index cab2da2..997a126 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-ur/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">فعال اطلاع کے لیے 1 گھنٹہ مؤخر اور Z کلید شامل کرتا ہے۔</string>
+     <string name="row_menu_remind_me">قطار کے مینو میں مجھے یاد دلائیں</string>
+     <string name="row_menu_remind_me_detail">Sable Tasks میں کل صبح کے لیے فالو اپ شامل کرتا ہے۔ صرف ایپ محفوظ ہوتی ہے، پیغام کبھی نہیں۔</string>
++    <string name="add_sender_to_priority">بھیجنے والے کو ترجیحی Hub میں شامل کریں</string>
++    <string name="remove_sender_from_priority">بھیجنے والے کو ترجیحی Hub سے ہٹائیں</string>
++    <string name="add_app_to_priority">پوری ایپ کو ترجیحی Hub میں شامل کریں</string>
++    <string name="remove_app_from_priority">اس ایپ کو ترجیحی Hub سے ہٹائیں</string>
++    <string name="added_to_priority">ترجیحی Hub میں شامل کیا گیا</string>
++    <string name="removed_from_priority">ترجیحی Hub سے ہٹا دیا گیا</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml
+index adeb3e9..365afe0 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values-zh-rCN/strings.xml
+@@ -200,4 +200,10 @@
+     <string name="row_menu_snooze_detail">为当前通知添加“1 小时后提醒”和 Z 键。</string>
+     <string name="row_menu_remind_me">行菜单中的提醒我</string>
+     <string name="row_menu_remind_me_detail">在 Sable Tasks 中添加明天早上的跟进。只保存应用，从不保存消息。</string>
++    <string name="add_sender_to_priority">将发件人加入优先 Hub</string>
++    <string name="remove_sender_from_priority">将发件人移出优先 Hub</string>
++    <string name="add_app_to_priority">将此应用全部加入优先 Hub</string>
++    <string name="remove_app_from_priority">将此应用移出优先 Hub</string>
++    <string name="added_to_priority">已加入优先 Hub</string>
++    <string name="removed_from_priority">已移出优先 Hub</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
+index 8936fcd..c81d524 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
+@@ -202,4 +202,10 @@
+     <string name="row_menu_snooze_detail">Adds Snooze 1 hour and the Z key for a live notification.</string>
+     <string name="row_menu_remind_me">Remind me in the row menu</string>
+     <string name="row_menu_remind_me_detail">Adds a follow-up in Sable Tasks for tomorrow morning. Only the app is saved, never the message.</string>
++    <string name="add_sender_to_priority">Add sender to Priority Hub</string>
++    <string name="remove_sender_from_priority">Remove sender from Priority Hub</string>
++    <string name="add_app_to_priority">Add all of this app to Priority Hub</string>
++    <string name="remove_app_from_priority">Remove this app from Priority Hub</string>
++    <string name="added_to_priority">Added to Priority Hub</string>
++    <string name="removed_from_priority">Removed from Priority Hub</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMessageMenuTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMessageMenuTest.kt
+index 7fd2431..883bee3 100644
+--- a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMessageMenuTest.kt
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubMessageMenuTest.kt
+@@ -64,6 +64,7 @@ class HubMessageMenuTest {
+                 "Dismiss",
+                 "app:Archive",
+                 "app:Delete",
++                "AddAppPriority",
+                 "OpenSourceApp",
+                 "SourceNotifications",
+                 "PrivacyOptions",
+@@ -105,7 +106,15 @@ class HubMessageMenuTest {
+     fun noMarkReadWithoutTheSourcesOwnActionAndNoDismissForOngoing() {
+         val facts = live.copy(clearable = false, markReadIndex = -1, appActions = emptyList())
+         assertEquals(
+-            listOf("Open", "Reply", "Snooze", "OpenSourceApp", "SourceNotifications", "PrivacyOptions"),
++            listOf(
++                "Open",
++                "Reply",
++                "Snooze",
++                "AddAppPriority",
++                "OpenSourceApp",
++                "SourceNotifications",
++                "PrivacyOptions",
++            ),
+             labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail), facts = facts, options = snooze)),
+         )
+     }
+@@ -113,7 +122,9 @@ class HubMessageMenuTest {
+     @Test
+     fun goneNotificationLockedPhoneAndSmsGetNoNotificationCommands() {
+         val base = HubRowActions.forConversation(gmail).map { it.name }
+-        assertEquals(base, labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail))))
++        val gone = labels(HubMessageMenu.entries(HubInboxItem.Conversation(gmail)))
++        assertEquals(base, gone - "AddAppPriority")
++        assertEquals("AddAppPriority", gone[gone.indexOf("OpenSourceApp") - 1])
+         val locked = HubPrivacyState(deviceLocked = true)
+         assertEquals(
+             HubRowActions.forConversation(gmail, locked).map { it.name },
+diff --git a/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubPriorityTest.kt b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubPriorityTest.kt
+new file mode 100644
+index 0000000..9b7ff25
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/policy/HubPriorityTest.kt
+@@ -0,0 +1,72 @@
++package org.sableos.hub.policy
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.sableos.hub.HubConversation
++import org.sableos.hub.HubConversationSource
++
++/** Priority Hub from the row menu: one sender, or a connected app as a whole. */
++class HubPriorityTest {
++    private val sms =
++        HubConversation(
++            threadId = 3L,
++            address = "+1 (555) 010-0100",
++            displayName = "Maya",
++            lastBody = "Hi",
++            lastDateMillis = 2_000L,
++            unreadCount = 0,
++        )
++    private val chat =
++        HubConversation(
++            threadId = -4L,
++            address = "chat",
++            displayName = " Sam ",
++            lastBody = "Lunch?",
++            lastDateMillis = 1_000L,
++            unreadCount = 0,
++            source = HubConversationSource.ConnectedApp,
++            sourceLabel = "Signal",
++            sourcePackage = "org.thoughtcrime.securesms",
++            sourceUserSerial = 0L,
++        )
++
++    private fun menu(conversation: HubConversation) = HubPriority.menuActions(conversation).map { it.name }
++
++    @Test
++    fun senderKeysUseTheNumberOrTheNameInItsApp() {
++        assertEquals("sms:+15550100100", HubPriority.personKey(sms))
++        assertEquals("app:org.thoughtcrime.securesms:0:sam", HubPriority.personKey(chat))
++        assertNull(HubPriority.personKey(chat.copy(displayName = " ")))
++        assertNull(HubPriority.personKey(sms.copy(address = "")))
++    }
++
++    @Test
++    fun aPrioritySenderOrAppMakesTheRowPriority() {
++        val person = HubPriority.apply(sms, setOf("sms:+15550100100"))
++        assertTrue(person.hubPriority && person.personPriority && !person.appPriority)
++        val app = HubPriority.apply(chat, emptySet(), appPriority = true)
++        assertTrue(app.hubPriority && app.appPriority && !app.personPriority)
++        assertFalse(HubPriority.apply(chat, setOf("sms:+15550100100")).hubPriority)
++        assertTrue(HubInbox.isPriority(person))
++    }
++
++    @Test
++    fun theMenuAddsOrRemovesTheSenderAndOnlyConnectedAppsAsAWhole() {
++        assertEquals(listOf("AddPersonPriority"), menu(HubPriority.apply(sms, emptySet())))
++        assertEquals(listOf("AddPersonPriority", "AddAppPriority"), menu(HubPriority.apply(chat, emptySet())))
++        val both = HubPriority.apply(chat, setOf("app:org.thoughtcrime.securesms:0:sam"), appPriority = true)
++        assertEquals(listOf("RemovePersonPriority", "RemoveAppPriority"), menu(both))
++    }
++
++    @Test
++    fun aHiddenNameCannotBeAddedAndPrivateModeHidesTheEntries() {
++        val redacted = HubPriority.apply(chat, emptySet()).copy(priorityKey = null)
++        assertEquals(listOf("AddAppPriority"), menu(redacted))
++        val item = HubInboxItem.Conversation(HubPriority.apply(sms, emptySet()))
++        val entries = HubMessageMenu.entries(item, HubPrivacyState(privateMode = true)).map { it.label }
++        assertTrue(entries.none { it.contains("Priority") })
++    }
++}

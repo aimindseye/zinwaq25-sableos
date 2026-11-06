@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="greeting">Guten Tag. %1$s zu Ihren Diensten. Womit kann ich helfen?</string>
+    <string name="message_hint">%1$s fragen</string>
+    <string name="thinking">%1$s überlegt…</string>
+    <string name="keys_hint">Enter sendet · Umschalt+Enter neue Zeile · Leertaste halten zum Sprechen · Menü Einstellungen</string>
+    <string name="send">Senden</string>
+    <string name="settings">Einstellungen</string>
+    <string name="new_chat">Neues Gespräch</string>
+    <string name="done">Fertig</string>
+    <string name="setup_first">Wählen Sie in den Einstellungen, woher meine Antworten kommen.</string>
+    <string name="name">Name</string>
+    <string name="name_detail">Command öffnet mich mit /%1$s</string>
+    <string name="provider">Woher meine Antworten kommen</string>
+    <string name="provider_ollama">Ollama in Ihrem Netzwerk</string>
+    <string name="provider_ollama_detail">Kostenlos. Nichts verlässt Ihr Heimnetz.</string>
+    <string name="provider_custom">Anderer Server in Ihrem Netzwerk</string>
+    <string name="provider_custom_detail">LM Studio, llama.cpp oder jeder Server mit einer OpenAI-kompatiblen API.</string>
+    <string name="provider_hosted_detail">Kostenloser Tarif mit Ihrem eigenen Schlüssel. Ihre Nachrichten gehen an %1$s; kostenlose Tarife sind begrenzt und können Nachrichten zum Training nutzen.</string>
+    <string name="address">Serveradresse</string>
+    <string name="address_hint">Zum Beispiel 192.168.1.20</string>
+    <string name="ollama_address_detail">Die Adresse Ihres Computers. Ollama muss im Netzwerk lauschen: OLLAMA_HOST=0.0.0.0 setzen und neu starten.</string>
+    <string name="api_key">API-Schlüssel</string>
+    <string name="api_key_hint">Fügen Sie den Schlüssel von der Website des Anbieters ein</string>
+    <string name="model">Modell</string>
+    <string name="model_none">Kein Modell gewählt. Testen Sie die Verbindung, um sie aufzulisten.</string>
+    <string name="test_connection">Verbindung testen</string>
+    <string name="testing">Verbinde…</string>
+    <string name="models_found">Verbunden. %1$s Modelle gefunden; wählen Sie unten eines.</string>
+    <string name="no_models">Verbunden, aber der Server listet keine Modelle.</string>
+    <string name="error_provider">Wählen Sie zuerst, woher meine Antworten kommen.</string>
+    <string name="error_address">Geben Sie die Adresse Ihres Servers ein, zum Beispiel 192.168.1.20.</string>
+    <string name="error_plain_http">Unverschlüsseltes http funktioniert nur im eigenen Netzwerk. Verwenden Sie eine https-Adresse.</string>
+    <string name="error_key">Geben Sie zuerst Ihren API-Schlüssel ein.</string>
+    <string name="error_model">Wählen Sie zuerst ein Modell in den Einstellungen.</string>
+    <string name="error_unreachable">Ich konnte den Server nicht erreichen. Prüfen Sie die Adresse und ob er läuft.</string>
+    <string name="error_timeout">Der Server hat zu lange für die Antwort gebraucht.</string>
+    <string name="error_server">Der Server antwortete: %1$s</string>
+    <string name="privacy_note">Gespräche bleiben nur im Speicher und sind weg, sobald Sie ein neues beginnen.</string>
+    <string name="talk">Halten zum Sprechen</string>
+    <string name="listening">Ich höre zu… loslassen, wenn Sie fertig sind.</string>
+    <string name="voice">Sprache</string>
+    <string name="voice_detail">Halten Sie die Leertaste in einem leeren Nachrichtenfeld oder halten Sie „Sprechen“ und sprechen Sie (vorerst Englisch). Die Sprache wird auf diesem Telefon zu Text und wartet, bis Sie sie senden. Nichts hört zu, solange Sie nicht halten.</string>
+    <string name="voice_download">Sprachmodell herunterladen (%1$s MB)</string>
+    <string name="voice_downloading">Sprachmodell wird heruntergeladen…</string>
+    <string name="voice_ready">Sprachmodell bereit.</string>
+    <string name="voice_remove">Sprachmodell entfernen</string>
+    <string name="voice_missing">Laden Sie zum Sprechen das Sprachmodell in den Einstellungen herunter.</string>
+    <string name="voice_failed">Das Sprachmodell konnte nicht heruntergeladen werden.</string>
+    <string name="voice_permission">Erlauben Sie das Mikrofon, damit ich Sie hören kann, während Sie halten.</string>
+    <string name="voice_nothing">Das habe ich nicht verstanden.</string>
+</resources>

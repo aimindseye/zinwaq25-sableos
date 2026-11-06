@@ -302,6 +302,9 @@
     <string name="provider_credentials">διαπιστευτήρια παρόχων</string>
     <string name="select_at_least_one_section">Επιλέξτε τουλάχιστον μία ενότητα</string>
     <string name="tv">Τηλεόραση</string>
+    <string name="ruler">Χάρακας</string>
+    <string name="ruler_hint">Τοποθετήστε το στο αριστερό (cm) ή δεξί (ίντσες) άκρο, από την κορυφή της οθόνης.</string>
+    <string name="ruler_info">Σχεδιάζει εκατοστά και ίντσες από την πυκνότητα της οθόνης, με την ακρίβεια που αναφέρει η οθόνη. Δεν αποθηκεύεται τίποτα.</string>
     <string name="sos_alert">SOS και συναγερμός</string>
     <string name="sos_light">Φως SOS</string>
     <string name="sos_screen_flash">Αναλαμπή οθόνης</string>

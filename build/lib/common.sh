@@ -83,7 +83,7 @@ sable_target_release() {
 # GitHub tag and the lunch target.
 sable_require_build_options() {
     [[ "$SABLE_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] ||
-        sable_fail "version '$SABLE_VERSION' may only hold letters, digits, '.', '_' and '-' (example: --version 1.0)"
+        sable_fail "version '$SABLE_VERSION' may only hold letters, digits, '.', '_' and '-' (example: --version 2.0)"
     case "$SABLE_Q25_BUILD_VARIANT" in
         user | userdebug | eng) ;;
         *) sable_fail "variant must be user or userdebug (eng for developers): got '$SABLE_Q25_BUILD_VARIANT'" ;;

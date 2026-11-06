@@ -21,7 +21,7 @@ follow [`INSTALL.md`](INSTALL.md), which covers building your own image.
 ## In short
 
 <!-- short:start -->
-Built on **LineageOS 23.2 (Android 16 QPR2)**. Use a Linux or macOS terminal with
+SableOS 2.0 is built on **LineageOS 24.0 (Android 17)**; SableOS 1.0 was built on LineageOS 23.2 (Android 16 QPR2). Use a Linux or macOS terminal with
 `adb` and `fastboot` installed, and the phone's USB-C cable.
 
 1. **Back up first**: your files, and the phone's partitions with mtkclient
@@ -29,8 +29,8 @@ Built on **LineageOS 23.2 (Android 16 QPR2)**. Use a Linux or macOS terminal wit
 2. **Unzip the download and go into the folder** (use the real file name):
 
    ```bash
-   unzip sableos-q25-full-1.0-*.zip
-   cd sableos-q25-full-1.0-*/
+   unzip sableos-q25-full-2.0-*.zip
+   cd sableos-q25-full-2.0-*/
    sha256sum -c SHA256SUMS.txt        # every line must say OK
    ```
 
@@ -177,7 +177,8 @@ restore stock.
 4. Choose *Reboot system now*. The first boot takes several minutes.
 
 The phone opens Sable Setup, then Sable Start. Sable Keyboard is the keyboard,
-and microG with Aurora Store replaces Google Play
+and there is no Google software or app store. For apps that need Google Play
+services, install the microG add-on after setup
 ([`MICROG.md`](https://github.com/aimindseye/zinwaq25-sableos/blob/main/docs/MICROG.md)).
 
 ## Updating from an earlier SableOS release

@@ -17,9 +17,10 @@ class SablePaletteTest {
         assertNotEquals(dark.text, light.text)
     }
 
-    @Test fun accentComesFromTheSableAppearance() {
-        assertEquals(0xFF35C66B.toInt(), SablePalette.of(dark = true, accent = "green").accent)
-        assertEquals(0xFF7A42E8.toInt(), SablePalette.of(dark = false, accent = "purple").accent)
+    @Test fun oneBlueAccentInEveryTheme() {
+        // 2.0 is black and white with one blue; a 1.0 preset still stored reads as it.
+        assertEquals(0xFF2E9BD6.toInt(), SablePalette.of(dark = true, accent = "green").accent)
+        assertEquals(0xFF1A6FA0.toInt(), SablePalette.of(dark = false, accent = "purple").accent)
     }
 
     @Test fun surfacesAreTheSableSystemTokens() {
@@ -27,7 +28,7 @@ class SablePaletteTest {
         assertEquals(0xFF000000.toInt(), SablePalette.of(dark = true, accent = null).window)
         assertEquals(0xFF141414.toInt(), SablePalette.of(dark = true, accent = null).surface)
         assertEquals(0xFFF5F7F9.toInt(), SablePalette.of(dark = false, accent = null).window)
-        assertEquals(0xFF1F6FD1.toInt(), SablePalette.of(dark = false, accent = "blue").accent)
+        assertEquals(0xFF1A6FA0.toInt(), SablePalette.of(dark = false, accent = "blue").accent)
     }
 
     @Test fun unknownOrMissingAccentIsSableBlue() {

@@ -87,7 +87,7 @@ One difference from the contract: the Q25 has no Ctrl or Esc key, so the contrac
 |---|---|---|
 | start-titan2-3page | Replaced by the BB10 layout | Hub, Active Frames and the app grid (5 columns, tile-free glyphs), with a page dots (no bar by default since sable-src 0113; Hub · Camera slots optional); dials stay at the top; weather and date replace the clock. No swipe-up peek. |
 | all-apps-titan2 | Done in code | |
-| command-titan2 | Done in code | Alt+Space works only while Start is showing, not from inside other apps. |
+| command-titan2 | Done in code | Alt+Space opens Command from any app (frameworks/base 0319, sable-src 0121); the lock screen keeps it for Emergency. |
 | hub-titan2 | Done in code | Start's Hub page is the one Hub (PR #32): Contacts tab and Ripe-style unread bar. The Hub app's own inbox and dock are no longer reachable. |
 | messages-conversation-titan2 | Done in code | Sable Messages is the default SMS app (PR #32). No MMS sending. |
 | phone-dialer-titan2 | Done in code | Sable look in PR #32. Call details still show the contact name in private mode; the Call button stays round. |
@@ -127,6 +127,5 @@ One difference from the contract: the Q25 has no Ctrl or Esc key, so the contrac
 1. Files: three-pane preview and F favourites (DocumentsUI has neither).
 2. Media: I info on the grid.
 3. Utilities: Notes, Recorder, Clock and the Utilities home.
-4. Command: Alt+Space from inside other apps needs a PhoneWindowManager change.
-5. Lock screen without a PIN keeps upstream's design.
-6. Everything above needs the device checks in `QUALIFICATION.md`.
+4. Lock screen without a PIN keeps upstream's design.
+5. Everything above needs the device checks in `QUALIFICATION.md`.

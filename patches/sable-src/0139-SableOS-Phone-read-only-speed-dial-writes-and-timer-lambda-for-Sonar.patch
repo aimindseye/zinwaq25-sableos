@@ -1,0 +1,57 @@
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
+index f6218f6..0604270 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
+@@ -13,6 +13,11 @@
+         android:name="org.sableos.permission.SPEED_DIAL"
+         android:protectionLevel="signature|preinstalled" />
+ 
++    <!-- The speed dial provider is read-only; writes need this, which only Sable Phone's own signature holds. -->
++    <permission
++        android:name="org.sableos.permission.SPEED_DIAL_WRITE"
++        android:protectionLevel="signature" />
++
+     <!-- Granted with the Phone role. -->
+     <uses-permission android:name="android.permission.CALL_PHONE" />
+     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+@@ -108,7 +113,7 @@
+             android:authorities="org.sableos.dialer.speeddial"
+             android:exported="true"
+             android:readPermission="org.sableos.permission.SPEED_DIAL"
+-            android:writePermission="org.sableos.permission.SPEED_DIAL" />
++            android:writePermission="org.sableos.permission.SPEED_DIAL_WRITE" />
+ 
+         <!-- The call screen: Telecom binds it for the default Phone app (only Telecom holds BIND_INCALL_SERVICE). -->
+         <service
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
+index 848e953..dcc547e 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
+@@ -49,12 +49,11 @@ class InCallActivity :
+     private lateinit var merge: TextView
+     private lateinit var answer: TextView
+     private val handler = Handler(Looper.getMainLooper())
+-    private val tick = object : Runnable {
+-        override fun run() {
++    private val tick: Runnable =
++        Runnable {
+             showTimer()
+-            handler.postDelayed(this, TICK_MS)
++            postTick()
+         }
+-    }
+     private var keypadOpen = false
+     private var answeredKey = -1
+     private var accountsFor: Call? = null
+@@ -261,6 +260,11 @@ class InCallActivity :
+         }
+     }
+ 
++    /** The call timer's next tick, a second on. */
++    private fun postTick() {
++        handler.postDelayed(tick, TICK_MS)
++    }
++
+     private fun showTimer() {
+         val call = CallBook.primary()
+         val since = call?.details?.connectTimeMillis ?: 0

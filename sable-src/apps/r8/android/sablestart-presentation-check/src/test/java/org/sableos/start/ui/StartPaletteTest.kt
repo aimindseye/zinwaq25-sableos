@@ -7,21 +7,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.sableos.design.AccentPreset
 
-/** Start's pages follow Android's Dark theme and the Sable accent. */
+/** Start's pages follow Android's Dark theme; the one accent is the 2.0 blue. */
 class StartPaletteTest {
     @Test
-    fun defaultBlueKeepsTheBb10BlueAndOtherAccentsAreUsedAsIs() {
-        assertEquals(Color(0xFF00A8DF), startPalette(dark = true, accent = AccentPreset.Blue).accent)
-        for (accent in AccentPreset.entries.filter { it != AccentPreset.Blue }) {
-            assertEquals(accent.color, startPalette(dark = true, accent = accent).accent)
-            assertEquals(accent.onColor, startPalette(dark = false, accent = accent).onAccent)
-        }
+    fun oneBlueForFocusAndSelection() {
+        // 2.0 is black and white with one blue (UI direction, 2026-11-04).
+        assertEquals(Color(0xFF2E9BD6), startPalette(dark = true, accent = AccentPreset.Blue).accent)
+        assertEquals(Color(0xFF2E9BD6), startPalette(dark = false, accent = AccentPreset.Blue).accent)
     }
 
     @Test
     fun darkIsPureBlackAndLightUsesLightSurfacesWithDarkText() {
-        val dark = startPalette(dark = true, accent = AccentPreset.Green)
-        val light = startPalette(dark = false, accent = AccentPreset.Green)
+        val dark = startPalette(dark = true, accent = AccentPreset.Blue)
+        val light = startPalette(dark = false, accent = AccentPreset.Blue)
         assertEquals(Color.Black, dark.background)
         assertTrue(dark.card.luminance() < 0.02f)
         assertEquals(Color.White, dark.text)

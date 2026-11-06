@@ -3,7 +3,6 @@ package org.sableos.titan2.vault.android
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
@@ -18,6 +17,7 @@ import android.widget.TextView
 import android.widget.Toast
 import android.window.OnBackInvokedDispatcher
 import androidx.core.content.FileProvider
+import org.sableos.titan2.theme.SableFonts
 import org.sableos.titan2.theme.SablePalette
 import org.sableos.titan2.vault.core.ConfirmAction
 import org.sableos.titan2.vault.core.Confirmation
@@ -441,7 +441,7 @@ class VaultActivity : Activity() {
             text = s
             textSize = sp
             setTextColor(color)
-            if (bold) typeface = Typeface.DEFAULT_BOLD
+            typeface = SableFonts.of(bold)
         }
 
     private fun box(fill: Int, stroke: Int) = GradientDrawable().apply {

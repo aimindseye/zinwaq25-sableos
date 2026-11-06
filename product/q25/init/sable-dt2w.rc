@@ -1,0 +1,11 @@
+# SableOS Zinwa Q25: double-tap to wake from Settings > Display.
+#
+# Settings writes persist.sys.sable.dt2w (1 or 0); init copies it to the
+# synaptics_dsx touch driver's wake_gesture module parameter (kernel patch
+# patches/framework/kernel/xelex/mt6789/0903), which arms the panel's
+# double-tap gesture the next time the screen turns off. Persist properties
+# load at boot, so the saved choice is restored then too. Installed to
+# system_ext/etc/init at Q4.
+
+on property:persist.sys.sable.dt2w=*
+    write /sys/module/mtk_touchscreen_hodafonehw/parameters/wake_gesture ${persist.sys.sable.dt2w}

@@ -37,4 +37,13 @@
     <string name="forecast_unavailable_check_the_connection">예보를 사용할 수 없습니다. 연결 상태를 확인하고 다시 시도하세요.</string>
     <string name="provider_response_could_not_be">제공업체 응답을 필요한 형식으로 변환하지 못했습니다.</string>
     <string name="updated_from_open_meteo">Open-Meteo에서 업데이트했습니다.</string>
+    <string name="alert_notifications">알림</string>
+    <string name="alert_morning_forecast">아침 예보</string>
+    <string name="alert_morning_forecast_detail">하루 예보를 매일 아침 한 번</string>
+    <string name="alert_rain_alerts">비 알림</string>
+    <string name="alert_rain_alerts_detail">3시간 이내에 비가 올 가능성이 높으면 알림</string>
+    <string name="alert_today_in">오늘 %1$s</string>
+    <string name="alert_today_line">%1$s · %2$d° / %3$d° · 강수 %4$d%%</string>
+    <string name="alert_rain_soon_in">%1$s에 곧 비</string>
+    <string name="alert_rain_line">%1$s경 예상 (%2$d%%)</string>
 </resources>

@@ -200,4 +200,10 @@
     <string name="row_menu_snooze_detail">فعال اطلاع کے لیے 1 گھنٹہ مؤخر اور Z کلید شامل کرتا ہے۔</string>
     <string name="row_menu_remind_me">قطار کے مینو میں مجھے یاد دلائیں</string>
     <string name="row_menu_remind_me_detail">Sable Tasks میں کل صبح کے لیے فالو اپ شامل کرتا ہے۔ صرف ایپ محفوظ ہوتی ہے، پیغام کبھی نہیں۔</string>
+    <string name="add_sender_to_priority">بھیجنے والے کو ترجیحی Hub میں شامل کریں</string>
+    <string name="remove_sender_from_priority">بھیجنے والے کو ترجیحی Hub سے ہٹائیں</string>
+    <string name="add_app_to_priority">پوری ایپ کو ترجیحی Hub میں شامل کریں</string>
+    <string name="remove_app_from_priority">اس ایپ کو ترجیحی Hub سے ہٹائیں</string>
+    <string name="added_to_priority">ترجیحی Hub میں شامل کیا گیا</string>
+    <string name="removed_from_priority">ترجیحی Hub سے ہٹا دیا گیا</string>
 </resources>

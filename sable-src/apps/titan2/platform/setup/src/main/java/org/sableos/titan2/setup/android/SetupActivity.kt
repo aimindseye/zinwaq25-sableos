@@ -2,7 +2,6 @@ package org.sableos.titan2.setup.android
 
 import android.app.Activity
 import android.content.Context
-import android.graphics.Typeface
 import android.os.Bundle
 import android.view.KeyEvent
 import android.widget.Button
@@ -32,6 +31,7 @@ import org.sableos.titan2.setup.core.SetupModel
 import org.sableos.titan2.setup.core.SetupRows
 import org.sableos.titan2.setup.core.SetupText
 import org.sableos.titan2.setup.core.TargetStatus
+import org.sableos.titan2.theme.SableFonts
 import org.sableos.titan2.theme.SablePalette
 import org.sableos.titan2.theme.bindTo
 
@@ -182,7 +182,7 @@ class SetupActivity : Activity() {
         text = s
         textSize = sp
         setTextColor(color)
-        if (bold) typeface = Typeface.DEFAULT_BOLD
+        typeface = SableFonts.of(bold)
     }
 
     private companion object {

@@ -25,6 +25,9 @@ enum class CommandScope {
 
     /** "/work": work profile apps. */
     Work,
+
+    /** "/ask" or "/" + the assistant's name ("/cosgrove"): a question for Cosgrove, the Sable assistant. */
+    Assistant,
 }
 
 data class CommandQuery(
@@ -41,11 +44,15 @@ data class CommandQuery(
         /**
          * `?app`, `/apps` apps only; `@name`, `#name` people; `/settings`
          * Settings; `/hub` Hub; `!action` Sable actions; `/private`, `/dual`,
-         * `/work` one profile's apps. Anything else searches every group.
+         * `/work` one profile's apps; `/ask` or `/`[assistantWord] a question
+         * for the assistant. Anything else searches every group.
          */
-        fun parse(raw: String): CommandQuery {
+        fun parse(
+            raw: String,
+            assistantWord: String? = null,
+        ): CommandQuery {
             val text = raw.trimStart()
-            val words =
+            val fixed =
                 listOf(
                     "/settings" to CommandScope.Settings,
                     "/apps" to CommandScope.Apps,
@@ -53,7 +60,15 @@ data class CommandQuery(
                     "/private" to CommandScope.Private,
                     "/dual" to CommandScope.Dual,
                     "/work" to CommandScope.Work,
+                    ASK_WORD to CommandScope.Assistant,
                 )
+            // The assistant's own name works too, unless it would take another command's word.
+            val named =
+                assistantWord
+                    ?.takeIf { word -> word.isNotEmpty() && word.all(Char::isLetterOrDigit) }
+                    ?.let { "/$it" }
+                    ?.takeIf { word -> fixed.none { it.first.equals(word, ignoreCase = true) } }
+            val words = if (named == null) fixed else fixed + (named to CommandScope.Assistant)
             words.firstOrNull { (word, _) ->
                 text.equals(word, ignoreCase = true) || text.startsWith("$word ", ignoreCase = true)
             }?.let { (word, scope) ->
@@ -68,6 +83,9 @@ data class CommandQuery(
                 }
             return CommandQuery(scope, text.drop(1).trim())
         }
+
+        /** Always a question for the assistant, whatever it is named. */
+        const val ASK_WORD = "/ask"
 
         /** A dialable number: digits with optional + ( ) - . and spaces, at least three digits. */
         fun dialable(term: String): String? {
@@ -195,6 +213,7 @@ object CommandGroups {
             CommandScope.Private -> t("private_label")
             CommandScope.Dual -> t("dual")
             CommandScope.Work -> t("work")
+            CommandScope.Assistant -> t("assistant")
         }
 
     /** The chip [delta] away from [current], stopping at the ends; a profile scope starts from All. */
@@ -213,7 +232,10 @@ object CommandGroups {
     fun apply(
         parsed: CommandQuery,
         chip: CommandScope?,
-    ): CommandQuery = if (chip == null || parsed.profileScope) parsed else CommandQuery(chip, parsed.term)
+    ): CommandQuery {
+        val keepTyped = parsed.profileScope || parsed.scope == CommandScope.Assistant
+        return if (chip == null || keepTyped) parsed else CommandQuery(chip, parsed.term)
+    }
 }
 
 /**

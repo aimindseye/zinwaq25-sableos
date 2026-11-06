@@ -34,6 +34,7 @@ import org.sableos.hub.policy.HubHandoffTarget
 import org.sableos.hub.policy.HubIntents
 import org.sableos.hub.policy.HubMenuOptions
 import org.sableos.hub.policy.HubRemindMe
+import org.sableos.hub.policy.HubRowAction
 import org.sableos.hub.ui.HubScreen
 import kotlin.math.roundToInt
 
@@ -260,8 +261,50 @@ class MainActivity : ComponentActivity() {
                     },
                     menuOptions = menuOptions,
                     onRemindMe = ::remindMe,
+                    onPriority = { conversation, action ->
+                        setPriority(conversation, action).also { refreshGeneration += 1 }
+                    },
                 )
             }
+        }
+    }
+
+    /**
+     * Priority Hub from the row menu: a sender in Hub's preferences, a whole app as its Hub
+     * priority in Connected apps (the same switch). Ordering only, never a Do Not Disturb exception.
+     */
+    private fun setPriority(
+        conversation: HubConversation,
+        action: HubRowAction,
+    ): String? {
+        val add = action == HubRowAction.AddPersonPriority || action == HubRowAction.AddAppPriority
+        val person = action == HubRowAction.AddPersonPriority || action == HubRowAction.RemovePersonPriority
+        val key = conversation.priorityKey
+        val app =
+            conversation.sourcePackage?.let { pkg ->
+                conversation.sourceUserSerial?.let { serial -> ConnectedAppKey(pkg, serial) }
+            }
+        val done =
+            when {
+                person && key != null -> {
+                    HubPriorityPeople(this).set(key, add)
+                    true
+                }
+
+                !person && app != null -> {
+                    val connectedApps = ConnectedAppsRepository(this)
+                    connectedApps.update(connectedApps.policyFor(app).copy(favorite = add))
+                    true
+                }
+
+                else -> {
+                    false
+                }
+            }
+        return when {
+            !done -> null
+            add -> t("added_to_priority")
+            else -> t("removed_from_priority")
         }
     }
 

@@ -32,6 +32,9 @@ internal class WeatherRepository(
     /** "Use current location" and the last place found ([CurrentLocationStore]). */
     val currentLocation = CurrentLocationStore(preferences)
 
+    /** The opt-in morning forecast and rain alerts ([WeatherNotifier]). */
+    val alerts = AlertStore(preferences)
+
     init {
         LegacyWeatherCache.migrate(store)
     }

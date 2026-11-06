@@ -99,6 +99,39 @@ class RecentTasksRepository(
     private fun snapshot(
         taskId: Int,
         lowResolution: Boolean,
+    ): Bitmap? = snapshotManagerSnapshot(taskId, lowResolution) ?: legacySnapshot(taskId, lowResolution)
+
+    /**
+     * Android 17 moved snapshots out of IActivityTaskManager into android.window.TaskSnapshotManager
+     * (getTaskSnapshot(taskId, resolution); RESOLUTION_HIGH 1, RESOLUTION_LOW 2), which needs
+     * MANAGE_ACTIVITY_TASKS and READ_FRAME_BUFFER. Without it every frame showed "running".
+     */
+    private fun snapshotManagerSnapshot(
+        taskId: Int,
+        lowResolution: Boolean,
+    ): Bitmap? =
+        runCatching {
+            val managerClass = Class.forName("android.window.TaskSnapshotManager")
+            val manager = managerClass.getMethod("getInstance").invoke(null) ?: return@runCatching null
+            val method =
+                managerClass.getMethod("getTaskSnapshot", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+            val resolution = if (lowResolution) RESOLUTION_LOW else RESOLUTION_HIGH
+            val snapshot = method.invoke(manager, taskId, resolution) ?: return@runCatching null
+            bitmapOf(snapshot)
+        }.getOrNull()
+
+    private fun bitmapOf(snapshot: Any): Bitmap? {
+        val buffer = snapshot.javaClass.getMethod("getHardwareBuffer").invoke(snapshot) as? HardwareBuffer ?: return null
+        val colorSpace =
+            runCatching { snapshot.javaClass.getMethod("getColorSpace").invoke(snapshot) as? ColorSpace }.getOrNull()
+                ?: ColorSpace.get(ColorSpace.Named.SRGB)
+        return Bitmap.wrapHardwareBuffer(buffer, colorSpace)
+    }
+
+    /** Android 16 and earlier: IActivityTaskManager.getTaskSnapshot. */
+    private fun legacySnapshot(
+        taskId: Int,
+        lowResolution: Boolean,
     ): Bitmap? =
         runCatching {
             val service = taskService() ?: return@runCatching null
@@ -113,13 +146,7 @@ class RecentTasksRepository(
             val flags: List<Any> = method.parameterTypes.drop(1).mapIndexed { index, _ -> index == 0 && lowResolution }
             val args: Array<Any> = (listOf<Any>(taskId) + flags).toTypedArray()
             val snapshot = method.invoke(service, *args) ?: return@runCatching null
-            val buffer =
-                snapshot.javaClass.getMethod("getHardwareBuffer").invoke(snapshot) as? HardwareBuffer
-                    ?: return@runCatching null
-            val colorSpace =
-                runCatching { snapshot.javaClass.getMethod("getColorSpace").invoke(snapshot) as? ColorSpace }.getOrNull()
-                    ?: ColorSpace.get(ColorSpace.Named.SRGB)
-            Bitmap.wrapHardwareBuffer(buffer, colorSpace)
+            bitmapOf(snapshot)
         }.getOrNull()
 
     private fun taskService(): Any? =
@@ -137,6 +164,9 @@ class RecentTasksRepository(
         appContext.packageManager.getLaunchIntentForPackage(frame.packageName)?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     private companion object {
+        const val RESOLUTION_HIGH = 1
+        const val RESOLUTION_LOW = 2
+
         /** More than [ActiveFrames.MAX], since some recent tasks are filtered out. */
         const val QUERY_LIMIT = 16
 

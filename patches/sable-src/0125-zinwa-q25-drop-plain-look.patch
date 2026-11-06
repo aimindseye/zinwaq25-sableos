@@ -1,0 +1,112 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartLookTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartLookTest.kt
+index 07c82fd..c81196b 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartLookTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartLookTest.kt
+@@ -9,29 +9,12 @@ class StartLookTest {
+     fun eachLookSetsTheHomeStyle() {
+         assertEquals(HomeStyle.Bb10, StartLook.Bb10.homeStyle)
+         assertEquals(HomeStyle.Bb7, StartLook.Bb7.homeStyle)
+-        assertEquals(HomeStyle.Bb10, StartLook.Plain.homeStyle)
+     }
+ 
+     @Test
+-    fun plainHidesTheStatusDialsAndTheOthersShowThem() {
+-        assertEquals(setOf(HomeLayout.SEARCH_ROW, HomeLayout.STATUS_RINGS), StartLook.Plain.hiddenSections(null))
+-        assertEquals(
+-            setOf(HomeLayout.SEARCH_ROW),
+-            StartLook.Bb10.hiddenSections(setOf(HomeLayout.STATUS_RINGS, HomeLayout.SEARCH_ROW)),
+-        )
+-    }
+-
+-    @Test
+-    fun theUsersOtherHomeChoicesAreKept() {
+-        // Weather hidden and the search row shown in Edit Home: a look changes only the dials.
+-        val stored = setOf(HomeLayout.WEATHER)
+-        assertEquals(setOf(HomeLayout.WEATHER, HomeLayout.STATUS_RINGS), StartLook.Plain.hiddenSections(stored))
+-        assertEquals(setOf(HomeLayout.WEATHER), StartLook.Bb7.hiddenSections(stored))
+-    }
+-
+-    @Test
+-    fun unknownLooksChangeNothing() {
++    fun plainAndUnknownLooksChangeNothing() {
+         assertEquals(StartLook.Bb7, StartLook.fromStableValue("bb7"))
++        assertNull(StartLook.fromStableValue("plain"))
+         assertNull(StartLook.fromStableValue("bb6"))
+         assertNull(StartLook.fromStableValue(null))
+     }
+diff --git a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+index 58b7868..4cd091e 100644
+--- a/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
++++ b/sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml
+@@ -115,7 +115,7 @@
+             </intent-filter>
+         </activity>
+ 
+-        <!-- First-boot setup's Look step: home style and status dials. Only a sender holding
++        <!-- First-boot setup's Look step: the home style. Only a sender holding
+              WRITE_SECURE_SETTINGS (setup, the system) can reach it. -->
+         <receiver
+             android:name="org.sableos.start.LookReceiver"
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/LookReceiver.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/LookReceiver.kt
+index f29a7f0..0c04f67 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/LookReceiver.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/LookReceiver.kt
+@@ -7,8 +7,8 @@ import org.sableos.start.model.StartLook
+ import org.sableos.start.platform.StartStateRepository
+ 
+ /**
+- * First-boot setup's Look step (org.sableos.start.action.SET_LOOK, extra "look": bb10, bb7 or
+- * plain): saves the home style and the BB10 home's status dials. The manifest lets only senders
++ * First-boot setup's Look step (org.sableos.start.action.SET_LOOK, extra "look": bb10 or bb7):
++ * saves the home style. The manifest lets only senders
+  * holding WRITE_SECURE_SETTINGS (setup, the system) reach it; an unknown look changes nothing.
+  */
+ class LookReceiver : BroadcastReceiver() {
+@@ -18,9 +18,7 @@ class LookReceiver : BroadcastReceiver() {
+     ) {
+         if (intent.action != ACTION_SET_LOOK) return
+         val look = StartLook.fromStableValue(intent.getStringExtra(EXTRA_LOOK)) ?: return
+-        val state = StartStateRepository(context)
+-        state.saveHomeStyle(look.homeStyle)
+-        state.saveHiddenHomeSections(look.hiddenSections(state.loadHiddenHomeSections()))
++        StartStateRepository(context).saveHomeStyle(look.homeStyle)
+     }
+ 
+     private companion object {
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartLook.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartLook.kt
+index 0c9d3a0..203d416 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartLook.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartLook.kt
+@@ -2,28 +2,18 @@ package org.sableos.start.model
+ 
+ /**
+  * The look first-boot setup chose (SetupWizard's Look step, org.sableos.start.action.SET_LOOK):
+- * BlackBerry 10 style, BlackBerry 7 style or Plain. Each sets Start's home style and whether the
+- * BB10 home shows its status dials; setup sets pure black itself. Pure policy, unit tested in
++ * BlackBerry 10 style or BlackBerry 7 style, which sets Start's home style; setup sets pure black
++ * itself. There is no Plain look (owner decision 2026-11-05). Pure policy, unit tested in
+  * apps/r8/android/sablestart-presentation-check/src/test.
+  */
+ enum class StartLook(
+     val stableValue: String,
+     val homeStyle: HomeStyle,
+-    private val dials: Boolean,
+ ) {
+-    Bb10("bb10", HomeStyle.Bb10, dials = true),
+-    Bb7("bb7", HomeStyle.Bb7, dials = true),
+-
+-    /** Start's BB10 layout without the status dials. */
+-    Plain("plain", HomeStyle.Bb10, dials = false),
++    Bb10("bb10", HomeStyle.Bb10),
++    Bb7("bb7", HomeStyle.Bb7),
+     ;
+ 
+-    /** The BB10 home's hidden modules after this look, keeping the user's other choices. */
+-    fun hiddenSections(stored: Set<String>?): Set<String> {
+-        val hidden = HomeLayout.normalizeHidden(stored)
+-        return if (dials) hidden - HomeLayout.STATUS_RINGS else hidden + HomeLayout.STATUS_RINGS
+-    }
+-
+     companion object {
+         /** null for a missing or unknown value, so a bad request changes nothing. */
+         fun fromStableValue(value: String?): StartLook? = entries.firstOrNull { it.stableValue == value }

@@ -706,14 +706,14 @@ index 0000000..33f3012
 +  <!-- surfaceBase, surfaceRaised, surfaceOverlay -->
 +  <color name="sable_background">#FF000000</color>
 +  <color name="sable_surface">#FF141414</color>
-+  <color name="sable_surface_raised">#FF1C1C1C</color>
++  <color name="sable_surface_raised">#FF262626</color>
 +  <!-- textPrimary, textSecondary, textDisabled -->
-+  <color name="sable_text">#FFF7F9FC</color>
-+  <color name="sable_text_muted">#FFAAB4C0</color>
-+  <color name="sable_text_disabled">#FF7D8896</color>
++  <color name="sable_text">#FFFFFFFF</color>
++  <color name="sable_text_muted">#FFA6A6A6</color>
++  <color name="sable_text_disabled">#FF808080</color>
 +  <!-- outline, outlineVariant -->
-+  <color name="sable_outline">#FF526170</color>
-+  <color name="sable_outline_variant">#FF26313D</color>
++  <color name="sable_outline">#FF4D4D4D</color>
++  <color name="sable_outline_variant">#FF262626</color>
 +  <!-- Accent tones from the system palette: the outline/text tone for dark surfaces, a dark
 +       container for selected and focused fills, and the tone drawn on the accent. -->
 +  <color name="sable_accent">@android:color/system_accent1_200</color>
@@ -723,7 +723,7 @@ index 0000000..33f3012
 +  <color name="sable_call">#FF4ADE80</color>
 +  <color name="sable_on_call">#FF04140A</color>
 +  <color name="sable_call_container">#FF1D4D39</color>
-+  <color name="sable_danger">#FFFF8A80</color>
++  <color name="sable_danger">#FFE0463C</color>
 +  <color name="sable_danger_container">#FF4D2328</color>
 +  <!-- Touch ripple on dark surfaces (16% white). -->
 +  <color name="sable_ripple">#29FFFFFF</color>

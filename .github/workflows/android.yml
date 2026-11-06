@@ -50,17 +50,17 @@ jobs:
             extra: >-
               :design:testDebugUnitTest :hub:testDebugUnitTest :messages:testDebugUnitTest :media:testDebugUnitTest
               :weather:testDebugUnitTest :notes:testDebugUnitTest :calculator:testDebugUnitTest :sablestart-presentation-check:testDebugUnitTest
-              :calendar:testDebugUnitTest :tasks:testDebugUnitTest :browser:testDebugUnitTest :games:testSudokuDebugUnitTest
+              :calendar:testDebugUnitTest :tasks:testDebugUnitTest :browser:testDebugUnitTest :assistant:testDebugUnitTest :games:testSudokuDebugUnitTest
               :sablestart-visual-review:assembleDebug
               :design:lintDebug :calculator:lintDebug :convert:lintDebug
               :games:lintSudokuDebug :games:lintMinesweeperDebug :games:lintGame2048Debug
               :media:lintDebug :hub:lintDebug :messages:lintDebug :weather:lintDebug
-              :calendar:lintDebug :notes:lintDebug :tasks:lintDebug :browser:lintDebug :sablestart-presentation-check:lintDebug
+              :calendar:lintDebug :notes:lintDebug :tasks:lintDebug :browser:lintDebug :assistant:lintDebug :sablestart-presentation-check:lintDebug
               :design:detekt :calculator:detekt :convert:detekt :games:detekt :media:detekt
-              :hub:detekt :messages:detekt :weather:detekt :calendar:detekt :notes:detekt :tasks:detekt :browser:detekt
+              :hub:detekt :messages:detekt :weather:detekt :calendar:detekt :notes:detekt :tasks:detekt :browser:detekt :assistant:detekt
               :design:ktlintCheck :calculator:ktlintCheck :convert:ktlintCheck
               :games:ktlintCheck :media:ktlintCheck :hub:ktlintCheck :messages:ktlintCheck
-              :weather:ktlintCheck :calendar:ktlintCheck :notes:ktlintCheck :tasks:ktlintCheck :browser:ktlintCheck
+              :weather:ktlintCheck :calendar:ktlintCheck :notes:ktlintCheck :tasks:ktlintCheck :browser:ktlintCheck :assistant:ktlintCheck
               :design:koverXmlReportDebug :design:koverHtmlReportDebug
           - name: reader
             root: apps/common/reader

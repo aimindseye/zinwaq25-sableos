@@ -1,0 +1,407 @@
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/InstantActionsTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/InstantActionsTest.kt
+index bf97397..bad8752 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/InstantActionsTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/InstantActionsTest.kt
+@@ -49,4 +49,42 @@ class InstantActionsTest {
+         // An app name that starts like a keyword is not one.
+         assertTrue(InstantActions.forTerm("notes").none { it.chosen })
+     }
++
++    @Test
++    fun quickPrefixesMakeATodoANoteOrAnEvent() {
++        assertEquals(listOf(InstantRow(InstantAction.RemindMe, "Buy milk", true)), rows("-Buy milk"))
++        assertEquals(
++            listOf(InstantRow(InstantAction.Note, "Draft the release notes", true)),
++            rows("/Draft the release notes"),
++        )
++        assertEquals(listOf(InstantRow(InstantAction.Event, "Dinner Friday at 7", true)), rows("+Dinner Friday at 7"))
++        assertEquals(listOf(InstantRow(InstantAction.RemindMe, "call mum", true)), rows("- call mum"))
++        // A prefix with nothing after it does nothing yet.
++        assertEquals(emptyList<InstantRow>(), rows("-"))
++        assertEquals(emptyList<InstantRow>(), rows("+ "))
++        // A + phone number is still a number.
++        assertEquals(InstantAction.Call, actions("+44 20 7946 0000").first())
++    }
++
++    @Test
++    fun aWebAddressOpensInTheBrowser() {
++        assertEquals(
++            InstantRow(InstantAction.OpenAddress, "https://example.com/page", true),
++            rows("example.com/page").first(),
++        )
++        assertEquals(
++            InstantRow(InstantAction.OpenAddress, "https://www.example.org", true),
++            rows("www.example.org").first(),
++        )
++        assertEquals(
++            InstantRow(InstantAction.OpenAddress, "http://192.168.1.1.example.net", true),
++            rows("http://192.168.1.1.example.net").first(),
++        )
++        // A bare name with a dot is offered, but Enter does not pick it over the other results.
++        assertEquals(InstantRow(InstantAction.OpenAddress, "https://sableos.org", false), rows("sableos.org").first())
++        assertNull(InstantActions.webAddress("maya@example.org"))
++        assertNull(InstantActions.webAddress("buy milk.com today"))
++        assertNull(InstantActions.webAddress("v1.2"))
++        assertTrue(InstantAction.OpenAddress !in actions("buy milk"))
++    }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index a532722..16569b6 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">إزالة من %1$s</string>
+     <string name="delete_tab">حذف علامة التبويب %1$s</string>
+     <string name="letter_press_for">%1$s: اضغط حرفًا، ومسافة للخلف تزيله</string>
++    <string name="instant_event">حدث جديد</string>
++    <string name="instant_open_address">فتح العنوان</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index 77c3bbb..3c91e3b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">Aus %1$s entfernen</string>
+     <string name="delete_tab">Tab %1$s löschen</string>
+     <string name="letter_press_for">%1$s: Buchstaben drücken, Rücktaste entfernt</string>
++    <string name="instant_event">Neuer Termin</string>
++    <string name="instant_open_address">Adresse öffnen</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index fc6376f..3684df0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">Αφαίρεση από %1$s</string>
+     <string name="delete_tab">Διαγραφή καρτέλας %1$s</string>
+     <string name="letter_press_for">%1$s: πατήστε ένα γράμμα, το Backspace αφαιρεί</string>
++    <string name="instant_event">Νέο συμβάν</string>
++    <string name="instant_open_address">Άνοιγμα διεύθυνσης</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index db8a28f..d3f415d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">Quitar de %1$s</string>
+     <string name="delete_tab">Eliminar pestaña %1$s</string>
+     <string name="letter_press_for">%1$s: pulsa una letra, Retroceso la quita</string>
++    <string name="instant_event">Nuevo evento</string>
++    <string name="instant_open_address">Abrir dirección</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index 2ee0be5..f18f1f3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">Retirer de %1$s</string>
+     <string name="delete_tab">Supprimer l\'onglet %1$s</string>
+     <string name="letter_press_for">%1$s : appuyez sur une lettre, Retour arrière l\'enlève</string>
++    <string name="instant_event">Nouvel événement</string>
++    <string name="instant_open_address">Ouvrir l\'adresse</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index 1261451..b80700c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">%1$s से हटाएँ</string>
+     <string name="delete_tab">टैब %1$s हटाएँ</string>
+     <string name="letter_press_for">%1$s: एक अक्षर दबाएँ, Backspace हटाता है</string>
++    <string name="instant_event">नया इवेंट</string>
++    <string name="instant_open_address">पता खोलें</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index ef9c1d6..52497e9 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">Rimuovi da %1$s</string>
+     <string name="delete_tab">Elimina scheda %1$s</string>
+     <string name="letter_press_for">%1$s: premi una lettera, Backspace la toglie</string>
++    <string name="instant_event">Nuovo evento</string>
++    <string name="instant_open_address">Apri indirizzo</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index a589359..3417219 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">הסרה מ-%1$s</string>
+     <string name="delete_tab">מחיקת הכרטיסייה %1$s</string>
+     <string name="letter_press_for">%1$s: הקישו על אות, Backspace מסיר</string>
++    <string name="instant_event">אירוע חדש</string>
++    <string name="instant_open_address">פתיחת הכתובת</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index 380f979..7f05c12 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">%1$s から外す</string>
+     <string name="delete_tab">タブ %1$s を削除</string>
+     <string name="letter_press_for">%1$s: 文字キーを押す（Backspace で解除）</string>
++    <string name="instant_event">新しい予定</string>
++    <string name="instant_open_address">アドレスを開く</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 75f729f..0c700c0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">%1$s에서 제거</string>
+     <string name="delete_tab">%1$s 탭 삭제</string>
+     <string name="letter_press_for">%1$s: 글자를 누르세요, Backspace는 해제</string>
++    <string name="instant_event">새 일정</string>
++    <string name="instant_open_address">주소 열기</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 4fb5a30..56f70bc 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">Verwijderen uit %1$s</string>
+     <string name="delete_tab">Tabblad %1$s verwijderen</string>
+     <string name="letter_press_for">%1$s: druk op een letter, Backspace verwijdert</string>
++    <string name="instant_event">Nieuwe afspraak</string>
++    <string name="instant_open_address">Adres openen</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index 50d0e78..8608172 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">Usuń z %1$s</string>
+     <string name="delete_tab">Usuń kartę %1$s</string>
+     <string name="letter_press_for">%1$s: naciśnij literę, Backspace usuwa</string>
++    <string name="instant_event">Nowe wydarzenie</string>
++    <string name="instant_open_address">Otwórz adres</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index c1597b3..6ea279f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">Remover de %1$s</string>
+     <string name="delete_tab">Excluir aba %1$s</string>
+     <string name="letter_press_for">%1$s: pressione uma letra, Backspace remove</string>
++    <string name="instant_event">Novo evento</string>
++    <string name="instant_open_address">Abrir endereço</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 860ded4..7aec926 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">Убрать из %1$s</string>
+     <string name="delete_tab">Удалить вкладку %1$s</string>
+     <string name="letter_press_for">%1$s: нажмите букву, Backspace удаляет</string>
++    <string name="instant_event">Новое событие</string>
++    <string name="instant_open_address">Открыть адрес</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index a3c83ba..354698d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">Ta bort från %1$s</string>
+     <string name="delete_tab">Ta bort fliken %1$s</string>
+     <string name="letter_press_for">%1$s: tryck på en bokstav, Backsteg tar bort</string>
++    <string name="instant_event">Ny händelse</string>
++    <string name="instant_open_address">Öppna adress</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 8c2572f..1ca7c0b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">%1$s sekmesinden kaldır</string>
+     <string name="delete_tab">%1$s sekmesini sil</string>
+     <string name="letter_press_for">%1$s: bir harfe basın, Geri silme kaldırır</string>
++    <string name="instant_event">Yeni etkinlik</string>
++    <string name="instant_open_address">Adresi aç</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index 0a9c129..9d461ec 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">%1$s سے ہٹائیں</string>
+     <string name="delete_tab">ٹیب %1$s حذف کریں</string>
+     <string name="letter_press_for">%1$s: کوئی حرف دبائیں، Backspace ہٹاتا ہے</string>
++    <string name="instant_event">نیا ایونٹ</string>
++    <string name="instant_open_address">پتہ کھولیں</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 5f9c806..267ceed 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -290,4 +290,6 @@
+     <string name="remove_from_tab">从%1$s移除</string>
+     <string name="delete_tab">删除标签%1$s</string>
+     <string name="letter_press_for">%1$s：按一个字母，退格键移除</string>
++    <string name="instant_event">新建日程</string>
++    <string name="instant_open_address">打开网址</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index fab552a..3582e29 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -294,4 +294,6 @@
+     <string name="remove_from_tab">Remove from %1$s</string>
+     <string name="delete_tab">Delete tab %1$s</string>
+     <string name="letter_press_for">%1$s: press a letter, Backspace removes</string>
++    <string name="instant_event">New event</string>
++    <string name="instant_open_address">Open address</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/InstantActions.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/InstantActions.kt
+index 5b1ad17..4c7b41c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/InstantActions.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/InstantActions.kt
+@@ -16,6 +16,10 @@ enum class InstantAction(
+     Email("instant_email", "@", listOf("email", "mail")),
+     Map("instant_map", "⌖", listOf("map")),
+     WebSearch("instant_web_search", "⌕", listOf("web", "g")),
++    Event("instant_event", "▦", listOf("event")),
++
++    /** A typed web address, opened in the browser. */
++    OpenAddress("instant_open_address", "↗", emptyList()),
+     ;
+ 
+     val label: String get() = t(labelKey)
+@@ -34,7 +38,10 @@ data class InstantRow(
+  * Sable Tasks, Note into Sable Notes; Call shows only for a number; Text, Email, Map and Web search
+  * hand it to the user's own apps. A leading keyword ("note ", "remind me ", "call ") puts that
+  * action first and makes it the one Enter runs; the other prefixes (`?`, `@`, `/settings`…) are
+- * unchanged. Pure policy, unit tested in apps/r8/android/sablestart-presentation-check/src/test.
++ * unchanged. The quick prefixes (TenSeven's, from the MinkLauncher Magic Box) pick one action outright:
++ * `-text` a to-do in Sable Tasks, `/text` a note in Sable Notes, `+text` a calendar event; a typed web
++ * address opens in the browser. Pure policy, unit tested in
++ * apps/r8/android/sablestart-presentation-check/src/test.
+  */
+ object InstantActions {
+     private val WORDS =
+@@ -59,12 +66,35 @@ object InstantActions {
+ 
+     fun forTerm(term: String): List<InstantRow> {
+         val text = term.trim()
+-        if (text.isEmpty()) return emptyList()
+-        keyword(text)?.let { (action, rest) ->
+-            if (rest.isNotEmpty() && (action != InstantAction.Call || CommandQuery.dialable(rest) != null)) {
+-                return listOf(InstantRow(action, rest, chosen = true))
+-            }
++        return when {
++            text.isEmpty() -> emptyList()
++            else -> quickRows(text) ?: addressRows(text) ?: keywordRows(text) ?: defaultRows(text)
++        }
++    }
++
++    private fun quickRows(text: String): List<InstantRow>? {
++        val action = QUICK[text.first()]?.takeUnless { CommandQuery.dialable(text) != null } ?: return null
++        // A prefix with nothing after it does nothing yet: keep typing.
++        val rest = text.drop(1).trim()
++        return if (rest.isEmpty()) emptyList() else listOf(InstantRow(action, rest, chosen = true))
++    }
++
++    private fun addressRows(text: String): List<InstantRow>? =
++        webAddress(text)?.let { url ->
++            val sure = text.contains("://") || text.startsWith("www.", ignoreCase = true) || text.contains('/')
++            listOf(
++                InstantRow(InstantAction.OpenAddress, url, chosen = sure),
++                InstantRow(InstantAction.WebSearch, text),
++            )
+         }
++
++    private fun keywordRows(text: String): List<InstantRow>? =
++        keyword(text)
++            ?.takeIf { (action, rest) ->
++                rest.isNotEmpty() && (action != InstantAction.Call || CommandQuery.dialable(rest) != null)
++            }?.let { (action, rest) -> listOf(InstantRow(action, rest, chosen = true)) }
++
++    private fun defaultRows(text: String): List<InstantRow> {
+         val actions =
+             when {
+                 CommandQuery.dialable(text) != null -> NUMBER
+@@ -83,7 +113,31 @@ object InstantActions {
+         return action to rest
+     }
+ 
++    /**
++     * The quick prefixes, typed first with nothing before them. A `/` that starts a scope word
++     * (`/settings`, `/apps`…) never gets here: CommandQuery takes it as that scope. Unlike TenSeven, a
++     * phone number that starts with `+` stays a number (Call first), so international numbers work.
++     */
++    private val QUICK =
++        mapOf(
++            '-' to InstantAction.RemindMe,
++            '/' to InstantAction.Note,
++            '+' to InstantAction.Event,
++        )
++
++    private val WEB_ADDRESS =
++        Regex(
++            "(?i)(https?://)?(www\\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?" +
++                "(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\\.[a-z]{2,24}(:\\d{1,5})?([/?#]\\S*)?",
++        )
++
++    /** A typed web address as a URL to open, `https://` added when missing; null for anything else. */
++    fun webAddress(text: String): String? {
++        val t = text.trim()
++        if (t.any { it.isWhitespace() } || emailAddress(t) != null || !WEB_ADDRESS.matches(t)) return null
++        return if (t.contains("://")) t else "https://$t"
++    }
++
+     /** A typed email address, for Email's recipient; null sends the text as the message instead. */
+-    fun emailAddress(text: String): String? =
+-        text.trim().takeIf { it.matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) }
++    fun emailAddress(text: String): String? = text.trim().takeIf { it.matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 86708d3..967f889 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -305,6 +305,8 @@ object StartText {
+             "remove_from_tab" to "Remove from %1\$s",
+             "delete_tab" to "Delete tab %1\$s",
+             "letter_press_for" to "%1\$s: press a letter, Backspace removes",
++            "instant_event" to "New event",
++            "instant_open_address" to "Open address",
+             "icon_large" to "Large",
+             "letter_shortcut_press" to
+                 "Press the letter to hold on Home to open this app. Backspace removes it. It replaces a speed dial on the same letter.",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index e04c097..cce58bc 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -12,6 +12,7 @@ import android.net.Uri
+ import android.os.BatteryManager
+ import android.os.Build
+ import android.os.SystemClock
++import android.provider.CalendarContract
+ import android.provider.CallLog
+ import android.util.LruCache
+ import androidx.compose.foundation.Image
+@@ -4716,8 +4717,9 @@ private fun SearchScreen(
+ 
+ /**
+  * One Instant Action row: Remind me into Sable Tasks and Note into Sable Notes (their own share
+- * entry), Call to the dialer, Text and Email to the user's apps, Map to a maps app, Web search to
+- * the browser. Nothing is sent from here: each app opens with the text filled in.
++ * entry), Call to the dialer, Text and Email to the user's apps, Map to a maps app, Web search and
++ * Open address to the browser, New event to the calendar's new-event screen. Nothing is sent or
++ * saved from here: each app opens with the text filled in.
+  */
+ private fun instantResult(
+     row: InstantRow,
+@@ -4743,6 +4745,11 @@ private fun instantResult(
+             }
+             InstantAction.Map -> Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(text)))
+             InstantAction.WebSearch -> Intent(Intent.ACTION_WEB_SEARCH).putExtra(SearchManager.QUERY, text)
++            InstantAction.Event ->
++                Intent(Intent.ACTION_INSERT, CalendarContract.Events.CONTENT_URI)
++                    .putExtra(CalendarContract.Events.TITLE, text)
++            InstantAction.OpenAddress ->
++                Intent(Intent.ACTION_VIEW, Uri.parse(text)).addCategory(Intent.CATEGORY_BROWSABLE)
+         }
+     return SearchCommand(
+         title = row.action.label,

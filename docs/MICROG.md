@@ -91,8 +91,8 @@ and not "hw") from the GitLab release and hash it yourself. Then run
 ## Signature spoofing
 
 Apps check that Play services is signed by Google. microG passes that check through
-signature spoofing. LineageOS 23.2 already has a restricted form of it
-(`MicrogUtils.isMicrogSigned` on LineageOS 24.0, LineageOS change "Allow signature spoofing for microG
+signature spoofing. LineageOS 24.0 already has a restricted form of it
+(`MicrogUtils.isMicrogSigned`, LineageOS change "Allow signature spoofing for microG
 Companion/Services"). It spoofs only when all of these hold:
 
 * the package is `com.google.android.gms` or `com.android.vending`;

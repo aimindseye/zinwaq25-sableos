@@ -20,13 +20,13 @@ quick start (builds everything; no background needed):
   Results are in ~/sable-q25/artifacts (change with SABLE_BUILD_ROOT).
 
 options for every step (put them anywhere after the function):
-  --version N     the SableOS release number, for example 1.0 (default 1.0).
+  --version N     the SableOS release number, for example 2.0 (default 2.0).
                   It names the files and the GitHub release and is written
                   into the image as ro.sable.version.
   --variant V     user or userdebug (default userdebug). userdebug is
                   debuggable (adb root works); user is not.
   Use the same values for stage, build, artifacts and release.
-  Example: bash build/sable.sh q25 all --yes --version 1.1 --variant user
+  Example: bash build/sable.sh q25 all --yes --version 2.1 --variant user
 
 step by step (advanced):
   bash build/sable.sh q25 [release] <function> [options]
@@ -72,7 +72,7 @@ args=()
 while (($#)); do
     case "$1" in
         --version)
-            [[ -n "${2:-}" ]] || { echo "[sable-q25] FAIL --version needs a value, for example --version 1.0" >&2; exit 64; }
+            [[ -n "${2:-}" ]] || { echo "[sable-q25] FAIL --version needs a value, for example --version 2.0" >&2; exit 64; }
             export SABLE_VERSION="$2"
             shift 2
             ;;
