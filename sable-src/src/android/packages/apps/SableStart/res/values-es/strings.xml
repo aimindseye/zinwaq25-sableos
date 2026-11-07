@@ -43,7 +43,7 @@
     <string name="work">Trabajo</string>
     <string name="weather_and_date">Tiempo y fecha</string>
     <string name="search_or_command_row">Fila de búsqueda o comandos</string>
-    <string name="status_dials">Indicadores de estado</string>
+    <string name="status_dials">Línea de estado</string>
     <string name="temperature_condition_and_place_with">Temperatura, estado del cielo y lugar, con la fecha debajo</string>
     <string name="a_command_row_under_the">Una fila de comandos bajo el tiempo; escribir funciona sin ella</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, móvil, CPU, RAM, batería restante, celda y Ajustes</string>
@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s de %2$s</string>
     <string name="dm_free">%1$s libres</string>
     <string name="open_command">Comando (Alt+Espacio)</string>
+    <string name="home_shortcut_add">Añadir a la pantalla de inicio</string>
+    <string name="home_shortcut_remove">Quitar de la pantalla de inicio</string>
+    <string name="sable_undo">Deshacer</string>
 </resources>

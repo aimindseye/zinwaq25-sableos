@@ -10,4 +10,5 @@
     <string name="sable_more_actions_for">%1$s의 추가 작업</string>
     <string name="sable_jump_to">%1$s(으)로 이동</string>
     <string name="sable_return_to">%1$s(으)로 돌아가기</string>
+    <string name="sable_undo">실행 취소</string>
 </resources>

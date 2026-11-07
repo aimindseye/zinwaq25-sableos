@@ -49,7 +49,7 @@ class ConnectedAppsRepository(
             ConnectedAppPolicyCodec.decode(encoded)?.key == normalized.key
         }
 
-        if (!normalized.isDefaultDisabled()) {
+        if (!normalized.isDefault()) {
             records += ConnectedAppPolicyCodec.encode(normalized)
         }
 
@@ -71,7 +71,7 @@ class ConnectedAppsRepository(
     private fun updateCachedPolicy(policy: ConnectedAppPolicy) {
         synchronized(CACHE_LOCK) {
             val next = cachedPolicies.toMutableMap()
-            if (policy.isDefaultDisabled()) {
+            if (policy.isDefault()) {
                 next.remove(policy.key)
             } else {
                 next[policy.key] = policy

@@ -3,6 +3,7 @@ package org.sableos.hub.policy
 import org.sableos.hub.ConnectedAppKey
 import org.sableos.hub.ConnectedAppPolicy
 import org.sableos.hub.HubText.t
+import org.sableos.hub.includedInHub
 
 /** Hub-side state of one connected app, derived from Hub policy plus Android facts. */
 enum class ConnectedAppStatus {
@@ -34,15 +35,13 @@ object ConnectedAppsParity {
         policy: ConnectedAppPolicy?,
         notificationAccessGranted: Boolean,
         profileLocked: Boolean,
-    ): ConnectedAppStatus {
-        val normalized = policy?.normalized()
-        return when {
-            normalized?.includeInMessages != true -> ConnectedAppStatus.Off
+    ): ConnectedAppStatus =
+        when {
+            !policy.includedInHub() -> ConnectedAppStatus.Off
             !notificationAccessGranted -> ConnectedAppStatus.PausedNoNotificationAccess
             profileLocked -> ConnectedAppStatus.PausedProfileLocked
             else -> ConnectedAppStatus.Connected
         }
-    }
 
     /**
      * Keys Sable Start may hide. [liveKeys] is the set of launchable package/profile pairs that

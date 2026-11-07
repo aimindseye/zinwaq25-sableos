@@ -67,6 +67,8 @@ class SoftKeyboardView(
         const val REPEAT_DELAY_MS = 400L
     }
 
+    private var numeric = false
+    private var numericPhone = false
     private var symbols = false
     private val shift = SoftShift()
     private var language: Language = Languages.English
@@ -104,6 +106,14 @@ class SoftKeyboardView(
             insets
         }
         setPadding(px(PAD_H_DP), px(PAD_V_DP), px(PAD_H_DP), px(PAD_V_DP) + navBarHeightPx())
+        build()
+    }
+
+    /** Number-only pad for PIN, number and phone fields; `phone` adds + * # beside zero. */
+    fun setNumeric(on: Boolean, phone: Boolean = false) {
+        if (numeric == on && numericPhone == phone) return
+        numeric = on
+        numericPhone = phone
         build()
     }
 
@@ -145,8 +155,31 @@ class SoftKeyboardView(
 
     private fun build() {
         removeAllViews()
+        if (numeric) {
+            buildNumericPad()
+            return
+        }
         if (symbols) buildSymbolRows() else buildLetterRows()
         addView(bottomRow(), rowParams())
+    }
+
+    private fun buildNumericPad() {
+        row(listOf("1", "2", "3"), false)
+        row(listOf("4", "5", "6"), false)
+        row(listOf("7", "8", "9"), false)
+        val last = newRow()
+        if (numericPhone) {
+            last.addView(textKey("+"))
+            last.addView(textKey("0"))
+            last.addView(textKey("#"))
+            last.addView(textKey("*"))
+        } else {
+            last.addView(key("⌫", 1f, fn, KeyOpts(repeat = true)) { onEvent(Event.Backspace) })
+            last.addView(textKey("0"))
+        }
+        if (numericPhone) last.addView(backspaceKey())
+        last.addView(key("↵", 1f, fn) { typed(Event.Enter) })
+        addView(last, rowParams())
     }
 
     private fun buildSymbolRows() {

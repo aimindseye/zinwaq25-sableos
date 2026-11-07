@@ -554,6 +554,8 @@ private fun HubRootView(
             onSelect = state::selectPivot,
         )
 
+        HubUpcomingStrip(snapshot.upcoming)
+
         state.statusMessage?.let { message ->
             Text(
                 text = message,
@@ -2084,7 +2086,7 @@ private fun inboxEmptyText(
         filter == HubInboxFilter.Priority -> t("nothing_needs_your_attention")
         filter == HubInboxFilter.People && !capabilities.canReadContacts -> t("grant_contacts_access_to_match")
         filter == HubInboxFilter.People -> t("no_conversations_or_calls_with")
-        filter == HubInboxFilter.Notifications -> t("no_connected_app_conversations_choose")
+        filter == HubInboxFilter.Notifications -> t("no_conversations_yet")
         filter == HubInboxFilter.Mail -> t("no_mail_notifications_turn_on")
         else -> t("no_conversations_yet")
     }
@@ -3168,8 +3170,8 @@ private val HubAvatarTextGap = 14.dp
 private val HubTrailingGap = 10.dp
 private val HubBubbleMaxWidth = 320.dp
 private val HubBubbleCornerRadius = 18.dp
-private val HubUnreadAccent = Color(0xFF35C66B)
-private val HubUnreadBackground = Color(0xFF0B3524)
+private val HubUnreadAccent = Color(0xFF2E9BD6)
+private val HubUnreadBackground = Color(0xFF12303F)
 private val HubDoubleDividerGap = 2.dp
 private val HubDockSlotSize = 48.dp
 private val HubDockIconSize = 40.dp

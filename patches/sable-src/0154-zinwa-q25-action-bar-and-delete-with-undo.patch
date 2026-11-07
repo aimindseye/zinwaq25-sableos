@@ -1,0 +1,819 @@
+diff --git a/sable-src/apps/r8/android/config/detekt.yml b/sable-src/apps/r8/android/config/detekt.yml
+index c2a42ab..511be8d 100644
+--- a/sable-src/apps/r8/android/config/detekt.yml
++++ b/sable-src/apps/r8/android/config/detekt.yml
+@@ -51,6 +51,7 @@ naming:
+       - "**/hub/ui/ConnectedAppsScreen.kt"
+       - "**/hub/ui/AttentionSettingsScreen.kt"
+       - "**/hub/ui/HubTheme.kt"
++      - "**/design/SableActionBar.kt"
+ 
+ style:
+   MagicNumber:
+diff --git a/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableActionBarLayoutTest.kt b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableActionBarLayoutTest.kt
+new file mode 100644
+index 0000000..e19abcd
+--- /dev/null
++++ b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableActionBarLayoutTest.kt
+@@ -0,0 +1,18 @@
++package org.sableos.design
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++class SableActionBarLayoutTest {
++    @Test
++    fun actionsThatFitAllShow() {
++        assertEquals(listOf("a", "b") to emptyList<String>(), SableActionBarLayout.split(listOf("a", "b")))
++        assertEquals(emptyList<String>() to emptyList<String>(), SableActionBarLayout.split(emptyList<String>()))
++    }
++
++    @Test
++    fun theOverflowTakesTheLastSlot() {
++        assertEquals(listOf("a") to listOf("b", "c"), SableActionBarLayout.split(listOf("a", "b", "c")))
++        assertEquals(emptyList<String>() to listOf("a", "b"), SableActionBarLayout.split(listOf("a", "b"), inline = 1))
++    }
++}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
+index 63fb5f2..5326a0c 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/NotesController.kt
+@@ -55,7 +55,8 @@ class NotesController(
+             edit = ::edit,
+             cycleLabel = ::cycleLabel,
+             delete = ::delete,
+-            askDelete = { state.confirmDelete = it },
++            undoDelete = ::undoDelete,
++            endUndo = { state.undoNote = null },
+             share = ::share,
+             export = ::export,
+             import = { importLauncher.launch(arrayOf("text/*")) },
+@@ -96,13 +97,24 @@ class NotesController(
+         event: KeyEvent,
+     ): Boolean {
+         val chord = event.isAltPressed || event.isCtrlPressed || event.isMetaPressed
+-        if (keyCode == KeyEvent.KEYCODE_ESCAPE) return back()
+-        return when (state.screen) {
++        val undo = keyCode == KeyEvent.KEYCODE_U && !chord && state.undoNote != null && !state.searching
++        return when {
++            keyCode == KeyEvent.KEYCODE_ESCAPE -> back()
++            undo && state.screen == Screen.List -> true.also { undoDelete() }
++            else -> screenKey(keyCode, event, chord)
++        }
++    }
++
++    private fun screenKey(
++        keyCode: Int,
++        event: KeyEvent,
++        chord: Boolean,
++    ): Boolean =
++        when (state.screen) {
+             Screen.List -> NotesKeys.list(keyCode, event.isCtrlPressed, chord)?.let(::listKey) ?: false
+             Screen.Tasks -> NotesKeys.tasks(keyCode, chord)?.let(::tasksKey) ?: false
+             is Screen.Editor -> false
+         }
+-    }
+ 
+     fun flushAll() {
+         pendingSaves.keys.toList().forEach(::flush)
+@@ -117,7 +129,7 @@ class NotesController(
+             ListKey.Tasks -> show(Screen.Tasks)
+             ListKey.Import -> importLauncher.launch(arrayOf("text/*"))
+             ListKey.Label -> focused?.let { cycleLabel(it.id) }
+-            ListKey.Delete -> focused?.let { state.confirmDelete = it }
++            ListKey.Delete -> focused?.let(::delete)
+         }
+         return focused != null || (key != ListKey.Label && key != ListKey.Delete)
+     }
+@@ -224,11 +236,20 @@ class NotesController(
+         state.notes = state.notes.map { if (it.id == id) change(it) else it }.sortedByDescending { it.updatedAt }
+     }
+ 
++    /** Delete at once, BB10 style: no question, an undo bar instead (U or Undo brings the note back). */
+     private fun delete(note: Note) {
+-        state.confirmDelete = null
+         remove(note.id)
+         if ((state.screen as? Screen.Editor)?.id == note.id) state.screen = Screen.List
+-        state.notice = t("deleted", note.title)
++        state.undoNote = note
++    }
++
++    private fun undoDelete() {
++        val note = state.undoNote ?: return
++        state.undoNote = null
++        state.notes = (state.notes + note).sortedByDescending { it.updatedAt }
++        io.execute {
++            if (runCatching { store.save(note) }.isFailure) main.post { state.notice = t("couldn_t_save", note.title) }
++        }
+     }
+ 
+     private fun remove(id: String) {
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/EditorScreen.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/EditorScreen.kt
+index 8eba70a..80416ac 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/EditorScreen.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/EditorScreen.kt
+@@ -108,7 +108,7 @@ private class EditorModel(
+             EditorMenu.Label -> actions.cycleLabel(note.id)
+             EditorMenu.Share -> actions.share(note)
+             EditorMenu.Export -> actions.export(note)
+-            EditorMenu.Delete -> actions.askDelete(note)
++            EditorMenu.Delete -> actions.delete(note)
+         }
+         if (!finding) focusEditor()
+     }
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesApp.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesApp.kt
+index 909fae6..ba604e3 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesApp.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesApp.kt
+@@ -10,19 +10,19 @@ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.height
+ import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.imePadding
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.lazy.itemsIndexed
+ import androidx.compose.foundation.lazy.rememberLazyListState
+-import androidx.compose.material3.AlertDialog
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedTextField
+ import androidx.compose.material3.Text
+-import androidx.compose.material3.TextButton
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.remember
+@@ -47,6 +47,7 @@ import org.sableos.design.SableListKeys
+ import org.sableos.design.SableScreen
+ import org.sableos.design.SableSize
+ import org.sableos.design.SableSpacing
++import org.sableos.design.SableUndoBar
+ import org.sableos.design.sableFocusRing
+ import org.sableos.design.sableListKeys
+ import org.sableos.notes.core.Checklist
+@@ -87,7 +88,16 @@ fun NotesApp(
+             }
+         }
+     }
+-    state.confirmDelete?.let { note -> DeleteDialog(note, actions) }
++    state.undoNote?.let { note ->
++        Box(modifier = Modifier.fillMaxSize().imePadding(), contentAlignment = Alignment.BottomCenter) {
++            SableUndoBar(
++                message = t("deleted", note.title),
++                onUndo = actions.undoDelete,
++                onExpire = actions.endUndo,
++                modifier = Modifier.background(MaterialTheme.colorScheme.background),
++            )
++        }
++    }
+     state.notice?.let { notice ->
+         LaunchedEffect(notice) {
+             delay(NOTICE_MS)
+@@ -422,17 +432,3 @@ internal fun Hint(text: String) {
+         overflow = TextOverflow.Ellipsis,
+     )
+ }
+-
+-@Composable
+-private fun DeleteDialog(
+-    note: Note,
+-    actions: NotesActions,
+-) {
+-    AlertDialog(
+-        onDismissRequest = { actions.askDelete(null) },
+-        title = { Text(t("delete_note_question")) },
+-        text = { Text(t("will_be_deleted_from_this", note.title)) },
+-        confirmButton = { TextButton(onClick = { actions.delete(note) }) { Text(t("delete")) } },
+-        dismissButton = { TextButton(onClick = { actions.askDelete(null) }) { Text(t("keep")) } },
+-    )
+-}
+diff --git a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesUiState.kt b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesUiState.kt
+index b76be0a..10f2b0a 100644
+--- a/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesUiState.kt
++++ b/sable-src/apps/r8/android/notes/src/main/java/org/sableos/notes/ui/NotesUiState.kt
+@@ -23,7 +23,9 @@ class NotesUiState {
+     var query by mutableStateOf("")
+     var searching by mutableStateOf(false)
+     var showDone by mutableStateOf(false)
+-    var confirmDelete by mutableStateOf<Note?>(null)
++
++    /** The note just deleted, while its undo bar shows (BB10: Delete with an undo toast). */
++    var undoNote by mutableStateOf<Note?>(null)
+     var notice by mutableStateOf<String?>(null)
+ 
+     /** The list row or task that has keyboard focus, for L, D and O. */
+@@ -39,7 +41,8 @@ data class NotesActions(
+     val edit: (String, String) -> Unit,
+     val cycleLabel: (String) -> Unit,
+     val delete: (Note) -> Unit,
+-    val askDelete: (Note?) -> Unit,
++    val undoDelete: () -> Unit,
++    val endUndo: () -> Unit,
+     val share: (Note) -> Unit,
+     val export: (Note) -> Unit,
+     val import: () -> Unit,
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/MainActivity.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/MainActivity.kt
+index 6cddc76..41924e9 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/MainActivity.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/MainActivity.kt
+@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
+ import androidx.activity.result.contract.ActivityResultContracts
+ import org.sableos.design.SableGlobalTheme
+ import org.sableos.tasks.core.ReminderPreset
++import org.sableos.tasks.core.ScreenKey
+ import org.sableos.tasks.core.TaskRecord
+ import org.sableos.tasks.core.TaskSchedule
+ import org.sableos.tasks.core.TasksKeys
+@@ -18,6 +19,7 @@ import org.sableos.tasks.platform.TaskAlarms
+ import org.sableos.tasks.platform.taskRepository
+ import org.sableos.tasks.ui.TasksApp
+ import org.sableos.tasks.ui.TasksState
++import org.sableos.tasks.ui.undoDelete
+ import java.time.Instant
+ import java.time.ZoneId
+ 
+@@ -104,6 +106,12 @@ class MainActivity : ComponentActivity() {
+     ): Boolean {
+         val modified = event.isAltPressed || event.isCtrlPressed || event.isMetaPressed
+         val key = TasksKeys.screen(keyCode, modified)
++        val undo = state.editing == null && state.undoTask != null
++        if (key == ScreenKey.Undo && event.repeatCount == 0 && undo) {
++            undoDelete(state, repository)
++            refresh()
++            return true
++        }
+         return (key != null && event.repeatCount == 0 && state.onScreenKey(key)) || super.onKeyDown(keyCode, event)
+     }
+ 
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TasksKeys.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TasksKeys.kt
+index 10158ea..e1300d1 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TasksKeys.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/core/TasksKeys.kt
+@@ -4,7 +4,7 @@ import android.view.KeyEvent
+ import org.sableos.tasks.core.TasksText.t
+ 
+ /** Keys for the whole list; they reach it only when no text field has focus. */
+-enum class ScreenKey { New, ShowDone }
++enum class ScreenKey { New, ShowDone, Undo }
+ 
+ /** Keys for the focused task row. Enter (or a tap) opens it. */
+ enum class RowKey { Done, Tomorrow, Delete }
+@@ -27,6 +27,7 @@ object TasksKeys {
+             when (keyCode) {
+                 KeyEvent.KEYCODE_C -> ScreenKey.New
+                 KeyEvent.KEYCODE_H -> ScreenKey.ShowDone
++                KeyEvent.KEYCODE_U -> ScreenKey.Undo
+                 else -> null
+             }
+         }
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt
+index 39a9b84..80d268e 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt
+@@ -4,7 +4,9 @@ package org.sableos.tasks.ui
+ 
+ import android.text.format.DateFormat
+ import androidx.activity.compose.BackHandler
++import androidx.compose.foundation.background
+ import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.Spacer
+@@ -17,12 +19,10 @@ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.foundation.verticalScroll
+-import androidx.compose.material3.AlertDialog
+ import androidx.compose.material3.Checkbox
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+-import androidx.compose.material3.TextButton
+ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
+ import org.sableos.design.SableActionButton
+ import org.sableos.design.SableSize
+ import org.sableos.design.SableSpacing
++import org.sableos.design.SableUndoBar
+ import org.sableos.design.sableFocusRing
+ import org.sableos.tasks.core.ReminderPreset
+ import org.sableos.tasks.core.RowKey
+@@ -62,7 +63,6 @@ fun TasksApp(
+     onAllowNotifications: () -> Unit,
+ ) {
+     BackHandler(enabled = state.editing != null) { state.closeEditor() }
+-    state.pendingDelete?.let { task -> DeleteDialog(state, repository, task, onChanged) }
+     Surface(
+         modifier = Modifier.fillMaxSize(),
+         color = MaterialTheme.colorScheme.background,
+@@ -88,11 +88,27 @@ fun TasksApp(
+                         onChanged()
+                     },
+                     onCancel = state::closeEditor,
+-                    onDelete = { state.pendingDelete = it },
++                    onDelete = {
++                        deleteTask(state, repository, it)
++                        onChanged()
++                    },
+                 )
+             }
+         }
+     }
++    state.undoTask?.let { task ->
++        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
++            SableUndoBar(
++                message = t("deleted", task.title),
++                onUndo = {
++                    undoDelete(state, repository)
++                    onChanged()
++                },
++                onExpire = { state.undoTask = null },
++                modifier = Modifier.background(MaterialTheme.colorScheme.background),
++            )
++        }
++    }
+ }
+ 
+ @Suppress("LongMethod") // The screen, read top to bottom.
+@@ -173,7 +189,7 @@ private fun TaskList(
+     }
+ }
+ 
+-/** Space done, Z tomorrow 9:00, D asks before deleting. */
++/** Space done, Z tomorrow 9:00, D deletes (U or the undo bar brings it back). */
+ private fun onRowKey(
+     key: RowKey,
+     task: TaskRecord,
+@@ -191,7 +207,7 @@ private fun onRowKey(
+         }
+ 
+         RowKey.Delete -> {
+-            state.pendingDelete = task
++            deleteTask(state, repository, task)
+         }
+     }
+ }
+@@ -240,27 +256,24 @@ private fun TaskRow(
+     }
+ }
+ 
+-@Composable
+-private fun DeleteDialog(
++/** Delete at once, BB10 style: no question, an undo bar instead. Undo saves it back with its reminder. */
++internal fun deleteTask(
+     state: TasksState,
+     repository: TaskRepository,
+     task: TaskRecord,
+-    onChanged: () -> Unit,
+ ) {
+-    AlertDialog(
+-        onDismissRequest = { state.pendingDelete = null },
+-        text = { Text(t("delete_task", task.title)) },
+-        confirmButton = {
+-            TextButton(onClick = {
+-                repository.delete(task.id)
+-                state.pendingDelete = null
+-                state.closeEditor()
+-                state.status = t("deleted", task.title)
+-                onChanged()
+-            }) { Text(t("delete")) }
+-        },
+-        dismissButton = { TextButton(onClick = { state.pendingDelete = null }) { Text(t("cancel")) } },
+-    )
++    repository.delete(task.id)
++    state.closeEditor()
++    state.undoTask = task
++}
++
++internal fun undoDelete(
++    state: TasksState,
++    repository: TaskRepository,
++) {
++    val task = state.undoTask ?: return
++    state.undoTask = null
++    repository.save(task)
+ }
+ 
+ internal fun groupLabel(group: TaskGroup): String =
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksState.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksState.kt
+index 80de071..2d56024 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksState.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksState.kt
+@@ -16,7 +16,9 @@ class TasksState {
+     /** The task being edited (a new one is not saved until Save), or null on the list. */
+     var editing by mutableStateOf<TaskRecord?>(null)
+     var editingIsNew by mutableStateOf(false)
+-    var pendingDelete by mutableStateOf<TaskRecord?>(null)
++
++    /** The task just deleted, while its undo bar shows (BB10: Delete with an undo toast). */
++    var undoTask by mutableStateOf<TaskRecord?>(null)
+ 
+     fun openEditor(
+         task: TaskRecord,
+@@ -32,12 +34,13 @@ class TasksState {
+         editingIsNew = false
+     }
+ 
+-    /** C new, H done list; not while editing or confirming. */
++    /** C new, H done list; not while editing. U (undo) needs the repository, so the activity takes it. */
+     fun onScreenKey(key: ScreenKey): Boolean {
+-        if (editing != null || pendingDelete != null) return false
++        if (editing != null || key == ScreenKey.Undo) return false
+         when (key) {
+             ScreenKey.New -> openEditor(TaskRecord(title = NEW_PLACEHOLDER), isNew = true)
+             ScreenKey.ShowDone -> showDone = !showDone
++            ScreenKey.Undo -> Unit
+         }
+         return true
+     }
+diff --git a/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TasksKeysTest.kt b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TasksKeysTest.kt
+index 5521a16..f90bee5 100644
+--- a/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TasksKeysTest.kt
++++ b/sable-src/apps/r8/android/tasks/src/test/java/org/sableos/tasks/core/TasksKeysTest.kt
+@@ -11,6 +11,7 @@ class TasksKeysTest {
+     fun letterKeysMapAndAltLeavesThemAlone() {
+         assertEquals(ScreenKey.New, TasksKeys.screen(KeyEvent.KEYCODE_C, modified = false))
+         assertEquals(ScreenKey.ShowDone, TasksKeys.screen(KeyEvent.KEYCODE_H, modified = false))
++        assertEquals(ScreenKey.Undo, TasksKeys.screen(KeyEvent.KEYCODE_U, modified = false))
+         assertNull(TasksKeys.screen(KeyEvent.KEYCODE_C, modified = true))
+         assertEquals(RowKey.Done, TasksKeys.row(KeyEvent.KEYCODE_SPACE, modified = false))
+         assertEquals(RowKey.Tomorrow, TasksKeys.row(KeyEvent.KEYCODE_Z, modified = false))
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt
+index 1859eda..b9238f8 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt
+@@ -17,6 +17,7 @@ object DesignText {
+             "sable_more_actions_for" to "More actions for %1\$s",
+             "sable_jump_to" to "Jump to %1\$s",
+             "sable_return_to" to "Return to %1\$s",
++            "sable_undo" to "Undo",
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableActionBar.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableActionBar.kt
+new file mode 100644
+index 0000000..538a991
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableActionBar.kt
+@@ -0,0 +1,164 @@
++package org.sableos.design
++
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.padding
++import androidx.compose.material3.DropdownMenu
++import androidx.compose.material3.DropdownMenuItem
++import androidx.compose.material3.HorizontalDivider
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberUpdatedState
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextOverflow
++import kotlinx.coroutines.delay
++
++/** One action for [SableActionBar]. Delete never goes here (BB10): it lives in the row's menu. */
++data class SableAction(
++    val label: String,
++    val onClick: () -> Unit,
++)
++
++/** How [SableActionBar] splits its actions between the bar and the overflow menu. */
++object SableActionBarLayout {
++    /** Actions shown on the bar besides the signature action; more than this go to the overflow. */
++    const val MAX_INLINE = 2
++
++    /** How long a [SableUndoBar] stays before the deletion is final. */
++    const val UNDO_MILLIS = 5_000L
++
++    /**
++     * The actions on the bar and those in the overflow. When they all fit they all show; otherwise the
++     * overflow button takes the last slot.
++     */
++    fun <T> split(
++        actions: List<T>,
++        inline: Int = MAX_INLINE,
++    ): Pair<List<T>, List<T>> =
++        if (actions.size <= inline) {
++            actions to emptyList()
++        } else {
++            actions.take((inline - 1).coerceAtLeast(0)) to actions.drop((inline - 1).coerceAtLeast(0))
++        }
++}
++
++/**
++ * The BlackBerry 10 bottom action bar: one signature action in the accent colour on the left, up to
++ * [SableActionBarLayout.MAX_INLINE] more beside it, and the rest under "More actions". Flat on the
++ * screen's black with a thin line above, like a BB10 list.
++ */
++@Composable
++fun SableActionBar(
++    signature: SableAction?,
++    actions: List<SableAction>,
++    modifier: Modifier = Modifier,
++) {
++    val (inline, overflow) = SableActionBarLayout.split(actions)
++    var menuOpen by remember { mutableStateOf(false) }
++    Column(modifier = modifier.fillMaxWidth()) {
++        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
++        Row(
++            modifier =
++                Modifier
++                    .fillMaxWidth()
++                    .heightIn(min = SableSize.TouchTarget)
++                    .padding(horizontal = SableSpacing.Sm),
++            horizontalArrangement = Arrangement.spacedBy(SableSpacing.Xs),
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
++            signature?.let { BarButton(it, accent = true, modifier = Modifier.weight(1f)) }
++            inline.forEach { BarButton(it, accent = false, modifier = Modifier.weight(1f)) }
++            if (overflow.isNotEmpty()) {
++                Box(modifier = Modifier.weight(1f)) {
++                    BarButton(SableAction(DesignText.t("sable_more_actions")) { menuOpen = true }, accent = false)
++                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
++                        overflow.forEach { action ->
++                            DropdownMenuItem(
++                                text = { Text(action.label) },
++                                onClick = {
++                                    menuOpen = false
++                                    action.onClick()
++                                },
++                            )
++                        }
++                    }
++                }
++            }
++        }
++    }
++}
++
++@Composable
++private fun BarButton(
++    action: SableAction,
++    accent: Boolean,
++    modifier: Modifier = Modifier,
++) {
++    TextButton(onClick = action.onClick, modifier = modifier.fillMaxWidth()) {
++        Text(
++            text = action.label,
++            color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
++            fontWeight = if (accent) FontWeight.SemiBold else FontWeight.Normal,
++            maxLines = 1,
++            overflow = TextOverflow.Ellipsis,
++        )
++    }
++}
++
++/**
++ * The BB10 undo toast after a Delete: "[message]" with an Undo button, at the bottom of the screen.
++ * It goes after [SableActionBarLayout.UNDO_MILLIS], when [onExpire] makes the deletion final; Undo
++ * calls [onUndo] instead. A new [message] restarts the time.
++ */
++@Composable
++fun SableUndoBar(
++    message: String,
++    onUndo: () -> Unit,
++    onExpire: () -> Unit,
++    modifier: Modifier = Modifier,
++) {
++    val expire by rememberUpdatedState(onExpire)
++    LaunchedEffect(message) {
++        delay(SableActionBarLayout.UNDO_MILLIS)
++        expire()
++    }
++    Column(modifier = modifier.fillMaxWidth()) {
++        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
++        Row(
++            modifier =
++                Modifier
++                    .fillMaxWidth()
++                    .heightIn(min = SableSize.TouchTarget)
++                    .padding(start = SableSpacing.Lg, end = SableSpacing.Sm),
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
++            Text(
++                text = message,
++                modifier = Modifier.weight(1f),
++                color = MaterialTheme.colorScheme.onSurface,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++            TextButton(onClick = onUndo) {
++                Text(
++                    text = DesignText.t("sable_undo"),
++                    color = MaterialTheme.colorScheme.primary,
++                    fontWeight = FontWeight.SemiBold,
++                )
++            }
++        }
++    }
++}
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-ar/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-ar/strings.xml
+index 5bea66c..99c7bf8 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-ar/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-ar/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">إجراءات أخرى لـ %1$s</string>
+     <string name="sable_jump_to">الانتقال إلى %1$s</string>
+     <string name="sable_return_to">العودة إلى %1$s</string>
++    <string name="sable_undo">تراجع</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-de/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-de/strings.xml
+index 6d7e5f4..08c3cfa 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-de/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-de/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">Weitere Aktionen für %1$s</string>
+     <string name="sable_jump_to">Zu %1$s springen</string>
+     <string name="sable_return_to">Zu %1$s zurückkehren</string>
++    <string name="sable_undo">Rückgängig</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-el/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-el/strings.xml
+index 8cb8a7e..96c6514 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-el/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-el/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">Περισσότερες ενέργειες για %1$s</string>
+     <string name="sable_jump_to">Μετάβαση σε %1$s</string>
+     <string name="sable_return_to">Επιστροφή σε %1$s</string>
++    <string name="sable_undo">Αναίρεση</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-es/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-es/strings.xml
+index 916c647..2f6b652 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-es/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-es/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">Más acciones para %1$s</string>
+     <string name="sable_jump_to">Ir a %1$s</string>
+     <string name="sable_return_to">Volver a %1$s</string>
++    <string name="sable_undo">Deshacer</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-fr/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-fr/strings.xml
+index 749a973..cbdabae 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-fr/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-fr/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">Plus d’actions pour %1$s</string>
+     <string name="sable_jump_to">Aller à %1$s</string>
+     <string name="sable_return_to">Revenir à %1$s</string>
++    <string name="sable_undo">Annuler</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-hi/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-hi/strings.xml
+index 796b75b..49fc6bf 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-hi/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-hi/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">%1$s के लिए और कार्रवाइयाँ</string>
+     <string name="sable_jump_to">%1$s पर जाएँ</string>
+     <string name="sable_return_to">%1$s पर वापस जाएँ</string>
++    <string name="sable_undo">पूर्ववत करें</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-it/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-it/strings.xml
+index b7fb503..d60a025 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-it/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-it/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">Altre azioni per %1$s</string>
+     <string name="sable_jump_to">Vai a %1$s</string>
+     <string name="sable_return_to">Torna a %1$s</string>
++    <string name="sable_undo">Annulla</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-iw/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-iw/strings.xml
+index 666cd94..5b23cf5 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-iw/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-iw/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">פעולות נוספות עבור %1$s</string>
+     <string name="sable_jump_to">מעבר אל %1$s</string>
+     <string name="sable_return_to">חזרה אל %1$s</string>
++    <string name="sable_undo">ביטול</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-ja/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-ja/strings.xml
+index 657283c..885540d 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-ja/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-ja/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">%1$s のその他の操作</string>
+     <string name="sable_jump_to">%1$s に移動</string>
+     <string name="sable_return_to">%1$s に戻る</string>
++    <string name="sable_undo">元に戻す</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-ko/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-ko/strings.xml
+index 5d5873a..d7c4d0e 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-ko/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-ko/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">%1$s의 추가 작업</string>
+     <string name="sable_jump_to">%1$s(으)로 이동</string>
+     <string name="sable_return_to">%1$s(으)로 돌아가기</string>
++    <string name="sable_undo">실행 취소</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-nl/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-nl/strings.xml
+index 4828a9d..1c511c2 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-nl/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-nl/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">Meer acties voor %1$s</string>
+     <string name="sable_jump_to">Ga naar %1$s</string>
+     <string name="sable_return_to">Terug naar %1$s</string>
++    <string name="sable_undo">Ongedaan maken</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-pl/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-pl/strings.xml
+index 04ed7b5..4e9bc29 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-pl/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-pl/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">Więcej działań dla %1$s</string>
+     <string name="sable_jump_to">Przejdź do %1$s</string>
+     <string name="sable_return_to">Wróć do %1$s</string>
++    <string name="sable_undo">Cofnij</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-pt/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-pt/strings.xml
+index 7fb8c27..34182a3 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-pt/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-pt/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">Mais ações para %1$s</string>
+     <string name="sable_jump_to">Ir para %1$s</string>
+     <string name="sable_return_to">Voltar para %1$s</string>
++    <string name="sable_undo">Desfazer</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-ru/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-ru/strings.xml
+index 591c99d..6347b86 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-ru/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-ru/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">Дополнительные действия для %1$s</string>
+     <string name="sable_jump_to">Перейти к %1$s</string>
+     <string name="sable_return_to">Вернуться к %1$s</string>
++    <string name="sable_undo">Отменить</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-sv/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-sv/strings.xml
+index 6a36894..a1db02a 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-sv/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-sv/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">Fler åtgärder för %1$s</string>
+     <string name="sable_jump_to">Gå till %1$s</string>
+     <string name="sable_return_to">Återgå till %1$s</string>
++    <string name="sable_undo">Ångra</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-tr/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-tr/strings.xml
+index e667aed..914dcc6 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-tr/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-tr/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">%1$s için diğer işlemler</string>
+     <string name="sable_jump_to">%1$s konumuna git</string>
+     <string name="sable_return_to">%1$s konumuna dön</string>
++    <string name="sable_undo">Geri al</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-ur/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-ur/strings.xml
+index a1f8b3c..e306ed1 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-ur/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-ur/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">%1$s کے لیے مزید اقدامات</string>
+     <string name="sable_jump_to">%1$s پر جائیں</string>
+     <string name="sable_return_to">%1$s پر واپس جائیں</string>
++    <string name="sable_undo">واپس کریں</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values-zh-rCN/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values-zh-rCN/strings.xml
+index f8a2667..607eb6a 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values-zh-rCN/strings.xml
+@@ -10,4 +10,5 @@
+     <string name="sable_more_actions_for">针对 %1$s 的更多操作</string>
+     <string name="sable_jump_to">跳转到 %1$s</string>
+     <string name="sable_return_to">返回 %1$s</string>
++    <string name="sable_undo">撤销</string>
+ </resources>
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml b/sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml
+index e5a2558..1eaa883 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml
++++ b/sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml
+@@ -11,4 +11,5 @@
+     <string name="sable_more_actions_for">More actions for %1$s</string>
+     <string name="sable_jump_to">Jump to %1$s</string>
+     <string name="sable_return_to">Return to %1$s</string>
++    <string name="sable_undo">Undo</string>
+ </resources>

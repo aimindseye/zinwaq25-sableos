@@ -42,13 +42,13 @@ class CompactStripView(
         const val CHIP_PAD_H_DP = 8
         const val CHIP_CORNER_DP = 8
         const val CHIP_MARGIN_DP = 2
-        val BAR_BG = Color.parseColor("#091621")
-        val OFF_BG = Color.parseColor("#14293A")
-        val OFF_FG = Color.parseColor("#6F8799")
-        val ON_BG = Color.parseColor("#2F7FB8")
-        val LOCK_BG = Color.parseColor("#55B9FF")
-        val NAV_BG = Color.parseColor("#3FA37A")
-        val SUSPENDED_FG = Color.parseColor("#FFB74D")
+        val BAR_BG = Color.parseColor("#000000")
+        val OFF_BG = Color.parseColor("#262626")
+        val OFF_FG = Color.parseColor("#A6A6A6")
+        val ON_BG = Color.parseColor("#2E9BD6")
+        val LOCK_BG = Color.parseColor("#1F6E96")
+        val NAV_BG = Color.parseColor("#5A5A5A")
+        val SUSPENDED_FG = Color.parseColor("#6B6B6B")
     }
 
     private fun px(v: Int): Int = (v * dp).toInt()

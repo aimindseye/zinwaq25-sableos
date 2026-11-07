@@ -4,6 +4,7 @@ import org.sableos.hub.ConnectedAppKey
 import org.sableos.hub.ConnectedAppPolicy
 import org.sableos.hub.HubConversation
 import org.sableos.hub.HubConversationSource
+import org.sableos.hub.includedInHub
 
 sealed interface HubHandoffTarget {
     /** Open this Hub conversation. */
@@ -34,7 +35,7 @@ object HubHandoffRouter {
     ): HubHandoffTarget =
         when {
             key == null -> HubHandoffTarget.Home
-            policies[key]?.normalized()?.includeInMessages != true -> HubHandoffTarget.ConnectedAppSettings(key)
+            !policies[key].includedInHub() -> HubHandoffTarget.ConnectedAppSettings(key)
             else -> conversationFor(key, notificationKey, conversations)
         }
 

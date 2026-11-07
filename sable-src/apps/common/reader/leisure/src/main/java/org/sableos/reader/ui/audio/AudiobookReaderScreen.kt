@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
@@ -50,6 +48,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import java.io.File
+import org.sableos.design.sableVerticalScroll
 import org.sableos.reader.engine.audio.AudioTimeFormat
 import org.sableos.reader.layout.rememberReaderLayoutProfile
 
@@ -139,7 +138,7 @@ private fun PlayerContent(
     // so the seek bar, transport and status all stay on screen. The column still scrolls as a last resort.
     val spacing = if (profile.isShort) SHORT_SPACING else SCREEN_PADDING
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(spacing),
+        modifier = Modifier.fillMaxSize().sableVerticalScroll().padding(spacing),
         verticalArrangement = Arrangement.spacedBy(spacing),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

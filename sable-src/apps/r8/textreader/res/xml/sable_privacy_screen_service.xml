@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Privacy Screen: focus, scroll and window events only, to place the clear band. It reads node
+     bounds, never text. No explore by touch and no key filtering. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeViewFocused|typeViewAccessibilityFocused|typeViewScrolled|typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/sable_privacy_screen_description"
+    android:isAccessibilityTool="false"
+    android:notificationTimeout="50"
+    android:summary="@string/sable_privacy_screen_summary" />

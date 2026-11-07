@@ -24,7 +24,7 @@ the Q4 gates in [QUALIFICATION.md](QUALIFICATION.md) apply unchanged.
 
 ## Status
 
-62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Twenty-five more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), frameworks/base 0317 (the next event on the lock screen), frameworks/base 0318 (the Peek as an app column beside the newest notification), frameworks/base 0319 (Alt+Space opens Command from any app), SetupWizard 0416 (the Full Sable, Essentials or Stock Android step), SetupWizard 0417 (the BlackBerry 10 or BlackBerry 7 look step), frameworks/base 0320 with Settings 1606 (Picture Password), frameworks/base 0321 (built-in Picture Password pictures), Settings 1607 (the homepage in BlackBerry 10 order), Settings 1608 (Deep sleeping apps), and Settings 1605 with device tree 1503 (the trackpad Keys or Pointer choice), Settings 1610 with kernel 0903 (double-tap to wake), and frameworks/base 0322 (the lock screen ticker).
+62 apply as is, 11 refreshed, 2 apply once the earlier ports are in, 31 ported by hand. Nothing is left to port. Twenty-eight more are new on 24.0: Settings 1601 and SetupWizard 0415 (the text size choice), frameworks/base 0314 and Settings 1602 (the lock screen Peek), frameworks/base 0315 and Settings 1603 (the compact PIN pad and size tiles), frameworks/base 0316 and Settings 1604 (compact Settings rows and the Sable page), frameworks/base 0317 (the next event on the lock screen), frameworks/base 0318 (the Peek as an app column beside the newest notification), frameworks/base 0319 (Alt+Space opens Command from any app), SetupWizard 0416 (the Full Sable, Essentials or Stock Android step), SetupWizard 0417 (the BlackBerry 10 or BlackBerry 7 look step), frameworks/base 0320 with Settings 1606 (Picture Password), frameworks/base 0321 (built-in Picture Password pictures), Settings 1607 (the homepage in BlackBerry 10 order), Settings 1608 (Deep sleeping apps), and Settings 1605 with device tree 1503 (the trackpad Keys or Pointer choice), Settings 1610 with kernel 0903 (double-tap to wake), frameworks/base 0322 (the lock screen ticker), packages/overlays/Lineage 0101 (the Source Sans 3 font families), Settings 1611 (the homepage in ten BlackBerry 10 rows), and Settings 1612 (no Attention row on the Sable page).
 
 Every patch applies to the 24.0 heads in order. That is not yet a build: the ports below were
 written against the 24.0 sources without compiling them, so the first 24.0 build is the real test.
@@ -55,6 +55,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `frameworks/base/0320-SableOS-Picture-Password-as-a-quick-second-unlock.patch` | new on 24.0 |
 | `frameworks/base/0321-SableOS-built-in-Picture-Password-pictures.patch` | new on 24.0 |
 | `frameworks/base/0322-SableOS-ticker-for-new-notifications-on-the-lock-scr.patch` | new on 24.0 |
+| `frameworks/base/0323-SableOS-no-extra-lock-screen-text-without-notificati.patch` | new on 24.0 |
 | `frameworks/base/0501-SableOS-notification-light-for-every-alerting-channe.patch` | applies as is |
 | `frameworks/base/0550-SableOS-microG-signature-spoofing-on-user-builds-whe.patch` | ported by hand |
 | `kernel/xelex/mt6789/0201-SableOS-report-the-fuel-gauge-s-learned-battery-health.patch` | applies as is |
@@ -143,6 +144,11 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/Settings/1608-SableOS-Deep-sleeping-apps-with-Put-unused-apps-to-sleep.patch` | new on 24.0 |
 | `packages/apps/Settings/1609-SableOS-one-blue-accent-and-no-accent-row-2.0-black-a.patch` | new on 24.0 |
 | `packages/apps/Settings/1610-SableOS-Double-tap-to-wake-switch-in-Settings-Display.patch` | new on 24.0 |
+| `packages/apps/Settings/1611-SableOS-Settings-top-level-in-ten-BlackBerry-10-rows.patch` | new on 24.0 |
+| `packages/apps/Settings/1612-SableOS-no-Attention-row-on-the-Sable-page.patch` | new on 24.0 |
+| `packages/apps/Settings/1613-SableOS-Picture-Password-row-in-Settings-Security.patch` | new on 24.0 |
+| `packages/apps/Settings/1614-SableOS-near-grey-system-palette.patch` | new on 24.0 |
+| `packages/overlays/Lineage/0101-SableOS-Source-Sans-3-families-in-the-product-font-cu.patch` | new on 24.0 (24.0 installs its own fonts_customization.xml) |
 | `packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | ported by hand |
 | `packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | ported by hand |
 | `packages/apps/SetupWizard/0403-SableOS-Esc-returns-to-the-previous-setup-step.patch` | ported by hand |

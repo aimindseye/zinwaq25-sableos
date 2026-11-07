@@ -157,6 +157,9 @@ def patch_manifest(manifest: pathlib.Path) -> None:
         fail("SABLE_TEXT_READER_MANIFEST_APPLICATION_ANCHOR=FAIL")
     manifest_text = manifest_text.replace(
         app_anchor,
+        '    <permission\n'
+        '        android:name="org.sableos.permission.PRIVACY_SCREEN"\n'
+        '        android:protectionLevel="signature" />\n\n'
         '    <queries>\n'
         '        <provider android:authorities="org.sableos.appearance" />\n'
         '    </queries>\n\n'
@@ -190,7 +193,7 @@ def patch_manifest(manifest: pathlib.Path) -> None:
     manifest_text = replace_text_once(
         manifest_text,
         "    </application>\n",
-        SPEAK_FOCUS_SERVICE + "    </application>\n",
+        SPEAK_FOCUS_SERVICE + PRIVACY_SCREEN_SERVICES + "    </application>\n",
         "SABLE_TEXT_READER_SPEAK_FOCUS_ANCHOR",
     )
     manifest.write_text(manifest_text, encoding="utf-8")
@@ -208,6 +211,39 @@ SPEAK_FOCUS_SERVICE = """        <service
                 android:name="android.accessibilityservice"
                 android:resource="@xml/sable_speak_focus_service" />
         </service>
+"""
+
+
+# Privacy Screen (sable-src 0151): darkens all but the focused field; off until the user turns it on.
+PRIVACY_SCREEN_SERVICES = """        <service
+            android:name="org.sableos.textreader.privacy.PrivacyScreenService"
+            android:exported="true"
+            android:label="@string/sable_privacy_screen_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/sable_privacy_screen_service" />
+        </service>
+        <service
+            android:name="org.sableos.textreader.privacy.PrivacyScreenTile"
+            android:exported="true"
+            android:label="@string/sable_privacy_screen_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <receiver
+            android:name="org.sableos.textreader.privacy.PrivacyScreenSwitchReceiver"
+            android:exported="true"
+            android:permission="org.sableos.permission.PRIVACY_SCREEN">
+            <intent-filter>
+                <action android:name="org.sableos.textreader.action.TOGGLE_PRIVACY_SCREEN" />
+            </intent-filter>
+        </receiver>
 """
 
 

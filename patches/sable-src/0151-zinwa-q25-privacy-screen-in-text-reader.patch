@@ -1,0 +1,494 @@
+diff --git a/sable-src/apps/r8/textreader/apply_sable_flavor.py b/sable-src/apps/r8/textreader/apply_sable_flavor.py
+index ae74999..a64d0ac 100644
+--- a/sable-src/apps/r8/textreader/apply_sable_flavor.py
++++ b/sable-src/apps/r8/textreader/apply_sable_flavor.py
+@@ -190,7 +190,7 @@ def patch_manifest(manifest: pathlib.Path) -> None:
+     manifest_text = replace_text_once(
+         manifest_text,
+         "    </application>\n",
+-        SPEAK_FOCUS_SERVICE + "    </application>\n",
++        SPEAK_FOCUS_SERVICE + PRIVACY_SCREEN_SERVICES + "    </application>\n",
+         "SABLE_TEXT_READER_SPEAK_FOCUS_ANCHOR",
+     )
+     manifest.write_text(manifest_text, encoding="utf-8")
+@@ -211,6 +211,31 @@ SPEAK_FOCUS_SERVICE = """        <service
+ """
+ 
+ 
++# Privacy Screen (sable-src 0151): darkens all but the focused field; off until the user turns it on.
++PRIVACY_SCREEN_SERVICES = """        <service
++            android:name="org.sableos.textreader.privacy.PrivacyScreenService"
++            android:exported="true"
++            android:label="@string/sable_privacy_screen_label"
++            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
++            <intent-filter>
++                <action android:name="android.accessibilityservice.AccessibilityService" />
++            </intent-filter>
++            <meta-data
++                android:name="android.accessibilityservice"
++                android:resource="@xml/sable_privacy_screen_service" />
++        </service>
++        <service
++            android:name="org.sableos.textreader.privacy.PrivacyScreenTile"
++            android:exported="true"
++            android:label="@string/sable_privacy_screen_label"
++            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
++            <intent-filter>
++                <action android:name="android.service.quicksettings.action.QS_TILE" />
++            </intent-filter>
++        </service>
++"""
++
++
+ def patch_main_activity(main: pathlib.Path) -> None:
+     main_text = main.read_text(encoding="utf-8")
+     if "import androidx.compose.foundation.isSystemInDarkTheme\n" not in main_text:
+diff --git a/sable-src/apps/r8/textreader/res/drawable/ic_sable_privacy_screen.xml b/sable-src/apps/r8/textreader/res/drawable/ic_sable_privacy_screen.xml
+new file mode 100644
+index 0000000..e29e8c0
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/res/drawable/ic_sable_privacy_screen.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Privacy Screen tile: a screen with a clear band across its middle, in the Sable line style. -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#00000000"
++        android:strokeColor="#FFFFFFFF"
++        android:strokeWidth="1.6"
++        android:pathData="M5,3h14v18h-14z" />
++    <path
++        android:fillColor="#FFFFFFFF"
++        android:pathData="M5,3h14v6h-14zM5,15h14v6h-14z" />
++</vector>
+diff --git a/sable-src/apps/r8/textreader/res/values/sable_privacy_screen_strings.xml b/sable-src/apps/r8/textreader/res/values/sable_privacy_screen_strings.xml
+new file mode 100644
+index 0000000..3087e87
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/res/values/sable_privacy_screen_strings.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="sable_privacy_screen_label">Privacy Screen</string>
++    <string name="sable_privacy_screen_summary">Dims everything but the item you are on</string>
++    <string name="sable_privacy_screen_description">Lets the Privacy Screen tile in Quick Settings dim the whole screen except a band around the item that has focus, so people beside you cannot read it. The band follows the trackpad and keys. It is never shown on the lock screen or over a call. It reads where the focused item is, never what it says, and it does not change how touch or the keyboard work.</string>
++</resources>
+diff --git a/sable-src/apps/r8/textreader/res/xml/sable_privacy_screen_service.xml b/sable-src/apps/r8/textreader/res/xml/sable_privacy_screen_service.xml
+new file mode 100644
+index 0000000..eac2bda
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/res/xml/sable_privacy_screen_service.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Privacy Screen: focus, scroll and window events only, to place the clear band. It reads node
++     bounds, never text. No explore by touch and no key filtering. -->
++<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
++    android:accessibilityEventTypes="typeViewFocused|typeViewAccessibilityFocused|typeViewScrolled|typeWindowStateChanged"
++    android:accessibilityFeedbackType="feedbackGeneric"
++    android:canRetrieveWindowContent="true"
++    android:description="@string/sable_privacy_screen_description"
++    android:isAccessibilityTool="false"
++    android:notificationTimeout="50"
++    android:summary="@string/sable_privacy_screen_summary" />
+diff --git a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyBand.kt b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyBand.kt
+new file mode 100644
+index 0000000..9d6b623
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyBand.kt
+@@ -0,0 +1,57 @@
++package org.sableos.textreader.privacy
++
++/** The clear band of the Privacy Screen, in screen pixels: rows [top, bottom). */
++data class Band(
++    val top: Int,
++    val bottom: Int,
++)
++
++/**
++ * Where the Privacy Screen leaves the screen readable: a full-width band around the focused item,
++ * at least [minHeight] tall and centred on it, kept inside the screen. With nothing focused the
++ * band sits in the middle of the screen. Pure, so it is unit-tested off the phone.
++ */
++object PrivacyBand {
++    /** The band for a focused item spanning rows [focusTop, focusBottom), or null for no focus. */
++    fun bandFor(
++        focusTop: Int?,
++        focusBottom: Int?,
++        screenHeight: Int,
++        minHeight: Int,
++        padding: Int,
++    ): Band {
++        val height = screenHeight.coerceAtLeast(1)
++        val wanted =
++            if (focusTop == null || focusBottom == null || focusBottom <= focusTop) {
++                minHeight
++            } else {
++                maxOf(minHeight, focusBottom - focusTop + 2 * padding)
++            }
++        val size = wanted.coerceIn(1, height)
++        val centre =
++            if (focusTop == null || focusBottom == null || focusBottom <= focusTop) {
++                height / 2
++            } else {
++                (focusTop + focusBottom) / 2
++            }
++        val top = (centre - size / 2).coerceIn(0, height - size)
++        return Band(top, top + size)
++    }
++
++    /** Whether the screen may be dimmed now: never while locked or while a call screen is in front. */
++    fun mayShow(
++        on: Boolean,
++        locked: Boolean,
++        screenOn: Boolean,
++        frontPackage: String?,
++    ): Boolean = on && !locked && screenOn && frontPackage !in CALL_PACKAGES
++
++    /** Call screens the Privacy Screen never covers. */
++    val CALL_PACKAGES =
++        setOf(
++            "org.sableos.phone",
++            "com.android.dialer",
++            "com.android.server.telecom",
++            "com.android.incallui",
++        )
++}
+diff --git a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt
+new file mode 100644
+index 0000000..ce83235
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt
+@@ -0,0 +1,189 @@
++package org.sableos.textreader.privacy
++
++import android.accessibilityservice.AccessibilityService
++import android.app.KeyguardManager
++import android.content.BroadcastReceiver
++import android.content.ComponentName
++import android.content.Context
++import android.content.Intent
++import android.content.IntentFilter
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.graphics.PixelFormat
++import android.graphics.Rect
++import android.os.Build
++import android.os.PowerManager
++import android.service.quicksettings.TileService
++import android.view.View
++import android.view.WindowManager
++import android.view.accessibility.AccessibilityEvent
++import android.view.accessibility.AccessibilityNodeInfo
++import java.lang.ref.WeakReference
++
++/**
++ * Privacy Screen (Sable 2.0): dims the whole screen except a band around the item that has focus,
++ * so people beside you cannot read it. The band follows focus as the trackpad or keys move it.
++ *
++ * Off by default. Turning on this accessibility service only makes the Privacy Screen available;
++ * the Quick Settings tile (or My Sable) switches it on and off, and the choice is kept in memory
++ * only. It never shows on the lock screen, with the screen off, or over a call screen. It reads
++ * only the bounds of the focused item, never its text, and it takes no touch or keys.
++ */
++class PrivacyScreenService : AccessibilityService() {
++    private var overlay: Shade? = null
++    private var frontPackage: String? = null
++    private var screenOn = true
++
++    private val screenEvents =
++        object : BroadcastReceiver() {
++            override fun onReceive(
++                context: Context,
++                intent: Intent,
++            ) {
++                screenOn = intent.action != Intent.ACTION_SCREEN_OFF
++                apply()
++            }
++        }
++
++    override fun onServiceConnected() {
++        instance = WeakReference(this)
++        screenOn = getSystemService(PowerManager::class.java)?.isInteractive ?: true
++        val filter =
++            IntentFilter().apply {
++                addAction(Intent.ACTION_SCREEN_OFF)
++                addAction(Intent.ACTION_SCREEN_ON)
++                addAction(Intent.ACTION_USER_PRESENT)
++            }
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
++            registerReceiver(screenEvents, filter, Context.RECEIVER_NOT_EXPORTED)
++        } else {
++            registerReceiver(screenEvents, filter)
++        }
++        requestTileUpdate()
++    }
++
++    override fun onAccessibilityEvent(event: AccessibilityEvent) {
++        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
++            frontPackage = event.packageName?.toString()
++        }
++        if (!on) return
++        apply()
++        val node =
++            when (event.eventType) {
++                AccessibilityEvent.TYPE_VIEW_FOCUSED,
++                AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED,
++                -> event.source
++
++                else -> rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
++            }
++        val bounds = node?.let { Rect().also(it::getBoundsInScreen) }
++        overlay?.moveTo(bounds)
++    }
++
++    override fun onInterrupt() = Unit
++
++    override fun onDestroy() {
++        runCatching { unregisterReceiver(screenEvents) }
++        hide()
++        instance = null
++        on = false
++        requestTileUpdate()
++        super.onDestroy()
++    }
++
++    /** Shows or hides the shade for the current state. */
++    private fun apply() {
++        val locked = getSystemService(KeyguardManager::class.java)?.isKeyguardLocked ?: true
++        if (PrivacyBand.mayShow(on, locked, screenOn, frontPackage)) show() else hide()
++    }
++
++    private fun show() {
++        if (overlay != null) return
++        val shade = Shade(this)
++        val params =
++            WindowManager
++                .LayoutParams(
++                    WindowManager.LayoutParams.MATCH_PARENT,
++                    WindowManager.LayoutParams.MATCH_PARENT,
++                    WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
++                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
++                        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
++                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
++                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
++                    PixelFormat.TRANSLUCENT,
++                ).apply {
++                    layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
++                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) setFitInsetsTypes(0)
++                }
++        runCatching { getSystemService(WindowManager::class.java).addView(shade, params) }
++            .onSuccess { overlay = shade }
++    }
++
++    private fun hide() {
++        val shade = overlay ?: return
++        overlay = null
++        runCatching { getSystemService(WindowManager::class.java).removeView(shade) }
++    }
++
++    private fun setOn(value: Boolean) {
++        on = value
++        apply()
++        if (value) {
++            val focused = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
++            overlay?.moveTo(focused?.let { Rect().also(it::getBoundsInScreen) })
++        }
++        requestTileUpdate()
++    }
++
++    private fun requestTileUpdate() {
++        runCatching { TileService.requestListeningState(this, ComponentName(this, PrivacyScreenTile::class.java)) }
++    }
++
++    /** The dark layer: everything but the band, drawn black at [SHADE_ALPHA]. */
++    private class Shade(
++        context: Context,
++    ) : View(context) {
++        private val paint = Paint().apply { color = Color.argb(SHADE_ALPHA, 0, 0, 0) }
++        private val minBand = (MIN_BAND_DP * context.resources.displayMetrics.density).toInt()
++        private val padding = (PADDING_DP * context.resources.displayMetrics.density).toInt()
++        private var focus: Rect? = null
++
++        fun moveTo(bounds: Rect?) {
++            focus = bounds?.takeIf { !it.isEmpty }
++            invalidate()
++        }
++
++        override fun onDraw(canvas: Canvas) {
++            val location = IntArray(2).also(::getLocationOnScreen)
++            val focusTop = focus?.top?.minus(location[1])
++            val focusBottom = focus?.bottom?.minus(location[1])
++            val band = PrivacyBand.bandFor(focusTop, focusBottom, height, minBand, padding)
++            canvas.drawRect(0f, 0f, width.toFloat(), band.top.toFloat(), paint)
++            canvas.drawRect(0f, band.bottom.toFloat(), width.toFloat(), height.toFloat(), paint)
++        }
++    }
++
++    companion object {
++        private const val SHADE_ALPHA = 240
++        private const val MIN_BAND_DP = 96
++        private const val PADDING_DP = 12
++        private var instance: WeakReference<PrivacyScreenService>? = null
++
++        /** Whether the Privacy Screen is switched on (kept in memory only; off after a restart). */
++        @Volatile
++        var on: Boolean = false
++            private set
++
++        /** Whether the accessibility service is running, so the tile can switch the screen. */
++        val available: Boolean
++            get() = instance?.get() != null
++
++        /** Switches the Privacy Screen; false when the service is not turned on in Accessibility. */
++        fun toggle(): Boolean {
++            val service = instance?.get() ?: return false
++            service.setOn(!on)
++            return true
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenTile.kt b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenTile.kt
+new file mode 100644
+index 0000000..3ebfa68
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenTile.kt
+@@ -0,0 +1,54 @@
++package org.sableos.textreader.privacy
++
++import android.app.PendingIntent
++import android.content.ComponentName
++import android.content.Intent
++import android.graphics.drawable.Icon
++import android.os.Build
++import android.provider.Settings
++import android.service.quicksettings.Tile
++import android.service.quicksettings.TileService
++import org.vaachak.textreader.R
++
++/**
++ * The Privacy Screen Quick Settings tile. A tap switches the Privacy Screen on or off; while its
++ * accessibility service is not turned on, the tap opens that service's page in Accessibility
++ * settings instead, so the user turns it on there (Android does not let an app do it itself).
++ */
++class PrivacyScreenTile : TileService() {
++    override fun onStartListening() = refresh()
++
++    override fun onClick() {
++        if (!PrivacyScreenService.toggle()) openAccessibilityPage()
++        refresh()
++    }
++
++    private fun refresh() {
++        val tile = qsTile ?: return
++        // Set here, not in the manifest, so the app's launcher icon stays the only android:icon there.
++        tile.icon = Icon.createWithResource(this, R.drawable.ic_sable_privacy_screen)
++        tile.state =
++            when {
++                !PrivacyScreenService.available -> Tile.STATE_INACTIVE
++                PrivacyScreenService.on -> Tile.STATE_ACTIVE
++                else -> Tile.STATE_INACTIVE
++            }
++        tile.updateTile()
++    }
++
++    private fun openAccessibilityPage() {
++        val intent =
++            Intent(Settings.ACTION_ACCESSIBILITY_DETAILS_SETTINGS)
++                .putExtra(
++                    Intent.EXTRA_COMPONENT_NAME,
++                    ComponentName(this, PrivacyScreenService::class.java).flattenToString(),
++                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
++            val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
++            startActivityAndCollapse(PendingIntent.getActivity(this, 0, intent, flags))
++        } else {
++            @Suppress("DEPRECATION")
++            startActivityAndCollapse(intent)
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/privacy/PrivacyBandTest.kt b/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/privacy/PrivacyBandTest.kt
+new file mode 100644
+index 0000000..57c25ea
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/privacy/PrivacyBandTest.kt
+@@ -0,0 +1,38 @@
++package org.sableos.textreader.privacy
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class PrivacyBandTest {
++    @Test
++    fun `band is centred on the focused item and at least the minimum height`() {
++        assertEquals(Band(260, 460), PrivacyBand.bandFor(340, 380, 720, 200, 16))
++        // A tall item gets its own height plus padding.
++        assertEquals(Band(84, 516), PrivacyBand.bandFor(100, 500, 720, 200, 16))
++    }
++
++    @Test
++    fun `band stays inside the screen`() {
++        assertEquals(Band(0, 200), PrivacyBand.bandFor(0, 40, 720, 200, 16))
++        assertEquals(Band(520, 720), PrivacyBand.bandFor(690, 720, 720, 200, 16))
++        assertEquals(Band(0, 720), PrivacyBand.bandFor(0, 2000, 720, 200, 16))
++    }
++
++    @Test
++    fun `no focus puts the band in the middle`() {
++        assertEquals(Band(260, 460), PrivacyBand.bandFor(null, null, 720, 200, 16))
++        assertEquals(Band(260, 460), PrivacyBand.bandFor(300, 300, 720, 200, 16))
++    }
++
++    @Test
++    fun `never shown while locked, with the screen off or over a call`() {
++        assertTrue(PrivacyBand.mayShow(true, false, true, "org.sableos.messages"))
++        assertFalse(PrivacyBand.mayShow(false, false, true, "org.sableos.messages"))
++        assertFalse(PrivacyBand.mayShow(true, true, true, "org.sableos.messages"))
++        assertFalse(PrivacyBand.mayShow(true, false, false, "org.sableos.messages"))
++        assertFalse(PrivacyBand.mayShow(true, false, true, "org.sableos.phone"))
++        assertFalse(PrivacyBand.mayShow(true, false, true, "com.android.server.telecom"))
++    }
++}
+diff --git a/sable-src/apps/r8/textreader/verify_sable_textreader.py b/sable-src/apps/r8/textreader/verify_sable_textreader.py
+index 8073ab4..2fcc93e 100644
+--- a/sable-src/apps/r8/textreader/verify_sable_textreader.py
++++ b/sable-src/apps/r8/textreader/verify_sable_textreader.py
+@@ -54,6 +54,7 @@ def main() -> None:
+     print("SABLE_TEXT_READER_TEXT_INPUT=PASS_BOUNDED_2_MIB")
+     print("SABLE_TEXT_READER_TTS_NETWORK_VOICES=PASS_FILTERED")
+     print("SABLE_TEXT_READER_SPEAK_FOCUS=PASS_NO_TOUCH_NO_KEYS_QUIET_LOCKED")
++    print("SABLE_TEXT_READER_PRIVACY_SCREEN=PASS_NO_TOUCH_NO_KEYS_OFF_IN_CALLS")
+ 
+     if len(sys.argv) == 3:
+         verify_apk(root, pathlib.Path(sys.argv[2]).resolve())
+@@ -130,6 +131,13 @@ def verify_sources(root: pathlib.Path) -> None:
+     forbid(config, "flagRequestTouchExplorationMode", "SABLE_TEXT_READER_SPEAK_FOCUS_TOUCH")
+     forbid(config, "flagRequestFilterKeyEvents", "SABLE_TEXT_READER_SPEAK_FOCUS_KEYS")
+     forbid(config, "canRequestFilterKeyEvents", "SABLE_TEXT_READER_SPEAK_FOCUS_KEYS")
++    privacy = root / "app/src/main/java/org/sableos/textreader/privacy"
++    require(privacy / "PrivacyBand.kt", "CALL_PACKAGES", "SABLE_TEXT_READER_PRIVACY_SCREEN_CALLS")
++    require(privacy / "PrivacyScreenService.kt", "PrivacyBand.mayShow(", "SABLE_TEXT_READER_PRIVACY_SCREEN_POLICY")
++    require(privacy / "PrivacyScreenService.kt", "FLAG_NOT_TOUCHABLE", "SABLE_TEXT_READER_PRIVACY_SCREEN_NO_TOUCH")
++    shade = root / "app/src/main/res/xml/sable_privacy_screen_service.xml"
++    forbid(shade, "flagRequestTouchExplorationMode", "SABLE_TEXT_READER_PRIVACY_SCREEN_TOUCH")
++    forbid(shade, "flagRequestFilterKeyEvents", "SABLE_TEXT_READER_PRIVACY_SCREEN_KEYS")
+ 
+ 
+ def is_launcher_filter(intent_filter: ET.Element, android: str) -> bool:
+@@ -170,6 +178,9 @@ def verify_manifest(manifest_path: pathlib.Path) -> None:
+         'android:mimeType="text/plain"',
+         'android:authorities="org.sableos.appearance"',
+         "org.sableos.textreader.speak.SpeakFocusService",
++        "org.sableos.textreader.privacy.PrivacyScreenService",
++        "org.sableos.textreader.privacy.PrivacyScreenTile",
++        "android.permission.BIND_QUICK_SETTINGS_TILE",
+         "android.permission.BIND_ACCESSIBILITY_SERVICE",
+     ):
+         if token not in manifest_text:

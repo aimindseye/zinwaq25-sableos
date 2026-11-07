@@ -60,6 +60,18 @@
     <string name="calendars">カレンダー</string>
     <string name="calendars_hint">表示中のカレンダーが予定リスト、予定リング、Start の月表示に使われます。</string>
     <string name="no_calendars">このスマートフォンにはまだカレンダーがありません。設定 > アカウントでアカウントを追加してください。</string>
+    <string name="add_account">アカウントを追加</string>
+    <string name="phone_calendar">本体のカレンダー</string>
+    <string name="import_ics">.ics を読み込む</string>
+    <string name="imported_events">%1$d 件の予定を読み込みました。</string>
+    <string name="import_failed">何も読み込めませんでした。</string>
+    <string name="phone_calendar_ready">本体のカレンダーを用意しました。</string>
+    <string name="new_event">新しい予定</string>
+    <string name="search">検索</string>
+    <string name="today">今日</string>
+    <string name="views">表示</string>
+    <string name="nothing_found">見つかりませんでした。</string>
+    <string name="colour">色</string>
     <string name="l_calendars">" · L カレンダー"</string>
     <string name="day_events">%1$s、予定 %2$s 件</string>
 </resources>

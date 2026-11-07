@@ -1,0 +1,364 @@
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableComponents.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableComponents.kt
+index f1c4c4e..8388d2c 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableComponents.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableComponents.kt
+@@ -3,8 +3,6 @@ package org.sableos.design
+ import androidx.compose.foundation.BorderStroke
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.clickable
+-import androidx.compose.foundation.rememberScrollState
+-import androidx.compose.foundation.verticalScroll
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+@@ -75,7 +73,7 @@ fun SableScrollableScreen(
+                 .fillMaxSize()
+                 .safeDrawingPadding()
+                 .imePadding()
+-                .verticalScroll(rememberScrollState())
++                .sableVerticalScroll()
+                 .padding(
+                     horizontal = SableSpacing.ScreenHorizontal,
+                     vertical = SableSpacing.ScreenVertical,
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableScrollKeys.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableScrollKeys.kt
+new file mode 100644
+index 0000000..7a4b3eb
+--- /dev/null
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/design/SableScrollKeys.kt
+@@ -0,0 +1,69 @@
++package org.sableos.design
++
++import android.view.KeyEvent
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableIntStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.input.key.KeyEventType
++import androidx.compose.ui.input.key.onKeyEvent
++import androidx.compose.ui.input.key.type
++import androidx.compose.ui.layout.onSizeChanged
++import kotlinx.coroutines.launch
++
++/**
++ * BlackBerry scroll keys for plain scrolling reader screens: T top, B bottom, Space page down and Shift+Space page
++ * up. Same contract as the shared design library; plain keys only, and only a key nothing inside took.
++ */
++object SableScrollKeys {
++    fun destination(
++        keyCode: Int,
++        shift: Boolean,
++        value: Int,
++        max: Int,
++        viewport: Int,
++    ): Int? {
++        val page = viewport * PAGE_NUMERATOR / PAGE_DENOMINATOR
++        val to =
++            when (keyCode) {
++                KeyEvent.KEYCODE_T -> if (shift) return null else 0
++                KeyEvent.KEYCODE_B -> if (shift) return null else max
++                KeyEvent.KEYCODE_SPACE -> if (shift) value - page else value + page
++                else -> return null
++            }
++        return to.coerceIn(0, max.coerceAtLeast(0)).takeIf { it != value }
++    }
++
++    private const val PAGE_NUMERATOR = 9
++    private const val PAGE_DENOMINATOR = 10
++}
++
++/** Use in place of `verticalScroll(rememberScrollState())`. */
++@Composable
++fun Modifier.sableVerticalScroll(): Modifier {
++    val state = rememberScrollState()
++    val scope = rememberCoroutineScope()
++    var viewport by remember { mutableIntStateOf(0) }
++    return onSizeChanged { viewport = it.height }
++        .onKeyEvent { event ->
++            val native = event.nativeKeyEvent
++            val chord = native.isAltPressed || native.isCtrlPressed || native.isMetaPressed
++            val to =
++                if (chord) {
++                    null
++                } else {
++                    SableScrollKeys.destination(native.keyCode, native.isShiftPressed, state.value, state.maxValue, viewport)
++                }
++            if (to == null) {
++                false
++            } else {
++                if (event.type == KeyEventType.KeyDown) scope.launch { state.animateScrollTo(to) }
++                true
++            }
++        }.verticalScroll(state)
++}
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderScreen.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderScreen.kt
+index 347a885..b1b800b 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderScreen.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/audio/AudiobookReaderScreen.kt
+@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
+-import androidx.compose.foundation.rememberScrollState
+-import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.automirrored.filled.ArrowBack
+ import androidx.compose.material.icons.filled.Bookmark
+@@ -50,6 +48,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+ import androidx.lifecycle.compose.collectAsStateWithLifecycle
+ import coil.compose.AsyncImage
+ import java.io.File
++import org.sableos.design.sableVerticalScroll
+ import org.sableos.reader.engine.audio.AudioTimeFormat
+ import org.sableos.reader.layout.rememberReaderLayoutProfile
+ 
+@@ -139,7 +138,7 @@ private fun PlayerContent(
+     // so the seek bar, transport and status all stay on screen. The column still scrolls as a last resort.
+     val spacing = if (profile.isShort) SHORT_SPACING else SCREEN_PADDING
+     Column(
+-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(spacing),
++        modifier = Modifier.fillMaxSize().sableVerticalScroll().padding(spacing),
+         verticalArrangement = Arrangement.spacedBy(spacing),
+         horizontalAlignment = Alignment.CenterHorizontally,
+     ) {
+diff --git a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/backup/BackupScreen.kt b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/backup/BackupScreen.kt
+index 2a75bfa..7743d3e 100644
+--- a/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/backup/BackupScreen.kt
++++ b/sable-src/apps/common/reader/leisure/src/main/java/org/sableos/reader/ui/backup/BackupScreen.kt
+@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+-import androidx.compose.foundation.rememberScrollState
+-import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.automirrored.filled.ArrowBack
+ import androidx.compose.material3.Button
+@@ -31,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
+ import java.text.SimpleDateFormat
+ import java.util.Date
+ import java.util.Locale
++import org.sableos.design.sableVerticalScroll
+ 
+ private val SCREEN_PADDING = 16.dp
+ private val BACKUP_TYPES = arrayOf("application/json", "application/octet-stream", "text/plain")
+@@ -82,7 +81,7 @@ private fun BackupContent(
+     modifier: Modifier = Modifier,
+ ) {
+     Column(
+-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(SCREEN_PADDING),
++        modifier = modifier.fillMaxSize().sableVerticalScroll().padding(SCREEN_PADDING),
+         verticalArrangement = Arrangement.spacedBy(SCREEN_PADDING),
+     ) {
+         Text(
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+index e989336..ff20596 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+@@ -36,7 +36,6 @@ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.shape.RoundedCornerShape
+-import androidx.compose.material3.AlertDialog
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedTextField
+ import androidx.compose.material3.Surface
+@@ -86,6 +85,7 @@ import org.sableos.design.SableActionButton
+ import org.sableos.design.SableGlobalTheme
+ import org.sableos.design.SableRefreshableSurface
+ import org.sableos.design.SableSpacing
++import org.sableos.design.SableUndoBar
+ import org.sableos.design.sableFocusRing
+ import org.sableos.design.sableVerticalScroll
+ import java.time.Instant
+@@ -257,8 +257,12 @@ private class CalendarAppState {
+         canModify: Boolean,
+     ) {
+         status = null
++        if (pendingDelete != null) return
+         if (canModify) {
+             pendingDelete = PendingDelete(id, title, recurring)
++            openEvent = null
++            detail = null
++            mode = CalendarMode.Agenda
+         } else {
+             status = t("is_in_a_read_only", title)
+         }
+@@ -467,21 +471,6 @@ private fun CalendarApp(
+         state.onDetailLoaded(withContext(Dispatchers.IO) { repository.event(occurrence) })
+     }
+ 
+-    state.pendingDelete?.let { pending ->
+-        DeleteConfirmDialog(
+-            message = EventEditPolicy.deleteConfirmation(pending.title, pending.recurring),
+-            onDismiss = { state.pendingDelete = null },
+-            onConfirm = {
+-                state.pendingDelete = null
+-                scope.launch {
+-                    val deleted = withContext(Dispatchers.IO) { repository.deleteEvent(pending.eventId) }
+-                    state.onDeleteFinished(pending.title, deleted)
+-                    onRefresh()
+-                }
+-            },
+-        )
+-    }
+-
+     CompositionLocalProvider(LocalEventColors provides eventColors) {
+         Surface(
+             modifier = Modifier.fillMaxSize(),
+@@ -514,6 +503,20 @@ private fun CalendarApp(
+                         }
+                     }
+                 }
++                state.pendingDelete?.let { pending ->
++                    SableUndoBar(
++                        message = t("deleted", pending.title),
++                        onUndo = { state.pendingDelete = null },
++                        onExpire = {
++                            state.pendingDelete = null
++                            scope.launch {
++                                val deleted = withContext(Dispatchers.IO) { repository.deleteEvent(pending.eventId) }
++                                state.onDeleteFinished(pending.title, deleted)
++                                onRefresh()
++                            }
++                        },
++                    )
++                }
+                 if (repository.canRead() && state.mode == CalendarMode.Agenda) {
+                     CalendarActionBar(state, onRefresh)
+                 }
+@@ -658,7 +661,7 @@ private fun AgendaPane(state: CalendarAppState) {
+     val split = LocalConfiguration.current.screenWidthDp >= SPLIT_MIN_WIDTH_DP
+     ApprovedCalendarLanding(
+         selectedDate = state.selectedDate,
+-        events = state.events,
++        events = state.events.filter { it.id != state.pendingDelete?.eventId },
+         busy = state.busy,
+         selected = state.openEvent,
+         onSelectDate = { state.selectedDate = it },
+@@ -1228,41 +1231,6 @@ private fun eventWhen(
+     return if (detail.allDay) t("all_day_2", range) else range
+ }
+ 
+-@Composable
+-private fun DeleteConfirmDialog(
+-    message: String,
+-    onDismiss: () -> Unit,
+-    onConfirm: () -> Unit,
+-) {
+-    val cancel = remember { FocusRequester() }
+-    // Focus starts on Cancel: Enter right away keeps the event; deleting is a deliberate move.
+-    LaunchedEffect(Unit) {
+-        withFrameNanos { }
+-        runCatching { cancel.requestFocus() }
+-    }
+-    AlertDialog(
+-        onDismissRequest = onDismiss,
+-        title = { Text(t("delete_event")) },
+-        text = { Text(message) },
+-        confirmButton = {
+-            TextButton(onClick = onConfirm) {
+-                Text(
+-                    text = t("delete"),
+-                    color = MaterialTheme.colorScheme.error,
+-                )
+-            }
+-        },
+-        dismissButton = {
+-            TextButton(
+-                onClick = onDismiss,
+-                modifier = Modifier.focusRequester(cancel),
+-            ) {
+-                Text(t("cancel"))
+-            }
+-        },
+-    )
+-}
+-
+ @Composable
+ private fun MonthView(
+     month: YearMonth,
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+index 2a8e395..5f68d9b 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/ui/ConnectedAppsScreen.kt
+@@ -113,32 +113,25 @@ internal fun ConnectedAppsScreen(
+                 item {
+                     SablePageHeader(
+                         title = t("connected_apps"),
+-                        subtitle =
+-                            t("choose_installed_apps_that_may"),
+                     )
+                 }
+-                item {
+-                    NotificationAccessPanel(
+-                        notificationAccessGranted = notificationAccessGranted,
+-                        onOpenNotificationAccess = onOpenNotificationAccess,
+-                        privateMode = privateMode,
+-                        onPrivateModeChanged = onPrivateModeChanged,
+-                        combineConversations = combineConversations,
+-                        onCombineConversationsChanged = onCombineConversationsChanged,
+-                        eachMessage = eachMessage,
+-                        onEachMessageChanged = onEachMessageChanged,
+-                        menuOptions = menuOptions,
+-                        onMenuOptionsChanged = onMenuOptionsChanged,
+-                        onOpenAttentionSettings = onOpenAttentionSettings,
+-                    )
+-                }
+-                item {
+-                    Text(
+-                        text =
+-                            t("sable_does_not_sign_into"),
+-                        style = MaterialTheme.typography.bodyMedium,
+-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+-                    )
++
++                if (!notificationAccessGranted) {
++                    item {
++                        NotificationAccessPanel(
++                            notificationAccessGranted = notificationAccessGranted,
++                            onOpenNotificationAccess = onOpenNotificationAccess,
++                            privateMode = privateMode,
++                            onPrivateModeChanged = onPrivateModeChanged,
++                            combineConversations = combineConversations,
++                            onCombineConversationsChanged = onCombineConversationsChanged,
++                            eachMessage = eachMessage,
++                            onEachMessageChanged = onEachMessageChanged,
++                            menuOptions = menuOptions,
++                            onMenuOptionsChanged = onMenuOptionsChanged,
++                            onOpenAttentionSettings = onOpenAttentionSettings,
++                        )
++                    }
+                 }
+ 
+                 // Opened from Android Settings for one app: show just that app's Hub/Attention.
+@@ -179,6 +172,25 @@ internal fun ConnectedAppsScreen(
+                         )
+                     }
+                 }
++
++                // Hub options come after the apps once access is granted.
++                if (notificationAccessGranted) {
++                    item {
++                        NotificationAccessPanel(
++                            notificationAccessGranted = notificationAccessGranted,
++                            onOpenNotificationAccess = onOpenNotificationAccess,
++                            privateMode = privateMode,
++                            onPrivateModeChanged = onPrivateModeChanged,
++                            combineConversations = combineConversations,
++                            onCombineConversationsChanged = onCombineConversationsChanged,
++                            eachMessage = eachMessage,
++                            onEachMessageChanged = onEachMessageChanged,
++                            menuOptions = menuOptions,
++                            onMenuOptionsChanged = onMenuOptionsChanged,
++                            onOpenAttentionSettings = onOpenAttentionSettings,
++                        )
++                    }
++                }
+             }
+         }
+     }

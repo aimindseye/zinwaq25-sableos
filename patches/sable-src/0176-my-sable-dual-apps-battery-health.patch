@@ -1,0 +1,414 @@
+diff --git a/patches/README.md b/patches/README.md
+index 85f8afd..4c12a57 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -307,4 +307,4 @@ that option in `product/q25/camera-50mp/` and is applied by
+ Reserved:
+ 
+ * `device/` changes to the LineageOS Q25 device tree. Prefer upstreaming to
+-  LineageOS.
++  LineageOS. 0176 completes My Sable's rows: Dual apps (opens Settings > Apps, where Cloned apps lives) and a Battery health state read from the sticky battery broadcast, with their text in every language file (English for now).
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+index 1849105..ab81c43 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
+@@ -29,6 +29,7 @@ enum class SettingsLink(private val labelKey: String, val candidates: List<LinkI
+         "settings_accessibility",
+         listOf(LinkIntent("android.settings.ACCESSIBILITY_SETTINGS"))
+     ),
++    APPS("settings_apps", listOf(LinkIntent("android.settings.MANAGE_APPLICATIONS_SETTINGS"))),
+     DISPLAY("settings_display", listOf(LinkIntent("android.settings.DISPLAY_SETTINGS"))),
+     SOUND("settings_sound", listOf(LinkIntent("android.settings.SOUND_SETTINGS"))),
+     BATTERY(
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+index d6c21e5..77f1b89 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+@@ -295,6 +295,14 @@ object ToolsText {
+             "my_sable_mobile" to "Mobile Manager: network and mobile data",
+             "my_sable_battery" to "Battery: usage and health",
+             "my_sable_open" to "Open",
++            "my_sable_dual" to "Dual apps: a second copy of an app",
++            "settings_apps" to "Settings > Apps",
++            "my_sable_battery_health" to "Battery health",
++            "my_sable_health_good" to "Good",
++            "my_sable_health_hot" to "Overheated",
++            "my_sable_health_cold" to "Too cold",
++            "my_sable_health_bad" to "Needs attention",
++            "my_sable_health_unknown" to "Unknown",
+             "my_sable_privacy_screen" to "Privacy Screen: dims all but the line you are on",
+             "settings_accessibility" to "Settings > Accessibility",
+             "my_sable_privacy_on" to "Privacy Screen is on.",
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+index 97db0ae..03e438a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+@@ -4,6 +4,8 @@ import android.app.Activity
+ import android.content.BroadcastReceiver
+ import android.content.Context
+ import android.content.Intent
++import android.content.IntentFilter
++import android.os.BatteryManager
+ import android.os.VibrationEffect
+ import android.os.VibratorManager
+ import android.text.InputType
+@@ -416,7 +418,9 @@ class MySableController(private val host: ToolHost) : ToolController {
+             appendLine("${t("my_sable_attention")}  ${t("my_sable_open")}")
+             appendLine("${t("my_sable_mobile")}  ${t("my_sable_open")}")
+             appendLine("${t("check_private_space")}  ${space?.detail ?: t("check_unknown")}")
++            appendLine("${t("my_sable_dual")}  ${t("my_sable_open")}")
+             appendLine("${t("my_sable_battery")}  ${t("my_sable_open")}")
++            appendLine("${t("my_sable_battery_health")}  ${batteryHealth()}")
+             appendLine("${t("my_sable_privacy_screen")}  ${t("my_sable_open")}")
+         }.trimEnd()
+         text.text = rendered
+@@ -429,10 +433,26 @@ class MySableController(private val host: ToolHost) : ToolController {
+         t("my_sable_attention") to { host.openLink(SettingsLink.NOTIFICATIONS) },
+         t("my_sable_mobile") to { host.openLink(SettingsLink.NETWORK) },
+         t("check_private_space") to { host.openLink(SettingsLink.SECURITY) },
++        t("my_sable_dual") to { host.openLink(SettingsLink.APPS) },
+         t("my_sable_battery") to { host.openLink(SettingsLink.BATTERY) },
+         t("my_sable_privacy_screen") to { switchPrivacyScreen() }
+     )
+ 
++    /** Battery health from the sticky battery broadcast; needs no permission. */
++    private fun batteryHealth(): String {
++        val sticky = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
++        val key = when (sticky?.getIntExtra(BatteryManager.EXTRA_HEALTH, 0)) {
++            BatteryManager.BATTERY_HEALTH_GOOD -> "my_sable_health_good"
++            BatteryManager.BATTERY_HEALTH_OVERHEAT -> "my_sable_health_hot"
++            BatteryManager.BATTERY_HEALTH_COLD -> "my_sable_health_cold"
++            BatteryManager.BATTERY_HEALTH_DEAD -> "my_sable_health_bad"
++            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "my_sable_health_bad"
++            BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "my_sable_health_bad"
++            else -> "my_sable_health_unknown"
++        }
++        return t(key)
++    }
++
+     /**
+      * Asks the Text reader to switch the Privacy Screen. It answers on or off when its service is running;
+      * otherwise (or when the permission is not granted) the user is sent to Accessibility to turn it on.
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+index e39cd2e..61161c8 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">الوزن (كغ)</string>
+     <string name="pedometer_set_goal">الهدف اليومي (خطوات)</string>
+     <string name="pedometer_note">القائمة تضبط الطول والوزن والهدف اليومي. تُضاف الخطوات التي تُقطع أثناء إغلاق هذه الأداة عند فتحها في المرة التالية. كل شيء يبقى على هذا الهاتف.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+index 7d5064c..5ecd6b4 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">Gewicht (kg)</string>
+     <string name="pedometer_set_goal">Tagesziel (Schritte)</string>
+     <string name="pedometer_note">Über Menü stellst du Größe, Gewicht und Tagesziel ein. Schritte, die du bei geschlossenem Werkzeug gehst, werden beim nächsten Öffnen hinzugefügt. Alles bleibt auf diesem Telefon.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+index 9463319..ae8855a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">Βάρος (κιλά)</string>
+     <string name="pedometer_set_goal">Ημερήσιος στόχος (βήματα)</string>
+     <string name="pedometer_note">Το Μενού ορίζει ύψος, βάρος και ημερήσιο στόχο. Τα βήματα που γίνονται όσο το εργαλείο είναι κλειστό προστίθενται την επόμενη φορά που θα το ανοίξετε. Όλα μένουν σε αυτό το τηλέφωνο.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+index 4a13b3d..0be5406 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">Peso (kg)</string>
+     <string name="pedometer_set_goal">Objetivo diario (pasos)</string>
+     <string name="pedometer_note">El menú ajusta la altura, el peso y el objetivo diario. Los pasos dados con esta herramienta cerrada se suman la próxima vez que la abras. Todo se queda en este teléfono.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+index 82d723c..d351fef 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">Poids (kg)</string>
+     <string name="pedometer_set_goal">Objectif quotidien (pas)</string>
+     <string name="pedometer_note">Le menu règle la taille, le poids et l\'objectif quotidien. Les pas faits quand cet outil est fermé sont ajoutés à sa prochaine ouverture. Tout reste sur ce téléphone.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+index efce57c..a5ff94f 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">वज़न (किग्रा)</string>
+     <string name="pedometer_set_goal">दैनिक लक्ष्य (क़दम)</string>
+     <string name="pedometer_note">मेनू से ऊँचाई, वज़न और दैनिक लक्ष्य तय होते हैं। यह टूल बंद रहने के दौरान चले गए कदम अगली बार खोलने पर जुड़ जाते हैं। सब कुछ इसी फ़ोन पर रहता है।</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+index d7285c4..d670e27 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">Peso (kg)</string>
+     <string name="pedometer_set_goal">Obiettivo giornaliero (passi)</string>
+     <string name="pedometer_note">Il menu imposta altezza, peso e obiettivo giornaliero. I passi fatti con lo strumento chiuso vengono aggiunti alla prossima apertura. Tutto resta su questo telefono.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+index e2beb93..9aa01ef 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">משקל (ק\"ג)</string>
+     <string name="pedometer_set_goal">יעד יומי (צעדים)</string>
+     <string name="pedometer_note">התפריט קובע גובה, משקל ויעד יומי. צעדים שנעשו בזמן שהכלי סגור מתווספים בפעם הבאה שפותחים אותו. הכול נשאר בטלפון הזה.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+index 99ff8bc..8f2792a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">体重（kg）</string>
+     <string name="pedometer_set_goal">1日の目標（歩数）</string>
+     <string name="pedometer_note">メニューで身長、体重、1日の目標を設定します。このツールを閉じている間の歩数は、次に開いたときに加算されます。すべてこの端末内にとどまります。</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+index 0882072..a3afa56 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">몸무게(kg)</string>
+     <string name="pedometer_set_goal">일일 목표(걸음)</string>
+     <string name="pedometer_note">메뉴에서 키, 몸무게, 하루 목표를 설정합니다. 이 도구를 닫아 둔 동안의 걸음 수는 다음에 열 때 더해집니다. 모든 정보는 이 휴대전화에만 남습니다.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+index b7edf64..fddc908 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">Gewicht (kg)</string>
+     <string name="pedometer_set_goal">Dagdoel (stappen)</string>
+     <string name="pedometer_note">Met Menu stel je lengte, gewicht en dagdoel in. Stappen die je zet terwijl dit hulpmiddel gesloten is, worden toegevoegd zodra je het weer opent. Alles blijft op deze telefoon.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+index 190a184..4a38485 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">Waga (kg)</string>
+     <string name="pedometer_set_goal">Dzienny cel (kroki)</string>
+     <string name="pedometer_note">Menu ustawia wzrost, wagę i dzienny cel. Kroki zrobione przy zamkniętym narzędziu zostaną dodane przy następnym otwarciu. Wszystko zostaje na tym telefonie.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+index 40b8b04..02379ce 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">Peso (kg)</string>
+     <string name="pedometer_set_goal">Meta diária (passos)</string>
+     <string name="pedometer_note">O menu define altura, peso e meta diária. Os passos dados com esta ferramenta fechada são somados na próxima vez que você a abrir. Tudo fica neste telefone.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+index 6751b64..29a51d3 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">Вес (кг)</string>
+     <string name="pedometer_set_goal">Дневная цель (шаги)</string>
+     <string name="pedometer_note">Меню задаёт рост, вес и дневную цель. Шаги, сделанные при закрытом инструменте, добавляются при следующем открытии. Всё остаётся на этом телефоне.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+index 846deb6..d66dfc3 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">Vikt (kg)</string>
+     <string name="pedometer_set_goal">Dagligt mål (steg)</string>
+     <string name="pedometer_note">Menyn ställer in längd, vikt och dagsmål. Steg som tas medan verktyget är stängt läggs till nästa gång du öppnar det. Allt stannar på den här telefonen.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+index dc5e127..8512008 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">Kilo (kg)</string>
+     <string name="pedometer_set_goal">Günlük hedef (adım)</string>
+     <string name="pedometer_note">Menü boy, kilo ve günlük hedefi ayarlar. Bu araç kapalıyken atılan adımlar bir sonraki açışınızda eklenir. Her şey bu telefonda kalır.</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+index 6d2649b..3bd832e 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">وزن (کلوگرام)</string>
+     <string name="pedometer_set_goal">روزانہ ہدف (قدم)</string>
+     <string name="pedometer_note">مینو سے قد، وزن اور روزانہ ہدف طے ہوتا ہے۔ یہ ٹول بند ہونے کے دوران اٹھائے گئے قدم اگلی بار کھولنے پر شامل ہو جاتے ہیں۔ سب کچھ اسی فون پر رہتا ہے۔</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+index f4448f0..a79bc36 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+@@ -351,4 +351,12 @@
+     <string name="pedometer_set_weight">体重（公斤）</string>
+     <string name="pedometer_set_goal">每日目标（步数）</string>
+     <string name="pedometer_note">菜单可设置身高、体重和每日目标。此工具关闭期间走的步数会在下次打开时计入。所有数据都保存在这部手机上。</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+index 8941a25..fe4f013 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+@@ -353,4 +353,12 @@
+     <string name="pedometer_set_goal">Daily goal (steps)</string>
+     <string name="pedometer_note">Menu sets height, weight and the daily goal. Steps taken while this tool is closed are added the next time you open it. Everything stays on this phone.</string>
+     <string name="app_name" translatable="false">Sable Tools</string>
++    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
++    <string name="settings_apps">Settings > Apps</string>
++    <string name="my_sable_battery_health">Battery health</string>
++    <string name="my_sable_health_good">Good</string>
++    <string name="my_sable_health_hot">Overheated</string>
++    <string name="my_sable_health_cold">Too cold</string>
++    <string name="my_sable_health_bad">Needs attention</string>
++    <string name="my_sable_health_unknown">Unknown</string>
+ </resources>

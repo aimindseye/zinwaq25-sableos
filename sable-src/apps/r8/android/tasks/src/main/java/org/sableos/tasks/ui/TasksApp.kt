@@ -4,7 +4,9 @@ package org.sableos.tasks.ui
 
 import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,15 +16,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,7 +37,9 @@ import androidx.compose.ui.unit.dp
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableSize
 import org.sableos.design.SableSpacing
+import org.sableos.design.SableUndoBar
 import org.sableos.design.sableFocusRing
+import org.sableos.design.sableVerticalScroll
 import org.sableos.tasks.core.ReminderPreset
 import org.sableos.tasks.core.RowKey
 import org.sableos.tasks.core.ScreenKey
@@ -62,7 +62,6 @@ fun TasksApp(
     onAllowNotifications: () -> Unit,
 ) {
     BackHandler(enabled = state.editing != null) { state.closeEditor() }
-    state.pendingDelete?.let { task -> DeleteDialog(state, repository, task, onChanged) }
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -72,7 +71,7 @@ fun TasksApp(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .sableVerticalScroll()
                     .padding(horizontal = SableSpacing.ScreenHorizontal, vertical = SableSpacing.ScreenVertical),
         ) {
             val editing = state.editing
@@ -88,9 +87,25 @@ fun TasksApp(
                         onChanged()
                     },
                     onCancel = state::closeEditor,
-                    onDelete = { state.pendingDelete = it },
+                    onDelete = {
+                        deleteTask(state, repository, it)
+                        onChanged()
+                    },
                 )
             }
+        }
+    }
+    state.undoTask?.let { task ->
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            SableUndoBar(
+                message = t("deleted", task.title),
+                onUndo = {
+                    undoDelete(state, repository)
+                    onChanged()
+                },
+                onExpire = { state.undoTask = null },
+                modifier = Modifier.background(MaterialTheme.colorScheme.background),
+            )
         }
     }
 }
@@ -173,7 +188,7 @@ private fun TaskList(
     }
 }
 
-/** Space done, Z tomorrow 9:00, D asks before deleting. */
+/** Space done, Z tomorrow 9:00, D deletes (U or the undo bar brings it back). */
 private fun onRowKey(
     key: RowKey,
     task: TaskRecord,
@@ -191,7 +206,7 @@ private fun onRowKey(
         }
 
         RowKey.Delete -> {
-            state.pendingDelete = task
+            deleteTask(state, repository, task)
         }
     }
 }
@@ -240,27 +255,24 @@ private fun TaskRow(
     }
 }
 
-@Composable
-private fun DeleteDialog(
+/** Delete at once, BB10 style: no question, an undo bar instead. Undo saves it back with its reminder. */
+internal fun deleteTask(
     state: TasksState,
     repository: TaskRepository,
     task: TaskRecord,
-    onChanged: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = { state.pendingDelete = null },
-        text = { Text(t("delete_task", task.title)) },
-        confirmButton = {
-            TextButton(onClick = {
-                repository.delete(task.id)
-                state.pendingDelete = null
-                state.closeEditor()
-                state.status = t("deleted", task.title)
-                onChanged()
-            }) { Text(t("delete")) }
-        },
-        dismissButton = { TextButton(onClick = { state.pendingDelete = null }) { Text(t("cancel")) } },
-    )
+    repository.delete(task.id)
+    state.closeEditor()
+    state.undoTask = task
+}
+
+internal fun undoDelete(
+    state: TasksState,
+    repository: TaskRepository,
+) {
+    val task = state.undoTask ?: return
+    state.undoTask = null
+    repository.save(task)
 }
 
 internal fun groupLabel(group: TaskGroup): String =

@@ -43,7 +43,7 @@
     <string name="work">Lavoro</string>
     <string name="weather_and_date">Meteo e data</string>
     <string name="search_or_command_row">Riga di ricerca o comando</string>
-    <string name="status_dials">Indicatori di stato</string>
+    <string name="status_dials">Riga di stato</string>
     <string name="temperature_condition_and_place_with">Temperatura, condizioni e luogo, con la data sotto</string>
     <string name="a_command_row_under_the">Una riga di comando sotto il meteo; si può scrivere anche senza</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, rete mobile, CPU, RAM, autonomia residua, cella e Impostazioni</string>
@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s di %2$s</string>
     <string name="dm_free">%1$s liberi</string>
     <string name="open_command">Comando (Alt+Spazio)</string>
+    <string name="home_shortcut_add">Aggiungi alla schermata Home</string>
+    <string name="home_shortcut_remove">Rimuovi dalla schermata Home</string>
+    <string name="sable_undo">Annulla</string>
 </resources>

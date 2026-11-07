@@ -100,6 +100,15 @@ internal class MediaLibraryStateRepository(
         return updated
     }
 
+    fun restorePlaylist(
+        current: List<MediaPlaylist>,
+        playlist: MediaPlaylist,
+    ): List<MediaPlaylist> {
+        val updated = (current.filterNot { it.id == playlist.id } + playlist).sortedBy { it.name.lowercase() }
+        persistPlaylists(updated)
+        return updated
+    }
+
     fun pruneMissingAudio(
         current: List<MediaPlaylist>,
         validUris: Set<String>,

@@ -62,6 +62,18 @@
     <string name="calendars">Calendars</string>
     <string name="calendars_hint">Shown calendars fill the agenda, the busy rings and Start\'s month.</string>
     <string name="no_calendars">No calendars on this phone yet. Add an account in Settings > Accounts.</string>
+    <string name="add_account">Add account</string>
+    <string name="phone_calendar">Phone calendar</string>
+    <string name="import_ics">Import .ics</string>
+    <string name="imported_events">Imported %1$d events.</string>
+    <string name="import_failed">Nothing was imported.</string>
+    <string name="phone_calendar_ready">Phone calendar ready.</string>
+    <string name="new_event">New event</string>
+    <string name="search">Search</string>
+    <string name="today">Today</string>
+    <string name="views">Views</string>
+    <string name="nothing_found">Nothing found.</string>
+    <string name="colour">Colour</string>
     <string name="l_calendars">" · L calendars"</string>
     <string name="day_events">%1$s, %2$s events</string>
 </resources>

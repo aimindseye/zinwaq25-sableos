@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.sableos.design.SableGlobalTheme
 import org.sableos.hub.HubText.t
 import org.sableos.hub.notifications.HubNotificationCommands
 import org.sableos.hub.policy.HubDrafts
@@ -36,6 +35,7 @@ import org.sableos.hub.policy.HubMenuOptions
 import org.sableos.hub.policy.HubRemindMe
 import org.sableos.hub.policy.HubRowAction
 import org.sableos.hub.ui.HubScreen
+import org.sableos.hub.ui.HubTheme
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
@@ -149,7 +149,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            SableGlobalTheme(window = window) {
+            HubTheme(window = window) {
                 HubScreen(
                     snapshot = snapshot,
                     isRefreshing = refreshing,

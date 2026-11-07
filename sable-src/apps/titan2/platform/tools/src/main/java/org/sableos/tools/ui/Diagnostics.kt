@@ -1,5 +1,11 @@
 package org.sableos.tools.ui
 
+import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.text.InputType
@@ -12,14 +18,20 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import org.sableos.tools.android.PrivacyCollector
 import org.sableos.tools.core.CaseResult
+import org.sableos.tools.core.CheckState
 import org.sableos.tools.core.DiagTarget
 import org.sableos.tools.core.DialerCodes
 import org.sableos.tools.core.FieldKind
 import org.sableos.tools.core.HomeModel
 import org.sableos.tools.core.KeyEventFormat
+import org.sableos.tools.core.PrivacyCheck
+import org.sableos.tools.core.PrivacyCheckId
+import org.sableos.tools.core.PrivacyScore
 import org.sableos.tools.core.Redactor
 import org.sableos.tools.core.ReportSection
+import org.sableos.tools.core.SettingsLink
 import org.sableos.tools.core.TextEntryTest
 import org.sableos.tools.core.Tool
 import org.sableos.tools.core.ToolsText.t
@@ -330,4 +342,152 @@ class FactoryBridgeController(host: ToolHost) :
             host.openTool(Tool.HARDWARE_TESTS)
         }
     )
+}
+
+/**
+ * Privacy check (DTEK style): an overall rating and one row per check, each Good or Needs attention. Read-only; the
+ * Menu offers to open the Settings page behind every check that needs attention, the first fix first.
+ */
+class PrivacyCheckController(private val host: ToolHost) : ToolController {
+    private val ctx = host.activity
+    private val text: TextView = Ui.mono(ctx)
+    private var rendered = ""
+    private var checks: List<PrivacyCheck> = emptyList()
+
+    override fun view(): View = ScrollView(ctx).apply {
+        isFocusable = true
+        addView(text)
+        post { requestFocus() }
+    }
+
+    override fun start() {
+        checks = PrivacyCollector(ctx).checks()
+        val rating = PrivacyScore.rate(checks)
+        val fix = PrivacyScore.nextFix(checks)
+        rendered = buildString {
+            appendLine("${t("privacy_check")}: ${rating.label}")
+            fix?.let { appendLine("${t("check_fix_first")}: ${it.id.title}") }
+            appendLine()
+            checks.forEach { appendLine("${stateLabel(it.state)}  ${it.id.title}: ${it.detail}") }
+        }.trimEnd()
+        text.text = rendered
+    }
+
+    private fun stateLabel(state: CheckState) = when (state) {
+        CheckState.GOOD -> t("privacy_good")
+        CheckState.NEEDS_ATTENTION -> t("check_needs_attention")
+        CheckState.UNKNOWN -> t("check_unknown")
+    }
+
+    override fun info() = t("privacy_check_info")
+    override fun copyText() = rendered
+
+    override fun actions(): List<Pair<String, () -> Unit>> {
+        val order = PrivacyScore.nextFix(checks)
+        return checks
+            .filter { it.state == CheckState.NEEDS_ATTENTION }
+            .sortedBy { if (it == order) 0 else 1 }
+            .map { c -> t("open", c.id.title) to { host.openLink(c.id.link) } }
+    }
+}
+
+/**
+ * My Sable: the Sable features that used to sit deep in Settings and Hub menus, on one screen. A privacy rating comes
+ * first (the same read-only check as Privacy check), then one row per feature with its state. Read-only: the Menu
+ * opens the Settings page behind a row.
+ */
+class MySableController(private val host: ToolHost) : ToolController {
+    private val ctx = host.activity
+    private val text: TextView = Ui.mono(ctx)
+    private var rendered = ""
+
+    override fun view(): View = ScrollView(ctx).apply {
+        isFocusable = true
+        addView(text)
+        post { requestFocus() }
+    }
+
+    override fun start() {
+        val checks = PrivacyCollector(ctx).checks()
+        val fix = PrivacyScore.nextFix(checks)
+        val space = checks.firstOrNull { it.id == PrivacyCheckId.PRIVATE_SPACE }
+        rendered = buildString {
+            appendLine("${t("privacy_check")}: ${PrivacyScore.rate(checks).label}")
+            fix?.let { appendLine("${t("check_fix_first")}: ${it.id.title}") }
+            appendLine()
+            appendLine("${t("my_sable_attention")}  ${t("my_sable_open")}")
+            appendLine("${t("my_sable_mobile")}  ${t("my_sable_open")}")
+            appendLine("${t("check_private_space")}  ${space?.detail ?: t("check_unknown")}")
+            appendLine("${t("my_sable_dual")}  ${t("my_sable_open")}")
+            appendLine("${t("my_sable_battery")}  ${t("my_sable_open")}")
+            appendLine("${t("my_sable_battery_health")}  ${batteryHealth()}")
+            appendLine("${t("my_sable_privacy_screen")}  ${t("my_sable_open")}")
+        }.trimEnd()
+        text.text = rendered
+    }
+
+    override fun info() = t("my_sable_info")
+    override fun copyText() = rendered
+
+    override fun actions() = listOf(
+        t("my_sable_attention") to { host.openLink(SettingsLink.NOTIFICATIONS) },
+        t("my_sable_mobile") to { host.openLink(SettingsLink.NETWORK) },
+        t("check_private_space") to { host.openLink(SettingsLink.SECURITY) },
+        t("my_sable_dual") to { host.openLink(SettingsLink.APPS) },
+        t("my_sable_battery") to { host.openLink(SettingsLink.BATTERY) },
+        t("my_sable_privacy_screen") to { switchPrivacyScreen() }
+    )
+
+    /** Battery health from the sticky battery broadcast; needs no permission. */
+    private fun batteryHealth(): String {
+        val sticky = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val key = when (sticky?.getIntExtra(BatteryManager.EXTRA_HEALTH, 0)) {
+            BatteryManager.BATTERY_HEALTH_GOOD -> "my_sable_health_good"
+            BatteryManager.BATTERY_HEALTH_OVERHEAT -> "my_sable_health_hot"
+            BatteryManager.BATTERY_HEALTH_COLD -> "my_sable_health_cold"
+            BatteryManager.BATTERY_HEALTH_DEAD -> "my_sable_health_bad"
+            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "my_sable_health_bad"
+            BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "my_sable_health_bad"
+            else -> "my_sable_health_unknown"
+        }
+        return t(key)
+    }
+
+    /**
+     * Asks the Text reader to switch the Privacy Screen. It answers on or off when its service is running;
+     * otherwise (or when the permission is not granted) the user is sent to Accessibility to turn it on.
+     */
+    private fun switchPrivacyScreen() {
+        val intent = Intent(PRIVACY_SCREEN_ACTION).setPackage(PRIVACY_SCREEN_PACKAGE)
+        val answer = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, reply: Intent) {
+                onPrivacyScreenAnswer(resultCode, resultData)
+            }
+        }
+        runCatching {
+            ctx.sendOrderedBroadcast(
+                intent,
+                null,
+                answer,
+                null,
+                Activity.RESULT_CANCELED,
+                null,
+                null
+            )
+        }.onFailure { host.openLink(SettingsLink.ACCESSIBILITY) }
+    }
+
+    private fun onPrivacyScreenAnswer(code: Int, data: String?) {
+        if (code != Activity.RESULT_OK) {
+            host.openLink(SettingsLink.ACCESSIBILITY)
+            return
+        }
+        val key = if (data == "on") "my_sable_privacy_on" else "my_sable_privacy_off"
+        host.toast(t(key))
+    }
+
+    private companion object {
+        const val PRIVACY_SCREEN_ACTION = "org.sableos.textreader.action.TOGGLE_PRIVACY_SCREEN"
+        const val PRIVACY_SCREEN_PACKAGE = "org.sableos.textreader"
+    }
 }

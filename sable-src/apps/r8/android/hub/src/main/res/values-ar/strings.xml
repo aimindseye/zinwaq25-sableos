@@ -8,6 +8,7 @@
     <string name="priority_messages_calls_email_and">الأولوية والرسائل والمكالمات والبريد والأشخاص، محفوظة على هذا الجهاز فقط.</string>
     <string name="loading_conversations">جارٍ تحميل المحادثات…</string>
     <string name="local_communication_across_your_enabled">تواصل محلي من المصادر التي فعّلتها.</string>
+    <string name="coming_up">قريبًا</string>
     <string name="show_list">عرض القائمة</string>
     <string name="show_list_without_previews">عرض القائمة بدون معاينات</string>
     <string name="unlock_to_view_details">افتح القفل لعرض التفاصيل</string>

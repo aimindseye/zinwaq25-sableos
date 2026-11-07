@@ -1,0 +1,20 @@
+diff --git a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenTile.kt b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenTile.kt
+index c69cc13..2d86a0c 100644
+--- a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenTile.kt
++++ b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenTile.kt
+@@ -1,5 +1,6 @@
+ package org.sableos.textreader.privacy
+ 
++import android.annotation.SuppressLint
+ import android.app.PendingIntent
+ import android.content.ComponentName
+ import android.content.Intent
+@@ -35,6 +36,8 @@ class PrivacyScreenTile : TileService() {
+         tile.updateTile()
+     }
+ 
++    // Below Android 14 only the Intent form exists; the PendingIntent form is used from 14 up.
++    @SuppressLint("StartActivityAndCollapseDeprecated")
+     private fun openAccessibilityPage() {
+         val intent =
+             Intent(ACTION_ACCESSIBILITY_DETAILS)

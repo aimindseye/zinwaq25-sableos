@@ -8,6 +8,7 @@
     <string name="priority_messages_calls_email_and">Prioritet, meddelanden, samtal, e-post och personer, lagrade endast på den här enheten.</string>
     <string name="loading_conversations">Läser in konversationer…</string>
     <string name="local_communication_across_your_enabled">Lokal kommunikation från dina aktiverade källor.</string>
+    <string name="coming_up">På gång</string>
     <string name="show_list">Visa lista</string>
     <string name="show_list_without_previews">Visa lista utan förhandsvisningar</string>
     <string name="unlock_to_view_details">Lås upp för att se detaljer</string>

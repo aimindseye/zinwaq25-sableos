@@ -43,7 +43,7 @@
     <string name="work">Jobb</string>
     <string name="weather_and_date">Väder och datum</string>
     <string name="search_or_command_row">Sök- eller kommandorad</string>
-    <string name="status_dials">Statusmätare</string>
+    <string name="status_dials">Statusrad</string>
     <string name="temperature_condition_and_place_with">Temperatur, väderlek och plats, med datumet under</string>
     <string name="a_command_row_under_the">En kommandorad under vädret; det går att skriva utan den</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, mobil, CPU, RAM, återstående batteritid, cell och Inställningar</string>
@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s av %2$s</string>
     <string name="dm_free">%1$s ledigt</string>
     <string name="open_command">Kommando (Alt+Mellanslag)</string>
+    <string name="home_shortcut_add">Lägg till på startskärmen</string>
+    <string name="home_shortcut_remove">Ta bort från startskärmen</string>
+    <string name="sable_undo">Ångra</string>
 </resources>

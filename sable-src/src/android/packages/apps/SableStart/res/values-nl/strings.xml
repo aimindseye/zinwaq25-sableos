@@ -43,7 +43,7 @@
     <string name="work">Werk</string>
     <string name="weather_and_date">Weer en datum</string>
     <string name="search_or_command_row">Zoek- of opdrachtregel</string>
-    <string name="status_dials">Statusmeters</string>
+    <string name="status_dials">Statusregel</string>
     <string name="temperature_condition_and_place_with">Temperatuur, weertype en plaats, met de datum eronder</string>
     <string name="a_command_row_under_the">Een opdrachtregel onder het weer; typen werkt ook zonder</string>
     <string name="wi_fi_mobile_cpu_ram">Wifi, mobiel, CPU, RAM, resterende batterijtijd, cel en Instellingen</string>
@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s van %2$s</string>
     <string name="dm_free">%1$s vrij</string>
     <string name="open_command">Opdracht (Alt+Spatie)</string>
+    <string name="home_shortcut_add">Toevoegen aan startscherm</string>
+    <string name="home_shortcut_remove">Verwijderen van startscherm</string>
+    <string name="sable_undo">Ongedaan maken</string>
 </resources>

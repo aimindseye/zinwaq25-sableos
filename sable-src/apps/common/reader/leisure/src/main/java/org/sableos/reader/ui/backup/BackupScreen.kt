@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -31,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import org.sableos.design.sableVerticalScroll
 
 private val SCREEN_PADDING = 16.dp
 private val BACKUP_TYPES = arrayOf("application/json", "application/octet-stream", "text/plain")
@@ -82,7 +81,7 @@ private fun BackupContent(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(SCREEN_PADDING),
+        modifier = modifier.fillMaxSize().sableVerticalScroll().padding(SCREEN_PADDING),
         verticalArrangement = Arrangement.spacedBy(SCREEN_PADDING),
     ) {
         Text(

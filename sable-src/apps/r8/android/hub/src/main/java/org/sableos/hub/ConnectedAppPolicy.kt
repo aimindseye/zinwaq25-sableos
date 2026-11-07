@@ -87,7 +87,8 @@ enum class HubPreviewPolicy(
  * Hub links to Android Settings for them. Field-to-concept ownership is checked by
  * `NotificationOwnershipTest`.
  *
- * - [includeInMessages]: "Include in Hub".
+ * - [includeInMessages]: "Include in Hub". On for an app with no saved choice, as on BlackBerry 10
+ *   (owner decision 2026-11-06): Hub shows every app Android lets notify; Connected apps turns one off.
  * - [favorite]: "Hub priority"; ordering/aggregation only, never a DND exception.
  * - [allowQuickReply]: whether Hub may offer a source-provided RemoteInput reply.
  * - [hideFromLauncher]: Sable Start hides the app while Hub represents it (Panther V1).
@@ -96,7 +97,7 @@ enum class HubPreviewPolicy(
  */
 data class ConnectedAppPolicy(
     val key: ConnectedAppKey,
-    val includeInMessages: Boolean = false,
+    val includeInMessages: Boolean = INCLUDE_IN_HUB_BY_DEFAULT,
     val allowQuickReply: Boolean = false,
     val hideFromLauncher: Boolean = false,
     val retention: HistoryRetention = HistoryRetention.ThirtyDays,
@@ -113,9 +114,10 @@ data class ConnectedAppPolicy(
             )
         }
 
-    fun isDefaultDisabled(): Boolean {
+    /** Nothing chosen beyond the defaults, so nothing needs saving. */
+    fun isDefault(): Boolean {
         val value = normalized()
-        return !value.includeInMessages &&
+        return value.includeInMessages == INCLUDE_IN_HUB_BY_DEFAULT &&
             !value.allowQuickReply &&
             !value.hideFromLauncher &&
             value.retention == HistoryRetention.ThirtyDays &&
@@ -123,6 +125,12 @@ data class ConnectedAppPolicy(
             value.previewPolicy == HubPreviewPolicy.ShowContent
     }
 }
+
+/** BlackBerry 10 Hub: every app is in Hub until the user takes it out. */
+const val INCLUDE_IN_HUB_BY_DEFAULT = true
+
+/** Whether an app with this saved policy (null: none saved) is in Hub. */
+fun ConnectedAppPolicy?.includedInHub(): Boolean = this?.normalized()?.includeInMessages ?: INCLUDE_IN_HUB_BY_DEFAULT
 
 object ConnectedAppPolicyCodec {
     private const val VERSION = "3"

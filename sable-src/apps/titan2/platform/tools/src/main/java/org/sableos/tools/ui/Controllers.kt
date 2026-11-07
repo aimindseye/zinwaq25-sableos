@@ -25,6 +25,8 @@ object Controllers {
         Tool.SPEEDOMETER to ::SpeedController,
         Tool.PEDOMETER to ::PedometerController,
         Tool.IR_REMOTE to ::IrRemoteController,
+        Tool.MY_SABLE to ::MySableController,
+        Tool.PRIVACY_CHECK to ::PrivacyCheckController,
         Tool.DEVICE_IDENTITY to info(ReportCategory.DEVICE),
         Tool.KEY_VIEWER to ::KeyViewerController,
         Tool.KEYBOARD_PROFILE to info(ReportCategory.INPUT),

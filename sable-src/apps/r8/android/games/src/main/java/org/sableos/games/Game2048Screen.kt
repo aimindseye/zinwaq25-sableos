@@ -30,17 +30,17 @@ import org.sableos.design.SableSpacing
 import org.sableos.games.GamesText.t
 import kotlin.math.abs
 
-private val Tile2 = Color(0xFF26384B)
-private val Tile4 = Color(0xFF315A78)
-private val Tile8 = Color(0xFFF08A4B)
-private val Tile16 = Color(0xFFEE5D8A)
-private val Tile32 = Color(0xFF9A63E8)
-private val Tile64 = Color(0xFFE34D59)
-private val Tile128 = Color(0xFFD9A441)
-private val Tile256 = Color(0xFF32B67A)
-private val Tile512 = Color(0xFF3189D8)
-private val Tile1024 = Color(0xFF8E5CE6)
-private val Tile2048 = Color(0xFFFFC857)
+private val Tile2 = Color(0xFF333333)
+private val Tile4 = Color(0xFF404040)
+private val Tile8 = Color(0xFF4D4D4D)
+private val Tile16 = Color(0xFF5A5A5A)
+private val Tile32 = Color(0xFF676767)
+private val Tile64 = Color(0xFF747474)
+private val Tile128 = Color(0xFFB0B0B0)
+private val Tile256 = Color(0xFFC8C8C8)
+private val Tile512 = Color(0xFFE0E0E0)
+private val Tile1024 = Color(0xFF2E9BD6)
+private val Tile2048 = Color(0xFFFFFFFF)
 
 @Composable
 internal fun Game2048Screen() {

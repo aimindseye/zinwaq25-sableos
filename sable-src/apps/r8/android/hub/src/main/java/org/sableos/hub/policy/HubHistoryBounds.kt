@@ -35,8 +35,8 @@ object HubHistoryBounds {
             .asSequence()
             .sortedWith(compareByDescending<ConnectedNotificationRecord> { it.timestampMillis }.thenBy { it.id })
             .filter { record ->
-                val policy = policies[record.key]?.normalized()
-                policy?.includeInMessages == true &&
+                val policy = (policies[record.key] ?: ConnectedAppPolicy(key = record.key)).normalized()
+                policy.includeInMessages &&
                     (liveUserSerials == null || record.key.userSerial in liveUserSerials) &&
                     record.timestampMillis >= hardCutoff &&
                     record.timestampMillis <= nowMillis + MAX_FUTURE_SKEW_MILLIS &&

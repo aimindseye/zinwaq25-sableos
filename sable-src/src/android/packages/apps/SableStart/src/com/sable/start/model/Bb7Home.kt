@@ -340,6 +340,12 @@ object Bb7Home {
         return (index + dx + dy * columns).coerceIn(0, count - 1)
     }
 
+    /** The index that starts the last row of [count] items in [columns] columns. */
+    fun lastRowStart(
+        count: Int,
+        columns: Int,
+    ): Int = if (count <= 0 || columns <= 0) 0 else (count - 1) / columns * columns
+
     /**
      * A finished horizontal drag of [dragged] px (positive = finger moved right): far enough
      * ([threshold] px) to the right reveals Hub, to the left the apps, as on the BlackBerry 10 home.
@@ -392,4 +398,79 @@ data class Bb7Detour(
 
     /** True when the BlackBerry 10 screen is back on its home page after leaving it. */
     fun endsAt(canNavigateBack: Boolean): Boolean = returnOnHome && leftHome && !canNavigateBack
+}
+
+/**
+ * Folders on the BlackBerry 7 home are the BlackBerry 10 app grid's folders ([GridFolders]), so a
+ * group of apps behaves the same on both homes (owner request 2026-11-06): made, renamed, filled
+ * and ungrouped the same way, and seen on both. On BlackBerry 7 each folder that still holds an
+ * installed app is a tray place after Favorites, All and Downloads.
+ */
+object Bb7Folders {
+    /** The folders to show: those with at least one installed app, in saved order. */
+    fun shown(
+        folders: List<GridFolder>,
+        installed: Set<String>,
+    ): List<GridFolder> = folders.filter { folder -> folder.keys.any { it in installed } }
+
+    /** A folder's apps in the order they were added; uninstalled ones are skipped. */
+    fun apps(
+        folder: GridFolder,
+        apps: List<AppEntry>,
+    ): List<AppEntry> {
+        val byKey = apps.associateBy { it.stableKey() }
+        return folder.keys.mapNotNull { byKey[it] }
+    }
+
+    /**
+     * The 1.x BlackBerry 7 tray tabs as folders, once: a tab becomes the folder of the same name
+     * (made when missing), and an app in several tabs ends up in the last one, since an app is in
+     * at most one folder. Tabs past [GridFolders.MAX] folders are dropped; their apps stay installed.
+     */
+    fun fromTabs(
+        tabs: List<Bb7Tab>,
+        folders: List<GridFolder>,
+    ): List<GridFolder> =
+        tabs.fold(folders) { acc, tab ->
+            val keys = tab.keys.distinct()
+            if (keys.isEmpty()) return@fold acc
+            val existing = acc.firstOrNull { it.name.equals(tab.name, ignoreCase = true) }
+            val start =
+                if (existing != null) {
+                    acc
+                } else {
+                    GridFolders.create(acc, emptyList(), keys.first(), tab.name)?.first ?: return@fold acc
+                }
+            val id = start.first { it.name.equals(tab.name, ignoreCase = true) }.id
+            keys.fold(start) { inner, key -> GridFolders.add(inner, id, key) }
+        }
+}
+
+/**
+ * Shortcuts on the BlackBerry 7 home screen itself, in the space between the banner and the tray
+ * (owner request 2026-11-06), as BlackBerry 7 put icons on the wallpaper. Separate from the tray's
+ * Favorites; up to [MAX], in the order added, moved with Move.
+ */
+object Bb7Shortcuts {
+    const val MAX = 12
+
+    /** Adds [key] at the end, or takes it off when it is there; unchanged when full. */
+    fun toggle(
+        shortcuts: List<String>,
+        key: String,
+    ): List<String> =
+        when {
+            key in shortcuts -> shortcuts - key
+            shortcuts.size >= MAX -> shortcuts
+            else -> shortcuts + key
+        }
+
+    /** The shortcuts still installed, in their order. */
+    fun apps(
+        shortcuts: List<String>,
+        apps: List<AppEntry>,
+    ): List<AppEntry> {
+        val byKey = apps.associateBy { it.stableKey() }
+        return shortcuts.distinct().mapNotNull { byKey[it] }
+    }
 }

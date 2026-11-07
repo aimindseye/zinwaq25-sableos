@@ -25,6 +25,11 @@ enum class SettingsLink(private val labelKey: String, val candidates: List<LinkI
             LinkIntent("android.intent.action.MAIN", "org.sableos.titan2.displaycompat")
         )
     ),
+    ACCESSIBILITY(
+        "settings_accessibility",
+        listOf(LinkIntent("android.settings.ACCESSIBILITY_SETTINGS"))
+    ),
+    APPS("settings_apps", listOf(LinkIntent("android.settings.MANAGE_APPLICATIONS_SETTINGS"))),
     DISPLAY("settings_display", listOf(LinkIntent("android.settings.DISPLAY_SETTINGS"))),
     SOUND("settings_sound", listOf(LinkIntent("android.settings.SOUND_SETTINGS"))),
     BATTERY(
@@ -62,6 +67,13 @@ enum class SettingsLink(private val labelKey: String, val candidates: List<LinkI
         "app_info",
         listOf(LinkIntent("android.settings.APPLICATION_DETAILS_SETTINGS", packageUri = true))
     ),
+    INSTALL_UNKNOWN(
+        "settings_install_unknown_apps",
+        listOf(
+            LinkIntent("android.settings.MANAGE_UNKNOWN_APP_SOURCES"),
+            LinkIntent("android.settings.SECURITY_SETTINGS")
+        )
+    ),
     PRIVACY("settings_privacy", listOf(LinkIntent("android.settings.PRIVACY_SETTINGS"))),
     SECURITY("settings_security", listOf(LinkIntent("android.settings.SECURITY_SETTINGS"))),
     DEVELOPER(
@@ -81,6 +93,9 @@ enum class SettingsLink(private val labelKey: String, val candidates: List<LinkI
 
 /** Which link each diagnostic offers as its "Open in Settings" action. */
 object Handoffs {
+    private val MY_SABLE_LINKS =
+        listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY, SettingsLink.ACCESSIBILITY)
+
     fun forTool(tool: Tool): List<SettingsLink> = when (tool) {
         Tool.KEY_VIEWER, Tool.KEYBOARD_PROFILE, Tool.TEXT_ENTRY -> listOf(SettingsLink.KEYBOARD)
         Tool.DISPLAY_INPUT -> listOf(SettingsLink.DISPLAY, SettingsLink.DISPLAY_COMPAT)
@@ -90,6 +105,8 @@ object Handoffs {
         Tool.APPS -> listOf(SettingsLink.APP_SECURITY)
         Tool.ATTENTION -> listOf(SettingsLink.NOTIFICATIONS, SettingsLink.KEYBOARD)
         Tool.DEVICE_IDENTITY -> listOf(SettingsLink.ABOUT, SettingsLink.SECURITY)
+        Tool.PRIVACY_CHECK -> listOf(SettingsLink.SECURITY, SettingsLink.PRIVACY)
+        Tool.MY_SABLE -> MY_SABLE_LINKS
         Tool.BUGREPORT -> listOf(SettingsLink.DEVELOPER)
         else -> emptyList()
     }

@@ -3,7 +3,12 @@ package org.sableos.calendar
 import android.Manifest
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.CalendarContract
+import android.provider.Settings
 import android.text.format.DateUtils
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
@@ -30,16 +35,14 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -52,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
@@ -75,11 +79,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.sableos.calendar.CalendarText.t
+import org.sableos.design.SableAction
+import org.sableos.design.SableActionBar
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableGlobalTheme
 import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableSpacing
+import org.sableos.design.SableUndoBar
 import org.sableos.design.sableFocusRing
+import org.sableos.design.sableVerticalScroll
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -156,6 +165,7 @@ private enum class CalendarMode {
     Detail,
     Edit,
     Calendars,
+    Search,
 }
 
 /** An agenda event awaiting an explicit delete confirmation. */
@@ -182,6 +192,7 @@ private class CalendarAppState {
     // Busy rings for the month holding selectedDate, and the calendars list (L).
     var busy by mutableStateOf<Map<LocalDate, BusyDay>>(emptyMap())
     var calendars by mutableStateOf<List<CalendarSource>>(emptyList())
+    var colorChoices by mutableStateOf<Map<Long, Int>>(emptyMap())
     var refreshing by mutableStateOf(false)
 
     // Unsaved new event kept while the user backs out to the agenda, restored on re-entry this session.
@@ -191,6 +202,10 @@ private class CalendarAppState {
     var editDraft by mutableStateOf<EventDraft?>(null)
     var pendingDelete by mutableStateOf<PendingDelete?>(null)
     var status by mutableStateOf<String?>(null)
+
+    // Search: the typed words and the events within a year of today that they are matched against.
+    var searchQuery by mutableStateOf("")
+    var searchPool by mutableStateOf<List<CalendarEvent>>(emptyList())
 
     /** Hardware Back/Esc goes up one level: edit → detail → agenda; only the agenda leaves Calendar. */
     fun goBack() {
@@ -242,8 +257,12 @@ private class CalendarAppState {
         canModify: Boolean,
     ) {
         status = null
+        if (pendingDelete != null) return
         if (canModify) {
             pendingDelete = PendingDelete(id, title, recurring)
+            openEvent = null
+            detail = null
+            mode = CalendarMode.Agenda
         } else {
             status = t("is_in_a_read_only", title)
         }
@@ -331,6 +350,11 @@ private class CalendarAppState {
             mode == CalendarMode.Detail -> openDetail(next)
             else -> select(next)
         }
+    }
+
+    fun startSearch() {
+        status = null
+        mode = CalendarMode.Search
     }
 
     fun startNewEvent() {
@@ -421,9 +445,24 @@ private fun CalendarApp(
         state.busy = withContext(Dispatchers.IO) { repository.busyMonth(shownMonth) }
     }
 
+    val colorContext = LocalContext.current
+    val colorStore = remember { CalendarColors(colorContext) }
+    LaunchedEffect(refreshGeneration) {
+        state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
+        state.colorChoices = withContext(Dispatchers.IO) { colorStore.load() }
+    }
+    val eventColors =
+        remember(state.calendars, state.colorChoices) {
+            state.calendars.associate { it.name to (state.colorChoices[it.id] ?: it.color) }
+        }
+
     LaunchedEffect(refreshGeneration, state.mode) {
-        if (state.mode == CalendarMode.Calendars) {
-            state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
+        if (state.mode == CalendarMode.Search) {
+            val today = LocalDate.now()
+            state.searchPool =
+                withContext(Dispatchers.IO) {
+                    repository.range(EventSearch.first(today), EventSearch.endExclusive(today))
+                }
         }
     }
 
@@ -432,51 +471,123 @@ private fun CalendarApp(
         state.onDetailLoaded(withContext(Dispatchers.IO) { repository.event(occurrence) })
     }
 
-    state.pendingDelete?.let { pending ->
-        DeleteConfirmDialog(
-            message = EventEditPolicy.deleteConfirmation(pending.title, pending.recurring),
-            onDismiss = { state.pendingDelete = null },
-            onConfirm = {
-                state.pendingDelete = null
-                scope.launch {
-                    val deleted = withContext(Dispatchers.IO) { repository.deleteEvent(pending.eventId) }
-                    state.onDeleteFinished(pending.title, deleted)
-                    onRefresh()
-                }
-            },
-        )
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-    ) {
-        SableRefreshableSurface(
-            isRefreshing = state.refreshing,
-            onRefresh = onRefresh,
+    CompositionLocalProvider(LocalEventColors provides eventColors) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onBackground,
         ) {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(
-                            horizontal = SableSpacing.ScreenHorizontal,
-                            vertical = SableSpacing.ScreenVertical,
-                        ),
-            ) {
-                CalendarHeader()
-                if (repository.canRead()) {
-                    StatusLine(state.status)
-                    CalendarModeContent(state, repository, onRefresh, onRequestPermissions)
-                } else {
-                    PermissionPanel(onRequestPermissions)
+            Column(Modifier.fillMaxSize()) {
+                Box(Modifier.weight(1f)) {
+                    SableRefreshableSurface(
+                        isRefreshing = state.refreshing,
+                        onRefresh = onRefresh,
+                    ) {
+                        Column(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .sableVerticalScroll()
+                                    .padding(
+                                        horizontal = SableSpacing.ScreenHorizontal,
+                                        vertical = SableSpacing.ScreenVertical,
+                                    ),
+                        ) {
+                            CalendarHeader()
+                            if (repository.canRead()) {
+                                StatusLine(state.status)
+                                CalendarModeContent(state, repository, onRefresh, onRequestPermissions)
+                            } else {
+                                PermissionPanel(onRequestPermissions)
+                            }
+                        }
+                    }
+                }
+                state.pendingDelete?.let { pending ->
+                    SableUndoBar(
+                        message = t("deleted", pending.title),
+                        onUndo = { state.pendingDelete = null },
+                        onExpire = {
+                            state.pendingDelete = null
+                            scope.launch {
+                                val deleted = withContext(Dispatchers.IO) { repository.deleteEvent(pending.eventId) }
+                                state.onDeleteFinished(pending.title, deleted)
+                                onRefresh()
+                            }
+                        },
+                    )
+                }
+                if (repository.canRead() && state.mode == CalendarMode.Agenda) {
+                    CalendarActionBar(state, onRefresh)
                 }
             }
         }
     }
 }
+
+/** The bottom bar, as in BlackBerry 10's Calendar: New event, Search, then Today, Views and Calendars. */
+@Composable
+private fun CalendarActionBar(
+    state: CalendarAppState,
+    onRefresh: () -> Unit,
+) {
+    SableActionBar(
+        signature = SableAction(t("new_event")) { state.startNewEvent() },
+        actions =
+            listOf(
+                SableAction(t("search")) { state.startSearch() },
+                SableAction(t("today")) { state.onScreenKey(CalendarScreenKey.Today, onRefresh) },
+                SableAction(t("views")) { state.onScreenKey(CalendarScreenKey.View, onRefresh) },
+                SableAction(t("calendars")) { state.onScreenKey(CalendarScreenKey.Calendars, onRefresh) },
+            ),
+    )
+}
+
+/** Search (BB10): type words; events within a year of today whose title or calendar has them all. */
+@Composable
+private fun SearchPane(state: CalendarAppState) {
+    BackToAgenda { state.mode = CalendarMode.Agenda }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    OutlinedTextField(
+        value = state.searchQuery,
+        onValueChange = { state.searchQuery = it },
+        modifier = Modifier.fillMaxWidth().focusRequester(focus),
+        singleLine = true,
+        label = { Text(t("search")) },
+    )
+    Spacer(Modifier.height(SableSpacing.Sm))
+    val found = EventSearch.matches(state.searchPool, state.searchQuery, System.currentTimeMillis())
+    if (state.searchQuery.isNotBlank() && found.isEmpty()) {
+        Text(
+            text = t("nothing_found"),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    found.take(MAX_SEARCH_RESULTS).forEach { event ->
+        val day = Instant.ofEpochMilli(event.startMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .sableFocusRing()
+                .clickable {
+                    state.selectedDate = day
+                    state.mode = CalendarMode.Agenda
+                    state.openDetail(event)
+                }.padding(vertical = SableSpacing.Sm),
+        ) {
+            Text(text = event.title, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+            Text(
+                text = day.toString() + " · " + event.calendarName,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private const val MAX_SEARCH_RESULTS = 50
 
 @Composable
 private fun CalendarHeader() {
@@ -535,6 +646,10 @@ private fun CalendarModeContent(
         CalendarMode.Calendars -> {
             CalendarsPane(state, repository, onRefresh)
         }
+
+        CalendarMode.Search -> {
+            SearchPane(state)
+        }
     }
 }
 
@@ -546,7 +661,7 @@ private fun AgendaPane(state: CalendarAppState) {
     val split = LocalConfiguration.current.screenWidthDp >= SPLIT_MIN_WIDTH_DP
     ApprovedCalendarLanding(
         selectedDate = state.selectedDate,
-        events = state.events,
+        events = state.events.filter { it.id != state.pendingDelete?.eventId },
         busy = state.busy,
         selected = state.openEvent,
         onSelectDate = { state.selectedDate = it },
@@ -590,6 +705,28 @@ private fun CalendarsPane(
     onRefresh: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val importer = remember { CalendarImport(context.applicationContext) }
+    val colorStore = remember { CalendarColors(context) }
+    val reload: suspend () -> Unit = {
+        state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
+        onRefresh()
+    }
+    val picker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                val stored =
+                    withContext(Dispatchers.IO) {
+                        runCatching { readIcs(context, uri) }
+                            .getOrNull()
+                            ?.let { importer.importEvents(IcsParser.parse(it)) }
+                            ?: 0
+                    }
+                state.status = if (stored > 0) t("imported_events", stored) else t("import_failed")
+                reload()
+            }
+        }
     BackToAgenda { state.mode = CalendarMode.Agenda }
     CalendarsList(
         calendars = state.calendars,
@@ -604,8 +741,44 @@ private fun CalendarsPane(
                 }
             }
         },
+        colors = state.colorChoices,
+        onColor = { source ->
+            val next = CalendarPalette.next(state.colorChoices[source.id] ?: source.color)
+            scope.launch(Dispatchers.IO) { colorStore.set(source.id, next) }
+            state.colorChoices = state.colorChoices + (source.id to next)
+        },
+        actions =
+            CalendarsActions(
+                onAddAccount = {
+                    // Android's own screen; it lists the account types that carry calendars.
+                    val intent =
+                        Intent(Settings.ACTION_ADD_ACCOUNT)
+                            .putExtra(Settings.EXTRA_AUTHORITIES, arrayOf(CalendarContract.AUTHORITY))
+                    runCatching { context.startActivity(intent) }
+                },
+                onPhoneCalendar = {
+                    scope.launch {
+                        val id = withContext(Dispatchers.IO) { importer.phoneCalendarId() }
+                        state.status = if (id != null) t("phone_calendar_ready") else t("import_failed")
+                        reload()
+                    }
+                },
+                onImportIcs = { picker.launch(arrayOf("text/calendar", "application/octet-stream", "text/plain")) },
+            ),
     )
 }
+
+/** The text of a chosen .ics file, up to 4 MB; larger files are refused rather than half read. */
+private fun readIcs(
+    context: Context,
+    uri: Uri,
+): String? =
+    context.contentResolver.openInputStream(uri)?.use { input ->
+        val bytes = input.readBytes()
+        if (bytes.size > MAX_ICS_BYTES) null else bytes.toString(Charsets.UTF_8)
+    }
+
+private const val MAX_ICS_BYTES = 4 * 1024 * 1024
 
 @Composable
 private fun NewEventPane(
@@ -855,6 +1028,7 @@ private fun AgendaEventRow(
     onDelete: () -> Unit,
 ) {
     val context = LocalContext.current
+    val tint = eventTint(event)
     val time =
         if (event.allDay) {
             t("all_day")
@@ -869,6 +1043,7 @@ private fun AgendaEventRow(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 64.dp)
+                .alpha(pastAlpha(event))
                 .border(
                     if (selected) 2.dp else 0.dp,
                     if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
@@ -884,13 +1059,13 @@ private fun AgendaEventRow(
             text = time,
             modifier = Modifier.width(76.dp),
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
+            color = tint,
         )
         Box(
             Modifier
                 .width(3.dp)
                 .height(48.dp)
-                .background(MaterialTheme.colorScheme.primary),
+                .background(tint),
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -1054,41 +1229,6 @@ private fun eventWhen(
             )
         }
     return if (detail.allDay) t("all_day_2", range) else range
-}
-
-@Composable
-private fun DeleteConfirmDialog(
-    message: String,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    val cancel = remember { FocusRequester() }
-    // Focus starts on Cancel: Enter right away keeps the event; deleting is a deliberate move.
-    LaunchedEffect(Unit) {
-        withFrameNanos { }
-        runCatching { cancel.requestFocus() }
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(t("delete_event")) },
-        text = { Text(message) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(
-                    text = t("delete"),
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.focusRequester(cancel),
-            ) {
-                Text(t("cancel"))
-            }
-        },
-    )
 }
 
 @Composable
@@ -1363,7 +1503,7 @@ private fun AgendaDetailPreview(
 }
 
 private const val NOW_TICK_MS = 60_000L
-private val nowLineColor = Color(0xFFFF6978)
+private val nowLineColor = Color(0xFF2E9BD6)
 private val hourHeight = 44.dp
 private val timeColumnWidth = 44.dp
 private val minBlockHeight = 22.dp
@@ -1385,6 +1525,15 @@ private fun WeekPane(state: CalendarAppState) {
     }
     val days = WeekLayout.days(state.selectedDate)
 
+    // BB10: the month with its busy rings sits over the week's timeline.
+    BusyMonthGrid(
+        month = YearMonth.from(state.selectedDate),
+        selectedDate = state.selectedDate,
+        busy = state.busy,
+        compact = true,
+        onSelectDate = { state.selectedDate = it },
+    )
+    Spacer(Modifier.height(SableSpacing.Sm))
     Text(text = WeekLayout.title(days), style = MaterialTheme.typography.titleLarge)
     Spacer(Modifier.height(SableSpacing.Sm))
     state.events.filter { it.allDay }.forEach { event ->
@@ -1475,6 +1624,24 @@ private fun WeekGrid(
     }
 }
 
+/** The colour of [event]'s calendar (chosen on the Calendars page), or the accent before calendars load. */
+@Composable
+private fun eventTint(event: CalendarEvent): Color =
+    LocalEventColors.current[event.calendarName]?.let { Color(it or OPAQUE_ALPHA) } ?: MaterialTheme.colorScheme.primary
+
+/** Events that have ended are dimmed, as in BlackBerry 10's Calendar. */
+private fun pastAlpha(event: CalendarEvent): Float =
+    if (event.endMillis <
+        System.currentTimeMillis()
+    ) {
+        PAST_ALPHA
+    } else {
+        1f
+    }
+
+private const val PAST_ALPHA = 0.5f
+private const val OPAQUE_ALPHA = -0x1000000
+
 /** The red NOW line across the week, labelled like the design. */
 @Composable
 private fun NowLine(y: androidx.compose.ui.unit.Dp) {
@@ -1501,16 +1668,18 @@ private fun WeekEventBlock(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(6.dp)
+    val tint = eventTint(block.event)
     val height = maxOf(gridHeight * (block.bottom - block.top), minBlockHeight)
     Box(
         Modifier
             .offset(y = gridHeight * block.top)
+            .alpha(pastAlpha(block.event))
             .padding(horizontal = 2.dp)
             .fillMaxWidth()
             .height(height)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = BLOCK_FILL_ALPHA))
-            .border(if (selected) 2.dp else 1.dp, MaterialTheme.colorScheme.primary, shape)
+            .background(tint.copy(alpha = BLOCK_FILL_ALPHA))
+            .border(if (selected) 2.dp else 1.dp, tint, shape)
             .sableFocusRing()
             .clickable(onClick = onClick)
             .padding(4.dp),

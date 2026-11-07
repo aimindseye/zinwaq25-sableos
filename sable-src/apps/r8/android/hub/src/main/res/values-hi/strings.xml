@@ -8,6 +8,7 @@
     <string name="priority_messages_calls_email_and">प्राथमिकता, संदेश, कॉल, ईमेल और लोग, केवल इस डिवाइस पर रखे गए।</string>
     <string name="loading_conversations">बातचीत लोड हो रही हैं…</string>
     <string name="local_communication_across_your_enabled">आपके चालू स्रोतों से स्थानीय संचार।</string>
+    <string name="coming_up">आगामी</string>
     <string name="show_list">सूची दिखाएँ</string>
     <string name="show_list_without_previews">पूर्वावलोकन के बिना सूची दिखाएँ</string>
     <string name="unlock_to_view_details">विवरण देखने के लिए अनलॉक करें</string>

@@ -1,0 +1,112 @@
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/ArcadeScreens.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/ArcadeScreens.kt
+index 03ca6df..20ba3ea 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/ArcadeScreens.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/ArcadeScreens.kt
+@@ -32,13 +32,13 @@ import kotlin.random.Random
+ /** Shape colours for the blocks (I, O, T, S, Z, J, L) and the brick rows, chosen to read on dark and light. */
+ private val PieceColors =
+     listOf(
+-        Color(0xFF3FC5F0),
+-        Color(0xFFFFC857),
+-        Color(0xFF9A63E8),
+-        Color(0xFF35C66B),
+-        Color(0xFFE34D59),
+-        Color(0xFF3189D8),
+-        Color(0xFFF08A4B),
++        Color(0xFF2E9BD6),
++        Color(0xFF1F6E96),
++        Color(0xFF5A5A5A),
++        Color(0xFF7D7D7D),
++        Color(0xFF9A9A9A),
++        Color(0xFFB0B0B0),
++        Color(0xFF6B6B6B),
+     )
+ 
+ private const val PADDLE_STEP = 0.06f
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardScreens.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardScreens.kt
+index 147c46b..d39aec8 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardScreens.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardScreens.kt
+@@ -39,14 +39,14 @@ import kotlinx.coroutines.delay
+ import org.sableos.games.GamesText.t
+ import kotlin.random.Random
+ 
+-private val CardRed = Color(0xFFD32F45)
++private val CardRed = Color(0xFF1F6E96)
+ private val CardBlack = Color(0xFF12171C)
+ private val CardFace = Color(0xFFF7F9FC)
+-private val TileFace = Color(0xFFF2EBDD)
+-private val SuitColors = listOf(Color(0xFF2F6FD0), Color(0xFF2E8B57), Color(0xFFC0392B))
++private val TileFace = Color(0xFFEDEDED)
++private val SuitColors = listOf(Color(0xFF1F6E96), Color(0xFF262626), Color(0xFF6B6B6B))
+ private val SuitMarks = listOf("●", "▮", "✦")
+-private val MarkRight = Color(0xFF35C66B)
+-private val MarkElsewhere = Color(0xFFD9A441)
++private val MarkRight = Color(0xFF2E9BD6)
++private val MarkElsewhere = Color(0xFFA6A6A6)
+ private const val PHONE_THINK_MS = 450L
+ private const val BLOCKED_ALPHA = 0.55f
+ 
+@@ -601,7 +601,7 @@ private fun MahjongTile(
+                 } else {
+                     1.dp
+                 },
+-                if (hinted) MarkElsewhere else Color(0xFF8A7F6A),
++                if (hinted) MarkElsewhere else Color(0xFF8C8C8C),
+                 RoundedCornerShape(5.dp),
+             ),
+         contentAlignment = Alignment.Center,
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
+index b710e78..29fc754 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
+@@ -30,17 +30,17 @@ import org.sableos.design.SableSpacing
+ import org.sableos.games.GamesText.t
+ import kotlin.math.abs
+ 
+-private val Tile2 = Color(0xFF26384B)
+-private val Tile4 = Color(0xFF315A78)
+-private val Tile8 = Color(0xFFF08A4B)
+-private val Tile16 = Color(0xFFEE5D8A)
+-private val Tile32 = Color(0xFF9A63E8)
+-private val Tile64 = Color(0xFFE34D59)
+-private val Tile128 = Color(0xFFD9A441)
+-private val Tile256 = Color(0xFF32B67A)
+-private val Tile512 = Color(0xFF3189D8)
+-private val Tile1024 = Color(0xFF8E5CE6)
+-private val Tile2048 = Color(0xFFFFC857)
++private val Tile2 = Color(0xFF333333)
++private val Tile4 = Color(0xFF404040)
++private val Tile8 = Color(0xFF4D4D4D)
++private val Tile16 = Color(0xFF5A5A5A)
++private val Tile32 = Color(0xFF676767)
++private val Tile64 = Color(0xFF747474)
++private val Tile128 = Color(0xFFB0B0B0)
++private val Tile256 = Color(0xFFC8C8C8)
++private val Tile512 = Color(0xFFE0E0E0)
++private val Tile1024 = Color(0xFF2E9BD6)
++private val Tile2048 = Color(0xFFFFFFFF)
+ 
+ @Composable
+ internal fun Game2048Screen() {
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
+index 13af6bf..b7d462c 100644
+--- a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
++++ b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
+@@ -24,11 +24,11 @@ import org.sableos.games.GamesText.t
+ 
+ private const val MINE_FIELD_SIZE = 9
+ 
+-private val MineOne = Color(0xFF5EA8FF)
+-private val MineTwo = Color(0xFF52D680)
+-private val MineThree = Color(0xFFFF7A6B)
+-private val MineFour = Color(0xFFB38AFF)
+-private val MineFive = Color(0xFFFF6FB5)
++private val MineOne = Color(0xFF2E9BD6)
++private val MineTwo = Color(0xFF7D7D7D)
++private val MineThree = Color(0xFF1F6E96)
++private val MineFour = Color(0xFFB0B0B0)
++private val MineFive = Color(0xFF8C8C8C)
+ 
+ @Composable
+ internal fun MinesweeperScreen() {

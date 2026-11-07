@@ -4,12 +4,12 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import org.sableos.design.SableGlobalTheme
 import org.sableos.hub.platform.AndroidSettingsLauncher
 import org.sableos.hub.platform.DeviceAttention
 import org.sableos.hub.policy.AndroidSettingsRoutes
 import org.sableos.hub.policy.NotificationConcept
 import org.sableos.hub.ui.AttentionSettingsScreen
+import org.sableos.hub.ui.HubTheme
 
 /**
  * Settings > Notifications > Sable Attention ([org.sableos.hub.policy.HubIntents.ACTION_ATTENTION_SETTINGS]).
@@ -24,7 +24,7 @@ class AttentionSettingsActivity : ComponentActivity() {
         val launcher = AndroidSettingsLauncher(this)
 
         setContent {
-            SableGlobalTheme(window = window) {
+            HubTheme(window = window) {
                 AttentionSettingsScreen(
                     profile = profile,
                     onOpenAndroid = { concept: NotificationConcept ->

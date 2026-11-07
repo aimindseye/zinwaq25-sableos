@@ -18,7 +18,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.sableos.design.SableGlobalTheme
 import org.sableos.hub.notifications.ConnectedReplyRegistry
 import org.sableos.hub.notifications.SableNotificationListenerService
 import org.sableos.hub.platform.AndroidSettingsLauncher
@@ -34,6 +33,7 @@ import org.sableos.hub.policy.SettingsRoute
 import org.sableos.hub.policy.SettingsTarget
 import org.sableos.hub.ui.AttentionUi
 import org.sableos.hub.ui.ConnectedAppsScreen
+import org.sableos.hub.ui.HubTheme
 
 /**
  * Connected apps: Hub inclusion, Hub priority, preview and history per Android user/profile +
@@ -120,7 +120,7 @@ class ConnectedAppsActivity : ComponentActivity() {
                 loading = false
             }
 
-            SableGlobalTheme(window = window) {
+            HubTheme(window = window) {
                 ConnectedAppsScreen(
                     candidates = candidates,
                     policies = policies,

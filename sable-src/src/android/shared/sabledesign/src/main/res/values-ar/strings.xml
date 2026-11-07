@@ -10,4 +10,5 @@
     <string name="sable_more_actions_for">إجراءات أخرى لـ %1$s</string>
     <string name="sable_jump_to">الانتقال إلى %1$s</string>
     <string name="sable_return_to">العودة إلى %1$s</string>
+    <string name="sable_undo">تراجع</string>
 </resources>

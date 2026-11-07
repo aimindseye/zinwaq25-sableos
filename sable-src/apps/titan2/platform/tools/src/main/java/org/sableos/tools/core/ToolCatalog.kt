@@ -159,6 +159,18 @@ enum class Tool(
     ),
 
     // Diagnostics
+    MY_SABLE(
+        Section.DIAGNOSTICS,
+        "my_sable",
+        ToolKind.INFO,
+        keywords = listOf("attention", "mobile", "private space", "battery", "privacy")
+    ),
+    PRIVACY_CHECK(
+        Section.DIAGNOSTICS,
+        "privacy_check",
+        ToolKind.INFO,
+        keywords = listOf("dtek", "security", "permissions", "lock", "encryption", "usb debugging")
+    ),
     DEVICE_IDENTITY(
         Section.DIAGNOSTICS,
         "device_build_and_security",

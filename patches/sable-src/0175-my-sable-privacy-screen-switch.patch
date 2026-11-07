@@ -1,0 +1,427 @@
+diff --git a/sable-src/apps/r8/textreader/apply_sable_flavor.py b/sable-src/apps/r8/textreader/apply_sable_flavor.py
+index a64d0ac..3e75b4c 100644
+--- a/sable-src/apps/r8/textreader/apply_sable_flavor.py
++++ b/sable-src/apps/r8/textreader/apply_sable_flavor.py
+@@ -157,6 +157,9 @@ def patch_manifest(manifest: pathlib.Path) -> None:
+         fail("SABLE_TEXT_READER_MANIFEST_APPLICATION_ANCHOR=FAIL")
+     manifest_text = manifest_text.replace(
+         app_anchor,
++        '    <permission\n'
++        '        android:name="org.sableos.permission.PRIVACY_SCREEN"\n'
++        '        android:protectionLevel="signature" />\n\n'
+         '    <queries>\n'
+         '        <provider android:authorities="org.sableos.appearance" />\n'
+         '    </queries>\n\n'
+@@ -233,6 +236,14 @@ PRIVACY_SCREEN_SERVICES = """        <service
+                 <action android:name="android.service.quicksettings.action.QS_TILE" />
+             </intent-filter>
+         </service>
++        <receiver
++            android:name="org.sableos.textreader.privacy.PrivacyScreenSwitchReceiver"
++            android:exported="true"
++            android:permission="org.sableos.permission.PRIVACY_SCREEN">
++            <intent-filter>
++                <action android:name="org.sableos.textreader.action.TOGGLE_PRIVACY_SCREEN" />
++            </intent-filter>
++        </receiver>
+ """
+ 
+ 
+diff --git a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenSwitchReceiver.kt b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenSwitchReceiver.kt
+new file mode 100644
+index 0000000..92e2a0a
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenSwitchReceiver.kt
+@@ -0,0 +1,34 @@
++package org.sableos.textreader.privacy
++
++import android.app.Activity
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
++
++/**
++ * Lets Sable Tools' My Sable screen switch the Privacy Screen on and off. Only a sender holding the
++ * signature permission [PERMISSION] (declared by this app, so only an app signed alike gets it) can reach
++ * this receiver. It answers with RESULT_OK and "on" or "off" when the Privacy Screen service is running,
++ * and with RESULT_CANCELED when it is not, so the sender can send the user to Accessibility instead.
++ */
++class PrivacyScreenSwitchReceiver : BroadcastReceiver() {
++    override fun onReceive(
++        context: Context,
++        intent: Intent,
++    ) {
++        if (intent.action != ACTION || !isOrderedBroadcast) return
++        if (PrivacyScreenService.toggle()) {
++            resultCode = Activity.RESULT_OK
++            resultData = if (PrivacyScreenService.on) STATE_ON else STATE_OFF
++        } else {
++            resultCode = Activity.RESULT_CANCELED
++        }
++    }
++
++    companion object {
++        const val ACTION = "org.sableos.textreader.action.TOGGLE_PRIVACY_SCREEN"
++        const val PERMISSION = "org.sableos.permission.PRIVACY_SCREEN"
++        const val STATE_ON = "on"
++        const val STATE_OFF = "off"
++    }
++}
+diff --git a/sable-src/apps/r8/textreader/verify_sable_textreader.py b/sable-src/apps/r8/textreader/verify_sable_textreader.py
+index 2fcc93e..f8c33f4 100644
+--- a/sable-src/apps/r8/textreader/verify_sable_textreader.py
++++ b/sable-src/apps/r8/textreader/verify_sable_textreader.py
+@@ -180,6 +180,8 @@ def verify_manifest(manifest_path: pathlib.Path) -> None:
+         "org.sableos.textreader.speak.SpeakFocusService",
+         "org.sableos.textreader.privacy.PrivacyScreenService",
+         "org.sableos.textreader.privacy.PrivacyScreenTile",
++        "org.sableos.textreader.privacy.PrivacyScreenSwitchReceiver",
++        'android:name="org.sableos.permission.PRIVACY_SCREEN"',
+         "android.permission.BIND_QUICK_SETTINGS_TILE",
+         "android.permission.BIND_ACCESSIBILITY_SERVICE",
+     ):
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
+index 40b77af..230281a 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/AndroidManifest.xml
+@@ -19,6 +19,8 @@
+     <uses-permission android:name="android.permission.READ_BASIC_PHONE_STATE" />
+     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+     <uses-permission android:name="android.permission.VIBRATE" />
++    <!-- My Sable switches the Text reader's Privacy Screen; a signature permission that app declares. -->
++    <uses-permission android:name="org.sableos.permission.PRIVACY_SCREEN" />
+ 
+     <!-- Nothing is required: capability gating hides what the device lacks. -->
+     <uses-feature android:name="android.hardware.camera" android:required="false" />
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/PrivilegePolicy.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/PrivilegePolicy.kt
+index 414a54f..2beb140 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/PrivilegePolicy.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/PrivilegePolicy.kt
+@@ -20,6 +20,7 @@ object PrivilegePolicy {
+         "android.permission.READ_BASIC_PHONE_STATE",
+         "android.permission.ACCESS_NETWORK_STATE",
+         "android.permission.VIBRATE",
++        "org.sableos.permission.PRIVACY_SCREEN",
+         "android.permission.HIGH_SAMPLING_RATE_SENSORS"
+     )
+ 
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+index 6ef26b3..d6c21e5 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt
+@@ -297,6 +297,8 @@ object ToolsText {
+             "my_sable_open" to "Open",
+             "my_sable_privacy_screen" to "Privacy Screen: dims all but the line you are on",
+             "settings_accessibility" to "Settings > Accessibility",
++            "my_sable_privacy_on" to "Privacy Screen is on.",
++            "my_sable_privacy_off" to "Privacy Screen is off.",
+             "device_build_and_security" to "Device, build and security",
+             "keyboard_event_viewer" to "Keyboard event viewer",
+             "keyboard_layout_and_profile" to "Keyboard layout and profile",
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+index ec0e50f..97db0ae 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ui/Diagnostics.kt
+@@ -1,5 +1,9 @@
+ package org.sableos.tools.ui
+ 
++import android.app.Activity
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
+ import android.os.VibrationEffect
+ import android.os.VibratorManager
+ import android.text.InputType
+@@ -426,6 +430,44 @@ class MySableController(private val host: ToolHost) : ToolController {
+         t("my_sable_mobile") to { host.openLink(SettingsLink.NETWORK) },
+         t("check_private_space") to { host.openLink(SettingsLink.SECURITY) },
+         t("my_sable_battery") to { host.openLink(SettingsLink.BATTERY) },
+-        t("my_sable_privacy_screen") to { host.openLink(SettingsLink.ACCESSIBILITY) }
++        t("my_sable_privacy_screen") to { switchPrivacyScreen() }
+     )
++
++    /**
++     * Asks the Text reader to switch the Privacy Screen. It answers on or off when its service is running;
++     * otherwise (or when the permission is not granted) the user is sent to Accessibility to turn it on.
++     */
++    private fun switchPrivacyScreen() {
++        val intent = Intent(PRIVACY_SCREEN_ACTION).setPackage(PRIVACY_SCREEN_PACKAGE)
++        val answer = object : BroadcastReceiver() {
++            override fun onReceive(context: Context, reply: Intent) {
++                onPrivacyScreenAnswer(resultCode, resultData)
++            }
++        }
++        runCatching {
++            ctx.sendOrderedBroadcast(
++                intent,
++                null,
++                answer,
++                null,
++                Activity.RESULT_CANCELED,
++                null,
++                null
++            )
++        }.onFailure { host.openLink(SettingsLink.ACCESSIBILITY) }
++    }
++
++    private fun onPrivacyScreenAnswer(code: Int, data: String?) {
++        if (code != Activity.RESULT_OK) {
++            host.openLink(SettingsLink.ACCESSIBILITY)
++            return
++        }
++        val key = if (data == "on") "my_sable_privacy_on" else "my_sable_privacy_off"
++        host.toast(t(key))
++    }
++
++    private companion object {
++        const val PRIVACY_SCREEN_ACTION = "org.sableos.textreader.action.TOGGLE_PRIVACY_SCREEN"
++        const val PRIVACY_SCREEN_PACKAGE = "org.sableos.textreader"
++    }
+ }
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+index 12273f3..e39cd2e 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ar/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">الجهاز والإصدار والأمان</string>
+     <string name="keyboard_event_viewer">عارض أحداث لوحة المفاتيح</string>
+     <string name="keyboard_layout_and_profile">تخطيط لوحة المفاتيح وملفها</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+index f7ecb2f..7d5064c 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-de/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">Gerät, Build und Sicherheit</string>
+     <string name="keyboard_event_viewer">Tastaturereignis-Anzeige</string>
+     <string name="keyboard_layout_and_profile">Tastaturlayout und Profil</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+index a1dae39..9463319 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-el/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">Συσκευή, έκδοση και ασφάλεια</string>
+     <string name="keyboard_event_viewer">Προβολή συμβάντων πληκτρολογίου</string>
+     <string name="keyboard_layout_and_profile">Διάταξη και προφίλ πληκτρολογίου</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+index fded4d2..4a13b3d 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-es/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">Dispositivo, compilación y seguridad</string>
+     <string name="keyboard_event_viewer">Visor de eventos de teclado</string>
+     <string name="keyboard_layout_and_profile">Distribución y perfil del teclado</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+index ec4b0a0..82d723c 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-fr/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">Appareil, version et sécurité</string>
+     <string name="keyboard_event_viewer">Visionneuse d\'événements clavier</string>
+     <string name="keyboard_layout_and_profile">Disposition et profil du clavier</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+index b3c0177..efce57c 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-hi/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">डिवाइस, बिल्ड और सुरक्षा</string>
+     <string name="keyboard_event_viewer">कीबोर्ड इवेंट व्यूअर</string>
+     <string name="keyboard_layout_and_profile">कीबोर्ड लेआउट और प्रोफ़ाइल</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+index 40d3b44..d7285c4 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-it/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">Dispositivo, build e sicurezza</string>
+     <string name="keyboard_event_viewer">Visualizzatore eventi tastiera</string>
+     <string name="keyboard_layout_and_profile">Layout e profilo tastiera</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+index b70d3b6..e2beb93 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-iw/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">מכשיר, גרסה ואבטחה</string>
+     <string name="keyboard_event_viewer">מציג אירועי מקלדת</string>
+     <string name="keyboard_layout_and_profile">פריסת מקלדת ופרופיל</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+index c87d18b..99ff8bc 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ja/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">デバイス、ビルド、セキュリティ</string>
+     <string name="keyboard_event_viewer">キーボードイベントビューアー</string>
+     <string name="keyboard_layout_and_profile">キーボードレイアウトとプロファイル</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+index 5857a61..0882072 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ko/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">기기, 빌드 및 보안</string>
+     <string name="keyboard_event_viewer">키보드 이벤트 뷰어</string>
+     <string name="keyboard_layout_and_profile">키보드 레이아웃 및 프로필</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+index 9bdc5f6..b7edf64 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-nl/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">Apparaat, build en beveiliging</string>
+     <string name="keyboard_event_viewer">Toetsenbordgebeurtenissen-viewer</string>
+     <string name="keyboard_layout_and_profile">Toetsenbordindeling en profiel</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+index b98225d..190a184 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pl/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">Urządzenie, kompilacja i bezpieczeństwo</string>
+     <string name="keyboard_event_viewer">Podgląd zdarzeń klawiatury</string>
+     <string name="keyboard_layout_and_profile">Układ i profil klawiatury</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+index ea10f28..40b8b04 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-pt/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">Dispositivo, versão e segurança</string>
+     <string name="keyboard_event_viewer">Visualizador de eventos do teclado</string>
+     <string name="keyboard_layout_and_profile">Layout e perfil do teclado</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+index 7b935ab..6751b64 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ru/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">Устройство, сборка и безопасность</string>
+     <string name="keyboard_event_viewer">Просмотр событий клавиатуры</string>
+     <string name="keyboard_layout_and_profile">Раскладка и профиль клавиатуры</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+index e65b261..846deb6 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-sv/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">Enhet, version och säkerhet</string>
+     <string name="keyboard_event_viewer">Visare för tangenthändelser</string>
+     <string name="keyboard_layout_and_profile">Tangentbordslayout och profil</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+index b7851da..dc5e127 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-tr/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">Cihaz, sürüm ve güvenlik</string>
+     <string name="keyboard_event_viewer">Klavye olay görüntüleyici</string>
+     <string name="keyboard_layout_and_profile">Klavye düzeni ve profili</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+index a6a73a7..6d2649b 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-ur/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">ڈیوائس، بلڈ اور سیکیورٹی</string>
+     <string name="keyboard_event_viewer">کی بورڈ ایونٹ ویور</string>
+     <string name="keyboard_layout_and_profile">کی بورڈ لے آؤٹ اور پروفائل</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+index 750476e..f4448f0 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values-zh-rCN/strings.xml
+@@ -225,6 +225,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">设备、版本和安全</string>
+     <string name="keyboard_event_viewer">键盘事件查看器</string>
+     <string name="keyboard_layout_and_profile">键盘布局和配置文件</string>
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+index d4cddf9..8941a25 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml
+@@ -226,6 +226,8 @@
+     <string name="my_sable_open">Open</string>
+     <string name="my_sable_privacy_screen">Privacy Screen: dims all but the line you are on</string>
+     <string name="settings_accessibility">Settings > Accessibility</string>
++    <string name="my_sable_privacy_on">Privacy Screen is on.</string>
++    <string name="my_sable_privacy_off">Privacy Screen is off.</string>
+     <string name="device_build_and_security">Device, build and security</string>
+     <string name="keyboard_event_viewer">Keyboard event viewer</string>
+     <string name="keyboard_layout_and_profile">Keyboard layout and profile</string>

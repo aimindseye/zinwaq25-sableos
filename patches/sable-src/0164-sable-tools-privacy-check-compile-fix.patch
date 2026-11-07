@@ -1,0 +1,26 @@
+diff --git a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/PrivacyCollector.kt b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/PrivacyCollector.kt
+index 0925432..7c17233 100644
+--- a/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/PrivacyCollector.kt
++++ b/sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/android/PrivacyCollector.kt
+@@ -92,6 +92,7 @@ class PrivacyCollector(private val ctx: Context) {
+             .filter { it.packageName != ctx.packageName }
+     }.getOrNull()
+ 
++    @Suppress("DEPRECATION")
+     private fun installers(packages: List<PackageInfo>?): Int? {
+         val ops = ctx.getSystemService(AppOpsManager::class.java) ?: return null
+         return packages?.count { info ->
+@@ -106,10 +107,11 @@ class PrivacyCollector(private val ctx: Context) {
+ 
+     private fun sensitive(packages: List<PackageInfo>?): Int? = packages?.count { info ->
+         val requested = info.requestedPermissions.orEmpty()
+-        val flags = info.requestedPermissionsFlags.orEmpty()
++        val flags: IntArray? = info.requestedPermissionsFlags
+         SENSITIVE_PERMISSIONS.any { perm ->
+             val i = requested.indexOf(perm)
+-            i >= 0 && flags.getOrElse(i) { 0 } and PackageInfo.REQUESTED_PERMISSION_GRANTED != 0
++            i >= 0 &&
++                ((flags?.getOrNull(i) ?: 0) and PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
+         }
+     }
+ 

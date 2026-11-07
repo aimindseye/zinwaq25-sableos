@@ -8,6 +8,7 @@
     <string name="priority_messages_calls_email_and">優先度、メッセージ、通話、メール、連絡先を、この端末内だけで管理します。</string>
     <string name="loading_conversations">会話を読み込んでいます…</string>
     <string name="local_communication_across_your_enabled">有効にしたソースからのローカルなコミュニケーションです。</string>
+    <string name="coming_up">今後の予定</string>
     <string name="show_list">リストを表示</string>
     <string name="show_list_without_previews">プレビューなしでリストを表示</string>
     <string name="unlock_to_view_details">ロックを解除して詳細を表示</string>

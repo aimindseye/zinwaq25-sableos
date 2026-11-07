@@ -3,8 +3,6 @@ package org.sableos.design
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,7 +73,7 @@ fun SableScrollableScreen(
                 .fillMaxSize()
                 .safeDrawingPadding()
                 .imePadding()
-                .verticalScroll(rememberScrollState())
+                .sableVerticalScroll()
                 .padding(
                     horizontal = SableSpacing.ScreenHorizontal,
                     vertical = SableSpacing.ScreenVertical,
@@ -102,11 +101,30 @@ fun SableRefreshableSurface(
     }
 }
 
+/**
+ * True draws every [SablePanel] below it as a flat BlackBerry 10 list section (black, a divider
+ * above, no card) instead of a card. Sable Hub provides it (Sable 2.0 Hub polish); other apps
+ * keep cards.
+ */
+val LocalSableFlatPanels = staticCompositionLocalOf { false }
+
 @Composable
 fun SablePanel(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (LocalSableFlatPanels.current) {
+        // BlackBerry 10 list section (Sable 2.0): flat on the screen's black, a thin line above.
+        Column(modifier = modifier.fillMaxWidth()) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Column(
+                modifier = Modifier.padding(vertical = SableSpacing.Md),
+                verticalArrangement = Arrangement.spacedBy(SableSpacing.Md),
+                content = content,
+            )
+        }
+        return
+    }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,

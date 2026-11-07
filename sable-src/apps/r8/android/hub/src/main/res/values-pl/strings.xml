@@ -8,6 +8,7 @@
     <string name="priority_messages_calls_email_and">Priorytet, wiadomości, połączenia, poczta i osoby, przechowywane tylko na tym urządzeniu.</string>
     <string name="loading_conversations">Wczytywanie rozmów…</string>
     <string name="local_communication_across_your_enabled">Komunikacja lokalna z włączonych źródeł.</string>
+    <string name="coming_up">Wkrótce</string>
     <string name="show_list">Pokaż listę</string>
     <string name="show_list_without_previews">Pokaż listę bez podglądów</string>
     <string name="unlock_to_view_details">Odblokuj, aby zobaczyć szczegóły</string>

@@ -454,6 +454,8 @@ fun SableStartScreen(
     hubRequestFilter: String? = null,
     /** Counts up for each Command request (org.sableos.start.action.COMMAND, Alt+Space anywhere). */
     commandGeneration: Int = 0,
+    /** Text typed on the BlackBerry 7 home that opened Command, to start it with. */
+    commandSeed: String = "",
     /** That Command was opened over another app, so Back returns to it. */
     commandReturnsToApp: Boolean = false,
     onReturnFromCommand: () -> Unit = {},
@@ -655,7 +657,7 @@ fun SableStartScreen(
     LaunchedEffect(commandGeneration) {
         if (commandGeneration > 0) {
             selectedApp = null
-            openSearch(SableStartDestination.Start)
+            openSearch(SableStartDestination.Start, commandSeed)
         }
     }
 
@@ -2661,10 +2663,11 @@ private fun GlanceCard(
 }
 
 /**
- * A rightward swipe on the Hub page opens Hub settings ([HubSwipe]). It watches the drag without
- * consuming it, so the pager still turns to Active Frames on a leftward swipe and the list scrolls.
+ * A rightward swipe on the Hub page opens the Hub views panel ([HubSwipe], [HubViewsPanel]). It
+ * watches the drag without consuming it, so the pager still turns to Active Frames on a leftward
+ * swipe and the list scrolls.
  */
-private fun Modifier.hubSwipeToSettings(
+private fun Modifier.hubSwipeToPanel(
     thresholdPx: Float,
     onOpen: () -> Unit,
 ): Modifier =
@@ -2726,6 +2729,8 @@ private fun HubPage(
         }
     }
     val tabFocus = remember { FocusRequester() }
+    val panelFocus = remember { FocusRequester() }
+    var panelOpen by remember { mutableStateOf(false) }
     val personFocus = remember { mutableMapOf<Long, FocusRequester>() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -2733,7 +2738,13 @@ private fun HubPage(
         if (active) {
             withFrameNanos { }
             runCatching { tabFocus.requestFocus() }
+        } else {
+            panelOpen = false
         }
+    }
+    LaunchedEffect(panelOpen) {
+        withFrameNanos { }
+        runCatching { if (panelOpen) panelFocus.requestFocus() else if (active) tabFocus.requestFocus() }
     }
 
     fun requesterFor(person: HubPerson): FocusRequester = personFocus.getOrPut(person.id) { FocusRequester() }
@@ -2783,63 +2794,246 @@ private fun HubPage(
     }
 
     val swipeDistance = with(LocalDensity.current) { HubSwipe.DISTANCE_DP.dp.toPx() }
-    LazyColumn(
+    Box(
         modifier =
             Modifier
                 .fillMaxSize()
-                .onPreviewKeyEvent(::jumpKey)
-                .hubSwipeToSettings(swipeDistance, onOpenHubSettings),
-        state = listState,
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+                // Menu that no row took (rows open their own menu) opens the views panel.
+                .onKeyEvent { event ->
+                    val native = event.nativeKeyEvent
+                    val menu = native.keyCode == AllAppsKeyPolicy.KEYCODE_MENU && !panelOpen
+                    if (menu && event.type == KeyEventType.KeyDown && native.repeatCount == 0) panelOpen = true
+                    menu
+                },
     ) {
-        item(key = "header") {
-            Text(
-                text = HUB_LABEL,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Medium,
-                // The strip's own text colour (BB10 palette), not the appearance's content colour.
-                color = Bb10Text,
-                modifier = Modifier.semantics { heading() },
-            )
-            Spacer(Modifier.height(6.dp))
-            HubUnreadBar(
+        LazyColumn(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .onPreviewKeyEvent(::jumpKey)
+                    .hubSwipeToPanel(swipeDistance) { panelOpen = true },
+            state = listState,
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item(key = "header") {
+                Text(
+                    text = HUB_LABEL,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Medium,
+                    // The strip's own text colour (BB10 palette), not the appearance's content colour.
+                    color = Bb10Text,
+                    modifier = Modifier.semantics { heading() },
+                )
+                Spacer(Modifier.height(6.dp))
+                HubUnreadBar(
+                    items = barItems,
+                    appFor = { personalApps[it] },
+                    onOpen = ::openBarItem,
+                )
+                HubUpcoming(snapshot = snapshot, onOpen = { findLiveApp(apps, CALENDAR_PACKAGE)?.let(onLaunchApp) })
+                Spacer(Modifier.height(8.dp))
+                HubTabs(filter = filter, firstTab = tabFocus, onFilter = onFilter)
+            }
+            if (contactsTab) {
+                hubContactsItems(
+                    people = people,
+                    loaded = peopleLoaded,
+                    canRead = canReadContacts,
+                    contactsApp = contactsApp,
+                    messagesPackage = messagesApp?.component?.packageName,
+                    requesterFor = ::requesterFor,
+                    actions = actions,
+                )
+            } else {
+                hubMessageItems(
+                    filter = filter,
+                    rows = snapshot.hubMessages,
+                    appFor = { pkg -> pkg?.let { personalApps[it] } ?: messagesApp },
+                    onStartIntent = onStartIntent,
+                )
+                hubSummaryItems(
+                    filter = filter,
+                    snapshot = snapshot,
+                    summary = if (hubInstalled) HubBar.summary(barItems) else null,
+                    messagesApp = messagesApp,
+                    mailApp = mailApp,
+                    actions = actions,
+                )
+            }
+        }
+        if (panelOpen) {
+            HubViewsPanel(
+                filter = filter,
                 items = barItems,
                 appFor = { personalApps[it] },
-                onOpen = ::openBarItem,
-            )
-            HubUpcoming(snapshot = snapshot, onOpen = { findLiveApp(apps, CALENDAR_PACKAGE)?.let(onLaunchApp) })
-            Spacer(Modifier.height(8.dp))
-            HubTabs(filter = filter, firstTab = tabFocus, onFilter = onFilter)
-        }
-        if (contactsTab) {
-            hubContactsItems(
-                people = people,
-                loaded = peopleLoaded,
-                canRead = canReadContacts,
-                contactsApp = contactsApp,
-                messagesPackage = messagesApp?.component?.packageName,
-                requesterFor = ::requesterFor,
-                actions = actions,
-            )
-        } else {
-            hubMessageItems(
-                filter = filter,
-                rows = snapshot.hubMessages,
-                appFor = { pkg -> pkg?.let { personalApps[it] } ?: messagesApp },
-                onStartIntent = onStartIntent,
-            )
-            hubSummaryItems(
-                filter = filter,
-                snapshot = snapshot,
-                summary = if (hubInstalled) HubBar.summary(barItems) else null,
-                messagesApp = messagesApp,
-                mailApp = mailApp,
-                actions = actions,
+                focus = panelFocus,
+                onFilter = {
+                    panelOpen = false
+                    onFilter(it)
+                },
+                onOpenItem = {
+                    panelOpen = false
+                    openBarItem(it)
+                },
+                onOpenHubSettings = {
+                    panelOpen = false
+                    onOpenHubSettings()
+                },
+                onClose = { panelOpen = false },
             )
         }
     }
 }
+
+/**
+ * The Hub views panel, as BlackBerry 10's Hub: a swipe right on the Hub page (or Menu where no
+ * message row takes it) slides in a narrow list on the left while the Hub stays beside it. Hub
+ * (with the total unread), Messages, Calls and Contacts filter the list; each app with unread
+ * notifications opens as it does from the unread bar; Hub settings at the bottom opens Sable Hub's
+ * settings. Back, Esc or a tap on the Hub beside it closes the panel.
+ */
+@Composable
+private fun HubViewsPanel(
+    filter: HubFilter,
+    items: List<HubBar.Item>,
+    appFor: (String) -> AppEntry?,
+    focus: FocusRequester,
+    onFilter: (HubFilter) -> Unit,
+    onOpenItem: (HubBar.Item) -> Unit,
+    onOpenHubSettings: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val line = Bb10Line
+    val total = remember(items) { items.sumOf { it.count } }
+    Row(Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier =
+                Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(HUB_PANEL_WIDTH)
+                    .background(Color.Black)
+                    .drawBehind {
+                        val x = size.width - HUB_ROW_DIVIDER_DP.dp.toPx() / 2
+                        drawLine(line, Offset(x, 0f), Offset(x, size.height), HUB_ROW_DIVIDER_DP.dp.toPx())
+                    }.onPreviewKeyEvent { event ->
+                        val code = event.nativeKeyEvent.keyCode
+                        val close = code == android.view.KeyEvent.KEYCODE_BACK || code == android.view.KeyEvent.KEYCODE_ESCAPE
+                        if (close && event.type == KeyEventType.KeyUp) onClose()
+                        close
+                    },
+            contentPadding = PaddingValues(vertical = 10.dp),
+        ) {
+            item(key = "title") {
+                Text(
+                    text = HUB_LABEL,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = Bb10Muted,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp).semantics { heading() },
+                )
+            }
+            items(items = HubFilter.entries, key = { "view:" + it.name }) { view ->
+                HubPanelRow(
+                    label = if (view == HubFilter.All) HUB_LABEL else view.label,
+                    count = if (view == HubFilter.All && total > 0) HubBar.countLabel(total) else null,
+                    selected = view == filter,
+                    app = null,
+                    modifier = if (view == HubFilter.All) Modifier.focusRequester(focus) else Modifier,
+                    onClick = { onFilter(view) },
+                )
+            }
+            items(items = items, key = { "app:" + it.packageName }) { item ->
+                val app = appFor(item.packageName)
+                HubPanelRow(
+                    label = app?.label ?: item.packageName,
+                    count = HubBar.countLabel(item.count),
+                    selected = false,
+                    app = app,
+                    onClick = { onOpenItem(item) },
+                )
+            }
+            item(key = "settings") {
+                HubPanelRow(
+                    label = t("hub_settings"),
+                    count = null,
+                    selected = false,
+                    app = null,
+                    onClick = onOpenHubSettings,
+                )
+            }
+        }
+        // The Hub beside the panel, dimmed; a tap there closes the panel.
+        Box(
+            Modifier
+                .fillMaxHeight()
+                .weight(1f)
+                .background(Color.Black.copy(alpha = HUB_PANEL_SCRIM))
+                .pointerInput(Unit) { detectTapGestures { onClose() } },
+        )
+    }
+}
+
+/** One row of the Hub views panel: icon, label and count; the current view in white, others grey. */
+@Composable
+private fun HubPanelRow(
+    label: String,
+    count: String?,
+    selected: Boolean,
+    app: AppEntry?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val ink =
+        when {
+            focused -> Bb10OnBlue
+            selected -> Bb10Text
+            else -> Bb10Muted
+        }
+    val divider = Bb10Line
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .onFocusChanged { focused = it.isFocused }
+                .background(if (focused) Bb10Blue else Color.Transparent)
+                .drawBehind {
+                    val y = size.height - HUB_ROW_DIVIDER_DP.dp.toPx() / 2
+                    drawLine(divider, Offset(0f, y), Offset(size.width, y), HUB_ROW_DIVIDER_DP.dp.toPx())
+                }.clickable(onClick = onClick)
+                .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .width(HUB_ROW_EDGE_DP.dp)
+                .height(28.dp)
+                .background(if (selected && !focused) Bb10Blue else Color.Transparent),
+        )
+        Spacer(Modifier.width(8.dp))
+        if (app != null) {
+            AppMark(app = app, size = HUB_BAR_ICON_DP)
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (count != null) {
+            Text(text = count, style = MaterialTheme.typography.labelLarge, color = ink, maxLines = 1)
+        }
+    }
+}
+
+private const val HUB_PANEL_WIDTH = 0.62f
+private const val HUB_PANEL_SCRIM = 0.55f
 
 /**
  * The Hub page's Upcoming strip: today's and tomorrow's events from Calendar's snapshot, one line
@@ -2998,8 +3192,7 @@ private fun HubBarChip(
                 .height(HUB_BAR_ITEM_HEIGHT)
                 .onFocusChanged { focused = it.isFocused }
                 .clip(shape)
-                .background(if (focused) Bb10Blue else Bb10Card)
-                .border(1.dp, Bb10Line, shape)
+                .background(if (focused) Bb10Blue else Color.Transparent)
                 .clickable(onClick = onClick)
                 .semantics { contentDescription = description }
                 .padding(horizontal = 4.dp),
@@ -3047,35 +3240,49 @@ private class HubActions(
     val onRequestContactsPermission: () -> Unit,
 )
 
-/** The Hub page tabs: All · Messages · Calls · Contacts; All takes focus when the page opens. */
+/**
+ * The Hub page tabs: All · Messages · Calls · Contacts, BlackBerry 10 style: plain text on black,
+ * the selected tab white with a blue line under it, the others grey; the focused tab fills blue.
+ * All takes focus when the page opens.
+ */
 @Composable
 private fun HubTabs(
     filter: HubFilter,
     firstTab: FocusRequester,
     onFilter: (HubFilter) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         HubFilter.entries.forEach { tab ->
             val selected = tab == filter
+            var focused by remember { mutableStateOf(false) }
+            val underline = if (selected && !focused) Bb10Blue else Color.Transparent
             Text(
                 text = tab.label,
                 modifier =
                     Modifier
                         .then(if (tab == HubFilter.All) Modifier.focusRequester(firstTab) else Modifier)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(
-                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                        ).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
-                        .sableFocusRing()
-                        .clickable { onFilter(tab) }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .onFocusChanged { focused = it.isFocused }
+                        .background(if (focused) Bb10Blue else Color.Transparent)
+                        .drawBehind {
+                            val line = HUB_TAB_LINE_DP.dp.toPx()
+                            drawRect(underline, Offset(0f, size.height - line), Size(size.width, line))
+                        }.clickable { onFilter(tab) }
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.labelLarge,
-                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                color =
+                    when {
+                        focused -> Bb10OnBlue
+                        selected -> Bb10Text
+                        else -> Bb10Muted
+                    },
                 maxLines = 1,
             )
         }
     }
 }
+
+private const val HUB_TAB_LINE_DP = 2
 
 /**
  * The All, Messages and Calls tabs: Messages and Mail, Missed calls, and on All the notification
@@ -3212,6 +3419,62 @@ private fun hubRowTime(epochMillis: Long): String {
     return android.text.format.DateFormat.format(pattern, epochMillis).toString()
 }
 
+/**
+ * A Hub page entry (Messages, Mail, Missed calls, Notifications, Hub settings) as a flat BlackBerry
+ * 10 list row, like the message rows: black with a thin divider, the app's icon when there is one,
+ * the title in white and the detail in grey; the focused row fills blue.
+ */
+@Composable
+private fun HubListRow(
+    title: String,
+    detail: String,
+    app: AppEntry?,
+    onClick: (() -> Unit)?,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val text = if (focused) Bb10OnBlue else Bb10Text
+    val muted = if (focused) Bb10OnBlue else Bb10Muted
+    val divider = Bb10Line
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 52.dp)
+                .onFocusChanged { focused = it.isFocused }
+                .background(if (focused) Bb10Blue else Color.Transparent)
+                .drawBehind {
+                    val y = size.height - HUB_ROW_DIVIDER_DP.dp.toPx() / 2
+                    drawLine(divider, Offset(0f, y), Offset(size.width, y), HUB_ROW_DIVIDER_DP.dp.toPx())
+                }.then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier.focusable())
+                .padding(start = (HUB_ROW_EDGE_DP + 8).dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (app != null) {
+            AppMark(app = app, size = HUB_ROW_ICON_DP)
+            Spacer(Modifier.width(10.dp))
+        }
+        Column(modifier = Modifier.weight(1f).padding(vertical = 6.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+                color = text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (detail.isNotBlank()) {
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
 private const val HUB_ROW_EDGE_DP = 3
 private const val HUB_ROW_DIVIDER_DP = 1
 private const val HUB_ROW_ICON_DP = 28
@@ -3232,18 +3495,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
     val showCalls = filter != HubFilter.Messages
     if (showMessages) {
         item(key = "messages") {
-            GlanceCard(
+            HubListRow(
                 title = t("messages"),
                 detail = liveDetail(snapshot.messages, messagesApp),
-                accent = SableBlue,
+                app = messagesApp,
                 onClick = actions.onOpenMessages,
             )
         }
         item(key = "mail") {
-            GlanceCard(
+            HubListRow(
                 title = t("mail"),
                 detail = liveDetail(snapshot.mail, mailApp),
-                accent = Color(0xFFE5484D),
+                app = mailApp,
                 onClick = mailApp?.let { { actions.onLaunchApp(it) } },
             )
         }
@@ -3251,10 +3514,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
     if (showCalls) {
         item(key = "calls") {
             // Start holds no call-log permission: the Phone app shows the missed calls.
-            GlanceCard(
+            HubListRow(
                 title = t("missed_calls"),
                 detail = t("recent_calls_in_phone"),
-                accent = SableGreen,
+                app = null,
                 onClick = { actions.onStartIntent(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI)) },
             )
         }
@@ -3262,18 +3525,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.hubSummaryItems(
     if (filter == HubFilter.All) {
         item(key = "notifications") {
             // Android owns the notifications; its history lists what was dismissed too.
-            GlanceCard(
+            HubListRow(
                 title = t("notifications"),
                 detail = summary ?: t("sable_hub_not_installed"),
-                accent = SableSun,
+                app = null,
                 onClick = { actions.onStartIntent(Intent(ACTION_NOTIFICATION_HISTORY)) },
             )
         }
     }
     if (summary != null) {
         item(key = "settings") {
-            Spacer(Modifier.height(4.dp))
-            MetroLink(text = t("hub_settings"), onClick = actions.onOpenHubSettings)
+            HubListRow(title = t("hub_settings"), detail = "", app = null, onClick = actions.onOpenHubSettings)
         }
     }
 }

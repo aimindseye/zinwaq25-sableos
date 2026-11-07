@@ -60,6 +60,18 @@
     <string name="calendars">Calendari</string>
     <string name="calendars_hint">I calendari mostrati riempiono l’agenda, gli anelli di impegno e il mese di Start.</string>
     <string name="no_calendars">Ancora nessun calendario su questo telefono. Aggiungi un account in Impostazioni > Account.</string>
+    <string name="add_account">Aggiungi account</string>
+    <string name="phone_calendar">Calendario del telefono</string>
+    <string name="import_ics">Importa .ics</string>
+    <string name="imported_events">%1$d eventi importati.</string>
+    <string name="import_failed">Nessun evento importato.</string>
+    <string name="phone_calendar_ready">Calendario del telefono pronto.</string>
+    <string name="new_event">Nuovo evento</string>
+    <string name="search">Cerca</string>
+    <string name="today">Oggi</string>
+    <string name="views">Viste</string>
+    <string name="nothing_found">Nessun risultato.</string>
+    <string name="colour">Colore</string>
     <string name="l_calendars">" · L calendari"</string>
     <string name="day_events">%1$s, %2$s eventi</string>
 </resources>

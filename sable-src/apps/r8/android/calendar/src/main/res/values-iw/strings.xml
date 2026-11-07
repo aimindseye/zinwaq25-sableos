@@ -60,6 +60,18 @@
     <string name="calendars">יומנים</string>
     <string name="calendars_hint">היומנים המוצגים ממלאים את סדר היום, טבעות העומס ואת החודש ב-Start.</string>
     <string name="no_calendars">עדיין אין יומנים בטלפון הזה. אפשר להוסיף חשבון בהגדרות > חשבונות.</string>
+    <string name="add_account">הוספת חשבון</string>
+    <string name="phone_calendar">לוח שנה של הטלפון</string>
+    <string name="import_ics">ייבוא ‎.ics</string>
+    <string name="imported_events">יובאו %1$d אירועים.</string>
+    <string name="import_failed">לא יובא דבר.</string>
+    <string name="phone_calendar_ready">לוח השנה של הטלפון מוכן.</string>
+    <string name="new_event">אירוע חדש</string>
+    <string name="search">חיפוש</string>
+    <string name="today">היום</string>
+    <string name="views">תצוגות</string>
+    <string name="nothing_found">לא נמצא דבר.</string>
+    <string name="colour">צבע</string>
     <string name="l_calendars">" · L יומנים"</string>
     <string name="day_events">%1$s, %2$s אירועים</string>
 </resources>

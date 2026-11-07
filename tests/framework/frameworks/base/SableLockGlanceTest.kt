@@ -68,7 +68,9 @@ class SableLockGlanceTest {
         val glance = SableLockGlance.Glance(false, true, false, counts)
         assertTrue(counts.isEmpty())
         assertFalse(glance.countRow)
-        assertTrue(glance.lockedLabel)
+        // Nothing to show: no "Locked" either, just the clock and date.
+        assertFalse(glance.lockedLabel)
+        assertFalse(glance.any())
     }
 
     @Test
@@ -80,10 +82,12 @@ class SableLockGlanceTest {
         assertTrue(glance.countRow)
         assertFalse(glance.privateCard)
         assertTrue(glance.requiresUnlockLine)
-        // No notifications: the card stays, the unlock line goes.
+        // No notifications: no card, no "Locked", no unlock line.
         val empty = SableLockGlance.Glance(false, true, true, SableLockGlance.Counts())
-        assertTrue(empty.privateCard)
+        assertFalse(empty.privateCard)
+        assertFalse(empty.lockedLabel)
         assertFalse(empty.requiresUnlockLine)
+        assertFalse(empty.any())
     }
 
     @Test

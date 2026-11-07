@@ -92,7 +92,8 @@ class CalendarSnapshotProvider : ContentProvider() {
 
     /**
      * Sable Start reads everything; SystemUI reads only the next event, for the lock screen
-     * (frameworks/base 0317), which names it "Event" while the lock screen hides content.
+     * (frameworks/base 0317), which names it "Event" while the lock screen hides content; Hub reads
+     * the next events for its strip at the top.
      */
     private fun enforceCaller(
         context: android.content.Context,
@@ -105,7 +106,8 @@ class CalendarSnapshotProvider : ContentProvider() {
                 .getPackagesForUid(callingUid)
                 ?.toSet()
                 .orEmpty()
-        if ("org.sableos.launcher" !in packages && !(nextOnly && SYSTEM_UI in packages)) {
+        val nextReader = SYSTEM_UI in packages || HUB in packages
+        if ("org.sableos.launcher" !in packages && !(nextOnly && nextReader)) {
             throw SecurityException(
                 "Sable live snapshot is restricted to SableLauncher.",
             )
@@ -124,5 +126,6 @@ class CalendarSnapshotProvider : ContentProvider() {
         private const val NEXT_DAYS = 7L
         private const val MAX_NEXT = 3
         private const val SYSTEM_UI = "com.android.systemui"
+        private const val HUB = "org.sableos.hub"
     }
 }

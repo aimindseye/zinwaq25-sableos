@@ -8,6 +8,7 @@
     <string name="priority_messages_calls_email_and">עדיפות, הודעות, שיחות, אימייל ואנשים, נשמרים במכשיר הזה בלבד.</string>
     <string name="loading_conversations">טוען שיחות…</string>
     <string name="local_communication_across_your_enabled">תקשורת מקומית מהמקורות שהפעלתם.</string>
+    <string name="coming_up">בקרוב</string>
     <string name="show_list">הצגת רשימה</string>
     <string name="show_list_without_previews">הצגת רשימה ללא תצוגות מקדימות</string>
     <string name="unlock_to_view_details">בטלו את הנעילה כדי לראות פרטים</string>

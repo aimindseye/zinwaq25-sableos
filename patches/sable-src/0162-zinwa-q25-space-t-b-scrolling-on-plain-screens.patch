@@ -1,0 +1,232 @@
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+index 2ea5b25..bdab50a 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+@@ -35,9 +35,7 @@ import androidx.compose.foundation.layout.offset
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
+-import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.shape.RoundedCornerShape
+-import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.AlertDialog
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedTextField
+@@ -89,6 +87,7 @@ import org.sableos.design.SableGlobalTheme
+ import org.sableos.design.SableRefreshableSurface
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.sableFocusRing
++import org.sableos.design.sableVerticalScroll
+ import java.time.Instant
+ import java.time.LocalDate
+ import java.time.LocalDateTime
+@@ -498,7 +497,7 @@ private fun CalendarApp(
+                             modifier =
+                                 Modifier
+                                     .fillMaxSize()
+-                                    .verticalScroll(rememberScrollState())
++                                    .sableVerticalScroll()
+                                     .padding(
+                                         horizontal = SableSpacing.ScreenHorizontal,
+                                         vertical = SableSpacing.ScreenVertical,
+diff --git a/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableListKeysTest.kt b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableListKeysTest.kt
+index 8422fbe..ddca575 100644
+--- a/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableListKeysTest.kt
++++ b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableListKeysTest.kt
+@@ -51,4 +51,16 @@ class SableListKeysTest {
+         assertEquals(0, SableListKeys.target(SableListMove.Previous, 0, 0, 5, 40))
+         assertNull(SableListKeys.target(SableListMove.Top, -1, 0, 0, 0))
+     }
++
++    @Test
++    fun scrollingScreensGoWhereTheKeysSay() {
++        val d = { move: SableListMove, v: Int -> SableScrollKeys.destination(move, v, max = 1000, viewport = 400) }
++        assertEquals(0, d(SableListMove.Top, 500))
++        assertEquals(1000, d(SableListMove.Bottom, 500))
++        assertEquals(860, d(SableListMove.PageDown, 500))
++        assertEquals(140, d(SableListMove.PageUp, 500))
++        assertEquals(1000, d(SableListMove.PageDown, 900))
++        assertNull("already at the top", d(SableListMove.Top, 0))
++        assertNull("N and P are not scroll moves", d(SableListMove.Next, 10))
++    }
+ }
+diff --git a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt
+index 80d268e..4d077c8 100644
+--- a/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt
++++ b/sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui/TasksApp.kt
+@@ -16,9 +16,7 @@ import androidx.compose.foundation.layout.height
+ import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.width
+-import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.shape.RoundedCornerShape
+-import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.Checkbox
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+@@ -41,6 +39,7 @@ import org.sableos.design.SableSize
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.SableUndoBar
+ import org.sableos.design.sableFocusRing
++import org.sableos.design.sableVerticalScroll
+ import org.sableos.tasks.core.ReminderPreset
+ import org.sableos.tasks.core.RowKey
+ import org.sableos.tasks.core.ScreenKey
+@@ -72,7 +71,7 @@ fun TasksApp(
+             modifier =
+                 Modifier
+                     .fillMaxSize()
+-                    .verticalScroll(rememberScrollState())
++                    .sableVerticalScroll()
+                     .padding(horizontal = SableSpacing.ScreenHorizontal, vertical = SableSpacing.ScreenVertical),
+         ) {
+             val editing = state.editing
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
+index dbf6746..8b26c9a 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/MainActivity.kt
+@@ -20,9 +20,7 @@ import androidx.compose.foundation.layout.height
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
+-import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.selection.toggleable
+-import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.HorizontalDivider
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Switch
+@@ -47,6 +45,7 @@ import kotlinx.coroutines.withContext
+ import org.sableos.design.SableGlobalTheme
+ import org.sableos.design.SableRefreshableSurface
+ import org.sableos.design.SableSpacing
++import org.sableos.design.sableVerticalScroll
+ import org.sableos.weather.WeatherText.t
+ 
+ class MainActivity : ComponentActivity() {
+@@ -185,7 +184,7 @@ private fun WeatherApp() {
+                 Modifier
+                     .fillMaxSize()
+                     .background(MaterialTheme.colorScheme.background)
+-                    .verticalScroll(rememberScrollState())
++                    .sableVerticalScroll()
+                     .padding(
+                         horizontal = SableSpacing.ScreenHorizontal,
+                         vertical = SableSpacing.Xl,
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableComponents.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableComponents.kt
+index 32d2503..4c0f850 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableComponents.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableComponents.kt
+@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.safeDrawingPadding
+ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.layout.wrapContentWidth
+-import androidx.compose.foundation.rememberScrollState
+-import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.Button
+ import androidx.compose.material3.ExperimentalMaterial3Api
+ import androidx.compose.material3.HorizontalDivider
+@@ -91,7 +89,7 @@ fun SableScrollableScreen(
+                     .fillMaxSize()
+                     .safeDrawingPadding()
+                     .imePadding()
+-                    .verticalScroll(rememberScrollState())
++                    .sableVerticalScroll()
+                     .sableScreenPadding(),
+             verticalArrangement = Arrangement.spacedBy(sableScreenGap()),
+             content = content,
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableListKeys.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableListKeys.kt
+index 3f3ac9f..dd87882 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableListKeys.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableListKeys.kt
+@@ -1,15 +1,26 @@
+ package org.sableos.design
+ 
+ import android.view.KeyEvent
++import androidx.compose.foundation.ScrollState
+ import androidx.compose.foundation.lazy.LazyListState
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableIntStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.setValue
+ import androidx.compose.runtime.withFrameNanos
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.focus.FocusRequester
+ import androidx.compose.ui.focus.focusRequester
+ import androidx.compose.ui.focus.onFocusChanged
+ import androidx.compose.ui.input.key.KeyEventType
++import androidx.compose.ui.input.key.onKeyEvent
+ import androidx.compose.ui.input.key.onPreviewKeyEvent
+ import androidx.compose.ui.input.key.type
++import androidx.compose.ui.layout.onSizeChanged
+ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.launch
+ import org.sableos.design.DesignText.t
+@@ -145,3 +156,64 @@ fun Modifier.sableListKeys(
+             }
+         }
+     }
++
++/** Where T, B, Space and Shift+Space take a plain scrolling screen. Pure, so it is JVM-tested. */
++object SableScrollKeys {
++    /** The scroll offset [move] goes to, or null when it is not a scroll move or nothing would change. */
++    fun destination(
++        move: SableListMove,
++        value: Int,
++        max: Int,
++        viewport: Int,
++    ): Int? {
++        val page = viewport * PAGE_NUMERATOR / PAGE_DENOMINATOR
++        val to =
++            when (move) {
++                SableListMove.Top -> 0
++                SableListMove.Bottom -> max
++                SableListMove.PageDown -> value + page
++                SableListMove.PageUp -> value - page
++                SableListMove.Next, SableListMove.Previous -> return null
++            }
++        return to.coerceIn(0, max.coerceAtLeast(0)).takeIf { it != value }
++    }
++
++    // A page keeps a tenth of the screen in view, so the eye keeps its place.
++    private const val PAGE_NUMERATOR = 9
++    private const val PAGE_DENOMINATOR = 10
++}
++
++/**
++ * A vertically scrolling screen with the BlackBerry keys: T top, B bottom, Space page down and Shift+Space page up.
++ * It acts only on a key nothing inside took (a text field keeps its letters, a button its Space), so screens that
++ * have their own list keys keep them. Use in place of `verticalScroll(rememberScrollState())`.
++ */
++@Composable
++fun Modifier.sableVerticalScroll(): Modifier {
++    val state = rememberScrollState()
++    return sableScrollKeys(state).verticalScroll(state)
++}
++
++@Composable
++private fun Modifier.sableScrollKeys(state: ScrollState): Modifier {
++    val scope = rememberCoroutineScope()
++    var viewport by remember { mutableIntStateOf(0) }
++    return onSizeChanged { viewport = it.height }.onKeyEvent { event ->
++        val native = event.nativeKeyEvent
++        val chord = native.isAltPressed || native.isCtrlPressed || native.isMetaPressed
++        val move =
++            SableListKeys.command(
++                native.keyCode,
++                native.isShiftPressed,
++                chord,
++                owned = setOf(SableListMove.Next, SableListMove.Previous),
++            )
++        val to = move?.let { SableScrollKeys.destination(it, state.value, state.maxValue, viewport) }
++        if (to == null) {
++            false
++        } else {
++            if (event.type == KeyEventType.KeyDown) scope.launch { state.animateScrollTo(to) }
++            true
++        }
++    }
++}

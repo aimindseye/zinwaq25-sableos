@@ -1,0 +1,390 @@
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+index bdab50a..8546d36 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+@@ -441,7 +441,8 @@ private fun CalendarApp(
+         state.busy = withContext(Dispatchers.IO) { repository.busyMonth(shownMonth) }
+     }
+ 
+-    val colorStore = remember { CalendarColors(LocalContext.current) }
++    val colorContext = LocalContext.current
++    val colorStore = remember { CalendarColors(colorContext) }
+     LaunchedEffect(refreshGeneration) {
+         state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
+         state.colorChoices = withContext(Dispatchers.IO) { colorStore.load() }
+diff --git a/sable-src/apps/r8/android/config/detekt.yml b/sable-src/apps/r8/android/config/detekt.yml
+index 511be8d..519bda3 100644
+--- a/sable-src/apps/r8/android/config/detekt.yml
++++ b/sable-src/apps/r8/android/config/detekt.yml
+@@ -33,6 +33,7 @@ complexity:
+       - "**/media/PodcastScreen.kt"
+       - "**/hub/ui/HubScreen.kt"
+       - "**/hub/ui/ConnectedAppsScreen.kt"
++      - "**/hub/policy/HubItemsTest.kt"
+   TooManyFunctions:
+     ignorePrivate: true
+     ignoreAnnotatedFunctions:
+@@ -48,6 +49,7 @@ naming:
+       - "**/media/MediaC2Screens.kt"
+       - "**/media/PodcastScreen.kt"
+       - "**/hub/ui/HubScreen.kt"
++      - "**/hub/ui/HubUpcoming.kt"
+       - "**/hub/ui/ConnectedAppsScreen.kt"
+       - "**/hub/ui/AttentionSettingsScreen.kt"
+       - "**/hub/ui/HubTheme.kt"
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+index 0f93d4e..1005466 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubRepository.kt
+@@ -137,38 +137,10 @@ class HubRepository(
+             mail = loadMailSnapshot(),
+             calls = calls,
+             privacy = privacyState(),
+-            upcoming = loadUpcoming(),
++            upcoming = HubUpcomingReader(context).load(),
+         )
+     }
+ 
+-    /**
+-     * The next events from Sable Calendar's snapshot provider. Calendar answers only known callers;
+-     * a refusal or a missing Calendar is an empty list, never an error in Hub.
+-     */
+-    private fun loadUpcoming(): List<HubUpcomingEvent> =
+-        try {
+-            context.contentResolver
+-                .query(UPCOMING_URI, null, null, null, null)
+-                ?.use { cursor ->
+-                    buildList {
+-                        while (cursor.moveToNext()) {
+-                            add(
+-                                HubUpcomingEvent(
+-                                    title = cursor.getString(UPCOMING_TITLE).orEmpty(),
+-                                    beginMillis = cursor.getLong(UPCOMING_BEGIN),
+-                                    allDay = cursor.getInt(UPCOMING_ALL_DAY) != 0,
+-                                    calendar = cursor.getString(UPCOMING_CALENDAR).orEmpty(),
+-                                ),
+-                            )
+-                        }
+-                    }
+-                }.orEmpty()
+-        } catch (_: SecurityException) {
+-            emptyList()
+-        } catch (_: IllegalArgumentException) {
+-            emptyList()
+-        }
+-
+     /** The call log under the same privacy level as Hub's own SMS; empty without READ_CALL_LOG. */
+     private fun visibleCalls(
+         capabilities: HubCapabilities,
+@@ -728,11 +700,6 @@ class HubRepository(
+     )
+ 
+     private companion object {
+-        val UPCOMING_URI: Uri = Uri.parse("content://org.sableos.calendar.snapshot/next")
+-        const val UPCOMING_TITLE = 0
+-        const val UPCOMING_BEGIN = 1
+-        const val UPCOMING_ALL_DAY = 2
+-        const val UPCOMING_CALENDAR = 3
+         const val MAX_SMS_MESSAGES = 1200
+         const val MAX_CALLS = 150
+         const val MAX_CONTACT_PEOPLE = 300
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubUpcomingReader.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubUpcomingReader.kt
+new file mode 100644
+index 0000000..c3587f6
+--- /dev/null
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubUpcomingReader.kt
+@@ -0,0 +1,44 @@
++package org.sableos.hub
++
++import android.content.Context
++import android.net.Uri
++
++/**
++ * The next events from Sable Calendar's snapshot provider. Calendar answers only known callers;
++ * a refusal or a missing Calendar is an empty list, never an error in Hub.
++ */
++class HubUpcomingReader(
++    private val context: Context,
++) {
++    fun load(): List<HubUpcomingEvent> =
++        try {
++            context.contentResolver
++                .query(UPCOMING_URI, null, null, null, null)
++                ?.use { cursor ->
++                    buildList {
++                        while (cursor.moveToNext()) {
++                            add(
++                                HubUpcomingEvent(
++                                    title = cursor.getString(TITLE).orEmpty(),
++                                    beginMillis = cursor.getLong(BEGIN),
++                                    allDay = cursor.getInt(ALL_DAY) != 0,
++                                    calendar = cursor.getString(CALENDAR).orEmpty(),
++                                ),
++                            )
++                        }
++                    }
++                }.orEmpty()
++        } catch (_: SecurityException) {
++            emptyList()
++        } catch (_: IllegalArgumentException) {
++            emptyList()
++        }
++
++    private companion object {
++        val UPCOMING_URI: Uri = Uri.parse("content://org.sableos.calendar.snapshot/next")
++        const val TITLE = 0
++        const val BEGIN = 1
++        const val ALL_DAY = 2
++        const val CALENDAR = 3
++    }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml b/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
+index 2fd83ae..8904995 100644
+--- a/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/hub/src/main/res/values/strings.xml
+@@ -88,7 +88,7 @@
+     <string name="private_mode_hub_shows_counts">Private mode: Hub shows counts only, Phone hides names in Recents, Contacts hides numbers</string>
+     <string name="combine_conversations">Combine conversations</string>
+     <string name="group_adjacent_messages_from_the">Group adjacent messages from the same conversation into a streamlined thread, hiding duplicate titles and app icons.</string>
+-    <string name="sable_attention">Sable Attention</string>
++    <string name="sable_attention">Alerts and Do not disturb</string>
+     <string name="search_installed_apps">Search installed apps</string>
+     <string name="use_one_app_per_email">Use one app per email account. Sable Mail covers Gmail, Outlook, Yahoo, iCloud and IMAP. Turn on another mail app only for accounts Sable Mail can\'t open (Proton, Tuta, managed work accounts).</string>
+     <string name="more_than_one_mail_app">More than one mail app is on; an account signed in to both will appear twice.</string>
+@@ -111,8 +111,8 @@
+     <string name="keyboard_backlight">Keyboard backlight</string>
+     <string name="glance_display">Glance display</string>
+     <string name="always_on_display">Always-on display</string>
+-    <string name="sable_attention_2">sable attention</string>
+-    <string name="android_decides_whether_a_notification">Android decides whether a notification alerts. Sable Attention only maps that decision to outputs this device supports, and never bypasses Do Not Disturb.</string>
++    <string name="sable_attention_2">Alerts</string>
++    <string name="android_decides_whether_a_notification">Android decides whether a notification alerts. Hub only maps that decision to outputs this device supports, and never bypasses Do Not Disturb.</string>
+     <string name="android_notification_settings">Android notification settings</string>
+     <string name="notifications_sound_vibration_pop_up">Notifications: sound, vibration, pop-up, lock screen</string>
+     <string name="conversations">Conversations</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index cdfefc3..f751efd 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s من %2$s</string>
+     <string name="dm_free">%1$s متاحة</string>
+     <string name="open_command">الأوامر (Alt+Space)</string>
++    <string name="home_shortcut_add">إضافة إلى الشاشة الرئيسية</string>
++    <string name="home_shortcut_remove">إزالة من الشاشة الرئيسية</string>
++    <string name="sable_undo">تراجع</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index 17b72a3..26dc1b9 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s von %2$s</string>
+     <string name="dm_free">%1$s frei</string>
+     <string name="open_command">Befehl (Alt+Leertaste)</string>
++    <string name="home_shortcut_add">Zum Startbildschirm hinzufügen</string>
++    <string name="home_shortcut_remove">Vom Startbildschirm entfernen</string>
++    <string name="sable_undo">Rückgängig</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index f1b831f..d175d07 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s από %2$s</string>
+     <string name="dm_free">%1$s ελεύθερα</string>
+     <string name="open_command">Εντολή (Alt+Space)</string>
++    <string name="home_shortcut_add">Προσθήκη στην αρχική οθόνη</string>
++    <string name="home_shortcut_remove">Αφαίρεση από την αρχική οθόνη</string>
++    <string name="sable_undo">Αναίρεση</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index de137f3..a9ad0b5 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s de %2$s</string>
+     <string name="dm_free">%1$s libres</string>
+     <string name="open_command">Comando (Alt+Espacio)</string>
++    <string name="home_shortcut_add">Añadir a la pantalla de inicio</string>
++    <string name="home_shortcut_remove">Quitar de la pantalla de inicio</string>
++    <string name="sable_undo">Deshacer</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index c9be53c..152126c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s sur %2$s</string>
+     <string name="dm_free">%1$s libres</string>
+     <string name="open_command">Commande (Alt+Espace)</string>
++    <string name="home_shortcut_add">Ajouter à l\'écran d\'accueil</string>
++    <string name="home_shortcut_remove">Retirer de l\'écran d\'accueil</string>
++    <string name="sable_undo">Annuler</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index 3cf9c70..91a7afe 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%2$s में से %1$s</string>
+     <string name="dm_free">%1$s खाली</string>
+     <string name="open_command">कमांड (Alt+Space)</string>
++    <string name="home_shortcut_add">होम स्क्रीन पर जोड़ें</string>
++    <string name="home_shortcut_remove">होम स्क्रीन से हटाएँ</string>
++    <string name="sable_undo">पूर्ववत करें</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index 9fac8ba..c4f87af 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s di %2$s</string>
+     <string name="dm_free">%1$s liberi</string>
+     <string name="open_command">Comando (Alt+Spazio)</string>
++    <string name="home_shortcut_add">Aggiungi alla schermata Home</string>
++    <string name="home_shortcut_remove">Rimuovi dalla schermata Home</string>
++    <string name="sable_undo">Annulla</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index 0354b8e..7c8d50a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s מתוך %2$s</string>
+     <string name="dm_free">%1$s פנויים</string>
+     <string name="open_command">פקודה (Alt+Space)</string>
++    <string name="home_shortcut_add">הוספה למסך הבית</string>
++    <string name="home_shortcut_remove">הסרה ממסך הבית</string>
++    <string name="sable_undo">ביטול</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index aead2b3..3b5014d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%2$s中 %1$s</string>
+     <string name="dm_free">空き %1$s</string>
+     <string name="open_command">コマンド (Alt+Space)</string>
++    <string name="home_shortcut_add">ホーム画面に追加</string>
++    <string name="home_shortcut_remove">ホーム画面から削除</string>
++    <string name="sable_undo">元に戻す</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 8e85476..e645515 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%2$s 중 %1$s</string>
+     <string name="dm_free">%1$s 남음</string>
+     <string name="open_command">명령 (Alt+Space)</string>
++    <string name="home_shortcut_add">홈 화면에 추가</string>
++    <string name="home_shortcut_remove">홈 화면에서 제거</string>
++    <string name="sable_undo">실행 취소</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index f50567b..a0e291b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s van %2$s</string>
+     <string name="dm_free">%1$s vrij</string>
+     <string name="open_command">Opdracht (Alt+Spatie)</string>
++    <string name="home_shortcut_add">Toevoegen aan startscherm</string>
++    <string name="home_shortcut_remove">Verwijderen van startscherm</string>
++    <string name="sable_undo">Ongedaan maken</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index 8540fc7..cfda5f9 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s z %2$s</string>
+     <string name="dm_free">%1$s wolne</string>
+     <string name="open_command">Polecenie (Alt+Spacja)</string>
++    <string name="home_shortcut_add">Dodaj do ekranu głównego</string>
++    <string name="home_shortcut_remove">Usuń z ekranu głównego</string>
++    <string name="sable_undo">Cofnij</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index a779478..d1dc92d 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s de %2$s</string>
+     <string name="dm_free">%1$s livres</string>
+     <string name="open_command">Comando (Alt+Espaço)</string>
++    <string name="home_shortcut_add">Adicionar ao ecrã inicial</string>
++    <string name="home_shortcut_remove">Remover do ecrã inicial</string>
++    <string name="sable_undo">Desfazer</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 945e606..c496b4c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s из %2$s</string>
+     <string name="dm_free">свободно %1$s</string>
+     <string name="open_command">Команда (Alt+Пробел)</string>
++    <string name="home_shortcut_add">Добавить на главный экран</string>
++    <string name="home_shortcut_remove">Убрать с главного экрана</string>
++    <string name="sable_undo">Отменить</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 1367184..bc5cf4b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s av %2$s</string>
+     <string name="dm_free">%1$s ledigt</string>
+     <string name="open_command">Kommando (Alt+Mellanslag)</string>
++    <string name="home_shortcut_add">Lägg till på startskärmen</string>
++    <string name="home_shortcut_remove">Ta bort från startskärmen</string>
++    <string name="sable_undo">Ångra</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 0c1b996..275bf56 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s / %2$s</string>
+     <string name="dm_free">%1$s boş</string>
+     <string name="open_command">Komut (Alt+Boşluk)</string>
++    <string name="home_shortcut_add">Ana ekrana ekle</string>
++    <string name="home_shortcut_remove">Ana ekrandan kaldır</string>
++    <string name="sable_undo">Geri al</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index 6fad374..f063278 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%2$s میں سے %1$s</string>
+     <string name="dm_free">%1$s خالی</string>
+     <string name="open_command">کمانڈ (Alt+Space)</string>
++    <string name="home_shortcut_add">ہوم اسکرین پر شامل کریں</string>
++    <string name="home_shortcut_remove">ہوم اسکرین سے ہٹائیں</string>
++    <string name="sable_undo">واپس کریں</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index d429ee7..334ff63 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -319,4 +319,7 @@
+     <string name="dm_used_of">%1$s / %2$s</string>
+     <string name="dm_free">可用 %1$s</string>
+     <string name="open_command">命令 (Alt+空格)</string>
++    <string name="home_shortcut_add">添加到主屏幕</string>
++    <string name="home_shortcut_remove">从主屏幕移除</string>
++    <string name="sable_undo">撤销</string>
+ </resources>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 78a98db..a2e086b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -325,4 +325,5 @@
+     <string name="dm_used_of">%1$s of %2$s</string>
+     <string name="dm_free">%1$s free</string>
+     <string name="open_command">Command (Alt+Space)</string>
++    <string name="sable_undo">Undo</string>
+ </resources>

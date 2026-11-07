@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 6 Nov 2026 22:30:00 +0000
+Subject: [PATCH] SableOS: lock screen shows nothing extra when there are no
+ notifications
+
+With no notification to show, the lock screen is the clock and date only, as
+on BB10: no "Locked" label, no "Private mode: Counts only until unlock" card
+and no "Unlock to read message details" line. They appear with the peek once
+something is there to unlock for (owner report 2026-11-06).
+---
+ .../java/com/android/keyguard/sable/SableLockGlance.java | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+index 9331d10..1ba6f96 100644
+--- a/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
++++ b/packages/SystemUI/src/com/android/keyguard/sable/SableLockGlance.java
+@@ -252,11 +252,13 @@ public final class SableLockGlance {
+         public final boolean requiresUnlockLine;
+ 
+         public Glance(boolean dozing, boolean locked, boolean privateMode, Counts counts) {
+-            lockedLabel = !dozing && locked;
+-            countRow = !dozing && !counts.isEmpty();
+-            // The peek's own footer says what unlocking shows; the card covers an empty peek.
+-            privateCard = !dozing && privateMode && counts.isEmpty();
+-            requiresUnlockLine = !dozing && privateMode && counts.total > 0;
++            // With nothing to show the lock screen is just the clock and date, as on BB10: no
++            // "Locked", no private mode card and no "unlock to read" line.
++            boolean something = !dozing && !counts.isEmpty();
++            lockedLabel = something && locked;
++            countRow = something;
++            privateCard = false;
++            requiresUnlockLine = something && privateMode;
+         }
+ 
+         /** Whether any part shows. */
+-- 
+2.43.0

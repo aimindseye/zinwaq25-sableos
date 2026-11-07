@@ -43,7 +43,7 @@
     <string name="work">Εργασία</string>
     <string name="weather_and_date">Καιρός και ημερομηνία</string>
     <string name="search_or_command_row">Γραμμή αναζήτησης ή εντολών</string>
-    <string name="status_dials">Δείκτες κατάστασης</string>
+    <string name="status_dials">Γραμμή κατάστασης</string>
     <string name="temperature_condition_and_place_with">Θερμοκρασία, συνθήκες και τοποθεσία, με την ημερομηνία από κάτω</string>
     <string name="a_command_row_under_the">Μια γραμμή εντολών κάτω από τον καιρό· η πληκτρολόγηση λειτουργεί και χωρίς αυτήν</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi, κινητό, CPU, RAM, υπολειπόμενος χρόνος μπαταρίας, κυψέλη και Ρυθμίσεις</string>
@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s από %2$s</string>
     <string name="dm_free">%1$s ελεύθερα</string>
     <string name="open_command">Εντολή (Alt+Space)</string>
+    <string name="home_shortcut_add">Προσθήκη στην αρχική οθόνη</string>
+    <string name="home_shortcut_remove">Αφαίρεση από την αρχική οθόνη</string>
+    <string name="sable_undo">Αναίρεση</string>
 </resources>

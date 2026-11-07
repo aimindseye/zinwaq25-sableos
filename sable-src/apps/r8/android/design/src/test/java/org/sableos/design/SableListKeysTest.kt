@@ -51,4 +51,16 @@ class SableListKeysTest {
         assertEquals(0, SableListKeys.target(SableListMove.Previous, 0, 0, 5, 40))
         assertNull(SableListKeys.target(SableListMove.Top, -1, 0, 0, 0))
     }
+
+    @Test
+    fun scrollingScreensGoWhereTheKeysSay() {
+        val d = { move: SableListMove, v: Int -> SableScrollKeys.destination(move, v, max = 1000, viewport = 400) }
+        assertEquals(0, d(SableListMove.Top, 500))
+        assertEquals(1000, d(SableListMove.Bottom, 500))
+        assertEquals(860, d(SableListMove.PageDown, 500))
+        assertEquals(140, d(SableListMove.PageUp, 500))
+        assertEquals(1000, d(SableListMove.PageDown, 900))
+        assertNull("already at the top", d(SableListMove.Top, 0))
+        assertNull("N and P are not scroll moves", d(SableListMove.Next, 10))
+    }
 }

@@ -129,6 +129,16 @@ data class HubSnapshot(
     val calls: List<HubCall> = emptyList(),
     /** Locked device / Hub private mode when the snapshot was taken (counts-only view). */
     val privacy: HubPrivacyState = HubPrivacyState(),
+    /** The next calendar events (BB10's Hub showed them); empty without Sable Calendar or access. */
+    val upcoming: List<HubUpcomingEvent> = emptyList(),
+)
+
+/** One upcoming calendar event as Sable Calendar's `next` snapshot gives it. */
+data class HubUpcomingEvent(
+    val title: String,
+    val beginMillis: Long,
+    val allDay: Boolean,
+    val calendar: String,
 )
 
 /** A search handed to Hub at launch; [sequence] makes a repeated identical search re-apply. */

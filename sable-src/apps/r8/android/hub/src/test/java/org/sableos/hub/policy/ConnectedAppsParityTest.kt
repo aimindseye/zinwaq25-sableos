@@ -33,7 +33,12 @@ class ConnectedAppsParityTest {
 
     @Test
     fun statusReflectsAndroidAccessAndProfileState() {
-        assertEquals(ConnectedAppStatus.Off, ConnectedAppsParity.status(null, true, false))
+        // As on BlackBerry 10, an app with no saved choice is in Hub; only a switched-off one is Off.
+        assertEquals(ConnectedAppStatus.Connected, ConnectedAppsParity.status(null, true, false))
+        assertEquals(
+            ConnectedAppStatus.Off,
+            ConnectedAppsParity.status(ConnectedAppPolicy(chat, includeInMessages = false), true, false),
+        )
         assertEquals(ConnectedAppStatus.Connected, ConnectedAppsParity.status(hiddenChat, true, false))
         assertEquals(
             ConnectedAppStatus.PausedNoNotificationAccess,

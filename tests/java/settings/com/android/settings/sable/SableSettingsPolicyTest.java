@@ -126,7 +126,7 @@ public final class SableSettingsPolicyTest {
         eq("color source", "preset", fields.get("android.theme.customization.color_source"));
         eq("system palette", "2E9BD6", fields.get("android.theme.customization.system_palette"));
         eq("accent color", "2E9BD6", fields.get("android.theme.customization.accent_color"));
-        eq("theme style", "TONAL_SPOT", fields.get("android.theme.customization.theme_style"));
+        eq("theme style", "SPRITZ", fields.get("android.theme.customization.theme_style"));
         eq("field count", 4, fields.size());
 
         // About phone summary.

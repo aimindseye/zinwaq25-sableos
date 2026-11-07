@@ -4,7 +4,7 @@ import android.view.KeyEvent
 import org.sableos.tasks.core.TasksText.t
 
 /** Keys for the whole list; they reach it only when no text field has focus. */
-enum class ScreenKey { New, ShowDone }
+enum class ScreenKey { New, ShowDone, Undo }
 
 /** Keys for the focused task row. Enter (or a tap) opens it. */
 enum class RowKey { Done, Tomorrow, Delete }
@@ -27,6 +27,7 @@ object TasksKeys {
             when (keyCode) {
                 KeyEvent.KEYCODE_C -> ScreenKey.New
                 KeyEvent.KEYCODE_H -> ScreenKey.ShowDone
+                KeyEvent.KEYCODE_U -> ScreenKey.Undo
                 else -> null
             }
         }

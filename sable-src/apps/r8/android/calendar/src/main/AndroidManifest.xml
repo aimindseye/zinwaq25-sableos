@@ -8,6 +8,8 @@
         <package android:name="org.sableos.launcher" />
         <!-- SystemUI reads the next event for the lock screen (frameworks/base 0317). -->
         <package android:name="com.android.systemui" />
+        <!-- Hub reads the next events for its Coming up strip. -->
+        <package android:name="org.sableos.hub" />
     </queries>
     <application
         android:name="org.sableos.calendar.CalendarApplication"

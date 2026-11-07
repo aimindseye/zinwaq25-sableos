@@ -41,6 +41,12 @@ internal class MediaAppState(
 
     var message by mutableStateOf<String?>(null)
 
+    /** The playlist just deleted, kept for the Undo bar until it expires. */
+    var deletedPlaylist by mutableStateOf<MediaPlaylist?>(null)
+
+    /** The station just deleted: where it sat and whether it was a favourite, for Undo. */
+    var deletedStation by mutableStateOf<DeletedStation?>(null)
+
     /** Library search: null while closed, the typed query while open. */
     var searchQuery by mutableStateOf<String?>(null)
     var searchFocusToken by mutableIntStateOf(0)
@@ -155,3 +161,10 @@ private fun MediaStartPage.toDestination(): MediaDestination =
         MediaStartPage.Collection -> MediaDestination.Collection
         MediaStartPage.Radio -> MediaDestination.Radio
     }
+
+/** A deleted radio station and what is needed to put it back exactly as it was. */
+internal data class DeletedStation(
+    val station: RadioStation,
+    val index: Int,
+    val favorite: Boolean,
+)

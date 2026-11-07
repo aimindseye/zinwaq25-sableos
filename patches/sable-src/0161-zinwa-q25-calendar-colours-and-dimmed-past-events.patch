@@ -1,0 +1,607 @@
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarColors.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarColors.kt
+new file mode 100644
+index 0000000..308c96a
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarColors.kt
+@@ -0,0 +1,52 @@
++package org.sableos.calendar
++
++import android.content.Context
++import androidx.compose.runtime.staticCompositionLocalOf
++
++/** The colours a calendar can be given on the Calendars page; the dot there steps through them. */
++object CalendarPalette {
++    val COLORS: List<Int> =
++        listOf(
++            0xFF2E86DE.toInt(),
++            0xFF27AE60.toInt(),
++            0xFFF39C12.toInt(),
++            0xFFE74C3C.toInt(),
++            0xFF9B59B6.toInt(),
++            0xFF1ABC9C.toInt(),
++            0xFFE84393.toInt(),
++            0xFF95A5A6.toInt(),
++        )
++
++    /** The palette colour after [current]; a colour not in the palette (a provider's own) starts at the first. */
++    fun next(current: Int): Int {
++        val index = COLORS.indexOf(current or OPAQUE)
++        return COLORS[(index + 1) % COLORS.size]
++    }
++
++    private const val OPAQUE = -0x1000000
++}
++
++/**
++ * The colour the user chose for each calendar, kept in Sable Calendar (Android only lets a sync
++ * adapter change a calendar's own colour). Keyed by the calendar's id.
++ */
++class CalendarColors(
++    context: Context,
++) {
++    private val prefs = context.applicationContext.getSharedPreferences("calendar_colors", Context.MODE_PRIVATE)
++
++    fun load(): Map<Long, Int> =
++        prefs.all
++            .mapNotNull { (key, value) -> key.toLongOrNull()?.let { id -> (value as? Int)?.let { id to it } } }
++            .toMap()
++
++    fun set(
++        calendarId: Long,
++        color: Int,
++    ) {
++        prefs.edit().putInt(calendarId.toString(), color).apply()
++    }
++}
++
++/** Calendar name to the colour its events show; empty until the calendars have loaded. */
++val LocalEventColors = staticCompositionLocalOf<Map<String, Int>> { emptyMap() }
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+index ce545bc..431eac1 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+@@ -86,6 +86,7 @@ object CalendarText {
+             "today" to "Today",
+             "views" to "Views",
+             "nothing_found" to "Nothing found.",
++            "colour" to "Colour",
+             "l_calendars" to " · L calendars",
+             "day_events" to "%1\$s, %2\$s events",
+         )
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt
+index ff3cc3e..e982fe8 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt
+@@ -1,6 +1,7 @@
+ package org.sableos.calendar
+ 
+ import androidx.compose.foundation.background
++import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+@@ -39,6 +40,8 @@ internal fun CalendarsList(
+     calendars: List<CalendarSource>,
+     onToggle: (CalendarSource, Boolean) -> Unit,
+     actions: CalendarsActions,
++    colors: Map<Long, Int>,
++    onColor: (CalendarSource) -> Unit,
+ ) {
+     Text(text = t("calendars"), style = MaterialTheme.typography.headlineMedium)
+     Text(
+@@ -61,7 +64,7 @@ internal fun CalendarsList(
+         return
+     }
+     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+-        calendars.forEach { source -> CalendarSourceRow(source, onToggle) }
++        calendars.forEach { source -> CalendarSourceRow(source, colors[source.id] ?: source.color, onToggle, onColor) }
+     }
+ }
+ 
+@@ -75,7 +78,9 @@ internal class CalendarsActions(
+ @Composable
+ private fun CalendarSourceRow(
+     source: CalendarSource,
++    color: Int,
+     onToggle: (CalendarSource, Boolean) -> Unit,
++    onColor: (CalendarSource) -> Unit,
+ ) {
+     Row(
+         modifier =
+@@ -87,11 +92,16 @@ private fun CalendarSourceRow(
+                 .padding(vertical = 6.dp),
+         verticalAlignment = Alignment.CenterVertically,
+     ) {
++        // The colour its events show; a tap goes to the next colour in the palette.
+         Box(
+             Modifier
+-                .size(12.dp)
+-                .background(Color(source.color or OPAQUE), CircleShape),
+-        )
++                .size(SableSize.TouchTarget)
++                .sableFocusRing()
++                .clickable(role = Role.Button, onClickLabel = t("colour")) { onColor(source) },
++            contentAlignment = Alignment.Center,
++        ) {
++            Box(Modifier.size(20.dp).background(Color(color or OPAQUE), CircleShape))
++        }
+         Spacer(Modifier.width(12.dp))
+         Column(Modifier.weight(1f)) {
+             Text(
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+index 00fcc4b..2ea5b25 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+@@ -45,6 +45,7 @@ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+ import androidx.compose.material3.TextButton
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.CompositionLocalProvider
+ import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.SideEffect
+ import androidx.compose.runtime.getValue
+@@ -57,6 +58,7 @@ import androidx.compose.runtime.setValue
+ import androidx.compose.runtime.withFrameNanos
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.alpha
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.draw.shadow
+ import androidx.compose.ui.focus.FocusRequester
+@@ -191,6 +193,7 @@ private class CalendarAppState {
+     // Busy rings for the month holding selectedDate, and the calendars list (L).
+     var busy by mutableStateOf<Map<LocalDate, BusyDay>>(emptyMap())
+     var calendars by mutableStateOf<List<CalendarSource>>(emptyList())
++    var colorChoices by mutableStateOf<Map<Long, Int>>(emptyMap())
+     var refreshing by mutableStateOf(false)
+ 
+     // Unsaved new event kept while the user backs out to the agenda, restored on re-entry this session.
+@@ -439,6 +442,16 @@ private fun CalendarApp(
+         state.busy = withContext(Dispatchers.IO) { repository.busyMonth(shownMonth) }
+     }
+ 
++    val colorStore = remember { CalendarColors(LocalContext.current) }
++    LaunchedEffect(refreshGeneration) {
++        state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
++        state.colorChoices = withContext(Dispatchers.IO) { colorStore.load() }
++    }
++    val eventColors =
++        remember(state.calendars, state.colorChoices) {
++            state.calendars.associate { it.name to (state.colorChoices[it.id] ?: it.color) }
++        }
++
+     LaunchedEffect(refreshGeneration, state.mode) {
+         if (state.mode == CalendarMode.Search) {
+             val today = LocalDate.now()
+@@ -447,9 +460,6 @@ private fun CalendarApp(
+                     repository.range(EventSearch.first(today), EventSearch.endExclusive(today))
+                 }
+         }
+-        if (state.mode == CalendarMode.Calendars) {
+-            state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
+-        }
+     }
+ 
+     LaunchedEffect(state.openEvent, refreshGeneration) {
+@@ -472,39 +482,41 @@ private fun CalendarApp(
+         )
+     }
+ 
+-    Surface(
+-        modifier = Modifier.fillMaxSize(),
+-        color = MaterialTheme.colorScheme.background,
+-        contentColor = MaterialTheme.colorScheme.onBackground,
+-    ) {
+-        Column(Modifier.fillMaxSize()) {
+-            Box(Modifier.weight(1f)) {
+-                SableRefreshableSurface(
+-                    isRefreshing = state.refreshing,
+-                    onRefresh = onRefresh,
+-                ) {
+-                    Column(
+-                        modifier =
+-                            Modifier
+-                                .fillMaxSize()
+-                                .verticalScroll(rememberScrollState())
+-                                .padding(
+-                                    horizontal = SableSpacing.ScreenHorizontal,
+-                                    vertical = SableSpacing.ScreenVertical,
+-                                ),
++    CompositionLocalProvider(LocalEventColors provides eventColors) {
++        Surface(
++            modifier = Modifier.fillMaxSize(),
++            color = MaterialTheme.colorScheme.background,
++            contentColor = MaterialTheme.colorScheme.onBackground,
++        ) {
++            Column(Modifier.fillMaxSize()) {
++                Box(Modifier.weight(1f)) {
++                    SableRefreshableSurface(
++                        isRefreshing = state.refreshing,
++                        onRefresh = onRefresh,
+                     ) {
+-                        CalendarHeader()
+-                        if (repository.canRead()) {
+-                            StatusLine(state.status)
+-                            CalendarModeContent(state, repository, onRefresh, onRequestPermissions)
+-                        } else {
+-                            PermissionPanel(onRequestPermissions)
++                        Column(
++                            modifier =
++                                Modifier
++                                    .fillMaxSize()
++                                    .verticalScroll(rememberScrollState())
++                                    .padding(
++                                        horizontal = SableSpacing.ScreenHorizontal,
++                                        vertical = SableSpacing.ScreenVertical,
++                                    ),
++                        ) {
++                            CalendarHeader()
++                            if (repository.canRead()) {
++                                StatusLine(state.status)
++                                CalendarModeContent(state, repository, onRefresh, onRequestPermissions)
++                            } else {
++                                PermissionPanel(onRequestPermissions)
++                            }
+                         }
+                     }
+                 }
+-            }
+-            if (repository.canRead() && state.mode == CalendarMode.Agenda) {
+-                CalendarActionBar(state, onRefresh)
++                if (repository.canRead() && state.mode == CalendarMode.Agenda) {
++                    CalendarActionBar(state, onRefresh)
++                }
+             }
+         }
+     }
+@@ -692,6 +704,7 @@ private fun CalendarsPane(
+     val scope = rememberCoroutineScope()
+     val context = LocalContext.current
+     val importer = remember { CalendarImport(context.applicationContext) }
++    val colorStore = remember { CalendarColors(context) }
+     val reload: suspend () -> Unit = {
+         state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
+         onRefresh()
+@@ -725,6 +738,12 @@ private fun CalendarsPane(
+                 }
+             }
+         },
++        colors = state.colorChoices,
++        onColor = { source ->
++            val next = CalendarPalette.next(state.colorChoices[source.id] ?: source.color)
++            scope.launch(Dispatchers.IO) { colorStore.set(source.id, next) }
++            state.colorChoices = state.colorChoices + (source.id to next)
++        },
+         actions =
+             CalendarsActions(
+                 onAddAccount = {
+@@ -1006,6 +1025,7 @@ private fun AgendaEventRow(
+     onDelete: () -> Unit,
+ ) {
+     val context = LocalContext.current
++    val tint = eventTint(event)
+     val time =
+         if (event.allDay) {
+             t("all_day")
+@@ -1020,6 +1040,7 @@ private fun AgendaEventRow(
+             Modifier
+                 .fillMaxWidth()
+                 .heightIn(min = 64.dp)
++                .alpha(pastAlpha(event))
+                 .border(
+                     if (selected) 2.dp else 0.dp,
+                     if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+@@ -1035,13 +1056,13 @@ private fun AgendaEventRow(
+             text = time,
+             modifier = Modifier.width(76.dp),
+             style = MaterialTheme.typography.titleMedium,
+-            color = MaterialTheme.colorScheme.primary,
++            color = tint,
+         )
+         Box(
+             Modifier
+                 .width(3.dp)
+                 .height(48.dp)
+-                .background(MaterialTheme.colorScheme.primary),
++                .background(tint),
+         )
+         Spacer(Modifier.width(12.dp))
+         Column(modifier = Modifier.weight(1f)) {
+@@ -1635,6 +1656,24 @@ private fun WeekGrid(
+     }
+ }
+ 
++/** The colour of [event]'s calendar (chosen on the Calendars page), or the accent before calendars load. */
++@Composable
++private fun eventTint(event: CalendarEvent): Color =
++    LocalEventColors.current[event.calendarName]?.let { Color(it or OPAQUE_ALPHA) } ?: MaterialTheme.colorScheme.primary
++
++/** Events that have ended are dimmed, as in BlackBerry 10's Calendar. */
++private fun pastAlpha(event: CalendarEvent): Float =
++    if (event.endMillis <
++        System.currentTimeMillis()
++    ) {
++        PAST_ALPHA
++    } else {
++        1f
++    }
++
++private const val PAST_ALPHA = 0.5f
++private const val OPAQUE_ALPHA = -0x1000000
++
+ /** The red NOW line across the week, labelled like the design. */
+ @Composable
+ private fun NowLine(y: androidx.compose.ui.unit.Dp) {
+@@ -1661,16 +1700,18 @@ private fun WeekEventBlock(
+     onClick: () -> Unit,
+ ) {
+     val shape = RoundedCornerShape(6.dp)
++    val tint = eventTint(block.event)
+     val height = maxOf(gridHeight * (block.bottom - block.top), minBlockHeight)
+     Box(
+         Modifier
+             .offset(y = gridHeight * block.top)
++            .alpha(pastAlpha(block.event))
+             .padding(horizontal = 2.dp)
+             .fillMaxWidth()
+             .height(height)
+             .clip(shape)
+-            .background(MaterialTheme.colorScheme.primary.copy(alpha = BLOCK_FILL_ALPHA))
+-            .border(if (selected) 2.dp else 1.dp, MaterialTheme.colorScheme.primary, shape)
++            .background(tint.copy(alpha = BLOCK_FILL_ALPHA))
++            .border(if (selected) 2.dp else 1.dp, tint, shape)
+             .sableFocusRing()
+             .clickable(onClick = onClick)
+             .padding(4.dp),
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
+index 2650c11..16882e6 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">اليوم</string>
+     <string name="views">العروض</string>
+     <string name="nothing_found">لم يتم العثور على شيء.</string>
++    <string name="colour">اللون</string>
+     <string name="l_calendars">" · L التقويمات"</string>
+     <string name="day_events">%1$s، %2$s أحداث</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
+index ad613f1..56d96a9 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">Heute</string>
+     <string name="views">Ansichten</string>
+     <string name="nothing_found">Nichts gefunden.</string>
++    <string name="colour">Farbe</string>
+     <string name="l_calendars">" · L Kalender"</string>
+     <string name="day_events">%1$s, %2$s Termine</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
+index 0582ee6..4bd9991 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">Σήμερα</string>
+     <string name="views">Προβολές</string>
+     <string name="nothing_found">Δεν βρέθηκε τίποτα.</string>
++    <string name="colour">Χρώμα</string>
+     <string name="l_calendars">" · L ημερολόγια"</string>
+     <string name="day_events">%1$s, %2$s συμβάντα</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
+index e7f1f97..4b20c4a 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">Hoy</string>
+     <string name="views">Vistas</string>
+     <string name="nothing_found">No se encontró nada.</string>
++    <string name="colour">Color</string>
+     <string name="l_calendars">" · L calendarios"</string>
+     <string name="day_events">%1$s, %2$s eventos</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
+index b3c20cb..3b68424 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">Aujourd’hui</string>
+     <string name="views">Vues</string>
+     <string name="nothing_found">Rien trouvé.</string>
++    <string name="colour">Couleur</string>
+     <string name="l_calendars">" · L agendas"</string>
+     <string name="day_events">%1$s, %2$s événements</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
+index cecfd24..453c7be 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">आज</string>
+     <string name="views">दृश्य</string>
+     <string name="nothing_found">कुछ नहीं मिला।</string>
++    <string name="colour">रंग</string>
+     <string name="l_calendars">" · L कैलेंडर"</string>
+     <string name="day_events">%1$s, %2$s इवेंट</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
+index 2cd1ba4..e4a19c6 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">Oggi</string>
+     <string name="views">Viste</string>
+     <string name="nothing_found">Nessun risultato.</string>
++    <string name="colour">Colore</string>
+     <string name="l_calendars">" · L calendari"</string>
+     <string name="day_events">%1$s, %2$s eventi</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
+index 4e7a77f..f9e31f7 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">היום</string>
+     <string name="views">תצוגות</string>
+     <string name="nothing_found">לא נמצא דבר.</string>
++    <string name="colour">צבע</string>
+     <string name="l_calendars">" · L יומנים"</string>
+     <string name="day_events">%1$s, %2$s אירועים</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
+index 1ec1c57..1db8c48 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">今日</string>
+     <string name="views">表示</string>
+     <string name="nothing_found">見つかりませんでした。</string>
++    <string name="colour">色</string>
+     <string name="l_calendars">" · L カレンダー"</string>
+     <string name="day_events">%1$s、予定 %2$s 件</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
+index 6346fe9..d24a7a4 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">오늘</string>
+     <string name="views">보기</string>
+     <string name="nothing_found">결과가 없습니다.</string>
++    <string name="colour">색상</string>
+     <string name="l_calendars">" · L 캘린더"</string>
+     <string name="day_events">%1$s, 일정 %2$s개</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
+index 3fa390b..e1128cb 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">Vandaag</string>
+     <string name="views">Weergaven</string>
+     <string name="nothing_found">Niets gevonden.</string>
++    <string name="colour">Kleur</string>
+     <string name="l_calendars">" · L agenda\'s"</string>
+     <string name="day_events">%1$s, %2$s afspraken</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
+index 7d6ea2b..404ce7e 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">Dziś</string>
+     <string name="views">Widoki</string>
+     <string name="nothing_found">Nic nie znaleziono.</string>
++    <string name="colour">Kolor</string>
+     <string name="l_calendars">" · L kalendarze"</string>
+     <string name="day_events">%1$s, wydarzenia: %2$s</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
+index 7195931..a9328e0 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">Hoje</string>
+     <string name="views">Vistas</string>
+     <string name="nothing_found">Nada encontrado.</string>
++    <string name="colour">Cor</string>
+     <string name="l_calendars">" · L agendas"</string>
+     <string name="day_events">%1$s, %2$s eventos</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
+index cb2046b..c32045c 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">Сегодня</string>
+     <string name="views">Виды</string>
+     <string name="nothing_found">Ничего не найдено.</string>
++    <string name="colour">Цвет</string>
+     <string name="l_calendars">" · L календари"</string>
+     <string name="day_events">%1$s, событий: %2$s</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
+index ff610d4..925a1b7 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">Idag</string>
+     <string name="views">Vyer</string>
+     <string name="nothing_found">Inget hittades.</string>
++    <string name="colour">Färg</string>
+     <string name="l_calendars">" · L kalendrar"</string>
+     <string name="day_events">%1$s, %2$s händelser</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
+index 5f206b2..59c57f8 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">Bugün</string>
+     <string name="views">Görünümler</string>
+     <string name="nothing_found">Hiçbir şey bulunamadı.</string>
++    <string name="colour">Renk</string>
+     <string name="l_calendars">" · L takvimler"</string>
+     <string name="day_events">%1$s, %2$s etkinlik</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
+index b4a3e8e..675731e 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">آج</string>
+     <string name="views">منظر</string>
+     <string name="nothing_found">کچھ نہیں ملا۔</string>
++    <string name="colour">رنگ</string>
+     <string name="l_calendars">" · L کیلنڈر"</string>
+     <string name="day_events">%1$s، %2$s ایونٹس</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
+index dc9f653..ce5ba27 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
+@@ -71,6 +71,7 @@
+     <string name="today">今天</string>
+     <string name="views">视图</string>
+     <string name="nothing_found">未找到任何内容。</string>
++    <string name="colour">颜色</string>
+     <string name="l_calendars">" · L 日历"</string>
+     <string name="day_events">%1$s，%2$s 个活动</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+index dfa2ead..c8d5373 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+@@ -73,6 +73,7 @@
+     <string name="today">Today</string>
+     <string name="views">Views</string>
+     <string name="nothing_found">Nothing found.</string>
++    <string name="colour">Colour</string>
+     <string name="l_calendars">" · L calendars"</string>
+     <string name="day_events">%1$s, %2$s events</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarPaletteTest.kt b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarPaletteTest.kt
+new file mode 100644
+index 0000000..c49896f
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarPaletteTest.kt
+@@ -0,0 +1,18 @@
++package org.sableos.calendar
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++class CalendarPaletteTest {
++    @Test
++    fun nextStepsThroughThePaletteAndWraps() {
++        val colors = CalendarPalette.COLORS
++        assertEquals(colors[1], CalendarPalette.next(colors[0]))
++        assertEquals(colors[0], CalendarPalette.next(colors.last()))
++    }
++
++    @Test
++    fun aProviderColourOutsideThePaletteStartsAtTheFirst() {
++        assertEquals(CalendarPalette.COLORS[0], CalendarPalette.next(0x123456))
++    }
++}

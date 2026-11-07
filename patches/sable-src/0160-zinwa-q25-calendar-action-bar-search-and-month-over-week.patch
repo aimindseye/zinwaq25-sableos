@@ -1,0 +1,611 @@
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+index 14d382e..ce545bc 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+@@ -81,6 +81,11 @@ object CalendarText {
+             "imported_events" to "Imported %1\$d events.",
+             "import_failed" to "Nothing was imported.",
+             "phone_calendar_ready" to "Phone calendar ready.",
++            "new_event" to "New event",
++            "search" to "Search",
++            "today" to "Today",
++            "views" to "Views",
++            "nothing_found" to "Nothing found.",
+             "l_calendars" to " · L calendars",
+             "day_events" to "%1\$s, %2\$s events",
+         )
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/EventSearch.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/EventSearch.kt
+new file mode 100644
+index 0000000..2df0893
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/EventSearch.kt
+@@ -0,0 +1,32 @@
++package org.sableos.calendar
++
++import java.time.LocalDate
++
++/** Search over events by title or calendar name, nearest to today first. Pure, so it is tested. */
++object EventSearch {
++    /** How far either side of today a search looks. */
++    const val SPAN_DAYS = 366L
++
++    fun matches(
++        events: List<CalendarEvent>,
++        query: String,
++        nowMillis: Long,
++    ): List<CalendarEvent> {
++        val words =
++            query
++                .trim()
++                .lowercase()
++                .split(Regex("\\s+"))
++                .filter { it.isNotEmpty() }
++        if (words.isEmpty()) return emptyList()
++        return events
++            .filter { event ->
++                val haystack = (event.title + " " + event.calendarName).lowercase()
++                words.all { it in haystack }
++            }.sortedBy { kotlin.math.abs(it.startMillis - nowMillis) }
++    }
++
++    fun first(today: LocalDate): LocalDate = today.minusDays(SPAN_DAYS)
++
++    fun endExclusive(today: LocalDate): LocalDate = today.plusDays(SPAN_DAYS)
++}
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+index dbc22c7..00fcc4b 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+@@ -80,11 +80,14 @@ import kotlinx.coroutines.delay
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import org.sableos.calendar.CalendarText.t
++import org.sableos.design.SableAction
++import org.sableos.design.SableActionBar
+ import org.sableos.design.SableActionButton
+ import org.sableos.design.SableGlobalTheme
+ import org.sableos.design.SableRefreshableSurface
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.sableFocusRing
++import java.time.Instant
+ import java.time.LocalDate
+ import java.time.LocalDateTime
+ import java.time.YearMonth
+@@ -161,6 +164,7 @@ private enum class CalendarMode {
+     Detail,
+     Edit,
+     Calendars,
++    Search,
+ }
+ 
+ /** An agenda event awaiting an explicit delete confirmation. */
+@@ -197,6 +201,10 @@ private class CalendarAppState {
+     var pendingDelete by mutableStateOf<PendingDelete?>(null)
+     var status by mutableStateOf<String?>(null)
+ 
++    // Search: the typed words and the events within a year of today that they are matched against.
++    var searchQuery by mutableStateOf("")
++    var searchPool by mutableStateOf<List<CalendarEvent>>(emptyList())
++
+     /** Hardware Back/Esc goes up one level: edit → detail → agenda; only the agenda leaves Calendar. */
+     fun goBack() {
+         if (mode == CalendarMode.Agenda) {
+@@ -338,6 +346,11 @@ private class CalendarAppState {
+         }
+     }
+ 
++    fun startSearch() {
++        status = null
++        mode = CalendarMode.Search
++    }
++
+     fun startNewEvent() {
+         status = null
+         mode = CalendarMode.NewEvent
+@@ -427,6 +440,13 @@ private fun CalendarApp(
+     }
+ 
+     LaunchedEffect(refreshGeneration, state.mode) {
++        if (state.mode == CalendarMode.Search) {
++            val today = LocalDate.now()
++            state.searchPool =
++                withContext(Dispatchers.IO) {
++                    repository.range(EventSearch.first(today), EventSearch.endExclusive(today))
++                }
++        }
+         if (state.mode == CalendarMode.Calendars) {
+             state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
+         }
+@@ -457,32 +477,103 @@ private fun CalendarApp(
+         color = MaterialTheme.colorScheme.background,
+         contentColor = MaterialTheme.colorScheme.onBackground,
+     ) {
+-        SableRefreshableSurface(
+-            isRefreshing = state.refreshing,
+-            onRefresh = onRefresh,
+-        ) {
+-            Column(
+-                modifier =
+-                    Modifier
+-                        .fillMaxSize()
+-                        .verticalScroll(rememberScrollState())
+-                        .padding(
+-                            horizontal = SableSpacing.ScreenHorizontal,
+-                            vertical = SableSpacing.ScreenVertical,
+-                        ),
+-            ) {
+-                CalendarHeader()
+-                if (repository.canRead()) {
+-                    StatusLine(state.status)
+-                    CalendarModeContent(state, repository, onRefresh, onRequestPermissions)
+-                } else {
+-                    PermissionPanel(onRequestPermissions)
++        Column(Modifier.fillMaxSize()) {
++            Box(Modifier.weight(1f)) {
++                SableRefreshableSurface(
++                    isRefreshing = state.refreshing,
++                    onRefresh = onRefresh,
++                ) {
++                    Column(
++                        modifier =
++                            Modifier
++                                .fillMaxSize()
++                                .verticalScroll(rememberScrollState())
++                                .padding(
++                                    horizontal = SableSpacing.ScreenHorizontal,
++                                    vertical = SableSpacing.ScreenVertical,
++                                ),
++                    ) {
++                        CalendarHeader()
++                        if (repository.canRead()) {
++                            StatusLine(state.status)
++                            CalendarModeContent(state, repository, onRefresh, onRequestPermissions)
++                        } else {
++                            PermissionPanel(onRequestPermissions)
++                        }
++                    }
+                 }
+             }
++            if (repository.canRead() && state.mode == CalendarMode.Agenda) {
++                CalendarActionBar(state, onRefresh)
++            }
+         }
+     }
+ }
+ 
++/** The bottom bar, as in BlackBerry 10's Calendar: New event, Search, then Today, Views and Calendars. */
++@Composable
++private fun CalendarActionBar(
++    state: CalendarAppState,
++    onRefresh: () -> Unit,
++) {
++    SableActionBar(
++        signature = SableAction(t("new_event")) { state.startNewEvent() },
++        actions =
++            listOf(
++                SableAction(t("search")) { state.startSearch() },
++                SableAction(t("today")) { state.onScreenKey(CalendarScreenKey.Today, onRefresh) },
++                SableAction(t("views")) { state.onScreenKey(CalendarScreenKey.View, onRefresh) },
++                SableAction(t("calendars")) { state.onScreenKey(CalendarScreenKey.Calendars, onRefresh) },
++            ),
++    )
++}
++
++/** Search (BB10): type words; events within a year of today whose title or calendar has them all. */
++@Composable
++private fun SearchPane(state: CalendarAppState) {
++    BackToAgenda { state.mode = CalendarMode.Agenda }
++    val focus = remember { FocusRequester() }
++    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
++    OutlinedTextField(
++        value = state.searchQuery,
++        onValueChange = { state.searchQuery = it },
++        modifier = Modifier.fillMaxWidth().focusRequester(focus),
++        singleLine = true,
++        label = { Text(t("search")) },
++    )
++    Spacer(Modifier.height(SableSpacing.Sm))
++    val found = EventSearch.matches(state.searchPool, state.searchQuery, System.currentTimeMillis())
++    if (state.searchQuery.isNotBlank() && found.isEmpty()) {
++        Text(
++            text = t("nothing_found"),
++            style = MaterialTheme.typography.titleMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++    }
++    found.take(MAX_SEARCH_RESULTS).forEach { event ->
++        val day = Instant.ofEpochMilli(event.startMillis).atZone(ZoneId.systemDefault()).toLocalDate()
++        Column(
++            Modifier
++                .fillMaxWidth()
++                .sableFocusRing()
++                .clickable {
++                    state.selectedDate = day
++                    state.mode = CalendarMode.Agenda
++                    state.openDetail(event)
++                }.padding(vertical = SableSpacing.Sm),
++        ) {
++            Text(text = event.title, style = MaterialTheme.typography.titleMedium, maxLines = 1)
++            Text(
++                text = day.toString() + " · " + event.calendarName,
++                style = MaterialTheme.typography.bodySmall,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        }
++    }
++}
++
++private const val MAX_SEARCH_RESULTS = 50
++
+ @Composable
+ private fun CalendarHeader() {
+     Text(
+@@ -540,6 +631,10 @@ private fun CalendarModeContent(
+         CalendarMode.Calendars -> {
+             CalendarsPane(state, repository, onRefresh)
+         }
++
++        CalendarMode.Search -> {
++            SearchPane(state)
++        }
+     }
+ }
+ 
+@@ -1441,6 +1536,15 @@ private fun WeekPane(state: CalendarAppState) {
+     }
+     val days = WeekLayout.days(state.selectedDate)
+ 
++    // BB10: the month with its busy rings sits over the week's timeline.
++    BusyMonthGrid(
++        month = YearMonth.from(state.selectedDate),
++        selectedDate = state.selectedDate,
++        busy = state.busy,
++        compact = true,
++        onSelectDate = { state.selectedDate = it },
++    )
++    Spacer(Modifier.height(SableSpacing.Sm))
+     Text(text = WeekLayout.title(days), style = MaterialTheme.typography.titleLarge)
+     Spacer(Modifier.height(SableSpacing.Sm))
+     state.events.filter { it.allDay }.forEach { event ->
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
+index 81a7867..2650c11 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">تم استيراد %1$d حدثًا.</string>
+     <string name="import_failed">لم يتم استيراد شيء.</string>
+     <string name="phone_calendar_ready">تقويم الهاتف جاهز.</string>
++    <string name="new_event">حدث جديد</string>
++    <string name="search">بحث</string>
++    <string name="today">اليوم</string>
++    <string name="views">العروض</string>
++    <string name="nothing_found">لم يتم العثور على شيء.</string>
+     <string name="l_calendars">" · L التقويمات"</string>
+     <string name="day_events">%1$s، %2$s أحداث</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
+index 8a32302..ad613f1 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">%1$d Termine importiert.</string>
+     <string name="import_failed">Nichts wurde importiert.</string>
+     <string name="phone_calendar_ready">Telefonkalender bereit.</string>
++    <string name="new_event">Neuer Termin</string>
++    <string name="search">Suchen</string>
++    <string name="today">Heute</string>
++    <string name="views">Ansichten</string>
++    <string name="nothing_found">Nichts gefunden.</string>
+     <string name="l_calendars">" · L Kalender"</string>
+     <string name="day_events">%1$s, %2$s Termine</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
+index 0229cc8..0582ee6 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">Εισήχθησαν %1$d συμβάντα.</string>
+     <string name="import_failed">Δεν εισήχθη τίποτα.</string>
+     <string name="phone_calendar_ready">Το ημερολόγιο τηλεφώνου είναι έτοιμο.</string>
++    <string name="new_event">Νέο συμβάν</string>
++    <string name="search">Αναζήτηση</string>
++    <string name="today">Σήμερα</string>
++    <string name="views">Προβολές</string>
++    <string name="nothing_found">Δεν βρέθηκε τίποτα.</string>
+     <string name="l_calendars">" · L ημερολόγια"</string>
+     <string name="day_events">%1$s, %2$s συμβάντα</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
+index a17b78c..e7f1f97 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">Se importaron %1$d eventos.</string>
+     <string name="import_failed">No se importó nada.</string>
+     <string name="phone_calendar_ready">Calendario del teléfono listo.</string>
++    <string name="new_event">Nuevo evento</string>
++    <string name="search">Buscar</string>
++    <string name="today">Hoy</string>
++    <string name="views">Vistas</string>
++    <string name="nothing_found">No se encontró nada.</string>
+     <string name="l_calendars">" · L calendarios"</string>
+     <string name="day_events">%1$s, %2$s eventos</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
+index 3b06919..b3c20cb 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">%1$d événements importés.</string>
+     <string name="import_failed">Rien n’a été importé.</string>
+     <string name="phone_calendar_ready">Agenda du téléphone prêt.</string>
++    <string name="new_event">Nouvel événement</string>
++    <string name="search">Rechercher</string>
++    <string name="today">Aujourd’hui</string>
++    <string name="views">Vues</string>
++    <string name="nothing_found">Rien trouvé.</string>
+     <string name="l_calendars">" · L agendas"</string>
+     <string name="day_events">%1$s, %2$s événements</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
+index df49e1e..cecfd24 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">%1$d इवेंट आयात किए गए।</string>
+     <string name="import_failed">कुछ भी आयात नहीं हुआ।</string>
+     <string name="phone_calendar_ready">फ़ोन कैलेंडर तैयार है।</string>
++    <string name="new_event">नया इवेंट</string>
++    <string name="search">खोजें</string>
++    <string name="today">आज</string>
++    <string name="views">दृश्य</string>
++    <string name="nothing_found">कुछ नहीं मिला।</string>
+     <string name="l_calendars">" · L कैलेंडर"</string>
+     <string name="day_events">%1$s, %2$s इवेंट</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
+index 899f93c..2cd1ba4 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">%1$d eventi importati.</string>
+     <string name="import_failed">Nessun evento importato.</string>
+     <string name="phone_calendar_ready">Calendario del telefono pronto.</string>
++    <string name="new_event">Nuovo evento</string>
++    <string name="search">Cerca</string>
++    <string name="today">Oggi</string>
++    <string name="views">Viste</string>
++    <string name="nothing_found">Nessun risultato.</string>
+     <string name="l_calendars">" · L calendari"</string>
+     <string name="day_events">%1$s, %2$s eventi</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
+index a80f711..4e7a77f 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">יובאו %1$d אירועים.</string>
+     <string name="import_failed">לא יובא דבר.</string>
+     <string name="phone_calendar_ready">לוח השנה של הטלפון מוכן.</string>
++    <string name="new_event">אירוע חדש</string>
++    <string name="search">חיפוש</string>
++    <string name="today">היום</string>
++    <string name="views">תצוגות</string>
++    <string name="nothing_found">לא נמצא דבר.</string>
+     <string name="l_calendars">" · L יומנים"</string>
+     <string name="day_events">%1$s, %2$s אירועים</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
+index 5d362c6..1ec1c57 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">%1$d 件の予定を読み込みました。</string>
+     <string name="import_failed">何も読み込めませんでした。</string>
+     <string name="phone_calendar_ready">本体のカレンダーを用意しました。</string>
++    <string name="new_event">新しい予定</string>
++    <string name="search">検索</string>
++    <string name="today">今日</string>
++    <string name="views">表示</string>
++    <string name="nothing_found">見つかりませんでした。</string>
+     <string name="l_calendars">" · L カレンダー"</string>
+     <string name="day_events">%1$s、予定 %2$s 件</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
+index 15adc83..6346fe9 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">일정 %1$d개를 가져왔습니다.</string>
+     <string name="import_failed">가져온 항목이 없습니다.</string>
+     <string name="phone_calendar_ready">휴대전화 캘린더가 준비되었습니다.</string>
++    <string name="new_event">새 일정</string>
++    <string name="search">검색</string>
++    <string name="today">오늘</string>
++    <string name="views">보기</string>
++    <string name="nothing_found">결과가 없습니다.</string>
+     <string name="l_calendars">" · L 캘린더"</string>
+     <string name="day_events">%1$s, 일정 %2$s개</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
+index f51aae0..3fa390b 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">%1$d afspraken geïmporteerd.</string>
+     <string name="import_failed">Er is niets geïmporteerd.</string>
+     <string name="phone_calendar_ready">Telefoonagenda gereed.</string>
++    <string name="new_event">Nieuwe afspraak</string>
++    <string name="search">Zoeken</string>
++    <string name="today">Vandaag</string>
++    <string name="views">Weergaven</string>
++    <string name="nothing_found">Niets gevonden.</string>
+     <string name="l_calendars">" · L agenda\'s"</string>
+     <string name="day_events">%1$s, %2$s afspraken</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
+index 80d86e8..7d6ea2b 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">Zaimportowano wydarzenia: %1$d.</string>
+     <string name="import_failed">Nic nie zaimportowano.</string>
+     <string name="phone_calendar_ready">Kalendarz telefonu gotowy.</string>
++    <string name="new_event">Nowe wydarzenie</string>
++    <string name="search">Szukaj</string>
++    <string name="today">Dziś</string>
++    <string name="views">Widoki</string>
++    <string name="nothing_found">Nic nie znaleziono.</string>
+     <string name="l_calendars">" · L kalendarze"</string>
+     <string name="day_events">%1$s, wydarzenia: %2$s</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
+index b4eea87..7195931 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">%1$d eventos importados.</string>
+     <string name="import_failed">Nada foi importado.</string>
+     <string name="phone_calendar_ready">Calendário do telefone pronto.</string>
++    <string name="new_event">Novo evento</string>
++    <string name="search">Pesquisar</string>
++    <string name="today">Hoje</string>
++    <string name="views">Vistas</string>
++    <string name="nothing_found">Nada encontrado.</string>
+     <string name="l_calendars">" · L agendas"</string>
+     <string name="day_events">%1$s, %2$s eventos</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
+index a946a8a..cb2046b 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">Импортировано событий: %1$d.</string>
+     <string name="import_failed">Ничего не импортировано.</string>
+     <string name="phone_calendar_ready">Календарь телефона готов.</string>
++    <string name="new_event">Новое событие</string>
++    <string name="search">Поиск</string>
++    <string name="today">Сегодня</string>
++    <string name="views">Виды</string>
++    <string name="nothing_found">Ничего не найдено.</string>
+     <string name="l_calendars">" · L календари"</string>
+     <string name="day_events">%1$s, событий: %2$s</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
+index 5298431..ff610d4 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">%1$d händelser importerades.</string>
+     <string name="import_failed">Inget importerades.</string>
+     <string name="phone_calendar_ready">Telefonkalendern är klar.</string>
++    <string name="new_event">Ny händelse</string>
++    <string name="search">Sök</string>
++    <string name="today">Idag</string>
++    <string name="views">Vyer</string>
++    <string name="nothing_found">Inget hittades.</string>
+     <string name="l_calendars">" · L kalendrar"</string>
+     <string name="day_events">%1$s, %2$s händelser</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
+index 59992c5..5f206b2 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">%1$d etkinlik içe aktarıldı.</string>
+     <string name="import_failed">Hiçbir şey içe aktarılmadı.</string>
+     <string name="phone_calendar_ready">Telefon takvimi hazır.</string>
++    <string name="new_event">Yeni etkinlik</string>
++    <string name="search">Ara</string>
++    <string name="today">Bugün</string>
++    <string name="views">Görünümler</string>
++    <string name="nothing_found">Hiçbir şey bulunamadı.</string>
+     <string name="l_calendars">" · L takvimler"</string>
+     <string name="day_events">%1$s, %2$s etkinlik</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
+index 5d7fd4b..b4a3e8e 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">%1$d ایونٹس درآمد ہوئے۔</string>
+     <string name="import_failed">کچھ درآمد نہیں ہوا۔</string>
+     <string name="phone_calendar_ready">فون کیلنڈر تیار ہے۔</string>
++    <string name="new_event">نیا ایونٹ</string>
++    <string name="search">تلاش</string>
++    <string name="today">آج</string>
++    <string name="views">منظر</string>
++    <string name="nothing_found">کچھ نہیں ملا۔</string>
+     <string name="l_calendars">" · L کیلنڈر"</string>
+     <string name="day_events">%1$s، %2$s ایونٹس</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
+index cfd7e43..dc9f653 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
+@@ -66,6 +66,11 @@
+     <string name="imported_events">已导入 %1$d 个日程。</string>
+     <string name="import_failed">未导入任何内容。</string>
+     <string name="phone_calendar_ready">手机日历已就绪。</string>
++    <string name="new_event">新建日程</string>
++    <string name="search">搜索</string>
++    <string name="today">今天</string>
++    <string name="views">视图</string>
++    <string name="nothing_found">未找到任何内容。</string>
+     <string name="l_calendars">" · L 日历"</string>
+     <string name="day_events">%1$s，%2$s 个活动</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+index fc12060..dfa2ead 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+@@ -68,6 +68,11 @@
+     <string name="imported_events">Imported %1$d events.</string>
+     <string name="import_failed">Nothing was imported.</string>
+     <string name="phone_calendar_ready">Phone calendar ready.</string>
++    <string name="new_event">New event</string>
++    <string name="search">Search</string>
++    <string name="today">Today</string>
++    <string name="views">Views</string>
++    <string name="nothing_found">Nothing found.</string>
+     <string name="l_calendars">" · L calendars"</string>
+     <string name="day_events">%1$s, %2$s events</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/EventSearchTest.kt b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/EventSearchTest.kt
+new file mode 100644
+index 0000000..eadc9a8
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/EventSearchTest.kt
+@@ -0,0 +1,32 @@
++package org.sableos.calendar
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++class EventSearchTest {
++    private fun event(
++        id: Long,
++        title: String,
++        start: Long,
++        calendar: String = "Phone",
++    ) = CalendarEvent(id, title, start, start + 1, false, calendar)
++
++    private val events =
++        listOf(
++            event(1, "Lunch with Jenn", 1_000),
++            event(2, "Planning marketing research", 5_000),
++            event(3, "Review with PM", 9_000, "Work"),
++        )
++
++    @Test
++    fun everyWordMustMatchTitleOrCalendar() {
++        assertEquals(listOf(3L), EventSearch.matches(events, "review work", 0).map { it.id })
++        assertEquals(listOf(2L), EventSearch.matches(events, "MARKETING", 0).map { it.id })
++    }
++
++    @Test
++    fun nearestToNowComesFirstAndBlankFindsNothing() {
++        assertEquals(listOf(3L, 1L), EventSearch.matches(events, "with", 10_000).map { it.id })
++        assertEquals(emptyList<CalendarEvent>(), EventSearch.matches(events, "  ", 0))
++    }
++}

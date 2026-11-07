@@ -43,7 +43,7 @@
     <string name="work">العمل</string>
     <string name="weather_and_date">الطقس والتاريخ</string>
     <string name="search_or_command_row">صف البحث أو الأوامر</string>
-    <string name="status_dials">مؤشرات الحالة</string>
+    <string name="status_dials">سطر الحالة</string>
     <string name="temperature_condition_and_place_with">الحرارة والحالة والمكان، والتاريخ تحتها</string>
     <string name="a_command_row_under_the">صف أوامر تحت الطقس؛ الكتابة تعمل بدونه</string>
     <string name="wi_fi_mobile_cpu_ram">Wi-Fi والجوال وCPU وRAM ووقت البطارية المتبقي والخلية والإعدادات</string>
@@ -319,4 +319,7 @@
     <string name="dm_used_of">%1$s من %2$s</string>
     <string name="dm_free">%1$s متاحة</string>
     <string name="open_command">الأوامر (Alt+Space)</string>
+    <string name="home_shortcut_add">إضافة إلى الشاشة الرئيسية</string>
+    <string name="home_shortcut_remove">إزالة من الشاشة الرئيسية</string>
+    <string name="sable_undo">تراجع</string>
 </resources>

@@ -60,6 +60,18 @@
     <string name="calendars">कैलेंडर</string>
     <string name="calendars_hint">दिखाए गए कैलेंडर एजेंडा, व्यस्तता रिंग और Start के महीने को भरते हैं।</string>
     <string name="no_calendars">इस फ़ोन पर अभी कोई कैलेंडर नहीं है। सेटिंग > खाते में खाता जोड़ें।</string>
+    <string name="add_account">खाता जोड़ें</string>
+    <string name="phone_calendar">फ़ोन कैलेंडर</string>
+    <string name="import_ics">.ics आयात करें</string>
+    <string name="imported_events">%1$d इवेंट आयात किए गए।</string>
+    <string name="import_failed">कुछ भी आयात नहीं हुआ।</string>
+    <string name="phone_calendar_ready">फ़ोन कैलेंडर तैयार है।</string>
+    <string name="new_event">नया इवेंट</string>
+    <string name="search">खोजें</string>
+    <string name="today">आज</string>
+    <string name="views">दृश्य</string>
+    <string name="nothing_found">कुछ नहीं मिला।</string>
+    <string name="colour">रंग</string>
     <string name="l_calendars">" · L कैलेंडर"</string>
     <string name="day_events">%1$s, %2$s इवेंट</string>
 </resources>

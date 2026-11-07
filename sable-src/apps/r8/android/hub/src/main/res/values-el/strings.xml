@@ -8,6 +8,7 @@
     <string name="priority_messages_calls_email_and">Προτεραιότητα, μηνύματα, κλήσεις, email και άτομα, αποθηκευμένα μόνο σε αυτήν τη συσκευή.</string>
     <string name="loading_conversations">Φόρτωση συνομιλιών…</string>
     <string name="local_communication_across_your_enabled">Τοπική επικοινωνία από τις ενεργοποιημένες πηγές σας.</string>
+    <string name="coming_up">Προσεχώς</string>
     <string name="show_list">Εμφάνιση λίστας</string>
     <string name="show_list_without_previews">Εμφάνιση λίστας χωρίς προεπισκοπήσεις</string>
     <string name="unlock_to_view_details">Ξεκλειδώστε για να δείτε λεπτομέρειες</string>

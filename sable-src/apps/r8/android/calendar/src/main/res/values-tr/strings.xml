@@ -60,6 +60,18 @@
     <string name="calendars">Takvimler</string>
     <string name="calendars_hint">Gösterilen takvimler ajandayı, yoğunluk halkalarını ve Start\'taki ayı doldurur.</string>
     <string name="no_calendars">Bu telefonda henüz takvim yok. Ayarlar > Hesaplar\'dan bir hesap ekleyin.</string>
+    <string name="add_account">Hesap ekle</string>
+    <string name="phone_calendar">Telefon takvimi</string>
+    <string name="import_ics">.ics içe aktar</string>
+    <string name="imported_events">%1$d etkinlik içe aktarıldı.</string>
+    <string name="import_failed">Hiçbir şey içe aktarılmadı.</string>
+    <string name="phone_calendar_ready">Telefon takvimi hazır.</string>
+    <string name="new_event">Yeni etkinlik</string>
+    <string name="search">Ara</string>
+    <string name="today">Bugün</string>
+    <string name="views">Görünümler</string>
+    <string name="nothing_found">Hiçbir şey bulunamadı.</string>
+    <string name="colour">Renk</string>
     <string name="l_calendars">" · L takvimler"</string>
     <string name="day_events">%1$s, %2$s etkinlik</string>
 </resources>

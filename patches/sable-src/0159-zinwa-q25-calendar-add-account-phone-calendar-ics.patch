@@ -1,0 +1,862 @@
+diff --git a/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
+index efca7df..15658d2 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/AndroidManifest.xml
+@@ -8,6 +8,8 @@
+         <package android:name="org.sableos.launcher" />
+         <!-- SystemUI reads the next event for the lock screen (frameworks/base 0317). -->
+         <package android:name="com.android.systemui" />
++        <!-- Hub reads the next events for its Coming up strip. -->
++        <package android:name="org.sableos.hub" />
+     </queries>
+     <application
+         android:name="org.sableos.calendar.CalendarApplication"
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarImport.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarImport.kt
+new file mode 100644
+index 0000000..932405c
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarImport.kt
+@@ -0,0 +1,114 @@
++package org.sableos.calendar
++
++import android.Manifest
++import android.content.ContentUris
++import android.content.ContentValues
++import android.content.Context
++import android.content.pm.PackageManager
++import android.provider.CalendarContract
++import java.util.TimeZone
++
++/**
++ * Calendars that need no account: the "Phone" calendar kept on this device, and the events of an
++ * .ics file added to it. Accounts (Google, Exchange, CalDAV and so on) are added in Android's own
++ * add-account screen, which Calendar only opens.
++ */
++class CalendarImport(
++    private val context: Context,
++) {
++    private val resolver get() = context.contentResolver
++
++    private fun canWrite(): Boolean =
++        context.checkSelfPermission(Manifest.permission.WRITE_CALENDAR) == PackageManager.PERMISSION_GRANTED &&
++            context.checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
++
++    /** The id of the Phone calendar, made on first use; null without calendar access. */
++    fun phoneCalendarId(): Long? {
++        if (!canWrite()) return null
++        return existingPhoneCalendar() ?: createPhoneCalendar()
++    }
++
++    private fun existingPhoneCalendar(): Long? =
++        runCatching {
++            resolver
++                .query(
++                    CalendarContract.Calendars.CONTENT_URI,
++                    arrayOf(CalendarContract.Calendars._ID),
++                    CalendarContract.Calendars.ACCOUNT_TYPE + "=? AND " +
++                        CalendarContract.Calendars.ACCOUNT_NAME + "=?",
++                    arrayOf(CalendarContract.ACCOUNT_TYPE_LOCAL, PHONE_ACCOUNT),
++                    null,
++                )?.use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else null }
++        }.getOrNull()
++
++    private fun createPhoneCalendar(): Long? {
++        val uri =
++            CalendarContract.Calendars.CONTENT_URI
++                .buildUpon()
++                .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
++                .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_NAME, PHONE_ACCOUNT)
++                .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
++                .build()
++        val values =
++            ContentValues().apply {
++                put(CalendarContract.Calendars.ACCOUNT_NAME, PHONE_ACCOUNT)
++                put(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
++                put(CalendarContract.Calendars.NAME, PHONE_ACCOUNT)
++                put(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, PHONE_ACCOUNT)
++                put(CalendarContract.Calendars.CALENDAR_COLOR, PHONE_COLOR)
++                put(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL, CalendarContract.Calendars.CAL_ACCESS_OWNER)
++                put(CalendarContract.Calendars.OWNER_ACCOUNT, PHONE_ACCOUNT)
++                put(CalendarContract.Calendars.VISIBLE, 1)
++                put(CalendarContract.Calendars.SYNC_EVENTS, 1)
++                put(CalendarContract.Calendars.CALENDAR_TIME_ZONE, TimeZone.getDefault().id)
++            }
++        return runCatching { resolver.insert(uri, values)?.let(ContentUris::parseId) }.getOrNull()
++    }
++
++    /** Adds [events] to the Phone calendar; returns how many were stored (0 when nothing could be). */
++    fun importEvents(events: List<IcsEvent>): Int {
++        val calendarId = phoneCalendarId() ?: return 0
++        var stored = 0
++        events.take(MAX_EVENTS).forEach { event ->
++            val inserted =
++                runCatching { resolver.insert(CalendarContract.Events.CONTENT_URI, values(calendarId, event)) }
++            if (inserted.getOrNull() != null) stored += 1
++        }
++        if (stored > 0) resolver.notifyChange(CalendarContract.Events.CONTENT_URI, null)
++        return stored
++    }
++
++    private fun values(
++        calendarId: Long,
++        event: IcsEvent,
++    ): ContentValues =
++        ContentValues().apply {
++            put(CalendarContract.Events.CALENDAR_ID, calendarId)
++            put(CalendarContract.Events.TITLE, event.title)
++            put(CalendarContract.Events.DTSTART, event.startMillis)
++            put(CalendarContract.Events.EVENT_TIMEZONE, if (event.allDay) "UTC" else TimeZone.getDefault().id)
++            if (event.allDay) put(CalendarContract.Events.ALL_DAY, 1)
++            if (event.rrule.isNotEmpty()) {
++                // A repeating event carries a DURATION, not a DTEND.
++                put(CalendarContract.Events.RRULE, event.rrule)
++                put(CalendarContract.Events.DURATION, durationOf(event))
++            } else {
++                put(CalendarContract.Events.DTEND, event.endMillis)
++            }
++            event.location.takeIf(String::isNotEmpty)?.let { put(CalendarContract.Events.EVENT_LOCATION, it) }
++            event.description.takeIf(String::isNotEmpty)?.let { put(CalendarContract.Events.DESCRIPTION, it) }
++        }
++
++    private fun durationOf(event: IcsEvent): String {
++        val seconds = (event.endMillis - event.startMillis) / MILLIS_PER_SECOND
++        return if (event.allDay) "P${maxOf(1L, seconds / SECONDS_PER_DAY)}D" else "P${seconds}S"
++    }
++
++    private companion object {
++        const val PHONE_ACCOUNT = "Phone"
++        const val PHONE_COLOR = -0xd25a1f
++        const val MAX_EVENTS = 2000
++        const val MILLIS_PER_SECOND = 1000L
++        const val SECONDS_PER_DAY = 86_400L
++    }
++}
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+index d7b15a6..14d382e 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+@@ -75,6 +75,12 @@ object CalendarText {
+             "calendars" to "Calendars",
+             "calendars_hint" to "Shown calendars fill the agenda, the busy rings and Start's month.",
+             "no_calendars" to "No calendars on this phone yet. Add an account in Settings > Accounts.",
++            "add_account" to "Add account",
++            "phone_calendar" to "Phone calendar",
++            "import_ics" to "Import .ics",
++            "imported_events" to "Imported %1\$d events.",
++            "import_failed" to "Nothing was imported.",
++            "phone_calendar_ready" to "Phone calendar ready.",
+             "l_calendars" to " · L calendars",
+             "day_events" to "%1\$s, %2\$s events",
+         )
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt
+index 3447203..ff3cc3e 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt
+@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.Role
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+ import org.sableos.calendar.CalendarText.t
++import org.sableos.design.SableActionButton
+ import org.sableos.design.SableSize
+ import org.sableos.design.sableFocusRing
+ 
+@@ -37,6 +38,7 @@ import org.sableos.design.sableFocusRing
+ internal fun CalendarsList(
+     calendars: List<CalendarSource>,
+     onToggle: (CalendarSource, Boolean) -> Unit,
++    actions: CalendarsActions,
+ ) {
+     Text(text = t("calendars"), style = MaterialTheme.typography.headlineMedium)
+     Text(
+@@ -45,6 +47,11 @@ internal fun CalendarsList(
+         color = MaterialTheme.colorScheme.onSurfaceVariant,
+     )
+     Spacer(Modifier.height(12.dp))
++    // Connecting calendars comes first: Android's add-account screen, a Phone calendar, an .ics file.
++    SableActionButton(text = t("add_account"), primary = false, onClick = actions.onAddAccount)
++    SableActionButton(text = t("phone_calendar"), primary = false, onClick = actions.onPhoneCalendar)
++    SableActionButton(text = t("import_ics"), primary = false, onClick = actions.onImportIcs)
++    Spacer(Modifier.height(12.dp))
+     if (calendars.isEmpty()) {
+         Text(
+             text = t("no_calendars"),
+@@ -58,6 +65,13 @@ internal fun CalendarsList(
+     }
+ }
+ 
++/** What the three "connect a calendar" buttons do. */
++internal class CalendarsActions(
++    val onAddAccount: () -> Unit,
++    val onPhoneCalendar: () -> Unit,
++    val onImportIcs: () -> Unit,
++)
++
+ @Composable
+ private fun CalendarSourceRow(
+     source: CalendarSource,
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/IcsParser.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/IcsParser.kt
+new file mode 100644
+index 0000000..03142ed
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/IcsParser.kt
+@@ -0,0 +1,162 @@
++package org.sableos.calendar
++
++import java.time.LocalDate
++import java.time.LocalDateTime
++import java.time.ZoneId
++import java.time.ZoneOffset
++import java.time.format.DateTimeFormatter
++
++/** One VEVENT read from an .ics file, in Android Calendar's terms (all-day times are UTC midnights). */
++data class IcsEvent(
++    val title: String,
++    val startMillis: Long,
++    val endMillis: Long,
++    val allDay: Boolean,
++    val location: String = "",
++    val description: String = "",
++    /** The RRULE value ("FREQ=WEEKLY;BYDAY=MO"), empty for a single event. */
++    val rrule: String = "",
++)
++
++/**
++ * A small, forgiving reader for the iCalendar files people share (invitations, exports): VEVENT with
++ * SUMMARY, DTSTART, DTEND or DURATION, LOCATION, DESCRIPTION and RRULE. Anything it does not
++ * understand is skipped; an event without a usable start is dropped, never guessed.
++ */
++object IcsParser {
++    private const val MINUTE_MS = 60_000L
++    private const val HOUR_MS = 3_600_000L
++    private const val DAY_MS = 86_400_000L
++    private val DATE = DateTimeFormatter.BASIC_ISO_DATE
++    private val DATE_TIME = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss")
++
++    fun parse(
++        text: String,
++        defaultZone: ZoneId = ZoneId.systemDefault(),
++    ): List<IcsEvent> {
++        val events = mutableListOf<IcsEvent>()
++        var current: MutableMap<String, Pair<Map<String, String>, String>>? = null
++        unfold(text).forEach { line ->
++            when {
++                line.equals("BEGIN:VEVENT", ignoreCase = true) -> {
++                    current = mutableMapOf()
++                }
++
++                line.equals("END:VEVENT", ignoreCase = true) -> {
++                    current?.let { toEvent(it, defaultZone)?.let(events::add) }
++                    current = null
++                }
++
++                else -> {
++                    current?.let { props -> property(line)?.let { (name, p) -> props.putIfAbsent(name, p) } }
++                }
++            }
++        }
++        return events
++    }
++
++    /** Folded lines continue on the next line that starts with a space or a tab. */
++    private fun unfold(text: String): List<String> {
++        val lines = mutableListOf<String>()
++        text.replace("\r\n", "\n").replace('\r', '\n').split('\n').forEach { raw ->
++            if ((raw.startsWith(" ") || raw.startsWith("\t")) && lines.isNotEmpty()) {
++                lines[lines.lastIndex] = lines.last() + raw.substring(1)
++            } else {
++                lines.add(raw)
++            }
++        }
++        return lines.filter { it.isNotBlank() }
++    }
++
++    /** "DTSTART;TZID=Europe/London:2026..." becomes ("DTSTART", (TZID to ..., "2026...")). */
++    private fun property(line: String): Pair<String, Pair<Map<String, String>, String>>? {
++        val colon = line.indexOf(':')
++        if (colon <= 0) return null
++        val head = line.substring(0, colon).split(';')
++        val params =
++            head
++                .drop(1)
++                .mapNotNull { part ->
++                    part.indexOf('=').takeIf { it > 0 }?.let {
++                        part.substring(0, it).uppercase() to
++                            part.substring(it + 1)
++                    }
++                }.toMap()
++        return head[0].uppercase() to (params to line.substring(colon + 1))
++    }
++
++    private fun toEvent(
++        props: Map<String, Pair<Map<String, String>, String>>,
++        defaultZone: ZoneId,
++    ): IcsEvent? {
++        val (startParams, startValue) = props["DTSTART"] ?: return null
++        val allDay = startParams["VALUE"].equals("DATE", ignoreCase = true) || startValue.length == DATE_ONLY_LENGTH
++        val start = millis(startParams, startValue, allDay, defaultZone) ?: return null
++        val end =
++            props["DTEND"]?.let { (p, v) -> millis(p, v, allDay, defaultZone) }
++                ?: props["DURATION"]?.let { start + duration(it.second) }
++                ?: (start + if (allDay) DAY_MS else 0L)
++        return IcsEvent(
++            title = unescape(props["SUMMARY"]?.second.orEmpty()).ifBlank { "(no title)" },
++            startMillis = start,
++            endMillis = maxOf(end, start),
++            allDay = allDay,
++            location = unescape(props["LOCATION"]?.second.orEmpty()),
++            description = unescape(props["DESCRIPTION"]?.second.orEmpty()),
++            rrule = props["RRULE"]?.second.orEmpty(),
++        )
++    }
++
++    private fun millis(
++        params: Map<String, String>,
++        value: String,
++        allDay: Boolean,
++        defaultZone: ZoneId,
++    ): Long? =
++        runCatching {
++            if (allDay) {
++                LocalDate
++                    .parse(
++                        value.take(DATE_ONLY_LENGTH),
++                        DATE,
++                    ).atStartOfDay()
++                    .toInstant(ZoneOffset.UTC)
++                    .toEpochMilli()
++            } else if (value.endsWith("Z", ignoreCase = true)) {
++                LocalDateTime.parse(value.dropLast(1), DATE_TIME).toInstant(ZoneOffset.UTC).toEpochMilli()
++            } else {
++                val zone = params["TZID"]?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: defaultZone
++                LocalDateTime
++                    .parse(value, DATE_TIME)
++                    .atZone(zone)
++                    .toInstant()
++                    .toEpochMilli()
++            }
++        }.getOrNull()
++
++    /** An RFC 5545 duration such as P1D, PT1H30M, P1W; zero when it cannot be read. */
++    internal fun duration(value: String): Long {
++        val match =
++            Regex(
++                "^([+-])?P(?:(\\d+)W)?(?:(\\d+)D)?(?:T(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?)?$",
++            ).find(value.trim())
++        if (match == null) return 0L
++        val g = match.groupValues
++
++        fun n(i: Int) = g[i].toLongOrNull() ?: 0L
++        val total = n(2) * WEEK_DAYS * DAY_MS + n(3) * DAY_MS + n(4) * HOUR_MS + n(5) * MINUTE_MS + n(6) * SECOND_MS
++        return if (g[1] == "-") -total else total
++    }
++
++    private fun unescape(value: String): String =
++        value
++            .replace("\\n", "\n")
++            .replace("\\N", "\n")
++            .replace("\\,", ",")
++            .replace("\\;", ";")
++            .replace("\\\\", "\\")
++
++    private const val DATE_ONLY_LENGTH = 8
++    private const val WEEK_DAYS = 7L
++    private const val SECOND_MS = 1000L
++}
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+index c39d5e5..dbc22c7 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+@@ -3,7 +3,12 @@ package org.sableos.calendar
+ import android.Manifest
+ import android.app.DatePickerDialog
+ import android.app.TimePickerDialog
++import android.content.Context
++import android.content.Intent
++import android.net.Uri
+ import android.os.Bundle
++import android.provider.CalendarContract
++import android.provider.Settings
+ import android.text.format.DateUtils
+ import android.view.KeyEvent
+ import androidx.activity.ComponentActivity
+@@ -590,6 +595,27 @@ private fun CalendarsPane(
+     onRefresh: () -> Unit,
+ ) {
+     val scope = rememberCoroutineScope()
++    val context = LocalContext.current
++    val importer = remember { CalendarImport(context.applicationContext) }
++    val reload: suspend () -> Unit = {
++        state.calendars = withContext(Dispatchers.IO) { repository.calendars() }
++        onRefresh()
++    }
++    val picker =
++        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
++            if (uri == null) return@rememberLauncherForActivityResult
++            scope.launch {
++                val stored =
++                    withContext(Dispatchers.IO) {
++                        runCatching { readIcs(context, uri) }
++                            .getOrNull()
++                            ?.let { importer.importEvents(IcsParser.parse(it)) }
++                            ?: 0
++                    }
++                state.status = if (stored > 0) t("imported_events", stored) else t("import_failed")
++                reload()
++            }
++        }
+     BackToAgenda { state.mode = CalendarMode.Agenda }
+     CalendarsList(
+         calendars = state.calendars,
+@@ -604,9 +630,39 @@ private fun CalendarsPane(
+                 }
+             }
+         },
++        actions =
++            CalendarsActions(
++                onAddAccount = {
++                    // Android's own screen; it lists the account types that carry calendars.
++                    val intent =
++                        Intent(Settings.ACTION_ADD_ACCOUNT)
++                            .putExtra(Settings.EXTRA_AUTHORITIES, arrayOf(CalendarContract.AUTHORITY))
++                    runCatching { context.startActivity(intent) }
++                },
++                onPhoneCalendar = {
++                    scope.launch {
++                        val id = withContext(Dispatchers.IO) { importer.phoneCalendarId() }
++                        state.status = if (id != null) t("phone_calendar_ready") else t("import_failed")
++                        reload()
++                    }
++                },
++                onImportIcs = { picker.launch(arrayOf("text/calendar", "application/octet-stream", "text/plain")) },
++            ),
+     )
+ }
+ 
++/** The text of a chosen .ics file, up to 4 MB; larger files are refused rather than half read. */
++private fun readIcs(
++    context: Context,
++    uri: Uri,
++): String? =
++    context.contentResolver.openInputStream(uri)?.use { input ->
++        val bytes = input.readBytes()
++        if (bytes.size > MAX_ICS_BYTES) null else bytes.toString(Charsets.UTF_8)
++    }
++
++private const val MAX_ICS_BYTES = 4 * 1024 * 1024
++
+ @Composable
+ private fun NewEventPane(
+     state: CalendarAppState,
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
+index fdcab92..81a7867 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">التقويمات</string>
+     <string name="calendars_hint">التقويمات المعروضة تملأ جدول الأعمال وحلقات الانشغال وشهر Start.</string>
+     <string name="no_calendars">لا توجد تقويمات على هذا الهاتف بعد. أضف حسابًا من الإعدادات > الحسابات.</string>
++    <string name="add_account">إضافة حساب</string>
++    <string name="phone_calendar">تقويم الهاتف</string>
++    <string name="import_ics">استيراد ‎.ics</string>
++    <string name="imported_events">تم استيراد %1$d حدثًا.</string>
++    <string name="import_failed">لم يتم استيراد شيء.</string>
++    <string name="phone_calendar_ready">تقويم الهاتف جاهز.</string>
+     <string name="l_calendars">" · L التقويمات"</string>
+     <string name="day_events">%1$s، %2$s أحداث</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
+index d5b786f..8a32302 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">Kalender</string>
+     <string name="calendars_hint">Angezeigte Kalender füllen die Agenda, die Belegungsringe und den Monat in Start.</string>
+     <string name="no_calendars">Noch keine Kalender auf diesem Telefon. Füge ein Konto unter Einstellungen > Konten hinzu.</string>
++    <string name="add_account">Konto hinzufügen</string>
++    <string name="phone_calendar">Telefonkalender</string>
++    <string name="import_ics">.ics importieren</string>
++    <string name="imported_events">%1$d Termine importiert.</string>
++    <string name="import_failed">Nichts wurde importiert.</string>
++    <string name="phone_calendar_ready">Telefonkalender bereit.</string>
+     <string name="l_calendars">" · L Kalender"</string>
+     <string name="day_events">%1$s, %2$s Termine</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
+index 5481e34..0229cc8 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">Ημερολόγια</string>
+     <string name="calendars_hint">Τα εμφανιζόμενα ημερολόγια γεμίζουν την ατζέντα, τους δακτυλίους φόρτου και τον μήνα του Start.</string>
+     <string name="no_calendars">Δεν υπάρχουν ακόμη ημερολόγια σε αυτό το τηλέφωνο. Προσθέστε λογαριασμό στις Ρυθμίσεις > Λογαριασμοί.</string>
++    <string name="add_account">Προσθήκη λογαριασμού</string>
++    <string name="phone_calendar">Ημερολόγιο τηλεφώνου</string>
++    <string name="import_ics">Εισαγωγή .ics</string>
++    <string name="imported_events">Εισήχθησαν %1$d συμβάντα.</string>
++    <string name="import_failed">Δεν εισήχθη τίποτα.</string>
++    <string name="phone_calendar_ready">Το ημερολόγιο τηλεφώνου είναι έτοιμο.</string>
+     <string name="l_calendars">" · L ημερολόγια"</string>
+     <string name="day_events">%1$s, %2$s συμβάντα</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
+index 10aaa34..a17b78c 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">Calendarios</string>
+     <string name="calendars_hint">Los calendarios visibles llenan la agenda, los anillos de ocupación y el mes de Start.</string>
+     <string name="no_calendars">Aún no hay calendarios en este teléfono. Añade una cuenta en Ajustes > Cuentas.</string>
++    <string name="add_account">Añadir cuenta</string>
++    <string name="phone_calendar">Calendario del teléfono</string>
++    <string name="import_ics">Importar .ics</string>
++    <string name="imported_events">Se importaron %1$d eventos.</string>
++    <string name="import_failed">No se importó nada.</string>
++    <string name="phone_calendar_ready">Calendario del teléfono listo.</string>
+     <string name="l_calendars">" · L calendarios"</string>
+     <string name="day_events">%1$s, %2$s eventos</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
+index 3f4d08b..3b06919 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">Agendas</string>
+     <string name="calendars_hint">Les agendas affichés remplissent l’agenda, les anneaux d’occupation et le mois de Start.</string>
+     <string name="no_calendars">Aucun agenda sur ce téléphone. Ajoutez un compte dans Paramètres > Comptes.</string>
++    <string name="add_account">Ajouter un compte</string>
++    <string name="phone_calendar">Agenda du téléphone</string>
++    <string name="import_ics">Importer un .ics</string>
++    <string name="imported_events">%1$d événements importés.</string>
++    <string name="import_failed">Rien n’a été importé.</string>
++    <string name="phone_calendar_ready">Agenda du téléphone prêt.</string>
+     <string name="l_calendars">" · L agendas"</string>
+     <string name="day_events">%1$s, %2$s événements</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
+index bc9a3c1..df49e1e 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">कैलेंडर</string>
+     <string name="calendars_hint">दिखाए गए कैलेंडर एजेंडा, व्यस्तता रिंग और Start के महीने को भरते हैं।</string>
+     <string name="no_calendars">इस फ़ोन पर अभी कोई कैलेंडर नहीं है। सेटिंग > खाते में खाता जोड़ें।</string>
++    <string name="add_account">खाता जोड़ें</string>
++    <string name="phone_calendar">फ़ोन कैलेंडर</string>
++    <string name="import_ics">.ics आयात करें</string>
++    <string name="imported_events">%1$d इवेंट आयात किए गए।</string>
++    <string name="import_failed">कुछ भी आयात नहीं हुआ।</string>
++    <string name="phone_calendar_ready">फ़ोन कैलेंडर तैयार है।</string>
+     <string name="l_calendars">" · L कैलेंडर"</string>
+     <string name="day_events">%1$s, %2$s इवेंट</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
+index e386427..899f93c 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">Calendari</string>
+     <string name="calendars_hint">I calendari mostrati riempiono l’agenda, gli anelli di impegno e il mese di Start.</string>
+     <string name="no_calendars">Ancora nessun calendario su questo telefono. Aggiungi un account in Impostazioni > Account.</string>
++    <string name="add_account">Aggiungi account</string>
++    <string name="phone_calendar">Calendario del telefono</string>
++    <string name="import_ics">Importa .ics</string>
++    <string name="imported_events">%1$d eventi importati.</string>
++    <string name="import_failed">Nessun evento importato.</string>
++    <string name="phone_calendar_ready">Calendario del telefono pronto.</string>
+     <string name="l_calendars">" · L calendari"</string>
+     <string name="day_events">%1$s, %2$s eventi</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
+index b82bfaf..a80f711 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">יומנים</string>
+     <string name="calendars_hint">היומנים המוצגים ממלאים את סדר היום, טבעות העומס ואת החודש ב-Start.</string>
+     <string name="no_calendars">עדיין אין יומנים בטלפון הזה. אפשר להוסיף חשבון בהגדרות > חשבונות.</string>
++    <string name="add_account">הוספת חשבון</string>
++    <string name="phone_calendar">לוח שנה של הטלפון</string>
++    <string name="import_ics">ייבוא ‎.ics</string>
++    <string name="imported_events">יובאו %1$d אירועים.</string>
++    <string name="import_failed">לא יובא דבר.</string>
++    <string name="phone_calendar_ready">לוח השנה של הטלפון מוכן.</string>
+     <string name="l_calendars">" · L יומנים"</string>
+     <string name="day_events">%1$s, %2$s אירועים</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
+index 4b18d4d..5d362c6 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">カレンダー</string>
+     <string name="calendars_hint">表示中のカレンダーが予定リスト、予定リング、Start の月表示に使われます。</string>
+     <string name="no_calendars">このスマートフォンにはまだカレンダーがありません。設定 > アカウントでアカウントを追加してください。</string>
++    <string name="add_account">アカウントを追加</string>
++    <string name="phone_calendar">本体のカレンダー</string>
++    <string name="import_ics">.ics を読み込む</string>
++    <string name="imported_events">%1$d 件の予定を読み込みました。</string>
++    <string name="import_failed">何も読み込めませんでした。</string>
++    <string name="phone_calendar_ready">本体のカレンダーを用意しました。</string>
+     <string name="l_calendars">" · L カレンダー"</string>
+     <string name="day_events">%1$s、予定 %2$s 件</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
+index 3c5376e..15adc83 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">캘린더</string>
+     <string name="calendars_hint">표시된 캘린더가 일정 목록, 바쁨 링, Start의 월 보기에 사용됩니다.</string>
+     <string name="no_calendars">이 휴대전화에 아직 캘린더가 없습니다. 설정 > 계정에서 계정을 추가하세요.</string>
++    <string name="add_account">계정 추가</string>
++    <string name="phone_calendar">휴대전화 캘린더</string>
++    <string name="import_ics">.ics 가져오기</string>
++    <string name="imported_events">일정 %1$d개를 가져왔습니다.</string>
++    <string name="import_failed">가져온 항목이 없습니다.</string>
++    <string name="phone_calendar_ready">휴대전화 캘린더가 준비되었습니다.</string>
+     <string name="l_calendars">" · L 캘린더"</string>
+     <string name="day_events">%1$s, 일정 %2$s개</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
+index 73f15bc..f51aae0 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">Agenda\'s</string>
+     <string name="calendars_hint">Getoonde agenda\'s vullen de agenda, de drukte-ringen en de maand in Start.</string>
+     <string name="no_calendars">Nog geen agenda\'s op deze telefoon. Voeg een account toe via Instellingen > Accounts.</string>
++    <string name="add_account">Account toevoegen</string>
++    <string name="phone_calendar">Telefoonagenda</string>
++    <string name="import_ics">.ics importeren</string>
++    <string name="imported_events">%1$d afspraken geïmporteerd.</string>
++    <string name="import_failed">Er is niets geïmporteerd.</string>
++    <string name="phone_calendar_ready">Telefoonagenda gereed.</string>
+     <string name="l_calendars">" · L agenda\'s"</string>
+     <string name="day_events">%1$s, %2$s afspraken</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
+index 5a6056a..80d86e8 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">Kalendarze</string>
+     <string name="calendars_hint">Widoczne kalendarze wypełniają agendę, pierścienie zajętości i miesiąc w Start.</string>
+     <string name="no_calendars">Na tym telefonie nie ma jeszcze kalendarzy. Dodaj konto w Ustawienia > Konta.</string>
++    <string name="add_account">Dodaj konto</string>
++    <string name="phone_calendar">Kalendarz telefonu</string>
++    <string name="import_ics">Importuj .ics</string>
++    <string name="imported_events">Zaimportowano wydarzenia: %1$d.</string>
++    <string name="import_failed">Nic nie zaimportowano.</string>
++    <string name="phone_calendar_ready">Kalendarz telefonu gotowy.</string>
+     <string name="l_calendars">" · L kalendarze"</string>
+     <string name="day_events">%1$s, wydarzenia: %2$s</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
+index e99fbda..b4eea87 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">Agendas</string>
+     <string name="calendars_hint">As agendas visíveis preenchem a lista de eventos, os anéis de ocupação e o mês do Start.</string>
+     <string name="no_calendars">Ainda não há agendas neste telefone. Adicione uma conta em Definições > Contas.</string>
++    <string name="add_account">Adicionar conta</string>
++    <string name="phone_calendar">Calendário do telefone</string>
++    <string name="import_ics">Importar .ics</string>
++    <string name="imported_events">%1$d eventos importados.</string>
++    <string name="import_failed">Nada foi importado.</string>
++    <string name="phone_calendar_ready">Calendário do telefone pronto.</string>
+     <string name="l_calendars">" · L agendas"</string>
+     <string name="day_events">%1$s, %2$s eventos</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
+index 40a6b43..a946a8a 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">Календари</string>
+     <string name="calendars_hint">Показанные календари заполняют список дел, кольца занятости и месяц в Start.</string>
+     <string name="no_calendars">На этом телефоне пока нет календарей. Добавьте аккаунт в Настройки > Аккаунты.</string>
++    <string name="add_account">Добавить аккаунт</string>
++    <string name="phone_calendar">Календарь телефона</string>
++    <string name="import_ics">Импорт .ics</string>
++    <string name="imported_events">Импортировано событий: %1$d.</string>
++    <string name="import_failed">Ничего не импортировано.</string>
++    <string name="phone_calendar_ready">Календарь телефона готов.</string>
+     <string name="l_calendars">" · L календари"</string>
+     <string name="day_events">%1$s, событий: %2$s</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
+index debfde9..5298431 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">Kalendrar</string>
+     <string name="calendars_hint">Visade kalendrar fyller agendan, upptagetringarna och månaden i Start.</string>
+     <string name="no_calendars">Inga kalendrar på telefonen än. Lägg till ett konto under Inställningar > Konton.</string>
++    <string name="add_account">Lägg till konto</string>
++    <string name="phone_calendar">Telefonkalender</string>
++    <string name="import_ics">Importera .ics</string>
++    <string name="imported_events">%1$d händelser importerades.</string>
++    <string name="import_failed">Inget importerades.</string>
++    <string name="phone_calendar_ready">Telefonkalendern är klar.</string>
+     <string name="l_calendars">" · L kalendrar"</string>
+     <string name="day_events">%1$s, %2$s händelser</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
+index c7e0a30..59992c5 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">Takvimler</string>
+     <string name="calendars_hint">Gösterilen takvimler ajandayı, yoğunluk halkalarını ve Start\'taki ayı doldurur.</string>
+     <string name="no_calendars">Bu telefonda henüz takvim yok. Ayarlar > Hesaplar\'dan bir hesap ekleyin.</string>
++    <string name="add_account">Hesap ekle</string>
++    <string name="phone_calendar">Telefon takvimi</string>
++    <string name="import_ics">.ics içe aktar</string>
++    <string name="imported_events">%1$d etkinlik içe aktarıldı.</string>
++    <string name="import_failed">Hiçbir şey içe aktarılmadı.</string>
++    <string name="phone_calendar_ready">Telefon takvimi hazır.</string>
+     <string name="l_calendars">" · L takvimler"</string>
+     <string name="day_events">%1$s, %2$s etkinlik</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
+index 8efc266..5d7fd4b 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">کیلنڈر</string>
+     <string name="calendars_hint">دکھائے گئے کیلنڈر ایجنڈا، مصروفیت کے حلقے اور Start کا مہینہ بھرتے ہیں۔</string>
+     <string name="no_calendars">اس فون پر ابھی کوئی کیلنڈر نہیں۔ ترتیبات > اکاؤنٹس میں اکاؤنٹ شامل کریں۔</string>
++    <string name="add_account">اکاؤنٹ شامل کریں</string>
++    <string name="phone_calendar">فون کیلنڈر</string>
++    <string name="import_ics">.ics درآمد کریں</string>
++    <string name="imported_events">%1$d ایونٹس درآمد ہوئے۔</string>
++    <string name="import_failed">کچھ درآمد نہیں ہوا۔</string>
++    <string name="phone_calendar_ready">فون کیلنڈر تیار ہے۔</string>
+     <string name="l_calendars">" · L کیلنڈر"</string>
+     <string name="day_events">%1$s، %2$s ایونٹس</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
+index d523eaa..cfd7e43 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
+@@ -60,6 +60,12 @@
+     <string name="calendars">日历</string>
+     <string name="calendars_hint">显示的日历会用于日程、忙碌圆环和 Start 的月视图。</string>
+     <string name="no_calendars">此手机上还没有日历。请在“设置 > 帐号”中添加帐号。</string>
++    <string name="add_account">添加账户</string>
++    <string name="phone_calendar">手机日历</string>
++    <string name="import_ics">导入 .ics</string>
++    <string name="imported_events">已导入 %1$d 个日程。</string>
++    <string name="import_failed">未导入任何内容。</string>
++    <string name="phone_calendar_ready">手机日历已就绪。</string>
+     <string name="l_calendars">" · L 日历"</string>
+     <string name="day_events">%1$s，%2$s 个活动</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+index 70b59cd..fc12060 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+@@ -62,6 +62,12 @@
+     <string name="calendars">Calendars</string>
+     <string name="calendars_hint">Shown calendars fill the agenda, the busy rings and Start\'s month.</string>
+     <string name="no_calendars">No calendars on this phone yet. Add an account in Settings > Accounts.</string>
++    <string name="add_account">Add account</string>
++    <string name="phone_calendar">Phone calendar</string>
++    <string name="import_ics">Import .ics</string>
++    <string name="imported_events">Imported %1$d events.</string>
++    <string name="import_failed">Nothing was imported.</string>
++    <string name="phone_calendar_ready">Phone calendar ready.</string>
+     <string name="l_calendars">" · L calendars"</string>
+     <string name="day_events">%1$s, %2$s events</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/IcsParserTest.kt b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/IcsParserTest.kt
+new file mode 100644
+index 0000000..b24cb35
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/IcsParserTest.kt
+@@ -0,0 +1,84 @@
++package org.sableos.calendar
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import java.time.ZoneId
++
++class IcsParserTest {
++    private val utc = ZoneId.of("UTC")
++
++    private fun ics(vararg body: String) =
++        ("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n" + body.joinToString("\r\n") + "\r\nEND:VCALENDAR\r\n")
++
++    @Test
++    fun readsAUtcEventWithEscapesAndFolding() {
++        val text =
++            ics(
++                "BEGIN:VEVENT",
++                "SUMMARY:Review\\, with PM",
++                "DTSTART:20261106T090000Z",
++                "DTEND:20261106T100000Z",
++                "LOCATION:Room 4",
++                "DESCRIPTION:Line one\\nLine",
++                "  two",
++                "END:VEVENT",
++            )
++        val event = IcsParser.parse(text, utc).single()
++        assertEquals("Review, with PM", event.title)
++        assertEquals(3_600_000L, event.endMillis - event.startMillis)
++        assertEquals("Room 4", event.location)
++        assertEquals("Line one\nLine two", event.description)
++        assertEquals(false, event.allDay)
++    }
++
++    @Test
++    fun readsAllDayEventsAsUtcMidnights() {
++        val event =
++            IcsParser
++                .parse(ics("BEGIN:VEVENT", "SUMMARY:Birthday", "DTSTART;VALUE=DATE:20261121", "END:VEVENT"), utc)
++                .single()
++        assertTrue(event.allDay)
++        assertEquals(86_400_000L, event.endMillis - event.startMillis)
++    }
++
++    @Test
++    fun zonedStartsUseTheirZoneAndDurationSetsTheEnd() {
++        val event =
++            IcsParser
++                .parse(
++                    ics(
++                        "BEGIN:VEVENT",
++                        "SUMMARY:Call",
++                        "DTSTART;TZID=America/New_York:20261106T090000",
++                        "DURATION:PT1H30M",
++                        "RRULE:FREQ=WEEKLY;BYDAY=FR",
++                        "END:VEVENT",
++                    ),
++                    utc,
++                ).single()
++        // 09:00 in New York on 6 Nov 2026 is 14:00 UTC (standard time).
++        assertEquals(
++            java.time.Instant
++                .parse("2026-11-06T14:00:00Z")
++                .toEpochMilli(),
++            event.startMillis,
++        )
++        assertEquals(90 * 60_000L, event.endMillis - event.startMillis)
++        assertEquals("FREQ=WEEKLY;BYDAY=FR", event.rrule)
++    }
++
++    @Test
++    fun anEventWithoutAUsableStartIsDropped() {
++        val text =
++            ics("BEGIN:VEVENT", "SUMMARY:No start", "END:VEVENT", "BEGIN:VEVENT", "DTSTART:nonsense", "END:VEVENT")
++        assertTrue(IcsParser.parse(text, utc).isEmpty())
++    }
++
++    @Test
++    fun durationsParse() {
++        assertEquals(7 * 86_400_000L, IcsParser.duration("P1W"))
++        assertEquals(86_400_000L + 3_600_000L, IcsParser.duration("P1DT1H"))
++        assertEquals(0L, IcsParser.duration("junk"))
++    }
++}

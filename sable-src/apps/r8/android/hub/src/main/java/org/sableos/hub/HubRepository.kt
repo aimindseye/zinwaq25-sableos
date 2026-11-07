@@ -137,6 +137,7 @@ class HubRepository(
             mail = loadMailSnapshot(),
             calls = calls,
             privacy = privacyState(),
+            upcoming = HubUpcomingReader(context).load(),
         )
     }
 

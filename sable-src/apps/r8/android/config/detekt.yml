@@ -33,6 +33,7 @@ complexity:
       - "**/media/PodcastScreen.kt"
       - "**/hub/ui/HubScreen.kt"
       - "**/hub/ui/ConnectedAppsScreen.kt"
+      - "**/hub/policy/HubItemsTest.kt"
   TooManyFunctions:
     ignorePrivate: true
     ignoreAnnotatedFunctions:
@@ -48,8 +49,11 @@ naming:
       - "**/media/MediaC2Screens.kt"
       - "**/media/PodcastScreen.kt"
       - "**/hub/ui/HubScreen.kt"
+      - "**/hub/ui/HubUpcoming.kt"
       - "**/hub/ui/ConnectedAppsScreen.kt"
       - "**/hub/ui/AttentionSettingsScreen.kt"
+      - "**/hub/ui/HubTheme.kt"
+      - "**/design/SableActionBar.kt"
 
 style:
   MagicNumber:

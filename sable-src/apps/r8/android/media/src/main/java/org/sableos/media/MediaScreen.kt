@@ -60,11 +60,11 @@ import org.sableos.design.sableLetterJump
 import org.sableos.media.MediaText.t
 import java.util.Locale
 
-internal val MediaPink = Color(0xFFFF4F9A)
-internal val MediaPurple = Color(0xFF7A42E8)
-internal val MediaBlue = Color(0xFF2E9BD6)
-internal val MediaGreen = Color(0xFF35C66B)
-internal val MediaOrange = Color(0xFFF28C45)
+/** Black, white and grey with the one Sable blue: artwork placeholders and the playing mark. */
+internal val MediaAccent = Color(0xFF2E9BD6)
+internal val MediaGreyDark = Color(0xFF3A3A3A)
+internal val MediaGreyMid = Color(0xFF6B6B6B)
+internal val MediaGreyLight = Color(0xFF9A9A9A)
 
 private val MediaControlSize = 48.dp
 private val MediaPrimaryTouchHeight = 54.dp
@@ -604,7 +604,7 @@ private fun PrimaryPivot(
         destinations = if (fmAvailable) MEDIA_TOP_DESTINATIONS_WITH_FM else MEDIA_TOP_DESTINATIONS,
         selectedId = current?.name,
         onSelect = { id -> onSelect(MediaDestination.valueOf(id)) },
-        accent = MediaPink,
+        accent = MediaAccent,
     )
 }
 
@@ -1530,7 +1530,7 @@ private fun NowPlayingScreen(
                     if (duration > 0L) {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     } else {
-                        MediaPink
+                        MediaAccent
                     },
             )
         }
@@ -1623,7 +1623,7 @@ private fun RadioScreen(
                 color = Color.Transparent,
                 contentColor =
                     if (!showFavoritesOnly) {
-                        MediaPink
+                        MediaAccent
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
@@ -1640,7 +1640,7 @@ private fun RadioScreen(
                 color = Color.Transparent,
                 contentColor =
                     if (showFavoritesOnly) {
-                        MediaPink
+                        MediaAccent
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
@@ -1743,8 +1743,8 @@ private fun RadioStationRow(
                 Surface(
                     modifier = Modifier.width(MediaControlSize),
                     shape = MaterialTheme.shapes.small,
-                    color = MediaPink.copy(alpha = 0.18f),
-                    border = BorderStroke(1.dp, MediaPink.copy(alpha = 0.7f)),
+                    color = MediaAccent.copy(alpha = 0.18f),
+                    border = BorderStroke(1.dp, MediaAccent.copy(alpha = 0.7f)),
                 ) {
                     Box(
                         modifier = Modifier.aspectRatio(1f),
@@ -1753,7 +1753,7 @@ private fun RadioStationRow(
                         Text(
                             text = "LIVE",
                             style = MaterialTheme.typography.labelLarge,
-                            color = MediaPink,
+                            color = MediaAccent,
                         )
                     }
                 }
@@ -2007,8 +2007,8 @@ private fun ArtworkTile(
                             colors =
                                 listOf(
                                     accent,
-                                    MediaPink,
-                                    MediaBlue,
+                                    MediaAccent,
+                                    MediaAccent,
                                 ),
                         ),
                     shape =
@@ -2133,11 +2133,11 @@ private fun EmptyPanel(
 private fun accentFor(seed: Int): Color {
     val palette =
         listOf(
-            MediaPurple,
-            MediaBlue,
-            MediaPink,
-            MediaOrange,
-            MediaGreen,
+            MediaGreyDark,
+            MediaAccent,
+            MediaAccent,
+            MediaGreyMid,
+            MediaGreyLight,
         )
 
     return palette[Math.floorMod(seed, palette.size)]

@@ -263,7 +263,19 @@ internal class MediaPlaylistController(
                 current = state.playlists,
                 playlistId = playlist.id,
             )
+        state.deletedPlaylist = playlist
         state.message = t("playlist_removed")
+    }
+
+    fun undoDelete() {
+        val playlist = state.deletedPlaylist ?: return
+        state.deletedPlaylist = null
+        state.playlists = libraryState.restorePlaylist(state.playlists, playlist)
+        state.message = null
+    }
+
+    fun endUndo() {
+        state.deletedPlaylist = null
     }
 
     fun play(playlist: MediaPlaylist) {
@@ -466,6 +478,12 @@ internal class MediaStationController(
     }
 
     fun delete(station: RadioStation) {
+        state.deletedStation =
+            DeletedStation(
+                station = station,
+                index = state.stations.indexOfFirst { it.id == station.id }.coerceAtLeast(0),
+                favorite = station.id in state.favoriteStationIds,
+            )
         state.stations =
             repositories.stations.deleteStation(
                 current = state.stations,
@@ -481,6 +499,20 @@ internal class MediaStationController(
         }
 
         state.message = t("station_removed")
+    }
+
+    fun undoDelete() {
+        val deleted = state.deletedStation ?: return
+        state.deletedStation = null
+        state.stations = repositories.stations.restoreStation(state.stations, deleted.station, deleted.index)
+        if (deleted.favorite && deleted.station.id !in state.favoriteStationIds) {
+            toggleFavorite(deleted.station)
+        }
+        state.message = null
+    }
+
+    fun endUndo() {
+        state.deletedStation = null
     }
 
     fun saveNew() {

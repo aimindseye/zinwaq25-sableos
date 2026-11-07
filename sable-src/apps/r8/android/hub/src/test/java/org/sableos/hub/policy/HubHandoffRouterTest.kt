@@ -33,7 +33,12 @@ class HubHandoffRouterTest {
     fun excludedSourceOpensItsSettingsInsteadOfBeingIncludedSilently() {
         assertEquals(
             HubHandoffTarget.ConnectedAppSettings(chat),
-            HubHandoffRouter.route(chat, "a", conversations, mapOf(chat to ConnectedAppPolicy(chat))),
+            HubHandoffRouter.route(
+                chat,
+                "a",
+                conversations,
+                mapOf(chat to ConnectedAppPolicy(chat, includeInMessages = false)),
+            ),
         )
     }
 
