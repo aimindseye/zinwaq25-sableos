@@ -353,4 +353,12 @@
     <string name="pedometer_set_goal">Daily goal (steps)</string>
     <string name="pedometer_note">Menu sets height, weight and the daily goal. Steps taken while this tool is closed are added the next time you open it. Everything stays on this phone.</string>
     <string name="app_name" translatable="false">Sable Tools</string>
+    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
+    <string name="settings_apps">Settings > Apps</string>
+    <string name="my_sable_battery_health">Battery health</string>
+    <string name="my_sable_health_good">Good</string>
+    <string name="my_sable_health_hot">Overheated</string>
+    <string name="my_sable_health_cold">Too cold</string>
+    <string name="my_sable_health_bad">Needs attention</string>
+    <string name="my_sable_health_unknown">Unknown</string>
 </resources>

@@ -351,4 +351,12 @@
     <string name="pedometer_set_weight">Gewicht (kg)</string>
     <string name="pedometer_set_goal">Dagdoel (stappen)</string>
     <string name="pedometer_note">Met Menu stel je lengte, gewicht en dagdoel in. Stappen die je zet terwijl dit hulpmiddel gesloten is, worden toegevoegd zodra je het weer opent. Alles blijft op deze telefoon.</string>
+    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
+    <string name="settings_apps">Settings > Apps</string>
+    <string name="my_sable_battery_health">Battery health</string>
+    <string name="my_sable_health_good">Good</string>
+    <string name="my_sable_health_hot">Overheated</string>
+    <string name="my_sable_health_cold">Too cold</string>
+    <string name="my_sable_health_bad">Needs attention</string>
+    <string name="my_sable_health_unknown">Unknown</string>
 </resources>

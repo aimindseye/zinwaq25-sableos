@@ -351,4 +351,12 @@
     <string name="pedometer_set_weight">Peso (kg)</string>
     <string name="pedometer_set_goal">Meta diária (passos)</string>
     <string name="pedometer_note">O menu define altura, peso e meta diária. Os passos dados com esta ferramenta fechada são somados na próxima vez que você a abrir. Tudo fica neste telefone.</string>
+    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
+    <string name="settings_apps">Settings > Apps</string>
+    <string name="my_sable_battery_health">Battery health</string>
+    <string name="my_sable_health_good">Good</string>
+    <string name="my_sable_health_hot">Overheated</string>
+    <string name="my_sable_health_cold">Too cold</string>
+    <string name="my_sable_health_bad">Needs attention</string>
+    <string name="my_sable_health_unknown">Unknown</string>
 </resources>

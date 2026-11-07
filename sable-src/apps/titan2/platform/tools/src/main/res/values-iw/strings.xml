@@ -351,4 +351,12 @@
     <string name="pedometer_set_weight">משקל (ק\"ג)</string>
     <string name="pedometer_set_goal">יעד יומי (צעדים)</string>
     <string name="pedometer_note">התפריט קובע גובה, משקל ויעד יומי. צעדים שנעשו בזמן שהכלי סגור מתווספים בפעם הבאה שפותחים אותו. הכול נשאר בטלפון הזה.</string>
+    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
+    <string name="settings_apps">Settings > Apps</string>
+    <string name="my_sable_battery_health">Battery health</string>
+    <string name="my_sable_health_good">Good</string>
+    <string name="my_sable_health_hot">Overheated</string>
+    <string name="my_sable_health_cold">Too cold</string>
+    <string name="my_sable_health_bad">Needs attention</string>
+    <string name="my_sable_health_unknown">Unknown</string>
 </resources>

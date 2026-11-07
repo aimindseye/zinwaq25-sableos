@@ -351,4 +351,12 @@
     <string name="pedometer_set_weight">Βάρος (κιλά)</string>
     <string name="pedometer_set_goal">Ημερήσιος στόχος (βήματα)</string>
     <string name="pedometer_note">Το Μενού ορίζει ύψος, βάρος και ημερήσιο στόχο. Τα βήματα που γίνονται όσο το εργαλείο είναι κλειστό προστίθενται την επόμενη φορά που θα το ανοίξετε. Όλα μένουν σε αυτό το τηλέφωνο.</string>
+    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
+    <string name="settings_apps">Settings > Apps</string>
+    <string name="my_sable_battery_health">Battery health</string>
+    <string name="my_sable_health_good">Good</string>
+    <string name="my_sable_health_hot">Overheated</string>
+    <string name="my_sable_health_cold">Too cold</string>
+    <string name="my_sable_health_bad">Needs attention</string>
+    <string name="my_sable_health_unknown">Unknown</string>
 </resources>

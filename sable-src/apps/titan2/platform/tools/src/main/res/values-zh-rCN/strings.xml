@@ -351,4 +351,12 @@
     <string name="pedometer_set_weight">体重（公斤）</string>
     <string name="pedometer_set_goal">每日目标（步数）</string>
     <string name="pedometer_note">菜单可设置身高、体重和每日目标。此工具关闭期间走的步数会在下次打开时计入。所有数据都保存在这部手机上。</string>
+    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
+    <string name="settings_apps">Settings > Apps</string>
+    <string name="my_sable_battery_health">Battery health</string>
+    <string name="my_sable_health_good">Good</string>
+    <string name="my_sable_health_hot">Overheated</string>
+    <string name="my_sable_health_cold">Too cold</string>
+    <string name="my_sable_health_bad">Needs attention</string>
+    <string name="my_sable_health_unknown">Unknown</string>
 </resources>

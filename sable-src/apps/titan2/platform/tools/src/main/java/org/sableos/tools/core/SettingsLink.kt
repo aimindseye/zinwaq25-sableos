@@ -29,6 +29,7 @@ enum class SettingsLink(private val labelKey: String, val candidates: List<LinkI
         "settings_accessibility",
         listOf(LinkIntent("android.settings.ACCESSIBILITY_SETTINGS"))
     ),
+    APPS("settings_apps", listOf(LinkIntent("android.settings.MANAGE_APPLICATIONS_SETTINGS"))),
     DISPLAY("settings_display", listOf(LinkIntent("android.settings.DISPLAY_SETTINGS"))),
     SOUND("settings_sound", listOf(LinkIntent("android.settings.SOUND_SETTINGS"))),
     BATTERY(

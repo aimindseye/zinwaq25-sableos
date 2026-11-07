@@ -351,4 +351,12 @@
     <string name="pedometer_set_weight">Peso (kg)</string>
     <string name="pedometer_set_goal">Obiettivo giornaliero (passi)</string>
     <string name="pedometer_note">Il menu imposta altezza, peso e obiettivo giornaliero. I passi fatti con lo strumento chiuso vengono aggiunti alla prossima apertura. Tutto resta su questo telefono.</string>
+    <string name="my_sable_dual">Dual apps: a second copy of an app</string>
+    <string name="settings_apps">Settings > Apps</string>
+    <string name="my_sable_battery_health">Battery health</string>
+    <string name="my_sable_health_good">Good</string>
+    <string name="my_sable_health_hot">Overheated</string>
+    <string name="my_sable_health_cold">Too cold</string>
+    <string name="my_sable_health_bad">Needs attention</string>
+    <string name="my_sable_health_unknown">Unknown</string>
 </resources>

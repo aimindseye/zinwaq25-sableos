@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.text.InputType
@@ -416,7 +418,9 @@ class MySableController(private val host: ToolHost) : ToolController {
             appendLine("${t("my_sable_attention")}  ${t("my_sable_open")}")
             appendLine("${t("my_sable_mobile")}  ${t("my_sable_open")}")
             appendLine("${t("check_private_space")}  ${space?.detail ?: t("check_unknown")}")
+            appendLine("${t("my_sable_dual")}  ${t("my_sable_open")}")
             appendLine("${t("my_sable_battery")}  ${t("my_sable_open")}")
+            appendLine("${t("my_sable_battery_health")}  ${batteryHealth()}")
             appendLine("${t("my_sable_privacy_screen")}  ${t("my_sable_open")}")
         }.trimEnd()
         text.text = rendered
@@ -429,9 +433,25 @@ class MySableController(private val host: ToolHost) : ToolController {
         t("my_sable_attention") to { host.openLink(SettingsLink.NOTIFICATIONS) },
         t("my_sable_mobile") to { host.openLink(SettingsLink.NETWORK) },
         t("check_private_space") to { host.openLink(SettingsLink.SECURITY) },
+        t("my_sable_dual") to { host.openLink(SettingsLink.APPS) },
         t("my_sable_battery") to { host.openLink(SettingsLink.BATTERY) },
         t("my_sable_privacy_screen") to { switchPrivacyScreen() }
     )
+
+    /** Battery health from the sticky battery broadcast; needs no permission. */
+    private fun batteryHealth(): String {
+        val sticky = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val key = when (sticky?.getIntExtra(BatteryManager.EXTRA_HEALTH, 0)) {
+            BatteryManager.BATTERY_HEALTH_GOOD -> "my_sable_health_good"
+            BatteryManager.BATTERY_HEALTH_OVERHEAT -> "my_sable_health_hot"
+            BatteryManager.BATTERY_HEALTH_COLD -> "my_sable_health_cold"
+            BatteryManager.BATTERY_HEALTH_DEAD -> "my_sable_health_bad"
+            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "my_sable_health_bad"
+            BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "my_sable_health_bad"
+            else -> "my_sable_health_unknown"
+        }
+        return t(key)
+    }
 
     /**
      * Asks the Text reader to switch the Privacy Screen. It answers on or off when its service is running;

@@ -307,4 +307,4 @@ that option in `product/q25/camera-50mp/` and is applied by
 Reserved:
 
 * `device/` changes to the LineageOS Q25 device tree. Prefer upstreaming to
-  LineageOS.
+  LineageOS. 0176 completes My Sable's rows: Dual apps (opens Settings > Apps, where Cloned apps lives) and a Battery health state read from the sticky battery broadcast, with their text in every language file (English for now).
