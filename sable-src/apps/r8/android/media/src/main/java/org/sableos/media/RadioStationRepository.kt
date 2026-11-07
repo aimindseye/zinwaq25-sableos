@@ -135,6 +135,17 @@ internal class RadioStationRepository(
         return updated
     }
 
+    fun restoreStation(
+        current: List<RadioStation>,
+        station: RadioStation,
+        index: Int,
+    ): List<RadioStation> {
+        val without = current.filterNot { it.id == station.id }
+        val updated = without.toMutableList().apply { add(index.coerceIn(0, size), station) }
+        persist(updated)
+        return updated
+    }
+
     private fun persist(stations: List<RadioStation>) {
         val array = JSONArray()
 

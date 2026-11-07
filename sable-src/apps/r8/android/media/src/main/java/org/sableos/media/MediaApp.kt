@@ -161,6 +161,17 @@ internal fun MediaApp(
                                 ),
                         ),
                 )
+                state.deletedStation?.let {
+                    SableUndoBar(
+                        message = MediaText.t("station_removed"),
+                        onUndo = controllers.stations::undoDelete,
+                        onExpire = controllers.stations::endUndo,
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .background(MaterialTheme.colorScheme.background),
+                    )
+                }
                 state.deletedPlaylist?.let {
                     SableUndoBar(
                         message = MediaText.t("playlist_removed"),
