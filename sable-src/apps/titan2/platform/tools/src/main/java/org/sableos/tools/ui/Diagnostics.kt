@@ -1,5 +1,9 @@
 package org.sableos.tools.ui
 
+import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
 import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.text.InputType
@@ -426,6 +430,44 @@ class MySableController(private val host: ToolHost) : ToolController {
         t("my_sable_mobile") to { host.openLink(SettingsLink.NETWORK) },
         t("check_private_space") to { host.openLink(SettingsLink.SECURITY) },
         t("my_sable_battery") to { host.openLink(SettingsLink.BATTERY) },
-        t("my_sable_privacy_screen") to { host.openLink(SettingsLink.ACCESSIBILITY) }
+        t("my_sable_privacy_screen") to { switchPrivacyScreen() }
     )
+
+    /**
+     * Asks the Text reader to switch the Privacy Screen. It answers on or off when its service is running;
+     * otherwise (or when the permission is not granted) the user is sent to Accessibility to turn it on.
+     */
+    private fun switchPrivacyScreen() {
+        val intent = Intent(PRIVACY_SCREEN_ACTION).setPackage(PRIVACY_SCREEN_PACKAGE)
+        val answer = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, reply: Intent) {
+                onPrivacyScreenAnswer(resultCode, resultData)
+            }
+        }
+        runCatching {
+            ctx.sendOrderedBroadcast(
+                intent,
+                null,
+                answer,
+                null,
+                Activity.RESULT_CANCELED,
+                null,
+                null
+            )
+        }.onFailure { host.openLink(SettingsLink.ACCESSIBILITY) }
+    }
+
+    private fun onPrivacyScreenAnswer(code: Int, data: String?) {
+        if (code != Activity.RESULT_OK) {
+            host.openLink(SettingsLink.ACCESSIBILITY)
+            return
+        }
+        val key = if (data == "on") "my_sable_privacy_on" else "my_sable_privacy_off"
+        host.toast(t(key))
+    }
+
+    private companion object {
+        const val PRIVACY_SCREEN_ACTION = "org.sableos.textreader.action.TOGGLE_PRIVACY_SCREEN"
+        const val PRIVACY_SCREEN_PACKAGE = "org.sableos.textreader"
+    }
 }

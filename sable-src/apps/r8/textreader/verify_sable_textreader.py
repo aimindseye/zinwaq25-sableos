@@ -180,6 +180,8 @@ def verify_manifest(manifest_path: pathlib.Path) -> None:
         "org.sableos.textreader.speak.SpeakFocusService",
         "org.sableos.textreader.privacy.PrivacyScreenService",
         "org.sableos.textreader.privacy.PrivacyScreenTile",
+        "org.sableos.textreader.privacy.PrivacyScreenSwitchReceiver",
+        'android:name="org.sableos.permission.PRIVACY_SCREEN"',
         "android.permission.BIND_QUICK_SETTINGS_TILE",
         "android.permission.BIND_ACCESSIBILITY_SERVICE",
     ):

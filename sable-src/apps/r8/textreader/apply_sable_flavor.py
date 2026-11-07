@@ -157,6 +157,9 @@ def patch_manifest(manifest: pathlib.Path) -> None:
         fail("SABLE_TEXT_READER_MANIFEST_APPLICATION_ANCHOR=FAIL")
     manifest_text = manifest_text.replace(
         app_anchor,
+        '    <permission\n'
+        '        android:name="org.sableos.permission.PRIVACY_SCREEN"\n'
+        '        android:protectionLevel="signature" />\n\n'
         '    <queries>\n'
         '        <provider android:authorities="org.sableos.appearance" />\n'
         '    </queries>\n\n'
@@ -233,6 +236,14 @@ PRIVACY_SCREEN_SERVICES = """        <service
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+        <receiver
+            android:name="org.sableos.textreader.privacy.PrivacyScreenSwitchReceiver"
+            android:exported="true"
+            android:permission="org.sableos.permission.PRIVACY_SCREEN">
+            <intent-filter>
+                <action android:name="org.sableos.textreader.action.TOGGLE_PRIVACY_SCREEN" />
+            </intent-filter>
+        </receiver>
 """
 
 

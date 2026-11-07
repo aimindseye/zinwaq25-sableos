@@ -20,6 +20,7 @@ object PrivilegePolicy {
         "android.permission.READ_BASIC_PHONE_STATE",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.VIBRATE",
+        "org.sableos.permission.PRIVACY_SCREEN",
         "android.permission.HIGH_SAMPLING_RATE_SENSORS"
     )
 

@@ -297,6 +297,8 @@ object ToolsText {
             "my_sable_open" to "Open",
             "my_sable_privacy_screen" to "Privacy Screen: dims all but the line you are on",
             "settings_accessibility" to "Settings > Accessibility",
+            "my_sable_privacy_on" to "Privacy Screen is on.",
+            "my_sable_privacy_off" to "Privacy Screen is off.",
             "device_build_and_security" to "Device, build and security",
             "keyboard_event_viewer" to "Keyboard event viewer",
             "keyboard_layout_and_profile" to "Keyboard layout and profile",
