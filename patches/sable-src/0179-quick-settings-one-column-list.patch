@@ -1,0 +1,72 @@
+diff --git a/patches/README.md b/patches/README.md
+index 6441dce..5420210 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -311,3 +311,4 @@ Reserved:
+   LineageOS. 0176 completes My Sable's rows: Dual apps (opens Settings > Apps, where Cloned apps lives) and a Battery health state read from the sticky battery broadcast, with their text in every language file (English for now).
+   0177 fits Sable Keyboard to the Q25's 411 dp square screen: key rows are 40 to 52 dp, so the four rows take at most 45% of the window (40 dp on the Q25, 52 dp on tall phones), and no navigation bar space is reserved when no navigation bar shows.
+   0178 makes Cosgrove the phone's assistant and lets him text: an ACTION_ASSIST entry (holding the BlackBerry key opens him), `text Name: message` typed or the model's `SEND_SMS name :: message` line prepares a text, the name is found in contacts on the phone, and the text is sent from the default SIM only after the owner presses Send on the confirm card (Open in Messages and Cancel beside it). New lines are in every language file (English for now). ButlerTest covers the parsing.
++  0179 makes expanded Quick Settings on the Q25 a one-column list (owner decision 2026-11-12): SableQuickSettingsLayout for square keyboard phones is two columns with every default tile large, so each row is one tile; the compact row of four is unchanged.
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
+index de7343c..bb78214 100644
+--- a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt
+@@ -216,23 +216,30 @@ data class SableQuickSettingsLayout(
+     val smallTileLabels: Boolean = false,
+ ) {
+     /**
+-     * Visible labeled tiles per row: every column when small tiles are labeled (the
+-     * sable-quick-settings-titan2 three-column grid), else the large tiles that fit.
++     * Visible labeled tiles per row in the expanded grid: the large tiles that fit when every
++     * default tile is large (the Q25's one-column list), else every column when small tiles are
++     * labeled, else the large tiles that fit.
+      */
+     val labeledTilesPerRow: Int
+-        get() = if (smallTileLabels) gridColumns else gridColumns / largeTileSpan
++        get() =
++            when {
++                allDefaultTilesLarge -> gridColumns / largeTileSpan
++                smallTileLabels -> gridColumns
++                else -> gridColumns / largeTileSpan
++            }
+ 
+     companion object {
+         fun forDisplayClass(displayClass: SableDisplayClass): SableQuickSettingsLayout =
+             when (displayClass) {
+-                // sable-quick-settings-titan2: three columns of small labeled square tiles,
+-                // one compact row of four.
++                // Owner decision 2026-11-12 (BB7-style, trackpad first): the expanded grid is a
++                // one-column list, every default tile large (icon, name and state on one row,
++                // spanning both columns); the compact shade keeps one row of four labeled tiles.
+                 SableDisplayClass.SquareKeyboard ->
+                     SableQuickSettingsLayout(
+-                        gridColumns = 3,
++                        gridColumns = 2,
+                         largeTileSpan = 2,
+                         compactRows = 1,
+-                        allDefaultTilesLarge = false,
++                        allDefaultTilesLarge = true,
+                         compactColumns = 4,
+                         smallTileLabels = true,
+                     )
+diff --git a/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt b/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt
+index 0d5030c..31c64a3 100644
+--- a/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt
++++ b/sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/SableSystemTokensTest.kt
+@@ -113,12 +113,12 @@ class SableSystemTokensTest {
+     }
+ 
+     @Test
+-    fun squareDisplaysGetTheThreeColumnLabeledGridAndFourTileCompactRow() {
++    fun squareDisplaysGetTheOneColumnListAndFourTileCompactRow() {
+         val square = SableQuickSettingsLayout.forDisplayClass(SableDisplayClass.SquareKeyboard)
+-        assertEquals(3, square.gridColumns)
+-        assertEquals(3, square.labeledTilesPerRow)
++        assertEquals(2, square.gridColumns)
++        assertEquals(1, square.labeledTilesPerRow)
+         assertTrue(square.smallTileLabels)
+-        assertFalse(square.allDefaultTilesLarge)
++        assertTrue(square.allDefaultTilesLarge)
+         assertEquals(1, square.compactRows)
+         assertEquals(4, square.compactColumns)
+         val tall = SableQuickSettingsLayout.forDisplayClass(SableDisplayClass.Tall)

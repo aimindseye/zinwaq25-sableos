@@ -113,12 +113,12 @@ class SableSystemTokensTest {
     }
 
     @Test
-    fun squareDisplaysGetTheThreeColumnLabeledGridAndFourTileCompactRow() {
+    fun squareDisplaysGetTheOneColumnListAndFourTileCompactRow() {
         val square = SableQuickSettingsLayout.forDisplayClass(SableDisplayClass.SquareKeyboard)
-        assertEquals(3, square.gridColumns)
-        assertEquals(3, square.labeledTilesPerRow)
+        assertEquals(2, square.gridColumns)
+        assertEquals(1, square.labeledTilesPerRow)
         assertTrue(square.smallTileLabels)
-        assertFalse(square.allDefaultTilesLarge)
+        assertTrue(square.allDefaultTilesLarge)
         assertEquals(1, square.compactRows)
         assertEquals(4, square.compactColumns)
         val tall = SableQuickSettingsLayout.forDisplayClass(SableDisplayClass.Tall)

@@ -25,6 +25,9 @@ def main() -> None:
         "look_guarded": 'android:permission="android.permission.WRITE_SECURE_SETTINGS"' in manifest,
         "snapshots": "uses-permission android:name=\"android.permission.READ_FRAME_BUFFER\"" in manifest
         and (root / JAVA / "platform/SableTaskSnapshots.kt").is_file(),
+        "system_menu": ".SableSystemMenuActivity" in manifest
+        and "android.permission.INJECT_EVENTS" in manifest
+        and (root / JAVA / "SableSystemMenuActivity.kt").is_file(),
         "fit": "heightIn(max = 360.dp)" in (root / JAVA / "ui/WidgetsPage.kt").read_text(encoding="utf-8"),
         "blue": "0xFF4D9CFF" not in (root / JAVA / "ui/StartPalette.kt").read_text(encoding="utf-8"),
     }

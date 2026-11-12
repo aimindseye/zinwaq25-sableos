@@ -3,6 +3,6 @@
     <!-- Holding the BlackBerry key (HOME) opens the assistant, Cosgrove (3 = SEARCH in
          DeviceKeysConstants.Action, which PhoneWindowManager answers with launchAssistAction).
          Owner decision 2026-11-12; until then the hold opened the app menu (1 = MENU), which
-         is now Alt+BlackBerry key (frameworks/base 0324). A press stays Home. -->
+         is the first row of the system menu on Alt+BlackBerry key (frameworks/base 0324). A press stays Home. -->
     <integer name="config_longPressOnHomeBehavior">3</integer>
 </resources>

@@ -259,6 +259,37 @@ def patch_frames(root: pathlib.Path) -> None:
     )
 
 
+def patch_system_menu(root: pathlib.Path) -> None:
+    """The BlackBerry 7 style system menu on Alt+BlackBerry key (frameworks/base 0324; owner,
+    2026-11-12): the app's menu, Close the app, Switch Application, Notifications, Quick Settings.
+    Not exported: the system (PhoneWindowManager) starts it by its component."""
+    manifest = root / "app/src/main/AndroidManifest.xml"
+    replace_once(
+        manifest,
+        "        <!-- SableOS: first-boot setup's Look step saves the home style. -->\n",
+        "        <!-- SableOS: the system menu, from Alt+BlackBerry key in any app (frameworks/base 0324). -->\n"
+        "        <activity\n"
+        "            android:name=\".SableSystemMenuActivity\"\n"
+        "            android:exported=\"false\"\n"
+        "            android:excludeFromRecents=\"true\"\n"
+        "            android:noHistory=\"true\"\n"
+        "            android:taskAffinity=\"\"\n"
+        "            android:theme=\"@android:style/Theme.Translucent.NoTitleBar\" />\n"
+        "        <!-- SableOS: first-boot setup's Look step saves the home style. -->\n",
+        "SABLE_HOME_SYSTEM_MENU",
+    )
+    replace_once(
+        manifest,
+        '    <uses-permission android:name="org.sableos.permission.SPEED_DIAL" />\n',
+        '    <uses-permission android:name="org.sableos.permission.SPEED_DIAL" />\n'
+        "    <!-- SableOS system menu: the app's Menu key, and the shade. -->\n"
+        '    <uses-permission android:name="android.permission.INJECT_EVENTS" tools:ignore="ProtectedPermissions" />\n'
+        '    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />\n',
+        "SABLE_HOME_SYSTEM_MENU_PERMISSIONS",
+    )
+    shutil.copyfile(HERE / "src/SableSystemMenuActivity.kt", root / JAVA / "SableSystemMenuActivity.kt")
+
+
 def patch_fit(root: pathlib.Path) -> None:
     """Fit the Q25's 411 dp square screen (about 383 dp under the status bar): the widget picker's
     list was a fixed 360 dp, so with its title and padding the dialog was taller than the window."""
@@ -288,6 +319,7 @@ def main() -> None:
     patch_colours(root)
     patch_frames(root)
     patch_fit(root)
+    patch_system_menu(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 

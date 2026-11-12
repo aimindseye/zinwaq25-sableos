@@ -16,7 +16,7 @@ Fill from `adb shell getevent -lt` on a real Q25. Leave `?` until measured.
 | Speaker / mic key (0) | ? | ? | kcm gives alt 0 |
 | Volume up / down / mute | ? | ? | side keys |
 | Convenience key | ? | ? | |
-| BlackBerry key | KEY_HOMEPAGE (MSC_SCAN 0x12, `Q25_keyboard`) | HOME | Owner capture on LineageOS 24.0, 2026-11-04. 2.0 behaviour (owner decisions 2026-11-04 and 2026-11-12): tap = Home (Active Frames), hold = Cosgrove, the assistant (`config_longPressOnHomeBehavior` 3), Alt+tap = the app's menu (MENU, frameworks/base 0324). On BB10 Classic this key was Menu only. |
+| BlackBerry key | KEY_HOMEPAGE (MSC_SCAN 0x12, `Q25_keyboard`) | HOME | Owner capture on LineageOS 24.0, 2026-11-04. 2.0 behaviour (owner decisions 2026-11-04 and 2026-11-12): tap = Home (Active Frames), hold = Cosgrove, the assistant (`config_longPressOnHomeBehavior` 3), Alt+tap = the system menu (the app's menu, Close, Switch Application, Notifications, Quick Settings; frameworks/base 0324). On BB10 Classic this key was Menu only. |
 
 ## Leads from q25toolbox (LineageOS 23, not verified here)
 

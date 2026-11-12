@@ -1,15 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- sable-quick-settings-titan2: the expanded grid is three columns of
-         small square tiles, each labeled under its icon, and the compact shade
-         is one row of four small tiles. No default tile is large, so nothing
-         spans two columns. Read by SystemUI with frameworks/base 0101 (large
-         tiles) and 0310 (compact columns, small-tile labels). -->
-    <integer name="quick_settings_infinite_grid_num_columns">3</integer>
+    <!-- Owner decision 2026-11-12 (BB7-style, trackpad first): expanded Quick
+         Settings is a one-column list. The grid has two columns and every
+         default tile is large (spans both), so each row is one tile with its
+         icon, name and state, and Down moves one setting at a time. The
+         compact shade stays one row of four small labeled tiles. Read by
+         SystemUI with frameworks/base 0101 (large tiles) and 0310 (compact
+         columns, small-tile labels). A tile added later is small until it is
+         made large in Edit. -->
+    <integer name="quick_settings_infinite_grid_num_columns">2</integer>
     <integer name="quick_qs_paginated_grid_num_rows">1</integer>
     <integer name="config_sableQuickQsNumColumns">4</integer>
     <bool name="config_sableQsSmallTileLabels">true</bool>
-    <string-array name="quick_settings_default_large_tiles" translatable="false" />
+    <!-- Every tile in quick_settings_tiles_default (config.xml). -->
+    <string-array name="quick_settings_default_large_tiles" translatable="false">
+        <item>internet</item>
+        <item>bt</item>
+        <item>dark</item>
+        <item>dnd</item>
+        <item>battery</item>
+        <item>flashlight</item>
+        <item>hotspot</item>
+        <item>location</item>
+        <item>airplane</item>
+    </string-array>
     <!-- "Sable Quick Settings" header, Hub summary row and keyboard hint line
          around the compact row (frameworks/base 0311). -->
     <bool name="config_sableShadeExtras">true</bool>
