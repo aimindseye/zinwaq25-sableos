@@ -103,6 +103,9 @@ Sable Start's platform permissions, so frames follow the system's recent tasks a
 snapshot (`SableTaskSnapshots.kt`, Android 17's TaskSnapshotManager, then TenSeven's older call);
 `adb logcat -s SableFrames` says why a frame has no picture. Media frames come from every app's media
 session through the notification listener that the framework overlay grants on first boot.
+The name bar under each frame is slim (22 dp), so more of the app shows; X and Backspace close the
+focused frame. The first frame refresh logs one `SableFrames` line with the snapshot permissions the home
+holds and whether TaskSnapshotManager was found.
 
 Sable Start's source stays in `sable-src/src/android/packages/apps/SableStart` until the home is
 qualified on a Q25. To go back to it, set the `SableHome` row's `enabled` column to `no`.

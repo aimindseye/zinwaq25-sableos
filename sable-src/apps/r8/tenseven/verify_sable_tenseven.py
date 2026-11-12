@@ -65,6 +65,9 @@ def main() -> None:
         "home_access": "android.permission.MANAGE_NOTIFICATION_LISTENERS" in manifest
         and "SableHomeAccess.ensure(this)" in activity
         and "5. Active Frames Settings" not in (root / JAVA / "LauncherSettingsActivity.kt").read_text(encoding="utf-8"),
+        # A slim name bar under each frame, and a log line that says why frames have no picture.
+        "slim_frames": "heightIn(min = 22.dp)" in (root / JAVA / "ui/ActiveFramesPage.kt").read_text(encoding="utf-8")
+        and "SableTaskSnapshots.explain(appContext)" in (root / JAVA / "platform/RecentTasksRepository.kt").read_text(encoding="utf-8"),
         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
     }

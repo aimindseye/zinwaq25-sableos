@@ -1,0 +1,145 @@
+diff --git a/patches/README.md b/patches/README.md
+index b357a85..b42b430 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -331,3 +331,4 @@ Reserved:
+   0189 adds the Hub over any app and the cover API to the SableOS home (2.0 plan, BB10, owner decision 2026-11-12): `patch_hub_peek` adds `SableHubPeekActivity` (rows by `SableHubPeek`, unit-tested), opened by holding the Recents key (frameworks/base 0326) or Hub, the new first row of the Alt+BlackBerry key menu; `patch_frame_covers` adds `content://org.sableos.launcher.covers` (`SableCoverProvider`, `SableFrameCovers`, unit-tested), where an app sets or clears its own frame's cover (title and line, the caller's own, in memory, hidden while locked, 24-hour lapse), shown ahead of notification and media summaries.
+   0190 is the Hub after the JL10 review (owner, 2026-11-12; ideas only, no JLauncher code or art): `patch_hub_keep` adds `SableHubKeep` (unit-tested), so the Hub keeps items until deleted (on the phone only, at most 1000, ongoing notices and Sable Mail not kept), lists Unread then Today, Yesterday and dated sections under "All accounts · N unread", adds Priority Hub and each app with its unread count to Views, a ⋮ menu (Hub settings, Email accounts, Calendar accounts, Connected apps), Mark unread, Priority Hub entries and Delete in the row menu, and Hub settings for Keep messages, Every message on its own, System notifications and the Sable Mail and DAVx⁵ account links; `patch_status_icons` names the home status choices Dials, Icons, Hidden everywhere (the saved value stays `text`); `patch_extra_dim` adds `SableExtraDim` (unit-tested), which turns on Android's Extra dim with manual brightness at the slider's bottom and off when it moves up, leaving Extra dim the person set alone (the Q25 panel's lowest backlight step is still bright); the AppSummary test now counts the cover source as local.
+   0191 makes the SableOS home need no permission setup (owner, 2026-11-12): `patch_home_access` adds `SableHomeAccess` (unit-tested), which grants the home Contacts, Calendar, Call log, Photos, Notifications, notification access, usage access and display over other apps once on its first start (each item until granted once, so a later "off" stays off; location is left to the person), and drops the Active Frames page from Launcher settings; product/q25 default permissions grant the same runtime permissions at first boot.
++  0192 slims Active Frames' name bar (owner, 2026-11-12): the bar under each frame is 22 dp with a smaller title and close mark, so more of the app shows; X and Backspace still close a frame. `SableTaskSnapshots` now finds TaskSnapshotManager.getTaskSnapshot by name (an added flag no longer hides it) and logs once under `SableFrames` which snapshot permissions the home holds, so `adb logcat -s SableFrames` says why a frame shows a summary instead of its picture.
+diff --git a/sable-src/apps/r8/tenseven/README.md b/sable-src/apps/r8/tenseven/README.md
+index a872b7e..86e5b12 100644
+--- a/sable-src/apps/r8/tenseven/README.md
++++ b/sable-src/apps/r8/tenseven/README.md
+@@ -103,6 +103,9 @@ Sable Start's platform permissions, so frames follow the system's recent tasks a
+ snapshot (`SableTaskSnapshots.kt`, Android 17's TaskSnapshotManager, then TenSeven's older call);
+ `adb logcat -s SableFrames` says why a frame has no picture. Media frames come from every app's media
+ session through the notification listener that the framework overlay grants on first boot.
++The name bar under each frame is slim (22 dp), so more of the app shows; X and Backspace close the
++focused frame. The first frame refresh logs one `SableFrames` line with the snapshot permissions the home
++holds and whether TaskSnapshotManager was found.
+ 
+ Sable Start's source stays in `sable-src/src/android/packages/apps/SableStart` until the home is
+ qualified on a Q25. To go back to it, set the `SableHome` row's `enabled` column to `no`.
+diff --git a/sable-src/apps/r8/tenseven/apply_sable_flavor.py b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+index 5d78d7f..b70088f 100644
+--- a/sable-src/apps/r8/tenseven/apply_sable_flavor.py
++++ b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+@@ -242,6 +242,7 @@ def patch_frames(root: pathlib.Path) -> None:
+     replace_once(
+         root / JAVA / "platform/RecentTasksRepository.kt",
+         "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n",
++        "            SableTaskSnapshots.explain(appContext)\n"
+         "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n"
+         "            SableTaskSnapshots.snapshot(taskId, lowResolution)?.let { return@runCatching it }\n",
+         "SABLE_HOME_SNAPSHOT_CALL",
+@@ -254,6 +255,17 @@ def patch_frames(root: pathlib.Path) -> None:
+         "            input.openings?.takeIf { native.isEmpty() }?.map { opening ->\n",
+         "SABLE_HOME_FRAMES_FROM_SYSTEM_TASKS",
+     )
++    # A slim name bar under each frame, so more of the app shows (owner, 2026-11-12). X and Backspace
++    # still close the focused frame; the × stays tappable.
++    page = root / JAVA / "ui/ActiveFramesPage.kt"
++    replace_once(page, "                .heightIn(min = 36.dp)\n", "                .heightIn(min = 22.dp)\n", "SABLE_HOME_SLIM_FRAME_BAR")
++    replace_once(
++        page,
++        "                style = MaterialTheme.typography.labelLarge,\n                modifier = Modifier.weight(1f),\n",
++        "                style = MaterialTheme.typography.labelMedium,\n                modifier = Modifier.weight(1f),\n",
++        "SABLE_HOME_SLIM_FRAME_TITLE",
++    )
++    replace_once(page, "                        .size(48.dp)\n", "                        .size(width = 32.dp, height = 22.dp)\n", "SABLE_HOME_SLIM_FRAME_CLOSE")
+     # No screen-capture offer where the system snapshot works.
+     # Screen capture is never offered on SableOS; patch_leftovers removes it from the build.
+ 
+diff --git a/sable-src/apps/r8/tenseven/src/SableTaskSnapshots.kt b/sable-src/apps/r8/tenseven/src/SableTaskSnapshots.kt
+index 2ef316e..9f53a06 100644
+--- a/sable-src/apps/r8/tenseven/src/SableTaskSnapshots.kt
++++ b/sable-src/apps/r8/tenseven/src/SableTaskSnapshots.kt
+@@ -1,8 +1,11 @@
+ package io.github.aimindseye.tenseven.platform
+ 
++import android.content.Context
++import android.content.pm.PackageManager
+ import android.graphics.Bitmap
+ import android.graphics.ColorSpace
+ import android.hardware.HardwareBuffer
++import android.os.Build
+ import android.util.Log
+ 
+ /**
+@@ -34,23 +37,52 @@ internal object SableTaskSnapshots {
+             .getOrNull()
+     }
+ 
++    /**
++     * The TaskSnapshotManager call: getTaskSnapshot(taskId, resolution) on Android 17, found by name so
++     * an added flag (a boolean or another int) does not hide it.
++     */
++    private val method: java.lang.reflect.Method? by lazy {
++        val type = managerClass ?: return@lazy null
++        val found =
++            type.methods.filter {
++                it.name == "getTaskSnapshot" && it.parameterTypes.firstOrNull() == Int::class.javaPrimitiveType &&
++                    it.parameterTypes.drop(1).all { p -> p == Int::class.javaPrimitiveType || p == Boolean::class.javaPrimitiveType }
++            }.minByOrNull { it.parameterCount }
++        if (found == null) {
++            val names = type.methods.filter { it.name.contains("Snapshot") }.joinToString { it.toGenericString() }
++            Log.w(TAG, "no usable TaskSnapshotManager.getTaskSnapshot; has: $names")
++        }
++        found
++    }
++
+     /** True when this Android has the TaskSnapshotManager call. */
+-    fun available(): Boolean =
+-        runCatching {
+-            managerClass?.getMethod("getTaskSnapshot", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType) != null
+-        }.getOrDefault(false)
++    fun available(): Boolean = method != null
++
++    /** Once: why the home's frames have no live picture (`adb logcat -s SableFrames`). */
++    fun explain(context: Context) {
++        if (!synchronized(logged) { logged.add("explain") }) return
++        val held =
++            listOf("READ_FRAME_BUFFER", "REAL_GET_TASKS", "MANAGE_ACTIVITY_TASKS").joinToString { name ->
++                val ok = context.checkSelfPermission("android.permission.$name") == PackageManager.PERMISSION_GRANTED
++                "$name=" + if (ok) "granted" else "MISSING"
++            }
++        Log.i(TAG, "snapshots: $held, TaskSnapshotManager=${if (available()) "ok" else "missing"}, sdk=${Build.VERSION.SDK_INT}")
++    }
+ 
+     fun snapshot(
+         taskId: Int,
+         lowResolution: Boolean,
+     ): Bitmap? =
+         runCatching {
+-            val type = managerClass ?: return@runCatching null
++            val call = method ?: return@runCatching null
+             val manager = manager() ?: return@runCatching null
+-            val method = type.getMethod("getTaskSnapshot", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+-            val snapshot =
+-                method.invoke(manager, taskId, if (lowResolution) RESOLUTION_LOW else RESOLUTION_HIGH)
+-                    ?: return@runCatching null
++            val resolution = if (lowResolution) RESOLUTION_LOW else RESOLUTION_HIGH
++            val args =
++                listOf<Any>(taskId) +
++                    call.parameterTypes.drop(1).mapIndexed { i, type ->
++                        if (type == Boolean::class.javaPrimitiveType) false else if (i == 0) resolution else 0
++                    }
++            val snapshot = call.invoke(manager, *args.toTypedArray()) ?: return@runCatching null
+             bitmapOf(snapshot)
+         }.onFailure { log("TaskSnapshotManager.getTaskSnapshot", it) }
+             .getOrNull()
+diff --git a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+index d2f4c85..770fdc5 100644
+--- a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
++++ b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+@@ -65,6 +65,9 @@ def main() -> None:
+         "home_access": "android.permission.MANAGE_NOTIFICATION_LISTENERS" in manifest
+         and "SableHomeAccess.ensure(this)" in activity
+         and "5. Active Frames Settings" not in (root / JAVA / "LauncherSettingsActivity.kt").read_text(encoding="utf-8"),
++        # A slim name bar under each frame, and a log line that says why frames have no picture.
++        "slim_frames": "heightIn(min = 22.dp)" in (root / JAVA / "ui/ActiveFramesPage.kt").read_text(encoding="utf-8")
++        and "SableTaskSnapshots.explain(appContext)" in (root / JAVA / "platform/RecentTasksRepository.kt").read_text(encoding="utf-8"),
+         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
+         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
+     }

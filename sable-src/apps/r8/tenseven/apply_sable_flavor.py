@@ -242,6 +242,7 @@ def patch_frames(root: pathlib.Path) -> None:
     replace_once(
         root / JAVA / "platform/RecentTasksRepository.kt",
         "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n",
+        "            SableTaskSnapshots.explain(appContext)\n"
         "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n"
         "            SableTaskSnapshots.snapshot(taskId, lowResolution)?.let { return@runCatching it }\n",
         "SABLE_HOME_SNAPSHOT_CALL",
@@ -254,6 +255,17 @@ def patch_frames(root: pathlib.Path) -> None:
         "            input.openings?.takeIf { native.isEmpty() }?.map { opening ->\n",
         "SABLE_HOME_FRAMES_FROM_SYSTEM_TASKS",
     )
+    # A slim name bar under each frame, so more of the app shows (owner, 2026-11-12). X and Backspace
+    # still close the focused frame; the × stays tappable.
+    page = root / JAVA / "ui/ActiveFramesPage.kt"
+    replace_once(page, "                .heightIn(min = 36.dp)\n", "                .heightIn(min = 22.dp)\n", "SABLE_HOME_SLIM_FRAME_BAR")
+    replace_once(
+        page,
+        "                style = MaterialTheme.typography.labelLarge,\n                modifier = Modifier.weight(1f),\n",
+        "                style = MaterialTheme.typography.labelMedium,\n                modifier = Modifier.weight(1f),\n",
+        "SABLE_HOME_SLIM_FRAME_TITLE",
+    )
+    replace_once(page, "                        .size(48.dp)\n", "                        .size(width = 32.dp, height = 22.dp)\n", "SABLE_HOME_SLIM_FRAME_CLOSE")
     # No screen-capture offer where the system snapshot works.
     # Screen capture is never offered on SableOS; patch_leftovers removes it from the build.
 
