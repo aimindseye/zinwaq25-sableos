@@ -50,6 +50,7 @@ fun createBrowserWebView(
             useWideViewPort = true
             loadWithOverviewMode = true
             setGeolocationEnabled(false)
+            userAgentString = standaloneUserAgent(userAgentString)
         }
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
         webViewClient = BrowserClient(state, onScale)
@@ -195,3 +196,11 @@ private fun download(
 
 private const val TAG = "SableBrowser"
 private const val FALLBACK_URL = "browser_fallback_url"
+
+/**
+ * WebView's own user agent without the "; wv" and "Version/4.0" marks of an in-app WebView. Sable Browser is a
+ * full browser, and Google refuses sign-in (disallowed_useragent) to pages that look like an app's WebView,
+ * which also stopped "Sign in with Google" in Sable Mail when it opened here.
+ */
+internal fun standaloneUserAgent(webView: String): String =
+    webView.replace("; wv)", ")").replace(Regex("""Version/\d+(\.\d+)* """), "")
