@@ -15,7 +15,7 @@ Files: `product/q25/microg/` (pins, Soong modules, permission and default files)
 |---|---|---|---|
 | microG Services (GmsCore) 0.3.17 | `com.google.android.gms` | Yes | Open-source stand-in for Google Play services: Google sign-in, Cloud Messaging (push), the location API used by maps, and SafetyNet (off) |
 | microG Companion ("FakeStore") 0.3.17 | `com.android.vending` | Yes | Stands in for the Play Store package so apps that look for it start |
-| microG Services Framework Proxy (GsfProxy) 0.1.0 | `com.google.android.gsf` | With Aurora Store, and for old apps | Aurora Store did not work on the SableOS 2.0 build without it, so `--with-aurora` installs it too; also old Google Cloud to Device Messaging (C2DM) apps |
+| microG Services Framework Proxy (GsfProxy) 0.1.0 | `com.google.android.gsf` | Yes | microG Self-Check's "Google Services Framework" box stays unticked and Aurora Store fails without it on SableOS 2.0, so the installer always installs it; also old Google Cloud to Device Messaging (C2DM) apps |
 | Aurora Store 4.8.4 | `com.aurora.store` | Optional | Installs and updates Play Store apps such as LinkedIn |
 
 Each is the developer's official file, pinned by sha256: GmsCore and FakeStore in
@@ -30,7 +30,7 @@ On a computer with adb and this repository:
 NETWORK_FETCH_AUTHORIZED=YES bash scripts/fetch-microg.sh
 SABLE_MICROG_PREBUILTS=product/q25/microg/addon.tsv NETWORK_FETCH_AUTHORIZED=YES bash scripts/fetch-microg.sh
 bash scripts/install-microg-addon.sh --check          # APKs and phone only
-bash scripts/install-microg-addon.sh --with-aurora    # also installs GsfProxy, which Aurora needs
+bash scripts/install-microg-addon.sh --with-aurora    # GsfProxy is always installed
 ```
 
 With the phone set up, USB debugging on and the phone connected, the installer checks

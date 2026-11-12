@@ -107,7 +107,7 @@ phone and run from this repository:
 ```bash
 NETWORK_FETCH_AUTHORIZED=YES bash scripts/fetch-microg.sh
 SABLE_MICROG_PREBUILTS=product/q25/microg/addon.tsv NETWORK_FETCH_AUTHORIZED=YES bash scripts/fetch-microg.sh
-bash scripts/install-microg-addon.sh --with-aurora    # add --with-gsf for old C2DM apps
+bash scripts/install-microg-addon.sh --with-aurora    # GsfProxy is always installed
 ```
 
 This installs microG Services, microG Companion and Aurora Store as normal apps,

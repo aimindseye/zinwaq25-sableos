@@ -397,7 +397,7 @@ else
         grep -q '^install -r --bypass-low-target-sdk-block .*GsfProxy.apk' "$FAKE_ADB_LOG" &&
         grep -q 'pm grant com.google.android.gms android.permission.ACCESS_FINE_LOCATION' "$FAKE_ADB_LOG" &&
         ! grep -q 'ACCESS_BACKGROUND_LOCATION' "$FAKE_ADB_LOG"; then
-        pass "microG add-on installs the pinned APKs in order on an image that allows spoofing (Aurora brings GsfProxy)"
+        pass "microG add-on installs the pinned APKs in order on an image that allows spoofing (GsfProxy always)"
     else
         fail "microG add-on install: $(cat "$tmp/err")"
     fi
