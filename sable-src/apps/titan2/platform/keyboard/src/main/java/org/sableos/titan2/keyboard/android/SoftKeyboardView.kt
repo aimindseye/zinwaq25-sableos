@@ -277,8 +277,10 @@ class SoftKeyboardView(
         gravity =
             Gravity.CENTER
     }
+
     /** Row height for this window (SoftKeyboardGeometry.rowHeightDp): shorter on a short screen. */
-    private fun rowHeightDp() = SoftKeyboardGeometry.rowHeightDp(resources.configuration.screenHeightDp)
+    private fun rowHeightDp() =
+        SoftKeyboardGeometry.rowHeightDp(resources.configuration.screenHeightDp)
 
     private fun rowParams() = LayoutParams(LayoutParams.MATCH_PARENT, px(rowHeightDp()))
 

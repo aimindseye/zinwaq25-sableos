@@ -8,7 +8,7 @@ index 4c12a57..eb2d363 100644
    LineageOS. 0176 completes My Sable's rows: Dual apps (opens Settings > Apps, where Cloned apps lives) and a Battery health state read from the sticky battery broadcast, with their text in every language file (English for now).
 +  0177 fits Sable Keyboard to the Q25's 411 dp square screen: key rows are 40 to 52 dp, so the four rows take at most 45% of the window (40 dp on the Q25, 52 dp on tall phones), and no navigation bar space is reserved when no navigation bar shows.
 diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt
-index 3d4adb0..23dcb4f 100644
+index 3d4adb0..098c2a0 100644
 --- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt
 +++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt
 @@ -50,7 +50,6 @@ class SoftKeyboardView(
@@ -43,19 +43,21 @@ index 3d4adb0..23dcb4f 100644
          build()
      }
  
-@@ -276,7 +277,10 @@ class SoftKeyboardView(
+@@ -276,7 +277,12 @@ class SoftKeyboardView(
          gravity =
              Gravity.CENTER
      }
 -    private fun rowParams() = LayoutParams(LayoutParams.MATCH_PARENT, px(ROW_HEIGHT_DP))
++
 +    /** Row height for this window (SoftKeyboardGeometry.rowHeightDp): shorter on a short screen. */
-+    private fun rowHeightDp() = SoftKeyboardGeometry.rowHeightDp(resources.configuration.screenHeightDp)
++    private fun rowHeightDp() =
++        SoftKeyboardGeometry.rowHeightDp(resources.configuration.screenHeightDp)
 +
 +    private fun rowParams() = LayoutParams(LayoutParams.MATCH_PARENT, px(rowHeightDp()))
  
      private fun row(keys: List<String>, letters: Boolean) {
          val r = newRow()
-@@ -391,7 +395,7 @@ class SoftKeyboardView(
+@@ -391,7 +397,7 @@ class SoftKeyboardView(
                  setColor(fn)
              }
              layoutParams =
