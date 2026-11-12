@@ -52,6 +52,11 @@ internal fun CalendarsList(
     Spacer(Modifier.height(12.dp))
     // Connecting calendars comes first: Android's add-account screen, a Phone calendar, an .ics file.
     SableActionButton(text = t("add_account"), primary = false, onClick = actions.onAddAccount)
+    Text(
+        text = t("add_account_hint"),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
     SableActionButton(text = t("phone_calendar"), primary = false, onClick = actions.onPhoneCalendar)
     SableActionButton(text = t("import_ics"), primary = false, onClick = actions.onImportIcs)
     Spacer(Modifier.height(12.dp))

@@ -60,6 +60,7 @@
     <string name="calendars">יומנים</string>
     <string name="calendars_hint">היומנים המוצגים ממלאים את סדר היום, טבעות העומס ואת החודש ב-Start.</string>
     <string name="no_calendars">עדיין אין יומנים בטלפון הזה. אפשר להוסיף חשבון בהגדרות > חשבונות.</string>
+    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
     <string name="add_account">הוספת חשבון</string>
     <string name="phone_calendar">לוח שנה של הטלפון</string>
     <string name="import_ics">ייבוא ‎.ics</string>

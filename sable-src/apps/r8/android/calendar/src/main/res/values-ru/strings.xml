@@ -60,6 +60,7 @@
     <string name="calendars">Календари</string>
     <string name="calendars_hint">Показанные календари заполняют список дел, кольца занятости и месяц в Start.</string>
     <string name="no_calendars">На этом телефоне пока нет календарей. Добавьте аккаунт в Настройки > Аккаунты.</string>
+    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
     <string name="add_account">Добавить аккаунт</string>
     <string name="phone_calendar">Календарь телефона</string>
     <string name="import_ics">Импорт .ics</string>

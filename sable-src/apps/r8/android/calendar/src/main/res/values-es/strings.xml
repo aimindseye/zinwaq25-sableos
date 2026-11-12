@@ -60,6 +60,7 @@
     <string name="calendars">Calendarios</string>
     <string name="calendars_hint">Los calendarios visibles llenan la agenda, los anillos de ocupación y el mes de Start.</string>
     <string name="no_calendars">Aún no hay calendarios en este teléfono. Añade una cuenta en Ajustes > Cuentas.</string>
+    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
     <string name="add_account">Añadir cuenta</string>
     <string name="phone_calendar">Calendario del teléfono</string>
     <string name="import_ics">Importar .ics</string>

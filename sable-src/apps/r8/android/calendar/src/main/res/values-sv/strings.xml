@@ -60,6 +60,7 @@
     <string name="calendars">Kalendrar</string>
     <string name="calendars_hint">Visade kalendrar fyller agendan, upptagetringarna och månaden i Start.</string>
     <string name="no_calendars">Inga kalendrar på telefonen än. Lägg till ett konto under Inställningar > Konton.</string>
+    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
     <string name="add_account">Lägg till konto</string>
     <string name="phone_calendar">Telefonkalender</string>
     <string name="import_ics">Importera .ics</string>

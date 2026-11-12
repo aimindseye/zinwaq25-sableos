@@ -60,6 +60,7 @@
     <string name="calendars">کیلنڈر</string>
     <string name="calendars_hint">دکھائے گئے کیلنڈر ایجنڈا، مصروفیت کے حلقے اور Start کا مہینہ بھرتے ہیں۔</string>
     <string name="no_calendars">اس فون پر ابھی کوئی کیلنڈر نہیں۔ ترتیبات > اکاؤنٹس میں اکاؤنٹ شامل کریں۔</string>
+    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
     <string name="add_account">اکاؤنٹ شامل کریں</string>
     <string name="phone_calendar">فون کیلنڈر</string>
     <string name="import_ics">.ics درآمد کریں</string>

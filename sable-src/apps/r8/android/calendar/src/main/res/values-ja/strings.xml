@@ -60,6 +60,7 @@
     <string name="calendars">カレンダー</string>
     <string name="calendars_hint">表示中のカレンダーが予定リスト、予定リング、Start の月表示に使われます。</string>
     <string name="no_calendars">このスマートフォンにはまだカレンダーがありません。設定 > アカウントでアカウントを追加してください。</string>
+    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
     <string name="add_account">アカウントを追加</string>
     <string name="phone_calendar">本体のカレンダー</string>
     <string name="import_ics">.ics を読み込む</string>
