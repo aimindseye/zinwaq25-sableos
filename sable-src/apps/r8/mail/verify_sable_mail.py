@@ -41,14 +41,19 @@ def reject_text(path: pathlib.Path, needle: str, marker: str) -> None:
 
 
 def check_oauth_factory(oauth: pathlib.Path) -> None:
-    """No OAuth providers, or only the owner's own Gmail client with the Sable redirect."""
+    """No OAuth providers, or only the owner's own Gmail and Microsoft clients with Sable redirects."""
     text = oauth.read_text(encoding="utf-8")
     if "clientId =" not in text:
         require_text(oauth, "emptyMap()", "SABLE_MAIL_OAUTH_DISABLED")
         return
-    if text.count("clientId =") != 1 or "imap.gmail.com" not in text:
-        fail("SABLE_MAIL_OAUTH_PROVIDERS", f"{oauth}: only the Gmail owner client is allowed")
-    require_text(oauth, '"${BuildConfig.APPLICATION_ID}:/oauth2redirect"', "SABLE_MAIL_OAUTH_REDIRECT")
+    gmail = "imap.gmail.com" in text
+    microsoft = "outlook.office365.com" in text
+    if text.count("clientId =") != int(gmail) + int(microsoft):
+        fail("SABLE_MAIL_OAUTH_PROVIDERS", f"{oauth}: only the owner's Gmail and Microsoft clients are allowed")
+    if gmail:
+        require_text(oauth, '"${BuildConfig.APPLICATION_ID}:/oauth2redirect"', "SABLE_MAIL_OAUTH_REDIRECT")
+    if microsoft:
+        require_text(oauth, '"msauth://${BuildConfig.APPLICATION_ID}/', "SABLE_MAIL_MICROSOFT_REDIRECT")
     for inherited in INHERITED_CLIENT_FRAGMENTS:
         reject_text(oauth, inherited, "SABLE_MAIL_INHERITED_OAUTH_CLIENT")
 

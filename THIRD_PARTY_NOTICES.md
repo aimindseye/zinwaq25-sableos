@@ -38,3 +38,5 @@ licence text next to each before a public release.
 | microG GmsCore and Companion APKs (`SABLE_Q25_MICROG`, pinned in `product/q25/microg/prebuilts.tsv`, shipped unmodified as microG signed them) | Apache-2.0 (https://github.com/microg/GmsCore) |
 | Aurora Store APK (same flag and pin file, unmodified) | GPL-3.0 (https://gitlab.com/AuroraOSS/AuroraStore); its source is at the pinned release tag |
 | eSpeak NG 1.52.0, built from source as Sable Speech (`sable-src/apps/r8/espeak`; application id, ABI and launcher entry changed by `apply_sable_flavor.py`) | GPL-3.0-or-later (https://github.com/espeak-ng/espeak-ng); its source is the pinned commit `4870adfa` plus that folder |
+| DAVx5 4.5.21 (open source edition), built from source (`sable-src/apps/r8/davx5`; only the release signing changed by `apply_sable_flavor.py`) | GPL-3.0 (https://github.com/bitfireAT/davx5-ose); its source is the pinned commit `f07633b0` plus that folder |
+| ICSx5 2.4.3, built from source (`sable-src/apps/r8/icsx5`; only the release signing changed by `apply_sable_flavor.py`) | GPL-3.0 (https://github.com/bitfireAT/icsx5); its source is the pinned commit `81036b50` plus that folder |

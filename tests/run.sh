@@ -1343,6 +1343,20 @@ EOF_START
 )"
 if [[ -z "$start_unlisted" ]]; then pass "Sable Start: every Kotlin file is in Android.bp"; else fail "Sable Start Android.bp misses: $start_unlisted"; fi
 
+# Calendar accounts: DAVx5 and ICSx5 ship from pinned source, unsigned for the platform build, and
+# each flavor checks the same commit that upstream.env pins.
+cal_ok=1
+for f in davx5:SableDAVx5:at.bitfire.davdroid icsx5:SableICSx5:at.bitfire.icsdroid; do
+    IFS=: read -r name module pkg <<< "$f"
+    pin="$(sed -n 's/^[A-Z0-9_]*_COMMIT=//p' "sable-src/apps/r8/$name/upstream.env")"
+    grep -q "EXPECTED_COMMIT = \"$pin\"" "sable-src/apps/r8/$name/apply_sable_flavor.py" || cal_ok=0
+    awk -F'\t' -v m="$module" -v n="flavor:$name" -v p="$pkg" \
+        '$1 == m && $3 == n && $6 == p && $7 == "unsigned" && $9 == "yes"' product/q25/apps.tsv | grep -q . || cal_ok=0
+    grep -q "root: flavor:$name" .github/workflows/android.yml || cal_ok=0
+    grep -q "apps/r8/$name" THIRD_PARTY_NOTICES.md || cal_ok=0
+done
+if ((cal_ok)); then pass "Calendar accounts: DAVx5 and ICSx5 pinned, built in CI, unsigned, with notices"; else fail "Calendar accounts: DAVx5/ICSx5 rows, pins, CI or notices"; fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"

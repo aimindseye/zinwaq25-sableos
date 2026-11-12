@@ -100,6 +100,12 @@ SableTerminal	common	flavor:connectbot	:app:assembleOssRelease	app/build/outputs
 # Sable Speech: the eSpeak NG 1.52.0 text-to-speech engine, built from source (sable-src/apps/r8/espeak,
 # GPL-3.0). The only engine on the phone, so Android uses it by default; no launcher entry.
 SableSpeech	common	flavor:espeak	:assembleRelease	build/outputs/apk/release/*-unsigned.apk	org.sableos.speech	unsigned	-	yes
+# Calendar accounts (owner decision 2026-11-12, "Ship both, pinned"): DAVx5 syncs Google, iCloud, Yahoo
+# and other CalDAV/CardDAV accounts, ICSx5 subscribes to a calendar link such as Outlook's, both into
+# Android's calendar store that Sable Calendar reads. Upstream source, pinned (sable-src/apps/r8/davx5,
+# sable-src/apps/r8/icsx5, GPL-3.0), unsigned for the platform build.
+SableDAVx5	common	flavor:davx5	:app-ose:assembleOseRelease	app-ose/build/outputs/apk/ose/release/*.apk	at.bitfire.davdroid	unsigned	-	yes
+SableICSx5	common	flavor:icsx5	:app:assembleStandardRelease	app/build/outputs/apk/standard/release/*.apk	at.bitfire.icsdroid	unsigned	-	yes
 # SableHome is the SableOS 2.0 home and Hub (owner decision 2026-11-12): TenSeven Launcher, pinned
 # and composed by sable-src/apps/r8/tenseven as package org.sableos.launcher, so it replaces Sable
 # Start (SableLauncher) and keeps every framework patch, Setup and Settings link that names it.

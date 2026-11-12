@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.ContactsContract
 import android.telephony.SmsManager
 import android.telephony.SubscriptionManager
@@ -83,7 +84,13 @@ class PhoneActions(
         body: String,
     ): SmsResult =
         runCatching {
-            val sms = context.getSystemService(SmsManager::class.java).createForSubscriptionId(subscription)
+            val sms =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    context.getSystemService(SmsManager::class.java).createForSubscriptionId(subscription)
+                } else {
+                    @Suppress("DEPRECATION")
+                    SmsManager.getSmsManagerForSubscriptionId(subscription)
+                }
             val parts = sms.divideMessage(body)
             if (parts.size == 1) {
                 sms.sendTextMessage(number, null, body, null, null)

@@ -87,6 +87,14 @@ jobs:
             root: flavor:tenseven
             java: '17'
             extra: ''
+          - name: calendar sync (DAVx5)
+            root: flavor:davx5
+            java: '21'
+            extra: ''
+          - name: calendar link (ICSx5)
+            root: flavor:icsx5
+            java: '21'
+            extra: ''
           - name: speech engine
             root: flavor:espeak
             java: '17'
