@@ -62,6 +62,7 @@ data class DisplayProfile(
     val letterboxBackground: LetterboxBackground = LetterboxBackground.System,
     val keyboardSafeArea: Tri = Tri.Default,
     val statusNav: BarsPref = BarsPref.Default,
+    /** Landscape video Fit (2.0): the Tall canvas is dropped while the display is turned sideways. */
     val fullscreenMediaException: Boolean = true,
     val customRatio: Ratio? = null,
     /**
@@ -73,7 +74,9 @@ data class DisplayProfile(
      * Tall canvas: while this app is in front the whole display gets a taller, phone-shaped
      * logical size (the call `wm size` makes), shown smaller on the panel. Native leaves it alone.
      */
-    val canvas: TallCanvas = TallCanvas.Native
+    val canvas: TallCanvas = TallCanvas.Native,
+    /** App size (2.0): the display density while this app is in front, as a share of the person's own. */
+    val appSize: AppSize = AppSize.Full
 ) {
     val isNative: Boolean get() = this == NATIVE
     companion object {

@@ -16,6 +16,7 @@ object ProfileCodec {
         append(";x=").append(if (p.stretch) 1 else 0)
         p.customRatio?.let { append(";r=").append(it.w).append(':').append(it.h) }
         if (p.canvas != TallCanvas.Native) append(";c=").append(p.canvas.id)
+        if (p.appSize != AppSize.Full) append(";z=").append(p.appSize.id)
     }
 
     fun decode(s: String?): DisplayProfile {
@@ -71,7 +72,8 @@ object ProfileCodec {
             fullscreenMediaException = m["m"] != "0",
             customRatio = parseRatio(m["r"]),
             stretch = m["x"] == "1",
-            canvas = TallCanvas.fromId(m["c"])
+            canvas = TallCanvas.fromId(m["c"]),
+            appSize = AppSize.fromId(m["z"])
         )
 }
 

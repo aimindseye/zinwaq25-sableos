@@ -20,7 +20,12 @@ class BootReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED -> {
                 restoreHeld(context)
                 val app = context.displayCompat
-                if (context.packageManager.isSafeMode) app.controller.resetAll()
+                if (context.packageManager.isSafeMode) {
+                    app.controller.resetAll()
+                } else {
+                    // Apps installed while the device was off (or before this build) get their preset.
+                    runCatching { app.seedPresets() }.onFailure { Log.w(TAG, "presets failed", it) }
+                }
                 app.refreshDisplay()
             }
         }

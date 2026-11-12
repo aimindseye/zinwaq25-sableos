@@ -126,7 +126,7 @@ Nothing is sent or saved from Command: each app opens with the text filled in, a
 | N / P | Next / previous conversation in Messages |
 | Recents key | Active Frames. Hold it for the Hub over the app you are in (Back returns to the app) |
 | Alt+BlackBerry key | The system menu: Hub, the app's menu, Close, Switch Application, Notifications, Quick Settings |
-| Alt+Shift+R | Next display size for the app in front (App display compatibility) |
+| Alt+Shift+R | Next display size for the app in front (App Compatibility) |
 | Alt+Space on the lock screen | Emergency dialer |
 
 ## Apps
@@ -156,7 +156,7 @@ Every Sable app uses the SableOS look (black and white with one blue accent) and
 | Games | Ten games, each its own app: Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words | See [Games](#games) below |
 | Tools | Device reports you can save to Download/SableTools. Its utilities (SOS and alarm, pedometer with a goal and 7-day history, flashlight, compass and more) show on the Q25 only when Developer options and Tools' developer mode are on, until each is proven on the phone | C copy, S save, M more. In the pedometer, Menu sets height, weight and goal |
 | Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, Deep sleeping apps, Focus and Student mode) | Deep sleeping apps: Settings > Apps > Mobile Manager > Deep sleeping apps. To see what an app can do and what changed in it, open Settings > Apps > App security & privacy (signing, permissions, exposed parts, tracker signals, changes seen on this phone) |
-| App display compatibility | Taller canvas per app for apps that don't fit a square screen | Alt+Shift+R |
+| App Compatibility | Square, Tall phone or Custom layout, App size and landscape video per app, with Sable presets | Alt+Shift+R |
 | Aurora Store + microG (add-on) | Not installed from 2.0. Install them from a computer to run Play Store apps without Google Play | See [MICROG.md](MICROG.md) |
 
 <p>
@@ -348,7 +348,7 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Display > Brightness | The Q25's lowest backlight step is still bright, so with the slider at the bottom SableOS also turns on Extra dim (Accessibility > Extra dim, which sets how strong it is) and turns it off when you move the slider up. Extra dim you turn on yourself stays on. Launcher settings > Home readability > Extra dim at lowest brightness switches this off |
 | Display > Text size | Small, Medium, Large or Larger text. Larger is the biggest size SableOS lays out for the square screen. Display size and text, next to it, has Android's Font size slider, bold text and high contrast text for anything bigger; a size set there shows as custom. Setup's Theme step has the same choice |
 | Accessibility | Android's own options: magnification, colour correction, colour inversion, extra dim, remove animations, caption preferences, mono audio, time to take action, and for the keyboard sticky, slow and bounce keys. TalkBack, Select to Speak and Switch Access are Google apps and are not included; see [ACCESSIBILITY.md](ACCESSIBILITY.md) for adding a screen reader |
-| Display > App display compatibility | A taller canvas per app, and **Sable app style**: compact corners (default) or rounded. Open Sable apps restyle at once |
+| Display > App Compatibility | Per app: **Layout** (Square, Tall phone, or Custom for the full editor), **App size** (100%, 85% or 75%, only while that app is in front) and **Landscape video** (Fit gives the video the full width when the app turns sideways; Keep layout leaves the tall shape). The list shows where each choice came from: Sable preset, Set by you or Works as is. Reset brings the Sable preset back. Also **Sable app style**: compact corners (default) or rounded. Open Sable apps restyle at once |
 | About phone > SableOS version | Release number, release name, the LineageOS base and the source commit, for example `2.0 · full · lineage-24.0 · 0afdeef1c2d3`. LineageOS legal information stays under Legal information |
 | Battery > Battery health | Cycle count, capacity health, temperature and voltage, each with its source. A value the phone cannot read says "Not reported", never a guess. A chart below shows Today, 24 hours and 7 days |
 | Battery > Charging & protection | Shows what the phone can and cannot do. Charge limit and adaptive charging are listed as "not available on this device" on the Q25 |
@@ -447,7 +447,7 @@ Do these once after setup. The first group protects you; the second makes the Q2
 - [ ] Assign speed dial letters in Phone > Menu > Speed dial, then hold a letter on the home screen to call.
 - [ ] Add your own AutoText shortcuts (Keyboard settings > AutoText entries), such as `addr` for your address.
 - [ ] Add the Sound profile tile in Quick Settings > Edit, and set each profile's tones and vibration in Sound Profiles.
-- [ ] Give apps that look cramped on the square screen a taller canvas in App display compatibility, or press Alt+Shift+R while the app is open.
+- [ ] Give apps that look cramped on the square screen Tall phone or a smaller App size in App Compatibility, or press Alt+Shift+R while the app is open.
 - [ ] Set the time zone in Settings > System > Date & time if you have no SIM; without one the phone stays on the zone from setup.
 - [ ] If you prefer Gboard or another keyboard, add it in Sable Setup > Add a keyboard. The $ key and Alt shortcuts still work.
 

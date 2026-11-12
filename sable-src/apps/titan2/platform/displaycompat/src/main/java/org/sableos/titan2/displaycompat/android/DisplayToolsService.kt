@@ -5,18 +5,20 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.hardware.display.DisplayManager
 import android.os.Binder
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.Parcel
 import android.util.Log
+import android.view.Display
 
 /**
  * Small started service (no UI, no notification) that follows the app in front of the default
- * display for Tall canvas and per-app rotation. It runs only while some profile needs it, starts at
- * boot ([BootReceiver]) and is sticky, so after a crash it comes back and reconciles from the held
- * originals. The system UID is exempt from background start limits.
+ * display for Tall canvas, App size, landscape video Fit and per-app rotation. It runs only while
+ * some profile needs it, starts at boot ([BootReceiver]) and is sticky, so after a crash it comes
+ * back and reconciles from the held originals. The system UID is exempt from background start limits.
  *
  * Foreground changes come from `IActivityTaskManager.registerTaskStackListener` (MANAGE_ACTIVITY_TASKS);
  * screen off, screen on and unlock from broadcasts. Every event schedules one debounced reconcile,
@@ -32,6 +34,25 @@ class DisplayToolsService : Service() {
         override fun onReceive(context: Context, intent: Intent) = schedule()
     }
 
+    // Turning sideways (landscape video Fit) changes the display, not the task stack.
+    private val display = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) = Unit
+
+        override fun onDisplayRemoved(displayId: Int) = Unit
+
+        override fun onDisplayChanged(displayId: Int) {
+            if (displayId == Display.DEFAULT_DISPLAY) schedule()
+        }
+    }
+
+    // A new app gets its preset while the service runs, even if the manifest receiver is not woken.
+    private val installs = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return
+            PresetReceiver.notify(context, displayCompat.seedPresets())
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         val filter = IntentFilter().apply {
@@ -40,6 +61,9 @@ class DisplayToolsService : Service() {
             addAction(Intent.ACTION_USER_PRESENT)
         }
         registerReceiver(screen, filter, Context.RECEIVER_NOT_EXPORTED)
+        val added = IntentFilter(Intent.ACTION_PACKAGE_ADDED).apply { addDataScheme("package") }
+        registerReceiver(installs, added, Context.RECEIVER_NOT_EXPORTED)
+        getSystemService(DisplayManager::class.java)?.registerDisplayListener(display, handler)
         registered = TaskStack.register(listener)
         if (!registered) Log.w(TAG, "task stack listener unavailable; following screen events only")
     }
@@ -52,6 +76,8 @@ class DisplayToolsService : Service() {
     override fun onDestroy() {
         handler.removeCallbacks(reconcile)
         unregisterReceiver(screen)
+        unregisterReceiver(installs)
+        getSystemService(DisplayManager::class.java)?.unregisterDisplayListener(display)
         if (registered) TaskStack.unregister(listener)
         super.onDestroy()
     }

@@ -215,7 +215,37 @@ object DisplayCompatText {
             "confirm_the_warnings_for_in" to
                 "Confirm the warnings for %1\$s in Display compatibility first.",
             "not_changed_the_profile_could" to "Not changed: the profile could not be stored.",
-            "auto_rotate" to "Auto-rotate"
+            "auto_rotate" to "Auto-rotate",
+            // 2.0 App Compatibility (core/AppCompat.kt, ui/AppPageScreen.kt).
+            "app_compatibility" to "App Compatibility",
+            "apps_set_by_sable" to "%1\$s apps set by Sable",
+            "col_app" to "App",
+            "col_layout" to "Layout",
+            "col_size" to "Size",
+            "col_video" to "Video",
+            "layout_square" to "Square",
+            "layout_square_help" to "Native 720×720",
+            "layout_tall_phone" to "Tall phone",
+            "layout_tall_phone_help" to "720×1440, side bars",
+            "layout_custom" to "Custom",
+            "layout_custom_help" to "Your own size and shape",
+            "video_fit" to "Fit",
+            "video_fit_help" to "Turned sideways, the video fills the width",
+            "video_keep_layout" to "Keep layout",
+            "video_keep_layout_help" to "Turned sideways, the app keeps its layout",
+            "sable_preset" to "Sable preset",
+            "works_as_is" to "Works as is",
+            "set_by_you" to "Set by you",
+            "preset_notice" to "%1\$s uses %2\$s, a Sable preset. Change it in App Compatibility.",
+            "app_layout" to "App layout",
+            "app_size" to "App size",
+            "app_size_help" to "Smaller text and icons in this app only",
+            "landscape_video" to "Landscape video",
+            "reset_to_preset" to "Reset to the Sable preset",
+            "reset_to_square" to "Reset to Square",
+            "applies_next_time" to "Saved. It applies the next time %1\$s comes to the front.",
+            "press_enter_to_confirm" to "Press Enter to confirm: %1\$s",
+            "page_hint" to "↑↓ row · ←→ change · Enter on Layout: Custom · Esc back"
         )
 
     val t = SableTexts(EN)

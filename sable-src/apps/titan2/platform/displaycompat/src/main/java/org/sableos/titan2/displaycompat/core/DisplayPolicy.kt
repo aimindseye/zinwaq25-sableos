@@ -43,7 +43,9 @@ data class Situation(
     val frontProfile: DisplayProfile,
     val systemRotation: SystemRotation,
     /** Some stored profile asks for a platform aspect ratio (see [DisplayPolicy]). */
-    val anyAspectProfile: Boolean
+    val anyAspectProfile: Boolean,
+    /** The display is turned sideways: an app with landscape video Fit leaves its Tall canvas. */
+    val landscape: Boolean = false
 )
 
 /** Facts about the default display, in its natural orientation. */
@@ -63,7 +65,7 @@ data class DisplayTarget(
 
 /**
  * Restore decisions in one place:
- *  - Tall canvas only while its app is in front, the screen is on and unlocked and setup is done;
+ *  - Tall canvas and App size only while their app is in front, the screen is on and unlocked and setup is done;
  *    any other app, the lock screen, a dead app (its task leaves the front) restore the display.
  *  - Per-app orientation is held only while the app is in front; otherwise the system rotation.
  *  - The display ignores apps' orientation requests while a rotation is locked (so a fixed-orientation
@@ -82,12 +84,17 @@ object DisplayPolicy {
         } else {
             DisplayProfile.NATIVE
         }
-        val size = front.canvas.size(display.native)
+        // Landscape video Fit: sideways, the app gets the native square, so a 16:9 video fills its width.
+        val sideways = s.landscape && front.fullscreenMediaException
+        val size = if (sideways) null else front.canvas.size(display.native)
         val rotation = appRotation(front.orientation) ?: systemRotation(s.systemRotation)
         val locked = rotation != null && !rotation.autoRotate
+        // App size scales the person's own density; a Tall canvas still keeps it under the tablet threshold.
+        val scaled = front.appSize.density(display.densityDpi)
         return DisplayTarget(
             size = size,
-            density = size?.let { CanvasMath.compactDensity(it, display.densityDpi) },
+            density =
+                size?.let { CanvasMath.compactDensity(it, scaled ?: display.densityDpi) } ?: scaled,
             rotation = rotation,
             ignoreOrientationRequest = (locked || s.anyAspectProfile).takeIf { it }
         )
@@ -112,6 +119,8 @@ object DisplayPolicy {
         PlatformMapping.request(p).minAspectRatio != UserMinAspectRatio.UNSET
 
     /** The service must follow the foreground app only for profiles that change while it is in front. */
-    fun needsForegroundTracking(profiles: Collection<DisplayProfile>): Boolean =
-        profiles.any { it.canvas != TallCanvas.Native || it.orientation != OrientationPref.Default }
+    fun needsForegroundTracking(profiles: Collection<DisplayProfile>): Boolean = profiles.any {
+        it.canvas != TallCanvas.Native || it.orientation != OrientationPref.Default ||
+            it.appSize != AppSize.Full
+    }
 }

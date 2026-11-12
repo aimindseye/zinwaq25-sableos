@@ -1,0 +1,10 @@
+# SableOS App Compatibility presets: package<TAB>layout<TAB>landscape video<TAB>app size
+# layout: square (native 720x720) or tall (720x1440 phone shape). video: fit or keep. size: 100, 85 or 75.
+# A preset is given once, when the app is installed; the person's later change stays.
+com.google.android.youtube	tall	fit
+com.instagram.android	tall	fit
+com.zhiliaoapp.musically	tall	fit
+com.ss.android.ugc.trill	tall	fit
+com.facebook.katana	tall	fit
+com.google.android.apps.maps	square	fit
+com.google.android.projection.gearhead	square	fit

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -39,19 +40,21 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.sableos.titan2.displaycompat.android.DisplayCompatApp
 import org.sableos.titan2.displaycompat.android.TraitsResolver
+import org.sableos.titan2.displaycompat.core.AppCompatText
 import org.sableos.titan2.displaycompat.core.AppCornerStyle
+import org.sableos.titan2.displaycompat.core.AppSize
 import org.sableos.titan2.displaycompat.core.AppStyleKey
 import org.sableos.titan2.displaycompat.core.AppStylePolicy
 import org.sableos.titan2.displaycompat.core.AppStyleState
-import org.sableos.titan2.displaycompat.core.AspectProfile
 import org.sableos.titan2.displaycompat.core.BackendAvailability
 import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
 import org.sableos.titan2.displaycompat.core.DisplayProfile
-import org.sableos.titan2.displaycompat.core.TallCanvas
+import org.sableos.titan2.displaycompat.core.Presets
 
 /** Observable list state; every property is Compose snapshot state so reads recompose as before. */
 private class ListState {
@@ -236,7 +239,7 @@ fun AppListScreen(
         Modifier.fillMaxSize().padding(12.dp)
             .onPreviewKeyEvent { e -> actions.onKey(e) }
     ) {
-        ListTitle(app)
+        ListTitle(app, remember(st.version, all) { presetCount(app, all) })
         ToolsEntry(app, st.toolsFocused) {
             st.toolsFocused = true
             st.styleFocused = false
@@ -244,19 +247,18 @@ fun AppListScreen(
         }
         AppStyleSection(st.style, st.styleFocused) { actions.chooseStyle(it) }
         FilterField(st.query, { st.query = it }, fr)
-        if (rows.isEmpty()) {
-            Text(
-                emptyListMessage(all.isEmpty(), st.query),
-                color = C.muted,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
+        ColumnHeads()
+        EmptyList(rows.isEmpty(), all.isEmpty(), st.query)
         LazyColumn(Modifier.weight(1f), state = list) {
             itemsIndexed(rows, key = { _, e -> e.pkg }) { i, e ->
                 val p = remember(st.version, e.pkg) { app.store.get(e.pkg) }
-                // A tap selects the row and opens its editor, like the arrow keys and Enter.
-                AppRow(e.label, p, !st.styleFocused && !st.toolsFocused && i == st.sel) {
+                // A tap selects the row and opens its page, like the arrow keys and Enter.
+                AppRow(
+                    e.label,
+                    AppCompatText.source(e.pkg, p, app.presets),
+                    p,
+                    !st.styleFocused && !st.toolsFocused && i == st.sel
+                ) {
                     st.styleFocused = false
                     st.toolsFocused = false
                     st.sel = i
@@ -270,13 +272,39 @@ fun AppListScreen(
 }
 
 @Composable
-private fun ListTitle(app: DisplayCompatApp) {
-    Text(t("app_display_compatibility"), color = C.text, fontSize = 18.sp)
+private fun ListTitle(app: DisplayCompatApp, preset: Int) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Text(
+            t("app_compatibility"),
+            color = C.text,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Light
+        )
+        if (preset > 0) Text(t("apps_set_by_sable", preset), color = C.muted, fontSize = 12.sp)
+    }
     val availability = app.controller.backendAvailability
     Text(
         availability.banner,
         color = if (availability == BackendAvailability.CLOSED) C.warn else C.muted,
         fontSize = 11.sp
+    )
+}
+
+private fun presetCount(app: DisplayCompatApp, all: List<TraitsResolver.Entry>): Int =
+    all.count { Presets.isPreset(it.pkg, app.store.get(it.pkg), app.presets) }
+
+@Composable
+private fun EmptyList(empty: Boolean, noAppsAtAll: Boolean, query: String) {
+    if (!empty) return
+    Text(
+        emptyListMessage(noAppsAtAll, query),
+        color = C.muted,
+        fontSize = 12.sp,
+        modifier = Modifier.padding(vertical = 8.dp)
     )
 }
 
@@ -318,40 +346,92 @@ private fun FilterField(query: String, onQueryChange: (String) -> Unit, fr: Focu
 }
 
 @Composable
-private fun AppRow(label: String, p: DisplayProfile, selected: Boolean, onClick: () -> Unit) {
+private fun ColumnHeads() {
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 2.dp)
-            .background(if (selected) C.surface else C.window, RoundedCornerShape(6.dp))
-            .border(
-                if (selected) 2.dp else 0.dp,
-                if (selected) C.accent else C.window,
-                RoundedCornerShape(6.dp)
-            )
-            .clickable { onClick() }
-            .padding(10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(label, color = C.text, fontSize = 14.sp)
         Text(
-            badge(p),
-            color = if (p.isNative) C.muted else C.accent,
-            fontSize = 12.sp
+            t("col_app").uppercase(),
+            color = C.muted,
+            fontSize = 11.sp,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            t("col_layout").uppercase(),
+            color = C.muted,
+            fontSize = 11.sp,
+            modifier = Modifier.width(LAYOUT_W)
+        )
+        Text(
+            t("col_size").uppercase(),
+            color = C.muted,
+            fontSize = 11.sp,
+            modifier = Modifier.width(SIZE_W)
+        )
+        Text(
+            t("col_video").uppercase(),
+            color = C.muted,
+            fontSize = 11.sp,
+            modifier = Modifier.width(VIDEO_W)
         )
     }
 }
 
-private val STORED: String get() = t("stored")
+private val LAYOUT_W = 76.dp
+private val SIZE_W = 40.dp
+private val VIDEO_W = 64.dp
 
-private fun badge(p: DisplayProfile): String = when {
-    p.isNative -> t("native_label_2")
-
-    p.canvas != TallCanvas.Native && p.profile == AspectProfile.Native ->
-        "tall " + p.canvas.shape + STORED
-
-    p.canvas != TallCanvas.Native ->
-        p.profile.id.replace('_', ' ') + t("tall") + p.canvas.shape + STORED
-
-    else -> p.profile.id.replace('_', ' ') + STORED
+/** One app: its name and where its choice came from, then layout, app size and landscape video. */
+@Composable
+private fun AppRow(
+    label: String,
+    source: String,
+    p: DisplayProfile,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 1.dp)
+            .background(if (selected) C.surface else C.window)
+            .border(if (selected) 2.dp else 0.dp, if (selected) C.accent else C.window)
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, color = C.text, fontSize = 15.sp, maxLines = 1)
+            Text(source, color = C.muted, fontSize = 11.sp, maxLines = 1)
+        }
+        val plain = p.isNative
+        Text(
+            AppCompatText.layout(p),
+            color = C.text,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.width(LAYOUT_W)
+        )
+        Text(
+            AppCompatText.size(p),
+            color = if (p.appSize ==
+                AppSize.Full
+            ) {
+                C.muted
+            } else {
+                C.text
+            },
+            fontSize = 13.sp,
+            modifier = Modifier.width(SIZE_W)
+        )
+        Text(
+            AppCompatText.video(p),
+            color = if (plain) C.muted else C.text,
+            fontSize = 13.sp,
+            maxLines = 1,
+            modifier = Modifier.width(VIDEO_W)
+        )
+    }
 }
 
 /** Entry to Display tools: system rotation and the hotkey's favourite sizes, shown in one line. */
