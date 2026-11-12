@@ -236,15 +236,17 @@ def patch_frames(root: pathlib.Path) -> None:
     replace_once(
         root / JAVA / "platform/PlatformCapabilityProbe.kt",
         '                    taskMethod(context, "getTaskSnapshot"),\n',
-        '                    (taskMethod(context, "getTaskSnapshot") || SableTaskSnapshots.available()),\n',
+        # The platform home always has the system's snapshot call (Sable 1.0 used it with no probe).
+        "                    true,\n",
         "SABLE_HOME_SNAPSHOT_PROBE",
     )
     replace_once(
         root / JAVA / "platform/RecentTasksRepository.kt",
         "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n",
+        # As Sable 1.0 did: always ask the system for the picture first, with no capability gate.
         "            SableTaskSnapshots.explain(appContext)\n"
-        "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n"
-        "            SableTaskSnapshots.snapshot(taskId, lowResolution)?.let { return@runCatching it }\n",
+        "            SableTaskSnapshots.snapshot(taskId, lowResolution)?.let { return@runCatching it }\n"
+        "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n",
         "SABLE_HOME_SNAPSHOT_CALL",
     )
     # Frames follow the system's recent tasks (REAL_GET_TASKS) rather than only the apps opened from the
@@ -254,6 +256,42 @@ def patch_frames(root: pathlib.Path) -> None:
         "            input.openings?.map { opening ->\n",
         "            input.openings?.takeIf { native.isEmpty() }?.map { opening ->\n",
         "SABLE_HOME_FRAMES_FROM_SYSTEM_TASKS",
+    )
+    # Live pictures are always on for the platform home, as in Sable 1.0: no settings switch (the
+    # Active Frames settings page is gone) and no probe can turn them into summary cards.
+    replace_once(
+        root / JAVA / "platform/StartStateRepository.kt",
+        '                snapshots = preferences.getBoolean("frames_snapshots", true),\n',
+        "                snapshots = true,\n",
+        "SABLE_HOME_SNAPSHOTS_ALWAYS",
+    )
+    # The live picture fills the frame with no "Preview" tag over it, as in Sable 1.0.
+    replace_once(
+        root / JAVA / "ui/ActiveFramesPage.kt",
+        "        Image(picture.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)\n"
+        "        Text(\n"
+        "            \"Preview\",\n"
+        "            color = Bb10Text,\n"
+        "            style = MaterialTheme.typography.labelSmall,\n"
+        "            modifier = Modifier.align(Alignment.TopStart).background(Bb10Background).padding(4.dp),\n"
+        "        )\n",
+        "        Image(picture.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopCenter)\n",
+        "SABLE_HOME_FRAME_PICTURE_ONLY",
+    )
+    # Say in the log why a frame has no picture, gate by gate.
+    host = root / JAVA / "platform/ActiveFramesHost.kt"
+    replace_once(
+        host,
+        "        if (entry == null || !available(entry)) return null\n"
+        "        val bitmap = item.task?.let { native.snapshot(it.taskId) }\n",
+        "        if (entry == null || !available(entry)) {\n"
+        "            SableTaskSnapshots.note(\"no-app:${item.app.packageName}\", \"${item.app.packageName}: no unlocked launcher entry\")\n"
+        "            return null\n"
+        "        }\n"
+        "        val task = item.task\n"
+        "        if (task == null) SableTaskSnapshots.note(\"no-task:${item.app.packageName}\", \"${item.app.packageName}: frame has no running task\")\n"
+        "        val bitmap = task?.let { native.snapshot(it.taskId) }\n",
+        "SABLE_HOME_SNAPSHOT_WHY",
     )
     # A slim name bar under each frame, so more of the app shows (owner, 2026-11-12). X and Backspace
     # still close the focused frame; the × stays tappable.

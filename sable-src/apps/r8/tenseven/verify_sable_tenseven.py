@@ -68,6 +68,9 @@ def main() -> None:
         # A slim name bar under each frame, and a log line that says why frames have no picture.
         "slim_frames": "heightIn(min = 22.dp)" in (root / JAVA / "ui/ActiveFramesPage.kt").read_text(encoding="utf-8")
         and "SableTaskSnapshots.explain(appContext)" in (root / JAVA / "platform/RecentTasksRepository.kt").read_text(encoding="utf-8"),
+        # Live pictures as in Sable 1.0: always asked for, never switched off (patch_frames).
+        "live_frames": "snapshots = true," in (root / JAVA / "platform/StartStateRepository.kt").read_text(encoding="utf-8")
+        and "SableTaskSnapshots.note(" in (root / JAVA / "platform/ActiveFramesHost.kt").read_text(encoding="utf-8"),
         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
     }

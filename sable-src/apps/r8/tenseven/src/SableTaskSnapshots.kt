@@ -58,6 +58,14 @@ internal object SableTaskSnapshots {
     /** True when this Android has the TaskSnapshotManager call. */
     fun available(): Boolean = method != null
 
+    /** Logs [message] once per [key]. */
+    fun note(
+        key: String,
+        message: String,
+    ) {
+        if (synchronized(logged) { logged.add(key) }) Log.i(TAG, message)
+    }
+
     /** Once: why the home's frames have no live picture (`adb logcat -s SableFrames`). */
     fun explain(context: Context) {
         if (!synchronized(logged) { logged.add("explain") }) return
@@ -82,8 +90,14 @@ internal object SableTaskSnapshots {
                     call.parameterTypes.drop(1).mapIndexed { i, type ->
                         if (type == Boolean::class.javaPrimitiveType) false else if (i == 0) resolution else 0
                     }
-            val snapshot = call.invoke(manager, *args.toTypedArray()) ?: return@runCatching null
-            bitmapOf(snapshot)
+            val snapshot = call.invoke(manager, *args.toTypedArray())
+            if (snapshot == null) {
+                if (synchronized(logged) { logged.add("null") }) Log.w(TAG, "${call.name}(task $taskId) returned no snapshot")
+                return@runCatching null
+            }
+            bitmapOf(snapshot) ?: null.also {
+                if (synchronized(logged) { logged.add("nobuffer") }) Log.w(TAG, "snapshot of task $taskId has no hardware buffer")
+            }
         }.onFailure { log("TaskSnapshotManager.getTaskSnapshot", it) }
             .getOrNull()
 
