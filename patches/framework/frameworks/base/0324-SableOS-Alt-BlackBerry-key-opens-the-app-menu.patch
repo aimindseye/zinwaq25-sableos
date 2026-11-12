@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 12 Nov 2026 05:00:00 +0000
+Subject: [PATCH] SableOS: Alt+BlackBerry key opens the app menu
+
+Owner decision 2026-11-12: holding the BlackBerry key (HOME) opens the
+assistant, Cosgrove (config_longPressOnHomeBehavior 3, SEARCH, in the
+Lineage platform overlay), and a press stays Home. The app menu that
+the hold used to open moves to Alt+BlackBerry key:
+
+* PhoneWindowManager.interceptSystemKeysAndShortcuts takes Alt+HOME
+  (either Alt; no other modifier) from a physical keyboard, off the
+  keyguard, and sends MENU to the app in front, as the hold did. Its
+  repeats and release are consumed with it, even when Alt is let go
+  first, so Home's own long press never fires on the same press.
+* The keyguard keeps Home. Pure policy: SableCommandKeys.isMenuChord.
+---
+ .../server/policy/PhoneWindowManager.java     | 19 +++++++++++++++++++
+ .../server/policy/sable/SableCommandKeys.java | 14 ++++++++++++++
+ 2 files changed, 33 insertions(+)
+
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+index 47afb18..efa4d67 100644
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -3960,6 +3960,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+     // NOTE: Please try not to add new Shortcut combinations here and instead use KeyGestureEvents.
+     // Add shortcut trigger logic in {@code KeyGestureController} and add handling logic in
+     // {@link handleKeyGesture()}
++    /** Sable: an Alt+BlackBerry key press (the app menu) is in progress; see KEYCODE_HOME below. */
++    private boolean mSableAltHomeHeld;
++
+     private boolean interceptSystemKeysAndShortcuts(IBinder focusedToken, KeyEvent event) {
+         final int keyCode = event.getKeyCode();
+         final int repeatCount = event.getRepeatCount();
+@@ -3971,6 +3974,22 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+ 
+         switch (keyCode) {
+             case KeyEvent.KEYCODE_HOME:
++                // Sable: holding the BlackBerry key (HOME) opens the assistant, so Alt+BlackBerry
++                // key opens the menu of the app in front. Its repeats and release go with it, even
++                // when Alt is let go first. Off the keyguard only; the keyguard keeps Home.
++                if (down && repeatCount == 0) {
++                    mSableAltHomeHeld = !keyguardOn && SableCommandKeys.isMenuChord(keyCode,
++                            event.getMetaState(), virtualKey);
++                    if (mSableAltHomeHeld) {
++                        mHandler.post(() -> triggerVirtualKeypress(KeyEvent.KEYCODE_MENU));
++                        return true;
++                    }
++                } else if (mSableAltHomeHeld) {
++                    if (!down) {
++                        mSableAltHomeHeld = false;
++                    }
++                    return true;
++                }
+                 return handleHomeShortcuts(focusedToken, event);
+             case KeyEvent.KEYCODE_MENU:
+                 if (virtualKey || keyguardOn) {
+diff --git a/services/core/java/com/android/server/policy/sable/SableCommandKeys.java b/services/core/java/com/android/server/policy/sable/SableCommandKeys.java
+index 407e4a5..f4fc656 100644
+--- a/services/core/java/com/android/server/policy/sable/SableCommandKeys.java
++++ b/services/core/java/com/android/server/policy/sable/SableCommandKeys.java
+@@ -28,6 +28,8 @@ package com.android.server.policy.sable;
+  * <p>Pure: android.view.KeyEvent values are copied so that it can be tested off-device.
+  */
+ public final class SableCommandKeys {
++    /** {@code KeyEvent.KEYCODE_HOME}: the Q25's BlackBerry key. */
++    public static final int KEYCODE_HOME = 3;
+     /** {@code KeyEvent.KEYCODE_SPACE}. */
+     public static final int KEYCODE_SPACE = 62;
+     /** Sable Start's Command search (SableStartActivity.ACTION_COMMAND). */
+@@ -54,4 +56,16 @@ public final class SableCommandKeys {
+                 && (metaState & META_ALT_ON) != 0
+                 && (metaState & OTHER_MODIFIERS) == 0;
+     }
++
++    /**
++     * Alt+BlackBerry key (HOME) from a physical keyboard, with no other modifier: the menu of the
++     * app in front. Holding the BlackBerry key alone opens the assistant (Cosgrove), and a press
++     * alone stays Home.
++     */
++    public static boolean isMenuChord(int keyCode, int metaState, boolean virtualKey) {
++        return keyCode == KEYCODE_HOME
++                && !virtualKey
++                && (metaState & META_ALT_ON) != 0
++                && (metaState & OTHER_MODIFIERS) == 0;
++    }
+ }
+-- 
+2.43.0
+

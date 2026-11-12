@@ -93,7 +93,63 @@ private fun ChatScreen(
             if (state.busy) item { Note(t("thinking", name)) }
             state.error?.let { message -> item { Note(message, error = true) } }
         }
+        state.pendingSms?.let { pending ->
+            SmsCard(pending, actions, onChoose = { state.pendingSms = pending.copy(chosen = it) })
+        }
         MessageBox(state, name, actions)
+    }
+}
+
+/**
+ * The text waiting for the owner: who it goes to, the words, and Send. Nothing is sent until Send
+ * is pressed; a contact with several numbers shows each one to pick from. Send never takes focus
+ * by itself, so an Enter typed while the card appears cannot send it.
+ */
+@Composable
+private fun SmsCard(
+    pending: PendingSms,
+    actions: AssistantActions,
+    onChoose: (Int) -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(BUBBLE_CORNER),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(SableSpacing.Md), verticalArrangement = Arrangement.spacedBy(SableSpacing.Xs)) {
+            val to = pending.recipient
+            Text(t("sms_to", to.name, to.number), style = MaterialTheme.typography.titleSmall)
+            Text(pending.action.body, style = MaterialTheme.typography.bodyLarge, maxLines = SMS_PREVIEW_LINES)
+            if (pending.choices.size > 1) {
+                Row(horizontalArrangement = Arrangement.spacedBy(SableSpacing.Xs)) {
+                    pending.choices.forEachIndexed { index, choice ->
+                        TextButton(onClick = { onChoose(index) }) {
+                            Text(
+                                choice.number,
+                                color =
+                                    if (index == pending.chosen) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                            )
+                        }
+                    }
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+            ) {
+                SableActionButton(
+                    text = t("sms_send"),
+                    onClick = { actions.answerSms(SmsAnswer.Send) },
+                )
+                TextButton(onClick = { actions.answerSms(SmsAnswer.InMessages) }) { Text(t("sms_in_messages")) }
+                TextButton(onClick = { actions.answerSms(SmsAnswer.Cancel) }) { Text(t("sms_cancel")) }
+            }
+        }
     }
 }
 
@@ -219,3 +275,4 @@ private val AVATAR_SMALL = 28.dp
 private val BUBBLE_CORNER = 14.dp
 private val BUBBLE_MAX = 300.dp
 private const val MAX_MESSAGE = 4_000
+private const val SMS_PREVIEW_LINES = 6

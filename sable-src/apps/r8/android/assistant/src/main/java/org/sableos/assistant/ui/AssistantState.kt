@@ -5,7 +5,18 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import org.sableos.assistant.core.AssistantSettings
+import org.sableos.assistant.core.ButlerAction
 import org.sableos.assistant.core.ChatTurn
+import org.sableos.assistant.platform.Recipient
+
+/** A text waiting for the owner on the confirm card: nothing is sent until they press Send. */
+data class PendingSms(
+    val action: ButlerAction.SendSms,
+    val choices: List<Recipient>,
+    val chosen: Int = 0,
+) {
+    val recipient: Recipient get() = choices[chosen.coerceIn(0, choices.lastIndex)]
+}
 
 /** The screen's state. The conversation lives here only: never written to storage. */
 class AssistantState {
@@ -22,9 +33,11 @@ class AssistantState {
     var voiceReady by mutableStateOf(false)
     var voiceDownloading by mutableStateOf(false)
     var voiceStatus by mutableStateOf<String?>(null)
+    var pendingSms by mutableStateOf<PendingSms?>(null)
 
     fun newChat() {
         turns.clear()
         error = null
+        pendingSms = null
     }
 }

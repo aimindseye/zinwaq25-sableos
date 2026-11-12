@@ -16,6 +16,10 @@
     Sable Phone (org.sableos.phone): the default Phone app (config_defaultDialer in
       SableFrameworkOverlay); the Phone role grants the same, these make the first boot not depend
       on when the role is assigned (call log, call permissions are hard-restricted).
+    Cosgrove (org.sableos.assistant): the default assistant (config_defaultAssistant in
+      SableFrameworkOverlay); the Assistant role grants SEND_SMS too, this makes the first boot not
+      depend on when the role is assigned. Contacts find who a text is for, on the phone. A text
+      is sent only after the owner presses Send on Cosgrove's confirm card.
     Sable Tasks (org.sableos.tasks): reminder notifications, so a reminder set before the app was
       ever opened still alerts (and shows in Hub). Reminders also show in the app without it.
     Sable Weather (org.sableos.weather): approximate location only, so Start's weather line is for
@@ -47,6 +51,10 @@
         <permission name="android.permission.WRITE_CALL_LOG" fixed="false" />
         <permission name="android.permission.READ_CONTACTS" fixed="false" />
         <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
+    </exception>
+    <exception package="org.sableos.assistant">
+        <permission name="android.permission.SEND_SMS" fixed="false" />
+        <permission name="android.permission.READ_CONTACTS" fixed="false" />
     </exception>
     <exception package="org.sableos.tasks">
         <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />

@@ -1285,6 +1285,20 @@ sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/Design
 EOF_I18N
 if [[ -z "$i18n_bad" ]]; then pass "Sable apps: English in one table per app, equal to values/strings.xml, bound to the resources"; else fail "translations:$i18n_bad"; fi
 
+# Cosgrove is the assistant (owner decision 2026-11-12): hold the BlackBerry key to open him, Alt+BB
+# for the app menu, and texts only after Send.
+cg_bad=""
+cgm=sable-src/apps/r8/android/assistant/src/main
+grep -q 'android.intent.action.ASSIST' "$cgm/AndroidManifest.xml" || cg_bad="$cg_bad assist-filter"
+grep -q '>org.sableos.assistant<' product/common/overlay/SableFrameworkOverlay/res/values/sable_assistant.xml || cg_bad="$cg_bad default-assistant"
+grep -q 'config_longPressOnHomeBehavior">3<' product/common/overlay/SableLineagePlatformOverlay/res/values/config.xml || cg_bad="$cg_bad hold-bb"
+grep -q 'isMenuChord' patches/framework/frameworks/base/0324-SableOS-Alt-BlackBerry-key-opens-the-app-menu.patch || cg_bad="$cg_bad alt-bb-menu"
+grep -A3 'package="org.sableos.assistant"' product/q25/permissions/default-permissions-sable-q25.xml | grep -q 'SEND_SMS' || cg_bad="$cg_bad sms-grant"
+# The only sendSms call is behind the confirm card's Send.
+[[ "$(grep -c 'phone.sendSms(' "$cgm/java/org/sableos/assistant/MainActivity.kt")" == 1 ]] || cg_bad="$cg_bad one-send"
+grep -q 'SmsAnswer.Send -> this@MainActivity.sendSms()' "$cgm/java/org/sableos/assistant/MainActivity.kt" || cg_bad="$cg_bad send-on-card"
+if [[ -z "$cg_bad" ]]; then pass "Cosgrove: default assistant on the BlackBerry key hold, Alt+BB menu, texts sent only from the confirm card"; else fail "cosgrove:$cg_bad"; fi
+
 # aapt2 refuses a bare ' in a string resource; a patch that adds one fails the image build.
 apostrophe_bad="$(python3 - <<'EOF_APOS'
 import glob, re

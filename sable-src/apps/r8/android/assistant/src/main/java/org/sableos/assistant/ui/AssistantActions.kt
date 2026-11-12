@@ -18,4 +18,10 @@ interface AssistantActions {
     fun downloadVoice()
 
     fun removeVoice()
+
+    /** The text on the confirm card: send it, hand it to Messages, or drop it. */
+    fun answerSms(answer: SmsAnswer)
 }
+
+/** The confirm card's buttons. Only [Send] sends from Cosgrove. */
+enum class SmsAnswer { Send, InMessages, Cancel }
