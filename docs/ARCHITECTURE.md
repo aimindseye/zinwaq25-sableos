@@ -7,7 +7,7 @@
                                               vendor/sable/q25   (product/q25 template)
  Sable product layer  ----------------------> ro.sable.profile.id=zinwa-q25, updater off,
                                               android_app_import modules
- Q4 framework layer   ----------------------> SableLauncher (HOME), product/common/overlay,
+ Q4 framework layer   ----------------------> SableHome (HOME), product/common/overlay,
                                               patches/framework applied to LineageOS projects
                                               (Launcher3, SystemUI, Settings, SetupWizard,
                                               Dialer, Contacts, Glimpse); reverted at Q1/Q2

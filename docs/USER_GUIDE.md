@@ -127,7 +127,7 @@ Nothing is sent or saved from Command: each app opens with the text filled in, a
 
 ## Apps
 
-Every Sable app follows the Dark theme and your Sable accent, and has single-key shortcuts.
+Every Sable app uses the SableOS look (black and white with one blue accent) and has single-key shortcuts.
 
 | App | What it's for | Keyboard tips |
 | --- | --- | --- |
@@ -335,11 +335,11 @@ Sable apps, Phone, Contacts, Settings and the system screens all use the same pu
 
 ## Settings
 
-Settings keeps Android's layout, with SableOS additions. It is keyboard-first: with nothing selected, type the first letters of a row (S for Sound, SY for System) to jump to it, press `/` or Ctrl+K to search, and use Home, End, Page Up and Page Down to move. The focused row has an accent fill and border, and a hint at the foot of the first page shows the keys. Many pages have screenshots in [SCREENSHOTS.md](SCREENSHOTS.md).
+Settings keeps Android's layout, with SableOS additions. It is keyboard-first: with nothing selected, type the first letters of a row (S for Sound, SY for System) to jump to it, press `/` or Ctrl+K to search, and use Home, End, Page Up and Page Down to move. The focused row has a blue fill and border, and a hint at the foot of the first page shows the keys. Many pages have screenshots in [SCREENSHOTS.md](SCREENSHOTS.md).
 
 | Where | What you find |
 | --- | --- |
-| Display > Accent | Choose the Sable accent. Settings, Quick Settings, Start and the Sable apps all follow it. Dark theme is next to it |
+| Display | SableOS 2.0 has one look: black and white with a single blue accent, and the dark theme is pure black. There is no accent picker, so Settings, Quick Settings, Start and the Sable apps always match |
 | Security > Lock screen peek | What the lock screen's Peek shows under the clock: Counts (each app and its number, the default) or Messages (each app with its newest sender, when Notifications on lock screen is set to show all content). The row opens the Lock screen page, where you change it |
 | Display > Text size | Small, Medium, Large or Larger text. Larger is the biggest size SableOS lays out for the square screen. Display size and text, next to it, has Android's Font size slider, bold text and high contrast text for anything bigger; a size set there shows as custom. Setup's Theme step has the same choice |
 | Accessibility | Android's own options: magnification, colour correction, colour inversion, extra dim, remove animations, caption preferences, mono audio, time to take action, and for the keyboard sticky, slow and bounce keys. TalkBack, Select to Speak and Switch Access are Google apps and are not included; see [ACCESSIBILITY.md](ACCESSIBILITY.md) for adding a screen reader |
@@ -355,7 +355,6 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 <p>
 <img src="images/q25/about-phone.png" alt="About phone" width="200">
 <img src="images/q25/display-settings.png" alt="Display" width="200">
-<img src="images/q25/accent.png" alt="Accent" width="200">
 <img src="images/q25/app-style.png" alt="Sable app style" width="200">
 <img src="images/q25/battery-health.png" alt="Battery health" width="200">
 <img src="images/q25/charging-protection.png" alt="Charging and protection" width="200">

@@ -38,7 +38,6 @@ words	Games	app:words	Words
 media	Apps	app:media	Media
 mail	Apps	app:mail	Mail
 keyboard-settings	The keyboard	intent:android.settings.HARD_KEYBOARD_SETTINGS	Settings > Keyboard & input
-accent	Settings	manual	Settings > Display > Accent
 app-style	Settings	manual	Settings > Display > App display compatibility > Sable app style
 battery-health	Settings	manual	Settings > Battery > Battery health
 charging-protection	Settings	manual	Settings > Battery > Charging & protection

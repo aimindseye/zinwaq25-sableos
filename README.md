@@ -13,48 +13,17 @@ repository holds everything needed to build SableOS for the **Zinwa Q25** (the
 BlackBerry Classic restomod, codename `Q25`), without needing the Pixel 7,
 Titan 2 or Q27 SableOS lanes.
 
-> **Status: the next release is SableOS 2.0, built from this main on
-> LineageOS 24.0 (Android 17).** SableOS 1.0 (Android 16) was released on
-> 2026-10-29; see [`releases/1.0.md`](releases/1.0.md). What 2.0 adds is in
-> [`releases/2.0.md`](releases/2.0.md): Sable Phone, Priority Hub with snooze
-> and remind-me, Hub swipe to settings, the Device Monitor and media Active
-> Frames, lock-screen Peek and Picture Password, Command from any app, folders
-> and hidden apps, Sable Speech, Tasks, Browser, Spaces, Print To Go, Compass,
-> the Cosgrove assistant, weather alerts and Deep sleeping apps.
-> The 2.0 image has no Google software and no app store: microG and Aurora
-> Store are an optional [add-on](docs/MICROG.md) installed after setup, and Sable
-> Mail is no longer built by default.
-> The Q25 was first flashed on 2026-10-15/17 (board `q20_v12_factory`, stock
-> `Q25_20.01.2026`); earlier device reviews are in
-> [docs/implementation/q4-review.md](docs/implementation/q4-review.md).
-> **Disclaimer:** Sable app translations (18 languages) are machine-assisted drafts: they have not been reviewed by fluent speakers and may contain errors or awkward wording. English is the reference text. Corrections are welcome.
-> Many Q4-* device gates for the 2.0 features are still `NOT_RUN`
-> ([#27](https://github.com/aimindseye/zinwaq25-sableos/issues/27) tracks them).
-> **Using SableOS:** [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) covers setup,
-> the keys, the apps, the privacy and security defaults and what to change.
-> Install steps: [`docs/INSTALL.md`](docs/INSTALL.md), or for a downloaded
-> release [`docs/FLASHING_RELEASE.md`](docs/FLASHING_RELEASE.md).
-> Gates and evidence: [`docs/QUALIFICATION.md`](docs/QUALIFICATION.md). Design
-> status per artifact: [`docs/DESIGN_CONFORMANCE_Q25.md`](docs/DESIGN_CONFORMANCE_Q25.md).
-> What is still open: [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md).
-
-```text
-DEVICE=Q25
-PHASE=R0, Q1, Q2 PASS on a Q25; 1.0 released 2026-10-29; 2.0 (LineageOS 24.0) in progress, device gates in progress
-BASE=LineageOS 24.0 (Android 17), official lineage_Q25 device (not a GSI)
-SABLE_LAYER=vendor/extra/product.mk -> vendor/sable/q25 (+ patches/framework at Q4)
-APPS_BUILD=PASS in GitHub Actions (Gradle build, unit tests, Lint, detekt, ktlint)
-IMAGE_BUILD_TESTED=Q1, Q2 (ai-g732, 2026-10-15); Q4 (2026-10-17); PR #28 Q4 (2026-10-22); PR #33 Q4 (2026-10-28); alpha-20261028; alpha-20261029
-FRAMEWORK_PATCHES=127 patch files; all apply in order (check with scripts/apply-framework-patches.sh check)
-BOOT_TESTED=Q1, Q2 on a Q25 (2026-10-16/17); Q4 (2026-10-17, 2026-10-22, 2026-10-28); alpha-20261028; alpha-20261029 (2026-10-29)
-FLASH_SCRIPT=NONE (manual, documented steps in docs/INSTALL.md and docs/FLASHING_RELEASE.md)
-RELEASES=2.0 (next, built from this main), 1.0 (2026-10-29, LineageOS 23.2), earlier test builds alpha-20261029, alpha-20261028; GitHub releases made with build/sable.sh q25 full release
-```
+New here? The [User guide](docs/USER_GUIDE.md) covers setup, the keys, the
+apps and the privacy defaults. To install, follow
+[Flash a release](docs/FLASHING_RELEASE.md) for a downloaded release, or
+[Install](docs/INSTALL.md) for an image you built yourself. Current status is
+at the [bottom of this page](#status).
 
 ## Install a release
 
-Every release is built on **LineageOS 24.0 (Android 17)** and says so in its
-release notes. Download `sableos-q25-full-2.0-*.zip` from
+SableOS 2.0 is built on **LineageOS 24.0 (Android 17)**; 1.0 was built on
+LineageOS 23.2 (Android 16). Each release says its base in its release notes.
+Download `sableos-q25-full-2.0-*.zip` from
 [Releases](https://github.com/aimindseye/zinwaq25-sableos/releases), then, with
 `adb` and `fastboot` installed and the phone's USB-C cable plugged in:
 
@@ -110,9 +79,9 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Roadmap](ROADMAP.md) | What's reused from SableOS, what's Q25-specific, and the phases |
 | [Build](docs/BUILD.md) | Host setup, source sync, blobs, building the image, GitHub Actions |
 | [Install](docs/INSTALL.md) | Unlock, flash, sideload (tested for Q1 and Q2) |
-| [Flash a release](docs/FLASHING_RELEASE.md) | For a downloaded alpha release: back up, flash, and go back to stock |
+| [Flash a release](docs/FLASHING_RELEASE.md) | For a downloaded release: back up, flash, and go back to stock |
 | [Play Store apps](docs/MICROG.md) | The microG add-on (no Google by default from 2.0): every APK it needs, installing it with one command, Aurora Store, battery and location defaults, removing it |
-| [SableOS gaps](docs/SABLEOS_GAP_REVIEW.md) | What is still open: build, device checks, owner decisions, known limits |
+| [SableOS gaps](docs/SABLEOS_GAP_REVIEW.md) | What is still open before the 2.0 release, owner decisions and known limits |
 | [Return to stock](docs/RETURN_TO_STOCK.md) | Backup first, rehearse the restore, recovery ladder back to Zinwa firmware |
 | [Hardening plan](docs/HARDENING_PLAN.md) | GrapheneOS-style protections: what SableOS has, what can be ported, and what blocks it |
 | [Architecture](docs/ARCHITECTURE.md) | How the LineageOS base and Sable layer fit together |
@@ -121,7 +90,7 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Qualification](docs/QUALIFICATION.md) | Gates each phase must pass |
 | [Crash evidence](docs/CRASH_EVIDENCE.md) | Capture crash logs over adb before anything is cleared |
 | [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3, corners, icons, settings-ui5, Phone + Contacts, daily driver, Hub dock, power, Q4 review fixes) changed and what still needs the phone |
-| [Patches](patches/README.md) | Q25 changes to the Sable app sources (`sable-src` 0001-0085) and the LineageOS framework patches |
+| [Patches](patches/README.md) | Q25 changes to the Sable app sources (`sable-src`) and the LineageOS framework patches |
 | [Stock basis](docs/STOCK_BASIS.md) | Firmware facts to record before flashing |
 | [Sources](docs/SOURCES.md) | Every upstream with its pin and licence |
 | [Lessons from Titan 2](docs/LESSONS_FROM_TITAN2.md) | Mistakes not to repeat |
@@ -176,7 +145,7 @@ product/q25/              Sable product layer copied to vendor/sable/q25
 device-profile/           Q25 hardware capability profile and key map
 apps/                     how the Sable application sources are managed
 sable-src/                Sable app sources imported from SableOS (pinned commit)
-patches/sable-src/        Q25 changes re-applied to sable-src/ after every import (0001-0085)
+patches/sable-src/        Q25 changes re-applied to sable-src/ after every import
 patches/framework/        Q4 patches to LineageOS 24.0 projects ([port status](docs/LINEAGE_24_PORT.md)) (Settings, SystemUI, Dialer, ...)
 product/common/overlay/   Q4 static overlays (framework, SystemUI, SetupWizard, Glimpse, Gallery2)
 docs/                     guides
@@ -266,3 +235,19 @@ Other projects this port uses or learned from:
   [iA Fonts](https://github.com/iaolo/iA-Fonts) and
   [Accessible DfA](https://github.com/Orange-OpenSource/font-accessible-dfa): icons
   and fonts.
+
+## Status
+
+* **SableOS 1.0** (LineageOS 23.2, Android 16) was released on 2026-10-29:
+  [`releases/1.0.md`](releases/1.0.md).
+* **SableOS 2.0** (LineageOS 24.0, Android 17) is built from this `main`. Every
+  item in the 2.0 plan is in the code and CI is green; what it adds is in
+  [`releases/2.0.md`](releases/2.0.md). Before it is published, the phone still
+  has to run the 2.0 device checks ([#27](https://github.com/aimindseye/zinwaq25-sableos/issues/27)),
+  and the release needs its own signing keys. What is left is in
+  [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md).
+* The image has no Google software and no app store; the
+  [microG add-on](docs/MICROG.md) is optional.
+* Sable app translations (18 languages) are machine-assisted drafts that no
+  fluent speaker has reviewed yet. English is the reference text, and
+  corrections are welcome.
