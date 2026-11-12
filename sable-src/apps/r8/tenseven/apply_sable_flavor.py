@@ -259,6 +259,24 @@ def patch_frames(root: pathlib.Path) -> None:
     )
 
 
+def patch_fit(root: pathlib.Path) -> None:
+    """Fit the Q25's 411 dp square screen (about 383 dp under the status bar): the widget picker's
+    list was a fixed 360 dp, so with its title and padding the dialog was taller than the window."""
+    widgets = root / JAVA / "ui/WidgetsPage.kt"
+    replace_once(
+        widgets,
+        "import androidx.compose.foundation.layout.height\n",
+        "import androidx.compose.foundation.layout.height\nimport androidx.compose.foundation.layout.heightIn\n",
+        "SABLE_HOME_FIT_IMPORT",
+    )
+    replace_once(
+        widgets,
+        "Modifier.weight(1f, fill = false).height(360.dp)",
+        "Modifier.weight(1f, fill = false).heightIn(max = 360.dp)",
+        "SABLE_HOME_FIT_WIDGETS",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -269,6 +287,7 @@ def main() -> None:
     patch_command(root)
     patch_colours(root)
     patch_frames(root)
+    patch_fit(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 

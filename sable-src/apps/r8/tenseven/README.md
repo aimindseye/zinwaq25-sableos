@@ -12,6 +12,8 @@ in `upstream.env` (TenSeven PR 127), after `apply_sable_flavor.py` has changed:
 - the entry points TenSeven lacked: `org.sableos.start.action.COMMAND` (Alt+Space from any app,
   frameworks/base 0319) and `org.sableos.start.action.SET_LOOK` (SetupWizard 0417);
 - the colours, to the approved tokens: blue `#2E9BD6`, black, raised `#141414`, dividers `#262626`.
+- the widget picker's list, from a fixed 360 dp to at most 360 dp, so the dialog fits the Q25's
+  411 dp square screen (about 383 dp under the status bar).
 
 The APK is platform-signed but not privileged (`platformapp`), as Sable Start was. The framework
 overlay grants it notification listener access on first boot, so Hub fills without a setup step.

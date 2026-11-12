@@ -17,4 +17,17 @@
          Upstream 18dp and 32dp. -->
     <dimen name="keyguard_clock_top_margin">28dp</dimen>
     <dimen name="keyguard_indication_margin_bottom">36dp</dimen>
+    <!-- PIN bouncer on a short window (the Q25: 720x720 at density 280 is 411 dp
+         square, about 383 dp under the status bar). Android's pad (80 dp PIN box,
+         84 dp round keys, 12 dp gaps) is about 470 dp tall there, so the message
+         and the PIN box drew over the 1-2-3 and 4-5-6 rows (photo 2026-11-07).
+         With these the PIN box, four rows of 96 x 42 dp keys and Emergency take
+         about 300 dp. values-h560dp puts Android's sizes back for taller windows
+         (Display Compat's tall canvases). frameworks/base 0315 sizes the same pad
+         from SableLockSize when it runs; these are the floor that needs no code.
+         Upstream 80dp, 12dp, 18dp, 12dp. -->
+    <dimen name="keyguard_password_height">40dp</dimen>
+    <dimen name="num_pad_entry_row_margin_bottom">6dp</dimen>
+    <dimen name="keyguard_eca_top_margin">6dp</dimen>
+    <dimen name="keyguard_eca_bottom_margin">6dp</dimen>
 </resources>

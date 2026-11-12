@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android's round PIN keys on windows 560 dp and taller. -->
+    <string name="num_pad_key_ratio" translatable="false">1</string>
+</resources>

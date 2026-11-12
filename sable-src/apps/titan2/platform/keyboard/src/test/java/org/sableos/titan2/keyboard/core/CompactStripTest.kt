@@ -280,6 +280,15 @@ class CompactStripTest {
         assertTrue(StripGeometry.HEIGHT_DP * 4 <= SoftKeyboardGeometry.minHeightDp())
     }
 
+    @Test fun shortWindowsGetShorterRows() {
+        // Zinwa Q25: 411 dp square at density 280, about 385 dp under the status bar.
+        assertEquals(40, SoftKeyboardGeometry.rowHeightDp(385))
+        assertTrue(4 * SoftKeyboardGeometry.rowHeightDp(385) + 12 <= 385 * 0.45f)
+        assertEquals(SoftKeyboardGeometry.ROW_HEIGHT_DP, SoftKeyboardGeometry.rowHeightDp(800))
+        assertEquals(SoftKeyboardGeometry.ROW_HEIGHT_DP, SoftKeyboardGeometry.rowHeightDp(0))
+        assertEquals(SoftKeyboardGeometry.MIN_ROW_HEIGHT_DP, SoftKeyboardGeometry.rowHeightDp(200))
+    }
+
     @Test fun squareDisplaysAddNoCornerInset() {
         assertEquals(0, StripGeometry.cornerInset(0, 0))
         assertEquals(0, StripGeometry.cornerInset(-5, 10))

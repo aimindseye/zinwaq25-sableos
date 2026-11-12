@@ -308,3 +308,4 @@ Reserved:
 
 * `device/` changes to the LineageOS Q25 device tree. Prefer upstreaming to
   LineageOS. 0176 completes My Sable's rows: Dual apps (opens Settings > Apps, where Cloned apps lives) and a Battery health state read from the sticky battery broadcast, with their text in every language file (English for now).
+  0177 fits Sable Keyboard to the Q25's 411 dp square screen: key rows are 40 to 52 dp, so the four rows take at most 45% of the window (40 dp on the Q25, 52 dp on tall phones), and no navigation bar space is reserved when no navigation bar shows.

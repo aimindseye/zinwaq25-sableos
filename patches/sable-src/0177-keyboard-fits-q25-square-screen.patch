@@ -1,0 +1,117 @@
+diff --git a/patches/README.md b/patches/README.md
+index 4c12a57..eb2d363 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -308,3 +308,4 @@ Reserved:
+ 
+ * `device/` changes to the LineageOS Q25 device tree. Prefer upstreaming to
+   LineageOS. 0176 completes My Sable's rows: Dual apps (opens Settings > Apps, where Cloned apps lives) and a Battery health state read from the sticky battery broadcast, with their text in every language file (English for now).
++  0177 fits Sable Keyboard to the Q25's 411 dp square screen: key rows are 40 to 52 dp, so the four rows take at most 45% of the window (40 dp on the Q25, 52 dp on tall phones), and no navigation bar space is reserved when no navigation bar shows.
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt
+index 3d4adb0..23dcb4f 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SoftKeyboardView.kt
+@@ -50,7 +50,6 @@ class SoftKeyboardView(
+         const val NAV_FALLBACK_DP = 48
+         const val WIDE_KEY_WEIGHT = 1.5f
+         const val SPACE_WEIGHT = 4f
+-        const val ROW_HEIGHT_DP = SoftKeyboardGeometry.ROW_HEIGHT_DP
+         const val DENSE_ROW_SIZE = 11
+         const val DENSE_KEY_SP = 18f
+         const val KEY_SP = 22f
+@@ -94,9 +93,11 @@ class SoftKeyboardView(
+                 WindowInsets.Type.systemBars() or WindowInsets.Type.tappableElement() or
+                     WindowInsets.Type.displayCutout()
+             val i = insets.getInsets(types)
+-            // Some IME windows report 0 for the nav bar they still draw over;
+-            // never go below the system's nav bar height.
+-            val bottom = maxOf(i.bottom, navBarHeightPx())
++            // Some IME windows report 0 for the nav bar they still draw over; never go below the
++            // system's nav bar height while one shows. With no nav bar (the Q25's hardware keys)
++            // nothing is reserved, so the short screen keeps that space.
++            val navShown = insets.isVisible(WindowInsets.Type.navigationBars())
++            val bottom = if (navShown) maxOf(i.bottom, navBarHeightPx()) else i.bottom
+             v.setPadding(
+                 px(PAD_H_DP) + i.left,
+                 px(PAD_V_DP),
+@@ -105,7 +106,7 @@ class SoftKeyboardView(
+             )
+             insets
+         }
+-        setPadding(px(PAD_H_DP), px(PAD_V_DP), px(PAD_H_DP), px(PAD_V_DP) + navBarHeightPx())
++        setPadding(px(PAD_H_DP), px(PAD_V_DP), px(PAD_H_DP), px(PAD_V_DP))
+         build()
+     }
+ 
+@@ -276,7 +277,10 @@ class SoftKeyboardView(
+         gravity =
+             Gravity.CENTER
+     }
+-    private fun rowParams() = LayoutParams(LayoutParams.MATCH_PARENT, px(ROW_HEIGHT_DP))
++    /** Row height for this window (SoftKeyboardGeometry.rowHeightDp): shorter on a short screen. */
++    private fun rowHeightDp() = SoftKeyboardGeometry.rowHeightDp(resources.configuration.screenHeightDp)
++
++    private fun rowParams() = LayoutParams(LayoutParams.MATCH_PARENT, px(rowHeightDp()))
+ 
+     private fun row(keys: List<String>, letters: Boolean) {
+         val r = newRow()
+@@ -391,7 +395,7 @@ class SoftKeyboardView(
+                 setColor(fn)
+             }
+             layoutParams =
+-                LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, px(ROW_HEIGHT_DP)).apply {
++                LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, px(rowHeightDp())).apply {
+                     setMargins(px(2), 0, px(2), 0)
+                 }
+             setOnClickListener {
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/CompactStrip.kt b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/CompactStrip.kt
+index 2e5ad71..b0e6dbc 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/CompactStrip.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/core/CompactStrip.kt
+@@ -15,8 +15,26 @@ object SoftKeyboardGeometry {
+     const val MIN_ROWS = 4
+     const val PAD_V_DP = 6
+ 
++    /** Shortest key row: still a 40 dp touch target. */
++    const val MIN_ROW_HEIGHT_DP = 40
++
++    /** Most of the window the full keyboard may cover, so the field above it stays in view. */
++    const val MAX_WINDOW_SHARE = 0.45f
++
+     /** Lower bound of the full on-screen keyboard height, before the navigation bar. */
+     fun minHeightDp(): Int = MIN_ROWS * ROW_HEIGHT_DP + 2 * PAD_V_DP
++
++    /**
++     * Key row height for a window [windowHeightDp] tall. Tall phones keep [ROW_HEIGHT_DP]; a short
++     * window (the Zinwa Q25's 720x720 screen at density 280 is 411 dp square, about 385 dp under
++     * the status bar) gets shorter rows, never under [MIN_ROW_HEIGHT_DP], so the four rows take at
++     * most [MAX_WINDOW_SHARE] of it. Zero or less (unknown) keeps [ROW_HEIGHT_DP].
++     */
++    fun rowHeightDp(windowHeightDp: Int): Int {
++        if (windowHeightDp <= 0) return ROW_HEIGHT_DP
++        val fit = ((windowHeightDp * MAX_WINDOW_SHARE).toInt() - 2 * PAD_V_DP) / MIN_ROWS
++        return fit.coerceIn(MIN_ROW_HEIGHT_DP, ROW_HEIGHT_DP)
++    }
+ }
+ 
+ object StripGeometry {
+diff --git a/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/CompactStripTest.kt b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/CompactStripTest.kt
+index 411982f..114147d 100644
+--- a/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/CompactStripTest.kt
++++ b/sable-src/apps/titan2/platform/keyboard/src/test/java/org/sableos/titan2/keyboard/core/CompactStripTest.kt
+@@ -280,6 +280,15 @@ class CompactStripTest {
+         assertTrue(StripGeometry.HEIGHT_DP * 4 <= SoftKeyboardGeometry.minHeightDp())
+     }
+ 
++    @Test fun shortWindowsGetShorterRows() {
++        // Zinwa Q25: 411 dp square at density 280, about 385 dp under the status bar.
++        assertEquals(40, SoftKeyboardGeometry.rowHeightDp(385))
++        assertTrue(4 * SoftKeyboardGeometry.rowHeightDp(385) + 12 <= 385 * 0.45f)
++        assertEquals(SoftKeyboardGeometry.ROW_HEIGHT_DP, SoftKeyboardGeometry.rowHeightDp(800))
++        assertEquals(SoftKeyboardGeometry.ROW_HEIGHT_DP, SoftKeyboardGeometry.rowHeightDp(0))
++        assertEquals(SoftKeyboardGeometry.MIN_ROW_HEIGHT_DP, SoftKeyboardGeometry.rowHeightDp(200))
++    }
++
+     @Test fun squareDisplaysAddNoCornerInset() {
+         assertEquals(0, StripGeometry.cornerInset(0, 0))
+         assertEquals(0, StripGeometry.cornerInset(-5, 10))

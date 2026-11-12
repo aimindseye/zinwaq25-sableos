@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android's PIN bouncer sizes for windows 560 dp and taller (values/dimens.xml
+         shrinks them for the Q25's 411 dp square screen). -->
+    <dimen name="keyguard_password_height">80dp</dimen>
+    <dimen name="num_pad_entry_row_margin_bottom">12dp</dimen>
+    <dimen name="keyguard_eca_top_margin">18dp</dimen>
+    <dimen name="keyguard_eca_bottom_margin">12dp</dimen>
+</resources>
