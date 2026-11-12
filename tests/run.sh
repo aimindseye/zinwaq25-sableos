@@ -1365,6 +1365,8 @@ if awk -F'\t' '$1 == "SableMail" && $9 == "yes"' product/q25/apps.tsv | grep -q 
         sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
     ! grep -qiE '"(password|token|body)"' sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
     grep -q 'patch_hub_mail(root)' sable-src/apps/r8/tenseven/apply_sable_flavor.py &&
+    grep -q 'Flag.SEEN, true' sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
+    grep -q 'SableMailFeed.markRead(context, n)' sable-src/apps/r8/tenseven/apply_sable_flavor.py &&
     grep -q '"hub_mail"' sable-src/apps/r8/tenseven/verify_sable_tenseven.py; then
     pass "Hub email: Sable Mail ships, its inbox feed answers only the home and Hub, Hub reads it"
 else

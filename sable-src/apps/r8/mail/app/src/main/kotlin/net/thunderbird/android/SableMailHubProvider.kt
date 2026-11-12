@@ -12,6 +12,8 @@ import app.k9mail.legacy.mailstore.MessageDetailsAccessor
 import app.k9mail.legacy.mailstore.MessageListChangedListener
 import app.k9mail.legacy.mailstore.MessageListRepository
 import app.k9mail.legacy.message.controller.MessageReference
+import com.fsck.k9.controller.MessagingControllerWrapper
+import net.thunderbird.core.common.mail.Flag
 import net.thunderbird.core.android.account.LegacyAccount
 import net.thunderbird.core.android.account.LegacyAccountManager
 import org.koin.core.context.GlobalContext
@@ -20,8 +22,9 @@ import org.koin.core.context.GlobalContext
  * Sable Mail's inbox for the SableOS Hub: the newest messages of every account's Inbox, read-only.
  *
  * Sable Mail keeps the accounts, passwords and tokens and does the syncing and push (IMAP IDLE);
- * the Hub only reads sender, subject, preview, date and read state from here, and opens a message
- * through [SableMailOpenActivity]. Only the SableOS home and Sable Hub may read it.
+ * the Hub reads sender, subject, preview, date and read state from here, opens a message through
+ * [SableMailOpenActivity], and can mark one message read (update messages/<id> with read=1), which
+ * Sable Mail then syncs to the server. Only the SableOS home and Sable Hub may use it.
  */
 class SableMailHubProvider : ContentProvider() {
     @Volatile
@@ -88,15 +91,27 @@ class SableMailHubProvider : ContentProvider() {
 
     override fun getType(uri: Uri): String = "vnd.android.cursor.dir/vnd.org.sableos.mail.hub.message"
 
-    // The Hub only reads: nothing here changes Sable Mail's store.
+    // The Hub never adds or deletes mail.
     override fun insert(uri: Uri, values: ContentValues?): Uri? = readOnly()
 
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = readOnly()
 
-    override fun update(uri: Uri, values: ContentValues?, where: String?, whereArgs: Array<out String>?): Int =
-        readOnly()
+    /** The one write: messages/<id> with read=1 marks that message read, as opening it in Sable Mail would. */
+    override fun update(uri: Uri, values: ContentValues?, where: String?, whereArgs: Array<out String>?): Int {
+        enforceHubCaller(checkNotNull(context))
+        val rowId = uri.pathSegments.takeIf { it.size == 2 && it[0] == PATH_MESSAGES }?.get(1)?.toLongOrNull()
+        if (rowId == null || values?.getAsInteger("read") != 1 || values.size() != 1) readOnly()
+        val accountNumber = (rowId ushr ACCOUNT_SHIFT).toInt() - 1
+        val messageId = rowId and ((1L shl ACCOUNT_SHIFT) - 1)
+        val koin = GlobalContext.get()
+        val account =
+            koin.get<LegacyAccountManager>().getAccounts().firstOrNull { it.accountNumber == accountNumber }
+                ?: return 0
+        koin.get<MessagingControllerWrapper>().setFlag(account.id, listOf(messageId), Flag.SEEN, true)
+        return 1
+    }
 
-    private fun readOnly(): Nothing = throw UnsupportedOperationException("Read-only provider")
+    private fun readOnly(): Nothing = throw UnsupportedOperationException("The Hub may only mark one message read")
 
     private class HubMail(
         val id: Long,

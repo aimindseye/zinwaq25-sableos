@@ -36,7 +36,8 @@ Hub email (owner, 2026-11-12) comes from Sable Mail, not from TenSeven. `patch_h
 `content://org.sableos.mail.hub/messages` (sender, subject, preview, date, read), in memory only, and
 re-reads when Sable Mail says the inboxes changed. While that feed answers, Sable Mail's own
 notifications are left out of the Hub, so each email shows once. Enter on an email opens it in Sable
-Mail (`org.sableos.mail.action.OPEN_MESSAGE`). Mail read in Sable Mail shows but is not counted as new.
+Mail (`org.sableos.mail.action.OPEN_MESSAGE`). Mail read in Sable Mail shows but is not counted as new, and marking an email read in the Hub marks
+it read in Sable Mail too.
 
 The APK is platform-signed but not privileged (`platformapp`), as Sable Start was. The framework
 overlay grants it notification listener access on first boot, so Hub fills without a setup step.

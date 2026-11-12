@@ -671,6 +671,12 @@ def patch_hub_mail(root: pathlib.Path) -> None:
         "SABLE_HOME_HUB_MAIL_CONVERSATIONS",
     )
     replace_once(
+        hub,
+        "            markHubSourceRead(context, n)\n",
+        "            markHubSourceRead(context, n)\n            SableMailFeed.markRead(context, n)\n",
+        "SABLE_HOME_HUB_MAIL_MARK_READ",
+    )
+    replace_once(
         root / "app/src/main/AndroidManifest.xml",
         '        <provider android:authorities="org.sableos.mail.snapshot" />\n',
         '        <provider android:authorities="org.sableos.mail.snapshot" />\n'

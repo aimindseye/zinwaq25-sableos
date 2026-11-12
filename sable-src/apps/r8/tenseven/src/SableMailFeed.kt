@@ -1,6 +1,7 @@
 package io.github.aimindseye.tenseven.conversations
 
 import android.app.PendingIntent
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.database.ContentObserver
@@ -16,7 +17,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * SableOS: Sable Mail's inboxes in the Hub, read from Sable Mail's own feed (org.sableos.mail.hub), not from
  * its notifications. Sable Mail keeps the accounts and does the syncing and push; the Hub holds the newest
  * inbox messages in memory only, and opens one in Sable Mail. While the feed answers, Sable Mail's
- * notifications are left out of the Hub so each email shows once.
+ * notifications are left out of the Hub so each email shows once. Marking an email read in the Hub marks it
+ * read in Sable Mail.
  */
 object SableMailFeed {
     const val MAIL_PACKAGE = "org.sableos.mail"
@@ -134,6 +136,21 @@ object SableMailFeed {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
         }.getOrNull()
+
+    /** Marking a Hub email read marks it read in Sable Mail too (which syncs it to the server). */
+    fun markRead(
+        context: Context,
+        notification: HubNotification,
+    ) {
+        val id = notification.key.removePrefix(KEY_PREFIX).takeIf { notification.key.startsWith(KEY_PREFIX) } ?: return
+        val app = context.applicationContext
+        reader.execute {
+            runCatching {
+                val values = ContentValues().apply { put("read", 1) }
+                app.contentResolver.update(URI.buildUpon().appendPath(id).build(), values, null, null)
+            }
+        }
+    }
 
     /** "Subject · start of the text", or whichever of the two there is. Pure, unit tested. */
     internal fun mailText(

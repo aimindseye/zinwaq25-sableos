@@ -514,6 +514,7 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
         "UnsupportedOperationException",
         "MAX_MESSAGES = 50",
         "account.inboxFolderId",
+        "Flag.SEEN, true",
     ):
         require_text(hub_provider, needle, "SABLE_MAIL_HUB_FEED")
     for secret in ("password", "token", "body"):

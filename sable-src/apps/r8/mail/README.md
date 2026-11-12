@@ -9,9 +9,10 @@ scratch.
 
 `app/` next to the flavor script adds `SableMailHubProvider` (`content://org.sableos.mail.hub/messages`)
 and `SableMailOpenActivity` (`org.sableos.mail.action.OPEN_MESSAGE`). The provider answers only the
-SableOS home and Sable Hub, read-only, with the 50 newest Inbox messages across accounts: sender,
-subject, preview, date, read, attachment flag and a message reference. No body, address book,
-password or token leaves Sable Mail. It tells the Hub when a sync changes an inbox, so push mail
+SableOS home and Sable Hub with the 50 newest Inbox messages across accounts: sender, subject,
+preview, date, read, attachment flag and a message reference. Its one write marks a message read
+(`update messages/<id>` with `read=1`), which Sable Mail syncs to the server like any read. No body,
+address book, password or token leaves Sable Mail. It tells the Hub when a sync changes an inbox, so push mail
 reaches the Hub as soon as Sable Mail has it.
 
 ## Upstream pin
