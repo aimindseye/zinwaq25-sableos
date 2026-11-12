@@ -85,6 +85,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- Out-of-box presets (2.0): a newly installed app with a Sable preset gets it (android/PresetSupport). -->
+        <receiver
+            android:name=".android.PresetReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+
         <!-- Resolution hotkey from PhoneWindowManager (frameworks/base 0313). Not exported: only the
              system UID (the system server) can send it. -->
         <receiver

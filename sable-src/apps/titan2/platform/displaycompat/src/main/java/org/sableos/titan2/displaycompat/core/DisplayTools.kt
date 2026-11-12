@@ -25,7 +25,9 @@ data class Moment(
     val gateOpen: Boolean,
     val setupComplete: Boolean,
     val interactive: Boolean,
-    val frontPackage: String?
+    val frontPackage: String?,
+    /** The default display is turned sideways (rotation 90 or 270). */
+    val landscape: Boolean = false
 )
 
 sealed interface CycleOutcome {
@@ -78,6 +80,7 @@ class DisplayTools(
             interactive = m.interactive,
             frontPackage = front,
             frontProfile = profile,
+            landscape = m.landscape,
             systemRotation = settings.systemRotation,
             anyAspectProfile = store.packages().any { DisplayPolicy.usesAspectRatio(store.get(it)) }
         )

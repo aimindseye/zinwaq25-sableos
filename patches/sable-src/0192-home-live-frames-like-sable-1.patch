@@ -1,0 +1,217 @@
+diff --git a/patches/README.md b/patches/README.md
+index b357a85..73bc8af 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -331,3 +331,4 @@ Reserved:
+   0189 adds the Hub over any app and the cover API to the SableOS home (2.0 plan, BB10, owner decision 2026-11-12): `patch_hub_peek` adds `SableHubPeekActivity` (rows by `SableHubPeek`, unit-tested), opened by holding the Recents key (frameworks/base 0326) or Hub, the new first row of the Alt+BlackBerry key menu; `patch_frame_covers` adds `content://org.sableos.launcher.covers` (`SableCoverProvider`, `SableFrameCovers`, unit-tested), where an app sets or clears its own frame's cover (title and line, the caller's own, in memory, hidden while locked, 24-hour lapse), shown ahead of notification and media summaries.
+   0190 is the Hub after the JL10 review (owner, 2026-11-12; ideas only, no JLauncher code or art): `patch_hub_keep` adds `SableHubKeep` (unit-tested), so the Hub keeps items until deleted (on the phone only, at most 1000, ongoing notices and Sable Mail not kept), lists Unread then Today, Yesterday and dated sections under "All accounts · N unread", adds Priority Hub and each app with its unread count to Views, a ⋮ menu (Hub settings, Email accounts, Calendar accounts, Connected apps), Mark unread, Priority Hub entries and Delete in the row menu, and Hub settings for Keep messages, Every message on its own, System notifications and the Sable Mail and DAVx⁵ account links; `patch_status_icons` names the home status choices Dials, Icons, Hidden everywhere (the saved value stays `text`); `patch_extra_dim` adds `SableExtraDim` (unit-tested), which turns on Android's Extra dim with manual brightness at the slider's bottom and off when it moves up, leaving Extra dim the person set alone (the Q25 panel's lowest backlight step is still bright); the AppSummary test now counts the cover source as local.
+   0191 makes the SableOS home need no permission setup (owner, 2026-11-12): `patch_home_access` adds `SableHomeAccess` (unit-tested), which grants the home Contacts, Calendar, Call log, Photos, Notifications, notification access, usage access and display over other apps once on its first start (each item until granted once, so a later "off" stays off; location is left to the person), and drops the Active Frames page from Launcher settings; product/q25 default permissions grant the same runtime permissions at first boot.
++  0192 brings back Sable 1.0's live Active Frames (owner, 2026-11-12): the home always asks the system for each frame's snapshot first (no capability probe or settings switch can turn frames into summary cards), the picture fills the frame with no "Preview" tag, and the name bar under each frame is 22 dp with a smaller title and close mark. `SableTaskSnapshots` finds TaskSnapshotManager.getTaskSnapshot by name and logs under `SableFrames` the snapshot permissions and, per app, why a frame has no picture.
+diff --git a/sable-src/apps/r8/tenseven/README.md b/sable-src/apps/r8/tenseven/README.md
+index a872b7e..32b5c64 100644
+--- a/sable-src/apps/r8/tenseven/README.md
++++ b/sable-src/apps/r8/tenseven/README.md
+@@ -103,6 +103,13 @@ Sable Start's platform permissions, so frames follow the system's recent tasks a
+ snapshot (`SableTaskSnapshots.kt`, Android 17's TaskSnapshotManager, then TenSeven's older call);
+ `adb logcat -s SableFrames` says why a frame has no picture. Media frames come from every app's media
+ session through the notification listener that the framework overlay grants on first boot.
++Frames show the app's live picture as Sable 1.0 did (owner, 2026-11-12): the home always asks the system
++for the snapshot first, with no capability probe or settings switch in the way, and the picture fills the
++frame with no "Preview" tag; the media or message summary is only the fallback when there is no picture.
++The name bar under each frame is slim (22 dp), so more of the app shows; X and Backspace close the
++focused frame. `adb logcat -s SableFrames` logs once the snapshot permissions the home holds, whether
++TaskSnapshotManager was found, and for each app why its frame has no picture (no running task, no
++launcher entry, or no snapshot from the system).
+ 
+ Sable Start's source stays in `sable-src/src/android/packages/apps/SableStart` until the home is
+ qualified on a Q25. To go back to it, set the `SableHome` row's `enabled` column to `no`.
+diff --git a/sable-src/apps/r8/tenseven/apply_sable_flavor.py b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+index 5d78d7f..b2f7a0b 100644
+--- a/sable-src/apps/r8/tenseven/apply_sable_flavor.py
++++ b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+@@ -236,14 +236,17 @@ def patch_frames(root: pathlib.Path) -> None:
+     replace_once(
+         root / JAVA / "platform/PlatformCapabilityProbe.kt",
+         '                    taskMethod(context, "getTaskSnapshot"),\n',
+-        '                    (taskMethod(context, "getTaskSnapshot") || SableTaskSnapshots.available()),\n',
++        # The platform home always has the system's snapshot call (Sable 1.0 used it with no probe).
++        "                    true,\n",
+         "SABLE_HOME_SNAPSHOT_PROBE",
+     )
+     replace_once(
+         root / JAVA / "platform/RecentTasksRepository.kt",
+         "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n",
+-        "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n"
+-        "            SableTaskSnapshots.snapshot(taskId, lowResolution)?.let { return@runCatching it }\n",
++        # As Sable 1.0 did: always ask the system for the picture first, with no capability gate.
++        "            SableTaskSnapshots.explain(appContext)\n"
++        "            SableTaskSnapshots.snapshot(taskId, lowResolution)?.let { return@runCatching it }\n"
++        "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n",
+         "SABLE_HOME_SNAPSHOT_CALL",
+     )
+     # Frames follow the system's recent tasks (REAL_GET_TASKS) rather than only the apps opened from the
+@@ -254,6 +257,53 @@ def patch_frames(root: pathlib.Path) -> None:
+         "            input.openings?.takeIf { native.isEmpty() }?.map { opening ->\n",
+         "SABLE_HOME_FRAMES_FROM_SYSTEM_TASKS",
+     )
++    # Live pictures are always on for the platform home, as in Sable 1.0: no settings switch (the
++    # Active Frames settings page is gone) and no probe can turn them into summary cards.
++    replace_once(
++        root / JAVA / "platform/StartStateRepository.kt",
++        '                snapshots = preferences.getBoolean("frames_snapshots", true),\n',
++        "                snapshots = true,\n",
++        "SABLE_HOME_SNAPSHOTS_ALWAYS",
++    )
++    # The live picture fills the frame with no "Preview" tag over it, as in Sable 1.0.
++    replace_once(
++        root / JAVA / "ui/ActiveFramesPage.kt",
++        "        Image(picture.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)\n"
++        "        Text(\n"
++        "            \"Preview\",\n"
++        "            color = Bb10Text,\n"
++        "            style = MaterialTheme.typography.labelSmall,\n"
++        "            modifier = Modifier.align(Alignment.TopStart).background(Bb10Background).padding(4.dp),\n"
++        "        )\n",
++        "        Image(picture.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopCenter)\n",
++        "SABLE_HOME_FRAME_PICTURE_ONLY",
++    )
++    # Say in the log why a frame has no picture, gate by gate.
++    host = root / JAVA / "platform/ActiveFramesHost.kt"
++    replace_once(
++        host,
++        "        if (entry == null || !available(entry)) return null\n"
++        "        val bitmap = item.task?.let { native.snapshot(it.taskId) }\n",
++        "        if (entry == null || !available(entry)) {\n"
++        "            SableTaskSnapshots.note(\"no-app:${item.app.packageName}\", \"${item.app.packageName}: no unlocked launcher entry\")\n"
++        "            return null\n"
++        "        }\n"
++        "        val task = item.task\n"
++        "        if (task == null) SableTaskSnapshots.note(\"no-task:${item.app.packageName}\", \"${item.app.packageName}: frame has no running task\")\n"
++        "        val bitmap = task?.let { native.snapshot(it.taskId) }\n",
++        "SABLE_HOME_SNAPSHOT_WHY",
++    )
++    # A slim name bar under each frame, so more of the app shows (owner, 2026-11-12). X and Backspace
++    # still close the focused frame; the × stays tappable.
++    page = root / JAVA / "ui/ActiveFramesPage.kt"
++    replace_once(page, "                .heightIn(min = 36.dp)\n", "                .heightIn(min = 22.dp)\n", "SABLE_HOME_SLIM_FRAME_BAR")
++    replace_once(
++        page,
++        "                style = MaterialTheme.typography.labelLarge,\n                modifier = Modifier.weight(1f),\n",
++        "                style = MaterialTheme.typography.labelMedium,\n                modifier = Modifier.weight(1f),\n",
++        "SABLE_HOME_SLIM_FRAME_TITLE",
++    )
++    replace_once(page, "                        .size(48.dp)\n", "                        .size(width = 32.dp, height = 22.dp)\n", "SABLE_HOME_SLIM_FRAME_CLOSE")
+     # No screen-capture offer where the system snapshot works.
+     # Screen capture is never offered on SableOS; patch_leftovers removes it from the build.
+ 
+diff --git a/sable-src/apps/r8/tenseven/src/SableTaskSnapshots.kt b/sable-src/apps/r8/tenseven/src/SableTaskSnapshots.kt
+index 2ef316e..1e9163e 100644
+--- a/sable-src/apps/r8/tenseven/src/SableTaskSnapshots.kt
++++ b/sable-src/apps/r8/tenseven/src/SableTaskSnapshots.kt
+@@ -1,8 +1,11 @@
+ package io.github.aimindseye.tenseven.platform
+ 
++import android.content.Context
++import android.content.pm.PackageManager
+ import android.graphics.Bitmap
+ import android.graphics.ColorSpace
+ import android.hardware.HardwareBuffer
++import android.os.Build
+ import android.util.Log
+ 
+ /**
+@@ -34,24 +37,67 @@ internal object SableTaskSnapshots {
+             .getOrNull()
+     }
+ 
++    /**
++     * The TaskSnapshotManager call: getTaskSnapshot(taskId, resolution) on Android 17, found by name so
++     * an added flag (a boolean or another int) does not hide it.
++     */
++    private val method: java.lang.reflect.Method? by lazy {
++        val type = managerClass ?: return@lazy null
++        val found =
++            type.methods.filter {
++                it.name == "getTaskSnapshot" && it.parameterTypes.firstOrNull() == Int::class.javaPrimitiveType &&
++                    it.parameterTypes.drop(1).all { p -> p == Int::class.javaPrimitiveType || p == Boolean::class.javaPrimitiveType }
++            }.minByOrNull { it.parameterCount }
++        if (found == null) {
++            val names = type.methods.filter { it.name.contains("Snapshot") }.joinToString { it.toGenericString() }
++            Log.w(TAG, "no usable TaskSnapshotManager.getTaskSnapshot; has: $names")
++        }
++        found
++    }
++
+     /** True when this Android has the TaskSnapshotManager call. */
+-    fun available(): Boolean =
+-        runCatching {
+-            managerClass?.getMethod("getTaskSnapshot", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType) != null
+-        }.getOrDefault(false)
++    fun available(): Boolean = method != null
++
++    /** Logs [message] once per [key]. */
++    fun note(
++        key: String,
++        message: String,
++    ) {
++        if (synchronized(logged) { logged.add(key) }) Log.i(TAG, message)
++    }
++
++    /** Once: why the home's frames have no live picture (`adb logcat -s SableFrames`). */
++    fun explain(context: Context) {
++        if (!synchronized(logged) { logged.add("explain") }) return
++        val held =
++            listOf("READ_FRAME_BUFFER", "REAL_GET_TASKS", "MANAGE_ACTIVITY_TASKS").joinToString { name ->
++                val ok = context.checkSelfPermission("android.permission.$name") == PackageManager.PERMISSION_GRANTED
++                "$name=" + if (ok) "granted" else "MISSING"
++            }
++        Log.i(TAG, "snapshots: $held, TaskSnapshotManager=${if (available()) "ok" else "missing"}, sdk=${Build.VERSION.SDK_INT}")
++    }
+ 
+     fun snapshot(
+         taskId: Int,
+         lowResolution: Boolean,
+     ): Bitmap? =
+         runCatching {
+-            val type = managerClass ?: return@runCatching null
++            val call = method ?: return@runCatching null
+             val manager = manager() ?: return@runCatching null
+-            val method = type.getMethod("getTaskSnapshot", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+-            val snapshot =
+-                method.invoke(manager, taskId, if (lowResolution) RESOLUTION_LOW else RESOLUTION_HIGH)
+-                    ?: return@runCatching null
+-            bitmapOf(snapshot)
++            val resolution = if (lowResolution) RESOLUTION_LOW else RESOLUTION_HIGH
++            val args =
++                listOf<Any>(taskId) +
++                    call.parameterTypes.drop(1).mapIndexed { i, type ->
++                        if (type == Boolean::class.javaPrimitiveType) false else if (i == 0) resolution else 0
++                    }
++            val snapshot = call.invoke(manager, *args.toTypedArray())
++            if (snapshot == null) {
++                if (synchronized(logged) { logged.add("null") }) Log.w(TAG, "${call.name}(task $taskId) returned no snapshot")
++                return@runCatching null
++            }
++            bitmapOf(snapshot) ?: null.also {
++                if (synchronized(logged) { logged.add("nobuffer") }) Log.w(TAG, "snapshot of task $taskId has no hardware buffer")
++            }
+         }.onFailure { log("TaskSnapshotManager.getTaskSnapshot", it) }
+             .getOrNull()
+ 
+diff --git a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+index d2f4c85..20ec0b0 100644
+--- a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
++++ b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+@@ -65,6 +65,12 @@ def main() -> None:
+         "home_access": "android.permission.MANAGE_NOTIFICATION_LISTENERS" in manifest
+         and "SableHomeAccess.ensure(this)" in activity
+         and "5. Active Frames Settings" not in (root / JAVA / "LauncherSettingsActivity.kt").read_text(encoding="utf-8"),
++        # A slim name bar under each frame, and a log line that says why frames have no picture.
++        "slim_frames": "heightIn(min = 22.dp)" in (root / JAVA / "ui/ActiveFramesPage.kt").read_text(encoding="utf-8")
++        and "SableTaskSnapshots.explain(appContext)" in (root / JAVA / "platform/RecentTasksRepository.kt").read_text(encoding="utf-8"),
++        # Live pictures as in Sable 1.0: always asked for, never switched off (patch_frames).
++        "live_frames": "snapshots = true," in (root / JAVA / "platform/StartStateRepository.kt").read_text(encoding="utf-8")
++        and "SableTaskSnapshots.note(" in (root / JAVA / "platform/ActiveFramesHost.kt").read_text(encoding="utf-8"),
+         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
+         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
+     }

@@ -1,0 +1,166 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 12 Nov 2026 12:00:00 +0000
+Subject: [PATCH] SableOS: Alt+Shift+P switches the Privacy Screen from any app
+
+The 2.0 plan gave the Privacy Screen a keyboard shortcut next to its
+Quick Settings tile and My Sable switch. Alt+P types '@' on the Q25, so
+the chord takes Shift as well:
+
+* PhoneWindowManager.interceptSystemKeysAndShortcuts takes Alt+Shift+P
+  (either Alt; Sym is Right Alt on the Q25) from a physical keyboard
+  only, with no other modifier, after setup and off the keyguard, and
+  sends Sable Text Reader's TOGGLE_PRIVACY_SCREEN as an ordered
+  broadcast for the current user. Its release is consumed with it.
+* Text Reader answers RESULT_OK when its service ran and switched. Any
+  other answer (service not turned on yet, app missing) opens
+  Accessibility, where the Privacy Screen is turned on the first time.
+* The receiver asks its sender for org.sableos.permission.PRIVACY_SCREEN,
+  which the system uid passes.
+  Pure policy: policy/sable/SablePrivacyKeys.java.
+---
+ .../server/policy/PhoneWindowManager.java     | 39 +++++++++++
+ .../server/policy/sable/SablePrivacyKeys.java | 68 +++++++++++++++++++
+ 2 files changed, 107 insertions(+)
+ create mode 100644 services/core/java/com/android/server/policy/sable/SablePrivacyKeys.java
+
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+index 86a53aa..dae9078 100644
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -267,6 +267,7 @@ import com.android.server.policy.keyguard.KeyguardServiceDelegate;
+ import com.android.server.statusbar.StatusBarManagerInternal;
+ import com.android.server.policy.sable.SableCommandKeys;
+ import com.android.server.policy.sable.SableDisplayKeys;
++import com.android.server.policy.sable.SablePrivacyKeys;
+ import com.android.server.policy.sable.SableShadeKeys;
+ import com.android.server.vr.VrManagerInternal;
+ import com.android.server.wallpaper.WallpaperManagerInternal;
+@@ -4124,6 +4125,19 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+                 }
+                 return true;
+             }
++            case KeyEvent.KEYCODE_P: {
++                // Sable: Alt+Shift+P switches the Privacy Screen (Sable Text Reader) on or off over
++                // any app. Alt+P alone types '@' on the Q25, so it is left alone. Not on the
++                // keyguard, where the Privacy Screen never shows, nor before setup.
++                if (!SablePrivacyKeys.isPrivacyChord(keyCode, event.getMetaState(), virtualKey)
++                        || keyguardOn || !isUserSetupComplete()) {
++                    break;
++                }
++                if (down && repeatCount == 0) {
++                    mHandler.post(this::toggleSablePrivacyScreen);
++                }
++                return true;
++            }
+         }
+         if (isValidGlobalKey(keyCode)
+                 && mGlobalKeyManager.handleGlobalKey(mContext, keyCode, event)) {
+@@ -4171,6 +4185,31 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+         startActivityAsUser(intent, UserHandle.CURRENT, displayId);
+     }
+ 
++    /**
++     * Sable Privacy Screen switch (see above). Text Reader answers RESULT_OK when its service ran
++     * and switched; otherwise the service is not turned on yet, so Accessibility opens to turn it on.
++     */
++    private void toggleSablePrivacyScreen() {
++        final Intent intent = new Intent(SablePrivacyKeys.ACTION_TOGGLE)
++                .setPackage(SablePrivacyKeys.TEXT_READER_PACKAGE)
++                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
++        final BroadcastReceiver answer = new BroadcastReceiver() {
++            @Override
++            public void onReceive(Context context, Intent result) {
++                if (!SablePrivacyKeys.switched(getResultCode())) {
++                    final Intent settings = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
++                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++                    startActivityAsUser(settings, UserHandle.CURRENT);
++                }
++            }
++        };
++        // The receiver asks its sender for org.sableos.permission.PRIVACY_SCREEN, which the system
++        // uid passes; no permission is asked of the receiver.
++        mContext.sendOrderedBroadcastAsUser(intent, UserHandle.CURRENT,
++                null, answer, mHandler,
++                SablePrivacyKeys.RESULT_NOT_RUNNING, null, null);
++    }
++
+     @SuppressLint("MissingPermission")
+     private void initKeyGestures() {
+         List<Integer> supportedGestures = new ArrayList<>(List.of(
+diff --git a/services/core/java/com/android/server/policy/sable/SablePrivacyKeys.java b/services/core/java/com/android/server/policy/sable/SablePrivacyKeys.java
+new file mode 100644
+index 0000000..addc793
+--- /dev/null
++++ b/services/core/java/com/android/server/policy/sable/SablePrivacyKeys.java
+@@ -0,0 +1,68 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.server.policy.sable;
++
++/**
++ * Privacy Screen from anywhere: Alt+Shift+P (either Alt; Sym is Right Alt on the Q25) switches
++ * Sable Text Reader's Privacy Screen on or off over whatever app is in front.
++ *
++ * <p>Shift is required: Alt+P types '@' on the Q25 keyboard, so the plain Alt chord stays typing.
++ * Ctrl, Meta, Sym-as-symbol or Fn keep P's own meaning, and software keyboards never trigger it.
++ * Text Reader's switch receiver answers {@link #RESULT_SWITCHED} when its service ran and switched;
++ * any other answer (service not turned on, app missing) means Accessibility should open instead.
++ *
++ * <p>Pure: android.view.KeyEvent and android.app.Activity values are copied so that it can be
++ * tested off-device.
++ */
++public final class SablePrivacyKeys {
++    /** {@code KeyEvent.KEYCODE_P}. */
++    public static final int KEYCODE_P = 44;
++    /** Text Reader's switch (PrivacyScreenSwitchReceiver.ACTION, sable-src 0175). */
++    public static final String ACTION_TOGGLE = "org.sableos.textreader.action.TOGGLE_PRIVACY_SCREEN";
++    /** Sable Text Reader, which runs the Privacy Screen service. */
++    public static final String TEXT_READER_PACKAGE = "org.sableos.textreader";
++    /** {@code Activity.RESULT_OK}: the service ran and switched. */
++    public static final int RESULT_SWITCHED = -1;
++    /** {@code Activity.RESULT_CANCELED}: the starting answer, kept when nothing switched. */
++    public static final int RESULT_NOT_RUNNING = 0;
++
++    // android.view.KeyEvent meta state bits.
++    private static final int META_SHIFT_ON = 0x01;
++    private static final int META_ALT_ON = 0x02;
++    private static final int META_SYM_ON = 0x04;
++    private static final int META_FUNCTION_ON = 0x08;
++    private static final int META_CTRL_MASK = 0x1000 | 0x2000 | 0x4000;
++    private static final int META_META_MASK = 0x10000 | 0x20000 | 0x40000;
++    private static final int OTHER_MODIFIERS =
++            META_SYM_ON | META_FUNCTION_ON | META_CTRL_MASK | META_META_MASK;
++
++    private SablePrivacyKeys() {}
++
++    /** Alt+Shift+P from a physical keyboard, with no other modifier (lock states aside). */
++    public static boolean isPrivacyChord(int keyCode, int metaState, boolean virtualKey) {
++        return keyCode == KEYCODE_P
++                && !virtualKey
++                && (metaState & META_ALT_ON) != 0
++                && (metaState & META_SHIFT_ON) != 0
++                && (metaState & OTHER_MODIFIERS) == 0;
++    }
++
++    /** True when Text Reader's answer says the Privacy Screen switched. */
++    public static boolean switched(int resultCode) {
++        return resultCode == RESULT_SWITCHED;
++    }
++}
+-- 
+2.43.0

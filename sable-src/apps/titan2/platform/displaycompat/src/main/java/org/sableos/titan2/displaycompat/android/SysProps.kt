@@ -10,4 +10,13 @@ object SysProps {
     } catch (_: Throwable) {
         ""
     }
+
+    /** Sets a property (system UID); false when the platform refused. */
+    fun set(key: String, value: String): Boolean = try {
+        Class.forName("android.os.SystemProperties")
+            .getMethod("set", String::class.java, String::class.java).invoke(null, key, value)
+        get(key) == value
+    } catch (_: Throwable) {
+        false
+    }
 }

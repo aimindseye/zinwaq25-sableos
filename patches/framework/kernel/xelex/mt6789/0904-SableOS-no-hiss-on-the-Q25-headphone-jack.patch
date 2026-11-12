@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 12 Nov 2026 12:00:00 +0000
+Subject: [PATCH] SableOS: no hiss on the Q25 headphone jack
+
+The MT6366 codec (mt6358.c) keeps the headphone amp gain in
+ana_gain[HPOUTL/R], which starts at zero: DL_GAIN_8DB, +8 dB. Each
+headphone power-up ramps the amp from -40 dB to that value. The stock
+firmware writes "Headset Volume" 9 9 (DL_GAIN_N_1DB, -1 dB) for every
+headphone stream; LineageOS and SableOS write nothing, so the amp runs
+9 dB hot and the analog noise floor is heard as hiss.
+
+Start ana_gain for both headphone channels at DL_GAIN_N_1DB when the
+codec probes, so every power-up uses the stock calibration. A write to
+"Headset Volume" from the audio HAL or tinymix still replaces it, as
+before.
+
+Idea from the MTKAnalogAudioFix write-up for MT6789 devices (a
+userspace tinymix daemon); this is a separate kernel-side fix.
+---
+ sound/soc/codecs/mt6358.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/sound/soc/codecs/mt6358.c b/sound/soc/codecs/mt6358.c
+index 2e0f61d..38657fb 100644
+--- a/sound/soc/codecs/mt6358.c
++++ b/sound/soc/codecs/mt6358.c
+@@ -6695,6 +6695,16 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
+ 				       ARRAY_SIZE(mt6358_snd_vow_controls));
+ 	mt6358_codec_init_reg(priv);
+ 
++	/*
++	 * SableOS: start the headphone amp at the stock calibration, -1 dB
++	 * (index 9), instead of the zeroed +8 dB. The stock firmware sets
++	 * "Headset Volume" to 9 9 for every headphone stream; on SableOS
++	 * nothing does, so each power-up ramped the amp to +8 dB and the
++	 * 3.5 mm jack hissed. A later write to the control still wins.
++	 */
++	priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL] = DL_GAIN_N_1DB;
++	priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTR] = DL_GAIN_N_1DB;
++
+ #if !defined(SKIP_SB) && !defined(CONFIG_FPGA_EARLY_PORTING)
+ 	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
+ #else
+-- 
+2.43.0

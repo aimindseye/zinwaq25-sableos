@@ -70,6 +70,14 @@ brightness at the slider's bottom (0..255 value at or below 2) the home turns on
 Extra dim the person turned on themselves is left alone. Launcher settings > Home readability > Extra dim at
 lowest brightness switches it off. The home holds WRITE_SECURE_SETTINGS for this (platform certificate).
 
+Home access (owner, 2026-11-12): the home is part of SableOS, so `patch_home_access` adds
+`SableHomeAccess` (unit-tested): on its first start the home grants itself Contacts, Calendar, Call log,
+Photos and Notifications (`grantRuntimePermission`), notification access
+(`setNotificationListenerAccessGranted`), usage access and display over other apps (`AppOpsManager.setMode`),
+with the platform certificate's GRANT_RUNTIME_PERMISSIONS, MANAGE_NOTIFICATION_LISTENERS and
+MANAGE_APP_OPS_MODES. Each item is tried until it is granted once; after that, an "off" from the person stays
+off. Location is left to the person. Launcher settings drop the Active Frames page and its review card.
+
 Cover API (2.0 plan, BB10 Active Frame covers): `patch_frame_covers` adds the
 `content://org.sableos.launcher.covers` provider. An app says what its own Active Frame shows:
 
@@ -95,6 +103,13 @@ Sable Start's platform permissions, so frames follow the system's recent tasks a
 snapshot (`SableTaskSnapshots.kt`, Android 17's TaskSnapshotManager, then TenSeven's older call);
 `adb logcat -s SableFrames` says why a frame has no picture. Media frames come from every app's media
 session through the notification listener that the framework overlay grants on first boot.
+Frames show the app's live picture as Sable 1.0 did (owner, 2026-11-12): the home always asks the system
+for the snapshot first, with no capability probe or settings switch in the way, and the picture fills the
+frame with no "Preview" tag; the media or message summary is only the fallback when there is no picture.
+The name bar under each frame is slim (22 dp), so more of the app shows; X and Backspace close the
+focused frame. `adb logcat -s SableFrames` logs once the snapshot permissions the home holds, whether
+TaskSnapshotManager was found, and for each app why its frame has no picture (no running task, no
+launcher entry, or no snapshot from the system).
 
 Sable Start's source stays in `sable-src/src/android/packages/apps/SableStart` until the home is
 qualified on a Q25. To go back to it, set the `SableHome` row's `enabled` column to `no`.

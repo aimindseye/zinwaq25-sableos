@@ -150,5 +150,38 @@
     <string name="confirm_the_warnings_for_in">Confirm the warnings for %1$s in Display compatibility first.</string>
     <string name="not_changed_the_profile_could">Not changed: the profile could not be stored.</string>
     <string name="auto_rotate">Auto-rotate</string>
-    <string name="app_name" translatable="false">App display compatibility</string>
+    <string name="app_name" translatable="false">App Compatibility</string>
+    <string name="app_compatibility">App Compatibility</string>
+    <string name="apps_set_by_sable">%1$s apps set by Sable</string>
+    <string name="col_app">App</string>
+    <string name="col_layout">Layout</string>
+    <string name="col_size">Size</string>
+    <string name="col_video">Video</string>
+    <string name="layout_square">Square</string>
+    <string name="layout_square_help">Native 720×720</string>
+    <string name="layout_tall_phone">Tall phone</string>
+    <string name="layout_tall_phone_help">720×1440, side bars</string>
+    <string name="layout_custom">Custom</string>
+    <string name="layout_custom_help">Your own size and shape</string>
+    <string name="video_fit">Fit</string>
+    <string name="video_fit_help">Turned sideways, the video fills the width</string>
+    <string name="video_keep_layout">Keep layout</string>
+    <string name="video_keep_layout_help">Turned sideways, the app keeps its layout</string>
+    <string name="sable_preset">Sable preset</string>
+    <string name="works_as_is">Works as is</string>
+    <string name="set_by_you">Set by you</string>
+    <string name="preset_notice">%1$s uses %2$s, a Sable preset. Change it in App Compatibility.</string>
+    <string name="app_layout">App layout</string>
+    <string name="app_size">App size</string>
+    <string name="app_size_help">Smaller text and icons in this app only</string>
+    <string name="landscape_video">Landscape video</string>
+    <string name="reset_to_preset">Reset to the Sable preset</string>
+    <string name="reset_to_square">Reset to Square</string>
+    <string name="applies_next_time">Saved. It applies the next time %1$s comes to the front.</string>
+    <string name="press_enter_to_confirm">Press Enter to confirm: %1$s</string>
+    <string name="page_hint">↑↓ row · ←→ change · Enter on Layout: Custom · Esc back</string>
+    <string name="code_loading">Older code loading</string>
+    <string name="code_loading_help">For apps that close at start because of their ad code. The app restarts.</string>
+    <string name="code_loading_saved">Saved. %1$s uses it from its next start.</string>
+    <string name="code_loading_could_not">Older code loading could not be changed.</string>
 </resources>

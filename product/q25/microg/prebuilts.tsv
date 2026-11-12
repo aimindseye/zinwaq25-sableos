@@ -14,10 +14,14 @@
 #   sha256        sha256 of the APK
 #   url           official download
 #
-# Sources and how the hashes were taken (2026-10-22):
-#   GmsCore, FakeStore: microG release v0.3.17.252432 (tag commit 32bc8954ff872d0e1a05ddfae81561b6dbecef69),
-#     https://github.com/microg/GmsCore/releases/tag/v0.3.17.252432. sha256 as published in the
-#     release's asset digests (each APK also has a .asc PGP signature by the microG team).
+# Sources and how the hashes were taken (2026-11-12):
+#   GmsCore, FakeStore: microG release v0.3.18.252432 (tag commit f686900c68aa84d1605b52304f6615f3593c6f50),
+#     https://github.com/microg/GmsCore/releases/tag/v0.3.18.252432. sha256 of the downloaded release
+#     assets; both are signed with the microG release key (certificate SHA-256 9bd06727...d14165, the
+#     same key as v0.3.17), and GmsCore requests the same permissions as v0.3.17. 0.3.18 wraps the
+#     account prompts it returns in its exported UnpackingRedirectActivity, so Aurora Store's Google
+#     login (overrideCertificate) can open the "allow Aurora" prompt; on 0.3.17 Android refused to
+#     start the non-exported AskPackageOverrideActivity and Aurora waited forever.
 #     "FakeStore" is the microG Companion (com.android.vending), built from the same repo.
 #     GsfProxy is not built in: it is only for pre-2016 C2DM apps and GmsCore handles
 #     Google Services Framework itself. The add-on can install it (addon.tsv).
@@ -25,5 +29,5 @@
 # To update: change version, url and sha256 in one reviewed commit, then
 #   NETWORK_FETCH_AUTHORIZED=YES bash scripts/fetch-microg.sh
 module	package	version	sha256	url
-GmsCore	com.google.android.gms	0.3.17.252432 (252432034)	e5e6cba078bdec812b5450599350e5c1a12c8b7438da5bf77123af170f8c1a35	https://github.com/microg/GmsCore/releases/download/v0.3.17.252432/com.google.android.gms-252432034.apk
-FakeStore	com.android.vending	0.3.17.252432 (84022634)	9b8616011cc8f026bcbbe094df850794abb9d6d9f23214d7a8f8c4d1033ea012	https://github.com/microg/GmsCore/releases/download/v0.3.17.252432/com.android.vending-84022634.apk
+GmsCore	com.google.android.gms	0.3.18.252432 (252432036)	1094fa60ace2367ac52bd08d1bd4f33fa8144ba930e355121b28234b8ebbf382	https://github.com/microg/GmsCore/releases/download/v0.3.18.252432/com.google.android.gms-252432036.apk
+FakeStore	com.android.vending	0.3.18.252432 (84022636)	3f1bde2f72bca746fbb53b61a32c2a85fcb026f886ee96d6fe9a05de9a6c6d5b	https://github.com/microg/GmsCore/releases/download/v0.3.18.252432/com.android.vending-84022636.apk

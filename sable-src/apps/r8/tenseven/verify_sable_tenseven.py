@@ -61,6 +61,16 @@ def main() -> None:
         "status_icons": 'Icons("text")' in (root / JAVA / "model/HomeStatusMode.kt").read_text(encoding="utf-8"),
         # Extra dim at the bottom of the brightness slider (patch_extra_dim).
         "extra_dim": "android.permission.WRITE_SECURE_SETTINGS" in manifest and "SableExtraDim.start(this)" in activity,
+        # The home grants itself its permissions, and has no Active Frames settings page (patch_home_access).
+        "home_access": "android.permission.MANAGE_NOTIFICATION_LISTENERS" in manifest
+        and "SableHomeAccess.ensure(this)" in activity
+        and "5. Active Frames Settings" not in (root / JAVA / "LauncherSettingsActivity.kt").read_text(encoding="utf-8"),
+        # A slim name bar under each frame, and a log line that says why frames have no picture.
+        "slim_frames": "heightIn(min = 22.dp)" in (root / JAVA / "ui/ActiveFramesPage.kt").read_text(encoding="utf-8")
+        and "SableTaskSnapshots.explain(appContext)" in (root / JAVA / "platform/RecentTasksRepository.kt").read_text(encoding="utf-8"),
+        # Live pictures as in Sable 1.0: always asked for, never switched off (patch_frames).
+        "live_frames": "snapshots = true," in (root / JAVA / "platform/StartStateRepository.kt").read_text(encoding="utf-8")
+        and "SableTaskSnapshots.note(" in (root / JAVA / "platform/ActiveFramesHost.kt").read_text(encoding="utf-8"),
         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
     }

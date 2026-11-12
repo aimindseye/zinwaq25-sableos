@@ -236,14 +236,17 @@ def patch_frames(root: pathlib.Path) -> None:
     replace_once(
         root / JAVA / "platform/PlatformCapabilityProbe.kt",
         '                    taskMethod(context, "getTaskSnapshot"),\n',
-        '                    (taskMethod(context, "getTaskSnapshot") || SableTaskSnapshots.available()),\n',
+        # The platform home always has the system's snapshot call (Sable 1.0 used it with no probe).
+        "                    true,\n",
         "SABLE_HOME_SNAPSHOT_PROBE",
     )
     replace_once(
         root / JAVA / "platform/RecentTasksRepository.kt",
         "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n",
-        "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n"
-        "            SableTaskSnapshots.snapshot(taskId, lowResolution)?.let { return@runCatching it }\n",
+        # As Sable 1.0 did: always ask the system for the picture first, with no capability gate.
+        "            SableTaskSnapshots.explain(appContext)\n"
+        "            SableTaskSnapshots.snapshot(taskId, lowResolution)?.let { return@runCatching it }\n"
+        "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n",
         "SABLE_HOME_SNAPSHOT_CALL",
     )
     # Frames follow the system's recent tasks (REAL_GET_TASKS) rather than only the apps opened from the
@@ -254,6 +257,53 @@ def patch_frames(root: pathlib.Path) -> None:
         "            input.openings?.takeIf { native.isEmpty() }?.map { opening ->\n",
         "SABLE_HOME_FRAMES_FROM_SYSTEM_TASKS",
     )
+    # Live pictures are always on for the platform home, as in Sable 1.0: no settings switch (the
+    # Active Frames settings page is gone) and no probe can turn them into summary cards.
+    replace_once(
+        root / JAVA / "platform/StartStateRepository.kt",
+        '                snapshots = preferences.getBoolean("frames_snapshots", true),\n',
+        "                snapshots = true,\n",
+        "SABLE_HOME_SNAPSHOTS_ALWAYS",
+    )
+    # The live picture fills the frame with no "Preview" tag over it, as in Sable 1.0.
+    replace_once(
+        root / JAVA / "ui/ActiveFramesPage.kt",
+        "        Image(picture.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)\n"
+        "        Text(\n"
+        "            \"Preview\",\n"
+        "            color = Bb10Text,\n"
+        "            style = MaterialTheme.typography.labelSmall,\n"
+        "            modifier = Modifier.align(Alignment.TopStart).background(Bb10Background).padding(4.dp),\n"
+        "        )\n",
+        "        Image(picture.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopCenter)\n",
+        "SABLE_HOME_FRAME_PICTURE_ONLY",
+    )
+    # Say in the log why a frame has no picture, gate by gate.
+    host = root / JAVA / "platform/ActiveFramesHost.kt"
+    replace_once(
+        host,
+        "        if (entry == null || !available(entry)) return null\n"
+        "        val bitmap = item.task?.let { native.snapshot(it.taskId) }\n",
+        "        if (entry == null || !available(entry)) {\n"
+        "            SableTaskSnapshots.note(\"no-app:${item.app.packageName}\", \"${item.app.packageName}: no unlocked launcher entry\")\n"
+        "            return null\n"
+        "        }\n"
+        "        val task = item.task\n"
+        "        if (task == null) SableTaskSnapshots.note(\"no-task:${item.app.packageName}\", \"${item.app.packageName}: frame has no running task\")\n"
+        "        val bitmap = task?.let { native.snapshot(it.taskId) }\n",
+        "SABLE_HOME_SNAPSHOT_WHY",
+    )
+    # A slim name bar under each frame, so more of the app shows (owner, 2026-11-12). X and Backspace
+    # still close the focused frame; the × stays tappable.
+    page = root / JAVA / "ui/ActiveFramesPage.kt"
+    replace_once(page, "                .heightIn(min = 36.dp)\n", "                .heightIn(min = 22.dp)\n", "SABLE_HOME_SLIM_FRAME_BAR")
+    replace_once(
+        page,
+        "                style = MaterialTheme.typography.labelLarge,\n                modifier = Modifier.weight(1f),\n",
+        "                style = MaterialTheme.typography.labelMedium,\n                modifier = Modifier.weight(1f),\n",
+        "SABLE_HOME_SLIM_FRAME_TITLE",
+    )
+    replace_once(page, "                        .size(48.dp)\n", "                        .size(width = 32.dp, height = 22.dp)\n", "SABLE_HOME_SLIM_FRAME_CLOSE")
     # No screen-capture offer where the system snapshot works.
     # Screen capture is never offered on SableOS; patch_leftovers removes it from the build.
 
@@ -875,6 +925,47 @@ def patch_extra_dim(root: pathlib.Path) -> None:
     )
 
 
+def patch_home_access(root: pathlib.Path) -> None:
+    """The home is part of SableOS, so it needs no permission setup (owner, 2026-11-12): SableHomeAccess
+    grants it Contacts, Calendar, Photos, Call log, Notifications, notification access, usage access and
+    display over other apps once, and Launcher settings drop the Active Frames page."""
+    shutil.copyfile(HERE / "src/SableHomeAccess.kt", root / JAVA / "platform/SableHomeAccess.kt")
+    shutil.copyfile(HERE / "src/SableHomeAccessTest.kt", root / TEST / "platform/SableHomeAccessTest.kt")
+    replace_once(
+        root / "app/src/main/AndroidManifest.xml",
+        "    <!-- SableOS: Extra dim at the bottom of the brightness slider (platform certificate). -->\n",
+        "    <!-- SableOS: the home grants itself its permissions once (SableHomeAccess, platform certificate). -->\n"
+        '    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS" tools:ignore="ProtectedPermissions" />\n'
+        '    <uses-permission android:name="android.permission.MANAGE_APP_OPS_MODES" tools:ignore="ProtectedPermissions" />\n'
+        '    <uses-permission android:name="android.permission.MANAGE_NOTIFICATION_LISTENERS" tools:ignore="ProtectedPermissions" />\n'
+        "    <!-- SableOS: Extra dim at the bottom of the brightness slider (platform certificate). -->\n",
+        "SABLE_HOME_ACCESS_PERMISSIONS",
+    )
+    replace_once(
+        root / JAVA / "SableStartActivity.kt",
+        "        io.github.aimindseye.tenseven.platform.SableExtraDim.start(this)\n",
+        "        io.github.aimindseye.tenseven.platform.SableExtraDim.start(this)\n"
+        "        io.github.aimindseye.tenseven.platform.SableHomeAccess.ensure(this)\n",
+        "SABLE_HOME_ACCESS_START",
+    )
+    settings = root / JAVA / "LauncherSettingsActivity.kt"
+    replace_once(
+        settings,
+        '    Settings2Category(\n        "frames",\n        "5. Active Frames Settings",\n'
+        '        "Media, app summaries and controls",\n    ) { select(it) }\n',
+        "",
+        "SABLE_HOME_ACCESS_NO_FRAMES_PAGE",
+    )
+    replace_once(settings, '"6. Apps & Features"', '"5. Apps & Features"', "SABLE_HOME_ACCESS_RENUMBER_APPS")
+    replace_once(settings, '"7. Review & Finish"', '"6. Review & Finish"', "SABLE_HOME_ACCESS_RENUMBER_REVIEW")
+    replace_once(
+        settings,
+        '    Card("Active Frames", "Saved media and recent-app settings", false) {\n        select("frames")\n    }\n',
+        "",
+        "SABLE_HOME_ACCESS_NO_FRAMES_CARD",
+    )
+
+
 def patch_hub_keep(root: pathlib.Path) -> None:
     """Hub after the JL10 review (owner, 2026-11-12): items kept until deleted, Unread and date sections,
     each app with its count and Priority Hub in Views, a ⋮ menu, Mark Unread, Delete, and Hub settings for
@@ -1069,6 +1160,7 @@ def main() -> None:
     patch_hub_keep(root)
     patch_status_icons(root)
     patch_extra_dim(root)
+    patch_home_access(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 

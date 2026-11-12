@@ -3,8 +3,10 @@ package org.sableos.titan2.displaycompat.android
 import android.app.ActivityManager
 import android.app.KeyguardManager
 import android.content.Context
+import android.hardware.display.DisplayManager
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.Surface
 import org.sableos.titan2.displaycompat.core.Moment
 
 /** Reads [Moment] from the device: the gate, setup, screen and lock state and the app in front. */
@@ -21,8 +23,17 @@ object DeviceMoment {
             setupComplete =
                 Settings.Secure.getInt(context.contentResolver, USER_SETUP_COMPLETE, 0) == 1,
             interactive = interactive,
-            frontPackage = frontPackage(context)
+            frontPackage = frontPackage(context),
+            landscape = landscape(context)
         )
+    }
+
+    /** The default display is turned sideways (Surface.ROTATION_90 or ROTATION_270). */
+    fun landscape(context: Context): Boolean {
+        val rotation = context.getSystemService(
+            DisplayManager::class.java
+        )?.getDisplay(DEFAULT_DISPLAY)?.rotation
+        return rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270
     }
 
     /**

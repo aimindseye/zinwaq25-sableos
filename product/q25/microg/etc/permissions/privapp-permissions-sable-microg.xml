@@ -2,7 +2,7 @@
 <!--
     SableOS Q25: privileged permissions for microG Services (GmsCore), installed
     as a product priv-app. The list is every signature|privileged permission
-    GmsCore v0.3.17 requests (its AndroidManifest files checked against the
+    GmsCore v0.3.17 and v0.3.18 request (its AndroidManifest files checked against the
     lineage-23.2 frameworks/base manifest), the same set lineageos4microg's
     vendor/partner_gms grants. Only GmsCore is privileged; the microG Companion
     (com.android.vending) and Aurora Store are normal apps.

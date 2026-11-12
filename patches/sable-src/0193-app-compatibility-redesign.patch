@@ -1,0 +1,2248 @@
+diff --git a/patches/README.md b/patches/README.md
+index 73bc8af..a6f2ff2 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -332,3 +332,4 @@ Reserved:
+   0190 is the Hub after the JL10 review (owner, 2026-11-12; ideas only, no JLauncher code or art): `patch_hub_keep` adds `SableHubKeep` (unit-tested), so the Hub keeps items until deleted (on the phone only, at most 1000, ongoing notices and Sable Mail not kept), lists Unread then Today, Yesterday and dated sections under "All accounts · N unread", adds Priority Hub and each app with its unread count to Views, a ⋮ menu (Hub settings, Email accounts, Calendar accounts, Connected apps), Mark unread, Priority Hub entries and Delete in the row menu, and Hub settings for Keep messages, Every message on its own, System notifications and the Sable Mail and DAVx⁵ account links; `patch_status_icons` names the home status choices Dials, Icons, Hidden everywhere (the saved value stays `text`); `patch_extra_dim` adds `SableExtraDim` (unit-tested), which turns on Android's Extra dim with manual brightness at the slider's bottom and off when it moves up, leaving Extra dim the person set alone (the Q25 panel's lowest backlight step is still bright); the AppSummary test now counts the cover source as local.
+   0191 makes the SableOS home need no permission setup (owner, 2026-11-12): `patch_home_access` adds `SableHomeAccess` (unit-tested), which grants the home Contacts, Calendar, Call log, Photos, Notifications, notification access, usage access and display over other apps once on its first start (each item until granted once, so a later "off" stays off; location is left to the person), and drops the Active Frames page from Launcher settings; product/q25 default permissions grant the same runtime permissions at first boot.
+   0192 brings back Sable 1.0's live Active Frames (owner, 2026-11-12): the home always asks the system for each frame's snapshot first (no capability probe or settings switch can turn frames into summary cards), the picture fills the frame with no "Preview" tag, and the name bar under each frame is 22 dp with a smaller title and close mark. `SableTaskSnapshots` finds TaskSnapshotManager.getTaskSnapshot by name and logs under `SableFrames` the snapshot permissions and, per app, why a frame has no picture.
++  0193 redesigns App Compatibility (2.0 plan, phase C; owner, 2026-11-12) on the 1.0 Display Compat engine and profile store: each app is Square, Tall phone (720×1440) or Custom (the 1.0 editor), with an App size (100, 85 or 75% of the person's density, only while the app is in front) and a landscape video choice (Fit drops the Tall canvas while the display is sideways, so a 16:9 video fills the width). Out-of-box presets ship as `res/raw/app_compat_presets.tsv` (an image can override it at `/product/etc/sable/app-compat-presets.tsv`): YouTube, Instagram, TikTok and Facebook Tall phone; Google Maps and Android Auto Square. A preset is given once, at install, boot or when the app opens, with a one-line notice, and Reset brings it back. New list and one-app page, 29 new strings in all 19 languages, `AppCompatTest`. Crop to fill and Hold Space come later with a framework patch.
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
+index c240653..6911c4c 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/AndroidManifest.xml
+@@ -85,6 +85,16 @@
+             </intent-filter>
+         </receiver>
+ 
++        <!-- Out-of-box presets (2.0): a newly installed app with a Sable preset gets it (android/PresetSupport). -->
++        <receiver
++            android:name=".android.PresetReceiver"
++            android:exported="false">
++            <intent-filter>
++                <action android:name="android.intent.action.PACKAGE_ADDED" />
++                <data android:scheme="package" />
++            </intent-filter>
++        </receiver>
++
+         <!-- Resolution hotkey from PhoneWindowManager (frameworks/base 0313). Not exported: only the
+              system UID (the system server) can send it. -->
+         <receiver
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/BootReceiver.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/BootReceiver.kt
+index c158ee3..7072ad3 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/BootReceiver.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/BootReceiver.kt
+@@ -20,7 +20,12 @@ class BootReceiver : BroadcastReceiver() {
+             Intent.ACTION_BOOT_COMPLETED -> {
+                 restoreHeld(context)
+                 val app = context.displayCompat
+-                if (context.packageManager.isSafeMode) app.controller.resetAll()
++                if (context.packageManager.isSafeMode) {
++                    app.controller.resetAll()
++                } else {
++                    // Apps installed while the device was off (or before this build) get their preset.
++                    runCatching { app.seedPresets() }.onFailure { Log.w(TAG, "presets failed", it) }
++                }
+                 app.refreshDisplay()
+             }
+         }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DeviceMoment.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DeviceMoment.kt
+index 9a9befb..8f43a7d 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DeviceMoment.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DeviceMoment.kt
+@@ -3,8 +3,10 @@ package org.sableos.titan2.displaycompat.android
+ import android.app.ActivityManager
+ import android.app.KeyguardManager
+ import android.content.Context
++import android.hardware.display.DisplayManager
+ import android.os.PowerManager
+ import android.provider.Settings
++import android.view.Surface
+ import org.sableos.titan2.displaycompat.core.Moment
+ 
+ /** Reads [Moment] from the device: the gate, setup, screen and lock state and the app in front. */
+@@ -21,10 +23,19 @@ object DeviceMoment {
+             setupComplete =
+                 Settings.Secure.getInt(context.contentResolver, USER_SETUP_COMPLETE, 0) == 1,
+             interactive = interactive,
+-            frontPackage = frontPackage(context)
++            frontPackage = frontPackage(context),
++            landscape = landscape(context)
+         )
+     }
+ 
++    /** The default display is turned sideways (Surface.ROTATION_90 or ROTATION_270). */
++    fun landscape(context: Context): Boolean {
++        val rotation = context.getSystemService(
++            DisplayManager::class.java
++        )?.getDisplay(DEFAULT_DISPLAY)?.rotation
++        return rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270
++    }
++
+     /**
+      * Package of the visible top task on the default display. The system UID sees every task
+      * (REAL_GET_TASKS); `displayId` and `isVisible` are hidden fields, read by reflection with the
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
+index cce2f4b..240f4f5 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayCompatApp.kt
+@@ -7,6 +7,7 @@ import android.os.UserManager
+ import android.util.Log
+ import org.sableos.titan2.displaycompat.core.AppStyleController
+ import org.sableos.titan2.displaycompat.core.DisplayCompatText
++import org.sableos.titan2.displaycompat.core.DisplayProfile
+ import org.sableos.titan2.displaycompat.core.DisplayTools
+ import org.sableos.titan2.displaycompat.core.ProfileController
+ import org.sableos.titan2.displaycompat.core.ProfileStore
+@@ -22,6 +23,8 @@ class DisplayCompatApp : Application() {
+     val appStyleStore: AppearanceStyleStore by lazy { AppearanceStyleStore(this) }
+     val appStyle: AppStyleController by lazy { AppStyleController(appStyleStore) }
+     val toolsSettings: PrefsToolsSettings by lazy { PrefsToolsSettings(this) }
++    val presets: Map<String, DisplayProfile> by lazy { PresetSource.read(this) }
++    val seededPresets: SeededPresets by lazy { SeededPresets(this) }
+     val tools: DisplayTools by lazy {
+         DisplayTools(WmDisplayPort(contentResolver), toolsSettings, store, controller) { pkg ->
+             TraitsResolver(this).resolve(pkg)
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayToolsService.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayToolsService.kt
+index 078c2be..6c951aa 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayToolsService.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/DisplayToolsService.kt
+@@ -5,18 +5,20 @@ import android.content.BroadcastReceiver
+ import android.content.Context
+ import android.content.Intent
+ import android.content.IntentFilter
++import android.hardware.display.DisplayManager
+ import android.os.Binder
+ import android.os.Handler
+ import android.os.IBinder
+ import android.os.Looper
+ import android.os.Parcel
+ import android.util.Log
++import android.view.Display
+ 
+ /**
+  * Small started service (no UI, no notification) that follows the app in front of the default
+- * display for Tall canvas and per-app rotation. It runs only while some profile needs it, starts at
+- * boot ([BootReceiver]) and is sticky, so after a crash it comes back and reconciles from the held
+- * originals. The system UID is exempt from background start limits.
++ * display for Tall canvas, App size, landscape video Fit and per-app rotation. It runs only while
++ * some profile needs it, starts at boot ([BootReceiver]) and is sticky, so after a crash it comes
++ * back and reconciles from the held originals. The system UID is exempt from background start limits.
+  *
+  * Foreground changes come from `IActivityTaskManager.registerTaskStackListener` (MANAGE_ACTIVITY_TASKS);
+  * screen off, screen on and unlock from broadcasts. Every event schedules one debounced reconcile,
+@@ -32,6 +34,25 @@ class DisplayToolsService : Service() {
+         override fun onReceive(context: Context, intent: Intent) = schedule()
+     }
+ 
++    // Turning sideways (landscape video Fit) changes the display, not the task stack.
++    private val display = object : DisplayManager.DisplayListener {
++        override fun onDisplayAdded(displayId: Int) = Unit
++
++        override fun onDisplayRemoved(displayId: Int) = Unit
++
++        override fun onDisplayChanged(displayId: Int) {
++            if (displayId == Display.DEFAULT_DISPLAY) schedule()
++        }
++    }
++
++    // A new app gets its preset while the service runs, even if the manifest receiver is not woken.
++    private val installs = object : BroadcastReceiver() {
++        override fun onReceive(context: Context, intent: Intent) {
++            if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return
++            PresetReceiver.notify(context, displayCompat.seedPresets())
++        }
++    }
++
+     override fun onCreate() {
+         super.onCreate()
+         val filter = IntentFilter().apply {
+@@ -40,6 +61,9 @@ class DisplayToolsService : Service() {
+             addAction(Intent.ACTION_USER_PRESENT)
+         }
+         registerReceiver(screen, filter, Context.RECEIVER_NOT_EXPORTED)
++        val added = IntentFilter(Intent.ACTION_PACKAGE_ADDED).apply { addDataScheme("package") }
++        registerReceiver(installs, added, Context.RECEIVER_NOT_EXPORTED)
++        getSystemService(DisplayManager::class.java)?.registerDisplayListener(display, handler)
+         registered = TaskStack.register(listener)
+         if (!registered) Log.w(TAG, "task stack listener unavailable; following screen events only")
+     }
+@@ -52,6 +76,8 @@ class DisplayToolsService : Service() {
+     override fun onDestroy() {
+         handler.removeCallbacks(reconcile)
+         unregisterReceiver(screen)
++        unregisterReceiver(installs)
++        getSystemService(DisplayManager::class.java)?.unregisterDisplayListener(display)
+         if (registered) TaskStack.unregister(listener)
+         super.onDestroy()
+     }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PresetSupport.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PresetSupport.kt
+new file mode 100644
+index 0000000..059eb39
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PresetSupport.kt
+@@ -0,0 +1,130 @@
++package org.sableos.titan2.displaycompat.android
++
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
++import android.util.Log
++import android.widget.Toast
++import java.io.File
++import org.sableos.titan2.displaycompat.R
++import org.sableos.titan2.displaycompat.core.AppLayout
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
++import org.sableos.titan2.displaycompat.core.DisplayProfile
++import org.sableos.titan2.displaycompat.core.Presets
++import org.sableos.titan2.displaycompat.core.SaveStatus
++
++/**
++ * Out-of-box presets (2.0). The list is a data file: the image can carry a newer one at
++ * [OVERRIDE] (product/q25/displaycompat), and the copy built into the app is the fallback.
++ */
++object PresetSource {
++    const val OVERRIDE = "/product/etc/sable/app-compat-presets.tsv"
++
++    fun read(context: Context): Map<String, DisplayProfile> {
++        val text =
++            runCatching { File(OVERRIDE).takeIf { it.canRead() }?.readText() }.getOrNull()
++                ?: runCatching {
++                    context.resources.openRawResource(
++                        R.raw.app_compat_presets
++                    ).bufferedReader().use {
++                        it.readText()
++                    }
++                }.getOrDefault("")
++        return Presets.parse(text)
++    }
++}
++
++/** Which apps were given their preset already, so it is given only once. */
++class SeededPresets(context: Context) {
++    private val prefs = context.getSharedPreferences("presets", Context.MODE_PRIVATE)
++
++    fun read(): Set<String> = prefs.getStringSet(KEY, emptySet()).orEmpty()
++
++    fun add(pkgs: Collection<String>) {
++        if (pkgs.isEmpty()) return
++        prefs.edit().putStringSet(KEY, read() + pkgs).apply()
++    }
++
++    private companion object {
++        const val KEY = "seeded"
++    }
++}
++
++/** Gives installed apps their preset; returns the labels and layouts of apps that got a visible one. */
++fun DisplayCompatApp.seedPresets(): List<Pair<String, String>> {
++    if (!unlocked() || presets.isEmpty()) return emptyList()
++    val resolver = TraitsResolver(this)
++    val apps = resolver.launchable().associateBy { it.pkg }
++    val stored = store.packages()
++    val seeded = seededPresets.read()
++    // An app the person set up before its preset arrived keeps their choice.
++    seededPresets.add(apps.keys.filter { it in presets && it in stored && it !in seeded })
++    val todo = Presets.toSeed(apps.keys, presets, seeded, stored)
++    val native = runCatching { WmDisplayPort(contentResolver).initialSize() }.getOrNull()
++    val shown = mutableListOf<Pair<String, String>>()
++    todo.forEach { pkg ->
++        val preset = presets.getValue(pkg)
++        if (!preset.isNative && native != null) {
++            val outcome = controller.save(
++                resolver.resolve(pkg),
++                preset,
++                native,
++                advanced = false,
++                acknowledged = true
++            )
++            if (outcome.status ==
++                SaveStatus.STORED
++            ) {
++                shown += apps.getValue(pkg).label to AppLayout.of(preset).label
++            } else {
++                Log.i("SableDisplayTools", "preset for $pkg not applied: ${outcome.status}")
++            }
++        }
++    }
++    seededPresets.add(todo)
++    if (todo.isNotEmpty()) refreshDisplay()
++    return shown
++}
++
++/** "Reset" in the app's page: the preset again when the app has one, else Square. */
++fun DisplayCompatApp.resetToPreset(
++    pkg: String,
++    traitsOf: (String) -> org.sableos.titan2.displaycompat.core.AppTraits
++): String {
++    val preset = presets[pkg]
++    val native = runCatching { WmDisplayPort(contentResolver).initialSize() }.getOrNull()
++    val message =
++        if (preset == null || preset.isNative || native == null) {
++            controller.resetChecked(pkg).message()
++        } else {
++            controller.save(
++                traitsOf(pkg),
++                preset,
++                native,
++                advanced = false,
++                acknowledged = true
++            ).message()
++        }
++    refreshDisplay()
++    return message
++}
++
++/** A new app gets its preset as soon as it is installed, with a one-line notice. */
++class PresetReceiver : BroadcastReceiver() {
++    override fun onReceive(context: Context, intent: Intent) {
++        if (intent.action != Intent.ACTION_PACKAGE_ADDED ||
++            intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
++        ) {
++            return
++        }
++        notify(context, context.displayCompat.seedPresets())
++    }
++
++    companion object {
++        fun notify(context: Context, shown: List<Pair<String, String>>) {
++            shown.forEach { (label, layout) ->
++                Toast.makeText(context, t("preset_notice", label, layout), Toast.LENGTH_LONG).show()
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppCompat.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppCompat.kt
+new file mode 100644
+index 0000000..3a7d819
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppCompat.kt
+@@ -0,0 +1,204 @@
++package org.sableos.titan2.displaycompat.core
++
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
++
++/*
++ * SableOS 2.0 App Compatibility (owner, 2026-11-12): each app gets a layout (Square, Tall phone or
++ * Custom), an app size and a landscape video choice, and some apps start from a Sable preset. This
++ * is the front end's model on top of the 1.0 engine: the choices are fields of the same
++ * [DisplayProfile], kept in the same per-app store. Pure Kotlin, unit-tested on the JVM.
++ */
++
++/**
++ * App size: the display density while this app is in front, as a share of the person's own density
++ * (280 on the Q25). A lower value fits more on screen, like a lower `wm density` for that app only.
++ */
++enum class AppSize(val percent: Int) {
++    Full(HUNDRED),
++    Smaller(EIGHTY_FIVE),
++    Smallest(SEVENTY_FIVE);
++
++    val id: String get() = percent.toString()
++    val label: String get() = "$percent%"
++
++    /** The density this size forces on [base], or null for [Full] (nothing forced). */
++    fun density(base: Int): Int? = if (this == Full ||
++        base <= 0
++    ) {
++        null
++    } else {
++        (base * percent + HALF) / HUNDRED
++    }
++
++    companion object {
++        fun fromId(id: String?): AppSize = entries.firstOrNull { it.id == id } ?: Full
++    }
++}
++
++private const val HUNDRED = 100
++private const val EIGHTY_FIVE = 85
++private const val SEVENTY_FIVE = 75
++private const val HALF = 50
++
++private const val COL_PACKAGE = 0
++private const val COL_LAYOUT = 1
++private const val COL_VIDEO = 2
++private const val COL_SIZE = 3
++
++/** Landscape video: Fit drops the tall layout while the app plays sideways, so the video fills the width. */
++enum class LandscapeVideo(private val labelKey: String, private val helpKey: String) {
++    Fit("video_fit", "video_fit_help"),
++    KeepLayout("video_keep_layout", "video_keep_layout_help");
++
++    val label: String get() = t(labelKey)
++    val help: String get() = t(helpKey)
++
++    companion object {
++        fun of(p: DisplayProfile): LandscapeVideo =
++            if (p.fullscreenMediaException) Fit else KeepLayout
++    }
++}
++
++/** The three layouts the App Compatibility page offers. Custom is any other 1.0 profile. */
++enum class AppLayout(private val labelKey: String, private val helpKey: String) {
++    Square("layout_square", "layout_square_help"),
++    TallPhone("layout_tall_phone", "layout_tall_phone_help"),
++    Custom("layout_custom", "layout_custom_help");
++
++    val label: String get() = t(labelKey)
++    val help: String get() = t(helpKey)
++
++    companion object {
++        /** The canvas Tall phone uses: 720x1440 on the Q25, a phone's 1:2. */
++        val TALL = TallCanvas.Tall1x2
++
++        fun of(p: DisplayProfile): AppLayout {
++            val shape = p.copy(appSize = AppSize.Full, fullscreenMediaException = true)
++            return when (shape) {
++                DisplayProfile.NATIVE -> Square
++                DisplayProfile.NATIVE.copy(canvas = TALL) -> TallPhone
++                else -> Custom
++            }
++        }
++
++        /**
++         * [p] with [layout]: Square and Tall phone replace the shape and keep the app size and the
++         * video choice; Custom keeps [p] as it is (the full editor changes it).
++         */
++        fun apply(p: DisplayProfile, layout: AppLayout): DisplayProfile = when (layout) {
++            Square -> DisplayProfile.NATIVE.copy(
++                appSize = p.appSize,
++                fullscreenMediaException = p.fullscreenMediaException
++            )
++
++            TallPhone -> apply(p, Square).copy(canvas = TALL)
++
++            Custom -> p
++        }
++    }
++}
++
++/**
++ * Out-of-box presets, read from a small tab-separated data file:
++ * `package<TAB>layout<TAB>video<TAB>size`, where layout is `square` or `tall`, video is `fit` or
++ * `keep` (`-` for Fit), size is 100, 85 or 75 (missing for 100). Blank lines and `#` comments are
++ * skipped, and so is a line that is not understood, so a bad line never breaks the others.
++ */
++object Presets {
++    fun parse(text: String): Map<String, DisplayProfile> {
++        val out = LinkedHashMap<String, DisplayProfile>()
++        text.lineSequence().map {
++            it.substringBefore('#').trim()
++        }.filter { it.isNotEmpty() }.forEach { line ->
++            parseLine(line)?.let { (pkg, p) -> out[pkg] = p }
++        }
++        return out
++    }
++
++    private val LAYOUTS = mapOf("square" to AppLayout.Square, "tall" to AppLayout.TallPhone)
++    private val VIDEOS = mapOf("" to true, "-" to true, "fit" to true, "keep" to false)
++
++    /** One line, or null when any column is not understood. */
++    private fun parseLine(line: String): Pair<String, DisplayProfile>? {
++        val f = line.split('\t').map { it.trim() }
++        val pkg = f.getOrNull(COL_PACKAGE)?.takeIf { PackageNames.isValid(it) }
++        val layout = LAYOUTS[f.getOrNull(COL_LAYOUT)]
++        val video = VIDEOS[f.getOrNull(COL_VIDEO).orEmpty()]
++        val sizeId = f.getOrNull(COL_SIZE).orEmpty().ifEmpty { AppSize.Full.id }
++        val size = AppSize.entries.firstOrNull { it.id == sizeId }
++        val known = listOf(pkg, layout, video, size).all { it != null }
++        if (!known) return null
++        val base = DisplayProfile.NATIVE.copy(appSize = size!!, fullscreenMediaException = video!!)
++        return pkg!! to AppLayout.apply(base, layout!!)
++    }
++
++    /**
++     * The installed apps that get their preset now: they have one, it was never given before, and
++     * the person has not set the app up already. A preset is given once, so a later change stays.
++     */
++    fun toSeed(
++        installed: Collection<String>,
++        presets: Map<String, DisplayProfile>,
++        seeded: Set<String>,
++        stored: Set<String>
++    ): List<String> = installed.filter { it in presets && it !in seeded && it !in stored }
++
++    /** True when the app's profile is still its preset (the list shows "Sable preset"). */
++    fun isPreset(
++        pkg: String,
++        current: DisplayProfile,
++        presets: Map<String, DisplayProfile>
++    ): Boolean = presets[pkg] == current
++}
++
++/** The row text of the App Compatibility list. */
++object AppCompatText {
++    fun layout(p: DisplayProfile): String = AppLayout.of(p).label
++
++    fun size(p: DisplayProfile): String = p.appSize.label
++
++    fun video(p: DisplayProfile): String = LandscapeVideo.of(p).label
++
++    fun source(pkg: String, p: DisplayProfile, presets: Map<String, DisplayProfile>): String =
++        when {
++            Presets.isPreset(pkg, p, presets) -> t("sable_preset")
++            p.isNative -> t("works_as_is")
++            else -> t("set_by_you")
++        }
++}
++
++/** The one-app page's rows and what Left/Right do on them. */
++object AppPage {
++    enum class Row { Layout, Size, Video, Reset }
++
++    private val quick = listOf(AppLayout.Square, AppLayout.TallPhone)
++
++    /** Left/Right on Layout move between Square and Tall phone; from Custom they leave it. */
++    fun layoutStep(p: DisplayProfile, dir: Int): DisplayProfile {
++        val i = quick.indexOf(AppLayout.of(p))
++        val next =
++            if (i < 0) {
++                if (dir > 0) AppLayout.TallPhone else AppLayout.Square
++            } else {
++                quick[(i + dir).coerceIn(0, quick.size - 1)]
++            }
++        return AppLayout.apply(p, next)
++    }
++
++    /** Right makes the app smaller (100, 85, 75), Left bigger; both stop at the ends. */
++    fun sizeStep(p: DisplayProfile, dir: Int): DisplayProfile {
++        val all = AppSize.entries
++        return p.copy(appSize = all[(all.indexOf(p.appSize) + dir).coerceIn(0, all.size - 1)])
++    }
++
++    fun videoStep(p: DisplayProfile): DisplayProfile =
++        p.copy(fullscreenMediaException = !p.fullscreenMediaException)
++
++    /** The changed profile for a Left/Right on [row], or null when the row has no Left/Right. */
++    fun step(p: DisplayProfile, row: Row, dir: Int): DisplayProfile? = when (row) {
++        Row.Layout -> layoutStep(p, dir)
++        Row.Size -> sizeStep(p, dir)
++        Row.Video -> videoStep(p)
++        Row.Reset -> null
++    }?.takeIf { it != p }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt
+index 22ad19a..7aca6ef 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt
+@@ -215,7 +215,37 @@ object DisplayCompatText {
+             "confirm_the_warnings_for_in" to
+                 "Confirm the warnings for %1\$s in Display compatibility first.",
+             "not_changed_the_profile_could" to "Not changed: the profile could not be stored.",
+-            "auto_rotate" to "Auto-rotate"
++            "auto_rotate" to "Auto-rotate",
++            // 2.0 App Compatibility (core/AppCompat.kt, ui/AppPageScreen.kt).
++            "app_compatibility" to "App Compatibility",
++            "apps_set_by_sable" to "%1\$s apps set by Sable",
++            "col_app" to "App",
++            "col_layout" to "Layout",
++            "col_size" to "Size",
++            "col_video" to "Video",
++            "layout_square" to "Square",
++            "layout_square_help" to "Native 720×720",
++            "layout_tall_phone" to "Tall phone",
++            "layout_tall_phone_help" to "720×1440, side bars",
++            "layout_custom" to "Custom",
++            "layout_custom_help" to "Your own size and shape",
++            "video_fit" to "Fit",
++            "video_fit_help" to "Turned sideways, the video fills the width",
++            "video_keep_layout" to "Keep layout",
++            "video_keep_layout_help" to "Turned sideways, the app keeps its layout",
++            "sable_preset" to "Sable preset",
++            "works_as_is" to "Works as is",
++            "set_by_you" to "Set by you",
++            "preset_notice" to "%1\$s uses %2\$s, a Sable preset. Change it in App Compatibility.",
++            "app_layout" to "App layout",
++            "app_size" to "App size",
++            "app_size_help" to "Smaller text and icons in this app only",
++            "landscape_video" to "Landscape video",
++            "reset_to_preset" to "Reset to the Sable preset",
++            "reset_to_square" to "Reset to Square",
++            "applies_next_time" to "Saved. It applies the next time %1\$s comes to the front.",
++            "press_enter_to_confirm" to "Press Enter to confirm: %1\$s",
++            "page_hint" to "↑↓ row · ←→ change · Enter on Layout: Custom · Esc back"
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt
+index f69c93e..44ef8aa 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayPolicy.kt
+@@ -43,7 +43,9 @@ data class Situation(
+     val frontProfile: DisplayProfile,
+     val systemRotation: SystemRotation,
+     /** Some stored profile asks for a platform aspect ratio (see [DisplayPolicy]). */
+-    val anyAspectProfile: Boolean
++    val anyAspectProfile: Boolean,
++    /** The display is turned sideways: an app with landscape video Fit leaves its Tall canvas. */
++    val landscape: Boolean = false
+ )
+ 
+ /** Facts about the default display, in its natural orientation. */
+@@ -63,7 +65,7 @@ data class DisplayTarget(
+ 
+ /**
+  * Restore decisions in one place:
+- *  - Tall canvas only while its app is in front, the screen is on and unlocked and setup is done;
++ *  - Tall canvas and App size only while their app is in front, the screen is on and unlocked and setup is done;
+  *    any other app, the lock screen, a dead app (its task leaves the front) restore the display.
+  *  - Per-app orientation is held only while the app is in front; otherwise the system rotation.
+  *  - The display ignores apps' orientation requests while a rotation is locked (so a fixed-orientation
+@@ -82,12 +84,17 @@ object DisplayPolicy {
+         } else {
+             DisplayProfile.NATIVE
+         }
+-        val size = front.canvas.size(display.native)
++        // Landscape video Fit: sideways, the app gets the native square, so a 16:9 video fills its width.
++        val sideways = s.landscape && front.fullscreenMediaException
++        val size = if (sideways) null else front.canvas.size(display.native)
+         val rotation = appRotation(front.orientation) ?: systemRotation(s.systemRotation)
+         val locked = rotation != null && !rotation.autoRotate
++        // App size scales the person's own density; a Tall canvas still keeps it under the tablet threshold.
++        val scaled = front.appSize.density(display.densityDpi)
+         return DisplayTarget(
+             size = size,
+-            density = size?.let { CanvasMath.compactDensity(it, display.densityDpi) },
++            density =
++                size?.let { CanvasMath.compactDensity(it, scaled ?: display.densityDpi) } ?: scaled,
+             rotation = rotation,
+             ignoreOrientationRequest = (locked || s.anyAspectProfile).takeIf { it }
+         )
+@@ -112,6 +119,8 @@ object DisplayPolicy {
+         PlatformMapping.request(p).minAspectRatio != UserMinAspectRatio.UNSET
+ 
+     /** The service must follow the foreground app only for profiles that change while it is in front. */
+-    fun needsForegroundTracking(profiles: Collection<DisplayProfile>): Boolean =
+-        profiles.any { it.canvas != TallCanvas.Native || it.orientation != OrientationPref.Default }
++    fun needsForegroundTracking(profiles: Collection<DisplayProfile>): Boolean = profiles.any {
++        it.canvas != TallCanvas.Native || it.orientation != OrientationPref.Default ||
++            it.appSize != AppSize.Full
++    }
+ }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt
+index 630e45a..c102647 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayTools.kt
+@@ -25,7 +25,9 @@ data class Moment(
+     val gateOpen: Boolean,
+     val setupComplete: Boolean,
+     val interactive: Boolean,
+-    val frontPackage: String?
++    val frontPackage: String?,
++    /** The default display is turned sideways (rotation 90 or 270). */
++    val landscape: Boolean = false
+ )
+ 
+ sealed interface CycleOutcome {
+@@ -78,6 +80,7 @@ class DisplayTools(
+             interactive = m.interactive,
+             frontPackage = front,
+             frontProfile = profile,
++            landscape = m.landscape,
+             systemRotation = settings.systemRotation,
+             anyAspectProfile = store.packages().any { DisplayPolicy.usesAspectRatio(store.get(it)) }
+         )
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Model.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Model.kt
+index e23d40a..5aa0bf8 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Model.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/Model.kt
+@@ -62,6 +62,7 @@ data class DisplayProfile(
+     val letterboxBackground: LetterboxBackground = LetterboxBackground.System,
+     val keyboardSafeArea: Tri = Tri.Default,
+     val statusNav: BarsPref = BarsPref.Default,
++    /** Landscape video Fit (2.0): the Tall canvas is dropped while the display is turned sideways. */
+     val fullscreenMediaException: Boolean = true,
+     val customRatio: Ratio? = null,
+     /**
+@@ -73,7 +74,9 @@ data class DisplayProfile(
+      * Tall canvas: while this app is in front the whole display gets a taller, phone-shaped
+      * logical size (the call `wm size` makes), shown smaller on the panel. Native leaves it alone.
+      */
+-    val canvas: TallCanvas = TallCanvas.Native
++    val canvas: TallCanvas = TallCanvas.Native,
++    /** App size (2.0): the display density while this app is in front, as a share of the person's own. */
++    val appSize: AppSize = AppSize.Full
+ ) {
+     val isNative: Boolean get() = this == NATIVE
+     companion object {
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileCodec.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileCodec.kt
+index 76b484b..3287773 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileCodec.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/ProfileCodec.kt
+@@ -16,6 +16,7 @@ object ProfileCodec {
+         append(";x=").append(if (p.stretch) 1 else 0)
+         p.customRatio?.let { append(";r=").append(it.w).append(':').append(it.h) }
+         if (p.canvas != TallCanvas.Native) append(";c=").append(p.canvas.id)
++        if (p.appSize != AppSize.Full) append(";z=").append(p.appSize.id)
+     }
+ 
+     fun decode(s: String?): DisplayProfile {
+@@ -71,7 +72,8 @@ object ProfileCodec {
+             fullscreenMediaException = m["m"] != "0",
+             customRatio = parseRatio(m["r"]),
+             stretch = m["x"] == "1",
+-            canvas = TallCanvas.fromId(m["c"])
++            canvas = TallCanvas.fromId(m["c"]),
++            appSize = AppSize.fromId(m["z"])
+         )
+ }
+ 
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
+index 04f05a3..8402e8a 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt
+@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.lazy.itemsIndexed
+ import androidx.compose.foundation.lazy.rememberLazyListState
+@@ -39,19 +40,21 @@ import androidx.compose.ui.input.key.key
+ import androidx.compose.ui.input.key.onPreviewKeyEvent
+ import androidx.compose.ui.input.key.type
+ import androidx.compose.ui.text.TextStyle
++import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+ import org.sableos.titan2.displaycompat.android.DisplayCompatApp
+ import org.sableos.titan2.displaycompat.android.TraitsResolver
++import org.sableos.titan2.displaycompat.core.AppCompatText
+ import org.sableos.titan2.displaycompat.core.AppCornerStyle
++import org.sableos.titan2.displaycompat.core.AppSize
+ import org.sableos.titan2.displaycompat.core.AppStyleKey
+ import org.sableos.titan2.displaycompat.core.AppStylePolicy
+ import org.sableos.titan2.displaycompat.core.AppStyleState
+-import org.sableos.titan2.displaycompat.core.AspectProfile
+ import org.sableos.titan2.displaycompat.core.BackendAvailability
+ import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+ import org.sableos.titan2.displaycompat.core.DisplayProfile
+-import org.sableos.titan2.displaycompat.core.TallCanvas
++import org.sableos.titan2.displaycompat.core.Presets
+ 
+ /** Observable list state; every property is Compose snapshot state so reads recompose as before. */
+ private class ListState {
+@@ -236,7 +239,7 @@ fun AppListScreen(
+         Modifier.fillMaxSize().padding(12.dp)
+             .onPreviewKeyEvent { e -> actions.onKey(e) }
+     ) {
+-        ListTitle(app)
++        ListTitle(app, remember(st.version, all) { presetCount(app, all) })
+         ToolsEntry(app, st.toolsFocused) {
+             st.toolsFocused = true
+             st.styleFocused = false
+@@ -244,19 +247,18 @@ fun AppListScreen(
+         }
+         AppStyleSection(st.style, st.styleFocused) { actions.chooseStyle(it) }
+         FilterField(st.query, { st.query = it }, fr)
+-        if (rows.isEmpty()) {
+-            Text(
+-                emptyListMessage(all.isEmpty(), st.query),
+-                color = C.muted,
+-                fontSize = 12.sp,
+-                modifier = Modifier.padding(vertical = 8.dp)
+-            )
+-        }
++        ColumnHeads()
++        EmptyList(rows.isEmpty(), all.isEmpty(), st.query)
+         LazyColumn(Modifier.weight(1f), state = list) {
+             itemsIndexed(rows, key = { _, e -> e.pkg }) { i, e ->
+                 val p = remember(st.version, e.pkg) { app.store.get(e.pkg) }
+-                // A tap selects the row and opens its editor, like the arrow keys and Enter.
+-                AppRow(e.label, p, !st.styleFocused && !st.toolsFocused && i == st.sel) {
++                // A tap selects the row and opens its page, like the arrow keys and Enter.
++                AppRow(
++                    e.label,
++                    AppCompatText.source(e.pkg, p, app.presets),
++                    p,
++                    !st.styleFocused && !st.toolsFocused && i == st.sel
++                ) {
+                     st.styleFocused = false
+                     st.toolsFocused = false
+                     st.sel = i
+@@ -270,8 +272,20 @@ fun AppListScreen(
+ }
+ 
+ @Composable
+-private fun ListTitle(app: DisplayCompatApp) {
+-    Text(t("app_display_compatibility"), color = C.text, fontSize = 18.sp)
++private fun ListTitle(app: DisplayCompatApp, preset: Int) {
++    Row(
++        Modifier.fillMaxWidth(),
++        horizontalArrangement = Arrangement.SpaceBetween,
++        verticalAlignment = Alignment.Bottom
++    ) {
++        Text(
++            t("app_compatibility"),
++            color = C.text,
++            fontSize = 22.sp,
++            fontWeight = FontWeight.Light
++        )
++        if (preset > 0) Text(t("apps_set_by_sable", preset), color = C.muted, fontSize = 12.sp)
++    }
+     val availability = app.controller.backendAvailability
+     Text(
+         availability.banner,
+@@ -280,6 +294,20 @@ private fun ListTitle(app: DisplayCompatApp) {
+     )
+ }
+ 
++private fun presetCount(app: DisplayCompatApp, all: List<TraitsResolver.Entry>): Int =
++    all.count { Presets.isPreset(it.pkg, app.store.get(it.pkg), app.presets) }
++
++@Composable
++private fun EmptyList(empty: Boolean, noAppsAtAll: Boolean, query: String) {
++    if (!empty) return
++    Text(
++        emptyListMessage(noAppsAtAll, query),
++        color = C.muted,
++        fontSize = 12.sp,
++        modifier = Modifier.padding(vertical = 8.dp)
++    )
++}
++
+ private fun emptyListMessage(noAppsAtAll: Boolean, query: String): String = if (noAppsAtAll) {
+     t("no_launchable_apps_were_found")
+ } else {
+@@ -318,40 +346,92 @@ private fun FilterField(query: String, onQueryChange: (String) -> Unit, fr: Focu
+ }
+ 
+ @Composable
+-private fun AppRow(label: String, p: DisplayProfile, selected: Boolean, onClick: () -> Unit) {
++private fun ColumnHeads() {
+     Row(
+-        Modifier.fillMaxWidth().padding(vertical = 2.dp)
+-            .background(if (selected) C.surface else C.window, RoundedCornerShape(6.dp))
+-            .border(
+-                if (selected) 2.dp else 0.dp,
+-                if (selected) C.accent else C.window,
+-                RoundedCornerShape(6.dp)
+-            )
+-            .clickable { onClick() }
+-            .padding(10.dp),
+-        horizontalArrangement = Arrangement.SpaceBetween
++        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 2.dp),
++        horizontalArrangement = Arrangement.spacedBy(12.dp)
+     ) {
+-        Text(label, color = C.text, fontSize = 14.sp)
+         Text(
+-            badge(p),
+-            color = if (p.isNative) C.muted else C.accent,
+-            fontSize = 12.sp
++            t("col_app").uppercase(),
++            color = C.muted,
++            fontSize = 11.sp,
++            modifier = Modifier.weight(1f)
++        )
++        Text(
++            t("col_layout").uppercase(),
++            color = C.muted,
++            fontSize = 11.sp,
++            modifier = Modifier.width(LAYOUT_W)
++        )
++        Text(
++            t("col_size").uppercase(),
++            color = C.muted,
++            fontSize = 11.sp,
++            modifier = Modifier.width(SIZE_W)
++        )
++        Text(
++            t("col_video").uppercase(),
++            color = C.muted,
++            fontSize = 11.sp,
++            modifier = Modifier.width(VIDEO_W)
+         )
+     }
+ }
+ 
+-private val STORED: String get() = t("stored")
++private val LAYOUT_W = 76.dp
++private val SIZE_W = 40.dp
++private val VIDEO_W = 64.dp
+ 
+-private fun badge(p: DisplayProfile): String = when {
+-    p.isNative -> t("native_label_2")
+-
+-    p.canvas != TallCanvas.Native && p.profile == AspectProfile.Native ->
+-        "tall " + p.canvas.shape + STORED
+-
+-    p.canvas != TallCanvas.Native ->
+-        p.profile.id.replace('_', ' ') + t("tall") + p.canvas.shape + STORED
+-
+-    else -> p.profile.id.replace('_', ' ') + STORED
++/** One app: its name and where its choice came from, then layout, app size and landscape video. */
++@Composable
++private fun AppRow(
++    label: String,
++    source: String,
++    p: DisplayProfile,
++    selected: Boolean,
++    onClick: () -> Unit
++) {
++    Row(
++        Modifier.fillMaxWidth().padding(vertical = 1.dp)
++            .background(if (selected) C.surface else C.window)
++            .border(if (selected) 2.dp else 0.dp, if (selected) C.accent else C.window)
++            .clickable { onClick() }
++            .padding(horizontal = 10.dp, vertical = 4.dp),
++        horizontalArrangement = Arrangement.spacedBy(12.dp),
++        verticalAlignment = Alignment.CenterVertically
++    ) {
++        Column(Modifier.weight(1f)) {
++            Text(label, color = C.text, fontSize = 15.sp, maxLines = 1)
++            Text(source, color = C.muted, fontSize = 11.sp, maxLines = 1)
++        }
++        val plain = p.isNative
++        Text(
++            AppCompatText.layout(p),
++            color = C.text,
++            fontSize = 13.sp,
++            fontWeight = FontWeight.SemiBold,
++            modifier = Modifier.width(LAYOUT_W)
++        )
++        Text(
++            AppCompatText.size(p),
++            color = if (p.appSize ==
++                AppSize.Full
++            ) {
++                C.muted
++            } else {
++                C.text
++            },
++            fontSize = 13.sp,
++            modifier = Modifier.width(SIZE_W)
++        )
++        Text(
++            AppCompatText.video(p),
++            color = if (plain) C.muted else C.text,
++            fontSize = 13.sp,
++            maxLines = 1,
++            modifier = Modifier.width(VIDEO_W)
++        )
++    }
+ }
+ 
+ /** Entry to Display tools: system rotation and the hotkey's favourite sizes, shown in one line. */
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppPageScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppPageScreen.kt
+new file mode 100644
+index 0000000..eff5f81
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppPageScreen.kt
+@@ -0,0 +1,336 @@
++@file:Suppress("FunctionNaming")
++
++package org.sableos.titan2.displaycompat.ui
++
++import androidx.compose.foundation.background
++import androidx.compose.foundation.border
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.focusable
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.focus.FocusRequester
++import androidx.compose.ui.focus.focusRequester
++import androidx.compose.ui.input.key.Key
++import androidx.compose.ui.input.key.KeyEvent
++import androidx.compose.ui.input.key.KeyEventType
++import androidx.compose.ui.input.key.key
++import androidx.compose.ui.input.key.onPreviewKeyEvent
++import androidx.compose.ui.input.key.type
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.unit.DpSize
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++import org.sableos.titan2.displaycompat.android.DisplayCompatApp
++import org.sableos.titan2.displaycompat.android.TraitsResolver
++import org.sableos.titan2.displaycompat.android.resetToPreset
++import org.sableos.titan2.displaycompat.core.AppCompatText
++import org.sableos.titan2.displaycompat.core.AppLayout
++import org.sableos.titan2.displaycompat.core.AppPage
++import org.sableos.titan2.displaycompat.core.AppSize
++import org.sableos.titan2.displaycompat.core.AspectProfile
++import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
++import org.sableos.titan2.displaycompat.core.DisplayProfile
++import org.sableos.titan2.displaycompat.core.LandscapeVideo
++import org.sableos.titan2.displaycompat.core.ProfileController
++import org.sableos.titan2.displaycompat.core.SaveStatus
++import org.sableos.titan2.displaycompat.core.SizePx
++
++/** The page's state; every property is Compose snapshot state. */
++private class PageState(initial: DisplayProfile) {
++    var p by mutableStateOf(initial)
++    var row by mutableStateOf(AppPage.Row.Layout)
++    var msg by mutableStateOf<String?>(null)
++
++    /** A change that needs Enter to confirm its warnings. */
++    var pending by mutableStateOf<DisplayProfile?>(null)
++}
++
++/** Where the page goes: the full editor for Custom, or back to the list. */
++class PageNav(val onCustom: () -> Unit, val onDone: () -> Unit)
++
++/** Saving, reset and keys of the page; created per composition so it sees the latest state. */
++private class PageActions(
++    private val app: DisplayCompatApp,
++    private val resolver: TraitsResolver,
++    private val entry: TraitsResolver.Entry,
++    private val display: SizePx,
++    private val st: PageState,
++    private val nav: PageNav
++) {
++    fun save(candidate: DisplayProfile, acknowledged: Boolean = false) {
++        val outcome = app.controller.save(
++            resolver.resolve(entry.pkg),
++            candidate,
++            display,
++            advanced = candidate.profile == AspectProfile.Custom,
++            acknowledged = acknowledged
++        )
++        st.pending = candidate.takeIf { outcome.status == SaveStatus.NEEDS_ACK }
++        st.msg = when (outcome.status) {
++            SaveStatus.STORED -> t("applies_next_time", entry.label)
++            SaveStatus.NEEDS_ACK -> t("press_enter_to_confirm", firstAck(outcome)).trim()
++            else -> outcome.message()
++        }
++        if (outcome.status == SaveStatus.STORED) {
++            st.p = app.store.get(entry.pkg)
++            app.refreshDisplay()
++        }
++    }
++
++    private fun firstAck(outcome: ProfileController.Outcome): String =
++        outcome.validation.issues.firstOrNull { it.needsAck }?.message.orEmpty()
++
++    fun pick(layout: AppLayout) {
++        if (layout == AppLayout.Custom) {
++            nav.onCustom()
++        } else {
++            AppLayout.apply(st.p, layout).takeIf { it != st.p }?.let { save(it) }
++        }
++    }
++
++    fun reset() {
++        st.msg = app.resetToPreset(entry.pkg) { resolver.resolve(it) }
++        st.p = app.store.get(entry.pkg)
++        st.pending = null
++    }
++
++    /** A tap on App size: the next size, back to 100% after the smallest. */
++    fun nextSize() {
++        st.row = AppPage.Row.Size
++        save(AppPage.sizeStep(st.p, 1).takeIf { it != st.p } ?: st.p.copy(appSize = AppSize.Full))
++    }
++
++    fun toggleVideo() {
++        st.row = AppPage.Row.Video
++        save(AppPage.videoStep(st.p))
++    }
++
++    fun onKey(e: KeyEvent): Boolean {
++        val action: (() -> Unit)? = when (e.key) {
++            Key.DirectionUp -> {
++                { move(-1) }
++            }
++
++            Key.DirectionDown -> {
++                { move(1) }
++            }
++
++            Key.DirectionLeft -> {
++                { AppPage.step(st.p, st.row, -1)?.let { save(it) } }
++            }
++
++            Key.DirectionRight -> {
++                { AppPage.step(st.p, st.row, 1)?.let { save(it) } }
++            }
++
++            Key.Enter, Key.NumPadEnter, Key.Spacebar -> {
++                { enter() }
++            }
++
++            Key.Escape, Key.Back -> nav.onDone
++
++            else -> null
++        }
++        if (action != null && e.type == KeyEventType.KeyDown) action()
++        return action != null
++    }
++
++    private fun move(dir: Int) {
++        val rows = AppPage.Row.entries
++        st.row = rows[(st.row.ordinal + dir).coerceIn(0, rows.size - 1)]
++    }
++
++    private fun enter() {
++        val pending = st.pending
++        when {
++            pending != null -> save(pending, acknowledged = true)
++            st.row == AppPage.Row.Layout -> nav.onCustom()
++            st.row == AppPage.Row.Reset -> reset()
++            else -> AppPage.step(st.p, st.row, 1)?.let { save(it) }
++        }
++    }
++}
++
++/**
++ * One app (2.0 App Compatibility): layout, app size and landscape video. Every change is saved at
++ * once and applies the next time the app comes to the front. Custom opens the full 1.0 editor.
++ */
++@Composable
++fun AppPageScreen(
++    app: DisplayCompatApp,
++    resolver: TraitsResolver,
++    entry: TraitsResolver.Entry,
++    display: SizePx,
++    nav: PageNav
++) {
++    val st = remember(entry.pkg) { PageState(app.store.get(entry.pkg)) }
++    val fr = remember { FocusRequester() }
++    LaunchedEffect(Unit) { fr.requestFocus() }
++    val actions = PageActions(app, resolver, entry, display, st, nav)
++    Column(
++        Modifier.fillMaxSize().padding(horizontal = 14.dp)
++            .focusRequester(fr).focusable()
++            .onPreviewKeyEvent { actions.onKey(it) }
++            .verticalScroll(rememberScrollState())
++    ) {
++        Row(
++            Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp),
++            horizontalArrangement = Arrangement.SpaceBetween,
++            verticalAlignment = Alignment.Bottom
++        ) {
++            Text(entry.label, color = C.text, fontSize = 22.sp, fontWeight = FontWeight.Light)
++            val source = AppCompatText.source(entry.pkg, st.p, app.presets)
++            Text(source, color = C.muted, fontSize = 12.sp)
++        }
++        SectionLabel(t("app_layout"))
++        LayoutChoices(AppLayout.of(st.p), st.row == AppPage.Row.Layout) { actions.pick(it) }
++        val sizes = AppSize.entries.joinToString(" · ") { marked(it.label, it == st.p.appSize) }
++        ChoiceRow(t("app_size"), t("app_size_help"), sizes, st.row == AppPage.Row.Size) {
++            actions.nextSize()
++        }
++        SectionLabel(t("landscape_video"))
++        val video = LandscapeVideo.of(st.p)
++        val videos = LandscapeVideo.entries.joinToString(" · ") { marked(it.label, it == video) }
++        ChoiceRow(video.label, video.help, videos, st.row == AppPage.Row.Video) {
++            actions.toggleVideo()
++        }
++        val hasPreset = app.presets[entry.pkg]?.let { !it.isNative } == true
++        val resetTitle = if (hasPreset) t("reset_to_preset") else t("reset_to_square")
++        ChoiceRow(resetTitle, "", "", st.row == AppPage.Row.Reset) {
++            st.row = AppPage.Row.Reset
++            actions.reset()
++        }
++        PageMessage(st)
++        Text(
++            t("page_hint"),
++            color = C.muted,
++            fontSize = 11.sp,
++            modifier = Modifier.padding(vertical = 8.dp)
++        )
++    }
++}
++
++private fun marked(label: String, on: Boolean): String = if (on) "[$label]" else label
++
++@Composable
++private fun PageMessage(st: PageState) {
++    val msg = st.msg ?: return
++    val warn = st.pending != null || msg.contains(t("could_not"))
++    Text(
++        msg,
++        color = if (warn) C.warn else C.muted,
++        fontSize = 12.sp,
++        modifier = Modifier.padding(top = 6.dp)
++    )
++}
++
++/** The little outline drawn for each layout. */
++private fun shapeOf(layout: AppLayout): DpSize = when (layout) {
++    AppLayout.Square -> DpSize(36.dp, 36.dp)
++    AppLayout.TallPhone -> DpSize(20.dp, 40.dp)
++    AppLayout.Custom -> DpSize(28.dp, 40.dp)
++}
++
++@Composable
++private fun SectionLabel(text: String) {
++    Text(
++        text.uppercase(),
++        color = C.muted,
++        fontSize = 11.sp,
++        letterSpacing = 1.sp,
++        modifier = Modifier.padding(top = 8.dp)
++    )
++}
++
++/** Square, Tall phone and Custom, each drawn with its shape. */
++@Composable
++private fun LayoutChoices(current: AppLayout, focused: Boolean, onPick: (AppLayout) -> Unit) {
++    Row(
++        Modifier.fillMaxWidth().padding(top = 6.dp),
++        horizontalArrangement = Arrangement.spacedBy(8.dp)
++    ) {
++        AppLayout.entries.forEach { layout ->
++            val on = layout == current
++            Column(
++                Modifier.weight(1f)
++                    .background(C.surface)
++                    .border(
++                        if (on) 2.dp else 0.dp,
++                        if (on &&
++                            focused
++                        ) {
++                            C.accent
++                        } else if (on) {
++                            C.muted
++                        } else {
++                            C.surface
++                        }
++                    )
++                    .clickable { onPick(layout) }
++                    .padding(8.dp),
++                horizontalAlignment = Alignment.CenterHorizontally,
++                verticalArrangement = Arrangement.spacedBy(4.dp)
++            ) {
++                Box(Modifier.height(48.dp), contentAlignment = Alignment.Center) {
++                    Box(Modifier.size(shapeOf(layout)).border(1.dp, C.text).background(C.window))
++                }
++                Text(
++                    layout.label,
++                    color = C.text,
++                    fontSize = 14.sp,
++                    fontWeight = FontWeight.SemiBold
++                )
++                Text(layout.help, color = C.muted, fontSize = 10.sp)
++            }
++        }
++    }
++}
++
++@Composable
++private fun ChoiceRow(
++    title: String,
++    help: String,
++    value: String,
++    focused: Boolean,
++    onClick: () -> Unit
++) {
++    Row(
++        Modifier.fillMaxWidth().padding(top = 4.dp)
++            .border(if (focused) 2.dp else 0.dp, if (focused) C.accent else C.window)
++            .clickable { onClick() }
++            .padding(horizontal = 6.dp, vertical = 6.dp),
++        horizontalArrangement = Arrangement.SpaceBetween,
++        verticalAlignment = Alignment.CenterVertically
++    ) {
++        Column(Modifier.weight(1f)) {
++            Text(title, color = C.text, fontSize = 15.sp)
++            if (help.isNotEmpty()) Text(help, color = C.muted, fontSize = 11.sp)
++        }
++        if (value.isNotEmpty()) {
++            Text(
++                value,
++                color = C.text,
++                fontSize = 13.sp,
++                fontWeight = FontWeight.SemiBold
++            )
++        }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
+index 364b1a1..d26d962 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/MainActivity.kt
+@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Modifier
+ import org.sableos.titan2.displaycompat.android.TraitsResolver
+ import org.sableos.titan2.displaycompat.android.displayCompat
++import org.sableos.titan2.displaycompat.android.seedPresets
+ import org.sableos.titan2.displaycompat.core.ProfileLink
+ import org.sableos.titan2.displaycompat.core.SizePx
+ import org.sableos.titan2.theme.SablePalette
+@@ -35,6 +36,8 @@ class MainActivity : ComponentActivity() {
+         val pkg = ProfileLink.packageFrom(intent?.action, data?.scheme, data?.schemeSpecificPart)
+         // Only apps the list could show (launcher apps); anything else opens the list.
+         linked = pkg?.let { p -> TraitsResolver(this).launchable().firstOrNull { it.pkg == p } }
++        // Apps installed before this build, or while presets could not be given, get theirs now.
++        runCatching { displayCompat.seedPresets() }
+         setContent { Root() }
+     }
+ 
+@@ -47,6 +50,8 @@ class MainActivity : ComponentActivity() {
+         val display = SizePx(bounds.width(), bounds.height())
+         var editing by remember { mutableStateOf(linked) }
+         var tools by remember { mutableStateOf(false) }
++        // Custom: the full 1.0 editor, opened from the app's page.
++        var custom by remember { mutableStateOf(false) }
+         val closeEditor: () -> Unit = {
+             if (linked != null) {
+                 finish()
+@@ -67,9 +72,13 @@ class MainActivity : ComponentActivity() {
+                     onTools = { tools = true },
+                     onExit = { finish() }
+                 )
++            } else if (custom) {
++                BackHandler { custom = false }
++                EditorScreen(app, resolver, e, display, onDone = { custom = false })
+             } else {
+                 BackHandler { closeEditor() }
+-                EditorScreen(app, resolver, e, display, onDone = closeEditor)
++                val nav = PageNav(onCustom = { custom = true }, onDone = closeEditor)
++                AppPageScreen(app, resolver, e, display, nav)
+             }
+         }
+     }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/raw/app_compat_presets.tsv b/sable-src/apps/titan2/platform/displaycompat/src/main/res/raw/app_compat_presets.tsv
+new file mode 100644
+index 0000000..313d365
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/raw/app_compat_presets.tsv
+@@ -0,0 +1,10 @@
++# SableOS App Compatibility presets: package<TAB>layout<TAB>landscape video<TAB>app size
++# layout: square (native 720x720) or tall (720x1440 phone shape). video: fit or keep. size: 100, 85 or 75.
++# A preset is given once, when the app is installed; the person's later change stays.
++com.google.android.youtube	tall	fit
++com.instagram.android	tall	fit
++com.zhiliaoapp.musically	tall	fit
++com.ss.android.ugc.trill	tall	fit
++com.facebook.katana	tall	fit
++com.google.android.apps.maps	square	fit
++com.google.android.projection.gearhead	square	fit
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ar/strings.xml
+index a020211..578ce1a 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ar/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">أكّد أولاً التحذيرات الخاصة بـ %1$s في توافق الشاشة.</string>
+     <string name="not_changed_the_profile_could">لم يتغيّر شيء. تعذّر تخزين الملف الشخصي.</string>
+     <string name="auto_rotate">تدوير تلقائي</string>
++    <string name="app_compatibility">توافق التطبيقات</string>
++    <string name="apps_set_by_sable">%1$s تطبيقات ضبطها Sable</string>
++    <string name="col_app">التطبيق</string>
++    <string name="col_layout">التخطيط</string>
++    <string name="col_size">الحجم</string>
++    <string name="col_video">الفيديو</string>
++    <string name="layout_square">مربع</string>
++    <string name="layout_square_help">الأصلي 720×720</string>
++    <string name="layout_tall_phone">هاتف طويل</string>
++    <string name="layout_tall_phone_help">720×1440، أشرطة جانبية</string>
++    <string name="layout_custom">مخصص</string>
++    <string name="layout_custom_help">حجمك وشكلك الخاص</string>
++    <string name="video_fit">ملاءمة</string>
++    <string name="video_fit_help">بالعرض يملأ الفيديو العرض</string>
++    <string name="video_keep_layout">إبقاء التخطيط</string>
++    <string name="video_keep_layout_help">بالعرض يحتفظ التطبيق بتخطيطه</string>
++    <string name="sable_preset">إعداد Sable المسبق</string>
++    <string name="works_as_is">يعمل كما هو</string>
++    <string name="set_by_you">ضبطته أنت</string>
++    <string name="preset_notice">يستخدم %1$s %2$s، وهو إعداد Sable مسبق. غيّره في توافق التطبيقات.</string>
++    <string name="app_layout">تخطيط التطبيق</string>
++    <string name="app_size">حجم التطبيق</string>
++    <string name="app_size_help">نص وأيقونات أصغر في هذا التطبيق فقط</string>
++    <string name="landscape_video">الفيديو بالعرض</string>
++    <string name="reset_to_preset">العودة إلى إعداد Sable المسبق</string>
++    <string name="reset_to_square">العودة إلى مربع</string>
++    <string name="applies_next_time">تم الحفظ. يُطبَّق في المرة القادمة التي يظهر فيها %1$s في المقدمة.</string>
++    <string name="press_enter_to_confirm">اضغط Enter للتأكيد: %1$s</string>
++    <string name="page_hint">↑↓ صف · ←→ تغيير · Enter على التخطيط: مخصص · Esc رجوع</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-de/strings.xml
+index 26e694c..8ece7da 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-de/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">Bestätige zuerst die Warnungen für %1$s unter Anzeige-Kompatibilität.</string>
+     <string name="not_changed_the_profile_could">Nicht geändert: Speichern des Profils nicht möglich.</string>
+     <string name="auto_rotate">Automatisch drehen</string>
++    <string name="app_compatibility">App-Kompatibilität</string>
++    <string name="apps_set_by_sable">%1$s Apps von Sable eingestellt</string>
++    <string name="col_app">App</string>
++    <string name="col_layout">Layout</string>
++    <string name="col_size">Größe</string>
++    <string name="col_video">Video</string>
++    <string name="layout_square">Quadrat</string>
++    <string name="layout_square_help">Nativ 720×720</string>
++    <string name="layout_tall_phone">Hohes Telefon</string>
++    <string name="layout_tall_phone_help">720×1440, Seitenbalken</string>
++    <string name="layout_custom">Eigene</string>
++    <string name="layout_custom_help">Eigene Größe und Form</string>
++    <string name="video_fit">Einpassen</string>
++    <string name="video_fit_help">Quer füllt das Video die Breite</string>
++    <string name="video_keep_layout">Layout behalten</string>
++    <string name="video_keep_layout_help">Quer behält die App ihr Layout</string>
++    <string name="sable_preset">Sable-Vorgabe</string>
++    <string name="works_as_is">Läuft so</string>
++    <string name="set_by_you">Von dir eingestellt</string>
++    <string name="preset_notice">%1$s nutzt %2$s, eine Sable-Vorgabe. Ändern unter App-Kompatibilität.</string>
++    <string name="app_layout">App-Layout</string>
++    <string name="app_size">App-Größe</string>
++    <string name="app_size_help">Kleinere Schrift und Symbole nur in dieser App</string>
++    <string name="landscape_video">Video quer</string>
++    <string name="reset_to_preset">Auf Sable-Vorgabe zurücksetzen</string>
++    <string name="reset_to_square">Auf Quadrat zurücksetzen</string>
++    <string name="applies_next_time">Gespeichert. Gilt, wenn %1$s das nächste Mal im Vordergrund ist.</string>
++    <string name="press_enter_to_confirm">Zum Bestätigen Enter drücken: %1$s</string>
++    <string name="page_hint">↑↓ Zeile · ←→ ändern · Enter bei Layout: Eigene · Esc zurück</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-el/strings.xml
+index 7920dbe..d13993a 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-el/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">Επιβεβαιώστε πρώτα τις προειδοποιήσεις για %1$s στη Συμβατότητα οθόνης.</string>
+     <string name="not_changed_the_profile_could">Καμία αλλαγή. Αποτυχία αποθήκευσης του προφίλ.</string>
+     <string name="auto_rotate">Αυτόματη περιστροφή</string>
++    <string name="app_compatibility">Συμβατότητα εφαρμογών</string>
++    <string name="apps_set_by_sable">%1$s εφαρμογές ρυθμισμένες από το Sable</string>
++    <string name="col_app">Εφαρμογή</string>
++    <string name="col_layout">Διάταξη</string>
++    <string name="col_size">Μέγεθος</string>
++    <string name="col_video">Βίντεο</string>
++    <string name="layout_square">Τετράγωνο</string>
++    <string name="layout_square_help">Εγγενές 720×720</string>
++    <string name="layout_tall_phone">Ψηλό τηλέφωνο</string>
++    <string name="layout_tall_phone_help">720×1440, πλευρικές μπάρες</string>
++    <string name="layout_custom">Προσαρμογή</string>
++    <string name="layout_custom_help">Δικό σας μέγεθος και σχήμα</string>
++    <string name="video_fit">Προσαρμογή στο πλάτος</string>
++    <string name="video_fit_help">Οριζόντια, το βίντεο γεμίζει το πλάτος</string>
++    <string name="video_keep_layout">Διατήρηση διάταξης</string>
++    <string name="video_keep_layout_help">Οριζόντια, η εφαρμογή κρατά τη διάταξή της</string>
++    <string name="sable_preset">Προρύθμιση Sable</string>
++    <string name="works_as_is">Λειτουργεί ως έχει</string>
++    <string name="set_by_you">Ρυθμισμένο από εσάς</string>
++    <string name="preset_notice">Το %1$s χρησιμοποιεί %2$s, προρύθμιση Sable. Αλλάξτε το στη Συμβατότητα εφαρμογών.</string>
++    <string name="app_layout">Διάταξη εφαρμογής</string>
++    <string name="app_size">Μέγεθος εφαρμογής</string>
++    <string name="app_size_help">Μικρότερο κείμενο και εικονίδια μόνο σε αυτή την εφαρμογή</string>
++    <string name="landscape_video">Οριζόντιο βίντεο</string>
++    <string name="reset_to_preset">Επαναφορά προρύθμισης Sable</string>
++    <string name="reset_to_square">Επαναφορά σε Τετράγωνο</string>
++    <string name="applies_next_time">Αποθηκεύτηκε. Ισχύει την επόμενη φορά που το %1$s έρθει μπροστά.</string>
++    <string name="press_enter_to_confirm">Πατήστε Enter για επιβεβαίωση: %1$s</string>
++    <string name="page_hint">↑↓ γραμμή · ←→ αλλαγή · Enter στη Διάταξη: Προσαρμογή · Esc πίσω</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-es/strings.xml
+index ec26603..43a6840 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-es/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">Confirma primero las advertencias de %1$s en Compatibilidad de pantalla.</string>
+     <string name="not_changed_the_profile_could">Sin cambios. No se pudo almacenar el perfil.</string>
+     <string name="auto_rotate">Giro automático</string>
++    <string name="app_compatibility">Compatibilidad de apps</string>
++    <string name="apps_set_by_sable">%1$s apps ajustadas por Sable</string>
++    <string name="col_app">App</string>
++    <string name="col_layout">Diseño</string>
++    <string name="col_size">Tamaño</string>
++    <string name="col_video">Vídeo</string>
++    <string name="layout_square">Cuadrado</string>
++    <string name="layout_square_help">Nativo 720×720</string>
++    <string name="layout_tall_phone">Teléfono alto</string>
++    <string name="layout_tall_phone_help">720×1440, barras laterales</string>
++    <string name="layout_custom">Personalizado</string>
++    <string name="layout_custom_help">Tu propio tamaño y forma</string>
++    <string name="video_fit">Ajustar</string>
++    <string name="video_fit_help">En horizontal, el vídeo ocupa el ancho</string>
++    <string name="video_keep_layout">Mantener diseño</string>
++    <string name="video_keep_layout_help">En horizontal, la app mantiene su diseño</string>
++    <string name="sable_preset">Ajuste de Sable</string>
++    <string name="works_as_is">Funciona tal cual</string>
++    <string name="set_by_you">Ajustado por ti</string>
++    <string name="preset_notice">%1$s usa %2$s, un ajuste de Sable. Cámbialo en Compatibilidad de apps.</string>
++    <string name="app_layout">Diseño de la app</string>
++    <string name="app_size">Tamaño de la app</string>
++    <string name="app_size_help">Texto e iconos más pequeños solo en esta app</string>
++    <string name="landscape_video">Vídeo en horizontal</string>
++    <string name="reset_to_preset">Restablecer el ajuste de Sable</string>
++    <string name="reset_to_square">Restablecer a Cuadrado</string>
++    <string name="applies_next_time">Guardado. Se aplica la próxima vez que %1$s pase al frente.</string>
++    <string name="press_enter_to_confirm">Pulsa Intro para confirmar: %1$s</string>
++    <string name="page_hint">↑↓ fila · ←→ cambiar · Intro en Diseño: Personalizado · Esc atrás</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-fr/strings.xml
+index 896b15e..a1dc22f 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-fr/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">Confirmez d’abord les avertissements pour %1$s dans Compatibilité de l’affichage.</string>
+     <string name="not_changed_the_profile_could">Aucun changement. Échec du stockage du profil.</string>
+     <string name="auto_rotate">Rotation automatique</string>
++    <string name="app_compatibility">Compatibilité des apps</string>
++    <string name="apps_set_by_sable">%1$s apps réglées par Sable</string>
++    <string name="col_app">App</string>
++    <string name="col_layout">Disposition</string>
++    <string name="col_size">Taille</string>
++    <string name="col_video">Vidéo</string>
++    <string name="layout_square">Carré</string>
++    <string name="layout_square_help">Natif 720×720</string>
++    <string name="layout_tall_phone">Téléphone haut</string>
++    <string name="layout_tall_phone_help">720×1440, bandes latérales</string>
++    <string name="layout_custom">Personnalisé</string>
++    <string name="layout_custom_help">Votre taille et votre forme</string>
++    <string name="video_fit">Ajuster</string>
++    <string name="video_fit_help">À l\'horizontale, la vidéo remplit la largeur</string>
++    <string name="video_keep_layout">Garder la disposition</string>
++    <string name="video_keep_layout_help">À l\'horizontale, l\'app garde sa disposition</string>
++    <string name="sable_preset">Préréglage Sable</string>
++    <string name="works_as_is">Fonctionne tel quel</string>
++    <string name="set_by_you">Réglé par vous</string>
++    <string name="preset_notice">%1$s utilise %2$s, un préréglage Sable. Modifiez-le dans Compatibilité des apps.</string>
++    <string name="app_layout">Disposition de l\'app</string>
++    <string name="app_size">Taille de l\'app</string>
++    <string name="app_size_help">Texte et icônes plus petits dans cette app seulement</string>
++    <string name="landscape_video">Vidéo à l\'horizontale</string>
++    <string name="reset_to_preset">Revenir au préréglage Sable</string>
++    <string name="reset_to_square">Revenir à Carré</string>
++    <string name="applies_next_time">Enregistré. S\'applique la prochaine fois que %1$s passe au premier plan.</string>
++    <string name="press_enter_to_confirm">Appuyez sur Entrée pour confirmer : %1$s</string>
++    <string name="page_hint">↑↓ ligne · ←→ changer · Entrée sur Disposition : Personnalisé · Échap retour</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-hi/strings.xml
+index f3dfb3a..41a5096 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-hi/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">पहले डिस्प्ले संगतता में %1$s की चेतावनियाँ स्वीकारें।</string>
+     <string name="not_changed_the_profile_could">बदला नहीं गया: प्रोफ़ाइल संग्रहीत करना विफल रहा।</string>
+     <string name="auto_rotate">ऑटो-रोटेट</string>
++    <string name="app_compatibility">ऐप संगतता</string>
++    <string name="apps_set_by_sable">Sable द्वारा सेट %1$s ऐप</string>
++    <string name="col_app">ऐप</string>
++    <string name="col_layout">लेआउट</string>
++    <string name="col_size">आकार</string>
++    <string name="col_video">वीडियो</string>
++    <string name="layout_square">वर्ग</string>
++    <string name="layout_square_help">मूल 720×720</string>
++    <string name="layout_tall_phone">लंबा फ़ोन</string>
++    <string name="layout_tall_phone_help">720×1440, किनारे की पट्टियाँ</string>
++    <string name="layout_custom">कस्टम</string>
++    <string name="layout_custom_help">आपका अपना आकार और रूप</string>
++    <string name="video_fit">फ़िट</string>
++    <string name="video_fit_help">आड़ा करने पर वीडियो पूरी चौड़ाई भरता है</string>
++    <string name="video_keep_layout">लेआउट रखें</string>
++    <string name="video_keep_layout_help">आड़ा करने पर ऐप अपना लेआउट रखता है</string>
++    <string name="sable_preset">Sable प्रीसेट</string>
++    <string name="works_as_is">जैसा है वैसा चलता है</string>
++    <string name="set_by_you">आपके द्वारा सेट</string>
++    <string name="preset_notice">%1$s, Sable प्रीसेट %2$s का उपयोग करता है। इसे ऐप संगतता में बदलें।</string>
++    <string name="app_layout">ऐप लेआउट</string>
++    <string name="app_size">ऐप आकार</string>
++    <string name="app_size_help">केवल इस ऐप में छोटा टेक्स्ट और आइकन</string>
++    <string name="landscape_video">आड़ा वीडियो</string>
++    <string name="reset_to_preset">Sable प्रीसेट पर रीसेट करें</string>
++    <string name="reset_to_square">वर्ग पर रीसेट करें</string>
++    <string name="applies_next_time">सहेजा गया। अगली बार %1$s सामने आने पर लागू होगा।</string>
++    <string name="press_enter_to_confirm">पुष्टि के लिए Enter दबाएँ: %1$s</string>
++    <string name="page_hint">↑↓ पंक्ति · ←→ बदलें · लेआउट पर Enter: कस्टम · Esc वापस</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-it/strings.xml
+index b717dd5..0cc3d34 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-it/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">Conferma prima gli avvisi per %1$s in Compatibilità display.</string>
+     <string name="not_changed_the_profile_could">Nessuna modifica. Impossibile memorizzare il profilo.</string>
+     <string name="auto_rotate">Rotazione automatica</string>
++    <string name="app_compatibility">Compatibilità app</string>
++    <string name="apps_set_by_sable">%1$s app impostate da Sable</string>
++    <string name="col_app">App</string>
++    <string name="col_layout">Layout</string>
++    <string name="col_size">Dimensione</string>
++    <string name="col_video">Video</string>
++    <string name="layout_square">Quadrato</string>
++    <string name="layout_square_help">Nativo 720×720</string>
++    <string name="layout_tall_phone">Telefono alto</string>
++    <string name="layout_tall_phone_help">720×1440, bande laterali</string>
++    <string name="layout_custom">Personalizzato</string>
++    <string name="layout_custom_help">Dimensione e forma tue</string>
++    <string name="video_fit">Adatta</string>
++    <string name="video_fit_help">In orizzontale il video riempie la larghezza</string>
++    <string name="video_keep_layout">Mantieni layout</string>
++    <string name="video_keep_layout_help">In orizzontale l\'app mantiene il layout</string>
++    <string name="sable_preset">Preset Sable</string>
++    <string name="works_as_is">Funziona così</string>
++    <string name="set_by_you">Impostato da te</string>
++    <string name="preset_notice">%1$s usa %2$s, un preset Sable. Cambialo in Compatibilità app.</string>
++    <string name="app_layout">Layout dell\'app</string>
++    <string name="app_size">Dimensione dell\'app</string>
++    <string name="app_size_help">Testo e icone più piccoli solo in questa app</string>
++    <string name="landscape_video">Video in orizzontale</string>
++    <string name="reset_to_preset">Ripristina il preset Sable</string>
++    <string name="reset_to_square">Ripristina Quadrato</string>
++    <string name="applies_next_time">Salvato. Si applica la prossima volta che %1$s è in primo piano.</string>
++    <string name="press_enter_to_confirm">Premi Invio per confermare: %1$s</string>
++    <string name="page_hint">↑↓ riga · ←→ cambia · Invio su Layout: Personalizzato · Esc indietro</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-iw/strings.xml
+index 9a53038..0bdeaa1 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-iw/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">אשרו קודם את האזהרות עבור %1$s בתאימות תצוגה.</string>
+     <string name="not_changed_the_profile_could">לא שונה. לא ניתן לאחסן את הפרופיל.</string>
+     <string name="auto_rotate">סיבוב אוטומטי</string>
++    <string name="app_compatibility">תאימות אפליקציות</string>
++    <string name="apps_set_by_sable">%1$s אפליקציות שהוגדרו על ידי Sable</string>
++    <string name="col_app">אפליקציה</string>
++    <string name="col_layout">פריסה</string>
++    <string name="col_size">גודל</string>
++    <string name="col_video">וידאו</string>
++    <string name="layout_square">ריבוע</string>
++    <string name="layout_square_help">מקורי 720×720</string>
++    <string name="layout_tall_phone">טלפון גבוה</string>
++    <string name="layout_tall_phone_help">720×1440, פסים בצדדים</string>
++    <string name="layout_custom">מותאם</string>
++    <string name="layout_custom_help">גודל וצורה משלך</string>
++    <string name="video_fit">התאמה</string>
++    <string name="video_fit_help">לרוחב, הווידאו ממלא את הרוחב</string>
++    <string name="video_keep_layout">שמירת פריסה</string>
++    <string name="video_keep_layout_help">לרוחב, האפליקציה שומרת על הפריסה</string>
++    <string name="sable_preset">הגדרה מוכנה של Sable</string>
++    <string name="works_as_is">עובד כמו שהוא</string>
++    <string name="set_by_you">הוגדר על ידך</string>
++    <string name="preset_notice">%1$s משתמשת ב%2$s, הגדרה מוכנה של Sable. אפשר לשנות בתאימות אפליקציות.</string>
++    <string name="app_layout">פריסת האפליקציה</string>
++    <string name="app_size">גודל האפליקציה</string>
++    <string name="app_size_help">טקסט וסמלים קטנים יותר באפליקציה הזו בלבד</string>
++    <string name="landscape_video">וידאו לרוחב</string>
++    <string name="reset_to_preset">חזרה להגדרה המוכנה של Sable</string>
++    <string name="reset_to_square">חזרה לריבוע</string>
++    <string name="applies_next_time">נשמר. יחול בפעם הבאה ש%1$s תהיה בחזית.</string>
++    <string name="press_enter_to_confirm">יש ללחוץ Enter לאישור: %1$s</string>
++    <string name="page_hint">↑↓ שורה · ←→ שינוי · Enter בפריסה: מותאם · Esc חזרה</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ja/strings.xml
+index f7d7286..00d9e36 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ja/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">先に画面互換性で %1$s の警告を確認してください。</string>
+     <string name="not_changed_the_profile_could">変更なし。プロファイルを保存できませんでした。</string>
+     <string name="auto_rotate">自動回転</string>
++    <string name="app_compatibility">アプリ互換性</string>
++    <string name="apps_set_by_sable">Sable が設定したアプリ %1$s 件</string>
++    <string name="col_app">アプリ</string>
++    <string name="col_layout">レイアウト</string>
++    <string name="col_size">サイズ</string>
++    <string name="col_video">動画</string>
++    <string name="layout_square">正方形</string>
++    <string name="layout_square_help">ネイティブ 720×720</string>
++    <string name="layout_tall_phone">縦長スマホ</string>
++    <string name="layout_tall_phone_help">720×1440、左右に余白</string>
++    <string name="layout_custom">カスタム</string>
++    <string name="layout_custom_help">独自のサイズと形</string>
++    <string name="video_fit">フィット</string>
++    <string name="video_fit_help">横向きでは動画が横幅いっぱいに表示</string>
++    <string name="video_keep_layout">レイアウトを維持</string>
++    <string name="video_keep_layout_help">横向きでもアプリのレイアウトを維持</string>
++    <string name="sable_preset">Sable プリセット</string>
++    <string name="works_as_is">そのまま動作</string>
++    <string name="set_by_you">ユーザー設定</string>
++    <string name="preset_notice">%1$s は Sable プリセットの %2$s を使用しています。アプリ互換性で変更できます。</string>
++    <string name="app_layout">アプリのレイアウト</string>
++    <string name="app_size">アプリのサイズ</string>
++    <string name="app_size_help">このアプリだけ文字とアイコンを小さく</string>
++    <string name="landscape_video">横向きの動画</string>
++    <string name="reset_to_preset">Sable プリセットに戻す</string>
++    <string name="reset_to_square">正方形に戻す</string>
++    <string name="applies_next_time">保存しました。次に %1$s が前面に来たときに適用されます。</string>
++    <string name="press_enter_to_confirm">Enter で確定: %1$s</string>
++    <string name="page_hint">↑↓ 行 · ←→ 変更 · レイアウトで Enter: カスタム · Esc 戻る</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ko/strings.xml
+index 27398f3..a0b4d08 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ko/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">먼저 화면 호환성에서 %1$s의 경고를 확인하세요.</string>
+     <string name="not_changed_the_profile_could">변경되지 않음: 프로필을 저장할 수 없습니다.</string>
+     <string name="auto_rotate">자동 회전</string>
++    <string name="app_compatibility">앱 호환성</string>
++    <string name="apps_set_by_sable">Sable이 설정한 앱 %1$s개</string>
++    <string name="col_app">앱</string>
++    <string name="col_layout">레이아웃</string>
++    <string name="col_size">크기</string>
++    <string name="col_video">동영상</string>
++    <string name="layout_square">정사각형</string>
++    <string name="layout_square_help">기본 720×720</string>
++    <string name="layout_tall_phone">긴 폰</string>
++    <string name="layout_tall_phone_help">720×1440, 양옆 여백</string>
++    <string name="layout_custom">사용자 지정</string>
++    <string name="layout_custom_help">직접 정한 크기와 모양</string>
++    <string name="video_fit">맞춤</string>
++    <string name="video_fit_help">가로로 돌리면 동영상이 너비를 채움</string>
++    <string name="video_keep_layout">레이아웃 유지</string>
++    <string name="video_keep_layout_help">가로로 돌려도 앱 레이아웃 유지</string>
++    <string name="sable_preset">Sable 프리셋</string>
++    <string name="works_as_is">그대로 작동</string>
++    <string name="set_by_you">직접 설정함</string>
++    <string name="preset_notice">%1$s은(는) Sable 프리셋인 %2$s을(를) 사용합니다. 앱 호환성에서 바꿀 수 있습니다.</string>
++    <string name="app_layout">앱 레이아웃</string>
++    <string name="app_size">앱 크기</string>
++    <string name="app_size_help">이 앱에서만 글자와 아이콘을 작게</string>
++    <string name="landscape_video">가로 동영상</string>
++    <string name="reset_to_preset">Sable 프리셋으로 재설정</string>
++    <string name="reset_to_square">정사각형으로 재설정</string>
++    <string name="applies_next_time">저장했습니다. 다음에 %1$s이(가) 앞에 올 때 적용됩니다.</string>
++    <string name="press_enter_to_confirm">확인하려면 Enter: %1$s</string>
++    <string name="page_hint">↑↓ 행 · ←→ 변경 · 레이아웃에서 Enter: 사용자 지정 · Esc 뒤로</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-nl/strings.xml
+index 8e32f01..3e6d3ed 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-nl/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">Bevestig eerst de waarschuwingen voor %1$s in Schermcompatibiliteit.</string>
+     <string name="not_changed_the_profile_could">Niet gewijzigd: opslaan van het profiel mislukt.</string>
+     <string name="auto_rotate">Automatisch draaien</string>
++    <string name="app_compatibility">App-compatibiliteit</string>
++    <string name="apps_set_by_sable">%1$s apps ingesteld door Sable</string>
++    <string name="col_app">App</string>
++    <string name="col_layout">Indeling</string>
++    <string name="col_size">Grootte</string>
++    <string name="col_video">Video</string>
++    <string name="layout_square">Vierkant</string>
++    <string name="layout_square_help">Origineel 720×720</string>
++    <string name="layout_tall_phone">Hoge telefoon</string>
++    <string name="layout_tall_phone_help">720×1440, zijbalken</string>
++    <string name="layout_custom">Aangepast</string>
++    <string name="layout_custom_help">Je eigen grootte en vorm</string>
++    <string name="video_fit">Passend</string>
++    <string name="video_fit_help">Liggend vult de video de breedte</string>
++    <string name="video_keep_layout">Indeling houden</string>
++    <string name="video_keep_layout_help">Liggend houdt de app zijn indeling</string>
++    <string name="sable_preset">Sable-voorinstelling</string>
++    <string name="works_as_is">Werkt zoals het is</string>
++    <string name="set_by_you">Door jou ingesteld</string>
++    <string name="preset_notice">%1$s gebruikt %2$s, een Sable-voorinstelling. Wijzig het in App-compatibiliteit.</string>
++    <string name="app_layout">App-indeling</string>
++    <string name="app_size">App-grootte</string>
++    <string name="app_size_help">Kleinere tekst en pictogrammen alleen in deze app</string>
++    <string name="landscape_video">Liggende video</string>
++    <string name="reset_to_preset">Terug naar de Sable-voorinstelling</string>
++    <string name="reset_to_square">Terug naar Vierkant</string>
++    <string name="applies_next_time">Opgeslagen. Geldt de volgende keer dat %1$s vooraan staat.</string>
++    <string name="press_enter_to_confirm">Druk op Enter om te bevestigen: %1$s</string>
++    <string name="page_hint">↑↓ rij · ←→ wijzigen · Enter op Indeling: Aangepast · Esc terug</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pl/strings.xml
+index 27539a2..662fabe 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pl/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">Najpierw potwierdź ostrzeżenia dla %1$s w Zgodność wyświetlacza.</string>
+     <string name="not_changed_the_profile_could">Bez zmian. Nie udało się zapisać profilu.</string>
+     <string name="auto_rotate">Autoobracanie</string>
++    <string name="app_compatibility">Zgodność aplikacji</string>
++    <string name="apps_set_by_sable">%1$s aplikacji ustawionych przez Sable</string>
++    <string name="col_app">Aplikacja</string>
++    <string name="col_layout">Układ</string>
++    <string name="col_size">Rozmiar</string>
++    <string name="col_video">Wideo</string>
++    <string name="layout_square">Kwadrat</string>
++    <string name="layout_square_help">Natywny 720×720</string>
++    <string name="layout_tall_phone">Wysoki telefon</string>
++    <string name="layout_tall_phone_help">720×1440, paski boczne</string>
++    <string name="layout_custom">Własny</string>
++    <string name="layout_custom_help">Własny rozmiar i kształt</string>
++    <string name="video_fit">Dopasuj</string>
++    <string name="video_fit_help">Poziomo wideo wypełnia szerokość</string>
++    <string name="video_keep_layout">Zachowaj układ</string>
++    <string name="video_keep_layout_help">Poziomo aplikacja zachowuje układ</string>
++    <string name="sable_preset">Ustawienie Sable</string>
++    <string name="works_as_is">Działa bez zmian</string>
++    <string name="set_by_you">Ustawione przez Ciebie</string>
++    <string name="preset_notice">%1$s używa %2$s, ustawienia Sable. Zmień je w Zgodności aplikacji.</string>
++    <string name="app_layout">Układ aplikacji</string>
++    <string name="app_size">Rozmiar aplikacji</string>
++    <string name="app_size_help">Mniejszy tekst i ikony tylko w tej aplikacji</string>
++    <string name="landscape_video">Wideo poziomo</string>
++    <string name="reset_to_preset">Przywróć ustawienie Sable</string>
++    <string name="reset_to_square">Przywróć Kwadrat</string>
++    <string name="applies_next_time">Zapisano. Zadziała, gdy %1$s następnym razem będzie na pierwszym planie.</string>
++    <string name="press_enter_to_confirm">Naciśnij Enter, aby potwierdzić: %1$s</string>
++    <string name="page_hint">↑↓ wiersz · ←→ zmień · Enter na Układzie: Własny · Esc wstecz</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pt/strings.xml
+index f5dc4e9..b5042cf 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pt/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">Confirme primeiro os avisos de %1$s em Compatibilidade de tela.</string>
+     <string name="not_changed_the_profile_could">Sem alterações. Não foi possível armazenar o perfil.</string>
+     <string name="auto_rotate">Girar automaticamente</string>
++    <string name="app_compatibility">Compatibilidade de apps</string>
++    <string name="apps_set_by_sable">%1$s apps ajustados pelo Sable</string>
++    <string name="col_app">App</string>
++    <string name="col_layout">Layout</string>
++    <string name="col_size">Tamanho</string>
++    <string name="col_video">Vídeo</string>
++    <string name="layout_square">Quadrado</string>
++    <string name="layout_square_help">Nativo 720×720</string>
++    <string name="layout_tall_phone">Telefone alto</string>
++    <string name="layout_tall_phone_help">720×1440, barras laterais</string>
++    <string name="layout_custom">Personalizado</string>
++    <string name="layout_custom_help">Seu próprio tamanho e forma</string>
++    <string name="video_fit">Ajustar</string>
++    <string name="video_fit_help">Na horizontal, o vídeo ocupa a largura</string>
++    <string name="video_keep_layout">Manter layout</string>
++    <string name="video_keep_layout_help">Na horizontal, o app mantém o layout</string>
++    <string name="sable_preset">Predefinição Sable</string>
++    <string name="works_as_is">Funciona como está</string>
++    <string name="set_by_you">Ajustado por você</string>
++    <string name="preset_notice">%1$s usa %2$s, uma predefinição Sable. Mude em Compatibilidade de apps.</string>
++    <string name="app_layout">Layout do app</string>
++    <string name="app_size">Tamanho do app</string>
++    <string name="app_size_help">Texto e ícones menores só neste app</string>
++    <string name="landscape_video">Vídeo na horizontal</string>
++    <string name="reset_to_preset">Voltar à predefinição Sable</string>
++    <string name="reset_to_square">Voltar a Quadrado</string>
++    <string name="applies_next_time">Salvo. Vale na próxima vez que %1$s vier para a frente.</string>
++    <string name="press_enter_to_confirm">Pressione Enter para confirmar: %1$s</string>
++    <string name="page_hint">↑↓ linha · ←→ mudar · Enter em Layout: Personalizado · Esc voltar</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ru/strings.xml
+index 97fe9d5..082c372 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ru/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">Сначала подтвердите предупреждения для %1$s в «Совместимость экрана».</string>
+     <string name="not_changed_the_profile_could">Не изменено. Не удалось сохранить профиль.</string>
+     <string name="auto_rotate">Автоповорот</string>
++    <string name="app_compatibility">Совместимость приложений</string>
++    <string name="apps_set_by_sable">Приложений, настроенных Sable: %1$s</string>
++    <string name="col_app">Приложение</string>
++    <string name="col_layout">Макет</string>
++    <string name="col_size">Размер</string>
++    <string name="col_video">Видео</string>
++    <string name="layout_square">Квадрат</string>
++    <string name="layout_square_help">Родной 720×720</string>
++    <string name="layout_tall_phone">Высокий телефон</string>
++    <string name="layout_tall_phone_help">720×1440, боковые поля</string>
++    <string name="layout_custom">Свой</string>
++    <string name="layout_custom_help">Свой размер и форма</string>
++    <string name="video_fit">Вписать</string>
++    <string name="video_fit_help">Горизонтально видео заполняет ширину</string>
++    <string name="video_keep_layout">Сохранить макет</string>
++    <string name="video_keep_layout_help">Горизонтально приложение сохраняет макет</string>
++    <string name="sable_preset">Пресет Sable</string>
++    <string name="works_as_is">Работает как есть</string>
++    <string name="set_by_you">Настроено вами</string>
++    <string name="preset_notice">%1$s использует %2$s, пресет Sable. Изменить можно в «Совместимости приложений».</string>
++    <string name="app_layout">Макет приложения</string>
++    <string name="app_size">Размер приложения</string>
++    <string name="app_size_help">Мельче текст и значки только в этом приложении</string>
++    <string name="landscape_video">Видео горизонтально</string>
++    <string name="reset_to_preset">Вернуть пресет Sable</string>
++    <string name="reset_to_square">Вернуть Квадрат</string>
++    <string name="applies_next_time">Сохранено. Применится, когда %1$s снова окажется на экране.</string>
++    <string name="press_enter_to_confirm">Нажмите Enter для подтверждения: %1$s</string>
++    <string name="page_hint">↑↓ строка · ←→ изменить · Enter на Макете: Свой · Esc назад</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-sv/strings.xml
+index b770863..22da0d5 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-sv/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">Bekräfta först varningarna för %1$s i Skärmkompatibilitet.</string>
+     <string name="not_changed_the_profile_could">Ingen ändring. Kunde inte lagra profilen.</string>
+     <string name="auto_rotate">Automatisk rotation</string>
++    <string name="app_compatibility">Appkompatibilitet</string>
++    <string name="apps_set_by_sable">%1$s appar inställda av Sable</string>
++    <string name="col_app">App</string>
++    <string name="col_layout">Layout</string>
++    <string name="col_size">Storlek</string>
++    <string name="col_video">Video</string>
++    <string name="layout_square">Kvadrat</string>
++    <string name="layout_square_help">Ursprunglig 720×720</string>
++    <string name="layout_tall_phone">Hög telefon</string>
++    <string name="layout_tall_phone_help">720×1440, sidofält</string>
++    <string name="layout_custom">Anpassad</string>
++    <string name="layout_custom_help">Egen storlek och form</string>
++    <string name="video_fit">Anpassa</string>
++    <string name="video_fit_help">Liggande fyller videon bredden</string>
++    <string name="video_keep_layout">Behåll layout</string>
++    <string name="video_keep_layout_help">Liggande behåller appen sin layout</string>
++    <string name="sable_preset">Sable-förval</string>
++    <string name="works_as_is">Fungerar som den är</string>
++    <string name="set_by_you">Inställd av dig</string>
++    <string name="preset_notice">%1$s använder %2$s, ett Sable-förval. Ändra i Appkompatibilitet.</string>
++    <string name="app_layout">Applayout</string>
++    <string name="app_size">Appstorlek</string>
++    <string name="app_size_help">Mindre text och ikoner bara i den här appen</string>
++    <string name="landscape_video">Liggande video</string>
++    <string name="reset_to_preset">Återställ Sable-förvalet</string>
++    <string name="reset_to_square">Återställ till Kvadrat</string>
++    <string name="applies_next_time">Sparat. Gäller nästa gång %1$s är i förgrunden.</string>
++    <string name="press_enter_to_confirm">Tryck Enter för att bekräfta: %1$s</string>
++    <string name="page_hint">↑↓ rad · ←→ ändra · Enter på Layout: Anpassad · Esc tillbaka</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-tr/strings.xml
+index 650df52..0581f96 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-tr/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">Önce %1$s için uyarıları Ekran uyumluluğu içinde onayla.</string>
+     <string name="not_changed_the_profile_could">Değiştirilmedi: profili saklama başarısız.</string>
+     <string name="auto_rotate">Otomatik döndür</string>
++    <string name="app_compatibility">Uygulama Uyumluluğu</string>
++    <string name="apps_set_by_sable">Sable\'ın ayarladığı %1$s uygulama</string>
++    <string name="col_app">Uygulama</string>
++    <string name="col_layout">Düzen</string>
++    <string name="col_size">Boyut</string>
++    <string name="col_video">Video</string>
++    <string name="layout_square">Kare</string>
++    <string name="layout_square_help">Yerel 720×720</string>
++    <string name="layout_tall_phone">Uzun telefon</string>
++    <string name="layout_tall_phone_help">720×1440, yan çubuklar</string>
++    <string name="layout_custom">Özel</string>
++    <string name="layout_custom_help">Kendi boyutunuz ve şekliniz</string>
++    <string name="video_fit">Sığdır</string>
++    <string name="video_fit_help">Yatayda video genişliği doldurur</string>
++    <string name="video_keep_layout">Düzeni koru</string>
++    <string name="video_keep_layout_help">Yatayda uygulama düzenini korur</string>
++    <string name="sable_preset">Sable ön ayarı</string>
++    <string name="works_as_is">Olduğu gibi çalışır</string>
++    <string name="set_by_you">Sizin ayarınız</string>
++    <string name="preset_notice">%1$s, bir Sable ön ayarı olan %2$s kullanıyor. Uygulama Uyumluluğu\'ndan değiştirin.</string>
++    <string name="app_layout">Uygulama düzeni</string>
++    <string name="app_size">Uygulama boyutu</string>
++    <string name="app_size_help">Yalnızca bu uygulamada daha küçük yazı ve simgeler</string>
++    <string name="landscape_video">Yatay video</string>
++    <string name="reset_to_preset">Sable ön ayarına dön</string>
++    <string name="reset_to_square">Kare\'ye dön</string>
++    <string name="applies_next_time">Kaydedildi. %1$s bir dahaki sefer öne geldiğinde uygulanır.</string>
++    <string name="press_enter_to_confirm">Onaylamak için Enter\'a basın: %1$s</string>
++    <string name="page_hint">↑↓ satır · ←→ değiştir · Düzen\'de Enter: Özel · Esc geri</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ur/strings.xml
+index 14600a4..527f866 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ur/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">پہلے ڈسپلے مطابقت میں %1$s کے انتباہات کی تصدیق کریں۔</string>
+     <string name="not_changed_the_profile_could">تبدیل نہیں ہوا: پروفائل ذخیرہ کرنا ناکام رہا۔</string>
+     <string name="auto_rotate">خودکار گھماؤ</string>
++    <string name="app_compatibility">ایپ مطابقت</string>
++    <string name="apps_set_by_sable">Sable کی ترتیب دی ہوئی %1$s ایپس</string>
++    <string name="col_app">ایپ</string>
++    <string name="col_layout">لے آؤٹ</string>
++    <string name="col_size">سائز</string>
++    <string name="col_video">ویڈیو</string>
++    <string name="layout_square">مربع</string>
++    <string name="layout_square_help">اصل 720×720</string>
++    <string name="layout_tall_phone">لمبا فون</string>
++    <string name="layout_tall_phone_help">720×1440، کنارے کی پٹیاں</string>
++    <string name="layout_custom">حسب منشا</string>
++    <string name="layout_custom_help">آپ کا اپنا سائز اور شکل</string>
++    <string name="video_fit">فٹ</string>
++    <string name="video_fit_help">افقی ہونے پر ویڈیو پوری چوڑائی بھرتی ہے</string>
++    <string name="video_keep_layout">لے آؤٹ رکھیں</string>
++    <string name="video_keep_layout_help">افقی ہونے پر ایپ اپنا لے آؤٹ رکھتی ہے</string>
++    <string name="sable_preset">Sable پری سیٹ</string>
++    <string name="works_as_is">جیسی ہے ویسی چلتی ہے</string>
++    <string name="set_by_you">آپ کی ترتیب</string>
++    <string name="preset_notice">%1$s، Sable پری سیٹ %2$s استعمال کرتی ہے۔ اسے ایپ مطابقت میں بدلیں۔</string>
++    <string name="app_layout">ایپ لے آؤٹ</string>
++    <string name="app_size">ایپ سائز</string>
++    <string name="app_size_help">صرف اس ایپ میں چھوٹا متن اور آئیکن</string>
++    <string name="landscape_video">افقی ویڈیو</string>
++    <string name="reset_to_preset">Sable پری سیٹ پر واپس جائیں</string>
++    <string name="reset_to_square">مربع پر واپس جائیں</string>
++    <string name="applies_next_time">محفوظ ہو گیا۔ اگلی بار %1$s سامنے آنے پر لاگو ہوگا۔</string>
++    <string name="press_enter_to_confirm">تصدیق کے لیے Enter دبائیں: %1$s</string>
++    <string name="page_hint">↑↓ قطار · ←→ بدلیں · لے آؤٹ پر Enter: حسب منشا · Esc واپس</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-zh-rCN/strings.xml
+index 9ba4375..1722008 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-zh-rCN/strings.xml
+@@ -149,4 +149,33 @@
+     <string name="confirm_the_warnings_for_in">请先在显示兼容性中确认 %1$s 的警告。</string>
+     <string name="not_changed_the_profile_could">未更改：无法存储配置文件。</string>
+     <string name="auto_rotate">自动旋转</string>
++    <string name="app_compatibility">应用兼容性</string>
++    <string name="apps_set_by_sable">Sable 已设置 %1$s 个应用</string>
++    <string name="col_app">应用</string>
++    <string name="col_layout">布局</string>
++    <string name="col_size">大小</string>
++    <string name="col_video">视频</string>
++    <string name="layout_square">方形</string>
++    <string name="layout_square_help">原生 720×720</string>
++    <string name="layout_tall_phone">长屏手机</string>
++    <string name="layout_tall_phone_help">720×1440，两侧留边</string>
++    <string name="layout_custom">自定义</string>
++    <string name="layout_custom_help">自定尺寸和形状</string>
++    <string name="video_fit">适应</string>
++    <string name="video_fit_help">横屏时视频填满宽度</string>
++    <string name="video_keep_layout">保持布局</string>
++    <string name="video_keep_layout_help">横屏时应用保持布局</string>
++    <string name="sable_preset">Sable 预设</string>
++    <string name="works_as_is">直接可用</string>
++    <string name="set_by_you">由你设置</string>
++    <string name="preset_notice">%1$s 使用 Sable 预设“%2$s”。可在应用兼容性中更改。</string>
++    <string name="app_layout">应用布局</string>
++    <string name="app_size">应用大小</string>
++    <string name="app_size_help">仅在此应用中缩小文字和图标</string>
++    <string name="landscape_video">横屏视频</string>
++    <string name="reset_to_preset">恢复 Sable 预设</string>
++    <string name="reset_to_square">恢复为方形</string>
++    <string name="applies_next_time">已保存。下次 %1$s 回到前台时生效。</string>
++    <string name="press_enter_to_confirm">按 Enter 确认：%1$s</string>
++    <string name="page_hint">↑↓ 行 · ←→ 更改 · 在布局上按 Enter：自定义 · Esc 返回</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml
+index e74323e..7e381c5 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml
+@@ -150,5 +150,34 @@
+     <string name="confirm_the_warnings_for_in">Confirm the warnings for %1$s in Display compatibility first.</string>
+     <string name="not_changed_the_profile_could">Not changed: the profile could not be stored.</string>
+     <string name="auto_rotate">Auto-rotate</string>
+-    <string name="app_name" translatable="false">App display compatibility</string>
++    <string name="app_name" translatable="false">App Compatibility</string>
++    <string name="app_compatibility">App Compatibility</string>
++    <string name="apps_set_by_sable">%1$s apps set by Sable</string>
++    <string name="col_app">App</string>
++    <string name="col_layout">Layout</string>
++    <string name="col_size">Size</string>
++    <string name="col_video">Video</string>
++    <string name="layout_square">Square</string>
++    <string name="layout_square_help">Native 720×720</string>
++    <string name="layout_tall_phone">Tall phone</string>
++    <string name="layout_tall_phone_help">720×1440, side bars</string>
++    <string name="layout_custom">Custom</string>
++    <string name="layout_custom_help">Your own size and shape</string>
++    <string name="video_fit">Fit</string>
++    <string name="video_fit_help">Turned sideways, the video fills the width</string>
++    <string name="video_keep_layout">Keep layout</string>
++    <string name="video_keep_layout_help">Turned sideways, the app keeps its layout</string>
++    <string name="sable_preset">Sable preset</string>
++    <string name="works_as_is">Works as is</string>
++    <string name="set_by_you">Set by you</string>
++    <string name="preset_notice">%1$s uses %2$s, a Sable preset. Change it in App Compatibility.</string>
++    <string name="app_layout">App layout</string>
++    <string name="app_size">App size</string>
++    <string name="app_size_help">Smaller text and icons in this app only</string>
++    <string name="landscape_video">Landscape video</string>
++    <string name="reset_to_preset">Reset to the Sable preset</string>
++    <string name="reset_to_square">Reset to Square</string>
++    <string name="applies_next_time">Saved. It applies the next time %1$s comes to the front.</string>
++    <string name="press_enter_to_confirm">Press Enter to confirm: %1$s</string>
++    <string name="page_hint">↑↓ row · ←→ change · Enter on Layout: Custom · Esc back</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/AppCompatTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/AppCompatTest.kt
+new file mode 100644
+index 0000000..223b283
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/AppCompatTest.kt
+@@ -0,0 +1,188 @@
++package org.sableos.titan2.displaycompat.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class AppCompatTest {
++    private val native = SizePx(720, 720)
++    private val facts = DisplayFacts(native, 280)
++
++    private fun situation(p: DisplayProfile, landscape: Boolean = false) = Situation(
++        gateOpen = true,
++        setupComplete = true,
++        interactive = true,
++        frontPackage = "com.example",
++        frontProfile = p,
++        systemRotation = SystemRotation.FollowApps,
++        anyAspectProfile = false,
++        landscape = landscape
++    )
++
++    @Test
++    fun layoutsAreSquareTallPhoneOrCustom() {
++        assertEquals(AppLayout.Square, AppLayout.of(DisplayProfile.NATIVE))
++        assertEquals(AppLayout.TallPhone, AppLayout.of(DisplayProfile(canvas = TallCanvas.Tall1x2)))
++        assertEquals(AppLayout.Custom, AppLayout.of(DisplayProfile(canvas = TallCanvas.Tall9x16)))
++        assertEquals(
++            AppLayout.Custom,
++            AppLayout.of(DisplayProfile(profile = AspectProfile.Ratio4x3Letterbox))
++        )
++        // App size and the video choice do not change the layout.
++        assertEquals(
++            AppLayout.TallPhone,
++            AppLayout.of(
++                DisplayProfile(
++                    canvas = TallCanvas.Tall1x2,
++                    appSize = AppSize.Smaller,
++                    fullscreenMediaException = false
++                )
++            )
++        )
++    }
++
++    @Test
++    fun choosingALayoutKeepsSizeAndVideo() {
++        val p = DisplayProfile(appSize = AppSize.Smallest, fullscreenMediaException = false)
++        val tall = AppLayout.apply(p, AppLayout.TallPhone)
++        assertEquals(TallCanvas.Tall1x2, tall.canvas)
++        assertEquals(AppSize.Smallest, tall.appSize)
++        assertFalse(tall.fullscreenMediaException)
++        assertEquals(TallCanvas.Native, AppLayout.apply(tall, AppLayout.Square).canvas)
++        val custom = DisplayProfile(profile = AspectProfile.Ratio4x3Letterbox)
++        assertEquals(custom, AppLayout.apply(custom, AppLayout.Custom))
++    }
++
++    @Test
++    fun appSizeScalesTheDensityOnlyWhileTheAppIsInFront() {
++        assertEquals(
++            238,
++            DisplayPolicy.target(
++                situation(DisplayProfile(appSize = AppSize.Smaller)),
++                facts
++            ).density
++        )
++        assertEquals(
++            210,
++            DisplayPolicy.target(
++                situation(DisplayProfile(appSize = AppSize.Smallest)),
++                facts
++            ).density
++        )
++        assertNull(DisplayPolicy.target(situation(DisplayProfile.NATIVE), facts).density)
++        val away = situation(DisplayProfile(appSize = AppSize.Smallest)).copy(frontPackage = null)
++        assertNull(DisplayPolicy.target(away, facts).density)
++        assertTrue(
++            DisplayPolicy.needsForegroundTracking(listOf(DisplayProfile(appSize = AppSize.Smaller)))
++        )
++    }
++
++    @Test
++    fun sidewaysVideoFitDropsTheTallCanvas() {
++        val tall = DisplayProfile(canvas = TallCanvas.Tall1x2)
++        assertEquals(SizePx(720, 1440), DisplayPolicy.target(situation(tall), facts).size)
++        assertNull(DisplayPolicy.target(situation(tall, landscape = true), facts).size)
++        val keep = tall.copy(fullscreenMediaException = false)
++        assertEquals(
++            SizePx(720, 1440),
++            DisplayPolicy.target(situation(keep, landscape = true), facts).size
++        )
++    }
++
++    @Test
++    fun theCodecKeepsAppSize() {
++        val p = DisplayProfile(canvas = TallCanvas.Tall1x2, appSize = AppSize.Smaller)
++        assertEquals(p, ProfileCodec.decode(ProfileCodec.encode(p)))
++        assertEquals(
++            AppSize.Full,
++            ProfileCodec.decode(
++                ProfileCodec.encode(DisplayProfile(canvas = TallCanvas.Tall1x2))
++            ).appSize
++        )
++    }
++
++    @Test
++    fun presetsParseAndAreGivenOnce() {
++        val presets =
++            Presets.parse(
++                """
++                # comment
++                com.google.android.youtube	tall	fit
++                com.google.android.apps.maps	square
++                com.example.small	square	keep	85
++                not a package	tall
++                com.example.bad	round
++                """.trimIndent()
++            )
++        assertEquals(
++            setOf(
++                "com.google.android.youtube",
++                "com.google.android.apps.maps",
++                "com.example.small"
++            ),
++            presets.keys
++        )
++        assertEquals(
++            AppLayout.TallPhone,
++            AppLayout.of(presets.getValue("com.google.android.youtube"))
++        )
++        assertTrue(presets.getValue("com.google.android.apps.maps").isNative)
++        assertEquals(AppSize.Smaller, presets.getValue("com.example.small").appSize)
++        assertFalse(presets.getValue("com.example.small").fullscreenMediaException)
++        val installed = listOf("com.google.android.youtube", "com.example.small", "com.other")
++        assertEquals(
++            listOf("com.google.android.youtube", "com.example.small"),
++            Presets.toSeed(installed, presets, emptySet(), emptySet())
++        )
++        assertEquals(
++            listOf("com.example.small"),
++            Presets.toSeed(installed, presets, setOf("com.google.android.youtube"), emptySet())
++        )
++        assertEquals(
++            emptyList<String>(),
++            Presets.toSeed(
++                installed,
++                presets,
++                setOf("com.google.android.youtube"),
++                setOf("com.example.small")
++            )
++        )
++    }
++
++    @Test
++    fun theShippedPresetsMatchThePlan() {
++        val text = java.io.File("src/main/res/raw/app_compat_presets.tsv").readText()
++        val presets = Presets.parse(text)
++        listOf(
++            "com.google.android.youtube",
++            "com.instagram.android",
++            "com.zhiliaoapp.musically",
++            "com.facebook.katana"
++        ).forEach {
++            assertEquals(it, AppLayout.TallPhone, AppLayout.of(presets.getValue(it)))
++        }
++        assertEquals(
++            AppLayout.Square,
++            AppLayout.of(presets.getValue("com.google.android.apps.maps"))
++        )
++        assertEquals(
++            AppLayout.Square,
++            AppLayout.of(presets.getValue("com.google.android.projection.gearhead"))
++        )
++    }
++
++    @Test
++    fun thePageStepsBetweenChoices() {
++        val square = DisplayProfile.NATIVE
++        assertEquals(AppLayout.TallPhone, AppLayout.of(AppPage.layoutStep(square, 1)))
++        assertNull(AppPage.step(square, AppPage.Row.Layout, -1))
++        assertEquals(AppSize.Smaller, AppPage.sizeStep(square, 1).appSize)
++        assertNull(AppPage.step(square, AppPage.Row.Size, -1))
++        assertFalse(AppPage.videoStep(square).fullscreenMediaException)
++        assertNull(AppPage.step(square, AppPage.Row.Reset, 1))
++        val custom = DisplayProfile(canvas = TallCanvas.Tall9x16)
++        assertEquals(AppLayout.Square, AppLayout.of(AppPage.layoutStep(custom, -1)))
++    }
++}

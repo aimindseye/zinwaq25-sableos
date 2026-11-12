@@ -13,8 +13,8 @@ Files: `product/q25/microg/` (pins, Soong modules, permission and default files)
 
 | APK | Package | Needed? | What it does |
 |---|---|---|---|
-| microG Services (GmsCore) 0.3.17 | `com.google.android.gms` | Yes | Open-source stand-in for Google Play services: Google sign-in, Cloud Messaging (push), the location API used by maps, and SafetyNet (off) |
-| microG Companion ("FakeStore") 0.3.17 | `com.android.vending` | Yes | Stands in for the Play Store package so apps that look for it start |
+| microG Services (GmsCore) 0.3.18 | `com.google.android.gms` | Yes | Open-source stand-in for Google Play services: Google sign-in, Cloud Messaging (push), the location API used by maps, and SafetyNet (off) |
+| microG Companion ("FakeStore") 0.3.18 | `com.android.vending` | Yes | Stands in for the Play Store package so apps that look for it start |
 | microG Services Framework Proxy (GsfProxy) 0.1.0 | `com.google.android.gsf` | Yes | microG Self-Check's "Google Services Framework" box stays unticked and Aurora Store fails without it on SableOS 2.0, so the installer always installs it; also old Google Cloud to Device Messaging (C2DM) apps |
 | Aurora Store 4.8.4 | `com.aurora.store` | Optional | Installs and updates Play Store apps such as LinkedIn |
 
@@ -146,9 +146,9 @@ Also:
    * **Anonymous**: uses a shared Aurora account. Nothing links the apps to you. Free apps
      only, and the shared account is sometimes rate-limited ("too many requests"); try
      again later.
-   * **Google account**: does not work yet on SableOS 2.0. Neither Aurora's web page nor
-     the microG route below signed in on the owner's Q25 (Q4-MICROG-AURORA); use Anonymous
-     until it is fixed. The route being tested: first open
+   * **Google account**: needs microG 0.3.18 or later. On 0.3.17 Aurora only showed a
+     spinner: microG answered with its "allow Aurora" prompt, which Android would not let
+     Aurora open (Q4-MICROG-AURORA). First open
      **microG Settings**, turn on **Google device registration**, then **Google account >
      Add account** and sign in. Then in Aurora choose **Google**, pick that account, and
      allow Aurora when microG asks. Aurora's **Settings > Network > microG login** must be

@@ -7,6 +7,7 @@ import android.os.UserManager
 import android.util.Log
 import org.sableos.titan2.displaycompat.core.AppStyleController
 import org.sableos.titan2.displaycompat.core.DisplayCompatText
+import org.sableos.titan2.displaycompat.core.DisplayProfile
 import org.sableos.titan2.displaycompat.core.DisplayTools
 import org.sableos.titan2.displaycompat.core.ProfileController
 import org.sableos.titan2.displaycompat.core.ProfileStore
@@ -22,6 +23,8 @@ class DisplayCompatApp : Application() {
     val appStyleStore: AppearanceStyleStore by lazy { AppearanceStyleStore(this) }
     val appStyle: AppStyleController by lazy { AppStyleController(appStyleStore) }
     val toolsSettings: PrefsToolsSettings by lazy { PrefsToolsSettings(this) }
+    val presets: Map<String, DisplayProfile> by lazy { PresetSource.read(this) }
+    val seededPresets: SeededPresets by lazy { SeededPresets(this) }
     val tools: DisplayTools by lazy {
         DisplayTools(WmDisplayPort(contentResolver), toolsSettings, store, controller) { pkg ->
             TraitsResolver(this).resolve(pkg)

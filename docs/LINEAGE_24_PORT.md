@@ -60,6 +60,9 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `frameworks/base/0324-SableOS-Alt-BlackBerry-key-opens-the-system-menu.patch` | new on 24.0 |
 | `frameworks/base/0325-SableOS-optional-wipe-after-10-failed-unlock-tries.patch` | new on 24.0 |
 | `frameworks/base/0326-SableOS-hold-the-Recents-key-for-the-Hub-over-any-app.patch` | new on 24.0 |
+| `frameworks/base/0327-SableOS-PIN-pad-leaves-room-for-the-navigation-bar.patch` | new on 24.0 |
+| `frameworks/base/0328-SableOS-older-code-loading-for-listed-apps-Pluto-TV.patch` | new on 24.0 |
+| `frameworks/base/0329-SableOS-Alt-Shift-P-switches-the-Privacy-Screen-from-any-app.patch` | new on 24.0 |
 | `frameworks/base/0501-SableOS-notification-light-for-every-alerting-channe.patch` | applies as is |
 | `frameworks/base/0550-SableOS-microG-signature-spoofing-on-user-builds-whe.patch` | ported by hand |
 | `kernel/xelex/mt6789/0201-SableOS-report-the-fuel-gauge-s-learned-battery-health.patch` | applies as is |
@@ -67,6 +70,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `kernel/xelex/mt6789/0901-SableOS-let-the-system-set-the-Q25-keyboard-backligh.patch` | applies as is |
 | `kernel/xelex/mt6789/0902-SableOS-no-phantom-Q25-keys-after-the-screen-wakes.patch` | applies as is (driver identical on 24.0) |
 | `kernel/xelex/mt6789/0903-SableOS-double-tap-to-wake-on-the-Q25-touch-panel.patch` | new; the kernel is the same on 24.0 |
+| `kernel/xelex/mt6789/0904-SableOS-no-hiss-on-the-Q25-headphone-jack.patch` | new; the kernel is the same on 24.0 |
 | `lineage-sdk/0150-SableOS-pure-black-dark-theme-by-default.patch` | applies as is |
 | `lineage-sdk/0502-SableOS-default-notification-light-color-unless-the-.patch` | applies as is |
 | `lineage-sdk/0504-SableOS-battery-light-blinks-while-charging-solid-gr.patch` | applies as is |

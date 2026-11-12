@@ -1,8 +1,11 @@
 package io.github.aimindseye.tenseven.platform
 
+import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ColorSpace
 import android.hardware.HardwareBuffer
+import android.os.Build
 import android.util.Log
 
 /**
@@ -34,24 +37,67 @@ internal object SableTaskSnapshots {
             .getOrNull()
     }
 
+    /**
+     * The TaskSnapshotManager call: getTaskSnapshot(taskId, resolution) on Android 17, found by name so
+     * an added flag (a boolean or another int) does not hide it.
+     */
+    private val method: java.lang.reflect.Method? by lazy {
+        val type = managerClass ?: return@lazy null
+        val found =
+            type.methods.filter {
+                it.name == "getTaskSnapshot" && it.parameterTypes.firstOrNull() == Int::class.javaPrimitiveType &&
+                    it.parameterTypes.drop(1).all { p -> p == Int::class.javaPrimitiveType || p == Boolean::class.javaPrimitiveType }
+            }.minByOrNull { it.parameterCount }
+        if (found == null) {
+            val names = type.methods.filter { it.name.contains("Snapshot") }.joinToString { it.toGenericString() }
+            Log.w(TAG, "no usable TaskSnapshotManager.getTaskSnapshot; has: $names")
+        }
+        found
+    }
+
     /** True when this Android has the TaskSnapshotManager call. */
-    fun available(): Boolean =
-        runCatching {
-            managerClass?.getMethod("getTaskSnapshot", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType) != null
-        }.getOrDefault(false)
+    fun available(): Boolean = method != null
+
+    /** Logs [message] once per [key]. */
+    fun note(
+        key: String,
+        message: String,
+    ) {
+        if (synchronized(logged) { logged.add(key) }) Log.i(TAG, message)
+    }
+
+    /** Once: why the home's frames have no live picture (`adb logcat -s SableFrames`). */
+    fun explain(context: Context) {
+        if (!synchronized(logged) { logged.add("explain") }) return
+        val held =
+            listOf("READ_FRAME_BUFFER", "REAL_GET_TASKS", "MANAGE_ACTIVITY_TASKS").joinToString { name ->
+                val ok = context.checkSelfPermission("android.permission.$name") == PackageManager.PERMISSION_GRANTED
+                "$name=" + if (ok) "granted" else "MISSING"
+            }
+        Log.i(TAG, "snapshots: $held, TaskSnapshotManager=${if (available()) "ok" else "missing"}, sdk=${Build.VERSION.SDK_INT}")
+    }
 
     fun snapshot(
         taskId: Int,
         lowResolution: Boolean,
     ): Bitmap? =
         runCatching {
-            val type = managerClass ?: return@runCatching null
+            val call = method ?: return@runCatching null
             val manager = manager() ?: return@runCatching null
-            val method = type.getMethod("getTaskSnapshot", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
-            val snapshot =
-                method.invoke(manager, taskId, if (lowResolution) RESOLUTION_LOW else RESOLUTION_HIGH)
-                    ?: return@runCatching null
-            bitmapOf(snapshot)
+            val resolution = if (lowResolution) RESOLUTION_LOW else RESOLUTION_HIGH
+            val args =
+                listOf<Any>(taskId) +
+                    call.parameterTypes.drop(1).mapIndexed { i, type ->
+                        if (type == Boolean::class.javaPrimitiveType) false else if (i == 0) resolution else 0
+                    }
+            val snapshot = call.invoke(manager, *args.toTypedArray())
+            if (snapshot == null) {
+                if (synchronized(logged) { logged.add("null") }) Log.w(TAG, "${call.name}(task $taskId) returned no snapshot")
+                return@runCatching null
+            }
+            bitmapOf(snapshot) ?: null.also {
+                if (synchronized(logged) { logged.add("nobuffer") }) Log.w(TAG, "snapshot of task $taskId has no hardware buffer")
+            }
         }.onFailure { log("TaskSnapshotManager.getTaskSnapshot", it) }
             .getOrNull()
 
