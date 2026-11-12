@@ -47,8 +47,8 @@ declare -A flavor_dir=()
 prepare_flavor() {
     local name="$1" spec="$SRC/apps/r8/$1" url commit cache work verify gradle_dir
     [[ -f "$spec/upstream.env" && -f "$spec/apply_sable_flavor.py" ]] || sable_fail "no Sable flavor at $spec"
-    url="$(sed -n 's/^[A-Z_]*_REPOSITORY=//p' "$spec/upstream.env" | head -n1)"
-    commit="$(sed -n 's/^[A-Z_]*_COMMIT=//p' "$spec/upstream.env" | head -n1)"
+    url="$(sed -n 's/^[A-Z0-9_]*_REPOSITORY=//p' "$spec/upstream.env" | head -n1)"
+    commit="$(sed -n 's/^[A-Z0-9_]*_COMMIT=//p' "$spec/upstream.env" | head -n1)"
     [[ -n "$url" && "$commit" =~ ^[0-9a-f]{40}$ ]] || sable_fail "$spec/upstream.env lacks *_REPOSITORY or a full *_COMMIT"
     cache="$SABLE_UPSTREAM_CACHE/$name"
     if ! git -C "$cache" cat-file -e "$commit^{commit}" 2>/dev/null; then
@@ -66,7 +66,7 @@ prepare_flavor() {
         [[ -f "$verify" ]] && python3 "$verify" "$work"
     done
     # An upstream whose Gradle project is not at its root names it with *_GRADLE_DIR.
-    gradle_dir="$(sed -n 's/^[A-Z_]*_GRADLE_DIR=//p' "$spec/upstream.env" | head -n1)"
+    gradle_dir="$(sed -n 's/^[A-Z0-9_]*_GRADLE_DIR=//p' "$spec/upstream.env" | head -n1)"
     [[ -z "$gradle_dir" || "$gradle_dir" =~ ^[A-Za-z0-9_][A-Za-z0-9_/-]*$ ]] || sable_fail "$spec/upstream.env: bad *_GRADLE_DIR $gradle_dir"
     work="$work${gradle_dir:+/$gradle_dir}"
     chmod +x "$work/gradlew"
