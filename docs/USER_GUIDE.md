@@ -120,7 +120,8 @@ Nothing is sent or saved from Command: each app opens with the text filled in, a
 | Space / Shift+Space | Page down / up, in the same places as T and B |
 | Back at an app's first screen | Leaves the app running and shows Active Frames, as Home does |
 | N / P | Next / previous conversation in Messages |
-| Recents key | Active Frames |
+| Recents key | Active Frames. Hold it for the Hub over the app you are in (Back returns to the app) |
+| Alt+BlackBerry key | The system menu: Hub, the app's menu, Close, Switch Application, Notifications, Quick Settings |
 | Alt+Shift+R | Next display size for the app in front (App display compatibility) |
 | Alt+Space on the lock screen | Emergency dialer |
 

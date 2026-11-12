@@ -46,6 +46,12 @@ def main() -> None:
         and "SableMailFeed.merge(items)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
         and "SableMailFeed.markRead(context, n)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8"),
         # Back at an app's root shows Active Frames, as Home does (patch_back_to_frames).
+        # Hub over any app (patch_hub_peek).
+        "hub_peek": ".SableHubPeekActivity" in manifest
+        and (root / JAVA / "SableHubPeekActivity.kt").is_file(),
+        # The cover API (patch_frame_covers).
+        "frame_covers": 'android:authorities="org.sableos.launcher.covers"' in manifest
+        and (root / JAVA / "frames/SableCoverProvider.kt").is_file(),
         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
     }

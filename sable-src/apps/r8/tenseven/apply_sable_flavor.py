@@ -726,6 +726,67 @@ def patch_back_to_frames(root: pathlib.Path) -> None:
     )
 
 
+def patch_hub_peek(root: pathlib.Path) -> None:
+    """Hub over any app (2.0 plan, BB10): a panel over the app in front, from holding the Recents key
+    (frameworks/base 0326) or Hub in the Alt+BlackBerry key menu. Not exported: the system and the home
+    start it by its component."""
+    manifest = root / "app/src/main/AndroidManifest.xml"
+    replace_once(
+        manifest,
+        "        <!-- SableOS: first-boot setup's Look step saves the home style. -->\n",
+        "        <!-- SableOS: Hub over any app (hold the Recents key; frameworks/base 0326). -->\n"
+        "        <activity\n"
+        "            android:name=\".SableHubPeekActivity\"\n"
+        "            android:exported=\"false\"\n"
+        "            android:excludeFromRecents=\"true\"\n"
+        "            android:noHistory=\"true\"\n"
+        "            android:taskAffinity=\"\"\n"
+        "            android:theme=\"@android:style/Theme.Translucent.NoTitleBar\" />\n"
+        "        <!-- SableOS: first-boot setup's Look step saves the home style. -->\n",
+        "SABLE_HOME_HUB_PEEK",
+    )
+    shutil.copyfile(HERE / "src/SableHubPeekActivity.kt", root / JAVA / "SableHubPeekActivity.kt")
+    shutil.copyfile(HERE / "src/SableHubPeek.kt", root / JAVA / "conversations/SableHubPeek.kt")
+    (root / TEST / "conversations").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(HERE / "src/SableHubPeekTest.kt", root / TEST / "conversations/SableHubPeekTest.kt")
+
+
+def patch_frame_covers(root: pathlib.Path) -> None:
+    """The cover API (2.0 plan, BB10 Active Frame covers): apps say what their own frame shows through
+    content://org.sableos.launcher.covers (SableCoverProvider); covers are in memory and the caller's own."""
+    frames = root / JAVA / "frames"
+    shutil.copyfile(HERE / "src/SableFrameCovers.kt", frames / "SableFrameCovers.kt")
+    shutil.copyfile(HERE / "src/SableCoverProvider.kt", frames / "SableCoverProvider.kt")
+    (root / TEST / "frames").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(HERE / "src/SableFrameCoversTest.kt", root / TEST / "frames/SableFrameCoversTest.kt")
+    replace_once(
+        frames / "AppSummary.kt",
+        '    Local("Local summary"),\n',
+        '    Local("Local summary"),\n    Cover("App cover"),\n',
+        "SABLE_HOME_COVER_SOURCE",
+    )
+    replace_once(
+        root / JAVA / "platform/AppFrameSummaryRepository.kt",
+        "            buildList {\n                if (allowed) {\n",
+        "            buildList {\n"
+        "                // SableOS cover API: an app's own words for its frame come first.\n"
+        "                addAll(SableFrameCovers.snapshot(now))\n"
+        "                if (allowed) {\n",
+        "SABLE_HOME_COVER_SNAPSHOT",
+    )
+    replace_once(
+        root / "app/src/main/AndroidManifest.xml",
+        "        <!-- SableOS: first-boot setup's Look step saves the home style. -->\n",
+        "        <!-- SableOS cover API: apps say what their own Active Frame shows (in memory only). -->\n"
+        "        <provider\n"
+        "            android:name=\".frames.SableCoverProvider\"\n"
+        "            android:authorities=\"org.sableos.launcher.covers\"\n"
+        "            android:exported=\"true\" />\n"
+        "        <!-- SableOS: first-boot setup's Look step saves the home style. -->\n",
+        "SABLE_HOME_COVER_PROVIDER",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -741,6 +802,8 @@ def main() -> None:
     patch_leftovers(root)
     patch_hub_mail(root)
     patch_back_to_frames(root)
+    patch_hub_peek(root)
+    patch_frame_covers(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 

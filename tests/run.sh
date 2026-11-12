@@ -720,19 +720,25 @@ if command -v javac >/dev/null 2>&1; then
         "$ROOT"/patches/framework/packages/apps/Settings/1617-*.patch)
     (cd "$pt/fb" && git apply --include='*/sable/SableUnlockWipe.java' \
         "$ROOT"/patches/framework/frameworks/base/0325-*.patch)
+    for p in "$ROOT"/patches/framework/frameworks/base/03*.patch; do
+        (cd "$pt/fb" && git apply --include='*/policy/sable/SableCommandKeys.java' "$p")
+    done
     if javac -d "$pt/out" "$pt"/settings/src/com/android/settings/sable/SableAudioCodecs.java \
         "$pt"/settings/src/com/android/settings/sable/SableKeyRemap.java \
         tests/java/settings/com/android/settings/sable/SableKeyRemapTest.java \
         "$pt"/fb/services/devicepolicy/java/com/android/server/devicepolicy/sable/SableUnlockWipe.java \
+        "$pt"/fb/services/core/java/com/android/server/policy/sable/SableCommandKeys.java \
+        tests/java/frameworks/com/android/server/policy/sable/SableHubPeekKeysTest.java \
         tests/java/settings/com/android/settings/sable/SableAudioCodecsTest.java \
         tests/java/frameworks/com/android/server/devicepolicy/sable/SableUnlockWipeTest.java \
         tests/java/junit-shim/org/junit/*.java 2>"$tmp/err" &&
         java -cp "$pt/out" org.junit.Run com.android.settings.sable.SableAudioCodecsTest \
             com.android.settings.sable.SableKeyRemapTest \
-            com.android.server.devicepolicy.sable.SableUnlockWipeTest >"$tmp/out" 2>&1; then
-        pass "Sable Audio, key remapping and unlock wipe rules ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+            com.android.server.devicepolicy.sable.SableUnlockWipeTest \
+            com.android.server.policy.sable.SableHubPeekKeysTest >"$tmp/out" 2>&1; then
+        pass "Sable Audio, key remapping, unlock wipe and Hub peek rules ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
     else
-        fail "Sable Audio, key remapping and unlock wipe rules: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+        fail "Sable Audio, key remapping, unlock wipe and Hub peek rules: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
     fi
 else
     printf 'SKIP  javac not installed (Sable Audio and unlock wipe rules)\n'

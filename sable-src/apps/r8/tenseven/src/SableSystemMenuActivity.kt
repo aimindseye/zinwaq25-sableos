@@ -14,13 +14,13 @@ import io.github.aimindseye.tenseven.platform.RecentTasksRepository
 
 /**
  * SableOS: the BlackBerry 7 style system menu, opened by Alt+BlackBerry key from any app
- * (frameworks/base 0324; owner decision 2026-11-12). Its rows: the app's own menu, Close the app,
+ * (frameworks/base 0324; owner decision 2026-11-12). Its rows: Hub over the app, the app's own menu, Close the app,
  * Switch application (Active Frames), Notifications and Quick Settings. The trackpad moves
  * through them and Enter or a click chooses; Back closes it. On the home the app rows are left
  * out. Added by the SableOS flavor (sable-src/apps/r8/tenseven).
  */
 class SableSystemMenuActivity : Activity() {
-    private enum class Row { AppMenu, Close, Switch, Notifications, QuickSettings }
+    private enum class Row { Hub, AppMenu, Close, Switch, Notifications, QuickSettings }
 
     private var dialog: AlertDialog? = null
 
@@ -30,13 +30,14 @@ class SableSystemMenuActivity : Activity() {
         val appName = front?.let { appLabel(it) }
         val rows =
             if (front == null) {
-                listOf(Row.Switch, Row.Notifications, Row.QuickSettings)
+                listOf(Row.Hub, Row.Switch, Row.Notifications, Row.QuickSettings)
             } else {
                 Row.entries.toList()
             }
         val labels =
             rows.map { row ->
                 when (row) {
+                    Row.Hub -> "Hub"
                     Row.AppMenu -> "$appName menu"
                     Row.Close -> "Close $appName"
                     Row.Switch -> "Switch Application"
@@ -84,6 +85,14 @@ class SableSystemMenuActivity : Activity() {
     ) {
         finish()
         when (row) {
+            Row.Hub -> {
+                runCatching {
+                    startActivity(
+                        Intent(this, SableHubPeekActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+            }
+
             Row.AppMenu -> {
                 sendMenuKeyAfterClosing()
             }

@@ -1,0 +1,94 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 12 Nov 2026 14:00:00 +0000
+Subject: [PATCH] SableOS: hold the Recents key for the Hub over any app
+
+2.0 plan, Hub over apps (BB10's peek): with no LineageOS long-press
+action set for the Recents key (the default), holding it opens the SableOS
+home's Hub panel (SableHubPeekActivity, sable-src/apps/r8/tenseven) over the
+app in front; Back closes it back to that app. A tap still opens Active
+Frames. Never on the keyguard or before setup, and only when the home has
+the panel. Pure policy: SableCommandKeys.isHubPeekAllowed.
+---
+ .../server/policy/PhoneWindowManager.java     | 25 ++++++++++++++++++-
+ .../server/policy/sable/SableCommandKeys.java | 12 +++++++++
+ 2 files changed, 36 insertions(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+index 27cd443..86a53aa 100644
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -1772,6 +1772,20 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+     }
+ 
+     private void appSwitchLongPress() {
++        if (mAppSwitchLongPressAction == Action.NOTHING) {
++            // Sable: Hub over any app, as BB10's peek; never on the keyguard or before setup.
++            if (SableCommandKeys.isHubPeekAllowed(isSableHubPeekAvailable(),
++                    isKeyguardShowingAndNotOccluded(), isUserSetupComplete())) {
++                cancelPreloadRecentApps();
++                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS,
++                        "Recents - Long Press - Sable Hub");
++                startActivityAsUser(new Intent()
++                        .setClassName(SableCommandKeys.START_PACKAGE,
++                                SableCommandKeys.HUB_PEEK_ACTIVITY)
++                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), UserHandle.CURRENT);
++            }
++            return;
++        }
+         if (canPerformKeyAction(mAppSwitchLongPressAction)) {
+             if (mAppSwitchLongPressAction != Action.APP_SWITCH) {
+                 cancelPreloadRecentApps();
+@@ -3061,7 +3075,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+ 
+         @Override
+         public boolean supportLongPress() {
+-            return mAppSwitchLongPressAction != Action.NOTHING;
++            // Sable: with no LineageOS long-press action, holding the Recents key opens the Hub
++            // over the app in front (see appSwitchLongPress).
++            return mAppSwitchLongPressAction != Action.NOTHING || isSableHubPeekAvailable();
+         }
+ 
+         @Override
+@@ -4128,6 +4144,13 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+         mContext.sendBroadcastAsUser(intent, UserHandle.CURRENT);
+     }
+ 
++    /** Sable: whether the SableOS home has its Hub peek (sable-src/apps/r8/tenseven). */
++    private boolean isSableHubPeekAvailable() {
++        final Intent intent = new Intent().setClassName(SableCommandKeys.START_PACKAGE,
++                SableCommandKeys.HUB_PEEK_ACTIVITY);
++        return intent.resolveActivityInfo(mContext.getPackageManager(), 0) != null;
++    }
++
+     /** Sable: Alt+BlackBerry key (see KEYCODE_HOME above). */
+     private void openSableSystemMenu(int displayId) {
+         final Intent intent = new Intent()
+diff --git a/services/core/java/com/android/server/policy/sable/SableCommandKeys.java b/services/core/java/com/android/server/policy/sable/SableCommandKeys.java
+index 74364af..f48be6f 100644
+--- a/services/core/java/com/android/server/policy/sable/SableCommandKeys.java
++++ b/services/core/java/com/android/server/policy/sable/SableCommandKeys.java
+@@ -37,6 +37,9 @@ public final class SableCommandKeys {
+     /** The SableOS home's BlackBerry 7 style system menu (sable-src/apps/r8/tenseven). */
+     public static final String SYSTEM_MENU_ACTIVITY =
+             "io.github.aimindseye.tenseven.SableSystemMenuActivity";
++    /** The SableOS home's Hub over any app, opened by holding the Recents key. */
++    public static final String HUB_PEEK_ACTIVITY =
++            "io.github.aimindseye.tenseven.SableHubPeekActivity";
+     /** Sable Start (the BB10 and BB7 home). */
+     public static final String START_PACKAGE = "org.sableos.launcher";
+ 
+@@ -71,4 +74,13 @@ public final class SableCommandKeys {
+                 && (metaState & META_ALT_ON) != 0
+                 && (metaState & OTHER_MODIFIERS) == 0;
+     }
++
++    /**
++     * Holding the Recents key opens the Hub over the app in front when the home has it, the lock
++     * screen is not up and setup is done (the Hub never shows over the keyguard).
++     */
++    public static boolean isHubPeekAllowed(boolean available, boolean keyguardShowing,
++            boolean setupComplete) {
++        return available && !keyguardShowing && setupComplete;
++    }
+ }

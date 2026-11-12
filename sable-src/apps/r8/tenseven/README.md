@@ -44,6 +44,28 @@ without a new intent. `patch_back_to_frames` adds `SableBackToFrames.kt`: as the
 whether another app took the screen (REAL_GET_TASKS), and when it comes back for that reason it shows
 Active Frames, as Home does. Returning from the home's own screens or from screen off changes nothing.
 
+Hub over any app (2.0 plan, BB10's peek): `patch_hub_peek` adds `SableHubPeekActivity`, a panel over the
+app in front with the newest conversations, unread first (`SableHubPeek`, unit-tested). Holding the
+Recents key opens it (frameworks/base 0326), and so does Hub, the first row of the Alt+BlackBerry key
+menu. Enter opens a conversation in its app, Open Hub shows the full Hub, and Back returns to the app.
+
+Cover API (2.0 plan, BB10 Active Frame covers): `patch_frame_covers` adds the
+`content://org.sableos.launcher.covers` provider. An app says what its own Active Frame shows:
+
+```kotlin
+context.contentResolver.call(
+    Uri.parse("content://org.sableos.launcher.covers"), "setCover", null,
+    bundleOf("title" to "Messages", "detail" to "Anna: see you at six"),
+)
+// and "clearCover" with no extras to remove it
+```
+
+The cover always belongs to the calling package (Android's checked calling package, never a request
+field), is kept in memory only, is bounded to a 60-character title and 240 characters of text, is hidden
+while the phone is locked, and lapses after 24 hours unless set again. It shows on the app's frame ahead
+of notification and media summaries. An app targeting Android 11 or later lists
+`<provider android:authorities="org.sableos.launcher.covers" />` under `<queries>`.
+
 The APK is platform-signed but not privileged (`platformapp`), as Sable Start was. The framework
 overlay grants it notification listener access on first boot, so Hub fills without a setup step.
 
