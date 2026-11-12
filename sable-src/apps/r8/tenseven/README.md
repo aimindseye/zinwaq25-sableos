@@ -63,6 +63,13 @@ Home status (owner, 2026-11-12): `patch_status_icons` renames TenSeven's "Text" 
 Icons, so Launcher settings > Home status reads Dials, Icons, Hidden everywhere. The saved value stays
 `text`, so a phone keeps its choice.
 
+Extra dim (owner, 2026-11-12): the Q25 backlight has about 25 hardware steps and its lowest is still
+bright, which only the kernel can change. `patch_extra_dim` adds `SableExtraDim` (unit-tested): with manual
+brightness at the slider's bottom (0..255 value at or below 2) the home turns on Android's Extra dim
+(`reduce_bright_colors_activated`, strength 50 when never set) and turns it off when the slider moves up.
+Extra dim the person turned on themselves is left alone. Launcher settings > Home readability > Extra dim at
+lowest brightness switches it off. The home holds WRITE_SECURE_SETTINGS for this (platform certificate).
+
 Cover API (2.0 plan, BB10 Active Frame covers): `patch_frame_covers` adds the
 `content://org.sableos.launcher.covers` provider. An app says what its own Active Frame shows:
 

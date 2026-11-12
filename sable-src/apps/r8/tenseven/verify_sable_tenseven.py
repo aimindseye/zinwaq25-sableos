@@ -59,6 +59,8 @@ def main() -> None:
         and "SableHubMoreControl()" in (root / JAVA / "ui/HubCompactBar.kt").read_text(encoding="utf-8"),
         # Home status reads Dials, Icons, Hidden (patch_status_icons).
         "status_icons": 'Icons("text")' in (root / JAVA / "model/HomeStatusMode.kt").read_text(encoding="utf-8"),
+        # Extra dim at the bottom of the brightness slider (patch_extra_dim).
+        "extra_dim": "android.permission.WRITE_SECURE_SETTINGS" in manifest and "SableExtraDim.start(this)" in activity,
         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
     }

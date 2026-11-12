@@ -834,6 +834,47 @@ def patch_status_icons(root: pathlib.Path) -> None:
     )
 
 
+def patch_extra_dim(root: pathlib.Path) -> None:
+    """Dimmer than the panel's lowest step (owner, 2026-11-12): with the brightness slider at the bottom the
+    home turns on Android's Extra dim, and turns it off when the slider moves up (SableExtraDim)."""
+    shutil.copyfile(HERE / "src/SableExtraDim.kt", root / JAVA / "platform/SableExtraDim.kt")
+    (root / TEST / "platform").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(HERE / "src/SableExtraDimTest.kt", root / TEST / "platform/SableExtraDimTest.kt")
+    replace_once(
+        root / "app/src/main/AndroidManifest.xml",
+        '    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n',
+        '    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n'
+        "    <!-- SableOS: Extra dim at the bottom of the brightness slider (platform certificate). -->\n"
+        '    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />\n',
+        "SABLE_HOME_EXTRA_DIM_PERMISSION",
+    )
+    replace_once(
+        root / JAVA / "SableStartActivity.kt",
+        "        StartText.t.bindTo(this)\n",
+        "        StartText.t.bindTo(this)\n"
+        "        io.github.aimindseye.tenseven.platform.SableExtraDim.start(this)\n",
+        "SABLE_HOME_EXTRA_DIM_START",
+    )
+    replace_once(
+        root / JAVA / "LauncherSettingsActivity.kt",
+        "    Settings2ReadabilityOptions(state)\n",
+        "    Settings2ReadabilityOptions(state)\n"
+        "    run {\n"
+        "        val dimContext = androidx.compose.ui.platform.LocalContext.current\n"
+        "        var extraDim by remember { mutableStateOf(io.github.aimindseye.tenseven.platform.SableExtraDim.isEnabled(dimContext)) }\n"
+        "        SwitchRow(\n"
+        '            "Extra dim at lowest brightness",\n'
+        '            "With the brightness slider at the bottom, Android\'s Extra dim makes the screen dimmer than the panel goes",\n'
+        "            extraDim,\n"
+        "        ) {\n"
+        "            extraDim = it\n"
+        "            io.github.aimindseye.tenseven.platform.SableExtraDim.setEnabled(dimContext, it)\n"
+        "        }\n"
+        "    }\n",
+        "SABLE_HOME_EXTRA_DIM_SETTING",
+    )
+
+
 def patch_hub_keep(root: pathlib.Path) -> None:
     """Hub after the JL10 review (owner, 2026-11-12): items kept until deleted, Unread and date sections,
     each app with its count and Priority Hub in Views, a ⋮ menu, Mark Unread, Delete, and Hub settings for
@@ -1027,6 +1068,7 @@ def main() -> None:
     patch_frame_covers(root)
     patch_hub_keep(root)
     patch_status_icons(root)
+    patch_extra_dim(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 

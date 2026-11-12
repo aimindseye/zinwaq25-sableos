@@ -1,17 +1,17 @@
 diff --git a/patches/README.md b/patches/README.md
-index fd1637f..c3ea4c2 100644
+index fd1637f..80737f5 100644
 --- a/patches/README.md
 +++ b/patches/README.md
 @@ -328,3 +328,4 @@ Reserved:
    0187 drops the in-app WebView marks (`; wv`, `Version/4.0`) from Sable Browser's user agent (`standaloneUserAgent`, unit-tested). Google refuses sign-in to pages that look like an app's WebView (`disallowed_useragent`), which can stop Sable Mail's "Sign in with Google" when it opens in Sable Browser.
    0188 makes Back at an app's root show Active Frames in the SableOS home, as Home does (2.0 plan, BB10): `patch_back_to_frames` adds `SableBackToFrames` (unit-tested), which notes as the home stops whether another app took the screen (REAL_GET_TASKS) and shows Active Frames when the home comes back for that reason; returning from the home's own screens or from screen off changes nothing.
    0189 adds the Hub over any app and the cover API to the SableOS home (2.0 plan, BB10, owner decision 2026-11-12): `patch_hub_peek` adds `SableHubPeekActivity` (rows by `SableHubPeek`, unit-tested), opened by holding the Recents key (frameworks/base 0326) or Hub, the new first row of the Alt+BlackBerry key menu; `patch_frame_covers` adds `content://org.sableos.launcher.covers` (`SableCoverProvider`, `SableFrameCovers`, unit-tested), where an app sets or clears its own frame's cover (title and line, the caller's own, in memory, hidden while locked, 24-hour lapse), shown ahead of notification and media summaries.
-+  0190 is the Hub after the JL10 review (owner, 2026-11-12; ideas only, no JLauncher code or art): `patch_hub_keep` adds `SableHubKeep` (unit-tested), so the Hub keeps items until deleted (on the phone only, at most 1000, ongoing notices and Sable Mail not kept), lists Unread then Today, Yesterday and dated sections under "All accounts · N unread", adds Priority Hub and each app with its unread count to Views, a ⋮ menu (Hub settings, Email accounts, Calendar accounts, Connected apps), Mark unread, Priority Hub entries and Delete in the row menu, and Hub settings for Keep messages, Every message on its own, System notifications and the Sable Mail and DAVx⁵ account links; `patch_status_icons` names the home status choices Dials, Icons, Hidden everywhere (the saved value stays `text`); the AppSummary test now counts the cover source as local.
++  0190 is the Hub after the JL10 review (owner, 2026-11-12; ideas only, no JLauncher code or art): `patch_hub_keep` adds `SableHubKeep` (unit-tested), so the Hub keeps items until deleted (on the phone only, at most 1000, ongoing notices and Sable Mail not kept), lists Unread then Today, Yesterday and dated sections under "All accounts · N unread", adds Priority Hub and each app with its unread count to Views, a ⋮ menu (Hub settings, Email accounts, Calendar accounts, Connected apps), Mark unread, Priority Hub entries and Delete in the row menu, and Hub settings for Keep messages, Every message on its own, System notifications and the Sable Mail and DAVx⁵ account links; `patch_status_icons` names the home status choices Dials, Icons, Hidden everywhere (the saved value stays `text`); `patch_extra_dim` adds `SableExtraDim` (unit-tested), which turns on Android's Extra dim with manual brightness at the slider's bottom and off when it moves up, leaving Extra dim the person set alone (the Q25 panel's lowest backlight step is still bright); the AppSummary test now counts the cover source as local.
 diff --git a/sable-src/apps/r8/tenseven/README.md b/sable-src/apps/r8/tenseven/README.md
-index 8068f67..8f6f72d 100644
+index 8068f67..888eaab 100644
 --- a/sable-src/apps/r8/tenseven/README.md
 +++ b/sable-src/apps/r8/tenseven/README.md
-@@ -49,6 +49,20 @@ app in front with the newest conversations, unread first (`SableHubPeek`, unit-t
+@@ -49,6 +49,27 @@ app in front with the newest conversations, unread first (`SableHubPeek`, unit-t
  Recents key opens it (frameworks/base 0326), and so does Hub, the first row of the Alt+BlackBerry key
  menu. Enter opens a conversation in its app, Open Hub shows the full Hub, and Back returns to the app.
  
@@ -29,11 +29,18 @@ index 8068f67..8f6f72d 100644
 +Icons, so Launcher settings > Home status reads Dials, Icons, Hidden everywhere. The saved value stays
 +`text`, so a phone keeps its choice.
 +
++Extra dim (owner, 2026-11-12): the Q25 backlight has about 25 hardware steps and its lowest is still
++bright, which only the kernel can change. `patch_extra_dim` adds `SableExtraDim` (unit-tested): with manual
++brightness at the slider's bottom (0..255 value at or below 2) the home turns on Android's Extra dim
++(`reduce_bright_colors_activated`, strength 50 when never set) and turns it off when the slider moves up.
++Extra dim the person turned on themselves is left alone. Launcher settings > Home readability > Extra dim at
++lowest brightness switches it off. The home holds WRITE_SECURE_SETTINGS for this (platform certificate).
++
  Cover API (2.0 plan, BB10 Active Frame covers): `patch_frame_covers` adds the
  `content://org.sableos.launcher.covers` provider. An app says what its own Active Frame shows:
  
 diff --git a/sable-src/apps/r8/tenseven/apply_sable_flavor.py b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
-index 8b257aa..f82e02a 100644
+index 8b257aa..06bec13 100644
 --- a/sable-src/apps/r8/tenseven/apply_sable_flavor.py
 +++ b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
 @@ -765,6 +765,13 @@ def patch_frame_covers(root: pathlib.Path) -> None:
@@ -50,7 +57,7 @@ index 8b257aa..f82e02a 100644
      replace_once(
          root / JAVA / "platform/AppFrameSummaryRepository.kt",
          "            buildList {\n                if (allowed) {\n",
-@@ -787,6 +794,220 @@ def patch_frame_covers(root: pathlib.Path) -> None:
+@@ -787,6 +794,261 @@ def patch_frame_covers(root: pathlib.Path) -> None:
      )
  
  
@@ -91,6 +98,47 @@ index 8b257aa..f82e02a 100644
 +        "HomeStatusMode.Text,",
 +        "HomeStatusMode.Icons,",
 +        "SABLE_HOME_STATUS_ICONS_TEST",
++    )
++
++
++def patch_extra_dim(root: pathlib.Path) -> None:
++    """Dimmer than the panel's lowest step (owner, 2026-11-12): with the brightness slider at the bottom the
++    home turns on Android's Extra dim, and turns it off when the slider moves up (SableExtraDim)."""
++    shutil.copyfile(HERE / "src/SableExtraDim.kt", root / JAVA / "platform/SableExtraDim.kt")
++    (root / TEST / "platform").mkdir(parents=True, exist_ok=True)
++    shutil.copyfile(HERE / "src/SableExtraDimTest.kt", root / TEST / "platform/SableExtraDimTest.kt")
++    replace_once(
++        root / "app/src/main/AndroidManifest.xml",
++        '    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n',
++        '    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n'
++        "    <!-- SableOS: Extra dim at the bottom of the brightness slider (platform certificate). -->\n"
++        '    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />\n',
++        "SABLE_HOME_EXTRA_DIM_PERMISSION",
++    )
++    replace_once(
++        root / JAVA / "SableStartActivity.kt",
++        "        StartText.t.bindTo(this)\n",
++        "        StartText.t.bindTo(this)\n"
++        "        io.github.aimindseye.tenseven.platform.SableExtraDim.start(this)\n",
++        "SABLE_HOME_EXTRA_DIM_START",
++    )
++    replace_once(
++        root / JAVA / "LauncherSettingsActivity.kt",
++        "    Settings2ReadabilityOptions(state)\n",
++        "    Settings2ReadabilityOptions(state)\n"
++        "    run {\n"
++        "        val dimContext = androidx.compose.ui.platform.LocalContext.current\n"
++        "        var extraDim by remember { mutableStateOf(io.github.aimindseye.tenseven.platform.SableExtraDim.isEnabled(dimContext)) }\n"
++        "        SwitchRow(\n"
++        '            "Extra dim at lowest brightness",\n'
++        '            "With the brightness slider at the bottom, Android\'s Extra dim makes the screen dimmer than the panel goes",\n'
++        "            extraDim,\n"
++        "        ) {\n"
++        "            extraDim = it\n"
++        "            io.github.aimindseye.tenseven.platform.SableExtraDim.setEnabled(dimContext, it)\n"
++        "        }\n"
++        "    }\n",
++        "SABLE_HOME_EXTRA_DIM_SETTING",
 +    )
 +
 +
@@ -271,15 +319,161 @@ index 8b257aa..f82e02a 100644
  def main() -> None:
      if len(sys.argv) != 2:
          fail("usage: apply_sable_flavor.py <tenseven-checkout>")
-@@ -804,6 +1025,8 @@ def main() -> None:
+@@ -804,6 +1066,9 @@ def main() -> None:
      patch_back_to_frames(root)
      patch_hub_peek(root)
      patch_frame_covers(root)
 +    patch_hub_keep(root)
 +    patch_status_icons(root)
++    patch_extra_dim(root)
      print("SABLE_HOME_FLAVOR=PASS")
  
  
+diff --git a/sable-src/apps/r8/tenseven/src/SableExtraDim.kt b/sable-src/apps/r8/tenseven/src/SableExtraDim.kt
+new file mode 100644
+index 0000000..de55c33
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableExtraDim.kt
+@@ -0,0 +1,101 @@
++// SableOS: dimmer than the panel's lowest step (owner, 2026-11-12). The Q25 backlight has about 25 hardware
++// steps, and its lowest is still bright. With the slider at the bottom, the home turns on Android's Extra dim
++// (reduce bright colors) and turns it off again when the slider moves up. Extra dim that the person turned on
++// themselves is never touched. Part of the SableOS home flavor.
++package io.github.aimindseye.tenseven.platform
++
++import android.content.Context
++import android.database.ContentObserver
++import android.os.Handler
++import android.os.Looper
++import android.provider.Settings
++
++object SableExtraDim {
++    /** The slider's bottom: Android's 0..255 brightness at or below this counts as "lowest". */
++    const val BOTTOM = 2
++
++    /** Extra dim strength used when the person never set one (0..100). */
++    const val DEFAULT_LEVEL = 50
++
++    const val PREFS = "sable_extra_dim"
++    const val KEY_ENABLED = "enabled"
++    private const val KEY_OURS = "ours"
++    private const val ACTIVATED = "reduce_bright_colors_activated"
++    private const val LEVEL = "reduce_bright_colors_level"
++
++    enum class Action { TurnOn, TurnOff }
++
++    /** What to do now. [ours] is true when the home itself turned Extra dim on. */
++    fun decide(
++        enabled: Boolean,
++        manual: Boolean,
++        brightness: Int,
++        active: Boolean,
++        ours: Boolean,
++    ): Action? {
++        val bottom = enabled && manual && brightness <= BOTTOM
++        return when {
++            bottom && !active -> Action.TurnOn
++            !bottom && active && ours -> Action.TurnOff
++            else -> null
++        }
++    }
++
++    private var started = false
++
++    fun start(context: Context) {
++        if (started) return
++        started = true
++        val app = context.applicationContext
++        val observer =
++            object : ContentObserver(Handler(Looper.getMainLooper())) {
++                override fun onChange(selfChange: Boolean) {
++                    apply(app)
++                }
++            }
++        val resolver = app.contentResolver
++        runCatching {
++            resolver.registerContentObserver(Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS), false, observer)
++            resolver.registerContentObserver(Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS_MODE), false, observer)
++        }
++        apply(app)
++    }
++
++    fun isEnabled(context: Context): Boolean =
++        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, true)
++
++    fun setEnabled(
++        context: Context,
++        enabled: Boolean,
++    ) {
++        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, enabled).apply()
++        apply(context.applicationContext)
++    }
++
++    fun apply(context: Context) {
++        runCatching {
++            val resolver = context.contentResolver
++            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
++            val manual =
++                Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE, 0) ==
++                    Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
++            val brightness = Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS, 255)
++            val active = Settings.Secure.getInt(resolver, ACTIVATED, 0) == 1
++            val ours = prefs.getBoolean(KEY_OURS, false)
++            when (decide(isEnabled(context), manual, brightness, active, ours)) {
++                Action.TurnOn -> {
++                    if (Settings.Secure.getString(resolver, LEVEL) == null) {
++                        Settings.Secure.putInt(resolver, LEVEL, DEFAULT_LEVEL)
++                    }
++                    Settings.Secure.putInt(resolver, ACTIVATED, 1)
++                    prefs.edit().putBoolean(KEY_OURS, true).apply()
++                }
++                Action.TurnOff -> {
++                    Settings.Secure.putInt(resolver, ACTIVATED, 0)
++                    prefs.edit().putBoolean(KEY_OURS, false).apply()
++                }
++                null -> if (!active && ours) prefs.edit().putBoolean(KEY_OURS, false).apply()
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/tenseven/src/SableExtraDimTest.kt b/sable-src/apps/r8/tenseven/src/SableExtraDimTest.kt
+new file mode 100644
+index 0000000..9006ce6
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableExtraDimTest.kt
+@@ -0,0 +1,32 @@
++package io.github.aimindseye.tenseven.platform
++
++import io.github.aimindseye.tenseven.platform.SableExtraDim.Action
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class SableExtraDimTest {
++    @Test
++    fun theBottomOfTheSliderTurnsExtraDimOn() {
++        assertEquals(Action.TurnOn, SableExtraDim.decide(enabled = true, manual = true, brightness = 1, active = false, ours = false))
++        assertEquals(Action.TurnOn, SableExtraDim.decide(enabled = true, manual = true, brightness = 0, active = false, ours = false))
++    }
++
++    @Test
++    fun movingUpTurnsOffOnlyWhatTheHomeTurnedOn() {
++        assertEquals(Action.TurnOff, SableExtraDim.decide(enabled = true, manual = true, brightness = 40, active = true, ours = true))
++        assertNull(SableExtraDim.decide(enabled = true, manual = true, brightness = 40, active = true, ours = false))
++    }
++
++    @Test
++    fun autoBrightnessAndTheSwitchLeaveItOff() {
++        assertNull(SableExtraDim.decide(enabled = true, manual = false, brightness = 1, active = false, ours = false))
++        assertNull(SableExtraDim.decide(enabled = false, manual = true, brightness = 1, active = false, ours = false))
++        assertEquals(Action.TurnOff, SableExtraDim.decide(enabled = false, manual = true, brightness = 1, active = true, ours = true))
++    }
++
++    @Test
++    fun aboveTheBottomNothingChanges() {
++        assertNull(SableExtraDim.decide(enabled = true, manual = true, brightness = SableExtraDim.BOTTOM + 1, active = false, ours = false))
++    }
++}
 diff --git a/sable-src/apps/r8/tenseven/src/SableHubKeep.kt b/sable-src/apps/r8/tenseven/src/SableHubKeep.kt
 new file mode 100644
 index 0000000..fd9f1ff
@@ -1182,7 +1376,7 @@ index 0000000..303bdcf
 +    }.getOrDefault(false)
 +}
 diff --git a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
-index d163a02..81e686d 100644
+index d163a02..6d18b2d 100644
 --- a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
 +++ b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
 @@ -14,6 +14,7 @@ def main() -> None:
@@ -1204,7 +1398,7 @@ index d163a02..81e686d 100644
          # Back at an app's root shows Active Frames, as Home does (patch_back_to_frames).
          # Hub over any app (patch_hub_peek).
          "hub_peek": ".SableHubPeekActivity" in manifest
-@@ -52,6 +53,12 @@ def main() -> None:
+@@ -52,6 +53,14 @@ def main() -> None:
          # The cover API (patch_frame_covers).
          "frame_covers": 'android:authorities="org.sableos.launcher.covers"' in manifest
          and (root / JAVA / "frames/SableCoverProvider.kt").is_file(),
@@ -1214,6 +1408,8 @@ index d163a02..81e686d 100644
 +        and "SableHubMoreControl()" in (root / JAVA / "ui/HubCompactBar.kt").read_text(encoding="utf-8"),
 +        # Home status reads Dials, Icons, Hidden (patch_status_icons).
 +        "status_icons": 'Icons("text")' in (root / JAVA / "model/HomeStatusMode.kt").read_text(encoding="utf-8"),
++        # Extra dim at the bottom of the brightness slider (patch_extra_dim).
++        "extra_dim": "android.permission.WRITE_SECURE_SETTINGS" in manifest and "SableExtraDim.start(this)" in activity,
          "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
          and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
      }
