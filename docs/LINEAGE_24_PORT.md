@@ -62,6 +62,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `frameworks/base/0326-SableOS-hold-the-Recents-key-for-the-Hub-over-any-app.patch` | new on 24.0 |
 | `frameworks/base/0327-SableOS-PIN-pad-leaves-room-for-the-navigation-bar.patch` | new on 24.0 |
 | `frameworks/base/0328-SableOS-older-code-loading-for-listed-apps-Pluto-TV.patch` | new on 24.0 |
+| `frameworks/base/0329-SableOS-Alt-Shift-P-switches-the-Privacy-Screen-from-any-app.patch` | new on 24.0 |
 | `frameworks/base/0501-SableOS-notification-light-for-every-alerting-channe.patch` | applies as is |
 | `frameworks/base/0550-SableOS-microG-signature-spoofing-on-user-builds-whe.patch` | ported by hand |
 | `kernel/xelex/mt6789/0201-SableOS-report-the-fuel-gauge-s-learned-battery-health.patch` | applies as is |
