@@ -146,8 +146,9 @@ Also:
    * **Anonymous**: uses a shared Aurora account. Nothing links the apps to you. Free apps
      only, and the shared account is sometimes rate-limited ("too many requests"); try
      again later.
-   * **Google account**: sign in through microG, not Aurora's web page (Google often
-     refuses that page, and on the 2.0 build only Anonymous worked that way). First open
+   * **Google account**: does not work yet on SableOS 2.0. Neither Aurora's web page nor
+     the microG route below signed in on the owner's Q25 (Q4-MICROG-AURORA); use Anonymous
+     until it is fixed. The route being tested: first open
      **microG Settings**, turn on **Google device registration**, then **Google account >
      Add account** and sign in. Then in Aurora choose **Google**, pick that account, and
      allow Aurora when microG asks. Aurora's **Settings > Network > microG login** must be
