@@ -875,6 +875,47 @@ def patch_extra_dim(root: pathlib.Path) -> None:
     )
 
 
+def patch_home_access(root: pathlib.Path) -> None:
+    """The home is part of SableOS, so it needs no permission setup (owner, 2026-11-12): SableHomeAccess
+    grants it Contacts, Calendar, Photos, Call log, Notifications, notification access, usage access and
+    display over other apps once, and Launcher settings drop the Active Frames page."""
+    shutil.copyfile(HERE / "src/SableHomeAccess.kt", root / JAVA / "platform/SableHomeAccess.kt")
+    shutil.copyfile(HERE / "src/SableHomeAccessTest.kt", root / TEST / "platform/SableHomeAccessTest.kt")
+    replace_once(
+        root / "app/src/main/AndroidManifest.xml",
+        "    <!-- SableOS: Extra dim at the bottom of the brightness slider (platform certificate). -->\n",
+        "    <!-- SableOS: the home grants itself its permissions once (SableHomeAccess, platform certificate). -->\n"
+        '    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS" tools:ignore="ProtectedPermissions" />\n'
+        '    <uses-permission android:name="android.permission.MANAGE_APP_OPS_MODES" tools:ignore="ProtectedPermissions" />\n'
+        '    <uses-permission android:name="android.permission.MANAGE_NOTIFICATION_LISTENERS" tools:ignore="ProtectedPermissions" />\n'
+        "    <!-- SableOS: Extra dim at the bottom of the brightness slider (platform certificate). -->\n",
+        "SABLE_HOME_ACCESS_PERMISSIONS",
+    )
+    replace_once(
+        root / JAVA / "SableStartActivity.kt",
+        "        io.github.aimindseye.tenseven.platform.SableExtraDim.start(this)\n",
+        "        io.github.aimindseye.tenseven.platform.SableExtraDim.start(this)\n"
+        "        io.github.aimindseye.tenseven.platform.SableHomeAccess.ensure(this)\n",
+        "SABLE_HOME_ACCESS_START",
+    )
+    settings = root / JAVA / "LauncherSettingsActivity.kt"
+    replace_once(
+        settings,
+        '    Settings2Category(\n        "frames",\n        "5. Active Frames Settings",\n'
+        '        "Media, app summaries and controls",\n    ) { select(it) }\n',
+        "",
+        "SABLE_HOME_ACCESS_NO_FRAMES_PAGE",
+    )
+    replace_once(settings, '"6. Apps & Features"', '"5. Apps & Features"', "SABLE_HOME_ACCESS_RENUMBER_APPS")
+    replace_once(settings, '"7. Review & Finish"', '"6. Review & Finish"', "SABLE_HOME_ACCESS_RENUMBER_REVIEW")
+    replace_once(
+        settings,
+        '    Card("Active Frames", "Saved media and recent-app settings", false) {\n        select("frames")\n    }\n',
+        "",
+        "SABLE_HOME_ACCESS_NO_FRAMES_CARD",
+    )
+
+
 def patch_hub_keep(root: pathlib.Path) -> None:
     """Hub after the JL10 review (owner, 2026-11-12): items kept until deleted, Unread and date sections,
     each app with its count and Priority Hub in Views, a ⋮ menu, Mark Unread, Delete, and Hub settings for
@@ -1069,6 +1110,7 @@ def main() -> None:
     patch_hub_keep(root)
     patch_status_icons(root)
     patch_extra_dim(root)
+    patch_home_access(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 

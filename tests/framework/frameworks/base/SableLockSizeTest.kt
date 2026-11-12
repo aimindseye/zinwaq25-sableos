@@ -40,10 +40,10 @@ class SableLockSizeTest {
     fun largerSizesStopWhereTheScreenIsFull() {
         val large = SableLockSize.compactPad(2, q25, q25, statusBar, 1f, true)!!
         val larger = SableLockSize.compactPad(3, q25, q25, statusBar, 1f, true)!!
-        assertEquals(48, large.keyHeight)
-        assertEquals(48, larger.keyHeight)
+        assertEquals(44, large.keyHeight)
+        assertEquals(44, larger.keyHeight)
         assertTrue(larger.digitSize > large.digitSize)
-        assertEquals(44, SableLockSize.compactPad(3, q25, q25, statusBar, 1.3f, true)!!.keyHeight)
+        assertEquals(40, SableLockSize.compactPad(3, q25, q25, statusBar, 1.3f, true)!!.keyHeight)
     }
 
     @Test
@@ -66,7 +66,21 @@ class SableLockSizeTest {
     @Test
     fun aVeryShortWindowNeverGoesUnderTheMinimum() {
         val pad = SableLockSize.compactPad(3, 300, 300, statusBar, 1.3f, true)!!
-        assertEquals(32, pad.keyHeight)
+        assertEquals(28, pad.keyHeight)
         assertEquals(32, pad.entryHeight)
+    }
+
+    @Test
+    fun everyRowFitsAboveANavigationBar() {
+        // Status bar plus a three-button navigation bar: the window's height counts both.
+        val bars = statusBar + 48
+        for (level in 0..3) {
+            for (font in floatArrayOf(0.9f, 1.0f, 1.15f, 1.3f)) {
+                for (fallback in booleanArrayOf(true, false)) {
+                    val pad = SableLockSize.compactPad(level, q25, q25, bars, font, fallback)!!
+                    assertTrue("level $level font $font", pad.totalHeight(font, fallback) <= q25 - bars)
+                }
+            }
+        }
     }
 }

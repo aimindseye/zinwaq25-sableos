@@ -1,0 +1,268 @@
+diff --git a/patches/README.md b/patches/README.md
+index 80737f5..b357a85 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -258,6 +258,7 @@
+ | `framework/frameworks/base/0324-SableOS-Alt-BlackBerry-key-opens-the-system-menu.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0323 | Owner decisions 2026-11-12: holding the BlackBerry key opens Cosgrove, the assistant (Lineage platform overlay `config_longPressOnHomeBehavior` 3, SEARCH), and Alt+BlackBerry key opens a BlackBerry 7 style system menu in the SableOS home (`SableSystemMenuActivity`, sable-src/apps/r8/tenseven): the app's menu, Close the app, Switch Application, Notifications, Quick Settings. Without that menu the app gets MENU. Off the keyguard and after setup; repeats and release consumed. Pure policy: `SableCommandKeys.isMenuChord`. |
+ | `framework/frameworks/base/0325-SableOS-optional-wipe-after-10-failed-unlock-tries.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0324 | Optional wipe after 10 failed unlock tries (Picture Password plan, as on BlackBerry; off by default, Settings 1615): with `sable_wipe_after_failed_unlocks` on for the system user, DevicePolicyManagerService reports a limit of ten (or a stricter admin's) to the lock screen, so Android's own dialogs warn before the last tries, and the main user's tenth failed PIN or password in a row factory resets the phone, keeping factory reset protection. A device admin's own wipe still wins. Pure rules: `SableUnlockWipe`, unit-tested. |
+ | `framework/frameworks/base/0326-SableOS-hold-the-Recents-key-for-the-Hub-over-any-app.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0325 | Hub over apps (2.0 plan, BB10's peek): with no LineageOS long-press action on the Recents key (the default, `config_longPressOnAppSwitchBehavior` 0), holding it opens the SableOS home's Hub panel (`SableHubPeekActivity`, sable-src/apps/r8/tenseven) over the app in front, and Back returns to that app; a tap still opens Active Frames. Never on the keyguard or before setup, and only when the home has the panel. Pure policy: `SableCommandKeys.isHubPeekAllowed` (host test `tests/java/frameworks/.../SableHubPeekKeysTest.java`). |
++| `framework/frameworks/base/0327-SableOS-PIN-pad-leaves-room-for-the-navigation-bar.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0326 | The compact PIN pad (0315) now leaves room for the navigation bar and cutout as well as the status bar (WindowMetrics insets) and for the security container's padding, and keys may shrink to 28 dp high, so the bottom row (Delete, 0, OK) and the emergency button are never under the navigation bar on the Q25 (owner report 2026-11-12); `SableLockSizeTest` checks every size and text size above a 48 dp navigation bar. No authentication code changes. |
+ | `framework/packages/apps/Jelly/1043-SableOS-Browser-keys-follow-the-design-s-T-B-L-and-a.patch` | `1bb5edd564f2adb475fb565373426166f3ca252a` + 1041-1042 | Browser keys on the browser-webview design: single keys after the page declined them are T top, B bottom, L / Shift+L next/previous link, R reader, F or `/` find, Space paging; address and new tab move to Alt+L / Alt+T; Alt+W close tab, Alt+J/K (and Ctrl+Tab / Ctrl+Shift+Tab) switch tabs, Alt+A tab grid; dock hint per mode (start, page, reader). Host tests rewritten. |
+ | `framework/packages/apps/Jelly/1044-SableOS-Browser-start-page-command-dock-reader-mode-.patch` | `1bb5edd564f2adb475fb565373426166f3ca252a` + 1041-1043 | Start page cards (Bookmarks, Private, History, Downloads, keys) with the Sable focus ring instead of autoloading the home page (`default_home_page_autoload` false); command dock with hint line; reader mode (scripted, position kept); tab grid dialog over the app's tasks; private tabs labelled "Private tab" with no Recents screenshot; camera/microphone asks per site (Deny focused) and other permission dialogs focus their negative button. Kotlin compiled with Gradle. |
+ | `framework/packages/apps/FMRadio/1061-SableOS-pure-FM-bridge-protocol-for-Sable-Media.patch` | `095ae21580f2893b1f00f0bd9b503dc766899ad1` | FM in Sable Media: `sable/SableFmProtocol` (pure Java, host-tested in `tests/java/stock-apps/FMRadio`): bridge message numbers, state keys, the 87.5-108 MHz band and the caller policy (own uid, system uid, or `org.sableos.media` installed on the system image). Sable Media keeps the same numbers in `FmModel.kt`; `tests/run.sh` checks they agree. |
+@@ -329,3 +330,4 @@ Reserved:
+   0188 makes Back at an app's root show Active Frames in the SableOS home, as Home does (2.0 plan, BB10): `patch_back_to_frames` adds `SableBackToFrames` (unit-tested), which notes as the home stops whether another app took the screen (REAL_GET_TASKS) and shows Active Frames when the home comes back for that reason; returning from the home's own screens or from screen off changes nothing.
+   0189 adds the Hub over any app and the cover API to the SableOS home (2.0 plan, BB10, owner decision 2026-11-12): `patch_hub_peek` adds `SableHubPeekActivity` (rows by `SableHubPeek`, unit-tested), opened by holding the Recents key (frameworks/base 0326) or Hub, the new first row of the Alt+BlackBerry key menu; `patch_frame_covers` adds `content://org.sableos.launcher.covers` (`SableCoverProvider`, `SableFrameCovers`, unit-tested), where an app sets or clears its own frame's cover (title and line, the caller's own, in memory, hidden while locked, 24-hour lapse), shown ahead of notification and media summaries.
+   0190 is the Hub after the JL10 review (owner, 2026-11-12; ideas only, no JLauncher code or art): `patch_hub_keep` adds `SableHubKeep` (unit-tested), so the Hub keeps items until deleted (on the phone only, at most 1000, ongoing notices and Sable Mail not kept), lists Unread then Today, Yesterday and dated sections under "All accounts · N unread", adds Priority Hub and each app with its unread count to Views, a ⋮ menu (Hub settings, Email accounts, Calendar accounts, Connected apps), Mark unread, Priority Hub entries and Delete in the row menu, and Hub settings for Keep messages, Every message on its own, System notifications and the Sable Mail and DAVx⁵ account links; `patch_status_icons` names the home status choices Dials, Icons, Hidden everywhere (the saved value stays `text`); `patch_extra_dim` adds `SableExtraDim` (unit-tested), which turns on Android's Extra dim with manual brightness at the slider's bottom and off when it moves up, leaving Extra dim the person set alone (the Q25 panel's lowest backlight step is still bright); the AppSummary test now counts the cover source as local.
++  0191 makes the SableOS home need no permission setup (owner, 2026-11-12): `patch_home_access` adds `SableHomeAccess` (unit-tested), which grants the home Contacts, Calendar, Call log, Photos, Notifications, notification access, usage access and display over other apps once on its first start (each item until granted once, so a later "off" stays off; location is left to the person), and drops the Active Frames page from Launcher settings; product/q25 default permissions grant the same runtime permissions at first boot.
+diff --git a/sable-src/apps/r8/tenseven/README.md b/sable-src/apps/r8/tenseven/README.md
+index 888eaab..a872b7e 100644
+--- a/sable-src/apps/r8/tenseven/README.md
++++ b/sable-src/apps/r8/tenseven/README.md
+@@ -70,6 +70,14 @@ brightness at the slider's bottom (0..255 value at or below 2) the home turns on
+ Extra dim the person turned on themselves is left alone. Launcher settings > Home readability > Extra dim at
+ lowest brightness switches it off. The home holds WRITE_SECURE_SETTINGS for this (platform certificate).
+ 
++Home access (owner, 2026-11-12): the home is part of SableOS, so `patch_home_access` adds
++`SableHomeAccess` (unit-tested): on its first start the home grants itself Contacts, Calendar, Call log,
++Photos and Notifications (`grantRuntimePermission`), notification access
++(`setNotificationListenerAccessGranted`), usage access and display over other apps (`AppOpsManager.setMode`),
++with the platform certificate's GRANT_RUNTIME_PERMISSIONS, MANAGE_NOTIFICATION_LISTENERS and
++MANAGE_APP_OPS_MODES. Each item is tried until it is granted once; after that, an "off" from the person stays
++off. Location is left to the person. Launcher settings drop the Active Frames page and its review card.
++
+ Cover API (2.0 plan, BB10 Active Frame covers): `patch_frame_covers` adds the
+ `content://org.sableos.launcher.covers` provider. An app says what its own Active Frame shows:
+ 
+diff --git a/sable-src/apps/r8/tenseven/apply_sable_flavor.py b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+index 06bec13..5d78d7f 100644
+--- a/sable-src/apps/r8/tenseven/apply_sable_flavor.py
++++ b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+@@ -875,6 +875,47 @@ def patch_extra_dim(root: pathlib.Path) -> None:
+     )
+ 
+ 
++def patch_home_access(root: pathlib.Path) -> None:
++    """The home is part of SableOS, so it needs no permission setup (owner, 2026-11-12): SableHomeAccess
++    grants it Contacts, Calendar, Photos, Call log, Notifications, notification access, usage access and
++    display over other apps once, and Launcher settings drop the Active Frames page."""
++    shutil.copyfile(HERE / "src/SableHomeAccess.kt", root / JAVA / "platform/SableHomeAccess.kt")
++    shutil.copyfile(HERE / "src/SableHomeAccessTest.kt", root / TEST / "platform/SableHomeAccessTest.kt")
++    replace_once(
++        root / "app/src/main/AndroidManifest.xml",
++        "    <!-- SableOS: Extra dim at the bottom of the brightness slider (platform certificate). -->\n",
++        "    <!-- SableOS: the home grants itself its permissions once (SableHomeAccess, platform certificate). -->\n"
++        '    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS" tools:ignore="ProtectedPermissions" />\n'
++        '    <uses-permission android:name="android.permission.MANAGE_APP_OPS_MODES" tools:ignore="ProtectedPermissions" />\n'
++        '    <uses-permission android:name="android.permission.MANAGE_NOTIFICATION_LISTENERS" tools:ignore="ProtectedPermissions" />\n'
++        "    <!-- SableOS: Extra dim at the bottom of the brightness slider (platform certificate). -->\n",
++        "SABLE_HOME_ACCESS_PERMISSIONS",
++    )
++    replace_once(
++        root / JAVA / "SableStartActivity.kt",
++        "        io.github.aimindseye.tenseven.platform.SableExtraDim.start(this)\n",
++        "        io.github.aimindseye.tenseven.platform.SableExtraDim.start(this)\n"
++        "        io.github.aimindseye.tenseven.platform.SableHomeAccess.ensure(this)\n",
++        "SABLE_HOME_ACCESS_START",
++    )
++    settings = root / JAVA / "LauncherSettingsActivity.kt"
++    replace_once(
++        settings,
++        '    Settings2Category(\n        "frames",\n        "5. Active Frames Settings",\n'
++        '        "Media, app summaries and controls",\n    ) { select(it) }\n',
++        "",
++        "SABLE_HOME_ACCESS_NO_FRAMES_PAGE",
++    )
++    replace_once(settings, '"6. Apps & Features"', '"5. Apps & Features"', "SABLE_HOME_ACCESS_RENUMBER_APPS")
++    replace_once(settings, '"7. Review & Finish"', '"6. Review & Finish"', "SABLE_HOME_ACCESS_RENUMBER_REVIEW")
++    replace_once(
++        settings,
++        '    Card("Active Frames", "Saved media and recent-app settings", false) {\n        select("frames")\n    }\n',
++        "",
++        "SABLE_HOME_ACCESS_NO_FRAMES_CARD",
++    )
++
++
+ def patch_hub_keep(root: pathlib.Path) -> None:
+     """Hub after the JL10 review (owner, 2026-11-12): items kept until deleted, Unread and date sections,
+     each app with its count and Priority Hub in Views, a ⋮ menu, Mark Unread, Delete, and Hub settings for
+@@ -1069,6 +1110,7 @@ def main() -> None:
+     patch_hub_keep(root)
+     patch_status_icons(root)
+     patch_extra_dim(root)
++    patch_home_access(root)
+     print("SABLE_HOME_FLAVOR=PASS")
+ 
+ 
+diff --git a/sable-src/apps/r8/tenseven/src/SableHomeAccess.kt b/sable-src/apps/r8/tenseven/src/SableHomeAccess.kt
+new file mode 100644
+index 0000000..d401884
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableHomeAccess.kt
+@@ -0,0 +1,120 @@
++// SableOS: the home is part of the system, so it gets what it needs without a setup page (owner,
++// 2026-11-12). Once, on its first start, it grants itself Contacts, Calendar, Photos, Call log and
++// Notifications, notification access (Hub, media and message frames, Peek), usage access (Active Frames)
++// and display over other apps, with the platform certificate's own permissions. Anything the person
++// turns off later stays off: the grant runs again only for what was never granted before.
++// Part of the SableOS home flavor.
++package io.github.aimindseye.tenseven.platform
++
++import android.Manifest
++import android.app.AppOpsManager
++import android.app.NotificationManager
++import android.content.ComponentName
++import android.content.Context
++import android.content.pm.PackageManager
++import android.os.Build
++import android.os.Process
++import android.os.UserHandle
++import android.provider.Settings
++import io.github.aimindseye.tenseven.conversations.ConversationAccess
++import io.github.aimindseye.tenseven.conversations.ConversationListenerService
++
++object SableHomeAccess {
++    private const val PREFS = "sable_home_access"
++    private const val OP_USAGE = "android:get_usage_stats"
++    private const val OP_OVERLAY = "android:system_alert_window"
++
++    /** Runtime permissions the home grants itself once. Location stays the person's choice. */
++    fun runtimePermissions(sdk: Int): List<String> =
++        buildList {
++            add(Manifest.permission.READ_CONTACTS)
++            add(Manifest.permission.READ_CALENDAR)
++            add(Manifest.permission.READ_CALL_LOG)
++            if (sdk >= Build.VERSION_CODES.TIRAMISU) {
++                add(Manifest.permission.READ_MEDIA_IMAGES)
++                add(Manifest.permission.POST_NOTIFICATIONS)
++            } else {
++                add(Manifest.permission.READ_EXTERNAL_STORAGE)
++            }
++        }
++
++    /** Every item, with a key that marks it done. */
++    fun items(sdk: Int): List<String> = runtimePermissions(sdk) + listOf("listener", "usage", "overlay")
++
++    /** The items still to try: never done before, so a later "off" from the person is kept. */
++    fun pending(
++        all: List<String>,
++        done: Set<String>,
++    ): List<String> = all.filter { it !in done }
++
++    fun ensure(context: Context) {
++        val app = context.applicationContext
++        Thread {
++            runCatching { grantPending(app) }
++        }.apply { name = "sable-home-access" }.start()
++    }
++
++    private fun grantPending(context: Context) {
++        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
++        val done = prefs.getStringSet("done", emptySet()).orEmpty()
++        val now = done.toMutableSet()
++        pending(items(Build.VERSION.SDK_INT), done).forEach { item ->
++            val ok =
++                when (item) {
++                    "listener" -> grantListener(context)
++                    "usage" -> grantOp(context, OP_USAGE)
++                    "overlay" -> grantOp(context, OP_OVERLAY) || Settings.canDrawOverlays(context)
++                    else -> grantRuntime(context, item)
++                }
++            if (ok) now += item
++        }
++        if (now != done) prefs.edit().putStringSet("done", now).apply()
++        if ("listener" in now && "listener" !in done) ConversationAccess.requestReconnect(context)
++    }
++
++    private fun grantRuntime(
++        context: Context,
++        permission: String,
++    ): Boolean {
++        if (context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) return true
++        runCatching {
++            PackageManager::class.java
++                .getMethod("grantRuntimePermission", String::class.java, String::class.java, UserHandle::class.java)
++                .invoke(context.packageManager, context.packageName, permission, Process.myUserHandle())
++        }
++        return context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
++    }
++
++    private fun grantOp(
++        context: Context,
++        op: String,
++    ): Boolean {
++        val appOps = context.getSystemService(AppOpsManager::class.java) ?: return false
++        runCatching {
++            AppOpsManager::class.java
++                .getMethod("setMode", String::class.java, Int::class.javaPrimitiveType, String::class.java, Int::class.javaPrimitiveType)
++                .invoke(appOps, op, Process.myUid(), context.packageName, AppOpsManager.MODE_ALLOWED)
++        }
++        return appOps.checkOpNoThrow(op, Process.myUid(), context.packageName) == AppOpsManager.MODE_ALLOWED
++    }
++
++    private fun grantListener(context: Context): Boolean {
++        if (ConversationAccess.isGranted(context)) return true
++        val manager = context.getSystemService(NotificationManager::class.java) ?: return false
++        val component = ComponentName(context, ConversationListenerService::class.java)
++        runCatching {
++            NotificationManager::class.java
++                .getMethod(
++                    "setNotificationListenerAccessGranted",
++                    ComponentName::class.java,
++                    Boolean::class.javaPrimitiveType,
++                    Boolean::class.javaPrimitiveType,
++                ).invoke(manager, component, true, false)
++        }.recoverCatching {
++            NotificationManager::class.java
++                .getMethod("setNotificationListenerAccessGranted", ComponentName::class.java, Boolean::class.javaPrimitiveType)
++                .invoke(manager, component, true)
++        }
++        return ConversationAccess.isGranted(context)
++    }
++}
+diff --git a/sable-src/apps/r8/tenseven/src/SableHomeAccessTest.kt b/sable-src/apps/r8/tenseven/src/SableHomeAccessTest.kt
+new file mode 100644
+index 0000000..0b6e982
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableHomeAccessTest.kt
+@@ -0,0 +1,25 @@
++package io.github.aimindseye.tenseven.platform
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class SableHomeAccessTest {
++    @Test
++    fun theHomeAsksForWhatItsPagesUseButNotLocation() {
++        val items = SableHomeAccess.items(36)
++        assertTrue("android.permission.READ_CONTACTS" in items)
++        assertTrue("android.permission.READ_MEDIA_IMAGES" in items)
++        assertTrue("android.permission.POST_NOTIFICATIONS" in items)
++        assertTrue(items.containsAll(listOf("listener", "usage", "overlay")))
++        assertFalse(items.any { "LOCATION" in it })
++    }
++
++    @Test
++    fun whatWasGrantedOnceIsNeverGrantedAgain() {
++        val all = SableHomeAccess.items(36)
++        assertEquals(all, SableHomeAccess.pending(all, emptySet()))
++        assertEquals(listOf("overlay"), SableHomeAccess.pending(all, (all - "overlay").toSet()))
++    }
++}
+diff --git a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+index 6d18b2d..d2f4c85 100644
+--- a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
++++ b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+@@ -61,6 +61,10 @@ def main() -> None:
+         "status_icons": 'Icons("text")' in (root / JAVA / "model/HomeStatusMode.kt").read_text(encoding="utf-8"),
+         # Extra dim at the bottom of the brightness slider (patch_extra_dim).
+         "extra_dim": "android.permission.WRITE_SECURE_SETTINGS" in manifest and "SableExtraDim.start(this)" in activity,
++        # The home grants itself its permissions, and has no Active Frames settings page (patch_home_access).
++        "home_access": "android.permission.MANAGE_NOTIFICATION_LISTENERS" in manifest
++        and "SableHomeAccess.ensure(this)" in activity
++        and "5. Active Frames Settings" not in (root / JAVA / "LauncherSettingsActivity.kt").read_text(encoding="utf-8"),
+         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
+         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
+     }

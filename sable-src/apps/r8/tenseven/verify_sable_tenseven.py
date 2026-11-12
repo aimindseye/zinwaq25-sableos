@@ -61,6 +61,10 @@ def main() -> None:
         "status_icons": 'Icons("text")' in (root / JAVA / "model/HomeStatusMode.kt").read_text(encoding="utf-8"),
         # Extra dim at the bottom of the brightness slider (patch_extra_dim).
         "extra_dim": "android.permission.WRITE_SECURE_SETTINGS" in manifest and "SableExtraDim.start(this)" in activity,
+        # The home grants itself its permissions, and has no Active Frames settings page (patch_home_access).
+        "home_access": "android.permission.MANAGE_NOTIFICATION_LISTENERS" in manifest
+        and "SableHomeAccess.ensure(this)" in activity
+        and "5. Active Frames Settings" not in (root / JAVA / "LauncherSettingsActivity.kt").read_text(encoding="utf-8"),
         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
     }
