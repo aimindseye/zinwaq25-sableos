@@ -1,0 +1,172 @@
+diff --git a/patches/README.md b/patches/README.md
+index b1c34ef..230bff8 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -183,6 +183,7 @@
+ | `framework/kernel/xelex/mt6789/0902-SableOS-no-phantom-Q25-keys-after-the-screen-wakes.patch` | `2a873a3511ee0eeead1442e60145093192a4535d` + 0201, 0202, 0901 | Keyboard: no phantom keys after the screen wakes. `bbqX0kbd`'s screen-off path cut the keyboard's power (or parked its IRQ) without releasing held keys, so a key or trackpad click down at that moment never got its release and Android repeated it until another key went down; on wake the IRQ came back before the controller's FIFO and `REG_INT` were cleared, and the trackpad's arrow accumulators kept pre-sleep values. Screen off now flushes key work and releases every held key; screen on drains the FIFO, clears `REG_INT` and resets the trackpad state before enabling the IRQ. Num lock is kept. The driver is the same blob on lineage-23.2 and lineage-24.0. Uncompiled; not run on hardware. |
+ | `framework/kernel/xelex/mt6789/0903-SableOS-double-tap-to-wake-on-the-Q25-touch-panel.patch` | `2a873a3511ee0eeead1442e60145093192a4535d` + 0201, 0202, 0901, 0902 | Double-tap to wake: the open `synaptics_dsx` touch driver the Q25 build uses gets a `wake_gesture` module parameter (off by default). When the display powers down with it on (MediaTek's `mtk_disp_notifier`), F12 goes to wakeup-gesture report mode with double tap enabled, its interrupt becomes a wake source and system suspend leaves the sensor awake; a double tap reports `KEY_WAKEUP`, and the display powering up puts F12 back in continuous mode. Touches only `synaptics_dsx_core.c`, so it applies in any order with the earlier kernel patches. Works only if the panel firmware has the F12 wakeup gesture (the driver skips it otherwise) and the panel keeps power with the display off. Uncompiled; not run on hardware. |
+ | `framework/device/xelex/Q25/1501-SableOS-type-on-the-Q25-currency-key.patch` | `1f4e295b5b972bd5e5ea0ec01f8a87154973b464` | $ key: `Q25_keyboard.kcm` gets a `key GRAVE` entry (label, base, Shift and Caps Lock '$'). The keyboard sends scan code 41 (GRAVE) for its printed $ key and the kcm had no entry, so keyboards typed '`' or nothing. Replaces the remapping part of aesophor/q25-gboard-patch without its Alt and A remaps (they would break Sable's Alt shortcuts). Not run on hardware. |
++| `framework/device/xelex/Q25/1502-SableOS-Space-T-and-B-scroll-in-any-app.patch` | `1f4e295b5b972bd5e5ea0ec01f8a87154973b464` + 1501 | System-wide key scrolling (2.0 plan): `Q25_keyboard.kcm` gives plain Space and Shift+Space the fallback keys PAGE_DOWN and PAGE_UP, and plain T and B MOVE_HOME and MOVE_END. Android's input dispatcher sends a keychar map fallback only when the app leaves the key unhandled, so text fields and app shortcuts keep the key; lists, scroll views and web pages then page and jump. Sable apps keep their own SableListKeys handling. |
+ | `framework/device/xelex/mt6789-common/1502-SableOS-let-Settings-drive-the-Q25-keyboard-firmware.patch` | `fd308035cdbf58f5de46515fb0a0e97fe5453980` (lineage-24.0; the Q25 sepolicy moved to mt6789-common) | Keyboard firmware: labels `/proc/firmware_upgrade` `proc_sable_kbd_fw` (it was generic `proc`, root only) and lets `system_app` read and write it, for Settings 1501. Not compiled. |
+ | `framework/device/xelex/mt6789-common/1503-SableOS-let-init-set-the-Q25-trackpad-mode.patch` | `fd308035cdbf58f5de46515fb0a0e97fe5453980` + 1502 | Trackpad mode: labels `/proc/q20_switch_key_mouse` `proc_sable_trackpad` (mode 0777 but generic `proc`, root only, as seen on 2026-11-05) and lets init write it and `system_app` only check it exists, for Settings 1605 and `sable-trackpad.rc`. Not compiled. |
+ | `framework/frameworks/base/0301-SableOS-keyboard-notification-commands-in-the-shade.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` | KF-A: contextual single-key commands on a focused notification row (Space, R, D, Z, M, C, H); text input always wins. H opens Sable Start's Hub page (`org.sableos.start.action.SHOW_HUB`) on the Messages tab for messages and mail, Calls for calls, else All (pure `notification/sable/SableHubRoute.java`, host-tested). New router, command glue and a router unit test; three small hooks in `ExpandableNotificationRow`. |
+@@ -324,3 +325,4 @@ Reserved:
+   0185 marks DAVx⁵ as needing its git submodule (`DAVX5_SUBMODULES=yes`: the `l10n` translations, at the commit the pinned upstream records), which `scripts/build-apps.sh` now fetches.
+   0186 makes Hub's mark-read reach Sable Mail (owner, 2026-11-12): `SableMailHubProvider.update` marks one message read (`messages/<id>`, `read=1`, home and Sable Hub only, `Flag.SEEN` through `MessagingControllerWrapper`, so it syncs to the server), and the home flavor's `ConversationHub.markRead` calls `SableMailFeed.markRead`; both verifiers check it.
+   0187 drops the in-app WebView marks (`; wv`, `Version/4.0`) from Sable Browser's user agent (`standaloneUserAgent`, unit-tested). Google refuses sign-in to pages that look like an app's WebView (`disallowed_useragent`), which can stop Sable Mail's "Sign in with Google" when it opens in Sable Browser.
++  0188 makes Back at an app's root show Active Frames in the SableOS home, as Home does (2.0 plan, BB10): `patch_back_to_frames` adds `SableBackToFrames` (unit-tested), which notes as the home stops whether another app took the screen (REAL_GET_TASKS) and shows Active Frames when the home comes back for that reason; returning from the home's own screens or from screen off changes nothing.
+diff --git a/sable-src/apps/r8/tenseven/README.md b/sable-src/apps/r8/tenseven/README.md
+index 63b695a..5649fc8 100644
+--- a/sable-src/apps/r8/tenseven/README.md
++++ b/sable-src/apps/r8/tenseven/README.md
+@@ -39,6 +39,11 @@ notifications are left out of the Hub, so each email shows once. Enter on an ema
+ Mail (`org.sableos.mail.action.OPEN_MESSAGE`). Mail read in Sable Mail shows but is not counted as new, and marking an email read in the Hub marks
+ it read in Sable Mail too.
+ 
++Back at an app's root (2.0 plan, BB10): Android moves the app's task back and brings the home forward
++without a new intent. `patch_back_to_frames` adds `SableBackToFrames.kt`: as the home stops it notes
++whether another app took the screen (REAL_GET_TASKS), and when it comes back for that reason it shows
++Active Frames, as Home does. Returning from the home's own screens or from screen off changes nothing.
++
+ The APK is platform-signed but not privileged (`platformapp`), as Sable Start was. The framework
+ overlay grants it notification listener access on first boot, so Hub fills without a setup step.
+ 
+diff --git a/sable-src/apps/r8/tenseven/apply_sable_flavor.py b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+index eed67fc..2081e83 100644
+--- a/sable-src/apps/r8/tenseven/apply_sable_flavor.py
++++ b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+@@ -685,6 +685,47 @@ def patch_hub_mail(root: pathlib.Path) -> None:
+     )
+ 
+ 
++def patch_back_to_frames(root: pathlib.Path) -> None:
++    """Back at an app's root returns to Active Frames, as Home does (2.0 plan, BB10)."""
++    shutil.copyfile(HERE / "src/SableBackToFrames.kt", root / JAVA / "frames/SableBackToFrames.kt")
++    (root / TEST / "frames").mkdir(parents=True, exist_ok=True)
++    shutil.copyfile(HERE / "src/SableBackToFramesTest.kt", root / TEST / "frames/SableBackToFramesTest.kt")
++    activity = root / JAVA / "SableStartActivity.kt"
++    replace_once(
++        activity,
++        "    override fun onResume() {\n        super.onResume()\n",
++        "    // SableOS: set as the home stops for another app; Back at that app's root then shows Active Frames.\n"
++        "    private var leftForAnotherApp = false\n"
++        "\n"
++        "    override fun onResume() {\n"
++        "        super.onResume()\n"
++        "        if (leftForAnotherApp) {\n"
++        "            leftForAnotherApp = false\n"
++        "            screen.homeGeneration.intValue += 1\n"
++        "            endBb10Detour()\n"
++        "        }\n",
++        "SABLE_HOME_BACK_TO_FRAMES_RESUME",
++    )
++    replace_once(
++        activity,
++        "        super.onNewIntent(intent)\n        setIntent(intent)\n",
++        "        super.onNewIntent(intent)\n        setIntent(intent)\n        leftForAnotherApp = false\n",
++        "SABLE_HOME_BACK_TO_FRAMES_NEW_INTENT",
++    )
++    replace_once(
++        activity,
++        "    override fun onStop() {\n",
++        "    override fun onStop() {\n"
++        "        leftForAnotherApp =\n"
++        "            io.github.aimindseye.tenseven.frames.SableBackToFrames.leftForAnotherApp(\n"
++        "                packageName,\n"
++        "                io.github.aimindseye.tenseven.frames.SableBackToFrames.topPackage(this),\n"
++        "                isChangingConfigurations,\n"
++        "            )\n",
++        "SABLE_HOME_BACK_TO_FRAMES_STOP",
++    )
++
++
+ def main() -> None:
+     if len(sys.argv) != 2:
+         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
+@@ -699,6 +740,7 @@ def main() -> None:
+     patch_system_menu(root)
+     patch_leftovers(root)
+     patch_hub_mail(root)
++    patch_back_to_frames(root)
+     print("SABLE_HOME_FLAVOR=PASS")
+ 
+ 
+diff --git a/sable-src/apps/r8/tenseven/src/SableBackToFrames.kt b/sable-src/apps/r8/tenseven/src/SableBackToFrames.kt
+new file mode 100644
+index 0000000..dc8e67e
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableBackToFrames.kt
+@@ -0,0 +1,32 @@
++package io.github.aimindseye.tenseven.frames
++
++import android.app.ActivityManager
++import android.content.Context
++
++/**
++ * SableOS (2.0 plan, BB10 Active Frames): Back at an app's root returns to Active Frames, as Home does.
++ * Android moves the app's task to the back and brings the home forward without a new intent, so the home
++ * notes, as it stops, whether another app took the screen, and shows Active Frames when it comes back for
++ * that reason. Returning from the home's own screens, or from the screen turning off, changes nothing.
++ * The home holds REAL_GET_TASKS (patch_frames), so it can see the task in front.
++ */
++object SableBackToFrames {
++    /** True when the home stopped because [topPackage]'s app came in front of it. */
++    fun leftForAnotherApp(
++        ownPackage: String,
++        topPackage: String?,
++        changingConfigurations: Boolean,
++    ): Boolean = !changingConfigurations && !topPackage.isNullOrEmpty() && topPackage != ownPackage
++
++    /** The package of the activity in front now, or null when it cannot be read. */
++    @Suppress("DEPRECATION")
++    fun topPackage(context: Context): String? =
++        runCatching {
++            context
++                .getSystemService(ActivityManager::class.java)
++                ?.getRunningTasks(1)
++                ?.firstOrNull()
++                ?.topActivity
++                ?.packageName
++        }.getOrNull()
++}
+diff --git a/sable-src/apps/r8/tenseven/src/SableBackToFramesTest.kt b/sable-src/apps/r8/tenseven/src/SableBackToFramesTest.kt
+new file mode 100644
+index 0000000..e2984a3
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableBackToFramesTest.kt
+@@ -0,0 +1,21 @@
++package io.github.aimindseye.tenseven.frames
++
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class SableBackToFramesTest {
++    private val home = "org.sableos.launcher"
++
++    @Test
++    fun anotherAppInFrontMeansFramesOnReturn() {
++        assertTrue(SableBackToFrames.leftForAnotherApp(home, "org.sableos.messages", false))
++    }
++
++    @Test
++    fun ownScreensScreenOffAndRotationChangeNothing() {
++        assertFalse(SableBackToFrames.leftForAnotherApp(home, home, false))
++        assertFalse(SableBackToFrames.leftForAnotherApp(home, null, false))
++        assertFalse(SableBackToFrames.leftForAnotherApp(home, "org.sableos.messages", true))
++    }
++}
+diff --git a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+index 6adec8c..4a7ccf7 100644
+--- a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
++++ b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+@@ -45,6 +45,9 @@ def main() -> None:
+         "hub_mail": 'android:authorities="org.sableos.mail.hub"' in manifest
+         and "SableMailFeed.merge(items)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
+         and "SableMailFeed.markRead(context, n)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8"),
++        # Back at an app's root shows Active Frames, as Home does (patch_back_to_frames).
++        "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
++        and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
+     }
+     bad = [name for name, ok in checks.items() if not ok]
+     if bad:

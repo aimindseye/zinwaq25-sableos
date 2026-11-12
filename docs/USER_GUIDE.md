@@ -116,8 +116,9 @@ Nothing is sent or saved from Command: each app opens with the text filled in, a
 | Key | Does |
 | --- | --- |
 | Menu | The screen's full menu, with Close last |
-| T / B | Top / bottom of a list (Messages, Hub, Mail, Sound Profiles) |
-| Space / Shift+Space | Page down / up in lists |
+| T / B | Top / bottom of a list. Sable apps do it themselves; in other apps it works wherever the app does not use the key itself (not in a text field) |
+| Space / Shift+Space | Page down / up, in the same places as T and B |
+| Back at an app's first screen | Leaves the app running and shows Active Frames, as Home does |
 | N / P | Next / previous conversation in Messages |
 | Recents key | Active Frames |
 | Alt+Shift+R | Next display size for the app in front (App display compatibility) |
@@ -346,8 +347,8 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Battery > Battery health | Cycle count, capacity health, temperature and voltage, each with its source. A value the phone cannot read says "Not reported", never a guess. A chart below shows Today, 24 hours and 7 days |
 | Battery > Charging & protection | Shows what the phone can and cannot do. Charge limit and adaptive charging are listed as "not available on this device" on the Q25 |
 | Notifications > Sable Attention | Hub's hardware-attention settings. Each app's notification page also has a Sable Hub and Attention row |
-| Keyboard & input | Physical keyboard first, then the on-screen keyboard. **Keyboard light** explains the keys (Sym+0 toggles the light; with PaBaLF firmware Sym+Shift+1 to 9 sets the level). **Keyboard firmware** (also `*#*#1122#*#*` in the dialer) turns the keyboard off, puts it in download mode and brings it back. **Typing test** and **Diagnostics** open Tools |
-| Connected devices | Cards for USB / OTG, Bluetooth, NFC and Cast, moved with the arrows and opened with Enter. A card for hardware the phone lacks says "Not on this phone" |
+| Keyboard & input | Physical keyboard first, then the on-screen keyboard. **Key remapping** turns the $ key, right Shift or the Recents key into Ctrl, Alt, Tab, Esc, Menu or Search in every app (Default gives it back). **Keyboard light** explains the keys (Sym+0 toggles the light; with PaBaLF firmware Sym+Shift+1 to 9 sets the level). **Keyboard firmware** (also `*#*#1122#*#*` in the dialer) turns the keyboard off, puts it in download mode and brings it back. **Typing test** and **Diagnostics** open Tools |
+| Connected devices | Cards for USB / OTG, Bluetooth, NFC and Cast, moved with the arrows and opened with Enter. A card for hardware the phone lacks says "Not on this phone". **Sable Audio**, below the device lists, chooses the codec (LDAC, AAC, SBC and others the headphones offer), sample rate, bit depth and LDAC quality for the Bluetooth headphones playing now, turns HD audio on or off for them, and can turn hardware offload off if audio stutters |
 | Sable Setup | Home screen style, keyboard and default apps ([above](#first-boot-setup-and-sable-setup)) |
 
 <p>
@@ -394,6 +395,8 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 ### Picture Password
 
 Settings > Sable > Picture Password sets up a quicker unlock over a picture: pick one of your photos or one of the four built-in pictures, a number (0 to 9) and a spot in the photo. To unlock, move the grid of numbers with the trackpad until your number sits on your spot, then press Enter. The numbers start in a different place and order every time, so watching or smudges give nothing away. **Stronger** adds a second number and spot (off unless you turn it on). Your PIN or password is still needed after a restart, after 72 hours and after 5 wrong pictures, and Esc always switches to it.
+
+Settings > Security > **Wipe after 10 failed tries** (off unless you turn it on) erases the phone after 10 wrong PINs or passwords in a row, as BlackBerry did. The lock screen warns you before the last tries. Factory reset protection stays, so the phone still asks for its Google account after the wipe if one was added.
 
 ## Privacy and security defaults
 

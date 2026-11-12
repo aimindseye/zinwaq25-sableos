@@ -32,6 +32,7 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | Patch | 24.0 status |
 |---|---|
 | `device/xelex/Q25/1501-SableOS-type-on-the-Q25-currency-key.patch` | applies as is |
+| `device/xelex/Q25/1502-SableOS-Space-T-and-B-scroll-in-any-app.patch` | new on 24.0 |
 | `frameworks/base/0101-SableOS-read-default-large-Quick-Settings-tiles-from.patch` | ported by hand |
 | `frameworks/base/0102-SableOS-Quick-Settings-tiles-use-the-Sable-card-and-.patch` | ported by hand |
 | `frameworks/base/0103-SableOS-apply-the-pure-black-theme-at-boot-and-after-setup.patch` | ported by hand |

@@ -685,6 +685,47 @@ def patch_hub_mail(root: pathlib.Path) -> None:
     )
 
 
+def patch_back_to_frames(root: pathlib.Path) -> None:
+    """Back at an app's root returns to Active Frames, as Home does (2.0 plan, BB10)."""
+    shutil.copyfile(HERE / "src/SableBackToFrames.kt", root / JAVA / "frames/SableBackToFrames.kt")
+    (root / TEST / "frames").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(HERE / "src/SableBackToFramesTest.kt", root / TEST / "frames/SableBackToFramesTest.kt")
+    activity = root / JAVA / "SableStartActivity.kt"
+    replace_once(
+        activity,
+        "    override fun onResume() {\n        super.onResume()\n",
+        "    // SableOS: set as the home stops for another app; Back at that app's root then shows Active Frames.\n"
+        "    private var leftForAnotherApp = false\n"
+        "\n"
+        "    override fun onResume() {\n"
+        "        super.onResume()\n"
+        "        if (leftForAnotherApp) {\n"
+        "            leftForAnotherApp = false\n"
+        "            screen.homeGeneration.intValue += 1\n"
+        "            endBb10Detour()\n"
+        "        }\n",
+        "SABLE_HOME_BACK_TO_FRAMES_RESUME",
+    )
+    replace_once(
+        activity,
+        "        super.onNewIntent(intent)\n        setIntent(intent)\n",
+        "        super.onNewIntent(intent)\n        setIntent(intent)\n        leftForAnotherApp = false\n",
+        "SABLE_HOME_BACK_TO_FRAMES_NEW_INTENT",
+    )
+    replace_once(
+        activity,
+        "    override fun onStop() {\n",
+        "    override fun onStop() {\n"
+        "        leftForAnotherApp =\n"
+        "            io.github.aimindseye.tenseven.frames.SableBackToFrames.leftForAnotherApp(\n"
+        "                packageName,\n"
+        "                io.github.aimindseye.tenseven.frames.SableBackToFrames.topPackage(this),\n"
+        "                isChangingConfigurations,\n"
+        "            )\n",
+        "SABLE_HOME_BACK_TO_FRAMES_STOP",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -699,6 +740,7 @@ def main() -> None:
     patch_system_menu(root)
     patch_leftovers(root)
     patch_hub_mail(root)
+    patch_back_to_frames(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 

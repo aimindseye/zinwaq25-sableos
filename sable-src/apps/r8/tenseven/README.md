@@ -39,6 +39,11 @@ notifications are left out of the Hub, so each email shows once. Enter on an ema
 Mail (`org.sableos.mail.action.OPEN_MESSAGE`). Mail read in Sable Mail shows but is not counted as new, and marking an email read in the Hub marks
 it read in Sable Mail too.
 
+Back at an app's root (2.0 plan, BB10): Android moves the app's task back and brings the home forward
+without a new intent. `patch_back_to_frames` adds `SableBackToFrames.kt`: as the home stops it notes
+whether another app took the screen (REAL_GET_TASKS), and when it comes back for that reason it shows
+Active Frames, as Home does. Returning from the home's own screens or from screen off changes nothing.
+
 The APK is platform-signed but not privileged (`platformapp`), as Sable Start was. The framework
 overlay grants it notification listener access on first boot, so Hub fills without a setup step.
 

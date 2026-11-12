@@ -45,6 +45,9 @@ def main() -> None:
         "hub_mail": 'android:authorities="org.sableos.mail.hub"' in manifest
         and "SableMailFeed.merge(items)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
         and "SableMailFeed.markRead(context, n)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8"),
+        # Back at an app's root shows Active Frames, as Home does (patch_back_to_frames).
+        "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
+        and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
     }
     bad = [name for name, ok in checks.items() if not ok]
     if bad:
