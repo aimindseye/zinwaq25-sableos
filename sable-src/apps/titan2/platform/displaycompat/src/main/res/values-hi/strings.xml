@@ -178,4 +178,8 @@
     <string name="applies_next_time">सहेजा गया। अगली बार %1$s सामने आने पर लागू होगा।</string>
     <string name="press_enter_to_confirm">पुष्टि के लिए Enter दबाएँ: %1$s</string>
     <string name="page_hint">↑↓ पंक्ति · ←→ बदलें · लेआउट पर Enter: कस्टम · Esc वापस</string>
+    <string name="code_loading">पुराना कोड लोडिंग</string>
+    <string name="code_loading_help">उन ऐप के लिए जो अपने विज्ञापन कोड के कारण शुरू होते ही बंद हो जाते हैं। ऐप फिर से शुरू होगा।</string>
+    <string name="code_loading_saved">सहेजा गया। %1$s अगली बार शुरू होने से इसका उपयोग करेगा।</string>
+    <string name="code_loading_could_not">पुराना कोड लोडिंग बदला नहीं जा सका।</string>
 </resources>

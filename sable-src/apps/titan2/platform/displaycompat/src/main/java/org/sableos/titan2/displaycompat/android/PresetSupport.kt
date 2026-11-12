@@ -8,6 +8,7 @@ import android.widget.Toast
 import java.io.File
 import org.sableos.titan2.displaycompat.R
 import org.sableos.titan2.displaycompat.core.AppLayout
+import org.sableos.titan2.displaycompat.core.CodeLoading
 import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
 import org.sableos.titan2.displaycompat.core.DisplayProfile
 import org.sableos.titan2.displaycompat.core.Presets
@@ -128,3 +129,22 @@ class PresetReceiver : BroadcastReceiver() {
         }
     }
 }
+
+/** Older code loading for [pkg]; the app is stopped so its next start uses the new rule. */
+fun DisplayCompatApp.setCodeLoading(pkg: String, on: Boolean): Boolean {
+    val next = CodeLoading.with(SysProps.get(CodeLoading.PROPERTY), pkg, on) ?: return false
+    val saved = SysProps.set(CodeLoading.PROPERTY, next)
+    if (saved) {
+        runCatching {
+            val am = getSystemService(android.app.ActivityManager::class.java)
+            android.app.ActivityManager::class.java.getMethod(
+                "forceStopPackage",
+                String::class.java
+            ).invoke(am, pkg)
+        }
+    }
+    return saved
+}
+
+fun codeLoadingAllowed(pkg: String): Boolean =
+    CodeLoading.allows(SysProps.get(CodeLoading.PROPERTY), pkg)

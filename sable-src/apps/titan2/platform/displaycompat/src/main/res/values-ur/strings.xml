@@ -178,4 +178,8 @@
     <string name="applies_next_time">محفوظ ہو گیا۔ اگلی بار %1$s سامنے آنے پر لاگو ہوگا۔</string>
     <string name="press_enter_to_confirm">تصدیق کے لیے Enter دبائیں: %1$s</string>
     <string name="page_hint">↑↓ قطار · ←→ بدلیں · لے آؤٹ پر Enter: حسب منشا · Esc واپس</string>
+    <string name="code_loading">پرانی کوڈ لوڈنگ</string>
+    <string name="code_loading_help">ان ایپس کے لیے جو اپنے اشتہاری کوڈ کی وجہ سے شروع ہوتے ہی بند ہو جاتی ہیں۔ ایپ دوبارہ شروع ہوگی۔</string>
+    <string name="code_loading_saved">محفوظ ہو گیا۔ %1$s اگلی بار شروع ہونے سے اسے استعمال کرے گی۔</string>
+    <string name="code_loading_could_not">پرانی کوڈ لوڈنگ تبدیل نہیں ہو سکی۔</string>
 </resources>

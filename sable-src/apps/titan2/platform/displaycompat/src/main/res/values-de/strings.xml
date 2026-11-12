@@ -178,4 +178,8 @@
     <string name="applies_next_time">Gespeichert. Gilt, wenn %1$s das nächste Mal im Vordergrund ist.</string>
     <string name="press_enter_to_confirm">Zum Bestätigen Enter drücken: %1$s</string>
     <string name="page_hint">↑↓ Zeile · ←→ ändern · Enter bei Layout: Eigene · Esc zurück</string>
+    <string name="code_loading">Älteres Code-Laden</string>
+    <string name="code_loading_help">Für Apps, die wegen ihres Werbecodes beim Start schließen. Die App startet neu.</string>
+    <string name="code_loading_saved">Gespeichert. %1$s nutzt es ab dem nächsten Start.</string>
+    <string name="code_loading_could_not">Älteres Code-Laden konnte nicht geändert werden.</string>
 </resources>

@@ -178,4 +178,8 @@
     <string name="applies_next_time">Zapisano. Zadziała, gdy %1$s następnym razem będzie na pierwszym planie.</string>
     <string name="press_enter_to_confirm">Naciśnij Enter, aby potwierdzić: %1$s</string>
     <string name="page_hint">↑↓ wiersz · ←→ zmień · Enter na Układzie: Własny · Esc wstecz</string>
+    <string name="code_loading">Starsze ładowanie kodu</string>
+    <string name="code_loading_help">Dla aplikacji, które zamykają się przy starcie przez kod reklam. Aplikacja uruchomi się ponownie.</string>
+    <string name="code_loading_saved">Zapisano. %1$s użyje tego od następnego uruchomienia.</string>
+    <string name="code_loading_could_not">Nie udało się zmienić starszego ładowania kodu.</string>
 </resources>

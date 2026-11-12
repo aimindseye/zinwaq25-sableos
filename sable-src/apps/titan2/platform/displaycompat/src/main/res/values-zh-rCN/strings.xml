@@ -178,4 +178,8 @@
     <string name="applies_next_time">已保存。下次 %1$s 回到前台时生效。</string>
     <string name="press_enter_to_confirm">按 Enter 确认：%1$s</string>
     <string name="page_hint">↑↓ 行 · ←→ 更改 · 在布局上按 Enter：自定义 · Esc 返回</string>
+    <string name="code_loading">旧式代码加载</string>
+    <string name="code_loading_help">适用于因广告代码在启动时关闭的应用。应用会重新启动。</string>
+    <string name="code_loading_saved">已保存。%1$s 下次启动时生效。</string>
+    <string name="code_loading_could_not">无法更改旧式代码加载。</string>
 </resources>

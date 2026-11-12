@@ -178,4 +178,8 @@
     <string name="applies_next_time">저장했습니다. 다음에 %1$s이(가) 앞에 올 때 적용됩니다.</string>
     <string name="press_enter_to_confirm">확인하려면 Enter: %1$s</string>
     <string name="page_hint">↑↓ 행 · ←→ 변경 · 레이아웃에서 Enter: 사용자 지정 · Esc 뒤로</string>
+    <string name="code_loading">이전 방식 코드 로딩</string>
+    <string name="code_loading_help">광고 코드 때문에 시작할 때 닫히는 앱용입니다. 앱이 다시 시작됩니다.</string>
+    <string name="code_loading_saved">저장했습니다. %1$s의 다음 시작부터 사용됩니다.</string>
+    <string name="code_loading_could_not">이전 방식 코드 로딩을 바꿀 수 없습니다.</string>
 </resources>

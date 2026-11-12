@@ -178,4 +178,8 @@
     <string name="applies_next_time">保存しました。次に %1$s が前面に来たときに適用されます。</string>
     <string name="press_enter_to_confirm">Enter で確定: %1$s</string>
     <string name="page_hint">↑↓ 行 · ←→ 変更 · レイアウトで Enter: カスタム · Esc 戻る</string>
+    <string name="code_loading">旧方式のコード読み込み</string>
+    <string name="code_loading_help">広告コードのせいで起動時に閉じるアプリ向け。アプリは再起動します。</string>
+    <string name="code_loading_saved">保存しました。%1$s の次回起動から使われます。</string>
+    <string name="code_loading_could_not">旧方式のコード読み込みを変更できませんでした。</string>
 </resources>

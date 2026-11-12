@@ -178,4 +178,8 @@
     <string name="applies_next_time">Enregistré. S\'applique la prochaine fois que %1$s passe au premier plan.</string>
     <string name="press_enter_to_confirm">Appuyez sur Entrée pour confirmer : %1$s</string>
     <string name="page_hint">↑↓ ligne · ←→ changer · Entrée sur Disposition : Personnalisé · Échap retour</string>
+    <string name="code_loading">Chargement de code ancien</string>
+    <string name="code_loading_help">Pour les apps qui se ferment au démarrage à cause de leur code publicitaire. L\'app redémarre.</string>
+    <string name="code_loading_saved">Enregistré. %1$s l\'utilise dès son prochain démarrage.</string>
+    <string name="code_loading_could_not">Impossible de modifier le chargement de code ancien.</string>
 </resources>

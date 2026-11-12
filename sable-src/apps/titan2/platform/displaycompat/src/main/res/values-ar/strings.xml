@@ -178,4 +178,8 @@
     <string name="applies_next_time">تم الحفظ. يُطبَّق في المرة القادمة التي يظهر فيها %1$s في المقدمة.</string>
     <string name="press_enter_to_confirm">اضغط Enter للتأكيد: %1$s</string>
     <string name="page_hint">↑↓ صف · ←→ تغيير · Enter على التخطيط: مخصص · Esc رجوع</string>
+    <string name="code_loading">تحميل الشيفرة القديم</string>
+    <string name="code_loading_help">للتطبيقات التي تُغلق عند البدء بسبب شيفرة الإعلانات. يُعاد تشغيل التطبيق.</string>
+    <string name="code_loading_saved">تم الحفظ. يستخدمه %1$s من التشغيل التالي.</string>
+    <string name="code_loading_could_not">تعذّر تغيير تحميل الشيفرة القديم.</string>
 </resources>

@@ -178,4 +178,8 @@
     <string name="applies_next_time">Salvato. Si applica la prossima volta che %1$s è in primo piano.</string>
     <string name="press_enter_to_confirm">Premi Invio per confermare: %1$s</string>
     <string name="page_hint">↑↓ riga · ←→ cambia · Invio su Layout: Personalizzato · Esc indietro</string>
+    <string name="code_loading">Caricamento codice precedente</string>
+    <string name="code_loading_help">Per le app che si chiudono all\'avvio per il loro codice pubblicitario. L\'app si riavvia.</string>
+    <string name="code_loading_saved">Salvato. %1$s lo usa dal prossimo avvio.</string>
+    <string name="code_loading_could_not">Impossibile cambiare il caricamento codice precedente.</string>
 </resources>

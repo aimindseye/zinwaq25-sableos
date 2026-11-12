@@ -40,7 +40,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.sableos.titan2.displaycompat.android.DisplayCompatApp
 import org.sableos.titan2.displaycompat.android.TraitsResolver
+import org.sableos.titan2.displaycompat.android.codeLoadingAllowed
 import org.sableos.titan2.displaycompat.android.resetToPreset
+import org.sableos.titan2.displaycompat.android.setCodeLoading
 import org.sableos.titan2.displaycompat.core.AppCompatText
 import org.sableos.titan2.displaycompat.core.AppLayout
 import org.sableos.titan2.displaycompat.core.AppPage
@@ -58,6 +60,9 @@ private class PageState(initial: DisplayProfile) {
     var p by mutableStateOf(initial)
     var row by mutableStateOf(AppPage.Row.Layout)
     var msg by mutableStateOf<String?>(null)
+
+    /** The app may load code it wrote itself (older code loading). */
+    var codeLoading by mutableStateOf(false)
 
     /** A change that needs Enter to confirm its warnings. */
     var pending by mutableStateOf<DisplayProfile?>(null)
@@ -118,6 +123,17 @@ private class PageActions(
         save(AppPage.sizeStep(st.p, 1).takeIf { it != st.p } ?: st.p.copy(appSize = AppSize.Full))
     }
 
+    fun toggleCodeLoading() {
+        st.row = AppPage.Row.CodeLoading
+        val on = !st.codeLoading
+        if (app.setCodeLoading(entry.pkg, on)) {
+            st.codeLoading = on
+            st.msg = t("code_loading_saved", entry.label)
+        } else {
+            st.msg = t("code_loading_could_not")
+        }
+    }
+
     fun toggleVideo() {
         st.row = AppPage.Row.Video
         save(AppPage.videoStep(st.p))
@@ -134,11 +150,11 @@ private class PageActions(
             }
 
             Key.DirectionLeft -> {
-                { AppPage.step(st.p, st.row, -1)?.let { save(it) } }
+                { side(-1) }
             }
 
             Key.DirectionRight -> {
-                { AppPage.step(st.p, st.row, 1)?.let { save(it) } }
+                { side(1) }
             }
 
             Key.Enter, Key.NumPadEnter, Key.Spacebar -> {
@@ -153,6 +169,14 @@ private class PageActions(
         return action != null
     }
 
+    private fun side(dir: Int) {
+        if (st.row == AppPage.Row.CodeLoading) {
+            toggleCodeLoading()
+        } else {
+            AppPage.step(st.p, st.row, dir)?.let { save(it) }
+        }
+    }
+
     private fun move(dir: Int) {
         val rows = AppPage.Row.entries
         st.row = rows[(st.row.ordinal + dir).coerceIn(0, rows.size - 1)]
@@ -164,6 +188,7 @@ private class PageActions(
             pending != null -> save(pending, acknowledged = true)
             st.row == AppPage.Row.Layout -> nav.onCustom()
             st.row == AppPage.Row.Reset -> reset()
+            st.row == AppPage.Row.CodeLoading -> toggleCodeLoading()
             else -> AppPage.step(st.p, st.row, 1)?.let { save(it) }
         }
     }
@@ -181,7 +206,9 @@ fun AppPageScreen(
     display: SizePx,
     nav: PageNav
 ) {
-    val st = remember(entry.pkg) { PageState(app.store.get(entry.pkg)) }
+    val st = remember(entry.pkg) {
+        PageState(app.store.get(entry.pkg)).also { it.codeLoading = codeLoadingAllowed(entry.pkg) }
+    }
     val fr = remember { FocusRequester() }
     LaunchedEffect(Unit) { fr.requestFocus() }
     val actions = PageActions(app, resolver, entry, display, st, nav)
@@ -211,6 +238,15 @@ fun AppPageScreen(
         val videos = LandscapeVideo.entries.joinToString(" · ") { marked(it.label, it == video) }
         ChoiceRow(video.label, video.help, videos, st.row == AppPage.Row.Video) {
             actions.toggleVideo()
+        }
+        val loading = if (st.codeLoading) t("on") else t("off")
+        ChoiceRow(
+            t("code_loading"),
+            t("code_loading_help"),
+            loading,
+            st.row == AppPage.Row.CodeLoading
+        ) {
+            actions.toggleCodeLoading()
         }
         val hasPreset = app.presets[entry.pkg]?.let { !it.isNative } == true
         val resetTitle = if (hasPreset) t("reset_to_preset") else t("reset_to_square")

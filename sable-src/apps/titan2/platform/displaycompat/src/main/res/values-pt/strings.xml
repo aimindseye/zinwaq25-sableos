@@ -178,4 +178,8 @@
     <string name="applies_next_time">Salvo. Vale na próxima vez que %1$s vier para a frente.</string>
     <string name="press_enter_to_confirm">Pressione Enter para confirmar: %1$s</string>
     <string name="page_hint">↑↓ linha · ←→ mudar · Enter em Layout: Personalizado · Esc voltar</string>
+    <string name="code_loading">Carregamento de código antigo</string>
+    <string name="code_loading_help">Para apps que fecham ao abrir por causa do código de anúncios. O app reinicia.</string>
+    <string name="code_loading_saved">Salvo. %1$s usa a partir da próxima abertura.</string>
+    <string name="code_loading_could_not">Não foi possível mudar o carregamento de código antigo.</string>
 </resources>

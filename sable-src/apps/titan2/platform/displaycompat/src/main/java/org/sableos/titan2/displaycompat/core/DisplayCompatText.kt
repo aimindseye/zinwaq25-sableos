@@ -245,7 +245,12 @@ object DisplayCompatText {
             "reset_to_square" to "Reset to Square",
             "applies_next_time" to "Saved. It applies the next time %1\$s comes to the front.",
             "press_enter_to_confirm" to "Press Enter to confirm: %1\$s",
-            "page_hint" to "↑↓ row · ←→ change · Enter on Layout: Custom · Esc back"
+            "page_hint" to "↑↓ row · ←→ change · Enter on Layout: Custom · Esc back",
+            "code_loading" to "Older code loading",
+            "code_loading_help" to
+                "For apps that close at start because of their ad code. The app restarts.",
+            "code_loading_saved" to "Saved. %1\$s uses it from its next start.",
+            "code_loading_could_not" to "Older code loading could not be changed."
         )
 
     val t = SableTexts(EN)

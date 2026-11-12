@@ -178,4 +178,8 @@
     <string name="applies_next_time">Opgeslagen. Geldt de volgende keer dat %1$s vooraan staat.</string>
     <string name="press_enter_to_confirm">Druk op Enter om te bevestigen: %1$s</string>
     <string name="page_hint">↑↓ rij · ←→ wijzigen · Enter op Indeling: Aangepast · Esc terug</string>
+    <string name="code_loading">Oud laden van code</string>
+    <string name="code_loading_help">Voor apps die bij het starten sluiten door hun advertentiecode. De app start opnieuw.</string>
+    <string name="code_loading_saved">Opgeslagen. %1$s gebruikt het vanaf de volgende start.</string>
+    <string name="code_loading_could_not">Oud laden van code kon niet worden gewijzigd.</string>
 </resources>

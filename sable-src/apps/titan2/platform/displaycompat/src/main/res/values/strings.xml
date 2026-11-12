@@ -180,4 +180,8 @@
     <string name="applies_next_time">Saved. It applies the next time %1$s comes to the front.</string>
     <string name="press_enter_to_confirm">Press Enter to confirm: %1$s</string>
     <string name="page_hint">↑↓ row · ←→ change · Enter on Layout: Custom · Esc back</string>
+    <string name="code_loading">Older code loading</string>
+    <string name="code_loading_help">For apps that close at start because of their ad code. The app restarts.</string>
+    <string name="code_loading_saved">Saved. %1$s uses it from its next start.</string>
+    <string name="code_loading_could_not">Older code loading could not be changed.</string>
 </resources>

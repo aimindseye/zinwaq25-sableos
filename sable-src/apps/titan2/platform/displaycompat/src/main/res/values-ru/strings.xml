@@ -178,4 +178,8 @@
     <string name="applies_next_time">Сохранено. Применится, когда %1$s снова окажется на экране.</string>
     <string name="press_enter_to_confirm">Нажмите Enter для подтверждения: %1$s</string>
     <string name="page_hint">↑↓ строка · ←→ изменить · Enter на Макете: Свой · Esc назад</string>
+    <string name="code_loading">Старая загрузка кода</string>
+    <string name="code_loading_help">Для приложений, которые закрываются при запуске из-за рекламного кода. Приложение перезапустится.</string>
+    <string name="code_loading_saved">Сохранено. %1$s использует это со следующего запуска.</string>
+    <string name="code_loading_could_not">Не удалось изменить старую загрузку кода.</string>
 </resources>

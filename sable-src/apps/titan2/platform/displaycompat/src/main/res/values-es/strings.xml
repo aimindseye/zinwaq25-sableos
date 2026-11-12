@@ -178,4 +178,8 @@
     <string name="applies_next_time">Guardado. Se aplica la próxima vez que %1$s pase al frente.</string>
     <string name="press_enter_to_confirm">Pulsa Intro para confirmar: %1$s</string>
     <string name="page_hint">↑↓ fila · ←→ cambiar · Intro en Diseño: Personalizado · Esc atrás</string>
+    <string name="code_loading">Carga de código antigua</string>
+    <string name="code_loading_help">Para apps que se cierran al iniciar por su código de anuncios. La app se reinicia.</string>
+    <string name="code_loading_saved">Guardado. %1$s lo usará desde su próximo inicio.</string>
+    <string name="code_loading_could_not">No se pudo cambiar la carga de código antigua.</string>
 </resources>

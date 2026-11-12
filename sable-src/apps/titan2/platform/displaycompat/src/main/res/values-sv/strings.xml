@@ -178,4 +178,8 @@
     <string name="applies_next_time">Sparat. Gäller nästa gång %1$s är i förgrunden.</string>
     <string name="press_enter_to_confirm">Tryck Enter för att bekräfta: %1$s</string>
     <string name="page_hint">↑↓ rad · ←→ ändra · Enter på Layout: Anpassad · Esc tillbaka</string>
+    <string name="code_loading">Äldre kodladdning</string>
+    <string name="code_loading_help">För appar som stängs vid start på grund av sin annonskod. Appen startar om.</string>
+    <string name="code_loading_saved">Sparat. %1$s använder det från nästa start.</string>
+    <string name="code_loading_could_not">Äldre kodladdning kunde inte ändras.</string>
 </resources>

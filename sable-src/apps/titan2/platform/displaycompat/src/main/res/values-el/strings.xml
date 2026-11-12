@@ -178,4 +178,8 @@
     <string name="applies_next_time">Αποθηκεύτηκε. Ισχύει την επόμενη φορά που το %1$s έρθει μπροστά.</string>
     <string name="press_enter_to_confirm">Πατήστε Enter για επιβεβαίωση: %1$s</string>
     <string name="page_hint">↑↓ γραμμή · ←→ αλλαγή · Enter στη Διάταξη: Προσαρμογή · Esc πίσω</string>
+    <string name="code_loading">Παλαιότερη φόρτωση κώδικα</string>
+    <string name="code_loading_help">Για εφαρμογές που κλείνουν στην εκκίνηση λόγω του κώδικα διαφημίσεων. Η εφαρμογή επανεκκινείται.</string>
+    <string name="code_loading_saved">Αποθηκεύτηκε. Το %1$s το χρησιμοποιεί από την επόμενη εκκίνηση.</string>
+    <string name="code_loading_could_not">Δεν ήταν δυνατή η αλλαγή της παλαιότερης φόρτωσης κώδικα.</string>
 </resources>

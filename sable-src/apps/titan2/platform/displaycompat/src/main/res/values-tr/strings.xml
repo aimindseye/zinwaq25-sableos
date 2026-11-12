@@ -178,4 +178,8 @@
     <string name="applies_next_time">Kaydedildi. %1$s bir dahaki sefer öne geldiğinde uygulanır.</string>
     <string name="press_enter_to_confirm">Onaylamak için Enter\'a basın: %1$s</string>
     <string name="page_hint">↑↓ satır · ←→ değiştir · Düzen\'de Enter: Özel · Esc geri</string>
+    <string name="code_loading">Eski kod yükleme</string>
+    <string name="code_loading_help">Reklam kodu yüzünden açılışta kapanan uygulamalar için. Uygulama yeniden başlar.</string>
+    <string name="code_loading_saved">Kaydedildi. %1$s bir sonraki açılışta kullanır.</string>
+    <string name="code_loading_could_not">Eski kod yükleme değiştirilemedi.</string>
 </resources>

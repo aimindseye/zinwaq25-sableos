@@ -169,7 +169,7 @@ object AppCompatText {
 
 /** The one-app page's rows and what Left/Right do on them. */
 object AppPage {
-    enum class Row { Layout, Size, Video, Reset }
+    enum class Row { Layout, Size, Video, CodeLoading, Reset }
 
     private val quick = listOf(AppLayout.Square, AppLayout.TallPhone)
 
@@ -199,6 +199,32 @@ object AppPage {
         Row.Layout -> layoutStep(p, dir)
         Row.Size -> sizeStep(p, dir)
         Row.Video -> videoStep(p)
-        Row.Reset -> null
+        Row.CodeLoading, Row.Reset -> null
     }?.takeIf { it != p }
+}
+
+/**
+ * Older code loading (frameworks/base 0328): apps on this list may load code they wrote themselves,
+ * as before Android 14, so an ad library like Pluto TV's no longer crashes the app at start. The
+ * list is a system property the framework reads; empty (never set) means [DEFAULT_LIST].
+ */
+object CodeLoading {
+    const val PROPERTY = "persist.sys.sable.legacy_dcl"
+    const val DEFAULT_LIST = "tv.pluto.android"
+    const val NONE = "-"
+
+    /** A system property value holds at most 91 characters. */
+    private const val MAX_VALUE = 91
+
+    fun names(raw: String): Set<String> = raw.ifEmpty { DEFAULT_LIST }.split(',').map { it.trim() }
+        .filter { it.isNotEmpty() && it != NONE }.toSet()
+
+    fun allows(raw: String, pkg: String): Boolean = pkg in names(raw)
+
+    /** The new property value with [pkg] on or off the list, or null when it would not fit. */
+    fun with(raw: String, pkg: String, on: Boolean): String? {
+        val next = names(raw).let { if (on) it + pkg else it - pkg }
+        val value = if (next.isEmpty()) NONE else next.sorted().joinToString(",")
+        return value.takeIf { it.length <= MAX_VALUE }
+    }
 }

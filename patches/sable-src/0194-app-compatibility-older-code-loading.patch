@@ -1,0 +1,508 @@
+diff --git a/patches/README.md b/patches/README.md
+index a6f2ff2..ad40f3c 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -259,6 +259,7 @@
+ | `framework/frameworks/base/0325-SableOS-optional-wipe-after-10-failed-unlock-tries.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0324 | Optional wipe after 10 failed unlock tries (Picture Password plan, as on BlackBerry; off by default, Settings 1615): with `sable_wipe_after_failed_unlocks` on for the system user, DevicePolicyManagerService reports a limit of ten (or a stricter admin's) to the lock screen, so Android's own dialogs warn before the last tries, and the main user's tenth failed PIN or password in a row factory resets the phone, keeping factory reset protection. A device admin's own wipe still wins. Pure rules: `SableUnlockWipe`, unit-tested. |
+ | `framework/frameworks/base/0326-SableOS-hold-the-Recents-key-for-the-Hub-over-any-app.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0325 | Hub over apps (2.0 plan, BB10's peek): with no LineageOS long-press action on the Recents key (the default, `config_longPressOnAppSwitchBehavior` 0), holding it opens the SableOS home's Hub panel (`SableHubPeekActivity`, sable-src/apps/r8/tenseven) over the app in front, and Back returns to that app; a tap still opens Active Frames. Never on the keyguard or before setup, and only when the home has the panel. Pure policy: `SableCommandKeys.isHubPeekAllowed` (host test `tests/java/frameworks/.../SableHubPeekKeysTest.java`). |
+ | `framework/frameworks/base/0327-SableOS-PIN-pad-leaves-room-for-the-navigation-bar.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0326 | The compact PIN pad (0315) now leaves room for the navigation bar and cutout as well as the status bar (WindowMetrics insets) and for the security container's padding, and keys may shrink to 28 dp high, so the bottom row (Delete, 0, OK) and the emergency button are never under the navigation bar on the Q25 (owner report 2026-11-12); `SableLockSizeTest` checks every size and text size above a 48 dp navigation bar. No authentication code changes. |
++| `framework/frameworks/base/0328-SableOS-older-code-loading-for-listed-apps-Pluto-TV.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0327 | Android 14's read-only rule for loaded code (ENFORCE_READ_ONLY_JAVA_DCL, 218865702) is off for the apps listed in `persist.sys.sable.legacy_dcl` (comma-separated, `-` for none; `tv.pluto.android` until App Compatibility sets the list), so Pluto TV, whose ad library loads a jar it wrote to its cache, no longer crashes at start (owner report 2026-11-12). A user build refuses `am compat disable` for Play Store apps. Every other app keeps the rule; `SableCodeLoadingTest` checks the list. |
+ | `framework/packages/apps/Jelly/1043-SableOS-Browser-keys-follow-the-design-s-T-B-L-and-a.patch` | `1bb5edd564f2adb475fb565373426166f3ca252a` + 1041-1042 | Browser keys on the browser-webview design: single keys after the page declined them are T top, B bottom, L / Shift+L next/previous link, R reader, F or `/` find, Space paging; address and new tab move to Alt+L / Alt+T; Alt+W close tab, Alt+J/K (and Ctrl+Tab / Ctrl+Shift+Tab) switch tabs, Alt+A tab grid; dock hint per mode (start, page, reader). Host tests rewritten. |
+ | `framework/packages/apps/Jelly/1044-SableOS-Browser-start-page-command-dock-reader-mode-.patch` | `1bb5edd564f2adb475fb565373426166f3ca252a` + 1041-1043 | Start page cards (Bookmarks, Private, History, Downloads, keys) with the Sable focus ring instead of autoloading the home page (`default_home_page_autoload` false); command dock with hint line; reader mode (scripted, position kept); tab grid dialog over the app's tasks; private tabs labelled "Private tab" with no Recents screenshot; camera/microphone asks per site (Deny focused) and other permission dialogs focus their negative button. Kotlin compiled with Gradle. |
+ | `framework/packages/apps/FMRadio/1061-SableOS-pure-FM-bridge-protocol-for-Sable-Media.patch` | `095ae21580f2893b1f00f0bd9b503dc766899ad1` | FM in Sable Media: `sable/SableFmProtocol` (pure Java, host-tested in `tests/java/stock-apps/FMRadio`): bridge message numbers, state keys, the 87.5-108 MHz band and the caller policy (own uid, system uid, or `org.sableos.media` installed on the system image). Sable Media keeps the same numbers in `FmModel.kt`; `tests/run.sh` checks they agree. |
+@@ -333,3 +334,4 @@ Reserved:
+   0191 makes the SableOS home need no permission setup (owner, 2026-11-12): `patch_home_access` adds `SableHomeAccess` (unit-tested), which grants the home Contacts, Calendar, Call log, Photos, Notifications, notification access, usage access and display over other apps once on its first start (each item until granted once, so a later "off" stays off; location is left to the person), and drops the Active Frames page from Launcher settings; product/q25 default permissions grant the same runtime permissions at first boot.
+   0192 brings back Sable 1.0's live Active Frames (owner, 2026-11-12): the home always asks the system for each frame's snapshot first (no capability probe or settings switch can turn frames into summary cards), the picture fills the frame with no "Preview" tag, and the name bar under each frame is 22 dp with a smaller title and close mark. `SableTaskSnapshots` finds TaskSnapshotManager.getTaskSnapshot by name and logs under `SableFrames` the snapshot permissions and, per app, why a frame has no picture.
+   0193 redesigns App Compatibility (2.0 plan, phase C; owner, 2026-11-12) on the 1.0 Display Compat engine and profile store: each app is Square, Tall phone (720×1440) or Custom (the 1.0 editor), with an App size (100, 85 or 75% of the person's density, only while the app is in front) and a landscape video choice (Fit drops the Tall canvas while the display is sideways, so a 16:9 video fills the width). Out-of-box presets ship as `res/raw/app_compat_presets.tsv` (an image can override it at `/product/etc/sable/app-compat-presets.tsv`): YouTube, Instagram, TikTok and Facebook Tall phone; Google Maps and Android Auto Square. A preset is given once, at install, boot or when the app opens, with a one-line notice, and Reset brings it back. New list and one-app page, 29 new strings in all 19 languages, `AppCompatTest`. Crop to fill and Hold Space come later with a framework patch.
++  0194 adds **Older code loading** to App Compatibility's one-app page (owner, 2026-11-12): it adds or removes the app in `persist.sys.sable.legacy_dcl`, the list frameworks/base 0328 reads to let an app load code it wrote itself (Pluto TV's ad library), then stops the app so its next start uses it. `CodeLoading` matches the framework's default list (`tv.pluto.android`) and the 91-character property limit; 4 new strings in all 19 languages.
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PresetSupport.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PresetSupport.kt
+index 059eb39..5853e56 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PresetSupport.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/PresetSupport.kt
+@@ -8,6 +8,7 @@ import android.widget.Toast
+ import java.io.File
+ import org.sableos.titan2.displaycompat.R
+ import org.sableos.titan2.displaycompat.core.AppLayout
++import org.sableos.titan2.displaycompat.core.CodeLoading
+ import org.sableos.titan2.displaycompat.core.DisplayCompatText.t
+ import org.sableos.titan2.displaycompat.core.DisplayProfile
+ import org.sableos.titan2.displaycompat.core.Presets
+@@ -128,3 +129,22 @@ class PresetReceiver : BroadcastReceiver() {
+         }
+     }
+ }
++
++/** Older code loading for [pkg]; the app is stopped so its next start uses the new rule. */
++fun DisplayCompatApp.setCodeLoading(pkg: String, on: Boolean): Boolean {
++    val next = CodeLoading.with(SysProps.get(CodeLoading.PROPERTY), pkg, on) ?: return false
++    val saved = SysProps.set(CodeLoading.PROPERTY, next)
++    if (saved) {
++        runCatching {
++            val am = getSystemService(android.app.ActivityManager::class.java)
++            android.app.ActivityManager::class.java.getMethod(
++                "forceStopPackage",
++                String::class.java
++            ).invoke(am, pkg)
++        }
++    }
++    return saved
++}
++
++fun codeLoadingAllowed(pkg: String): Boolean =
++    CodeLoading.allows(SysProps.get(CodeLoading.PROPERTY), pkg)
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/SysProps.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/SysProps.kt
+index 24a67d1..e9edb88 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/SysProps.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/android/SysProps.kt
+@@ -10,4 +10,13 @@ object SysProps {
+     } catch (_: Throwable) {
+         ""
+     }
++
++    /** Sets a property (system UID); false when the platform refused. */
++    fun set(key: String, value: String): Boolean = try {
++        Class.forName("android.os.SystemProperties")
++            .getMethod("set", String::class.java, String::class.java).invoke(null, key, value)
++        get(key) == value
++    } catch (_: Throwable) {
++        false
++    }
+ }
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppCompat.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppCompat.kt
+index 3a7d819..1fe1250 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppCompat.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/AppCompat.kt
+@@ -169,7 +169,7 @@ object AppCompatText {
+ 
+ /** The one-app page's rows and what Left/Right do on them. */
+ object AppPage {
+-    enum class Row { Layout, Size, Video, Reset }
++    enum class Row { Layout, Size, Video, CodeLoading, Reset }
+ 
+     private val quick = listOf(AppLayout.Square, AppLayout.TallPhone)
+ 
+@@ -199,6 +199,32 @@ object AppPage {
+         Row.Layout -> layoutStep(p, dir)
+         Row.Size -> sizeStep(p, dir)
+         Row.Video -> videoStep(p)
+-        Row.Reset -> null
++        Row.CodeLoading, Row.Reset -> null
+     }?.takeIf { it != p }
+ }
++
++/**
++ * Older code loading (frameworks/base 0328): apps on this list may load code they wrote themselves,
++ * as before Android 14, so an ad library like Pluto TV's no longer crashes the app at start. The
++ * list is a system property the framework reads; empty (never set) means [DEFAULT_LIST].
++ */
++object CodeLoading {
++    const val PROPERTY = "persist.sys.sable.legacy_dcl"
++    const val DEFAULT_LIST = "tv.pluto.android"
++    const val NONE = "-"
++
++    /** A system property value holds at most 91 characters. */
++    private const val MAX_VALUE = 91
++
++    fun names(raw: String): Set<String> = raw.ifEmpty { DEFAULT_LIST }.split(',').map { it.trim() }
++        .filter { it.isNotEmpty() && it != NONE }.toSet()
++
++    fun allows(raw: String, pkg: String): Boolean = pkg in names(raw)
++
++    /** The new property value with [pkg] on or off the list, or null when it would not fit. */
++    fun with(raw: String, pkg: String, on: Boolean): String? {
++        val next = names(raw).let { if (on) it + pkg else it - pkg }
++        val value = if (next.isEmpty()) NONE else next.sorted().joinToString(",")
++        return value.takeIf { it.length <= MAX_VALUE }
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt
+index 7aca6ef..1fb631f 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/core/DisplayCompatText.kt
+@@ -245,7 +245,12 @@ object DisplayCompatText {
+             "reset_to_square" to "Reset to Square",
+             "applies_next_time" to "Saved. It applies the next time %1\$s comes to the front.",
+             "press_enter_to_confirm" to "Press Enter to confirm: %1\$s",
+-            "page_hint" to "↑↓ row · ←→ change · Enter on Layout: Custom · Esc back"
++            "page_hint" to "↑↓ row · ←→ change · Enter on Layout: Custom · Esc back",
++            "code_loading" to "Older code loading",
++            "code_loading_help" to
++                "For apps that close at start because of their ad code. The app restarts.",
++            "code_loading_saved" to "Saved. %1\$s uses it from its next start.",
++            "code_loading_could_not" to "Older code loading could not be changed."
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppPageScreen.kt b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppPageScreen.kt
+index eff5f81..7b5554f 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppPageScreen.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppPageScreen.kt
+@@ -40,7 +40,9 @@ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+ import org.sableos.titan2.displaycompat.android.DisplayCompatApp
+ import org.sableos.titan2.displaycompat.android.TraitsResolver
++import org.sableos.titan2.displaycompat.android.codeLoadingAllowed
+ import org.sableos.titan2.displaycompat.android.resetToPreset
++import org.sableos.titan2.displaycompat.android.setCodeLoading
+ import org.sableos.titan2.displaycompat.core.AppCompatText
+ import org.sableos.titan2.displaycompat.core.AppLayout
+ import org.sableos.titan2.displaycompat.core.AppPage
+@@ -59,6 +61,9 @@ private class PageState(initial: DisplayProfile) {
+     var row by mutableStateOf(AppPage.Row.Layout)
+     var msg by mutableStateOf<String?>(null)
+ 
++    /** The app may load code it wrote itself (older code loading). */
++    var codeLoading by mutableStateOf(false)
++
+     /** A change that needs Enter to confirm its warnings. */
+     var pending by mutableStateOf<DisplayProfile?>(null)
+ }
+@@ -118,6 +123,17 @@ private class PageActions(
+         save(AppPage.sizeStep(st.p, 1).takeIf { it != st.p } ?: st.p.copy(appSize = AppSize.Full))
+     }
+ 
++    fun toggleCodeLoading() {
++        st.row = AppPage.Row.CodeLoading
++        val on = !st.codeLoading
++        if (app.setCodeLoading(entry.pkg, on)) {
++            st.codeLoading = on
++            st.msg = t("code_loading_saved", entry.label)
++        } else {
++            st.msg = t("code_loading_could_not")
++        }
++    }
++
+     fun toggleVideo() {
+         st.row = AppPage.Row.Video
+         save(AppPage.videoStep(st.p))
+@@ -134,11 +150,11 @@ private class PageActions(
+             }
+ 
+             Key.DirectionLeft -> {
+-                { AppPage.step(st.p, st.row, -1)?.let { save(it) } }
++                { side(-1) }
+             }
+ 
+             Key.DirectionRight -> {
+-                { AppPage.step(st.p, st.row, 1)?.let { save(it) } }
++                { side(1) }
+             }
+ 
+             Key.Enter, Key.NumPadEnter, Key.Spacebar -> {
+@@ -153,6 +169,14 @@ private class PageActions(
+         return action != null
+     }
+ 
++    private fun side(dir: Int) {
++        if (st.row == AppPage.Row.CodeLoading) {
++            toggleCodeLoading()
++        } else {
++            AppPage.step(st.p, st.row, dir)?.let { save(it) }
++        }
++    }
++
+     private fun move(dir: Int) {
+         val rows = AppPage.Row.entries
+         st.row = rows[(st.row.ordinal + dir).coerceIn(0, rows.size - 1)]
+@@ -164,6 +188,7 @@ private class PageActions(
+             pending != null -> save(pending, acknowledged = true)
+             st.row == AppPage.Row.Layout -> nav.onCustom()
+             st.row == AppPage.Row.Reset -> reset()
++            st.row == AppPage.Row.CodeLoading -> toggleCodeLoading()
+             else -> AppPage.step(st.p, st.row, 1)?.let { save(it) }
+         }
+     }
+@@ -181,7 +206,9 @@ fun AppPageScreen(
+     display: SizePx,
+     nav: PageNav
+ ) {
+-    val st = remember(entry.pkg) { PageState(app.store.get(entry.pkg)) }
++    val st = remember(entry.pkg) {
++        PageState(app.store.get(entry.pkg)).also { it.codeLoading = codeLoadingAllowed(entry.pkg) }
++    }
+     val fr = remember { FocusRequester() }
+     LaunchedEffect(Unit) { fr.requestFocus() }
+     val actions = PageActions(app, resolver, entry, display, st, nav)
+@@ -212,6 +239,15 @@ fun AppPageScreen(
+         ChoiceRow(video.label, video.help, videos, st.row == AppPage.Row.Video) {
+             actions.toggleVideo()
+         }
++        val loading = if (st.codeLoading) t("on") else t("off")
++        ChoiceRow(
++            t("code_loading"),
++            t("code_loading_help"),
++            loading,
++            st.row == AppPage.Row.CodeLoading
++        ) {
++            actions.toggleCodeLoading()
++        }
+         val hasPreset = app.presets[entry.pkg]?.let { !it.isNative } == true
+         val resetTitle = if (hasPreset) t("reset_to_preset") else t("reset_to_square")
+         ChoiceRow(resetTitle, "", "", st.row == AppPage.Row.Reset) {
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ar/strings.xml
+index 578ce1a..8d2931e 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ar/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">تم الحفظ. يُطبَّق في المرة القادمة التي يظهر فيها %1$s في المقدمة.</string>
+     <string name="press_enter_to_confirm">اضغط Enter للتأكيد: %1$s</string>
+     <string name="page_hint">↑↓ صف · ←→ تغيير · Enter على التخطيط: مخصص · Esc رجوع</string>
++    <string name="code_loading">تحميل الشيفرة القديم</string>
++    <string name="code_loading_help">للتطبيقات التي تُغلق عند البدء بسبب شيفرة الإعلانات. يُعاد تشغيل التطبيق.</string>
++    <string name="code_loading_saved">تم الحفظ. يستخدمه %1$s من التشغيل التالي.</string>
++    <string name="code_loading_could_not">تعذّر تغيير تحميل الشيفرة القديم.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-de/strings.xml
+index 8ece7da..abe8a66 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-de/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">Gespeichert. Gilt, wenn %1$s das nächste Mal im Vordergrund ist.</string>
+     <string name="press_enter_to_confirm">Zum Bestätigen Enter drücken: %1$s</string>
+     <string name="page_hint">↑↓ Zeile · ←→ ändern · Enter bei Layout: Eigene · Esc zurück</string>
++    <string name="code_loading">Älteres Code-Laden</string>
++    <string name="code_loading_help">Für Apps, die wegen ihres Werbecodes beim Start schließen. Die App startet neu.</string>
++    <string name="code_loading_saved">Gespeichert. %1$s nutzt es ab dem nächsten Start.</string>
++    <string name="code_loading_could_not">Älteres Code-Laden konnte nicht geändert werden.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-el/strings.xml
+index d13993a..03cd0e1 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-el/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">Αποθηκεύτηκε. Ισχύει την επόμενη φορά που το %1$s έρθει μπροστά.</string>
+     <string name="press_enter_to_confirm">Πατήστε Enter για επιβεβαίωση: %1$s</string>
+     <string name="page_hint">↑↓ γραμμή · ←→ αλλαγή · Enter στη Διάταξη: Προσαρμογή · Esc πίσω</string>
++    <string name="code_loading">Παλαιότερη φόρτωση κώδικα</string>
++    <string name="code_loading_help">Για εφαρμογές που κλείνουν στην εκκίνηση λόγω του κώδικα διαφημίσεων. Η εφαρμογή επανεκκινείται.</string>
++    <string name="code_loading_saved">Αποθηκεύτηκε. Το %1$s το χρησιμοποιεί από την επόμενη εκκίνηση.</string>
++    <string name="code_loading_could_not">Δεν ήταν δυνατή η αλλαγή της παλαιότερης φόρτωσης κώδικα.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-es/strings.xml
+index 43a6840..f3b278e 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-es/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">Guardado. Se aplica la próxima vez que %1$s pase al frente.</string>
+     <string name="press_enter_to_confirm">Pulsa Intro para confirmar: %1$s</string>
+     <string name="page_hint">↑↓ fila · ←→ cambiar · Intro en Diseño: Personalizado · Esc atrás</string>
++    <string name="code_loading">Carga de código antigua</string>
++    <string name="code_loading_help">Para apps que se cierran al iniciar por su código de anuncios. La app se reinicia.</string>
++    <string name="code_loading_saved">Guardado. %1$s lo usará desde su próximo inicio.</string>
++    <string name="code_loading_could_not">No se pudo cambiar la carga de código antigua.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-fr/strings.xml
+index a1dc22f..f8dbc02 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-fr/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">Enregistré. S\'applique la prochaine fois que %1$s passe au premier plan.</string>
+     <string name="press_enter_to_confirm">Appuyez sur Entrée pour confirmer : %1$s</string>
+     <string name="page_hint">↑↓ ligne · ←→ changer · Entrée sur Disposition : Personnalisé · Échap retour</string>
++    <string name="code_loading">Chargement de code ancien</string>
++    <string name="code_loading_help">Pour les apps qui se ferment au démarrage à cause de leur code publicitaire. L\'app redémarre.</string>
++    <string name="code_loading_saved">Enregistré. %1$s l\'utilise dès son prochain démarrage.</string>
++    <string name="code_loading_could_not">Impossible de modifier le chargement de code ancien.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-hi/strings.xml
+index 41a5096..e1eab37 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-hi/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">सहेजा गया। अगली बार %1$s सामने आने पर लागू होगा।</string>
+     <string name="press_enter_to_confirm">पुष्टि के लिए Enter दबाएँ: %1$s</string>
+     <string name="page_hint">↑↓ पंक्ति · ←→ बदलें · लेआउट पर Enter: कस्टम · Esc वापस</string>
++    <string name="code_loading">पुराना कोड लोडिंग</string>
++    <string name="code_loading_help">उन ऐप के लिए जो अपने विज्ञापन कोड के कारण शुरू होते ही बंद हो जाते हैं। ऐप फिर से शुरू होगा।</string>
++    <string name="code_loading_saved">सहेजा गया। %1$s अगली बार शुरू होने से इसका उपयोग करेगा।</string>
++    <string name="code_loading_could_not">पुराना कोड लोडिंग बदला नहीं जा सका।</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-it/strings.xml
+index 0cc3d34..6cf80f9 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-it/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">Salvato. Si applica la prossima volta che %1$s è in primo piano.</string>
+     <string name="press_enter_to_confirm">Premi Invio per confermare: %1$s</string>
+     <string name="page_hint">↑↓ riga · ←→ cambia · Invio su Layout: Personalizzato · Esc indietro</string>
++    <string name="code_loading">Caricamento codice precedente</string>
++    <string name="code_loading_help">Per le app che si chiudono all\'avvio per il loro codice pubblicitario. L\'app si riavvia.</string>
++    <string name="code_loading_saved">Salvato. %1$s lo usa dal prossimo avvio.</string>
++    <string name="code_loading_could_not">Impossibile cambiare il caricamento codice precedente.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-iw/strings.xml
+index 0bdeaa1..8674fc7 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-iw/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">נשמר. יחול בפעם הבאה ש%1$s תהיה בחזית.</string>
+     <string name="press_enter_to_confirm">יש ללחוץ Enter לאישור: %1$s</string>
+     <string name="page_hint">↑↓ שורה · ←→ שינוי · Enter בפריסה: מותאם · Esc חזרה</string>
++    <string name="code_loading">טעינת קוד ישנה</string>
++    <string name="code_loading_help">לאפליקציות שנסגרות בהפעלה בגלל קוד הפרסומות שלהן. האפליקציה תופעל מחדש.</string>
++    <string name="code_loading_saved">נשמר. %1$s תשתמש בזה מההפעלה הבאה.</string>
++    <string name="code_loading_could_not">לא ניתן לשנות את טעינת הקוד הישנה.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ja/strings.xml
+index 00d9e36..d07b4ce 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ja/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">保存しました。次に %1$s が前面に来たときに適用されます。</string>
+     <string name="press_enter_to_confirm">Enter で確定: %1$s</string>
+     <string name="page_hint">↑↓ 行 · ←→ 変更 · レイアウトで Enter: カスタム · Esc 戻る</string>
++    <string name="code_loading">旧方式のコード読み込み</string>
++    <string name="code_loading_help">広告コードのせいで起動時に閉じるアプリ向け。アプリは再起動します。</string>
++    <string name="code_loading_saved">保存しました。%1$s の次回起動から使われます。</string>
++    <string name="code_loading_could_not">旧方式のコード読み込みを変更できませんでした。</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ko/strings.xml
+index a0b4d08..0fc1d2f 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ko/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">저장했습니다. 다음에 %1$s이(가) 앞에 올 때 적용됩니다.</string>
+     <string name="press_enter_to_confirm">확인하려면 Enter: %1$s</string>
+     <string name="page_hint">↑↓ 행 · ←→ 변경 · 레이아웃에서 Enter: 사용자 지정 · Esc 뒤로</string>
++    <string name="code_loading">이전 방식 코드 로딩</string>
++    <string name="code_loading_help">광고 코드 때문에 시작할 때 닫히는 앱용입니다. 앱이 다시 시작됩니다.</string>
++    <string name="code_loading_saved">저장했습니다. %1$s의 다음 시작부터 사용됩니다.</string>
++    <string name="code_loading_could_not">이전 방식 코드 로딩을 바꿀 수 없습니다.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-nl/strings.xml
+index 3e6d3ed..3e52092 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-nl/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">Opgeslagen. Geldt de volgende keer dat %1$s vooraan staat.</string>
+     <string name="press_enter_to_confirm">Druk op Enter om te bevestigen: %1$s</string>
+     <string name="page_hint">↑↓ rij · ←→ wijzigen · Enter op Indeling: Aangepast · Esc terug</string>
++    <string name="code_loading">Oud laden van code</string>
++    <string name="code_loading_help">Voor apps die bij het starten sluiten door hun advertentiecode. De app start opnieuw.</string>
++    <string name="code_loading_saved">Opgeslagen. %1$s gebruikt het vanaf de volgende start.</string>
++    <string name="code_loading_could_not">Oud laden van code kon niet worden gewijzigd.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pl/strings.xml
+index 662fabe..57462a1 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pl/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">Zapisano. Zadziała, gdy %1$s następnym razem będzie na pierwszym planie.</string>
+     <string name="press_enter_to_confirm">Naciśnij Enter, aby potwierdzić: %1$s</string>
+     <string name="page_hint">↑↓ wiersz · ←→ zmień · Enter na Układzie: Własny · Esc wstecz</string>
++    <string name="code_loading">Starsze ładowanie kodu</string>
++    <string name="code_loading_help">Dla aplikacji, które zamykają się przy starcie przez kod reklam. Aplikacja uruchomi się ponownie.</string>
++    <string name="code_loading_saved">Zapisano. %1$s użyje tego od następnego uruchomienia.</string>
++    <string name="code_loading_could_not">Nie udało się zmienić starszego ładowania kodu.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pt/strings.xml
+index b5042cf..a7c0a14 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-pt/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">Salvo. Vale na próxima vez que %1$s vier para a frente.</string>
+     <string name="press_enter_to_confirm">Pressione Enter para confirmar: %1$s</string>
+     <string name="page_hint">↑↓ linha · ←→ mudar · Enter em Layout: Personalizado · Esc voltar</string>
++    <string name="code_loading">Carregamento de código antigo</string>
++    <string name="code_loading_help">Para apps que fecham ao abrir por causa do código de anúncios. O app reinicia.</string>
++    <string name="code_loading_saved">Salvo. %1$s usa a partir da próxima abertura.</string>
++    <string name="code_loading_could_not">Não foi possível mudar o carregamento de código antigo.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ru/strings.xml
+index 082c372..c2c98e4 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ru/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">Сохранено. Применится, когда %1$s снова окажется на экране.</string>
+     <string name="press_enter_to_confirm">Нажмите Enter для подтверждения: %1$s</string>
+     <string name="page_hint">↑↓ строка · ←→ изменить · Enter на Макете: Свой · Esc назад</string>
++    <string name="code_loading">Старая загрузка кода</string>
++    <string name="code_loading_help">Для приложений, которые закрываются при запуске из-за рекламного кода. Приложение перезапустится.</string>
++    <string name="code_loading_saved">Сохранено. %1$s использует это со следующего запуска.</string>
++    <string name="code_loading_could_not">Не удалось изменить старую загрузку кода.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-sv/strings.xml
+index 22da0d5..4d2d706 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-sv/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">Sparat. Gäller nästa gång %1$s är i förgrunden.</string>
+     <string name="press_enter_to_confirm">Tryck Enter för att bekräfta: %1$s</string>
+     <string name="page_hint">↑↓ rad · ←→ ändra · Enter på Layout: Anpassad · Esc tillbaka</string>
++    <string name="code_loading">Äldre kodladdning</string>
++    <string name="code_loading_help">För appar som stängs vid start på grund av sin annonskod. Appen startar om.</string>
++    <string name="code_loading_saved">Sparat. %1$s använder det från nästa start.</string>
++    <string name="code_loading_could_not">Äldre kodladdning kunde inte ändras.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-tr/strings.xml
+index 0581f96..a5b417c 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-tr/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">Kaydedildi. %1$s bir dahaki sefer öne geldiğinde uygulanır.</string>
+     <string name="press_enter_to_confirm">Onaylamak için Enter\'a basın: %1$s</string>
+     <string name="page_hint">↑↓ satır · ←→ değiştir · Düzen\'de Enter: Özel · Esc geri</string>
++    <string name="code_loading">Eski kod yükleme</string>
++    <string name="code_loading_help">Reklam kodu yüzünden açılışta kapanan uygulamalar için. Uygulama yeniden başlar.</string>
++    <string name="code_loading_saved">Kaydedildi. %1$s bir sonraki açılışta kullanır.</string>
++    <string name="code_loading_could_not">Eski kod yükleme değiştirilemedi.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ur/strings.xml
+index 527f866..96f1a22 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-ur/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">محفوظ ہو گیا۔ اگلی بار %1$s سامنے آنے پر لاگو ہوگا۔</string>
+     <string name="press_enter_to_confirm">تصدیق کے لیے Enter دبائیں: %1$s</string>
+     <string name="page_hint">↑↓ قطار · ←→ بدلیں · لے آؤٹ پر Enter: حسب منشا · Esc واپس</string>
++    <string name="code_loading">پرانی کوڈ لوڈنگ</string>
++    <string name="code_loading_help">ان ایپس کے لیے جو اپنے اشتہاری کوڈ کی وجہ سے شروع ہوتے ہی بند ہو جاتی ہیں۔ ایپ دوبارہ شروع ہوگی۔</string>
++    <string name="code_loading_saved">محفوظ ہو گیا۔ %1$s اگلی بار شروع ہونے سے اسے استعمال کرے گی۔</string>
++    <string name="code_loading_could_not">پرانی کوڈ لوڈنگ تبدیل نہیں ہو سکی۔</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-zh-rCN/strings.xml
+index 1722008..bf5b7f7 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values-zh-rCN/strings.xml
+@@ -178,4 +178,8 @@
+     <string name="applies_next_time">已保存。下次 %1$s 回到前台时生效。</string>
+     <string name="press_enter_to_confirm">按 Enter 确认：%1$s</string>
+     <string name="page_hint">↑↓ 行 · ←→ 更改 · 在布局上按 Enter：自定义 · Esc 返回</string>
++    <string name="code_loading">旧式代码加载</string>
++    <string name="code_loading_help">适用于因广告代码在启动时关闭的应用。应用会重新启动。</string>
++    <string name="code_loading_saved">已保存。%1$s 下次启动时生效。</string>
++    <string name="code_loading_could_not">无法更改旧式代码加载。</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml
+index 7e381c5..7217d71 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/displaycompat/src/main/res/values/strings.xml
+@@ -180,4 +180,8 @@
+     <string name="applies_next_time">Saved. It applies the next time %1$s comes to the front.</string>
+     <string name="press_enter_to_confirm">Press Enter to confirm: %1$s</string>
+     <string name="page_hint">↑↓ row · ←→ change · Enter on Layout: Custom · Esc back</string>
++    <string name="code_loading">Older code loading</string>
++    <string name="code_loading_help">For apps that close at start because of their ad code. The app restarts.</string>
++    <string name="code_loading_saved">Saved. %1$s uses it from its next start.</string>
++    <string name="code_loading_could_not">Older code loading could not be changed.</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/AppCompatTest.kt b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/AppCompatTest.kt
+index 223b283..a4d9892 100644
+--- a/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/AppCompatTest.kt
++++ b/sable-src/apps/titan2/platform/displaycompat/src/test/java/org/sableos/titan2/displaycompat/core/AppCompatTest.kt
+@@ -185,4 +185,15 @@ class AppCompatTest {
+         val custom = DisplayProfile(canvas = TallCanvas.Tall9x16)
+         assertEquals(AppLayout.Square, AppLayout.of(AppPage.layoutStep(custom, -1)))
+     }
++
++    @Test
++    fun olderCodeLoadingListMatchesTheFramework() {
++        assertEquals("persist.sys.sable.legacy_dcl", CodeLoading.PROPERTY)
++        assertTrue(CodeLoading.allows("", "tv.pluto.android"))
++        assertFalse(CodeLoading.allows("-", "tv.pluto.android"))
++        assertEquals("com.example,tv.pluto.android", CodeLoading.with("", "com.example", true))
++        assertEquals("-", CodeLoading.with("", "tv.pluto.android", false))
++        assertEquals("tv.pluto.android", CodeLoading.with("-", "tv.pluto.android", true))
++        assertNull(CodeLoading.with("", "a".repeat(100), true))
++    }
+ }

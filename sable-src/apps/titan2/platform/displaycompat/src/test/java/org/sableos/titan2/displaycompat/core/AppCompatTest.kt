@@ -185,4 +185,15 @@ class AppCompatTest {
         val custom = DisplayProfile(canvas = TallCanvas.Tall9x16)
         assertEquals(AppLayout.Square, AppLayout.of(AppPage.layoutStep(custom, -1)))
     }
+
+    @Test
+    fun olderCodeLoadingListMatchesTheFramework() {
+        assertEquals("persist.sys.sable.legacy_dcl", CodeLoading.PROPERTY)
+        assertTrue(CodeLoading.allows("", "tv.pluto.android"))
+        assertFalse(CodeLoading.allows("-", "tv.pluto.android"))
+        assertEquals("com.example,tv.pluto.android", CodeLoading.with("", "com.example", true))
+        assertEquals("-", CodeLoading.with("", "tv.pluto.android", false))
+        assertEquals("tv.pluto.android", CodeLoading.with("-", "tv.pluto.android", true))
+        assertNull(CodeLoading.with("", "a".repeat(100), true))
+    }
 }
