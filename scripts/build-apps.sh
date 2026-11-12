@@ -61,6 +61,13 @@ prepare_flavor() {
     mkdir -p "$SABLE_FLAVOR_WORK"
     git clone --quiet --no-hardlinks --no-checkout "$cache" "$work"
     git -C "$work" checkout --quiet --detach "$commit"
+    # An upstream that needs its git submodules (DAVx5's translations) says *_SUBMODULES=yes; they are
+    # fetched at the commits the pinned upstream commit records.
+    if [[ "$(sed -n 's/^[A-Z0-9_]*_SUBMODULES=//p' "$spec/upstream.env" | head -n1)" == yes ]]; then
+        [[ "${NETWORK_FETCH_AUTHORIZED:-NO}" == YES ]] || sable_fail "$name needs its submodules; set NETWORK_FETCH_AUTHORIZED=YES"
+        git -C "$work" config remote.origin.url "$url"
+        git -C "$work" submodule update --quiet --init --recursive
+    fi
     python3 "$spec/apply_sable_flavor.py" "$work"
     for verify in "$spec"/verify_sable_*.py; do
         [[ -f "$verify" ]] && python3 "$verify" "$work"
