@@ -504,6 +504,21 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
     print("SABLE_MAIL_RETIRED_LAUNCHER3_SNAPSHOT_CALLER=PASS_ABSENT")
     print("SABLE_MAIL_PRIVACY_SAFE_LIVE_SNAPSHOT=PASS_NOTIFICATION_COUNT_ONLY")
     print("SABLE_MAIL_HUB_SNAPSHOT_CALLER=PASS_BOUNDED_READ_ONLY")
+    require_text(manifest, 'android:authorities="org.sableos.mail.hub"', "SABLE_MAIL_HUB_FEED")
+    require_text(manifest, "org.sableos.mail.action.OPEN_MESSAGE", "SABLE_MAIL_HUB_OPEN")
+    hub_provider = app / "src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt"
+    for needle in (
+        '"org.sableos.launcher", "org.sableos.hub"',
+        "Binder.getCallingUid()",
+        "SecurityException(",
+        "UnsupportedOperationException",
+        "MAX_MESSAGES = 50",
+        "account.inboxFolderId",
+    ):
+        require_text(hub_provider, needle, "SABLE_MAIL_HUB_FEED")
+    for secret in ("password", "token", "body"):
+        reject_text(hub_provider, '"%s"' % secret, "SABLE_MAIL_HUB_FEED_NO_SECRETS")
+    print("SABLE_MAIL_HUB_FEED=PASS_INBOX_HEADERS_ONLY_HOME_AND_HUB")
     app_source = (
         app
         / "src/main/kotlin/net/thunderbird/android/ThunderbirdApp.kt"

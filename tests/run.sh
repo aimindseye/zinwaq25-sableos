@@ -1357,6 +1357,20 @@ for f in davx5:SableDAVx5:at.bitfire.davdroid icsx5:SableICSx5:at.bitfire.icsdro
 done
 if ((cal_ok)); then pass "Calendar accounts: DAVx5 and ICSx5 pinned, built in CI, unsigned, with notices"; else fail "Calendar accounts: DAVx5/ICSx5 rows, pins, CI or notices"; fi
 
+# Hub email in 2.0: Sable Mail ships, answers only the home and Sable Hub with inbox headers, and the
+# home's Hub reads that feed instead of Sable Mail's notifications.
+if awk -F'\t' '$1 == "SableMail" && $9 == "yes"' product/q25/apps.tsv | grep -q . &&
+    grep -q 'android:authorities="org.sableos.mail.hub"' sable-src/apps/r8/mail/apply_sable_flavor.py &&
+    grep -q 'HUB_CALLERS = setOf("org.sableos.launcher", "org.sableos.hub")' \
+        sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
+    ! grep -qiE '"(password|token|body)"' sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
+    grep -q 'patch_hub_mail(root)' sable-src/apps/r8/tenseven/apply_sable_flavor.py &&
+    grep -q '"hub_mail"' sable-src/apps/r8/tenseven/verify_sable_tenseven.py; then
+    pass "Hub email: Sable Mail ships, its inbox feed answers only the home and Hub, Hub reads it"
+else
+    fail "Hub email: Sable Mail row, feed provider, caller check or Hub patch"
+fi
+
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi
 echo "CI=PASS"

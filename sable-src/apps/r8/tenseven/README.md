@@ -31,6 +31,13 @@ The flavor also removes the TenSeven code that SableOS does not ship (`patch_lef
 TenSeven's Phone and Calendar are also what PR 127's quality ratchet flags (LargeClass), so none of
 that code reaches SableOS. Hub reminders keep TenSeven's task store; the Tasks app itself is Sable Tasks.
 
+Hub email (owner, 2026-11-12) comes from Sable Mail, not from TenSeven. `patch_hub_mail` adds
+`SableMailFeed.kt`: the Hub reads the newest inbox messages of every Sable Mail account from
+`content://org.sableos.mail.hub/messages` (sender, subject, preview, date, read), in memory only, and
+re-reads when Sable Mail says the inboxes changed. While that feed answers, Sable Mail's own
+notifications are left out of the Hub, so each email shows once. Enter on an email opens it in Sable
+Mail (`org.sableos.mail.action.OPEN_MESSAGE`). Mail read in Sable Mail shows but is not counted as new.
+
 The APK is platform-signed but not privileged (`platformapp`), as Sable Start was. The framework
 overlay grants it notification listener access on first boot, so Hub fills without a setup step.
 

@@ -41,6 +41,9 @@ def main() -> None:
         and "MEDIA_PROJECTION" not in manifest
         and not (root / JAVA / "ScreenCaptureActivity.kt").exists(),
         "no_first_run_setup": "loadOnboardingDone()" not in activity,
+        # Hub reads Sable Mail's inboxes from its feed (patch_hub_mail).
+        "hub_mail": 'android:authorities="org.sableos.mail.hub"' in manifest
+        and "SableMailFeed.merge(items)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8"),
     }
     bad = [name for name, ok in checks.items() if not ok]
     if bad:

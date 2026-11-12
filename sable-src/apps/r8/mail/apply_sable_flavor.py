@@ -1698,12 +1698,34 @@ class SableMailSnapshotProvider : ContentProvider() {
             android:exported="true"
             android:grantUriPermissions="false" />
 
+        <provider
+            android:name="net.thunderbird.android.SableMailHubProvider"
+            android:authorities="org.sableos.mail.hub"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <activity
+            android:name="net.thunderbird.android.SableMailOpenActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="org.sableos.mail.action.OPEN_MESSAGE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
     </application>""",
         1,
     )
     in_checkout(manifest).write_text(manifest_text, encoding="utf-8")
 
     copy_icon_resources(app / "src/main/res")
+    # The Hub feed (SableMailHubProvider) and its open-message entry, from app/ next to this script.
+    for source in sorted((Path(__file__).resolve().parent / "app").rglob("*.kt")):
+        relative = source.relative_to(Path(__file__).resolve().parent / "app")
+        write(app / relative, source.read_text(encoding="utf-8"))
     apply_keyboard_model(root)
     write(
         app / "src/main/res/drawable/ic_sable_mail_notification.xml",

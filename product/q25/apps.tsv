@@ -91,10 +91,10 @@ SableBrowser	common	apps/r8/android	:browser:assembleRelease	browser/build/outpu
 SableAssistant	common	apps/r8/android	:assistant:assembleRelease	assistant/build/outputs/apk/release/*.apk	org.sableos.assistant	unsigned	-	yes
 SableMessages	common	apps/r8/android	:messages:assembleRelease	messages/build/outputs/apk/release/*.apk	org.sableos.messages	unsigned	messaging	yes
 SableReader	common	apps/common/reader	:leisure:assembleSableDebug	leisure/build/outputs/apk/sable/debug/*.apk	org.sableos.reader	presigned	-	yes
-# Sable Mail (Thunderbird flavor) is off from 2.0 (owner decision 2026-11-04: account setup was
-# never clean). Its source and row stay so `apps --all` still builds it; Hub reads any mail app's
-# notifications (HubMailSources), so K-9, FairEmail or Gmail fill the Mail filter instead.
-SableMail	common	flavor:mail	:app-thunderbird:assembleFossRelease -Pci=true	app-thunderbird/build/outputs/apk/foss/release/*.apk	org.sableos.mail	unsigned	-	no
+# Sable Mail (Thunderbird flavor) is the SableOS 2.0 mail app (owner, 2026-11-12: "just Sable Mail for
+# sable os", Hub email in 2.0; it was off from 2026-11-04 because account setup was never clean). It
+# keeps the accounts and syncs with push; the Hub lists its inboxes from its feed (org.sableos.mail.hub).
+SableMail	common	flavor:mail	:app-thunderbird:assembleFossRelease -Pci=true	app-thunderbird/build/outputs/apk/foss/release/*.apk	org.sableos.mail	unsigned	-	yes
 SableTextReader	common	flavor:textreader	:app:assembleDebug	app/build/outputs/apk/debug/SableTextReader-*.apk	org.sableos.textreader	presigned	-	yes
 SableTerminal	common	flavor:connectbot	:app:assembleOssRelease	app/build/outputs/apk/oss/release/*.apk	org.sableos.terminal	unsigned	-	yes
 # Sable Speech: the eSpeak NG 1.52.0 text-to-speech engine, built from source (sable-src/apps/r8/espeak,

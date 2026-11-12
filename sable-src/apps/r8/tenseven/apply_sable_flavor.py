@@ -644,6 +644,41 @@ def patch_leftovers(root: pathlib.Path) -> None:
         else:
             path.unlink()
 
+def patch_hub_mail(root: pathlib.Path) -> None:
+    """Hub shows Sable Mail's inboxes from its feed (org.sableos.mail.hub), not its notifications."""
+    shutil.copyfile(HERE / "src/SableMailFeed.kt", root / JAVA / "conversations/SableMailFeed.kt")
+    (root / TEST / "conversations").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(HERE / "src/SableMailFeedTest.kt", root / TEST / "conversations/SableMailFeedTest.kt")
+    hub = root / JAVA / "conversations/ConversationHub.kt"
+    replace_once(
+        hub,
+        "    fun ensureStateLoaded(context: Context) {\n        if (stateLoaded) return\n",
+        "    fun ensureStateLoaded(context: Context) {\n"
+        "        SableMailFeed.start(context) { listeners.forEach { it() } }\n"
+        "        if (stateLoaded) return\n",
+        "SABLE_HOME_HUB_MAIL_START",
+    )
+    replace_once(
+        hub,
+        "    fun notifications(): List<HubNotification> = synchronized(lock) { items }\n",
+        "    fun notifications(): List<HubNotification> = synchronized(lock) { SableMailFeed.merge(items) }\n",
+        "SABLE_HOME_HUB_MAIL_NOTIFICATIONS",
+    )
+    replace_once(
+        hub,
+        "synchronized(lock) { buildConversations(items, sentReplies) }",
+        "synchronized(lock) { buildConversations(SableMailFeed.merge(items), sentReplies) }",
+        "SABLE_HOME_HUB_MAIL_CONVERSATIONS",
+    )
+    replace_once(
+        root / "app/src/main/AndroidManifest.xml",
+        '        <provider android:authorities="org.sableos.mail.snapshot" />\n',
+        '        <provider android:authorities="org.sableos.mail.snapshot" />\n'
+        '        <provider android:authorities="org.sableos.mail.hub" />\n',
+        "SABLE_HOME_HUB_MAIL_QUERIES",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -657,6 +692,7 @@ def main() -> None:
     patch_fit(root)
     patch_system_menu(root)
     patch_leftovers(root)
+    patch_hub_mail(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 
