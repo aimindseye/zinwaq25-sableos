@@ -1,13 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Answers come from the owner's own server or a hosted provider they chose. No contacts,
-         location, files or phone actions. -->
+    <!-- Answers come from the owner's own server or a hosted provider they chose. No location or
+         files. One phone action: a text message, sent only after the owner presses Send. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Texts: SEND_SMS comes with the Assistant role (Cosgrove is the default assistant,
+         SableFrameworkOverlay config_defaultAssistant) and default-permissions-sable-q25.
+         Contacts find who a text is for, on the phone; they never reach the model. -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <!-- Hold-to-talk only: the microphone is open while the owner holds Space or Talk, and the
          sound is recognized on the phone. Never in the background, never a wake word. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <queries>
         <provider android:authorities="org.sableos.appearance" />
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
     </queries>
 
     <!-- Plain http is needed for Ollama on the home network; ServerAddress.allowed refuses plain
@@ -37,6 +47,12 @@
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- The phone's assistant: holding the BlackBerry key (config_longPressOnHomeBehavior
+                 3) and the Assistant role. The assist context (the screen) is never read. -->
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <intent-filter>
                 <action android:name="org.sableos.assistant.action.ASK" />

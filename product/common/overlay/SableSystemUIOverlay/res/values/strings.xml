@@ -2,4 +2,8 @@
 <resources>
     <!-- Lock screen unlock hint (visual only). Upstream "Swipe up to open". -->
     <string name="keyguard_unlock">Swipe up to unlock</string>
+    <!-- PIN keys are wide and short on a short window (the Q25's 411 dp square
+         screen): width over height, so 96 dp keys are about 42 dp tall.
+         values-h560dp keeps Android's round keys ("1") on taller windows. -->
+    <string name="num_pad_key_ratio" translatable="false">2.3</string>
 </resources>

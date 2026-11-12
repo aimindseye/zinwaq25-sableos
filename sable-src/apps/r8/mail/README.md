@@ -5,6 +5,16 @@ SableOS does **not** reimplement IMAP, POP3, SMTP, MIME parsing, HTML sanitizati
 mail storage, background synchronization or TLS/certificate handling from
 scratch.
 
+## Hub feed
+
+`app/` next to the flavor script adds `SableMailHubProvider` (`content://org.sableos.mail.hub/messages`)
+and `SableMailOpenActivity` (`org.sableos.mail.action.OPEN_MESSAGE`). The provider answers only the
+SableOS home and Sable Hub with the 50 newest Inbox messages across accounts: sender, subject,
+preview, date, read, attachment flag and a message reference. Its one write marks a message read
+(`update messages/<id>` with `read=1`), which Sable Mail syncs to the server like any read. No body,
+address book, password or token leaves Sable Mail. It tells the Hub when a sync changes an inbox, so push mail
+reaches the Hub as soon as Sable Mail has it.
+
 ## Upstream pin
 
 ```text
@@ -46,7 +56,10 @@ product-policy change is explicitly listed below.
   `SABLE_MAIL_GOOGLE_CLIENT_ID` (Android client for `org.sableos.mail`,
   custom URI scheme, redirect `org.sableos.mail:/oauth2redirect`), the flavor
   writes that one Gmail configuration; the verifier allows only it and rejects
-  every upstream client id (setup: `docs/MAIL_GMAIL_SIGNIN.md` in the Q25 repo);
+  every upstream client id (setup: `docs/MAIL_GMAIL_SIGNIN.md` in the Q25 repo); an owner
+  Microsoft client (`SABLE_MAIL_MICROSOFT_CLIENT_ID` and `SABLE_MAIL_MICROSOFT_SIGNATURE_HASH`, redirect
+  `msauth://org.sableos.mail/<hash>`) adds Outlook and Microsoft 365 the same way
+  (`docs/MAIL_MICROSOFT_SIGNIN.md`);
 - Follow system / Light / Dark and Sable Blue / Green / Purple / Orange /
   Slate are read from the read-only SableStart appearance provider;
 - upstream received-message remote network content remains blocked until the

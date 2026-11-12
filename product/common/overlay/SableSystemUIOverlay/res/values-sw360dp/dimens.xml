@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- PIN keys on a short window (the Q25's 411 dp square screen): 96 dp wide,
+         and num_pad_key_ratio (values/strings.xml) makes them 42 dp tall, with
+         6 dp between rows and 8 dp between columns. values-sw360dp-h560dp puts
+         Android's 84 dp round keys back on taller windows. Upstream 84dp, 12dp, 20dp. -->
+    <dimen name="num_pad_key_width">96dp</dimen>
+    <dimen name="num_pad_row_margin_bottom">6dp</dimen>
+    <dimen name="num_pad_key_margin_end">8dp</dimen>
+</resources>

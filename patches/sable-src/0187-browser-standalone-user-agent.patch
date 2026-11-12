@@ -1,0 +1,58 @@
+diff --git a/patches/README.md b/patches/README.md
+index 79e302f..60e2308 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -319,3 +319,4 @@ Reserved:
+   0184 moves what the DAVx⁵, ICSx⁵ and Terminal flavors share into `sable-src/apps/r8/sable_flavor_common.py` (the Sable colour table, `sable_scheme`, `copy_tree`, `check_commit`, `set_sable_icon`), and Sable Mail's Hub feed answers writes through one `readOnly()`; no change to what is built.
+   0185 marks DAVx⁵ as needing its git submodule (`DAVX5_SUBMODULES=yes`: the `l10n` translations, at the commit the pinned upstream records), which `scripts/build-apps.sh` now fetches.
+   0186 makes Hub's mark-read reach Sable Mail (owner, 2026-11-12): `SableMailHubProvider.update` marks one message read (`messages/<id>`, `read=1`, home and Sable Hub only, `Flag.SEEN` through `MessagingControllerWrapper`, so it syncs to the server), and the home flavor's `ConversationHub.markRead` calls `SableMailFeed.markRead`; both verifiers check it.
++  0187 drops the in-app WebView marks (`; wv`, `Version/4.0`) from Sable Browser's user agent (`standaloneUserAgent`, unit-tested). Google refuses sign-in to pages that look like an app's WebView (`disallowed_useragent`), which can stop Sable Mail's "Sign in with Google" when it opens in Sable Browser.
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt
+index 4859baf..280dae2 100644
+--- a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt
+@@ -50,6 +50,7 @@ fun createBrowserWebView(
+             useWideViewPort = true
+             loadWithOverviewMode = true
+             setGeolocationEnabled(false)
++            userAgentString = standaloneUserAgent(userAgentString)
+         }
+         CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+         webViewClient = BrowserClient(state, onScale)
+@@ -195,3 +196,11 @@ private fun download(
+ 
+ private const val TAG = "SableBrowser"
+ private const val FALLBACK_URL = "browser_fallback_url"
++
++/**
++ * WebView's own user agent without the "; wv" and "Version/4.0" marks of an in-app WebView. Sable Browser is a
++ * full browser, and Google refuses sign-in (disallowed_useragent) to pages that look like an app's WebView,
++ * which also stopped "Sign in with Google" in Sable Mail when it opened here.
++ */
++internal fun standaloneUserAgent(webView: String): String =
++    webView.replace("; wv)", ")").replace(Regex("""Version/\d+(\.\d+)* """), "")
+diff --git a/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/UserAgentTest.kt b/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/UserAgentTest.kt
+new file mode 100644
+index 0000000..a631c8e
+--- /dev/null
++++ b/sable-src/apps/r8/android/browser/src/test/java/org/sableos/browser/UserAgentTest.kt
+@@ -0,0 +1,19 @@
++package org.sableos.browser
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import org.sableos.browser.ui.standaloneUserAgent
++
++class UserAgentTest {
++    @Test
++    fun dropsTheInAppWebViewMarks() {
++        val webView =
++            "Mozilla/5.0 (Linux; Android 17; Q25 Build/BP4A; wv) AppleWebKit/537.36 (KHTML, like Gecko) " +
++                "Version/4.0 Chrome/140.0.0.0 Mobile Safari/537.36"
++        assertEquals(
++            "Mozilla/5.0 (Linux; Android 17; Q25 Build/BP4A) AppleWebKit/537.36 (KHTML, like Gecko) " +
++                "Chrome/140.0.0.0 Mobile Safari/537.36",
++            standaloneUserAgent(webView),
++        )
++    }
++}

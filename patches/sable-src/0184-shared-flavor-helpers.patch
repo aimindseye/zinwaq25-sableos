@@ -1,0 +1,592 @@
+diff --git a/patches/README.md b/patches/README.md
+index 25675a0..4e59df4 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -316,3 +316,4 @@ Reserved:
+   0181 ships the calendar account apps the owner chose (2026-11-12, "Ship both, pinned"): DAVx⁵ (`sable-src/apps/r8/davx5`, v4.5.21-ose) for Google, iCloud and Yahoo calendars and ICSx⁵ (`sable-src/apps/r8/icsx5`, v2.4.3) for calendar links such as Outlook's, built from pinned source with only the release signing removed and the Sable launcher icon (Phosphor `arrows-clockwise` and `link-simple`, generated). Sable Mail's flavor takes an owner Microsoft client (`SABLE_MAIL_MICROSOFT_CLIENT_ID`, `SABLE_MAIL_MICROSOFT_SIGNATURE_HASH`) next to Gmail's, with the `msauth://` redirect the verifier requires. Cosgrove's texting guards `SmsManager.createForSubscriptionId` (API 31) for its minSdk 30.
+   0182 brings email into the Hub (owner, 2026-11-12: Hub email in 2.0, "just Sable Mail for sable os"): Sable Mail is back in the image; its flavor adds `SableMailHubProvider` (`content://org.sableos.mail.hub/messages`, the 50 newest Inbox headers across accounts, read-only, only for the SableOS home and Sable Hub, change-notified from Thunderbird's message list) and `SableMailOpenActivity` (`org.sableos.mail.action.OPEN_MESSAGE`). The home flavor's `patch_hub_mail` adds `SableMailFeed.kt` (unit-tested), which lists those messages in the Hub in place of Sable Mail's notifications and opens one in Sable Mail; `verify_sable_tenseven.py` checks it (`hub_mail`).
+   0183 gives the upstream apps the BlackBerry look (owner, 2026-11-12: every SableOS app in the BlackBerry theme): DAVx⁵, ICSx⁵ and Sable Terminal (ConnectBot) replace their Material 3 colour schemes with the Sable colours, one table shared by the three flavors (black, white and #2E9BD6; raised #141414, dividers #262626; light: #1A6FA0 on #F5F7F9), and Terminal stops taking Android's wallpaper colours.
++  0184 moves what the DAVx⁵, ICSx⁵ and Terminal flavors share into `sable-src/apps/r8/sable_flavor_common.py` (the Sable colour table, `sable_scheme`, `copy_tree`, `check_commit`, `set_sable_icon`), and Sable Mail's Hub feed answers writes through one `readOnly()`; no change to what is built.
+diff --git a/sable-src/apps/r8/connectbot/apply_sable_flavor.py b/sable-src/apps/r8/connectbot/apply_sable_flavor.py
+index 49965d6..9a80757 100644
+--- a/sable-src/apps/r8/connectbot/apply_sable_flavor.py
++++ b/sable-src/apps/r8/connectbot/apply_sable_flavor.py
+@@ -17,95 +17,15 @@ import shutil
+ import subprocess
+ import sys
+ 
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
++from sable_flavor_common import SABLE_DARK, SABLE_LIGHT, copy_tree, sable_scheme  # noqa: E402
++
+ EXPECTED_COMMIT = "21ce6f47cf16785bf2314b4ea931900164c179c1"
+ VERSION_CODE = 11009000  # upstream's own formula for v1.10.9
+ VERSION_NAME = "1.10.9-sable"
+ HERE = pathlib.Path(__file__).resolve().parent
+ 
+ 
+-# SableOS 2.0 colours (black, white and the one blue #2E9BD6; raised #141414, dividers #262626),
+-# as Material 3 roles. The same table is in sable-src/apps/r8/{davx5,icsx5,connectbot}.
+-SABLE_DARK = {
+-    "primary": "2E9BD6",
+-    "onPrimary": "000000",
+-    "primaryContainer": "262626",
+-    "onPrimaryContainer": "FFFFFF",
+-    "secondary": "2E9BD6",
+-    "onSecondary": "000000",
+-    "secondaryContainer": "262626",
+-    "onSecondaryContainer": "FFFFFF",
+-    "tertiary": "2E9BD6",
+-    "onTertiary": "000000",
+-    "tertiaryContainer": "262626",
+-    "onTertiaryContainer": "FFFFFF",
+-    "error": "E0463C",
+-    "onError": "000000",
+-    "errorContainer": "3A1210",
+-    "onErrorContainer": "FFFFFF",
+-    "background": "000000",
+-    "onBackground": "FFFFFF",
+-    "surface": "000000",
+-    "onSurface": "FFFFFF",
+-    "surfaceVariant": "262626",
+-    "onSurfaceVariant": "A6A6A6",
+-    "outline": "595959",
+-    "outlineVariant": "262626",
+-    "scrim": "000000",
+-    "inverseSurface": "FFFFFF",
+-    "inverseOnSurface": "000000",
+-    "inversePrimary": "1A6FA0",
+-    "surfaceDim": "000000",
+-    "surfaceBright": "262626",
+-    "surfaceContainerLowest": "000000",
+-    "surfaceContainerLow": "0A0A0A",
+-    "surfaceContainer": "141414",
+-    "surfaceContainerHigh": "1A1A1A",
+-    "surfaceContainerHighest": "262626",
+-}
+-SABLE_LIGHT = {
+-    "primary": "1A6FA0",
+-    "onPrimary": "FFFFFF",
+-    "primaryContainer": "E9EDF2",
+-    "onPrimaryContainer": "12171C",
+-    "secondary": "1A6FA0",
+-    "onSecondary": "FFFFFF",
+-    "secondaryContainer": "E9EDF2",
+-    "onSecondaryContainer": "12171C",
+-    "tertiary": "1A6FA0",
+-    "onTertiary": "FFFFFF",
+-    "tertiaryContainer": "E9EDF2",
+-    "onTertiaryContainer": "12171C",
+-    "error": "BA1A1A",
+-    "onError": "FFFFFF",
+-    "errorContainer": "FFDAD6",
+-    "onErrorContainer": "410002",
+-    "background": "F5F7F9",
+-    "onBackground": "12171C",
+-    "surface": "FFFFFF",
+-    "onSurface": "12171C",
+-    "surfaceVariant": "E9EDF2",
+-    "onSurfaceVariant": "515B66",
+-    "outline": "8A939C",
+-    "outlineVariant": "D5DBE1",
+-    "scrim": "000000",
+-    "inverseSurface": "12171C",
+-    "inverseOnSurface": "FFFFFF",
+-    "inversePrimary": "2E9BD6",
+-    "surfaceDim": "E9EDF2",
+-    "surfaceBright": "FFFFFF",
+-    "surfaceContainerLowest": "FFFFFF",
+-    "surfaceContainerLow": "F5F7F9",
+-    "surfaceContainer": "F0F3F6",
+-    "surfaceContainerHigh": "E9EDF2",
+-    "surfaceContainerHighest": "E2E7EC",
+-}
+-
+-
+-def sable_scheme(function: str, roles: dict[str, str], indent: str) -> str:
+-    lines = [f"{indent}    {role} = Color(0xFF{value})," for role, value in roles.items()]
+-    return f"{function}(\n" + "\n".join(lines) + f"\n{indent})"
+-
+-
+ def fail(message: str) -> None:
+     raise SystemExit(message)
+ 
+@@ -208,15 +128,6 @@ def patch_colours(theme: pathlib.Path) -> None:
+     replace_once(theme, "    dynamicColor: Boolean = true,\n", "    dynamicColor: Boolean = false,\n", "SABLE_TERMINAL_NO_DYNAMIC_COLOUR")
+ 
+ 
+-def copy_tree(source: pathlib.Path, destination: pathlib.Path) -> int:
+-    files = sorted(p for p in source.rglob("*") if p.is_file())
+-    for path in files:
+-        target = destination / path.relative_to(source)
+-        target.parent.mkdir(parents=True, exist_ok=True)
+-        shutil.copyfile(path, target)
+-    return len(files)
+-
+-
+ def main() -> None:
+     if len(sys.argv) != 2:
+         fail("usage: apply_sable_flavor.py <connectbot-checkout>")
+diff --git a/sable-src/apps/r8/davx5/apply_sable_flavor.py b/sable-src/apps/r8/davx5/apply_sable_flavor.py
+index 7a36b43..50ac57c 100644
+--- a/sable-src/apps/r8/davx5/apply_sable_flavor.py
++++ b/sable-src/apps/r8/davx5/apply_sable_flavor.py
+@@ -10,120 +10,18 @@ key from the environment, and the platform build signs SableOS apps, so the rele
+ from __future__ import annotations
+ 
+ import pathlib
+-import shutil
+-import subprocess
+ import sys
+ 
+-EXPECTED_COMMIT = "f07633b0bb2482aec5cdfe6bd63c9a4b12b4faa2"
+-
+-
+-# SableOS 2.0 colours (black, white and the one blue #2E9BD6; raised #141414, dividers #262626),
+-# as Material 3 roles. The same table is in sable-src/apps/r8/{davx5,icsx5,connectbot}.
+-SABLE_DARK = {
+-    "primary": "2E9BD6",
+-    "onPrimary": "000000",
+-    "primaryContainer": "262626",
+-    "onPrimaryContainer": "FFFFFF",
+-    "secondary": "2E9BD6",
+-    "onSecondary": "000000",
+-    "secondaryContainer": "262626",
+-    "onSecondaryContainer": "FFFFFF",
+-    "tertiary": "2E9BD6",
+-    "onTertiary": "000000",
+-    "tertiaryContainer": "262626",
+-    "onTertiaryContainer": "FFFFFF",
+-    "error": "E0463C",
+-    "onError": "000000",
+-    "errorContainer": "3A1210",
+-    "onErrorContainer": "FFFFFF",
+-    "background": "000000",
+-    "onBackground": "FFFFFF",
+-    "surface": "000000",
+-    "onSurface": "FFFFFF",
+-    "surfaceVariant": "262626",
+-    "onSurfaceVariant": "A6A6A6",
+-    "outline": "595959",
+-    "outlineVariant": "262626",
+-    "scrim": "000000",
+-    "inverseSurface": "FFFFFF",
+-    "inverseOnSurface": "000000",
+-    "inversePrimary": "1A6FA0",
+-    "surfaceDim": "000000",
+-    "surfaceBright": "262626",
+-    "surfaceContainerLowest": "000000",
+-    "surfaceContainerLow": "0A0A0A",
+-    "surfaceContainer": "141414",
+-    "surfaceContainerHigh": "1A1A1A",
+-    "surfaceContainerHighest": "262626",
+-}
+-SABLE_LIGHT = {
+-    "primary": "1A6FA0",
+-    "onPrimary": "FFFFFF",
+-    "primaryContainer": "E9EDF2",
+-    "onPrimaryContainer": "12171C",
+-    "secondary": "1A6FA0",
+-    "onSecondary": "FFFFFF",
+-    "secondaryContainer": "E9EDF2",
+-    "onSecondaryContainer": "12171C",
+-    "tertiary": "1A6FA0",
+-    "onTertiary": "FFFFFF",
+-    "tertiaryContainer": "E9EDF2",
+-    "onTertiaryContainer": "12171C",
+-    "error": "BA1A1A",
+-    "onError": "FFFFFF",
+-    "errorContainer": "FFDAD6",
+-    "onErrorContainer": "410002",
+-    "background": "F5F7F9",
+-    "onBackground": "12171C",
+-    "surface": "FFFFFF",
+-    "onSurface": "12171C",
+-    "surfaceVariant": "E9EDF2",
+-    "onSurfaceVariant": "515B66",
+-    "outline": "8A939C",
+-    "outlineVariant": "D5DBE1",
+-    "scrim": "000000",
+-    "inverseSurface": "12171C",
+-    "inverseOnSurface": "FFFFFF",
+-    "inversePrimary": "2E9BD6",
+-    "surfaceDim": "E9EDF2",
+-    "surfaceBright": "FFFFFF",
+-    "surfaceContainerLowest": "FFFFFF",
+-    "surfaceContainerLow": "F5F7F9",
+-    "surfaceContainer": "F0F3F6",
+-    "surfaceContainerHigh": "E9EDF2",
+-    "surfaceContainerHighest": "E2E7EC",
+-}
+-
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
++from sable_flavor_common import SABLE_DARK, SABLE_LIGHT, check_commit, sable_scheme, set_sable_icon  # noqa: E402
+ 
+-def sable_scheme(function: str, roles: dict[str, str], indent: str) -> str:
+-    lines = [f"{indent}    {role} = Color(0xFF{value})," for role, value in roles.items()]
+-    return f"{function}(\n" + "\n".join(lines) + f"\n{indent})"
++EXPECTED_COMMIT = "f07633b0bb2482aec5cdfe6bd63c9a4b12b4faa2"
+ 
+ 
+ def fail(message: str) -> None:
+     raise SystemExit(message)
+ 
+ 
+-def apply_icon(root: pathlib.Path) -> int:
+-    """Give the app the Sable launcher icon; its name (@string/app_name) stays upstream's."""
+-    # Generated by sable-src/tools/gen_first_party_icons.py (row davx5).
+-    source = pathlib.Path(__file__).resolve().parent / "res"
+-    target = root / "core/src/main/res"
+-    files = sorted(path for path in source.rglob("*") if path.is_file())
+-    for path in files:
+-        destination = target / path.relative_to(source)
+-        destination.parent.mkdir(parents=True, exist_ok=True)
+-        shutil.copyfile(path, destination)
+-    manifest = root / "core/src/main/AndroidManifest.xml"
+-    text = manifest.read_text(encoding="utf-8")
+-    old = 'android:icon="@mipmap/ic_launcher"'
+-    if text.count(old) != 1 or "android:roundIcon" in text:
+-        fail("SABLE_DAVX5_ICON=FAIL")
+-    new = 'android:icon="@mipmap/ic_sable_davx5"\n        android:roundIcon="@mipmap/ic_sable_davx5_round"'
+-    manifest.write_text(text.replace(old, new, 1), encoding="utf-8")
+-    return len(files)
+-
+-
+ def apply_colours(root: pathlib.Path) -> None:
+     """DAVx5's green and orange become the Sable colours; its screens otherwise stay upstream's."""
+     theme = root / "core/src/main/kotlin/at/bitfire/davdroid/ui/OseTheme.kt"
+@@ -147,16 +45,16 @@ def main() -> None:
+     if len(sys.argv) != 2:
+         fail("usage: apply_sable_flavor.py <davx5-checkout>")
+     root = pathlib.Path(sys.argv[1]).resolve()
+-    actual = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+-    if actual != EXPECTED_COMMIT:
+-        fail(f"SABLE_DAVX5_UPSTREAM_COMMIT=FAIL expected={EXPECTED_COMMIT} actual={actual}")
++    check_commit(root, EXPECTED_COMMIT, "SABLE_DAVX5")
+     build = root / "app-ose/build.gradle.kts"
+     text = build.read_text(encoding="utf-8")
+     line = '            signingConfig = signingConfigs.findByName("bitfire")\n'
+     if text.count(line) != 1:
+         fail("SABLE_DAVX5_SIGNING=FAIL")
+     build.write_text(text.replace(line, "            // SableOS: unsigned; the platform build signs it.\n", 1), encoding="utf-8")
+-    icons = apply_icon(root)
++    # Sets android:icon="@mipmap/ic_sable_davx5" and android:roundIcon="@mipmap/ic_sable_davx5_round".
++    # Icon generated by sable-src/tools/gen_first_party_icons.py (row davx5); "@string/app_name" stays.
++    icons = set_sable_icon(pathlib.Path(__file__).resolve().parent / "res", root / "core", "ic_sable_davx5", "SABLE_DAVX5")
+     apply_colours(root)
+     print(f"SABLE_DAVX5_FLAVOR=PASS icons={icons}")
+ 
+diff --git a/sable-src/apps/r8/icsx5/apply_sable_flavor.py b/sable-src/apps/r8/icsx5/apply_sable_flavor.py
+index 06848fc..10fbd5c 100644
+--- a/sable-src/apps/r8/icsx5/apply_sable_flavor.py
++++ b/sable-src/apps/r8/icsx5/apply_sable_flavor.py
+@@ -10,10 +10,11 @@ Bitfire's key from the environment, and the platform build signs SableOS apps.
+ from __future__ import annotations
+ 
+ import pathlib
+-import shutil
+-import subprocess
+ import sys
+ 
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
++from sable_flavor_common import SABLE_DARK, SABLE_LIGHT, check_commit, sable_scheme, set_sable_icon  # noqa: E402
++
+ EXPECTED_COMMIT = "81036b50c10d331ec13fc107f5beae5ca32b72de"
+ SIGNING = (
+     '            productFlavors.getByName("standard").signingConfig = signingConfigs.getByName("bitfire_apk")\n',
+@@ -21,113 +22,10 @@ SIGNING = (
+ )
+ 
+ 
+-# SableOS 2.0 colours (black, white and the one blue #2E9BD6; raised #141414, dividers #262626),
+-# as Material 3 roles. The same table is in sable-src/apps/r8/{davx5,icsx5,connectbot}.
+-SABLE_DARK = {
+-    "primary": "2E9BD6",
+-    "onPrimary": "000000",
+-    "primaryContainer": "262626",
+-    "onPrimaryContainer": "FFFFFF",
+-    "secondary": "2E9BD6",
+-    "onSecondary": "000000",
+-    "secondaryContainer": "262626",
+-    "onSecondaryContainer": "FFFFFF",
+-    "tertiary": "2E9BD6",
+-    "onTertiary": "000000",
+-    "tertiaryContainer": "262626",
+-    "onTertiaryContainer": "FFFFFF",
+-    "error": "E0463C",
+-    "onError": "000000",
+-    "errorContainer": "3A1210",
+-    "onErrorContainer": "FFFFFF",
+-    "background": "000000",
+-    "onBackground": "FFFFFF",
+-    "surface": "000000",
+-    "onSurface": "FFFFFF",
+-    "surfaceVariant": "262626",
+-    "onSurfaceVariant": "A6A6A6",
+-    "outline": "595959",
+-    "outlineVariant": "262626",
+-    "scrim": "000000",
+-    "inverseSurface": "FFFFFF",
+-    "inverseOnSurface": "000000",
+-    "inversePrimary": "1A6FA0",
+-    "surfaceDim": "000000",
+-    "surfaceBright": "262626",
+-    "surfaceContainerLowest": "000000",
+-    "surfaceContainerLow": "0A0A0A",
+-    "surfaceContainer": "141414",
+-    "surfaceContainerHigh": "1A1A1A",
+-    "surfaceContainerHighest": "262626",
+-}
+-SABLE_LIGHT = {
+-    "primary": "1A6FA0",
+-    "onPrimary": "FFFFFF",
+-    "primaryContainer": "E9EDF2",
+-    "onPrimaryContainer": "12171C",
+-    "secondary": "1A6FA0",
+-    "onSecondary": "FFFFFF",
+-    "secondaryContainer": "E9EDF2",
+-    "onSecondaryContainer": "12171C",
+-    "tertiary": "1A6FA0",
+-    "onTertiary": "FFFFFF",
+-    "tertiaryContainer": "E9EDF2",
+-    "onTertiaryContainer": "12171C",
+-    "error": "BA1A1A",
+-    "onError": "FFFFFF",
+-    "errorContainer": "FFDAD6",
+-    "onErrorContainer": "410002",
+-    "background": "F5F7F9",
+-    "onBackground": "12171C",
+-    "surface": "FFFFFF",
+-    "onSurface": "12171C",
+-    "surfaceVariant": "E9EDF2",
+-    "onSurfaceVariant": "515B66",
+-    "outline": "8A939C",
+-    "outlineVariant": "D5DBE1",
+-    "scrim": "000000",
+-    "inverseSurface": "12171C",
+-    "inverseOnSurface": "FFFFFF",
+-    "inversePrimary": "2E9BD6",
+-    "surfaceDim": "E9EDF2",
+-    "surfaceBright": "FFFFFF",
+-    "surfaceContainerLowest": "FFFFFF",
+-    "surfaceContainerLow": "F5F7F9",
+-    "surfaceContainer": "F0F3F6",
+-    "surfaceContainerHigh": "E9EDF2",
+-    "surfaceContainerHighest": "E2E7EC",
+-}
+-
+-
+-def sable_scheme(function: str, roles: dict[str, str], indent: str) -> str:
+-    lines = [f"{indent}    {role} = Color(0xFF{value})," for role, value in roles.items()]
+-    return f"{function}(\n" + "\n".join(lines) + f"\n{indent})"
+-
+-
+ def fail(message: str) -> None:
+     raise SystemExit(message)
+ 
+ 
+-def apply_icon(root: pathlib.Path) -> int:
+-    """Give the app the Sable launcher icon; its name (@string/app_name) stays upstream's."""
+-    # Generated by sable-src/tools/gen_first_party_icons.py (row icsx5).
+-    source = pathlib.Path(__file__).resolve().parent / "res"
+-    target = root / "app/src/main/res"
+-    files = sorted(path for path in source.rglob("*") if path.is_file())
+-    for path in files:
+-        destination = target / path.relative_to(source)
+-        destination.parent.mkdir(parents=True, exist_ok=True)
+-        shutil.copyfile(path, destination)
+-    manifest = root / "app/src/main/AndroidManifest.xml"
+-    text = manifest.read_text(encoding="utf-8")
+-    old = 'android:icon="@mipmap/ic_launcher"'
+-    if text.count(old) != 1 or "android:roundIcon" in text:
+-        fail("SABLE_ICSX5_ICON=FAIL")
+-    new = 'android:icon="@mipmap/ic_sable_icsx5"\n        android:roundIcon="@mipmap/ic_sable_icsx5_round"'
+-    manifest.write_text(text.replace(old, new, 1), encoding="utf-8")
+-    return len(files)
+-
+-
+ def apply_colours(root: pathlib.Path) -> None:
+     """ICSx5's blues become the Sable colours, dark and light; its screens otherwise stay upstream's."""
+     theme = root / "app/src/main/java/at/bitfire/icsdroid/ui/theme/Theme.kt"
+@@ -151,9 +49,7 @@ def main() -> None:
+     if len(sys.argv) != 2:
+         fail("usage: apply_sable_flavor.py <icsx5-checkout>")
+     root = pathlib.Path(sys.argv[1]).resolve()
+-    actual = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+-    if actual != EXPECTED_COMMIT:
+-        fail(f"SABLE_ICSX5_UPSTREAM_COMMIT=FAIL expected={EXPECTED_COMMIT} actual={actual}")
++    check_commit(root, EXPECTED_COMMIT, "SABLE_ICSX5")
+     build = root / "app/build.gradle.kts"
+     text = build.read_text(encoding="utf-8")
+     for line in SIGNING:
+@@ -161,7 +57,9 @@ def main() -> None:
+             fail("SABLE_ICSX5_SIGNING=FAIL")
+         text = text.replace(line, "", 1)
+     build.write_text(text, encoding="utf-8")
+-    icons = apply_icon(root)
++    # Sets android:icon="@mipmap/ic_sable_icsx5" and android:roundIcon="@mipmap/ic_sable_icsx5_round".
++    # Icon generated by sable-src/tools/gen_first_party_icons.py (row icsx5); "@string/app_name" stays.
++    icons = set_sable_icon(pathlib.Path(__file__).resolve().parent / "res", root / "app", "ic_sable_icsx5", "SABLE_ICSX5")
+     apply_colours(root)
+     print(f"SABLE_ICSX5_FLAVOR=PASS icons={icons}")
+ 
+diff --git a/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt b/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt
+index 9429883..b8963de 100644
+--- a/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt
++++ b/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt
+@@ -88,23 +88,15 @@ class SableMailHubProvider : ContentProvider() {
+ 
+     override fun getType(uri: Uri): String = "vnd.android.cursor.dir/vnd.org.sableos.mail.hub.message"
+ 
+-    override fun insert(
+-        uri: Uri,
+-        values: ContentValues?,
+-    ): Uri? = throw UnsupportedOperationException("Read-only provider")
++    // The Hub only reads: nothing here changes Sable Mail's store.
++    override fun insert(uri: Uri, values: ContentValues?): Uri? = readOnly()
+ 
+-    override fun delete(
+-        uri: Uri,
+-        selection: String?,
+-        selectionArgs: Array<out String>?,
+-    ): Int = throw UnsupportedOperationException("Read-only provider")
++    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = readOnly()
+ 
+-    override fun update(
+-        uri: Uri,
+-        values: ContentValues?,
+-        selection: String?,
+-        selectionArgs: Array<out String>?,
+-    ): Int = throw UnsupportedOperationException("Read-only provider")
++    override fun update(uri: Uri, values: ContentValues?, where: String?, whereArgs: Array<out String>?): Int =
++        readOnly()
++
++    private fun readOnly(): Nothing = throw UnsupportedOperationException("Read-only provider")
+ 
+     private class HubMail(
+         val id: Long,
+diff --git a/sable-src/apps/r8/sable_flavor_common.py b/sable-src/apps/r8/sable_flavor_common.py
+new file mode 100644
+index 0000000..b42e4e0
+--- /dev/null
++++ b/sable-src/apps/r8/sable_flavor_common.py
+@@ -0,0 +1,120 @@
++"""Shared by the Sable flavors of upstream apps (sable-src/apps/r8/*/apply_sable_flavor.py)."""
++
++from __future__ import annotations
++
++import pathlib
++import shutil
++import subprocess
++
++# SableOS 2.0 colours (black, white and the one blue #2E9BD6; raised #141414, dividers #262626),
++# as Material 3 roles, for the upstream flavors that draw with Material 3 (DAVx5, ICSx5, Terminal).
++SABLE_DARK = {
++    "primary": "2E9BD6",
++    "onPrimary": "000000",
++    "primaryContainer": "262626",
++    "onPrimaryContainer": "FFFFFF",
++    "secondary": "2E9BD6",
++    "onSecondary": "000000",
++    "secondaryContainer": "262626",
++    "onSecondaryContainer": "FFFFFF",
++    "tertiary": "2E9BD6",
++    "onTertiary": "000000",
++    "tertiaryContainer": "262626",
++    "onTertiaryContainer": "FFFFFF",
++    "error": "E0463C",
++    "onError": "000000",
++    "errorContainer": "3A1210",
++    "onErrorContainer": "FFFFFF",
++    "background": "000000",
++    "onBackground": "FFFFFF",
++    "surface": "000000",
++    "onSurface": "FFFFFF",
++    "surfaceVariant": "262626",
++    "onSurfaceVariant": "A6A6A6",
++    "outline": "595959",
++    "outlineVariant": "262626",
++    "scrim": "000000",
++    "inverseSurface": "FFFFFF",
++    "inverseOnSurface": "000000",
++    "inversePrimary": "1A6FA0",
++    "surfaceDim": "000000",
++    "surfaceBright": "262626",
++    "surfaceContainerLowest": "000000",
++    "surfaceContainerLow": "0A0A0A",
++    "surfaceContainer": "141414",
++    "surfaceContainerHigh": "1A1A1A",
++    "surfaceContainerHighest": "262626",
++}
++SABLE_LIGHT = {
++    "primary": "1A6FA0",
++    "onPrimary": "FFFFFF",
++    "primaryContainer": "E9EDF2",
++    "onPrimaryContainer": "12171C",
++    "secondary": "1A6FA0",
++    "onSecondary": "FFFFFF",
++    "secondaryContainer": "E9EDF2",
++    "onSecondaryContainer": "12171C",
++    "tertiary": "1A6FA0",
++    "onTertiary": "FFFFFF",
++    "tertiaryContainer": "E9EDF2",
++    "onTertiaryContainer": "12171C",
++    "error": "BA1A1A",
++    "onError": "FFFFFF",
++    "errorContainer": "FFDAD6",
++    "onErrorContainer": "410002",
++    "background": "F5F7F9",
++    "onBackground": "12171C",
++    "surface": "FFFFFF",
++    "onSurface": "12171C",
++    "surfaceVariant": "E9EDF2",
++    "onSurfaceVariant": "515B66",
++    "outline": "8A939C",
++    "outlineVariant": "D5DBE1",
++    "scrim": "000000",
++    "inverseSurface": "12171C",
++    "inverseOnSurface": "FFFFFF",
++    "inversePrimary": "2E9BD6",
++    "surfaceDim": "E9EDF2",
++    "surfaceBright": "FFFFFF",
++    "surfaceContainerLowest": "FFFFFF",
++    "surfaceContainerLow": "F5F7F9",
++    "surfaceContainer": "F0F3F6",
++    "surfaceContainerHigh": "E9EDF2",
++    "surfaceContainerHighest": "E2E7EC",
++}
++
++
++def sable_scheme(function: str, roles: dict[str, str], indent: str) -> str:
++    lines = [f"{indent}    {role} = Color(0xFF{value})," for role, value in roles.items()]
++    return f"{function}(\n" + "\n".join(lines) + f"\n{indent})"
++
++
++def copy_tree(source: pathlib.Path, target: pathlib.Path) -> int:
++    """Copies every file under [source] into [target], keeping relative paths; returns the count."""
++    files = sorted(path for path in source.rglob("*") if path.is_file())
++    for path in files:
++        destination = target / path.relative_to(source)
++        destination.parent.mkdir(parents=True, exist_ok=True)
++        shutil.copyfile(path, destination)
++    return len(files)
++
++
++def check_commit(root: pathlib.Path, expected: str, marker: str) -> None:
++    """Stops unless the checkout is at the pinned commit."""
++    actual = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
++    if actual != expected:
++        raise SystemExit(f"{marker}_UPSTREAM_COMMIT=FAIL expected={expected} actual={actual}")
++
++
++def set_sable_icon(source: pathlib.Path, module: pathlib.Path, drawable: str, marker: str) -> int:
++    """Copies the generated Sable icon (sable-src/tools/gen_first_party_icons.py) into [module] and makes it
++    the application's icon and round icon; the app's name stays upstream's. Returns the files copied."""
++    files = copy_tree(source, module / "src/main/res")
++    manifest = module / "src/main/AndroidManifest.xml"
++    text = manifest.read_text(encoding="utf-8")
++    old = 'android:icon="@mipmap/ic_launcher"'
++    if text.count(old) != 1 or "android:roundIcon" in text:
++        raise SystemExit(f"{marker}_ICON=FAIL")
++    new = f'android:icon="@mipmap/{drawable}"\n        android:roundIcon="@mipmap/{drawable}_round"'
++    manifest.write_text(text.replace(old, new, 1), encoding="utf-8")
++    return files

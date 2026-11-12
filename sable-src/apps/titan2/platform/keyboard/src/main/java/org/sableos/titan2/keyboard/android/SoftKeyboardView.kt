@@ -50,7 +50,6 @@ class SoftKeyboardView(
         const val NAV_FALLBACK_DP = 48
         const val WIDE_KEY_WEIGHT = 1.5f
         const val SPACE_WEIGHT = 4f
-        const val ROW_HEIGHT_DP = SoftKeyboardGeometry.ROW_HEIGHT_DP
         const val DENSE_ROW_SIZE = 11
         const val DENSE_KEY_SP = 18f
         const val KEY_SP = 22f
@@ -94,9 +93,11 @@ class SoftKeyboardView(
                 WindowInsets.Type.systemBars() or WindowInsets.Type.tappableElement() or
                     WindowInsets.Type.displayCutout()
             val i = insets.getInsets(types)
-            // Some IME windows report 0 for the nav bar they still draw over;
-            // never go below the system's nav bar height.
-            val bottom = maxOf(i.bottom, navBarHeightPx())
+            // Some IME windows report 0 for the nav bar they still draw over; never go below the
+            // system's nav bar height while one shows. With no nav bar (the Q25's hardware keys)
+            // nothing is reserved, so the short screen keeps that space.
+            val navShown = insets.isVisible(WindowInsets.Type.navigationBars())
+            val bottom = if (navShown) maxOf(i.bottom, navBarHeightPx()) else i.bottom
             v.setPadding(
                 px(PAD_H_DP) + i.left,
                 px(PAD_V_DP),
@@ -105,7 +106,7 @@ class SoftKeyboardView(
             )
             insets
         }
-        setPadding(px(PAD_H_DP), px(PAD_V_DP), px(PAD_H_DP), px(PAD_V_DP) + navBarHeightPx())
+        setPadding(px(PAD_H_DP), px(PAD_V_DP), px(PAD_H_DP), px(PAD_V_DP))
         build()
     }
 
@@ -276,7 +277,12 @@ class SoftKeyboardView(
         gravity =
             Gravity.CENTER
     }
-    private fun rowParams() = LayoutParams(LayoutParams.MATCH_PARENT, px(ROW_HEIGHT_DP))
+
+    /** Row height for this window (SoftKeyboardGeometry.rowHeightDp): shorter on a short screen. */
+    private fun rowHeightDp() =
+        SoftKeyboardGeometry.rowHeightDp(resources.configuration.screenHeightDp)
+
+    private fun rowParams() = LayoutParams(LayoutParams.MATCH_PARENT, px(rowHeightDp()))
 
     private fun row(keys: List<String>, letters: Boolean) {
         val r = newRow()
@@ -391,7 +397,7 @@ class SoftKeyboardView(
                 setColor(fn)
             }
             layoutParams =
-                LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, px(ROW_HEIGHT_DP)).apply {
+                LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, px(rowHeightDp())).apply {
                     setMargins(px(2), 0, px(2), 0)
                 }
             setOnClickListener {

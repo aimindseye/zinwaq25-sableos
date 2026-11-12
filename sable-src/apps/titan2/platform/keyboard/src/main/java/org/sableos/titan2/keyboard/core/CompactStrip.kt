@@ -15,8 +15,26 @@ object SoftKeyboardGeometry {
     const val MIN_ROWS = 4
     const val PAD_V_DP = 6
 
+    /** Shortest key row: still a 40 dp touch target. */
+    const val MIN_ROW_HEIGHT_DP = 40
+
+    /** Most of the window the full keyboard may cover, so the field above it stays in view. */
+    const val MAX_WINDOW_SHARE = 0.45f
+
     /** Lower bound of the full on-screen keyboard height, before the navigation bar. */
     fun minHeightDp(): Int = MIN_ROWS * ROW_HEIGHT_DP + 2 * PAD_V_DP
+
+    /**
+     * Key row height for a window [windowHeightDp] tall. Tall phones keep [ROW_HEIGHT_DP]; a short
+     * window (the Zinwa Q25's 720x720 screen at density 280 is 411 dp square, about 385 dp under
+     * the status bar) gets shorter rows, never under [MIN_ROW_HEIGHT_DP], so the four rows take at
+     * most [MAX_WINDOW_SHARE] of it. Zero or less (unknown) keeps [ROW_HEIGHT_DP].
+     */
+    fun rowHeightDp(windowHeightDp: Int): Int {
+        if (windowHeightDp <= 0) return ROW_HEIGHT_DP
+        val fit = ((windowHeightDp * MAX_WINDOW_SHARE).toInt() - 2 * PAD_V_DP) / MIN_ROWS
+        return fit.coerceIn(MIN_ROW_HEIGHT_DP, ROW_HEIGHT_DP)
+    }
 }
 
 object StripGeometry {

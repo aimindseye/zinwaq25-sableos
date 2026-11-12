@@ -60,6 +60,7 @@
     <string name="calendars">Agenda\'s</string>
     <string name="calendars_hint">Getoonde agenda\'s vullen de agenda, de drukte-ringen en de maand in Start.</string>
     <string name="no_calendars">Nog geen agenda\'s op deze telefoon. Voeg een account toe via Instellingen > Accounts.</string>
+    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
     <string name="add_account">Account toevoegen</string>
     <string name="phone_calendar">Telefoonagenda</string>
     <string name="import_ics">.ics importeren</string>

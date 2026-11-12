@@ -1,0 +1,170 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 12 Nov 2026 12:00:00 +0000
+Subject: [PATCH] SableOS: optional wipe after 10 failed unlock tries
+
+Picture Password plan (BlackBerry style): with Settings > Security > Wipe
+after 10 failed tries on (Settings.Secure sable_wipe_after_failed_unlocks
+for the system user, off by default), the main user's tenth failed PIN or
+password in a row factory resets the phone, keeping factory reset
+protection. DevicePolicyManagerService reports the limit to the lock
+screen, so Android's own warning dialogs count down the last tries and
+show the wipe notice. A stricter device admin policy still wins. Rules in
+SableUnlockWipe, unit-tested.
+---
+ .../DevicePolicyManagerService.java           | 36 ++++++++++++-
+ .../devicepolicy/sable/SableUnlockWipe.java   | 53 +++++++++++++++++++
+ 2 files changed, 87 insertions(+), 2 deletions(-)
+ create mode 100644 services/devicepolicy/java/com/android/server/devicepolicy/sable/SableUnlockWipe.java
+
+diff --git a/services/devicepolicy/java/com/android/server/devicepolicy/DevicePolicyManagerService.java b/services/devicepolicy/java/com/android/server/devicepolicy/DevicePolicyManagerService.java
+index 001c6c5..b795c68 100644
+--- a/services/devicepolicy/java/com/android/server/devicepolicy/DevicePolicyManagerService.java
++++ b/services/devicepolicy/java/com/android/server/devicepolicy/DevicePolicyManagerService.java
+@@ -533,6 +533,7 @@ import com.android.server.devicepolicy.handlers.EnumStoredAsBooleanPolicyHandler
+ import com.android.server.devicepolicy.handlers.PolicyDefinitionFactory;
+ import com.android.server.devicepolicy.handlers.PolicyHandler;
+ import com.android.server.devicepolicy.handlers.PolicyHandlerFactory;
++import com.android.server.devicepolicy.sable.SableUnlockWipe;
+ import com.android.server.inputmethod.InputMethodManagerInternal;
+ import com.android.server.locksettings.LockSettingsInternal;
+ import com.android.server.pdb.PersistentDataBlockManagerInternal;
+@@ -5225,14 +5226,24 @@ public class DevicePolicyManagerService extends IDevicePolicyManager.Stub
+                 who == null || isCallingFromPackage(who.getPackageName(), caller.getUid())
+                         || canQueryAdminPolicy(caller));
+ 
++        final boolean sableOn = who == null && !parent && isSableUnlockWipeOn();
+         synchronized (getLockObject()) {
+             ActiveAdmin admin = (who != null)
+                     ? mDeviceAdmins.getActiveAdminUnchecked(who, userHandle, parent)
+                     : getAdminWithMinimumFailedPasswordsForWipeLocked(userHandle, parent);
+-            return admin != null ? admin.maximumFailedPasswordsForWipe : 0;
++            final int adminMax = admin != null ? admin.maximumFailedPasswordsForWipe : 0;
++            // SableOS: the lock screen's countdown also covers Sable's own wipe after ten tries.
++            return SableUnlockWipe.effectiveMax(adminMax, userHandle == UserHandle.USER_SYSTEM,
++                    sableOn);
+         }
+     }
+ 
++    /** SableOS: Settings > Security > Wipe after 10 failed tries (system user, off by default). */
++    private boolean isSableUnlockWipeOn() {
++        return mInjector.binderWithCleanCallingIdentity(() -> mInjector.settingsSecureGetIntForUser(
++                SableUnlockWipe.SETTING, 0, UserHandle.USER_SYSTEM) == 1);
++    }
++
+     @Override
+     public int getProfileWithMinimumFailedPasswordsForWipe(int userHandle, boolean parent) {
+         if (!mHasFeature || !mLockPatternUtils.hasSecureLockScreen()) {
+@@ -5243,10 +5254,16 @@ public class DevicePolicyManagerService extends IDevicePolicyManager.Stub
+         final CallerIdentity caller = getCallerIdentity();
+         Preconditions.checkCallAuthorization(hasFullCrossUsersPermission(caller, userHandle));
+ 
++        final boolean sableOn = !parent && isSableUnlockWipeOn();
+         synchronized (getLockObject()) {
+             ActiveAdmin admin = getAdminWithMinimumFailedPasswordsForWipeLocked(
+                     userHandle, parent);
+-            return admin != null ? getUserIdToWipeForFailedPasswords(admin) : UserHandle.USER_NULL;
++            if (admin != null) {
++                return getUserIdToWipeForFailedPasswords(admin);
++            }
++            // SableOS: with no admin policy, Sable's own wipe resets the whole phone.
++            return sableOn && userHandle == UserHandle.USER_SYSTEM
++                    ? UserHandle.USER_SYSTEM : UserHandle.USER_NULL;
+         }
+     }
+ 
+@@ -7948,6 +7965,8 @@ public class DevicePolicyManagerService extends IDevicePolicyManager.Stub
+         }
+ 
+         boolean wipeData = false;
++        boolean sableWipe = false;
++        final boolean sableOn = isSableUnlockWipeOn();
+         ActiveAdmin strictestAdmin = null;
+         final long ident = mInjector.binderClearCallingIdentity();
+         try {
+@@ -7964,6 +7983,9 @@ public class DevicePolicyManagerService extends IDevicePolicyManager.Stub
+                     if (max > 0 && policy.mFailedPasswordAttempts >= max) {
+                         wipeData = true;
+                     }
++                    sableWipe = SableUnlockWipe.shouldWipe(policy.mFailedPasswordAttempts,
++                            wipeData && strictestAdmin != null,
++                            userHandle == UserHandle.USER_SYSTEM, sableOn);
+ 
+                     sendAdminCommandForLockscreenPoliciesLocked(
+                             DeviceAdminReceiver.ACTION_PASSWORD_FAILED,
+@@ -8000,6 +8022,16 @@ public class DevicePolicyManagerService extends IDevicePolicyManager.Stub
+             }
+         }
+ 
++        if (sableWipe) {
++            // SableOS: the owner chose Wipe after 10 failed tries; reset the phone as BlackBerry
++            // did. Factory reset protection is kept, so a thief still needs the Google account.
++            Slogf.i(LOG_TAG, "Sable: " + SableUnlockWipe.MAX_TRIES
++                    + " failed unlock attempts; factory resetting");
++            forceWipeDeviceNoLock(/* wipeExtRequested= */ false,
++                    "SableOS wipe after " + SableUnlockWipe.MAX_TRIES + " failed unlock attempts",
++                    /* wipeEuicc= */ false, /* wipeResetProtectionData= */ false);
++        }
++
+         if (mInjector.securityLogIsLoggingEnabled()) {
+             SecurityLog.writeEvent(SecurityLog.TAG_KEYGUARD_DISMISS_AUTH_ATTEMPT,
+                     /* result= */ 0, /* method strength= */ 1);
+diff --git a/services/devicepolicy/java/com/android/server/devicepolicy/sable/SableUnlockWipe.java b/services/devicepolicy/java/com/android/server/devicepolicy/sable/SableUnlockWipe.java
+new file mode 100644
+index 0000000..1f27beb
+--- /dev/null
++++ b/services/devicepolicy/java/com/android/server/devicepolicy/sable/SableUnlockWipe.java
+@@ -0,0 +1,53 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.server.devicepolicy.sable;
++
++/**
++ * SableOS "Wipe after 10 failed tries" (BlackBerry style, off by default): when the owner turns
++ * it on in Settings > Security, the main user's tenth failed PIN or password in a row factory
++ * resets the phone. A stricter device admin policy still wins. Pure rules, unit-tested off the
++ * device; DevicePolicyManagerService reads the setting and does the wipe.
++ */
++public final class SableUnlockWipe {
++    /** Settings.Secure key, read for the system user only: 1 = on, anything else = off. */
++    public static final String SETTING = "sable_wipe_after_failed_unlocks";
++    /** Failed tries in a row before the wipe, as on BlackBerry. */
++    public static final int MAX_TRIES = 10;
++
++    private SableUnlockWipe() {
++    }
++
++    /**
++     * The limit the lock screen counts down to: the admin's limit (0 = none) or Sable's ten,
++     * whichever is stricter, for the main user with the switch on.
++     */
++    public static int effectiveMax(int adminMax, boolean mainUser, boolean on) {
++        if (!mainUser || !on) {
++            return adminMax;
++        }
++        return adminMax > 0 ? Math.min(adminMax, MAX_TRIES) : MAX_TRIES;
++    }
++
++    /**
++     * True when Sable itself must wipe: the switch is on for the main user, this try reaches
++     * ten, and no admin wipe is already happening for it.
++     */
++    public static boolean shouldWipe(int failedAttempts, boolean adminWipes, boolean mainUser,
++            boolean on) {
++        return mainUser && on && !adminWipes && failedAttempts >= MAX_TRIES;
++    }
++}

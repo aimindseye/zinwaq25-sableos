@@ -54,7 +54,7 @@ if awk -F'\t' '
     $1 == "module" { next }
     NF != 9 { print "bad column count line " NR; bad = 1 }
     $2 != "platform" && $2 != "common" { print "bad group line " NR; bad = 1 }
-    $7 != "unsigned" && $7 != "presigned" && $7 != "platform" && $7 != "privileged" { print "bad signing line " NR; bad = 1 }
+    $7 != "unsigned" && $7 != "presigned" && $7 != "platform" && $7 != "privileged" && $7 != "platformapp" { print "bad signing line " NR; bad = 1 }
     $9 != "yes" && $9 != "no" { print "bad enabled line " NR; bad = 1 }
     seen[$1]++ { print "duplicate module " $1; bad = 1 }
     END { exit bad }
@@ -391,13 +391,13 @@ if FAKE_SPOOF=false ADB="$fa/adb" bash scripts/install-microg-addon.sh >/dev/nul
     fail "microG add-on installed on an image without spoofing"
 else
     : > "$FAKE_ADB_LOG"
-    if FAKE_SPOOF=true ADB="$fa/adb" bash scripts/install-microg-addon.sh --with-gsf --with-aurora 2>"$tmp/err" |
+    if FAKE_SPOOF=true ADB="$fa/adb" bash scripts/install-microg-addon.sh --with-aurora 2>"$tmp/err" |
         grep -q '^ADDON_INSTALL=PASS GmsCore FakeStore GsfProxy AuroraStore' &&
         [[ "$(grep '^install' "$FAKE_ADB_LOG" | grep -o '[A-Za-z]*\.apk' | tr '\n' ' ')" == 'GmsCore.apk FakeStore.apk GsfProxy.apk AuroraStore.apk ' ]] &&
         grep -q '^install -r --bypass-low-target-sdk-block .*GsfProxy.apk' "$FAKE_ADB_LOG" &&
         grep -q 'pm grant com.google.android.gms android.permission.ACCESS_FINE_LOCATION' "$FAKE_ADB_LOG" &&
         ! grep -q 'ACCESS_BACKGROUND_LOCATION' "$FAKE_ADB_LOG"; then
-        pass "microG add-on installs the pinned APKs in order on an image that allows spoofing"
+        pass "microG add-on installs the pinned APKs in order on an image that allows spoofing (GsfProxy always)"
     else
         fail "microG add-on install: $(cat "$tmp/err")"
     fi
@@ -487,6 +487,43 @@ for part in ("part0", "part1"):
 PY
 rm -f "$ba_zip"
 if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, games, keyboard strip, wallpaper, boot animation)"; else fail "Q4 review fixes:$q4_bad"; fi
+
+# 6b0. The SableOS home (TenSeven, apps.tsv "platformapp"): platform certificate, not privileged,
+#      replaces Sable Start, Q4 only; and the flavor composes the pinned upstream's entry points.
+ha="$tmp/apps/home"
+mkdir -p "$ha/prebuilt"
+printf 'fake' > "$ha/prebuilt/SableHome.apk"
+(cd "$ha/prebuilt" && sha256sum ./*.apk > ../SHA256SUMS.txt)
+{
+    printf 'module\tgroup\tpackage\tsigning\toverrides\tfilename\tsha256\n'
+    printf 'SableHome\tplatform\torg.sableos.launcher\tplatformapp\tSableLauncher\tSableHome.apk\tx\n'
+} > "$ha/manifest.tsv"
+if stagerun Q4 --apps-dir "$ha" >/dev/null &&
+    grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'certificate: "platform"' &&
+    grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'privileged: false' &&
+    grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'overrides: \["SableLauncher"\]'; then
+    pass "stage SableOS home (platform cert, unprivileged, replaces Sable Start)"
+else
+    fail "stage SableOS home: $(cat "$tmp/err")"
+fi
+grep -q $'^SableHome\tplatform\tflavor:tenseven\t' product/q25/apps.tsv &&
+    grep -q '^TENSEVEN_COMMIT=[0-9a-f]\{40\}$' sable-src/apps/r8/tenseven/upstream.env &&
+    python3 -I -m py_compile sable-src/apps/r8/tenseven/apply_sable_flavor.py sable-src/apps/r8/tenseven/verify_sable_tenseven.py &&
+    pass "SableOS home flavor (TenSeven pinned, org.sableos.launcher)" || fail "SableOS home flavor"
+
+# 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
+# extras and screen capture, and the verify step fails the build if they come back.
+home_bad=""
+for c in TenSevenInCallService TenSevenCallScreeningService TenSevenPhoneActivity TenSevenCalendarActivity \
+    D5PhoneRoleRequestActivity ScreenCaptureService extras.games. extras.notes.MainActivity \
+    extras.calculator.MainActivity extras.profiles.MainActivity tasks.TasksLauncherActivity; do
+    grep -q "$c" sable-src/apps/r8/tenseven/apply_sable_flavor.py || home_bad="$home_bad flavor:$c"
+done
+for k in no_phone no_extras no_screen_capture no_first_run_setup; do
+    grep -q "\"$k\"" sable-src/apps/r8/tenseven/verify_sable_tenseven.py || home_bad="$home_bad verify:$k"
+done
+grep -q 'patch_leftovers(root)' sable-src/apps/r8/tenseven/apply_sable_flavor.py || home_bad="$home_bad not-applied"
+if [[ -z "$home_bad" ]]; then pass "SableOS home: no leftover TenSeven Phone, Calendar, extras or screen capture"; else fail "SableOS home leftovers:$home_bad"; fi
 
 # 6b1a. One Hub: Start's Hub page has the Contacts tab and the unread bar; Sable Hub has no launcher entry.
 hub_bad=""
@@ -670,6 +707,41 @@ if command -v javac >/dev/null 2>&1; then
     fi
 else
     printf 'SKIP  javac not installed (Settings size tiles test)\n'
+fi
+
+# 6e3. 2.0 plan host tests: Sable Audio's codec rules (Settings 1616), Key remapping (1617) and the wipe after 10 failed
+# unlock tries (frameworks/base 0325), each extracted from its patch and compiled on the host.
+if command -v javac >/dev/null 2>&1; then
+    pt="$tmp/plan-hosttests"
+    mkdir -p "$pt/settings" "$pt/fb"
+    (cd "$pt/settings" && git apply --include='src/com/android/settings/sable/SableAudioCodecs.java' \
+        "$ROOT"/patches/framework/packages/apps/Settings/1616-*.patch &&
+        git apply --include='src/com/android/settings/sable/SableKeyRemap.java' \
+        "$ROOT"/patches/framework/packages/apps/Settings/1617-*.patch)
+    (cd "$pt/fb" && git apply --include='*/sable/SableUnlockWipe.java' \
+        "$ROOT"/patches/framework/frameworks/base/0325-*.patch)
+    for p in "$ROOT"/patches/framework/frameworks/base/03*.patch; do
+        (cd "$pt/fb" && git apply --include='*/policy/sable/SableCommandKeys.java' "$p")
+    done
+    if javac -d "$pt/out" "$pt"/settings/src/com/android/settings/sable/SableAudioCodecs.java \
+        "$pt"/settings/src/com/android/settings/sable/SableKeyRemap.java \
+        tests/java/settings/com/android/settings/sable/SableKeyRemapTest.java \
+        "$pt"/fb/services/devicepolicy/java/com/android/server/devicepolicy/sable/SableUnlockWipe.java \
+        "$pt"/fb/services/core/java/com/android/server/policy/sable/SableCommandKeys.java \
+        tests/java/frameworks/com/android/server/policy/sable/SableHubPeekKeysTest.java \
+        tests/java/settings/com/android/settings/sable/SableAudioCodecsTest.java \
+        tests/java/frameworks/com/android/server/devicepolicy/sable/SableUnlockWipeTest.java \
+        tests/java/junit-shim/org/junit/*.java 2>"$tmp/err" &&
+        java -cp "$pt/out" org.junit.Run com.android.settings.sable.SableAudioCodecsTest \
+            com.android.settings.sable.SableKeyRemapTest \
+            com.android.server.devicepolicy.sable.SableUnlockWipeTest \
+            com.android.server.policy.sable.SableHubPeekKeysTest >"$tmp/out" 2>&1; then
+        pass "Sable Audio, key remapping, unlock wipe and Hub peek rules ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+    else
+        fail "Sable Audio, key remapping, unlock wipe and Hub peek rules: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (Sable Audio and unlock wipe rules)\n'
 fi
 
 # 6f. Sable Applications model (Settings patches 0601, 1101 and 12xx) host tests, and the Sable
@@ -1262,6 +1334,22 @@ sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/Design
 EOF_I18N
 if [[ -z "$i18n_bad" ]]; then pass "Sable apps: English in one table per app, equal to values/strings.xml, bound to the resources"; else fail "translations:$i18n_bad"; fi
 
+# Cosgrove is the assistant (owner decision 2026-11-12): hold the BlackBerry key to open him, Alt+BB
+# for the app menu, and texts only after Send.
+cg_bad=""
+cgm=sable-src/apps/r8/android/assistant/src/main
+grep -q 'android.intent.action.ASSIST' "$cgm/AndroidManifest.xml" || cg_bad="$cg_bad assist-filter"
+grep -q '>org.sableos.assistant<' product/common/overlay/SableFrameworkOverlay/res/values/sable_assistant.xml || cg_bad="$cg_bad default-assistant"
+grep -q 'config_longPressOnHomeBehavior">3<' product/common/overlay/SableLineagePlatformOverlay/res/values/config.xml || cg_bad="$cg_bad hold-bb"
+grep -q 'isMenuChord' patches/framework/frameworks/base/0324-SableOS-Alt-BlackBerry-key-opens-the-system-menu.patch || cg_bad="$cg_bad alt-bb-menu"
+grep -q 'SYSTEM_MENU_ACTIVITY' patches/framework/frameworks/base/0324-SableOS-Alt-BlackBerry-key-opens-the-system-menu.patch || cg_bad="$cg_bad system-menu-start"
+grep -q 'patch_system_menu(root)' sable-src/apps/r8/tenseven/apply_sable_flavor.py || cg_bad="$cg_bad system-menu-flavor"
+grep -A3 'package="org.sableos.assistant"' product/q25/permissions/default-permissions-sable-q25.xml | grep -q 'SEND_SMS' || cg_bad="$cg_bad sms-grant"
+# The only sendSms call is behind the confirm card's Send.
+[[ "$(grep -c 'phone.sendSms(' "$cgm/java/org/sableos/assistant/MainActivity.kt")" == 1 ]] || cg_bad="$cg_bad one-send"
+grep -q 'SmsAnswer.Send -> this@MainActivity.sendSms()' "$cgm/java/org/sableos/assistant/MainActivity.kt" || cg_bad="$cg_bad send-on-card"
+if [[ -z "$cg_bad" ]]; then pass "Cosgrove: default assistant on the BlackBerry key hold, Alt+BB menu, texts sent only from the confirm card"; else fail "cosgrove:$cg_bad"; fi
+
 # aapt2 refuses a bare ' in a string resource; a patch that adds one fails the image build.
 apostrophe_bad="$(python3 - <<'EOF_APOS'
 import glob, re
@@ -1289,6 +1377,47 @@ print(" ".join(sorted(present - listed)))
 EOF_START
 )"
 if [[ -z "$start_unlisted" ]]; then pass "Sable Start: every Kotlin file is in Android.bp"; else fail "Sable Start Android.bp misses: $start_unlisted"; fi
+
+# Calendar accounts: DAVx5 and ICSx5 ship from pinned source, unsigned for the platform build, and
+# each flavor checks the same commit that upstream.env pins.
+cal_ok=1
+for f in davx5:SableDAVx5:at.bitfire.davdroid icsx5:SableICSx5:at.bitfire.icsdroid; do
+    IFS=: read -r name module pkg <<< "$f"
+    pin="$(sed -n 's/^[A-Z0-9_]*_COMMIT=//p' "sable-src/apps/r8/$name/upstream.env")"
+    grep -q "EXPECTED_COMMIT = \"$pin\"" "sable-src/apps/r8/$name/apply_sable_flavor.py" || cal_ok=0
+    awk -F'\t' -v m="$module" -v n="flavor:$name" -v p="$pkg" \
+        '$1 == m && $3 == n && $6 == p && $7 == "unsigned" && $9 == "yes"' product/q25/apps.tsv | grep -q . || cal_ok=0
+    grep -q "root: flavor:$name" .github/workflows/android.yml || cal_ok=0
+    grep -q "apps/r8/$name" THIRD_PARTY_NOTICES.md || cal_ok=0
+done
+if ((cal_ok)); then pass "Calendar accounts: DAVx5 and ICSx5 pinned, built in CI, unsigned, with notices"; else fail "Calendar accounts: DAVx5/ICSx5 rows, pins, CI or notices"; fi
+
+# Hub email in 2.0: Sable Mail ships, answers only the home and Sable Hub with inbox headers, and the
+# home's Hub reads that feed instead of Sable Mail's notifications.
+if awk -F'\t' '$1 == "SableMail" && $9 == "yes"' product/q25/apps.tsv | grep -q . &&
+    grep -q 'android:authorities="org.sableos.mail.hub"' sable-src/apps/r8/mail/apply_sable_flavor.py &&
+    grep -q 'HUB_CALLERS = setOf("org.sableos.launcher", "org.sableos.hub")' \
+        sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
+    ! grep -qiE '"(password|token|body)"' sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
+    grep -q 'patch_hub_mail(root)' sable-src/apps/r8/tenseven/apply_sable_flavor.py &&
+    grep -q 'Flag.SEEN, true' sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
+    grep -q 'SableMailFeed.markRead(context, n)' sable-src/apps/r8/tenseven/apply_sable_flavor.py &&
+    grep -q '"hub_mail"' sable-src/apps/r8/tenseven/verify_sable_tenseven.py; then
+    pass "Hub email: Sable Mail ships, its inbox feed answers only the home and Hub, Hub reads it"
+else
+    fail "Hub email: Sable Mail row, feed provider, caller check or Hub patch"
+fi
+
+# BlackBerry look in the upstream flavors: DAVx5, ICSx5 and Sable Terminal take the Sable colours (one
+# shared table, black/white/#2E9BD6), and Terminal no longer takes Android's wallpaper colours.
+look_ok=1
+grep -q '"primary": "2E9BD6"' sable-src/apps/r8/sable_flavor_common.py &&
+    grep -q '"background": "000000"' sable-src/apps/r8/sable_flavor_common.py || look_ok=0
+for f in davx5 icsx5 connectbot; do
+    grep -q 'from sable_flavor_common import SABLE_DARK, SABLE_LIGHT' "sable-src/apps/r8/$f/apply_sable_flavor.py" || look_ok=0
+done
+grep -q 'dynamicColor: Boolean = false' sable-src/apps/r8/connectbot/apply_sable_flavor.py || look_ok=0
+if ((look_ok)); then pass "Sable look: DAVx5, ICSx5 and Terminal use the Sable colours"; else fail "Sable look: flavor colours"; fi
 
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi

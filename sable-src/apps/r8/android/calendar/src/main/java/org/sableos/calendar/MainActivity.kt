@@ -72,6 +72,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -93,6 +95,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
 import java.util.Formatter
@@ -626,6 +629,7 @@ private fun CalendarModeContent(
         CalendarMode.Agenda -> {
             when (state.view) {
                 CalendarView.Agenda -> AgendaPane(state)
+                CalendarView.Day -> DayPane(state)
                 CalendarView.Week -> WeekPane(state)
                 CalendarView.Month -> MonthPane(state)
             }
@@ -1550,6 +1554,66 @@ private fun WeekPane(state: CalendarAppState) {
     Spacer(Modifier.height(SableSpacing.Sm))
     WeekSelection(state)
     KeyDock()
+}
+
+/**
+ * One day as a timeline (from TenSeven's Calendar, 2026-11-12): the day's all-day events, then its
+ * hours with events as blocks and the NOW line, using the week grid with a single column. The arrows
+ * either side of the date step a day; T returns to today, J/K step through the day's events.
+ */
+@Composable
+private fun DayPane(state: CalendarAppState) {
+    val now by produceState(LocalDateTime.now()) {
+        while (true) {
+            delay(NOW_TICK_MS)
+            value = LocalDateTime.now()
+        }
+    }
+    val day = state.selectedDate
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        DayStep(day.minusDays(1), "\u2039") { state.selectedDate = it }
+        Text(
+            text = day.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault())),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleLarge,
+            color = if (day == now.toLocalDate()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+        )
+        DayStep(day.plusDays(1), "\u203A") { state.selectedDate = it }
+    }
+    Spacer(Modifier.height(SableSpacing.Sm))
+    state.events.filter { it.allDay }.forEach { event ->
+        Text(
+            text = t("all_day_3") + event.title,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+    WeekGrid(state, listOf(day), now)
+    Spacer(Modifier.height(SableSpacing.Sm))
+    WeekSelection(state)
+    KeyDock()
+}
+
+/** An arrow beside the day's title that moves to [target]; read out as that date. */
+@Composable
+private fun DayStep(
+    target: LocalDate,
+    arrow: String,
+    onStep: (LocalDate) -> Unit,
+) {
+    val label = target.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault()))
+    Text(
+        text = arrow,
+        modifier =
+            Modifier
+                .sableFocusRing()
+                .clickable { onStep(target) }
+                .semantics { contentDescription = label }
+                .padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
+        style = MaterialTheme.typography.titleLarge,
+    )
 }
 
 @Composable

@@ -65,6 +65,18 @@ object AssistantText {
             "voice_failed" to "The speech model couldn't be downloaded.",
             "voice_permission" to "Allow the microphone so I can hear you while you hold.",
             "voice_nothing" to "I didn't catch that.",
+            // Texts (SMS): only after the owner presses Send. %1$s is the contact here, %2$s the number.
+            "sms_ready" to "I've prepared a text to %1\$s. Check it below and send it if it's right.",
+            "sms_to" to "To %1\$s · %2\$s",
+            "sms_send" to "Send text",
+            "sms_in_messages" to "Open in Messages",
+            "sms_cancel" to "Cancel",
+            "sms_sent" to "Sent to %1\$s.",
+            "sms_cancelled" to "Not sent.",
+            "sms_draft" to "I couldn't send it from here, so it's waiting in Messages for you to send.",
+            "sms_no_contact" to "I couldn't find %1\$s in your contacts. Try their number, or the name as it's saved.",
+            "sms_contacts_permission" to "Allow contacts so I can find who to text.",
+            "sms_send_permission" to "Allow sending texts so I can send it for you.",
         )
 
     val t = SableTexts(EN)

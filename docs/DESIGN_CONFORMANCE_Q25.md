@@ -113,7 +113,7 @@ One difference from the contract: the Q25 has no Ctrl or Esc key, so the contrac
 
 1. **Lock-screen emergency shortcut:** Alt+Space (never types a digit; E types 2).
 2. **Diagnostics:** under a new top-level Keyboard & input row; Settings > Sable stays Setup only.
-3. **Quick Settings:** three columns, as in the artifact.
+3. **Quick Settings:** a one-column list (owner decision 2026-11-12, BB7-style for the trackpad); the artifact had three columns.
 4. **Restore in Setup:** hidden until restore is validated.
 5. **LineageOS rows:** version row, contributors and statistics hidden; Trust renamed Security status; legal notices kept.
 6. **App lock:** hidden, because LineageOS has no launch gate to enforce it.

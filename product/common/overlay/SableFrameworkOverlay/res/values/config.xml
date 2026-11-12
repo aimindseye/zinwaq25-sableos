@@ -18,4 +18,8 @@
     <string name="config_headlineFontFamilyMedium" translatable="false">source-sans-medium</string>
     <string name="config_bodyFontFamily" translatable="false">source-sans</string>
     <string name="config_bodyFontFamilyMedium" translatable="false">source-sans-medium</string>
+    <!-- Hub reads notifications with no extra setup step (owner decision 2026-11-12): the SableOS
+         home's Hub (org.sableos.launcher, TenSeven) and Sable Hub get notification listener access
+         on first boot. The user can still turn either off in Settings > Notifications. -->
+    <string name="config_defaultListenerAccessPackages" translatable="false">org.sableos.launcher:org.sableos.hub</string>
 </resources>

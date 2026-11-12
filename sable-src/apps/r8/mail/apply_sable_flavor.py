@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+import urllib.parse
 from pathlib import Path
 
 EXPECTED_COMMIT = "c733317d933c22bcd790a4790306f30ccf2026b8"
@@ -34,14 +35,84 @@ def google_client_id() -> str | None:
     return value
 
 
+# Outlook/Hotmail/Microsoft 365 sign-in uses the owner's own Microsoft Entra app registration
+# (Android platform: package org.sableos.mail and the signing key's SHA-1 in base64), passed by
+# the build host like the Google client (docs/MAIL_MICROSOFT_SIGNIN.md). Both values are needed:
+# Microsoft returns the sign-in only to msauth://org.sableos.mail/<that hash>.
+MICROSOFT_CLIENT_ID_ENV = "SABLE_MAIL_MICROSOFT_CLIENT_ID"
+MICROSOFT_SIGNATURE_ENV = "SABLE_MAIL_MICROSOFT_SIGNATURE_HASH"
+MICROSOFT_CLIENT_ID_PATTERN = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+MICROSOFT_SIGNATURE_PATTERN = re.compile(r"[A-Za-z0-9+/]{27}=")
+# The upstream Thunderbird and K-9 Microsoft clients (registered to other packages and keys).
+INHERITED_MICROSOFT_CLIENTS = ("e6f8716e-299d-4ed9-bbf3-453f192f44e5", "e647013a-ada4-4114-b419-e43d250f99c5")
+
+
+def microsoft_client() -> tuple[str, str] | None:
+    client = os.environ.get(MICROSOFT_CLIENT_ID_ENV, "").strip().lower()
+    signature = os.environ.get(MICROSOFT_SIGNATURE_ENV, "").strip()
+    if not client and not signature:
+        return None
+    if not MICROSOFT_CLIENT_ID_PATTERN.fullmatch(client):
+        fail(f"{MICROSOFT_CLIENT_ID_ENV} is not a Microsoft application (client) id")
+    if client in INHERITED_MICROSOFT_CLIENTS:
+        fail(f"{MICROSOFT_CLIENT_ID_ENV} is an inherited Thunderbird/K-9 client; register your own")
+    if not MICROSOFT_SIGNATURE_PATTERN.fullmatch(signature):
+        fail(f"{MICROSOFT_SIGNATURE_ENV} must be the signing key's SHA-1 in base64 (28 characters)")
+    return client, signature
+
+
 def oauth_status_line() -> str:
-    if google_client_id() is None:
+    parts = []
+    if google_client_id() is not None:
+        parts.append("GMAIL_OWNER_CLIENT")
+    if microsoft_client() is not None:
+        parts.append("MICROSOFT_OWNER_CLIENT")
+    if not parts:
         return "SABLE_MAIL_OAUTH=DISABLED_UNTIL_SABLE_CLIENT_REGISTRATION"
-    return "SABLE_MAIL_OAUTH=GMAIL_OWNER_CLIENT"
+    return "SABLE_MAIL_OAUTH=" + "+".join(parts)
 
 
-def oauth_factory_source(client_id: str | None) -> str:
-    if client_id is None:
+def _google_entry(client_id: str) -> str:
+    return f'''            listOf(
+                "imap.gmail.com",
+                "imap.googlemail.com",
+                "smtp.gmail.com",
+                "smtp.googlemail.com",
+            ) to OAuthConfiguration(
+                clientId = "{client_id}",
+                scopes = listOf("https://mail.google.com/"),
+                authorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth",
+                tokenEndpoint = "https://oauth2.googleapis.com/token",
+                redirectUri = "${{BuildConfig.APPLICATION_ID}}:/oauth2redirect",
+            ),
+'''
+
+
+def _microsoft_entry(client_id: str, signature: str) -> str:
+    encoded = urllib.parse.quote(signature, safe="")
+    return f'''            listOf(
+                "outlook.office365.com",
+                "smtp.office365.com",
+                "smtp-mail.outlook.com",
+            ) to OAuthConfiguration(
+                clientId = "{client_id}",
+                scopes = listOf(
+                    "profile",
+                    "openid",
+                    "email",
+                    "https://outlook.office.com/IMAP.AccessAsUser.All",
+                    "https://outlook.office.com/SMTP.Send",
+                    "offline_access",
+                ),
+                authorizationEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+                tokenEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+                redirectUri = "msauth://${{BuildConfig.APPLICATION_ID}}/{encoded}",
+            ),
+'''
+
+
+def oauth_factory_source(client_id: str | None, microsoft: tuple[str, str] | None = None) -> str:
+    if client_id is None and microsoft is None:
         return '''package net.thunderbird.android.auth
 
 import net.thunderbird.core.common.oauth.OAuthConfiguration
@@ -58,6 +129,11 @@ class TbOAuthConfigurationFactory : OAuthConfigurationFactory {
         emptyMap()
 }
 '''
+    entries = ""
+    if client_id is not None:
+        entries += _google_entry(client_id)
+    if microsoft is not None:
+        entries += _microsoft_entry(*microsoft)
     return f'''package net.thunderbird.android.auth
 
 import net.thunderbird.android.BuildConfig
@@ -65,26 +141,14 @@ import net.thunderbird.core.common.oauth.OAuthConfiguration
 import net.thunderbird.core.common.oauth.OAuthConfigurationFactory
 
 /**
- * Sable Mail ships no inherited Thunderbird OAuth client IDs. Gmail sign-in uses the Sable
- * owner's own Google OAuth client ({GOOGLE_CLIENT_ID_ENV} at build time). Every other
- * provider stays on IMAP/SMTP with a password.
+ * Sable Mail ships no inherited Thunderbird OAuth client IDs. Gmail and Microsoft sign-in use the
+ * Sable owner's own registrations ({GOOGLE_CLIENT_ID_ENV}, {MICROSOFT_CLIENT_ID_ENV} at build time).
+ * Every other provider stays on IMAP/SMTP with a password.
  */
 class TbOAuthConfigurationFactory : OAuthConfigurationFactory {{
     override fun createConfigurations(): Map<List<String>, OAuthConfiguration> =
         mapOf(
-            listOf(
-                "imap.gmail.com",
-                "imap.googlemail.com",
-                "smtp.gmail.com",
-                "smtp.googlemail.com",
-            ) to OAuthConfiguration(
-                clientId = "{client_id}",
-                scopes = listOf("https://mail.google.com/"),
-                authorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth",
-                tokenEndpoint = "https://oauth2.googleapis.com/token",
-                redirectUri = "${{BuildConfig.APPLICATION_ID}}:/oauth2redirect",
-            ),
-        )
+{entries}        )
 }}
 '''
 
@@ -1086,7 +1150,7 @@ def main() -> None:
         "                definition<ThundermailContract.ViewModel>(ThundermailContract.State::class),\n",
     )
 
-    oauth_source = oauth_factory_source(google_client_id())
+    oauth_source = oauth_factory_source(google_client_id(), microsoft_client())
 
     for variant in ("debug", "beta", "daily", "release"):
         write(
@@ -1634,12 +1698,34 @@ class SableMailSnapshotProvider : ContentProvider() {
             android:exported="true"
             android:grantUriPermissions="false" />
 
+        <provider
+            android:name="net.thunderbird.android.SableMailHubProvider"
+            android:authorities="org.sableos.mail.hub"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
+        <activity
+            android:name="net.thunderbird.android.SableMailOpenActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="org.sableos.mail.action.OPEN_MESSAGE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
     </application>""",
         1,
     )
     in_checkout(manifest).write_text(manifest_text, encoding="utf-8")
 
     copy_icon_resources(app / "src/main/res")
+    # The Hub feed (SableMailHubProvider) and its open-message entry, from app/ next to this script.
+    for source in sorted((Path(__file__).resolve().parent / "app").rglob("*.kt")):
+        relative = source.relative_to(Path(__file__).resolve().parent / "app")
+        write(app / relative, source.read_text(encoding="utf-8"))
     apply_keyboard_model(root)
     write(
         app / "src/main/res/drawable/ic_sable_mail_notification.xml",

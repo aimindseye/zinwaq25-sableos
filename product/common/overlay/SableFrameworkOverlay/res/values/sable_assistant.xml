@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cosgrove, the Sable assistant (org.sableos.assistant), is the default digital assistant
+         (android.app.role.ASSISTANT; owner decision 2026-11-12). Its ACTION_ASSIST activity
+         qualifies it, holding the BlackBerry key opens it (Lineage platform overlay
+         config_longPressOnHomeBehavior 3), and the role grants SEND_SMS, which it uses only
+         after the owner presses Send on a text it prepared. The owner can choose another
+         assistant, or none, in Settings > Apps > Default apps. -->
+    <string name="config_defaultAssistant" translatable="false">org.sableos.assistant</string>
+</resources>

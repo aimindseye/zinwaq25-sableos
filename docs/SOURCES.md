@@ -15,6 +15,8 @@
 | [connectbot/connectbot](https://github.com/connectbot/connectbot) | Upstream for the Sable Terminal flavor | `v1.10.9` (`21ce6f47cf16785bf2314b4ea931900164c179c1`) | Apache-2.0 |
 | [aimindseye/tenseven-launcher](https://github.com/aimindseye/tenseven-launcher) | Tasks/Remind domain ported into Sable Tasks (`sable-src/apps/r8/android/tasks`) | `72ee8251091c338cda9c4b7fc9a9b91de266cb3d` | Apache-2.0 |
 | [espeak-ng/espeak-ng](https://github.com/espeak-ng/espeak-ng) | Upstream for the Sable Speech flavor (text-to-speech engine) | `1.52.0` (`4870adfa25b1a32b4361592f1be8a40337c58d6c`) | GPL-3.0-or-later |
+| [bitfireAT/davx5-ose](https://github.com/bitfireAT/davx5-ose) | DAVx5: CalDAV/CardDAV sync for Google, iCloud, Yahoo and other calendars | `v4.5.21-ose` (`f07633b0bb2482aec5cdfe6bd63c9a4b12b4faa2`) | GPL-3.0 |
+| [bitfireAT/icsx5](https://github.com/bitfireAT/icsx5) | ICSx5: calendar link (webcal/ICS) subscriptions such as Outlook's | `v2.4.3` (`81036b50c10d331ec13fc107f5beae5ca32b72de`) | GPL-3.0 |
 | [alphacep/vosk-api](https://github.com/alphacep/vosk-api) | Cosgrove hold-to-talk: `com.alphacephei:vosk-android` (with JNA) from Maven Central, and the small English model `vosk-model-small-en-us-0.15` the phone downloads when the owner asks | `0.3.75` (aar sha256 `ab2f8b91ac8051561aa325546b35fed9a68b36b8121bac5c6fb927525c4adfad`, in `gradle/verification-metadata.xml`) | Apache-2.0 (JNA: Apache-2.0 or LGPL-2.1, used under Apache-2.0) |
 | [bellhopsw/q25-50mp](https://github.com/bellhopsw/q25-50mp) | Optional 50 MP camera (`product/q25/camera-50mp`, off by default) | `caf855d5adc9578f3231f73947b6872b8786db8a` | MIT (library, tools); GPL-2.0 (kernel change) |
 | [microg/GmsCore](https://github.com/microg/GmsCore) releases | microG Services and Companion APKs (`product/q25/microg`, `SABLE_Q25_MICROG`, Q4+) | `v0.3.17.252432` (`32bc8954ff872d0e1a05ddfae81561b6dbecef69`); APK sha256 in `prebuilts.tsv` | Apache-2.0 |
@@ -31,7 +33,7 @@
 
 To change a pin: update `build/config/q25.env` and
 `manifests/local_manifests/sable_q25.xml` together (`tests/run.sh` checks they
-match) and say why in the commit. The Mail, Text Reader, Terminal and Speech pins live in
-`sable-src/apps/r8/{mail,textreader,connectbot,espeak}/upstream.env`; the sableos and titan2-temp
+match) and say why in the commit. The Mail, Text Reader, Terminal, Speech, DAVx5 and ICSx5 pins live in
+`sable-src/apps/r8/{mail,textreader,connectbot,espeak,davx5,icsx5}/upstream.env`; the sableos and titan2-temp
 pins are recorded in `sable-src/SOURCE_IMPORT.txt`. The LineageOS framework
 patches name their base commits in [`../patches/README.md`](../patches/README.md).

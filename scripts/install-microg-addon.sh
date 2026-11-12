@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Install the microG add-on on a Q25 running SableOS 2.0 (no Google by default).
 #
-#   bash scripts/install-microg-addon.sh                install microG Services and Companion
-#   bash scripts/install-microg-addon.sh --with-gsf     also the Services Framework Proxy
+#   bash scripts/install-microg-addon.sh                install microG Services, Companion and the
+#                                                        Services Framework Proxy (Self-Check needs it)
 #   bash scripts/install-microg-addon.sh --with-aurora  also Aurora Store (Play Store apps)
 #   bash scripts/install-microg-addon.sh --check        only verify the APKs and the phone
 #
@@ -19,13 +19,15 @@ set -euo pipefail
 # shellcheck source=build/lib/common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/build/lib/common.sh"
 
-GSF=NO AURORA=NO CHECK=NO
+# GsfProxy is always installed: on the 2.0 build microG's Self-Check left "Google Services Framework"
+# unticked and Aurora Store failed until it was there (owner, 2026-11-12). --with-gsf stays accepted.
+GSF=YES AURORA=NO CHECK=NO
 while (($#)); do
     case "$1" in
         --with-gsf) GSF=YES; shift ;;
         --with-aurora) AURORA=YES; shift ;;
         --check) CHECK=YES; shift ;;
-        -h|--help) sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) sable_fail "unknown argument $1" ;;
     esac
 done
@@ -79,3 +81,7 @@ for p in GET_ACCOUNTS POST_NOTIFICATIONS; do grant com.android.vending "android.
 echo "ADDON_INSTALL=PASS ${modules[*]}"
 echo "Next: open microG Settings > Self-Check and tick what it asks (battery optimisation, then"
 echo "Google device registration and Cloud Messaging if you want push). docs/MICROG.md has the steps."
+if [[ "$AURORA" == YES ]]; then
+    echo "Aurora Store: choose Anonymous. Signing in with your own Google account does not work yet"
+    echo "on SableOS 2.0 (docs/MICROG.md)."
+fi

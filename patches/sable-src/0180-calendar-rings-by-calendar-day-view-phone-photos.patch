@@ -1,0 +1,804 @@
+diff --git a/patches/README.md b/patches/README.md
+index 5420210..ea36743 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -312,3 +312,4 @@ Reserved:
+   0177 fits Sable Keyboard to the Q25's 411 dp square screen: key rows are 40 to 52 dp, so the four rows take at most 45% of the window (40 dp on the Q25, 52 dp on tall phones), and no navigation bar space is reserved when no navigation bar shows.
+   0178 makes Cosgrove the phone's assistant and lets him text: an ACTION_ASSIST entry (holding the BlackBerry key opens him), `text Name: message` typed or the model's `SEND_SMS name :: message` line prepares a text, the name is found in contacts on the phone, and the text is sent from the default SIM only after the owner presses Send on the confirm card (Open in Messages and Cancel beside it). New lines are in every language file (English for now). ButlerTest covers the parsing.
+   0179 makes expanded Quick Settings on the Q25 a one-column list (owner decision 2026-11-12): SableQuickSettingsLayout for square keyboard phones is two columns with every default tile large, so each row is one tile; the compact row of four is unchanged.
++  0180 brings TenSeven's Calendar and Phone extras into the Sable apps (owner, 2026-11-12): Sable Calendar's busy rings split by calendar, each calendar's arc in its own colour and sharing the day's sweep (`CalendarBusy.arcs`, unit-tested); a Day view (V cycles Agenda, Day, Week, Month) with the day's timeline, NOW line and arrows to step a day; a line under Add account naming DAVx⁵ for Google, iCloud and Yahoo and ICSx⁵ for an Outlook link. Sable Phone's Calls, Favorites and Contacts rows show the contact's photo, or initials on a disc (`Avatar.initials`, unit-tested); hidden and private callers show `#`.
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/BusyMonth.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/BusyMonth.kt
+index 9a9dd17..ab93ce2 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/BusyMonth.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/BusyMonth.kt
+@@ -103,7 +103,8 @@ private fun BusyDayCell(
+     val arc = MaterialTheme.colorScheme.primary
+     val track = MaterialTheme.colorScheme.outlineVariant.copy(alpha = TRACK_ALPHA)
+     val allDay = MaterialTheme.colorScheme.tertiary
+-    val sweep = CalendarBusy.sweepDegrees(day)
++    val arcs = CalendarBusy.arcs(day)
++    val colors = LocalEventColors.current
+     val label = dayLabel(date, day)
+     Box(
+         modifier =
+@@ -123,16 +124,13 @@ private fun BusyDayCell(
+             if (day != null) {
+                 drawArc(track, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
+             }
+-            if (sweep > 0f) {
+-                drawArc(
+-                    arc,
+-                    RING_START_DEGREES,
+-                    sweep,
+-                    false,
+-                    Offset(inset, inset),
+-                    arcSize,
+-                    style = Stroke(stroke, cap = StrokeCap.Round),
+-                )
++            // One arc per calendar in its colour; a lone arc keeps its round ends.
++            val cap = if (arcs.size == 1) StrokeCap.Round else StrokeCap.Butt
++            var start = RING_START_DEGREES
++            arcs.forEach { (calendar, sweep) ->
++                val color = colors[calendar]?.let { Color(it or OPAQUE_ALPHA) } ?: arc
++                drawArc(color, start, sweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = cap))
++                start += sweep
+             }
+             if (day?.allDay == true) {
+                 drawCircle(allDay, radius = size.minDimension / 2 + stroke, style = Stroke(stroke / 2))
+@@ -148,6 +146,7 @@ private fun BusyDayCell(
+ }
+ 
+ private const val DAYS_PER_WEEK = 7
++private const val OPAQUE_ALPHA = -0x1000000
+ 
+ private fun weekdayInitials(): List<String> {
+     val monday = LocalDate.of(2024, 1, 1)
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarBusy.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarBusy.kt
+index 8328ac4..8431c0a 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarBusy.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarBusy.kt
+@@ -12,6 +12,8 @@ data class BusyDay(
+     val busyMinutes: Int,
+     val allDay: Boolean,
+     val count: Int,
++    /** Booked minutes in the window per calendar name, each calendar's own overlaps counted once. */
++    val byCalendar: Map<String, Int> = emptyMap(),
+ ) {
+     val fraction: Float get() = (busyMinutes.toFloat() / CalendarBusy.WINDOW_MINUTES).coerceIn(0f, 1f)
+ }
+@@ -29,6 +31,8 @@ object CalendarBusy {
+     /** A day with any event shows at least this much arc, so one short meeting is still visible. */
+     const val MIN_SWEEP_DEGREES = 24f
+ 
++    private const val MILLIS_PER_MINUTE = 60_000L
++
+     fun days(
+         first: LocalDate,
+         endExclusive: LocalDate,
+@@ -56,6 +60,7 @@ object CalendarBusy {
+         var count = 0
+         var allDay = false
+         val spans = mutableListOf<LongRange>()
++        val calendarSpans = LinkedHashMap<String, MutableList<LongRange>>()
+         events.forEach { event ->
+             if (event.allDay) {
+                 // The provider stores all-day events as UTC midnights.
+@@ -69,11 +74,20 @@ object CalendarBusy {
+                 count += 1
+                 val start = maxOf(event.startMillis, windowStart)
+                 val end = minOf(event.endMillis, windowEnd)
+-                if (end > start) spans += start until end
++                if (end > start) {
++                    spans += start until end
++                    calendarSpans.getOrPut(event.calendarName) { mutableListOf() } += start until end
++                }
+             }
+         }
+         if (count == 0) return null
+-        return BusyDay(date = date, busyMinutes = (union(spans) / 60_000L).toInt(), allDay = allDay, count = count)
++        return BusyDay(
++            date = date,
++            busyMinutes = (union(spans) / MILLIS_PER_MINUTE).toInt(),
++            allDay = allDay,
++            count = count,
++            byCalendar = calendarSpans.mapValues { (_, list) -> (union(list) / MILLIS_PER_MINUTE).toInt() },
++        )
+     }
+ 
+     private fun union(spans: List<LongRange>): Long {
+@@ -102,6 +116,23 @@ object CalendarBusy {
+         return maxOf(MIN_SWEEP_DEGREES, day.fraction * 360f)
+     }
+ 
++    /**
++     * The ring split by calendar (from TenSeven's Calendar, 2026-11-12): each calendar's arc in its own
++     * colour, longest first, sharing the day's sweep in proportion to its booked minutes. The arcs add
++     * up to [sweepDegrees], so overlapping calendars never draw more than the day is booked. A day with
++     * no per-calendar minutes is one arc with an empty calendar name.
++     */
++    fun arcs(day: BusyDay?): List<Pair<String, Float>> {
++        val total = sweepDegrees(day)
++        if (total == 0f) return emptyList()
++        val parts = day?.byCalendar.orEmpty().filterValues { it > 0 }
++        val sum = parts.values.sum()
++        if (sum == 0) return listOf("" to total)
++        return parts.entries
++            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
++            .map { (calendar, minutes) -> calendar to total * minutes / sum }
++    }
++
+     /** Month grid cells, Monday first: leading blanks, the days, trailing blanks to a whole week. */
+     fun monthCells(month: YearMonth): List<LocalDate?> {
+         val leading = month.atDay(1).dayOfWeek.value - 1
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+index 431eac1..f3f055e 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+@@ -74,6 +74,8 @@ object CalendarText {
+             "enter_open_e_edit_del_2" to "[Enter] open  [E] edit  [Del] delete  [T] today",
+             "calendars" to "Calendars",
+             "calendars_hint" to "Shown calendars fill the agenda, the busy rings and Start's month.",
++            "add_account_hint" to
++                "Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.",
+             "no_calendars" to "No calendars on this phone yet. Add an account in Settings > Accounts.",
+             "add_account" to "Add account",
+             "phone_calendar" to "Phone calendar",
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
+index f34192c..b9a69d3 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarWeek.kt
+@@ -48,9 +48,13 @@ object CalendarScreenKeys {
+     val DOCK: String get() = t("c_create_t_today_v") + t("l_calendars")
+ }
+ 
+-/** The browsing views V cycles through: agenda (list with detail), week (5 columns), month. */
++/**
++ * The browsing views V cycles through: agenda (list with detail), day (one timeline, from TenSeven's
++ * Calendar, 2026-11-12), week (5 columns), month.
++ */
+ enum class CalendarView {
+     Agenda,
++    Day,
+     Week,
+     Month,
+     ;
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt
+index e982fe8..9fbe1fa 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarsPane.kt
+@@ -52,6 +52,11 @@ internal fun CalendarsList(
+     Spacer(Modifier.height(12.dp))
+     // Connecting calendars comes first: Android's add-account screen, a Phone calendar, an .ics file.
+     SableActionButton(text = t("add_account"), primary = false, onClick = actions.onAddAccount)
++    Text(
++        text = t("add_account_hint"),
++        style = MaterialTheme.typography.bodySmall,
++        color = MaterialTheme.colorScheme.onSurfaceVariant,
++    )
+     SableActionButton(text = t("phone_calendar"), primary = false, onClick = actions.onPhoneCalendar)
+     SableActionButton(text = t("import_ics"), primary = false, onClick = actions.onImportIcs)
+     Spacer(Modifier.height(12.dp))
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+index ff20596..f4ebdd4 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+@@ -72,6 +72,8 @@ import androidx.compose.ui.input.key.type
+ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.res.painterResource
++import androidx.compose.ui.semantics.contentDescription
++import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+ import kotlinx.coroutines.Dispatchers
+@@ -93,6 +95,7 @@ import java.time.LocalDate
+ import java.time.LocalDateTime
+ import java.time.YearMonth
+ import java.time.ZoneId
++import java.time.format.DateTimeFormatter
+ import java.util.Calendar
+ import java.util.Date
+ import java.util.Formatter
+@@ -626,6 +629,7 @@ private fun CalendarModeContent(
+         CalendarMode.Agenda -> {
+             when (state.view) {
+                 CalendarView.Agenda -> AgendaPane(state)
++                CalendarView.Day -> DayPane(state)
+                 CalendarView.Week -> WeekPane(state)
+                 CalendarView.Month -> MonthPane(state)
+             }
+@@ -1552,6 +1556,66 @@ private fun WeekPane(state: CalendarAppState) {
+     KeyDock()
+ }
+ 
++/**
++ * One day as a timeline (from TenSeven's Calendar, 2026-11-12): the day's all-day events, then its
++ * hours with events as blocks and the NOW line, using the week grid with a single column. The arrows
++ * either side of the date step a day; T returns to today, J/K step through the day's events.
++ */
++@Composable
++private fun DayPane(state: CalendarAppState) {
++    val now by produceState(LocalDateTime.now()) {
++        while (true) {
++            delay(NOW_TICK_MS)
++            value = LocalDateTime.now()
++        }
++    }
++    val day = state.selectedDate
++    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
++        DayStep(day.minusDays(1), "\u2039") { state.selectedDate = it }
++        Text(
++            text = day.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault())),
++            modifier = Modifier.weight(1f),
++            style = MaterialTheme.typography.titleLarge,
++            color = if (day == now.toLocalDate()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
++        )
++        DayStep(day.plusDays(1), "\u203A") { state.selectedDate = it }
++    }
++    Spacer(Modifier.height(SableSpacing.Sm))
++    state.events.filter { it.allDay }.forEach { event ->
++        Text(
++            text = t("all_day_3") + event.title,
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++            maxLines = 1,
++            overflow = TextOverflow.Ellipsis,
++        )
++    }
++    WeekGrid(state, listOf(day), now)
++    Spacer(Modifier.height(SableSpacing.Sm))
++    WeekSelection(state)
++    KeyDock()
++}
++
++/** An arrow beside the day's title that moves to [target]; read out as that date. */
++@Composable
++private fun DayStep(
++    target: LocalDate,
++    arrow: String,
++    onStep: (LocalDate) -> Unit,
++) {
++    val label = target.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault()))
++    Text(
++        text = arrow,
++        modifier =
++            Modifier
++                .sableFocusRing()
++                .clickable { onStep(target) }
++                .semantics { contentDescription = label }
++                .padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
++        style = MaterialTheme.typography.titleLarge,
++    )
++}
++
+ @Composable
+ private fun WeekColumnHeaders(
+     days: List<LocalDate>,
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
+index 16882e6..4c6adad 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">التقويمات</string>
+     <string name="calendars_hint">التقويمات المعروضة تملأ جدول الأعمال وحلقات الانشغال وشهر Start.</string>
+     <string name="no_calendars">لا توجد تقويمات على هذا الهاتف بعد. أضف حسابًا من الإعدادات > الحسابات.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">إضافة حساب</string>
+     <string name="phone_calendar">تقويم الهاتف</string>
+     <string name="import_ics">استيراد ‎.ics</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
+index 56d96a9..9289e38 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">Kalender</string>
+     <string name="calendars_hint">Angezeigte Kalender füllen die Agenda, die Belegungsringe und den Monat in Start.</string>
+     <string name="no_calendars">Noch keine Kalender auf diesem Telefon. Füge ein Konto unter Einstellungen > Konten hinzu.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">Konto hinzufügen</string>
+     <string name="phone_calendar">Telefonkalender</string>
+     <string name="import_ics">.ics importieren</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
+index 4bd9991..973430a 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">Ημερολόγια</string>
+     <string name="calendars_hint">Τα εμφανιζόμενα ημερολόγια γεμίζουν την ατζέντα, τους δακτυλίους φόρτου και τον μήνα του Start.</string>
+     <string name="no_calendars">Δεν υπάρχουν ακόμη ημερολόγια σε αυτό το τηλέφωνο. Προσθέστε λογαριασμό στις Ρυθμίσεις > Λογαριασμοί.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">Προσθήκη λογαριασμού</string>
+     <string name="phone_calendar">Ημερολόγιο τηλεφώνου</string>
+     <string name="import_ics">Εισαγωγή .ics</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
+index 4b20c4a..92156c1 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">Calendarios</string>
+     <string name="calendars_hint">Los calendarios visibles llenan la agenda, los anillos de ocupación y el mes de Start.</string>
+     <string name="no_calendars">Aún no hay calendarios en este teléfono. Añade una cuenta en Ajustes > Cuentas.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">Añadir cuenta</string>
+     <string name="phone_calendar">Calendario del teléfono</string>
+     <string name="import_ics">Importar .ics</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
+index 3b68424..918ce86 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">Agendas</string>
+     <string name="calendars_hint">Les agendas affichés remplissent l’agenda, les anneaux d’occupation et le mois de Start.</string>
+     <string name="no_calendars">Aucun agenda sur ce téléphone. Ajoutez un compte dans Paramètres > Comptes.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">Ajouter un compte</string>
+     <string name="phone_calendar">Agenda du téléphone</string>
+     <string name="import_ics">Importer un .ics</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
+index 453c7be..dabc93e 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">कैलेंडर</string>
+     <string name="calendars_hint">दिखाए गए कैलेंडर एजेंडा, व्यस्तता रिंग और Start के महीने को भरते हैं।</string>
+     <string name="no_calendars">इस फ़ोन पर अभी कोई कैलेंडर नहीं है। सेटिंग > खाते में खाता जोड़ें।</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">खाता जोड़ें</string>
+     <string name="phone_calendar">फ़ोन कैलेंडर</string>
+     <string name="import_ics">.ics आयात करें</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
+index e4a19c6..43106ac 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">Calendari</string>
+     <string name="calendars_hint">I calendari mostrati riempiono l’agenda, gli anelli di impegno e il mese di Start.</string>
+     <string name="no_calendars">Ancora nessun calendario su questo telefono. Aggiungi un account in Impostazioni > Account.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">Aggiungi account</string>
+     <string name="phone_calendar">Calendario del telefono</string>
+     <string name="import_ics">Importa .ics</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
+index f9e31f7..2d17496 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">יומנים</string>
+     <string name="calendars_hint">היומנים המוצגים ממלאים את סדר היום, טבעות העומס ואת החודש ב-Start.</string>
+     <string name="no_calendars">עדיין אין יומנים בטלפון הזה. אפשר להוסיף חשבון בהגדרות > חשבונות.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">הוספת חשבון</string>
+     <string name="phone_calendar">לוח שנה של הטלפון</string>
+     <string name="import_ics">ייבוא ‎.ics</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
+index 1db8c48..573cbec 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">カレンダー</string>
+     <string name="calendars_hint">表示中のカレンダーが予定リスト、予定リング、Start の月表示に使われます。</string>
+     <string name="no_calendars">このスマートフォンにはまだカレンダーがありません。設定 > アカウントでアカウントを追加してください。</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">アカウントを追加</string>
+     <string name="phone_calendar">本体のカレンダー</string>
+     <string name="import_ics">.ics を読み込む</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
+index d24a7a4..e28ca12 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">캘린더</string>
+     <string name="calendars_hint">표시된 캘린더가 일정 목록, 바쁨 링, Start의 월 보기에 사용됩니다.</string>
+     <string name="no_calendars">이 휴대전화에 아직 캘린더가 없습니다. 설정 > 계정에서 계정을 추가하세요.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">계정 추가</string>
+     <string name="phone_calendar">휴대전화 캘린더</string>
+     <string name="import_ics">.ics 가져오기</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
+index e1128cb..64d5f82 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">Agenda\'s</string>
+     <string name="calendars_hint">Getoonde agenda\'s vullen de agenda, de drukte-ringen en de maand in Start.</string>
+     <string name="no_calendars">Nog geen agenda\'s op deze telefoon. Voeg een account toe via Instellingen > Accounts.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">Account toevoegen</string>
+     <string name="phone_calendar">Telefoonagenda</string>
+     <string name="import_ics">.ics importeren</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
+index 404ce7e..2c8d61e 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">Kalendarze</string>
+     <string name="calendars_hint">Widoczne kalendarze wypełniają agendę, pierścienie zajętości i miesiąc w Start.</string>
+     <string name="no_calendars">Na tym telefonie nie ma jeszcze kalendarzy. Dodaj konto w Ustawienia > Konta.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">Dodaj konto</string>
+     <string name="phone_calendar">Kalendarz telefonu</string>
+     <string name="import_ics">Importuj .ics</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
+index a9328e0..2008dee 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">Agendas</string>
+     <string name="calendars_hint">As agendas visíveis preenchem a lista de eventos, os anéis de ocupação e o mês do Start.</string>
+     <string name="no_calendars">Ainda não há agendas neste telefone. Adicione uma conta em Definições > Contas.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">Adicionar conta</string>
+     <string name="phone_calendar">Calendário do telefone</string>
+     <string name="import_ics">Importar .ics</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
+index c32045c..2072ec1 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">Календари</string>
+     <string name="calendars_hint">Показанные календари заполняют список дел, кольца занятости и месяц в Start.</string>
+     <string name="no_calendars">На этом телефоне пока нет календарей. Добавьте аккаунт в Настройки > Аккаунты.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">Добавить аккаунт</string>
+     <string name="phone_calendar">Календарь телефона</string>
+     <string name="import_ics">Импорт .ics</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
+index 925a1b7..d6c2428 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">Kalendrar</string>
+     <string name="calendars_hint">Visade kalendrar fyller agendan, upptagetringarna och månaden i Start.</string>
+     <string name="no_calendars">Inga kalendrar på telefonen än. Lägg till ett konto under Inställningar > Konton.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">Lägg till konto</string>
+     <string name="phone_calendar">Telefonkalender</string>
+     <string name="import_ics">Importera .ics</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
+index 59c57f8..c5d5933 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">Takvimler</string>
+     <string name="calendars_hint">Gösterilen takvimler ajandayı, yoğunluk halkalarını ve Start\'taki ayı doldurur.</string>
+     <string name="no_calendars">Bu telefonda henüz takvim yok. Ayarlar > Hesaplar\'dan bir hesap ekleyin.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">Hesap ekle</string>
+     <string name="phone_calendar">Telefon takvimi</string>
+     <string name="import_ics">.ics içe aktar</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
+index 675731e..b91c672 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">کیلنڈر</string>
+     <string name="calendars_hint">دکھائے گئے کیلنڈر ایجنڈا، مصروفیت کے حلقے اور Start کا مہینہ بھرتے ہیں۔</string>
+     <string name="no_calendars">اس فون پر ابھی کوئی کیلنڈر نہیں۔ ترتیبات > اکاؤنٹس میں اکاؤنٹ شامل کریں۔</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">اکاؤنٹ شامل کریں</string>
+     <string name="phone_calendar">فون کیلنڈر</string>
+     <string name="import_ics">.ics درآمد کریں</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
+index ce5ba27..8e00aec 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
+@@ -60,6 +60,7 @@
+     <string name="calendars">日历</string>
+     <string name="calendars_hint">显示的日历会用于日程、忙碌圆环和 Start 的月视图。</string>
+     <string name="no_calendars">此手机上还没有日历。请在“设置 > 帐号”中添加帐号。</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">添加账户</string>
+     <string name="phone_calendar">手机日历</string>
+     <string name="import_ics">导入 .ics</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+index c8d5373..a9340e8 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+@@ -62,6 +62,7 @@
+     <string name="calendars">Calendars</string>
+     <string name="calendars_hint">Shown calendars fill the agenda, the busy rings and Start\'s month.</string>
+     <string name="no_calendars">No calendars on this phone yet. Add an account in Settings > Accounts.</string>
++    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
+     <string name="add_account">Add account</string>
+     <string name="phone_calendar">Phone calendar</string>
+     <string name="import_ics">Import .ics</string>
+diff --git a/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarBusyTest.kt b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarBusyTest.kt
+index c425504..1923ec4 100644
+--- a/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarBusyTest.kt
++++ b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarBusyTest.kt
+@@ -40,6 +40,24 @@ class CalendarBusyTest {
+         calendarName = "Holidays",
+     )
+ 
++    @Test
++    fun eachCalendarGetsItsShareOfTheRing() {
++        val events =
++            listOf(
++                timed(1, day.atTime(9, 0), 120),
++                timed(2, day.atTime(10, 0), 60).copy(calendarName = "Home"),
++                timed(3, day.atTime(14, 0), 60),
++            )
++        val busy = CalendarBusy.days(day, day.plusDays(1), events, zone).getValue(day)
++        assertEquals(mapOf("Work" to 180, "Home" to 60), busy.byCalendar)
++        val arcs = CalendarBusy.arcs(busy)
++        assertEquals(listOf("Work", "Home"), arcs.map { it.first })
++        // The arcs share the day's sweep (180 booked minutes), so overlaps never overfill the ring.
++        assertEquals(CalendarBusy.sweepDegrees(busy), arcs.sumOf { it.second.toDouble() }.toFloat(), 0.01f)
++        assertEquals(3f, arcs[0].second / arcs[1].second, 0.01f)
++        assertTrue(CalendarBusy.arcs(null).isEmpty())
++    }
++
+     @Test
+     fun overlappingEventsCountOnce() {
+         val events =
+diff --git a/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarWeekTest.kt b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarWeekTest.kt
+index 6ee782a..9b0224f 100644
+--- a/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarWeekTest.kt
++++ b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarWeekTest.kt
+@@ -58,7 +58,8 @@ class CalendarWeekTest {
+ 
+     @Test
+     fun viewKeyCyclesAgendaWeekMonth() {
+-        assertEquals(CalendarView.Week, CalendarView.Agenda.next())
++        assertEquals(CalendarView.Day, CalendarView.Agenda.next())
++        assertEquals(CalendarView.Week, CalendarView.Day.next())
+         assertEquals(CalendarView.Month, CalendarView.Week.next())
+         assertEquals(CalendarView.Agenda, CalendarView.Month.next())
+     }
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/ContactPhotos.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/ContactPhotos.kt
+new file mode 100644
+index 0000000..352373f
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/ContactPhotos.kt
+@@ -0,0 +1,59 @@
++package org.sableos.phone.android
++
++import android.content.ContentUris
++import android.content.Context
++import android.graphics.Bitmap
++import android.graphics.BitmapFactory
++import android.net.Uri
++import android.provider.ContactsContract
++import android.util.LruCache
++
++/**
++ * Contact thumbnails for the Calls, Favorites and Contacts lists (from TenSeven's Phone, 2026-11-12).
++ * Read from the contacts provider only, kept in a small memory cache, never copied anywhere. A
++ * contact without a photo, or no contacts permission, gives null and the row shows initials.
++ */
++class ContactPhotos(context: Context) {
++    private val resolver = context.applicationContext.contentResolver
++    private val byContact = LruCache<Long, Photo>(CACHE_SIZE)
++    private val byNumber = LruCache<String, Photo>(CACHE_SIZE)
++
++    /** A cached lookup: [bitmap] is null when the contact has no photo. */
++    private class Photo(val bitmap: Bitmap?)
++
++    fun forContact(contactId: Long): Bitmap? {
++        byContact.get(contactId)?.let { return it.bitmap }
++        val uri = ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, contactId)
++        val bitmap = runCatching {
++            ContactsContract.Contacts.openContactPhotoInputStream(resolver, uri, false)
++                ?.use(BitmapFactory::decodeStream)
++        }.getOrNull()
++        byContact.put(contactId, Photo(bitmap))
++        return bitmap
++    }
++
++    fun forNumber(number: String): Bitmap? =
++        if (number.isEmpty()) null else byNumber.get(number)?.bitmap ?: lookUp(number)
++
++    private fun lookUp(number: String): Bitmap? {
++        val contactId = runCatching {
++            resolver.query(
++                Uri.withAppendedPath(
++                    ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
++                    Uri.encode(number)
++                ),
++                arrayOf(ContactsContract.PhoneLookup._ID),
++                null,
++                null,
++                null
++            )?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
++        }.getOrNull()
++        val bitmap = contactId?.let(::forContact)
++        byNumber.put(number, Photo(bitmap))
++        return bitmap
++    }
++
++    private companion object {
++        const val CACHE_SIZE = 64
++    }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneListAdapter.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneListAdapter.kt
+index 9b7ff8e..7d1d14e 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneListAdapter.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneListAdapter.kt
+@@ -1,13 +1,19 @@
+ package org.sableos.phone.android
+ 
+ import android.content.Context
++import android.graphics.Bitmap
++import android.graphics.drawable.GradientDrawable
+ import android.text.format.DateFormat
+ import android.text.format.DateUtils
++import android.view.Gravity
+ import android.view.View
+ import android.view.ViewGroup
+ import android.widget.BaseAdapter
++import android.widget.FrameLayout
++import android.widget.ImageView
+ import android.widget.LinearLayout
+ import android.widget.TextView
++import org.sableos.phone.core.Avatar
+ import org.sableos.phone.core.CallFormat
+ import org.sableos.phone.core.CallHistory
+ import org.sableos.phone.core.PhoneSearch
+@@ -15,6 +21,8 @@ import org.sableos.phone.core.PhoneText.t
+ 
+ /** The rows of the Calls, Favorites and Contacts lists: day or group headers, call rows and contact rows. */
+ class PhoneListAdapter(private val context: Context, private val ui: Ui) : BaseAdapter() {
++    private val photos = ContactPhotos(context)
++
+     sealed interface Item {
+         data class Header(val title: String) : Item
+ 
+@@ -54,13 +62,16 @@ class PhoneListAdapter(private val context: Context, private val ui: Ui) : BaseA
+         }
+         val row = convertView as? LinearLayout ?: row()
+         return when (item) {
+-            is Item.CallRow -> fill(row, callTitle(item), callLine(item), item.row.missed)
++            is Item.CallRow -> fill(
++                row,
++                Line(callTitle(item), callLine(item), item.row.missed),
++                callAvatar(item)
++            )
+ 
+             is Item.PersonRow -> fill(
+                 row,
+-                item.person.name,
+-                item.line ?: item.person.numbers.first(),
+-                false
++                Line(item.person.name, item.line ?: item.person.numbers.first(), false),
++                Face(photos.forContact(item.person.id), Avatar.initials(item.person.name))
+             )
+ 
+             is Item.Header -> row
+@@ -71,21 +82,73 @@ class PhoneListAdapter(private val context: Context, private val ui: Ui) : BaseA
+         setPadding(ui.dp(Ui.PAD), ui.dp(HEADER_TOP), ui.dp(Ui.PAD), ui.dp(HEADER_BOTTOM))
+     }
+ 
++    /** A row's two lines; a missed call's title is red. */
++    private data class Line(val title: String, val line: String, val missed: Boolean)
++
++    /** The round avatar: the contact's photo, else its initials on a raised disc. */
++    private data class Face(val photo: Bitmap?, val initials: String)
++
++    /** Avatar, then the title and line, as BlackBerry 10's Phone lists them. */
+     private fun row(): LinearLayout = LinearLayout(context).apply {
+-        orientation = LinearLayout.VERTICAL
++        orientation = LinearLayout.HORIZONTAL
++        gravity = Gravity.CENTER_VERTICAL
+         setPadding(ui.dp(Ui.PAD), ui.dp(ROW_PAD), ui.dp(Ui.PAD), ui.dp(ROW_PAD))
+-        addView(ui.text(Ui.BODY_SP, bold = true).apply { maxLines = 1 })
+-        addView(ui.text(Ui.SMALL_SP, ui.palette.muted).apply { maxLines = 1 })
++        val size = ui.dp(AVATAR_DP)
++        addView(
++            FrameLayout(context).apply {
++                addView(
++                    ui.text(Ui.SMALL_SP, ui.palette.text, bold = true).apply {
++                        gravity = Gravity.CENTER
++                        background = GradientDrawable().apply {
++                            shape = GradientDrawable.OVAL
++                            setColor(ui.palette.surface)
++                        }
++                    },
++                    FrameLayout.LayoutParams(size, size)
++                )
++                addView(
++                    ImageView(context).apply {
++                        scaleType = ImageView.ScaleType.CENTER_CROP
++                        clipToOutline = true
++                        background = GradientDrawable().apply { shape = GradientDrawable.OVAL }
++                    },
++                    FrameLayout.LayoutParams(size, size)
++                )
++            },
++            LinearLayout.LayoutParams(size, size).apply { marginEnd = ui.dp(Ui.PAD) }
++        )
++        addView(
++            LinearLayout(context).apply {
++                orientation = LinearLayout.VERTICAL
++                addView(ui.text(Ui.BODY_SP, bold = true).apply { maxLines = 1 })
++                addView(ui.text(Ui.SMALL_SP, ui.palette.muted).apply { maxLines = 1 })
++            },
++            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
++        )
+     }
+ 
+-    private fun fill(row: LinearLayout, title: String, line: String, missed: Boolean): View =
+-        row.apply {
+-            (getChildAt(0) as TextView).apply {
+-                text = title
+-                setTextColor(if (missed) ui.palette.danger else ui.palette.text)
+-            }
+-            (getChildAt(1) as TextView).text = line
++    private fun fill(row: LinearLayout, text: Line, face: Face): View = row.apply {
++        val avatar = getChildAt(0) as FrameLayout
++        (avatar.getChildAt(0) as TextView).text = face.initials
++        (avatar.getChildAt(1) as ImageView).apply {
++            setImageBitmap(face.photo)
++            visibility = if (face.photo == null) View.GONE else View.VISIBLE
+         }
++        val lines = getChildAt(1) as LinearLayout
++        (lines.getChildAt(0) as TextView).apply {
++            this.text = text.title
++            setTextColor(if (text.missed) ui.palette.danger else ui.palette.text)
++        }
++        (lines.getChildAt(1) as TextView).text = text.line
++    }
++
++    /** A hidden or private caller shows no photo and no initials of a name the list does not show. */
++    private fun callAvatar(item: Item.CallRow): Face {
++        val call = item.row.latest
++        val name = call.name?.takeUnless { item.hideNames || call.hidden || call.number.isEmpty() }
++        return name?.let { Face(photos.forNumber(call.number), Avatar.initials(it)) }
++            ?: Face(null, "#")
++    }
+ 
+     private fun callTitle(item: Item.CallRow): String {
+         val call = item.row.latest
+@@ -111,6 +174,7 @@ class PhoneListAdapter(private val context: Context, private val ui: Ui) : BaseA
+         private const val HEADER_TOP = 10
+         private const val HEADER_BOTTOM = 4
+         private const val ROW_PAD = 8
++        private const val AVATAR_DP = 40
+ 
+         private val KIND_KEYS = mapOf(
+             CallHistory.Kind.INCOMING to "kind_incoming",
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/Avatar.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/Avatar.kt
+new file mode 100644
+index 0000000..a33a144
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/Avatar.kt
+@@ -0,0 +1,15 @@
++package org.sableos.phone.core
++
++/** What a contact's round avatar shows when the contact has no photo (from TenSeven's Phone, 2026-11-12). */
++object Avatar {
++    private const val MAX_LETTERS = 2
++
++    /** Up to two initials from the name's first words; "#" when the name has no letter (a bare number). */
++    fun initials(name: String): String = name
++        .trim()
++        .split(Regex("\\s+"))
++        .mapNotNull { word -> word.firstOrNull { it.isLetter() }?.uppercaseChar() }
++        .take(MAX_LETTERS)
++        .joinToString("")
++        .ifEmpty { "#" }
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/AvatarTest.kt b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/AvatarTest.kt
+new file mode 100644
+index 0000000..2716d50
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/test/java/org/sableos/phone/core/AvatarTest.kt
+@@ -0,0 +1,19 @@
++package org.sableos.phone.core
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++class AvatarTest {
++    @Test
++    fun initialsComeFromTheFirstTwoWords() {
++        assertEquals("AB", Avatar.initials("ada byron king"))
++        assertEquals("M", Avatar.initials("  Mum "))
++        assertEquals("JS", Avatar.initials("(Jo) Smith"))
++    }
++
++    @Test
++    fun numbersAndEmptyNamesShowAHash() {
++        assertEquals("#", Avatar.initials("+44 20 7946 0000"))
++        assertEquals("#", Avatar.initials(""))
++    }
++}

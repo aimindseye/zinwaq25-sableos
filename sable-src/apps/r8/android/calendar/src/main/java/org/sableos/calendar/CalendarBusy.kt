@@ -12,6 +12,8 @@ data class BusyDay(
     val busyMinutes: Int,
     val allDay: Boolean,
     val count: Int,
+    /** Booked minutes in the window per calendar name, each calendar's own overlaps counted once. */
+    val byCalendar: Map<String, Int> = emptyMap(),
 ) {
     val fraction: Float get() = (busyMinutes.toFloat() / CalendarBusy.WINDOW_MINUTES).coerceIn(0f, 1f)
 }
@@ -28,6 +30,8 @@ object CalendarBusy {
 
     /** A day with any event shows at least this much arc, so one short meeting is still visible. */
     const val MIN_SWEEP_DEGREES = 24f
+
+    private const val MILLIS_PER_MINUTE = 60_000L
 
     fun days(
         first: LocalDate,
@@ -56,6 +60,7 @@ object CalendarBusy {
         var count = 0
         var allDay = false
         val spans = mutableListOf<LongRange>()
+        val calendarSpans = LinkedHashMap<String, MutableList<LongRange>>()
         events.forEach { event ->
             if (event.allDay) {
                 // The provider stores all-day events as UTC midnights.
@@ -69,11 +74,20 @@ object CalendarBusy {
                 count += 1
                 val start = maxOf(event.startMillis, windowStart)
                 val end = minOf(event.endMillis, windowEnd)
-                if (end > start) spans += start until end
+                if (end > start) {
+                    spans += start until end
+                    calendarSpans.getOrPut(event.calendarName) { mutableListOf() } += start until end
+                }
             }
         }
         if (count == 0) return null
-        return BusyDay(date = date, busyMinutes = (union(spans) / 60_000L).toInt(), allDay = allDay, count = count)
+        return BusyDay(
+            date = date,
+            busyMinutes = (union(spans) / MILLIS_PER_MINUTE).toInt(),
+            allDay = allDay,
+            count = count,
+            byCalendar = calendarSpans.mapValues { (_, list) -> (union(list) / MILLIS_PER_MINUTE).toInt() },
+        )
     }
 
     private fun union(spans: List<LongRange>): Long {
@@ -100,6 +114,23 @@ object CalendarBusy {
     fun sweepDegrees(day: BusyDay?): Float {
         if (day == null || day.busyMinutes == 0) return 0f
         return maxOf(MIN_SWEEP_DEGREES, day.fraction * 360f)
+    }
+
+    /**
+     * The ring split by calendar (from TenSeven's Calendar, 2026-11-12): each calendar's arc in its own
+     * colour, longest first, sharing the day's sweep in proportion to its booked minutes. The arcs add
+     * up to [sweepDegrees], so overlapping calendars never draw more than the day is booked. A day with
+     * no per-calendar minutes is one arc with an empty calendar name.
+     */
+    fun arcs(day: BusyDay?): List<Pair<String, Float>> {
+        val total = sweepDegrees(day)
+        if (total == 0f) return emptyList()
+        val parts = day?.byCalendar.orEmpty().filterValues { it > 0 }
+        val sum = parts.values.sum()
+        if (sum == 0) return listOf("" to total)
+        return parts.entries
+            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+            .map { (calendar, minutes) -> calendar to total * minutes / sum }
     }
 
     /** Month grid cells, Monday first: leading blanks, the days, trailing blanks to a whole week. */

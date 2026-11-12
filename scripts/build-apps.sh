@@ -47,8 +47,8 @@ declare -A flavor_dir=()
 prepare_flavor() {
     local name="$1" spec="$SRC/apps/r8/$1" url commit cache work verify gradle_dir
     [[ -f "$spec/upstream.env" && -f "$spec/apply_sable_flavor.py" ]] || sable_fail "no Sable flavor at $spec"
-    url="$(sed -n 's/^[A-Z_]*_REPOSITORY=//p' "$spec/upstream.env" | head -n1)"
-    commit="$(sed -n 's/^[A-Z_]*_COMMIT=//p' "$spec/upstream.env" | head -n1)"
+    url="$(sed -n 's/^[A-Z0-9_]*_REPOSITORY=//p' "$spec/upstream.env" | head -n1)"
+    commit="$(sed -n 's/^[A-Z0-9_]*_COMMIT=//p' "$spec/upstream.env" | head -n1)"
     [[ -n "$url" && "$commit" =~ ^[0-9a-f]{40}$ ]] || sable_fail "$spec/upstream.env lacks *_REPOSITORY or a full *_COMMIT"
     cache="$SABLE_UPSTREAM_CACHE/$name"
     if ! git -C "$cache" cat-file -e "$commit^{commit}" 2>/dev/null; then
@@ -61,12 +61,19 @@ prepare_flavor() {
     mkdir -p "$SABLE_FLAVOR_WORK"
     git clone --quiet --no-hardlinks --no-checkout "$cache" "$work"
     git -C "$work" checkout --quiet --detach "$commit"
+    # An upstream that needs its git submodules (DAVx5's translations) says *_SUBMODULES=yes; they are
+    # fetched at the commits the pinned upstream commit records.
+    if [[ "$(sed -n 's/^[A-Z0-9_]*_SUBMODULES=//p' "$spec/upstream.env" | head -n1)" == yes ]]; then
+        [[ "${NETWORK_FETCH_AUTHORIZED:-NO}" == YES ]] || sable_fail "$name needs its submodules; set NETWORK_FETCH_AUTHORIZED=YES"
+        git -C "$work" config remote.origin.url "$url"
+        git -C "$work" submodule update --quiet --init --recursive
+    fi
     python3 "$spec/apply_sable_flavor.py" "$work"
     for verify in "$spec"/verify_sable_*.py; do
         [[ -f "$verify" ]] && python3 "$verify" "$work"
     done
     # An upstream whose Gradle project is not at its root names it with *_GRADLE_DIR.
-    gradle_dir="$(sed -n 's/^[A-Z_]*_GRADLE_DIR=//p' "$spec/upstream.env" | head -n1)"
+    gradle_dir="$(sed -n 's/^[A-Z0-9_]*_GRADLE_DIR=//p' "$spec/upstream.env" | head -n1)"
     [[ -z "$gradle_dir" || "$gradle_dir" =~ ^[A-Za-z0-9_][A-Za-z0-9_/-]*$ ]] || sable_fail "$spec/upstream.env: bad *_GRADLE_DIR $gradle_dir"
     work="$work${gradle_dir:+/$gradle_dir}"
     chmod +x "$work/gradlew"

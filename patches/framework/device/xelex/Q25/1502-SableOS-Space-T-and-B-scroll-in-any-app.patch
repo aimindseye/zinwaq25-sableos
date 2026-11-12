@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 12 Nov 2026 13:10:00 +0000
+Subject: [PATCH] SableOS: Space, T and B scroll in any app on the Q25
+
+2.0 plan, system-wide key scrolling: where the app in front leaves the
+key unhandled (no text field and no shortcut of its own), plain Space and
+Shift+Space page down and up, and plain T and B jump to the top and the
+bottom, as on BlackBerry. The keychar map gives those keys fallback key
+codes (PAGE_DOWN, PAGE_UP, MOVE_HOME, MOVE_END), which Android sends only
+for an unhandled key, so typing and app shortcuts are unchanged. Lists,
+scroll views and web pages take the page keys.
+---
+ configs/keychars/Q25_keyboard.kcm | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/configs/keychars/Q25_keyboard.kcm b/configs/keychars/Q25_keyboard.kcm
+index 3bd6d8e..fc38446 100644
+--- a/configs/keychars/Q25_keyboard.kcm
++++ b/configs/keychars/Q25_keyboard.kcm
+@@ -31,9 +31,12 @@ key A {
+     alt:                                '*'
+ }
+ 
++# SableOS: where no app takes the key (no text field, no app shortcut), plain B jumps to
++# the bottom, plain T to the top, and Space and Shift+Space page down and up, as on
++# BlackBerry. Android sends these fallback keys only when the app leaves the key unhandled.
+ key B {
+     label:                              'B'
+-    base:                               'b'
++    base:                               'b' fallback MOVE_END
+     shift, capslock:                    'B'
+     shift+capslock:                     'b'
+     alt:                                '!'
+@@ -183,7 +186,7 @@ key S {
+ 
+ key T {
+     label:                              'T'
+-    base:                               't'
++    base:                               't' fallback MOVE_HOME
+     shift, capslock:                    'T'
+     shift+capslock:                     't'
+     alt:                                '('
+@@ -242,8 +245,8 @@ key Z {
+ key SPACE {
+     label:                              ' '
+     number:                             ' '
+-    base:                               ' '
+-    shift:                              ' '
++    base:                               ' ' fallback PAGE_DOWN
++    shift:                              ' ' fallback PAGE_UP
+     alt:                                '\uef01'
+     shift+alt:                          '\uef01'
+ }

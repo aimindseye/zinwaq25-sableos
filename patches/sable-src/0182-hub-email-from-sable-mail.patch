@@ -1,0 +1,621 @@
+diff --git a/patches/README.md b/patches/README.md
+index 63b975a..3cd7f37 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -314,3 +314,4 @@ Reserved:
+   0179 makes expanded Quick Settings on the Q25 a one-column list (owner decision 2026-11-12): SableQuickSettingsLayout for square keyboard phones is two columns with every default tile large, so each row is one tile; the compact row of four is unchanged.
+   0180 brings TenSeven's Calendar and Phone extras into the Sable apps (owner, 2026-11-12): Sable Calendar's busy rings split by calendar, each calendar's arc in its own colour and sharing the day's sweep (`CalendarBusy.arcs`, unit-tested); a Day view (V cycles Agenda, Day, Week, Month) with the day's timeline, NOW line and arrows to step a day; a line under Add account naming DAVx⁵ for Google, iCloud and Yahoo and ICSx⁵ for an Outlook link. Sable Phone's Calls, Favorites and Contacts rows show the contact's photo, or initials on a disc (`Avatar.initials`, unit-tested); hidden and private callers show `#`.
+   0181 ships the calendar account apps the owner chose (2026-11-12, "Ship both, pinned"): DAVx⁵ (`sable-src/apps/r8/davx5`, v4.5.21-ose) for Google, iCloud and Yahoo calendars and ICSx⁵ (`sable-src/apps/r8/icsx5`, v2.4.3) for calendar links such as Outlook's, built from pinned source with only the release signing removed and the Sable launcher icon (Phosphor `arrows-clockwise` and `link-simple`, generated). Sable Mail's flavor takes an owner Microsoft client (`SABLE_MAIL_MICROSOFT_CLIENT_ID`, `SABLE_MAIL_MICROSOFT_SIGNATURE_HASH`) next to Gmail's, with the `msauth://` redirect the verifier requires. Cosgrove's texting guards `SmsManager.createForSubscriptionId` (API 31) for its minSdk 30.
++  0182 brings email into the Hub (owner, 2026-11-12: Hub email in 2.0, "just Sable Mail for sable os"): Sable Mail is back in the image; its flavor adds `SableMailHubProvider` (`content://org.sableos.mail.hub/messages`, the 50 newest Inbox headers across accounts, read-only, only for the SableOS home and Sable Hub, change-notified from Thunderbird's message list) and `SableMailOpenActivity` (`org.sableos.mail.action.OPEN_MESSAGE`). The home flavor's `patch_hub_mail` adds `SableMailFeed.kt` (unit-tested), which lists those messages in the Hub in place of Sable Mail's notifications and opens one in Sable Mail; `verify_sable_tenseven.py` checks it (`hub_mail`).
+diff --git a/sable-src/apps/r8/mail/README.md b/sable-src/apps/r8/mail/README.md
+index c2000be..328167f 100644
+--- a/sable-src/apps/r8/mail/README.md
++++ b/sable-src/apps/r8/mail/README.md
+@@ -5,6 +5,15 @@ SableOS does **not** reimplement IMAP, POP3, SMTP, MIME parsing, HTML sanitizati
+ mail storage, background synchronization or TLS/certificate handling from
+ scratch.
+ 
++## Hub feed
++
++`app/` next to the flavor script adds `SableMailHubProvider` (`content://org.sableos.mail.hub/messages`)
++and `SableMailOpenActivity` (`org.sableos.mail.action.OPEN_MESSAGE`). The provider answers only the
++SableOS home and Sable Hub, read-only, with the 50 newest Inbox messages across accounts: sender,
++subject, preview, date, read, attachment flag and a message reference. No body, address book,
++password or token leaves Sable Mail. It tells the Hub when a sync changes an inbox, so push mail
++reaches the Hub as soon as Sable Mail has it.
++
+ ## Upstream pin
+ 
+ ```text
+diff --git a/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt b/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt
+new file mode 100644
+index 0000000..9429883
+--- /dev/null
++++ b/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt
+@@ -0,0 +1,191 @@
++package net.thunderbird.android
++
++import android.content.ContentProvider
++import android.content.ContentValues
++import android.content.Context
++import android.database.Cursor
++import android.database.MatrixCursor
++import android.net.Uri
++import android.os.Binder
++import android.os.Process
++import app.k9mail.legacy.mailstore.MessageDetailsAccessor
++import app.k9mail.legacy.mailstore.MessageListChangedListener
++import app.k9mail.legacy.mailstore.MessageListRepository
++import app.k9mail.legacy.message.controller.MessageReference
++import net.thunderbird.core.android.account.LegacyAccount
++import net.thunderbird.core.android.account.LegacyAccountManager
++import org.koin.core.context.GlobalContext
++
++/**
++ * Sable Mail's inbox for the SableOS Hub: the newest messages of every account's Inbox, read-only.
++ *
++ * Sable Mail keeps the accounts, passwords and tokens and does the syncing and push (IMAP IDLE);
++ * the Hub only reads sender, subject, preview, date and read state from here, and opens a message
++ * through [SableMailOpenActivity]. Only the SableOS home and Sable Hub may read it.
++ */
++class SableMailHubProvider : ContentProvider() {
++    @Volatile
++    private var listening = false
++
++    override fun onCreate(): Boolean = true
++
++    override fun query(
++        uri: Uri,
++        projection: Array<out String>?,
++        selection: String?,
++        selectionArgs: Array<out String>?,
++        sortOrder: String?,
++    ): Cursor {
++        val appContext = checkNotNull(context)
++        enforceHubCaller(appContext)
++        require(uri.pathSegments == listOf(PATH_MESSAGES)) { "Unknown Sable Mail Hub uri" }
++        val koin = GlobalContext.get()
++        val accounts = koin.get<LegacyAccountManager>()
++        val repository = koin.get<MessageListRepository>()
++        listenForChanges(appContext, repository)
++        val rows =
++            accounts.getAccounts()
++                .flatMap { account -> inbox(repository, account) }
++                .sortedByDescending(HubMail::date)
++                .take(MAX_MESSAGES)
++        return MatrixCursor(COLUMNS, rows.size).apply {
++            rows.forEach { mail -> addRow(mail.row()) }
++            setNotificationUri(appContext.contentResolver, MESSAGES_URI)
++        }
++    }
++
++    private fun inbox(
++        repository: MessageListRepository,
++        account: LegacyAccount,
++    ): List<HubMail> {
++        val inbox = account.inboxFolderId ?: return emptyList()
++        return runCatching {
++            repository.getMessages(
++                account.uuid,
++                "folder_id = ?",
++                arrayOf(inbox.toString()),
++                // The repository appends this to ORDER BY; LIMIT keeps the read small.
++                "date DESC, id DESC LIMIT $MAX_MESSAGES",
++            ) { message -> HubMail.from(account, message) }
++        }.getOrDefault(emptyList())
++    }
++
++    private fun listenForChanges(
++        context: Context,
++        repository: MessageListRepository,
++    ) {
++        if (listening) return
++        synchronized(this) {
++            if (listening) return
++            repository.addListener(
++                MessageListChangedListener {
++                    context.contentResolver.notifyChange(MESSAGES_URI, null)
++                },
++            )
++            listening = true
++        }
++    }
++
++    override fun getType(uri: Uri): String = "vnd.android.cursor.dir/vnd.org.sableos.mail.hub.message"
++
++    override fun insert(
++        uri: Uri,
++        values: ContentValues?,
++    ): Uri? = throw UnsupportedOperationException("Read-only provider")
++
++    override fun delete(
++        uri: Uri,
++        selection: String?,
++        selectionArgs: Array<out String>?,
++    ): Int = throw UnsupportedOperationException("Read-only provider")
++
++    override fun update(
++        uri: Uri,
++        values: ContentValues?,
++        selection: String?,
++        selectionArgs: Array<out String>?,
++    ): Int = throw UnsupportedOperationException("Read-only provider")
++
++    private class HubMail(
++        val id: Long,
++        val account: String,
++        val accountColor: Int,
++        val sender: String,
++        val subject: String,
++        val preview: String,
++        val date: Long,
++        val read: Boolean,
++        val attachments: Boolean,
++        val reference: String,
++    ) {
++        fun row(): Array<Any?> =
++            arrayOf(
++                id,
++                account,
++                accountColor,
++                sender,
++                subject,
++                preview,
++                date,
++                if (read) 1 else 0,
++                if (attachments) 1 else 0,
++                reference,
++            )
++
++        companion object {
++            fun from(
++                account: LegacyAccount,
++                message: MessageDetailsAccessor,
++            ): HubMail {
++                val from = message.fromAddresses.firstOrNull()
++                val preview = message.preview
++                return HubMail(
++                    id = ((account.accountNumber + 1).toLong() shl ACCOUNT_SHIFT) + message.id,
++                    account = account.profile.name,
++                    accountColor = account.profile.color,
++                    sender = from?.personal?.takeIf(String::isNotBlank) ?: from?.address.orEmpty(),
++                    subject = message.subject.orEmpty(),
++                    preview = if (preview.isPreviewTextAvailable) preview.previewText.orEmpty() else "",
++                    date = message.messageDate,
++                    read = message.isRead,
++                    attachments = message.hasAttachments,
++                    reference =
++                        MessageReference(account.uuid, message.folderId, message.messageServerId)
++                            .toIdentityString(),
++                )
++            }
++        }
++    }
++
++    companion object {
++        const val AUTHORITY = "org.sableos.mail.hub"
++        private const val PATH_MESSAGES = "messages"
++        val MESSAGES_URI: Uri = Uri.parse("content://$AUTHORITY/$PATH_MESSAGES")
++        private const val MAX_MESSAGES = 50
++        private const val ACCOUNT_SHIFT = 52
++        private val COLUMNS =
++            arrayOf(
++                "id",
++                "account",
++                "account_color",
++                "sender",
++                "subject",
++                "preview",
++                "date",
++                "read",
++                "attachments",
++                "reference",
++            )
++
++        internal val HUB_CALLERS = setOf("org.sableos.launcher", "org.sableos.hub")
++
++        fun enforceHubCaller(context: Context) {
++            val callingUid = Binder.getCallingUid()
++            if (callingUid == Process.myUid()) return
++            val packages = context.packageManager.getPackagesForUid(callingUid)?.toSet().orEmpty()
++            if (packages.intersect(HUB_CALLERS).isEmpty()) {
++                throw SecurityException("Sable Mail's Hub feed is restricted to the SableOS home and Sable Hub.")
++            }
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailOpenActivity.kt b/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailOpenActivity.kt
+new file mode 100644
+index 0000000..e90054c
+--- /dev/null
++++ b/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailOpenActivity.kt
+@@ -0,0 +1,30 @@
++package net.thunderbird.android
++
++import android.app.Activity
++import android.os.Bundle
++import app.k9mail.legacy.message.controller.MessageReference
++import com.fsck.k9.activity.MessageHomeActivity
++
++/**
++ * Opens one message from the SableOS Hub: org.sableos.mail.action.OPEN_MESSAGE with the row's
++ * "reference". It only shows the user's own message in Sable Mail; anything else opens the inbox.
++ */
++class SableMailOpenActivity : Activity() {
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        val reference = MessageReference.parse(intent?.getStringExtra(EXTRA_REFERENCE))
++        val target =
++            if (reference != null) {
++                MessageHomeActivity.actionDisplayMessageIntent(this, reference)
++            } else {
++                packageManager.getLaunchIntentForPackage(packageName)
++            }
++        target?.let { runCatching { startActivity(it) } }
++        finish()
++    }
++
++    companion object {
++        const val ACTION_OPEN_MESSAGE = "org.sableos.mail.action.OPEN_MESSAGE"
++        const val EXTRA_REFERENCE = "reference"
++    }
++}
+diff --git a/sable-src/apps/r8/mail/apply_sable_flavor.py b/sable-src/apps/r8/mail/apply_sable_flavor.py
+index 9cabd34..e8a8554 100644
+--- a/sable-src/apps/r8/mail/apply_sable_flavor.py
++++ b/sable-src/apps/r8/mail/apply_sable_flavor.py
+@@ -1698,12 +1698,34 @@ class SableMailSnapshotProvider : ContentProvider() {
+             android:exported="true"
+             android:grantUriPermissions="false" />
+ 
++        <provider
++            android:name="net.thunderbird.android.SableMailHubProvider"
++            android:authorities="org.sableos.mail.hub"
++            android:exported="true"
++            android:grantUriPermissions="false" />
++
++        <activity
++            android:name="net.thunderbird.android.SableMailOpenActivity"
++            android:exported="true"
++            android:excludeFromRecents="true"
++            android:noHistory="true"
++            android:theme="@android:style/Theme.NoDisplay">
++            <intent-filter>
++                <action android:name="org.sableos.mail.action.OPEN_MESSAGE" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
+     </application>""",
+         1,
+     )
+     in_checkout(manifest).write_text(manifest_text, encoding="utf-8")
+ 
+     copy_icon_resources(app / "src/main/res")
++    # The Hub feed (SableMailHubProvider) and its open-message entry, from app/ next to this script.
++    for source in sorted((Path(__file__).resolve().parent / "app").rglob("*.kt")):
++        relative = source.relative_to(Path(__file__).resolve().parent / "app")
++        write(app / relative, source.read_text(encoding="utf-8"))
+     apply_keyboard_model(root)
+     write(
+         app / "src/main/res/drawable/ic_sable_mail_notification.xml",
+diff --git a/sable-src/apps/r8/mail/verify_sable_mail.py b/sable-src/apps/r8/mail/verify_sable_mail.py
+index 6aaba1a..511bd97 100644
+--- a/sable-src/apps/r8/mail/verify_sable_mail.py
++++ b/sable-src/apps/r8/mail/verify_sable_mail.py
+@@ -504,6 +504,21 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
+     print("SABLE_MAIL_RETIRED_LAUNCHER3_SNAPSHOT_CALLER=PASS_ABSENT")
+     print("SABLE_MAIL_PRIVACY_SAFE_LIVE_SNAPSHOT=PASS_NOTIFICATION_COUNT_ONLY")
+     print("SABLE_MAIL_HUB_SNAPSHOT_CALLER=PASS_BOUNDED_READ_ONLY")
++    require_text(manifest, 'android:authorities="org.sableos.mail.hub"', "SABLE_MAIL_HUB_FEED")
++    require_text(manifest, "org.sableos.mail.action.OPEN_MESSAGE", "SABLE_MAIL_HUB_OPEN")
++    hub_provider = app / "src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt"
++    for needle in (
++        '"org.sableos.launcher", "org.sableos.hub"',
++        "Binder.getCallingUid()",
++        "SecurityException(",
++        "UnsupportedOperationException",
++        "MAX_MESSAGES = 50",
++        "account.inboxFolderId",
++    ):
++        require_text(hub_provider, needle, "SABLE_MAIL_HUB_FEED")
++    for secret in ("password", "token", "body"):
++        reject_text(hub_provider, '"%s"' % secret, "SABLE_MAIL_HUB_FEED_NO_SECRETS")
++    print("SABLE_MAIL_HUB_FEED=PASS_INBOX_HEADERS_ONLY_HOME_AND_HUB")
+     app_source = (
+         app
+         / "src/main/kotlin/net/thunderbird/android/ThunderbirdApp.kt"
+diff --git a/sable-src/apps/r8/tenseven/README.md b/sable-src/apps/r8/tenseven/README.md
+index 36dda1a..1c082c2 100644
+--- a/sable-src/apps/r8/tenseven/README.md
++++ b/sable-src/apps/r8/tenseven/README.md
+@@ -31,6 +31,13 @@ The flavor also removes the TenSeven code that SableOS does not ship (`patch_lef
+ TenSeven's Phone and Calendar are also what PR 127's quality ratchet flags (LargeClass), so none of
+ that code reaches SableOS. Hub reminders keep TenSeven's task store; the Tasks app itself is Sable Tasks.
+ 
++Hub email (owner, 2026-11-12) comes from Sable Mail, not from TenSeven. `patch_hub_mail` adds
++`SableMailFeed.kt`: the Hub reads the newest inbox messages of every Sable Mail account from
++`content://org.sableos.mail.hub/messages` (sender, subject, preview, date, read), in memory only, and
++re-reads when Sable Mail says the inboxes changed. While that feed answers, Sable Mail's own
++notifications are left out of the Hub, so each email shows once. Enter on an email opens it in Sable
++Mail (`org.sableos.mail.action.OPEN_MESSAGE`). Mail read in Sable Mail shows but is not counted as new.
++
+ The APK is platform-signed but not privileged (`platformapp`), as Sable Start was. The framework
+ overlay grants it notification listener access on first boot, so Hub fills without a setup step.
+ 
+diff --git a/sable-src/apps/r8/tenseven/apply_sable_flavor.py b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+index e319a01..89af575 100644
+--- a/sable-src/apps/r8/tenseven/apply_sable_flavor.py
++++ b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+@@ -644,6 +644,41 @@ def patch_leftovers(root: pathlib.Path) -> None:
+         else:
+             path.unlink()
+ 
++def patch_hub_mail(root: pathlib.Path) -> None:
++    """Hub shows Sable Mail's inboxes from its feed (org.sableos.mail.hub), not its notifications."""
++    shutil.copyfile(HERE / "src/SableMailFeed.kt", root / JAVA / "conversations/SableMailFeed.kt")
++    (root / TEST / "conversations").mkdir(parents=True, exist_ok=True)
++    shutil.copyfile(HERE / "src/SableMailFeedTest.kt", root / TEST / "conversations/SableMailFeedTest.kt")
++    hub = root / JAVA / "conversations/ConversationHub.kt"
++    replace_once(
++        hub,
++        "    fun ensureStateLoaded(context: Context) {\n        if (stateLoaded) return\n",
++        "    fun ensureStateLoaded(context: Context) {\n"
++        "        SableMailFeed.start(context) { listeners.forEach { it() } }\n"
++        "        if (stateLoaded) return\n",
++        "SABLE_HOME_HUB_MAIL_START",
++    )
++    replace_once(
++        hub,
++        "    fun notifications(): List<HubNotification> = synchronized(lock) { items }\n",
++        "    fun notifications(): List<HubNotification> = synchronized(lock) { SableMailFeed.merge(items) }\n",
++        "SABLE_HOME_HUB_MAIL_NOTIFICATIONS",
++    )
++    replace_once(
++        hub,
++        "synchronized(lock) { buildConversations(items, sentReplies) }",
++        "synchronized(lock) { buildConversations(SableMailFeed.merge(items), sentReplies) }",
++        "SABLE_HOME_HUB_MAIL_CONVERSATIONS",
++    )
++    replace_once(
++        root / "app/src/main/AndroidManifest.xml",
++        '        <provider android:authorities="org.sableos.mail.snapshot" />\n',
++        '        <provider android:authorities="org.sableos.mail.snapshot" />\n'
++        '        <provider android:authorities="org.sableos.mail.hub" />\n',
++        "SABLE_HOME_HUB_MAIL_QUERIES",
++    )
++
++
+ def main() -> None:
+     if len(sys.argv) != 2:
+         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
+@@ -657,6 +692,7 @@ def main() -> None:
+     patch_fit(root)
+     patch_system_menu(root)
+     patch_leftovers(root)
++    patch_hub_mail(root)
+     print("SABLE_HOME_FLAVOR=PASS")
+ 
+ 
+diff --git a/sable-src/apps/r8/tenseven/src/SableMailFeed.kt b/sable-src/apps/r8/tenseven/src/SableMailFeed.kt
+new file mode 100644
+index 0000000..f6b6313
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableMailFeed.kt
+@@ -0,0 +1,158 @@
++package io.github.aimindseye.tenseven.conversations
++
++import android.app.PendingIntent
++import android.content.Context
++import android.content.Intent
++import android.database.ContentObserver
++import android.database.Cursor
++import android.net.Uri
++import android.os.Handler
++import android.os.Looper
++import io.github.aimindseye.tenseven.model.HubMessageKind
++import java.util.concurrent.Executors
++import java.util.concurrent.atomic.AtomicBoolean
++
++/**
++ * SableOS: Sable Mail's inboxes in the Hub, read from Sable Mail's own feed (org.sableos.mail.hub), not from
++ * its notifications. Sable Mail keeps the accounts and does the syncing and push; the Hub holds the newest
++ * inbox messages in memory only, and opens one in Sable Mail. While the feed answers, Sable Mail's
++ * notifications are left out of the Hub so each email shows once.
++ */
++object SableMailFeed {
++    const val MAIL_PACKAGE = "org.sableos.mail"
++    val URI: Uri by lazy { Uri.parse("content://org.sableos.mail.hub/messages") }
++    private const val ACTION_OPEN = "org.sableos.mail.action.OPEN_MESSAGE"
++    private const val APP_NAME = "Sable Mail"
++    private const val KEY_PREFIX = "sablemail|"
++    private const val HIGH_BITS = 32
++
++    @Volatile
++    var active: Boolean = false
++        private set
++
++    @Volatile
++    var items: List<HubNotification> = emptyList()
++        private set
++
++    private val started = AtomicBoolean(false)
++    private val reader by lazy { Executors.newSingleThreadExecutor() }
++    private val main by lazy { Handler(Looper.getMainLooper()) }
++
++    /** Reads the feed now and again whenever Sable Mail says its inboxes changed. Once per process. */
++    fun start(
++        context: Context,
++        onChange: () -> Unit,
++    ) {
++        if (!started.compareAndSet(false, true)) return
++        val app = context.applicationContext
++        val observer =
++            object : ContentObserver(main) {
++                override fun onChange(selfChange: Boolean) = refresh(app, onChange)
++            }
++        runCatching { app.contentResolver.registerContentObserver(URI, false, observer) }
++        refresh(app, onChange)
++    }
++
++    private fun refresh(
++        context: Context,
++        onChange: () -> Unit,
++    ) {
++        reader.execute {
++            val next = read(context)
++            val changed = (next != null) != active || (next ?: emptyList()) != items
++            active = next != null
++            items = next.orEmpty()
++            if (changed) main.post(onChange)
++        }
++    }
++
++    /** Null when Sable Mail is not installed or refuses; then the Hub shows its notifications as before. */
++    private fun read(context: Context): List<HubNotification>? =
++        runCatching {
++            context.contentResolver.query(URI, null, null, null, null)?.use { cursor ->
++                buildList { while (cursor.moveToNext()) add(row(context, cursor)) }
++            }
++        }.getOrNull()
++
++    private fun row(
++        context: Context,
++        cursor: Cursor,
++    ): HubNotification {
++        val id = cursor.getLong(cursor.getColumnIndexOrThrow("id"))
++        val key = KEY_PREFIX + id
++        val account = cursor.getString(cursor.getColumnIndexOrThrow("account")).orEmpty()
++        val sender = cursor.getString(cursor.getColumnIndexOrThrow("sender")).orEmpty().ifBlank { account }
++        val subject = cursor.getString(cursor.getColumnIndexOrThrow("subject")).orEmpty()
++        val preview = cursor.getString(cursor.getColumnIndexOrThrow("preview")).orEmpty()
++        val date = cursor.getLong(cursor.getColumnIndexOrThrow("date"))
++        val read = cursor.getInt(cursor.getColumnIndexOrThrow("read")) != 0
++        val reference = cursor.getString(cursor.getColumnIndexOrThrow("reference")).orEmpty()
++        val message =
++            ConversationMessage(
++                id = key,
++                conversationId = key,
++                notificationKey = key,
++                packageName = MAIL_PACKAGE,
++                appName = APP_NAME,
++                text = mailText(subject, preview),
++                timestamp = date,
++                senderName = sender,
++                isOutgoing = false,
++                // Read in Sable Mail: shown, not counted as new.
++                isHistoric = read,
++            )
++        return HubNotification(
++            key = key,
++            conversationId = key,
++            conversationName = sender,
++            packageName = MAIL_PACKAGE,
++            appName = APP_NAME,
++            postedAt = date,
++            isOngoing = false,
++            messages = listOf(message),
++            contentIntent = openIntent(context, id, reference),
++            replyAction = null,
++            kind = HubMessageKind.Email,
++        )
++    }
++
++    private fun openIntent(
++        context: Context,
++        id: Long,
++        reference: String,
++    ): PendingIntent? =
++        runCatching {
++            val intent =
++                Intent(ACTION_OPEN)
++                    .setPackage(MAIL_PACKAGE)
++                    .putExtra("reference", reference)
++                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
++            PendingIntent.getActivity(
++                context,
++                (id xor (id ushr HIGH_BITS)).toInt(),
++                intent,
++                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
++            )
++        }.getOrNull()
++
++    /** "Subject · start of the text", or whichever of the two there is. Pure, unit tested. */
++    internal fun mailText(
++        subject: String,
++        preview: String,
++    ): String {
++        val clean = preview.replace(Regex("\\s+"), " ").trim()
++        return listOf(subject.trim(), clean).filter(String::isNotEmpty).joinToString(" · ")
++    }
++
++    /** The Hub's notifications with Sable Mail's own left out while the feed answers, plus the feed. */
++    internal fun merge(
++        notifications: List<HubNotification>,
++        feedActive: Boolean = active,
++        feed: List<HubNotification> = items,
++    ): List<HubNotification> =
++        if (!feedActive) {
++            notifications
++        } else {
++            (notifications.filterNot { it.packageName == MAIL_PACKAGE } + feed).sortedByDescending(HubNotification::postedAt)
++        }
++}
+diff --git a/sable-src/apps/r8/tenseven/src/SableMailFeedTest.kt b/sable-src/apps/r8/tenseven/src/SableMailFeedTest.kt
+new file mode 100644
+index 0000000..f473e5e
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableMailFeedTest.kt
+@@ -0,0 +1,38 @@
++package io.github.aimindseye.tenseven.conversations
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++class SableMailFeedTest {
++    private fun note(
++        key: String,
++        pkg: String,
++        at: Long,
++    ) = HubNotification(
++        key = key,
++        conversationId = key,
++        conversationName = key,
++        packageName = pkg,
++        appName = pkg,
++        postedAt = at,
++        isOngoing = false,
++        messages = emptyList(),
++        contentIntent = null,
++        replyAction = null,
++    )
++
++    @Test
++    fun mailTextJoinsSubjectAndPreview() {
++        assertEquals("Lunch · See you at noon", SableMailFeed.mailText("Lunch", "See you\n at  noon"))
++        assertEquals("Lunch", SableMailFeed.mailText(" Lunch ", ""))
++        assertEquals("Hi", SableMailFeed.mailText("", "Hi"))
++    }
++
++    @Test
++    fun feedReplacesSableMailNotificationsOnlyWhileItAnswers() {
++        val shade = listOf(note("a", "org.sableos.mail", 1), note("b", "org.sableos.messages", 2))
++        val feed = listOf(note("sablemail|1", "org.sableos.mail", 3))
++        assertEquals(listOf("sablemail|1", "b"), SableMailFeed.merge(shade, true, feed).map { it.key })
++        assertEquals(listOf("a", "b"), SableMailFeed.merge(shade, false, feed).map { it.key })
++    }
++}
+diff --git a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+index 7f846bf..8574612 100644
+--- a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
++++ b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+@@ -41,6 +41,9 @@ def main() -> None:
+         and "MEDIA_PROJECTION" not in manifest
+         and not (root / JAVA / "ScreenCaptureActivity.kt").exists(),
+         "no_first_run_setup": "loadOnboardingDone()" not in activity,
++        # Hub reads Sable Mail's inboxes from its feed (patch_hub_mail).
++        "hub_mail": 'android:authorities="org.sableos.mail.hub"' in manifest
++        and "SableMailFeed.merge(items)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8"),
+     }
+     bad = [name for name, ok in checks.items() if not ok]
+     if bad:

@@ -60,6 +60,7 @@
     <string name="calendars">التقويمات</string>
     <string name="calendars_hint">التقويمات المعروضة تملأ جدول الأعمال وحلقات الانشغال وشهر Start.</string>
     <string name="no_calendars">لا توجد تقويمات على هذا الهاتف بعد. أضف حسابًا من الإعدادات > الحسابات.</string>
+    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
     <string name="add_account">إضافة حساب</string>
     <string name="phone_calendar">تقويم الهاتف</string>
     <string name="import_ics">استيراد ‎.ics</string>

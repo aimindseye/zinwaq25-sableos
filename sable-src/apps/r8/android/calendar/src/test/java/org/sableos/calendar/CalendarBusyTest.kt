@@ -41,6 +41,24 @@ class CalendarBusyTest {
     )
 
     @Test
+    fun eachCalendarGetsItsShareOfTheRing() {
+        val events =
+            listOf(
+                timed(1, day.atTime(9, 0), 120),
+                timed(2, day.atTime(10, 0), 60).copy(calendarName = "Home"),
+                timed(3, day.atTime(14, 0), 60),
+            )
+        val busy = CalendarBusy.days(day, day.plusDays(1), events, zone).getValue(day)
+        assertEquals(mapOf("Work" to 180, "Home" to 60), busy.byCalendar)
+        val arcs = CalendarBusy.arcs(busy)
+        assertEquals(listOf("Work", "Home"), arcs.map { it.first })
+        // The arcs share the day's sweep (180 booked minutes), so overlaps never overfill the ring.
+        assertEquals(CalendarBusy.sweepDegrees(busy), arcs.sumOf { it.second.toDouble() }.toFloat(), 0.01f)
+        assertEquals(3f, arcs[0].second / arcs[1].second, 0.01f)
+        assertTrue(CalendarBusy.arcs(null).isEmpty())
+    }
+
+    @Test
     fun overlappingEventsCountOnce() {
         val events =
             listOf(

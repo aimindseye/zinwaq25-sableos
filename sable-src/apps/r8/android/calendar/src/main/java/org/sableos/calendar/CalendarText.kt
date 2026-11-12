@@ -74,6 +74,8 @@ object CalendarText {
             "enter_open_e_edit_del_2" to "[Enter] open  [E] edit  [Del] delete  [T] today",
             "calendars" to "Calendars",
             "calendars_hint" to "Shown calendars fill the agenda, the busy rings and Start's month.",
+            "add_account_hint" to
+                "Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.",
             "no_calendars" to "No calendars on this phone yet. Add an account in Settings > Accounts.",
             "add_account" to "Add account",
             "phone_calendar" to "Phone calendar",

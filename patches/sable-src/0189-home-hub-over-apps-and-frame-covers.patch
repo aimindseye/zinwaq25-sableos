@@ -1,0 +1,565 @@
+diff --git a/patches/README.md b/patches/README.md
+index 230bff8..fd1637f 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -257,6 +257,7 @@
+ | `framework/frameworks/base/0323-SableOS-no-extra-lock-screen-text-without-notificati.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0322 | With no notification to show, the lock screen is the clock and date only, as on BB10: no "Locked" label, no Private mode card and no "Unlock to read message details" line (owner report 2026-11-06). |
+ | `framework/frameworks/base/0324-SableOS-Alt-BlackBerry-key-opens-the-system-menu.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0323 | Owner decisions 2026-11-12: holding the BlackBerry key opens Cosgrove, the assistant (Lineage platform overlay `config_longPressOnHomeBehavior` 3, SEARCH), and Alt+BlackBerry key opens a BlackBerry 7 style system menu in the SableOS home (`SableSystemMenuActivity`, sable-src/apps/r8/tenseven): the app's menu, Close the app, Switch Application, Notifications, Quick Settings. Without that menu the app gets MENU. Off the keyguard and after setup; repeats and release consumed. Pure policy: `SableCommandKeys.isMenuChord`. |
+ | `framework/frameworks/base/0325-SableOS-optional-wipe-after-10-failed-unlock-tries.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0324 | Optional wipe after 10 failed unlock tries (Picture Password plan, as on BlackBerry; off by default, Settings 1615): with `sable_wipe_after_failed_unlocks` on for the system user, DevicePolicyManagerService reports a limit of ten (or a stricter admin's) to the lock screen, so Android's own dialogs warn before the last tries, and the main user's tenth failed PIN or password in a row factory resets the phone, keeping factory reset protection. A device admin's own wipe still wins. Pure rules: `SableUnlockWipe`, unit-tested. |
++| `framework/frameworks/base/0326-SableOS-hold-the-Recents-key-for-the-Hub-over-any-app.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0325 | Hub over apps (2.0 plan, BB10's peek): with no LineageOS long-press action on the Recents key (the default, `config_longPressOnAppSwitchBehavior` 0), holding it opens the SableOS home's Hub panel (`SableHubPeekActivity`, sable-src/apps/r8/tenseven) over the app in front, and Back returns to that app; a tap still opens Active Frames. Never on the keyguard or before setup, and only when the home has the panel. Pure policy: `SableCommandKeys.isHubPeekAllowed` (host test `tests/java/frameworks/.../SableHubPeekKeysTest.java`). |
+ | `framework/packages/apps/Jelly/1043-SableOS-Browser-keys-follow-the-design-s-T-B-L-and-a.patch` | `1bb5edd564f2adb475fb565373426166f3ca252a` + 1041-1042 | Browser keys on the browser-webview design: single keys after the page declined them are T top, B bottom, L / Shift+L next/previous link, R reader, F or `/` find, Space paging; address and new tab move to Alt+L / Alt+T; Alt+W close tab, Alt+J/K (and Ctrl+Tab / Ctrl+Shift+Tab) switch tabs, Alt+A tab grid; dock hint per mode (start, page, reader). Host tests rewritten. |
+ | `framework/packages/apps/Jelly/1044-SableOS-Browser-start-page-command-dock-reader-mode-.patch` | `1bb5edd564f2adb475fb565373426166f3ca252a` + 1041-1043 | Start page cards (Bookmarks, Private, History, Downloads, keys) with the Sable focus ring instead of autoloading the home page (`default_home_page_autoload` false); command dock with hint line; reader mode (scripted, position kept); tab grid dialog over the app's tasks; private tabs labelled "Private tab" with no Recents screenshot; camera/microphone asks per site (Deny focused) and other permission dialogs focus their negative button. Kotlin compiled with Gradle. |
+ | `framework/packages/apps/FMRadio/1061-SableOS-pure-FM-bridge-protocol-for-Sable-Media.patch` | `095ae21580f2893b1f00f0bd9b503dc766899ad1` | FM in Sable Media: `sable/SableFmProtocol` (pure Java, host-tested in `tests/java/stock-apps/FMRadio`): bridge message numbers, state keys, the 87.5-108 MHz band and the caller policy (own uid, system uid, or `org.sableos.media` installed on the system image). Sable Media keeps the same numbers in `FmModel.kt`; `tests/run.sh` checks they agree. |
+@@ -326,3 +327,4 @@ Reserved:
+   0186 makes Hub's mark-read reach Sable Mail (owner, 2026-11-12): `SableMailHubProvider.update` marks one message read (`messages/<id>`, `read=1`, home and Sable Hub only, `Flag.SEEN` through `MessagingControllerWrapper`, so it syncs to the server), and the home flavor's `ConversationHub.markRead` calls `SableMailFeed.markRead`; both verifiers check it.
+   0187 drops the in-app WebView marks (`; wv`, `Version/4.0`) from Sable Browser's user agent (`standaloneUserAgent`, unit-tested). Google refuses sign-in to pages that look like an app's WebView (`disallowed_useragent`), which can stop Sable Mail's "Sign in with Google" when it opens in Sable Browser.
+   0188 makes Back at an app's root show Active Frames in the SableOS home, as Home does (2.0 plan, BB10): `patch_back_to_frames` adds `SableBackToFrames` (unit-tested), which notes as the home stops whether another app took the screen (REAL_GET_TASKS) and shows Active Frames when the home comes back for that reason; returning from the home's own screens or from screen off changes nothing.
++  0189 adds the Hub over any app and the cover API to the SableOS home (2.0 plan, BB10, owner decision 2026-11-12): `patch_hub_peek` adds `SableHubPeekActivity` (rows by `SableHubPeek`, unit-tested), opened by holding the Recents key (frameworks/base 0326) or Hub, the new first row of the Alt+BlackBerry key menu; `patch_frame_covers` adds `content://org.sableos.launcher.covers` (`SableCoverProvider`, `SableFrameCovers`, unit-tested), where an app sets or clears its own frame's cover (title and line, the caller's own, in memory, hidden while locked, 24-hour lapse), shown ahead of notification and media summaries.
+diff --git a/sable-src/apps/r8/tenseven/README.md b/sable-src/apps/r8/tenseven/README.md
+index 5649fc8..8068f67 100644
+--- a/sable-src/apps/r8/tenseven/README.md
++++ b/sable-src/apps/r8/tenseven/README.md
+@@ -44,6 +44,28 @@ without a new intent. `patch_back_to_frames` adds `SableBackToFrames.kt`: as the
+ whether another app took the screen (REAL_GET_TASKS), and when it comes back for that reason it shows
+ Active Frames, as Home does. Returning from the home's own screens or from screen off changes nothing.
+ 
++Hub over any app (2.0 plan, BB10's peek): `patch_hub_peek` adds `SableHubPeekActivity`, a panel over the
++app in front with the newest conversations, unread first (`SableHubPeek`, unit-tested). Holding the
++Recents key opens it (frameworks/base 0326), and so does Hub, the first row of the Alt+BlackBerry key
++menu. Enter opens a conversation in its app, Open Hub shows the full Hub, and Back returns to the app.
++
++Cover API (2.0 plan, BB10 Active Frame covers): `patch_frame_covers` adds the
++`content://org.sableos.launcher.covers` provider. An app says what its own Active Frame shows:
++
++```kotlin
++context.contentResolver.call(
++    Uri.parse("content://org.sableos.launcher.covers"), "setCover", null,
++    bundleOf("title" to "Messages", "detail" to "Anna: see you at six"),
++)
++// and "clearCover" with no extras to remove it
++```
++
++The cover always belongs to the calling package (Android's checked calling package, never a request
++field), is kept in memory only, is bounded to a 60-character title and 240 characters of text, is hidden
++while the phone is locked, and lapses after 24 hours unless set again. It shows on the app's frame ahead
++of notification and media summaries. An app targeting Android 11 or later lists
++`<provider android:authorities="org.sableos.launcher.covers" />` under `<queries>`.
++
+ The APK is platform-signed but not privileged (`platformapp`), as Sable Start was. The framework
+ overlay grants it notification listener access on first boot, so Hub fills without a setup step.
+ 
+diff --git a/sable-src/apps/r8/tenseven/apply_sable_flavor.py b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+index 2081e83..8b257aa 100644
+--- a/sable-src/apps/r8/tenseven/apply_sable_flavor.py
++++ b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+@@ -726,6 +726,67 @@ def patch_back_to_frames(root: pathlib.Path) -> None:
+     )
+ 
+ 
++def patch_hub_peek(root: pathlib.Path) -> None:
++    """Hub over any app (2.0 plan, BB10): a panel over the app in front, from holding the Recents key
++    (frameworks/base 0326) or Hub in the Alt+BlackBerry key menu. Not exported: the system and the home
++    start it by its component."""
++    manifest = root / "app/src/main/AndroidManifest.xml"
++    replace_once(
++        manifest,
++        "        <!-- SableOS: first-boot setup's Look step saves the home style. -->\n",
++        "        <!-- SableOS: Hub over any app (hold the Recents key; frameworks/base 0326). -->\n"
++        "        <activity\n"
++        "            android:name=\".SableHubPeekActivity\"\n"
++        "            android:exported=\"false\"\n"
++        "            android:excludeFromRecents=\"true\"\n"
++        "            android:noHistory=\"true\"\n"
++        "            android:taskAffinity=\"\"\n"
++        "            android:theme=\"@android:style/Theme.Translucent.NoTitleBar\" />\n"
++        "        <!-- SableOS: first-boot setup's Look step saves the home style. -->\n",
++        "SABLE_HOME_HUB_PEEK",
++    )
++    shutil.copyfile(HERE / "src/SableHubPeekActivity.kt", root / JAVA / "SableHubPeekActivity.kt")
++    shutil.copyfile(HERE / "src/SableHubPeek.kt", root / JAVA / "conversations/SableHubPeek.kt")
++    (root / TEST / "conversations").mkdir(parents=True, exist_ok=True)
++    shutil.copyfile(HERE / "src/SableHubPeekTest.kt", root / TEST / "conversations/SableHubPeekTest.kt")
++
++
++def patch_frame_covers(root: pathlib.Path) -> None:
++    """The cover API (2.0 plan, BB10 Active Frame covers): apps say what their own frame shows through
++    content://org.sableos.launcher.covers (SableCoverProvider); covers are in memory and the caller's own."""
++    frames = root / JAVA / "frames"
++    shutil.copyfile(HERE / "src/SableFrameCovers.kt", frames / "SableFrameCovers.kt")
++    shutil.copyfile(HERE / "src/SableCoverProvider.kt", frames / "SableCoverProvider.kt")
++    (root / TEST / "frames").mkdir(parents=True, exist_ok=True)
++    shutil.copyfile(HERE / "src/SableFrameCoversTest.kt", root / TEST / "frames/SableFrameCoversTest.kt")
++    replace_once(
++        frames / "AppSummary.kt",
++        '    Local("Local summary"),\n',
++        '    Local("Local summary"),\n    Cover("App cover"),\n',
++        "SABLE_HOME_COVER_SOURCE",
++    )
++    replace_once(
++        root / JAVA / "platform/AppFrameSummaryRepository.kt",
++        "            buildList {\n                if (allowed) {\n",
++        "            buildList {\n"
++        "                // SableOS cover API: an app's own words for its frame come first.\n"
++        "                addAll(SableFrameCovers.snapshot(now))\n"
++        "                if (allowed) {\n",
++        "SABLE_HOME_COVER_SNAPSHOT",
++    )
++    replace_once(
++        root / "app/src/main/AndroidManifest.xml",
++        "        <!-- SableOS: first-boot setup's Look step saves the home style. -->\n",
++        "        <!-- SableOS cover API: apps say what their own Active Frame shows (in memory only). -->\n"
++        "        <provider\n"
++        "            android:name=\".frames.SableCoverProvider\"\n"
++        "            android:authorities=\"org.sableos.launcher.covers\"\n"
++        "            android:exported=\"true\" />\n"
++        "        <!-- SableOS: first-boot setup's Look step saves the home style. -->\n",
++        "SABLE_HOME_COVER_PROVIDER",
++    )
++
++
+ def main() -> None:
+     if len(sys.argv) != 2:
+         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
+@@ -741,6 +802,8 @@ def main() -> None:
+     patch_leftovers(root)
+     patch_hub_mail(root)
+     patch_back_to_frames(root)
++    patch_hub_peek(root)
++    patch_frame_covers(root)
+     print("SABLE_HOME_FLAVOR=PASS")
+ 
+ 
+diff --git a/sable-src/apps/r8/tenseven/src/SableCoverProvider.kt b/sable-src/apps/r8/tenseven/src/SableCoverProvider.kt
+new file mode 100644
+index 0000000..1ba206c
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableCoverProvider.kt
+@@ -0,0 +1,82 @@
++package io.github.aimindseye.tenseven.frames
++
++import android.content.ContentProvider
++import android.content.ContentValues
++import android.database.Cursor
++import android.net.Uri
++import android.os.Bundle
++
++/**
++ * SableOS cover API: `content://org.sableos.launcher.covers`. An app calls
++ * `contentResolver.call(Uri.parse("content://org.sableos.launcher.covers"), "setCover", null, extras)` with
++ * the string extras `title` and `detail`, or `"clearCover"`, to say what its own Active Frame shows. The
++ * cover is always the caller's own: the package comes from [getCallingPackage], which Android checks against
++ * the calling UID. Nothing else is offered; queries, inserts and updates are refused.
++ */
++class SableCoverProvider : ContentProvider() {
++    override fun onCreate(): Boolean = true
++
++    override fun call(
++        method: String,
++        arg: String?,
++        extras: Bundle?,
++    ): Bundle {
++        val caller = callingPackage.orEmpty()
++        val ok =
++            when (method) {
++                METHOD_SET -> {
++                    SableFrameCovers.set(
++                        caller,
++                        extras?.getString(EXTRA_TITLE),
++                        extras?.getString(EXTRA_DETAIL),
++                        System.currentTimeMillis(),
++                    )
++                }
++
++                METHOD_CLEAR -> {
++                    caller.isNotEmpty().also { if (it) SableFrameCovers.clear(caller) }
++                }
++
++                else -> {
++                    false
++                }
++            }
++        return Bundle().apply { putBoolean(RESULT_OK, ok) }
++    }
++
++    override fun query(
++        uri: Uri,
++        projection: Array<out String>?,
++        selection: String?,
++        selectionArgs: Array<out String>?,
++        sortOrder: String?,
++    ): Cursor? = null
++
++    override fun getType(uri: Uri): String? = null
++
++    override fun insert(
++        uri: Uri,
++        values: ContentValues?,
++    ): Uri? = null
++
++    override fun delete(
++        uri: Uri,
++        selection: String?,
++        selectionArgs: Array<out String>?,
++    ): Int = 0
++
++    override fun update(
++        uri: Uri,
++        values: ContentValues?,
++        selection: String?,
++        selectionArgs: Array<out String>?,
++    ): Int = 0
++
++    companion object {
++        const val METHOD_SET = "setCover"
++        const val METHOD_CLEAR = "clearCover"
++        const val EXTRA_TITLE = "title"
++        const val EXTRA_DETAIL = "detail"
++        const val RESULT_OK = "ok"
++    }
++}
+diff --git a/sable-src/apps/r8/tenseven/src/SableFrameCovers.kt b/sable-src/apps/r8/tenseven/src/SableFrameCovers.kt
+new file mode 100644
+index 0000000..a2b7f2d
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableFrameCovers.kt
+@@ -0,0 +1,51 @@
++package io.github.aimindseye.tenseven.frames
++
++/**
++ * SableOS cover API (2.0 plan, BB10 "Active Frame covers"): an app can say what its own Active Frame shows,
++ * a title and a line of text, through the home's `org.sableos.launcher.covers` provider (SableCoverProvider).
++ * Covers are kept in memory only, belong to the calling package (the provider reads the caller from Binder,
++ * never from the request), are bounded like every other frame summary, are hidden while the phone is
++ * locked, and lapse after [MAX_AGE_MS] unless the app sets them again. Pure, unit-tested.
++ */
++object SableFrameCovers {
++    const val MAX_AGE_MS = 24L * 60 * 60 * 1000
++    private const val MAX_TITLE = 60
++
++    private val covers = LinkedHashMap<String, AppSummary>()
++
++    @Synchronized
++    fun set(
++        packageName: String,
++        title: String?,
++        detail: String?,
++        now: Long,
++    ): Boolean {
++        val text = AppSummaryPolicy.text(detail.orEmpty())
++        if (packageName.isBlank() || text.isBlank()) return false
++        covers[packageName] =
++            AppSummary(
++                key = "cover:$packageName",
++                title = AppSummaryPolicy.text(title.orEmpty()).take(MAX_TITLE),
++                detail = text,
++                source = SummarySource.Cover,
++                packageName = packageName,
++                updatedAt = now,
++            )
++        return true
++    }
++
++    @Synchronized
++    fun clear(packageName: String) {
++        covers.remove(packageName)
++    }
++
++    /** Covers still fresh at [now]; each shows as the frame's summary with the time it was set. */
++    @Synchronized
++    fun snapshot(now: Long): List<AppSummary> {
++        covers.values.removeAll { now - it.updatedAt > MAX_AGE_MS }
++        return covers.values.toList()
++    }
++
++    @Synchronized
++    fun clearAll() = covers.clear()
++}
+diff --git a/sable-src/apps/r8/tenseven/src/SableFrameCoversTest.kt b/sable-src/apps/r8/tenseven/src/SableFrameCoversTest.kt
+new file mode 100644
+index 0000000..e4b1bf2
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableFrameCoversTest.kt
+@@ -0,0 +1,46 @@
++package io.github.aimindseye.tenseven.frames
++
++import org.junit.After
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class SableFrameCoversTest {
++    @After
++    fun reset() = SableFrameCovers.clearAll()
++
++    @Test
++    fun aCoverBelongsToItsPackage() {
++        assertTrue(SableFrameCovers.set("org.sableos.messages", "Messages", "Anna: see you\nat six", 10))
++        val cover = SableFrameCovers.snapshot(11).single()
++        assertEquals("org.sableos.messages", cover.packageName)
++        assertEquals("Anna: see you at six", cover.detail)
++        assertEquals(SummarySource.Cover, cover.source)
++    }
++
++    @Test
++    fun emptyCoversAreRefusedAndSettingAgainReplaces() {
++        assertFalse(SableFrameCovers.set("a", "A", "  ", 1))
++        SableFrameCovers.set("a", "A", "one", 1)
++        SableFrameCovers.set("a", "A", "two", 2)
++        assertEquals(listOf("two"), SableFrameCovers.snapshot(3).map { it.detail })
++    }
++
++    @Test
++    fun coversLapseAndCanBeCleared() {
++        SableFrameCovers.set("a", "A", "one", 0)
++        SableFrameCovers.set("b", "B", "two", 0)
++        SableFrameCovers.clear("b")
++        assertEquals(1, SableFrameCovers.snapshot(SableFrameCovers.MAX_AGE_MS).size)
++        assertTrue(SableFrameCovers.snapshot(SableFrameCovers.MAX_AGE_MS + 1).isEmpty())
++    }
++
++    @Test
++    fun textIsBounded() {
++        SableFrameCovers.set("a", "T".repeat(200), "x".repeat(500), 0)
++        val cover = SableFrameCovers.snapshot(0).single()
++        assertEquals(60, cover.title.length)
++        assertEquals(240, cover.detail.length)
++    }
++}
+diff --git a/sable-src/apps/r8/tenseven/src/SableHubPeek.kt b/sable-src/apps/r8/tenseven/src/SableHubPeek.kt
+new file mode 100644
+index 0000000..016b9db
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableHubPeek.kt
+@@ -0,0 +1,39 @@
++package io.github.aimindseye.tenseven.conversations
++
++/**
++ * SableOS (2.0 plan, BB10 "Hub over apps"): the rows of the Hub peek, a panel that opens over the app in
++ * front (hold the Recents key, or Hub in the Alt+BlackBerry key menu) and closes back to it with Back.
++ * Pure rules, unit-tested: snoozed conversations are left out, unread ones come first, then the newest.
++ */
++object SableHubPeek {
++    const val MAX_ROWS = 8
++    private const val PREVIEW_CHARS = 60
++
++    data class Entry(
++        val id: String,
++        val name: String,
++        val preview: String,
++        val at: Long,
++        val unread: Int,
++        val snoozed: Boolean,
++    )
++
++    fun rows(entries: List<Entry>): List<Entry> =
++        entries
++            .filterNot(Entry::snoozed)
++            .sortedWith(compareByDescending<Entry> { it.unread > 0 }.thenByDescending(Entry::at))
++            .take(MAX_ROWS)
++
++    /** "Anna (2): See you at six" — the unread count only when there is one, the preview kept short. */
++    fun label(entry: Entry): String {
++        val count = if (entry.unread > 0) " (${entry.unread})" else ""
++        val text = entry.preview.replace('\n', ' ').trim()
++        val short = if (text.length > PREVIEW_CHARS) text.take(PREVIEW_CHARS - 1).trimEnd() + "…" else text
++        return if (short.isEmpty()) "${entry.name}$count" else "${entry.name}$count: $short"
++    }
++
++    fun title(entries: List<Entry>): String {
++        val unread = entries.filterNot(Entry::snoozed).sumOf(Entry::unread)
++        return if (unread > 0) "Hub · $unread new" else "Hub"
++    }
++}
+diff --git a/sable-src/apps/r8/tenseven/src/SableHubPeekActivity.kt b/sable-src/apps/r8/tenseven/src/SableHubPeekActivity.kt
+new file mode 100644
+index 0000000..bc960eb
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableHubPeekActivity.kt
+@@ -0,0 +1,71 @@
++package io.github.aimindseye.tenseven
++
++import android.app.Activity
++import android.app.AlertDialog
++import android.content.Intent
++import android.os.Bundle
++import io.github.aimindseye.tenseven.conversations.ConversationHub
++import io.github.aimindseye.tenseven.conversations.HubConversation
++import io.github.aimindseye.tenseven.conversations.SableHubPeek
++
++/**
++ * SableOS (2.0 plan, BB10): Hub over any app. Holding the Recents key (frameworks/base 0326) or Hub in the
++ * Alt+BlackBerry key menu opens this panel over the app in front: the newest conversations, unread first.
++ * The trackpad moves, Enter opens one in its app, Open Hub shows the full Hub, and Back closes the panel
++ * back to the app. It reads only the Hub's in-memory list; the system never opens it on the lock screen.
++ * Added by the SableOS flavor (sable-src/apps/r8/tenseven).
++ */
++class SableHubPeekActivity : Activity() {
++    private var dialog: AlertDialog? = null
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        ConversationHub.ensureStateLoaded(applicationContext)
++        val now = System.currentTimeMillis()
++        val state = ConversationHub.state()
++        val conversations = ConversationHub.conversations().associateBy(HubConversation::id)
++        val entries =
++            conversations.values.map { c ->
++                SableHubPeek.Entry(
++                    id = c.id,
++                    name = c.name,
++                    preview = c.latestMessage?.text.orEmpty(),
++                    at = c.latestNotification.postedAt,
++                    unread = state.unreadCount(c),
++                    snoozed = state.isSnoozed(c.id, now),
++                )
++            }
++        val rows = SableHubPeek.rows(entries)
++        val labels = rows.map(SableHubPeek::label) + OPEN_HUB
++        dialog =
++            AlertDialog
++                .Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
++                .setTitle(SableHubPeek.title(entries))
++                .setItems(labels.toTypedArray()) { _, which ->
++                    finish()
++                    val row = rows.getOrNull(which)
++                    val conversation = row?.let { conversations[it.id] }
++                    if (conversation == null || !ConversationHub.open(applicationContext, conversation.openTarget)) {
++                        openFullHub()
++                    }
++                }.setOnCancelListener { finish() }
++                .create()
++                .also { it.show() }
++    }
++
++    override fun onDestroy() {
++        dialog?.dismiss()
++        super.onDestroy()
++    }
++
++    private fun openFullHub() {
++        runCatching {
++            startActivity(Intent(ACTION_SHOW_HUB).setPackage(packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
++        }
++    }
++
++    private companion object {
++        const val OPEN_HUB = "Open Hub"
++        const val ACTION_SHOW_HUB = "org.sableos.start.action.SHOW_HUB"
++    }
++}
+diff --git a/sable-src/apps/r8/tenseven/src/SableHubPeekTest.kt b/sable-src/apps/r8/tenseven/src/SableHubPeekTest.kt
+new file mode 100644
+index 0000000..7a9acf6
+--- /dev/null
++++ b/sable-src/apps/r8/tenseven/src/SableHubPeekTest.kt
+@@ -0,0 +1,41 @@
++package io.github.aimindseye.tenseven.conversations
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++class SableHubPeekTest {
++    private fun entry(
++        id: String,
++        at: Long,
++        unread: Int = 0,
++        snoozed: Boolean = false,
++        preview: String = "hi",
++    ) = SableHubPeek.Entry(id, id, preview, at, unread, snoozed)
++
++    @Test
++    fun unreadFirstThenNewestWithoutSnoozed() {
++        val rows =
++            SableHubPeek.rows(
++                listOf(entry("old", 1), entry("new", 5), entry("unread", 2, unread = 1), entry("later", 9, snoozed = true)),
++            )
++        assertEquals(listOf("unread", "new", "old"), rows.map { it.id })
++    }
++
++    @Test
++    fun atMostEightRows() {
++        assertEquals(SableHubPeek.MAX_ROWS, SableHubPeek.rows((1..20).map { entry("c$it", it.toLong()) }).size)
++    }
++
++    @Test
++    fun labelsShowCountAndShortPreview() {
++        assertEquals("Anna (2): See you", SableHubPeek.label(entry("Anna", 1, unread = 2, preview = "See you\n")))
++        assertEquals("Bo", SableHubPeek.label(entry("Bo", 1, preview = " ")))
++        assertEquals(60, SableHubPeek.label(entry("C", 1, preview = "x".repeat(100))).length - "C: ".length)
++    }
++
++    @Test
++    fun titleCountsNewMessages() {
++        assertEquals("Hub · 3 new", SableHubPeek.title(listOf(entry("a", 1, unread = 1), entry("b", 1, unread = 2))))
++        assertEquals("Hub", SableHubPeek.title(listOf(entry("a", 1, unread = 4, snoozed = true))))
++    }
++}
+diff --git a/sable-src/apps/r8/tenseven/src/SableSystemMenuActivity.kt b/sable-src/apps/r8/tenseven/src/SableSystemMenuActivity.kt
+index 821691c..0894d02 100644
+--- a/sable-src/apps/r8/tenseven/src/SableSystemMenuActivity.kt
++++ b/sable-src/apps/r8/tenseven/src/SableSystemMenuActivity.kt
+@@ -14,13 +14,13 @@ import io.github.aimindseye.tenseven.platform.RecentTasksRepository
+ 
+ /**
+  * SableOS: the BlackBerry 7 style system menu, opened by Alt+BlackBerry key from any app
+- * (frameworks/base 0324; owner decision 2026-11-12). Its rows: the app's own menu, Close the app,
++ * (frameworks/base 0324; owner decision 2026-11-12). Its rows: Hub over the app, the app's own menu, Close the app,
+  * Switch application (Active Frames), Notifications and Quick Settings. The trackpad moves
+  * through them and Enter or a click chooses; Back closes it. On the home the app rows are left
+  * out. Added by the SableOS flavor (sable-src/apps/r8/tenseven).
+  */
+ class SableSystemMenuActivity : Activity() {
+-    private enum class Row { AppMenu, Close, Switch, Notifications, QuickSettings }
++    private enum class Row { Hub, AppMenu, Close, Switch, Notifications, QuickSettings }
+ 
+     private var dialog: AlertDialog? = null
+ 
+@@ -30,13 +30,14 @@ class SableSystemMenuActivity : Activity() {
+         val appName = front?.let { appLabel(it) }
+         val rows =
+             if (front == null) {
+-                listOf(Row.Switch, Row.Notifications, Row.QuickSettings)
++                listOf(Row.Hub, Row.Switch, Row.Notifications, Row.QuickSettings)
+             } else {
+                 Row.entries.toList()
+             }
+         val labels =
+             rows.map { row ->
+                 when (row) {
++                    Row.Hub -> "Hub"
+                     Row.AppMenu -> "$appName menu"
+                     Row.Close -> "Close $appName"
+                     Row.Switch -> "Switch Application"
+@@ -84,6 +85,14 @@ class SableSystemMenuActivity : Activity() {
+     ) {
+         finish()
+         when (row) {
++            Row.Hub -> {
++                runCatching {
++                    startActivity(
++                        Intent(this, SableHubPeekActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
++                    )
++                }
++            }
++
+             Row.AppMenu -> {
+                 sendMenuKeyAfterClosing()
+             }
+diff --git a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+index 4a7ccf7..d163a02 100644
+--- a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
++++ b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+@@ -46,6 +46,12 @@ def main() -> None:
+         and "SableMailFeed.merge(items)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
+         and "SableMailFeed.markRead(context, n)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8"),
+         # Back at an app's root shows Active Frames, as Home does (patch_back_to_frames).
++        # Hub over any app (patch_hub_peek).
++        "hub_peek": ".SableHubPeekActivity" in manifest
++        and (root / JAVA / "SableHubPeekActivity.kt").is_file(),
++        # The cover API (patch_frame_covers).
++        "frame_covers": 'android:authorities="org.sableos.launcher.covers"' in manifest
++        and (root / JAVA / "frames/SableCoverProvider.kt").is_file(),
+         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
+         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
+     }

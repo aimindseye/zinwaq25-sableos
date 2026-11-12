@@ -62,6 +62,7 @@
     <string name="calendars">Calendars</string>
     <string name="calendars_hint">Shown calendars fill the agenda, the busy rings and Start\'s month.</string>
     <string name="no_calendars">No calendars on this phone yet. Add an account in Settings > Accounts.</string>
+    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
     <string name="add_account">Add account</string>
     <string name="phone_calendar">Phone calendar</string>
     <string name="import_ics">Import .ics</string>

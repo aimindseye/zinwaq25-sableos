@@ -103,10 +103,12 @@ if [[ -f "$manifest" ]]; then
     (cd "$APPS_DIR/prebuilt" && sha256sum -c --quiet ../SHA256SUMS.txt) || sable_fail "APK hashes don't match $APPS_DIR/SHA256SUMS.txt"
     while IFS=$'\t' read -r module group package signing overrides filename sha; do
         [[ "$module" == module ]] && continue
+        # signing "platformapp" apps (the SableOS home) are platform-signed but ordinary, as Sable Start
+        # was: no system UID and no privileged permissions, so no allowlist entry; Q4 only.
         # signing "platform" apps run as the system UID (android:sharedUserId), which only installs
         # with the platform certificate, so they ship from Q4 only. "privileged" apps are ordinary
         # (default certificate, not privileged) before Q4.
-        if [[ "$FRAMEWORK" != YES && "$signing" == platform ]]; then
+        if [[ "$FRAMEWORK" != YES && ( "$signing" == platform || "$signing" == platformapp ) ]]; then
             echo "SKIPPED_BEFORE_Q4=$module" >&2
             continue
         fi
@@ -133,7 +135,7 @@ if [[ -f "$manifest" ]]; then
                 # Gradle output is already zipaligned and v2-signed; Soong
                 # rejects presigned targetSdk>=30 APKs it would re-process.
                 echo "    preprocessed: true,"
-            elif [[ "$signing" == platform ]]; then
+            elif [[ "$signing" == platform || "$signing" == platformapp ]]; then
                 echo "    certificate: \"platform\","
             else
                 echo "    default_dev_cert: true,"

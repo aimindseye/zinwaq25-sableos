@@ -60,6 +60,7 @@
     <string name="calendars">Takvimler</string>
     <string name="calendars_hint">Gösterilen takvimler ajandayı, yoğunluk halkalarını ve Start\'taki ayı doldurur.</string>
     <string name="no_calendars">Bu telefonda henüz takvim yok. Ayarlar > Hesaplar\'dan bir hesap ekleyin.</string>
+    <string name="add_account_hint">Google, iCloud and Yahoo calendars sync through DAVx⁵, an Outlook link through ICSx⁵.</string>
     <string name="add_account">Hesap ekle</string>
     <string name="phone_calendar">Telefon takvimi</string>
     <string name="import_ics">.ics içe aktar</string>

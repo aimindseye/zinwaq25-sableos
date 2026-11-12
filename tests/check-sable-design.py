@@ -323,6 +323,27 @@ want = {
 got = {name: (sysui[("dimen", name)].text or "").strip() for name in want if ("dimen", name) in sysui}
 report(got == want, "SystemUI overlay radii equal the shape tokens", f"{got}")
 
+# PIN bouncer on the Q25 (411 dp square, about 383 dp under the status bar): the overlay's wide,
+# short keys, PIN box and margins must fit with room for two message lines and the keyboard line;
+# values-h560dp puts Android's sizes back on taller windows.
+def dp(res, name):
+    return float((res[("dimen", name)].text or "0").strip().removesuffix("dp"))
+pin_sw = resources(OVERLAY / "SableSystemUIOverlay/res/values-sw360dp/dimens.xml")
+pin_str = resources(OVERLAY / "SableSystemUIOverlay/res/values/strings.xml")
+pin_tall = resources(OVERLAY / "SableSystemUIOverlay/res/values-h560dp/strings.xml")
+ratio = float((pin_str[("string", "num_pad_key_ratio")].text or "1").strip())
+key_h = dp(pin_sw, "num_pad_key_width") / ratio
+pad = (dp(sysui, "keyguard_password_height") + dp(sysui, "num_pad_entry_row_margin_bottom")
+       + 4 * key_h + 3 * dp(sysui, "num_pad_entry_row_margin_bottom")
+       + 48 + dp(sysui, "keyguard_eca_top_margin") + dp(sysui, "keyguard_eca_bottom_margin") + 8)
+report(
+    40 <= key_h <= 48 and pad + 2 * 20 + 12 + 18 <= 383
+    and (pin_tall[("string", "num_pad_key_ratio")].text or "").strip() == "1"
+    and (OVERLAY / "SableSystemUIOverlay/res/values-sw360dp-h560dp/dimens.xml").is_file(),
+    "PIN pad fits the Q25's 411 dp square screen; taller windows keep Android's pad",
+    f"key {key_h:.1f} dp, pad {pad:.0f} dp",
+)
+
 cfg = resources(OVERLAY / "SableSystemUIOverlay/res/values/config.xml")
 tiles = [t.strip() for t in (cfg[("string", "quick_settings_tiles_default")].text or "").split(",") if t.strip()]
 report(tiles == default_tiles, "quick_settings_tiles_default equals SableQuickSettingsTiles.DEFAULT", f"{tiles}")
@@ -335,8 +356,8 @@ STOCK_TILES = {
 report(set(tiles) <= STOCK_TILES, "default tiles are stock SystemUI tiles", str(set(tiles) - STOCK_TILES))
 report(not ({"aod", "ambient_display"} & set(tiles)), "profile-gated tiles are not default")
 
-# sable-quick-settings-titan2: three columns of small labeled tiles, one compact row of four,
-# no default large tile (the values-notlong two-column large tiles are gone).
+# Quick Settings on the Q25 (owner decision 2026-11-12): a one-column list (two columns, every
+# default tile large), one compact row of four labeled small tiles.
 report(
     not (OVERLAY / "SableSystemUIOverlay/res/values-notlong").exists(),
     "no notlong two-column large-tile override (artifact grid is three columns)",
@@ -348,18 +369,18 @@ def qs_value(tag: str, name: str) -> str:
 layout_m = re.search(r"SquareKeyboard ->\s*SableQuickSettingsLayout\((.*?)\)", TOKENS.read_text(encoding="utf-8"), re.S)
 layout = dict(re.findall(r"(\w+) = (\w+)", layout_m.group(1))) if layout_m else {}
 report(
-    qs_value("integer", "quick_settings_infinite_grid_num_columns") == layout.get("gridColumns") == "3"
+    qs_value("integer", "quick_settings_infinite_grid_num_columns") == layout.get("gridColumns") == "2"
     and qs_value("integer", "config_sableQuickQsNumColumns") == layout.get("compactColumns") == "4"
     and qs_value("integer", "quick_qs_paginated_grid_num_rows") == layout.get("compactRows") == "1"
     and qs_value("bool", "config_sableQsSmallTileLabels") == layout.get("smallTileLabels") == "true",
-    "QS overlay grid equals SableQuickSettingsLayout (3 columns, compact row of 4, labeled small tiles)",
+    "QS overlay grid equals SableQuickSettingsLayout (list of 2-column tiles, compact row of 4, labeled small tiles)",
     f"{layout}",
 )
 report(
     ("string-array", "quick_settings_default_large_tiles") in qs
-    and len(list(qs[("string-array", "quick_settings_default_large_tiles")])) == 0
-    and layout.get("allDefaultTilesLarge") == "false",
-    "no default tile is large (nothing spans two of the three columns)",
+    and [(i.text or "").strip() for i in qs[("string-array", "quick_settings_default_large_tiles")]] == default_tiles
+    and layout.get("allDefaultTilesLarge") == "true",
+    "every default tile is large, so expanded Quick Settings is one tile per row",
 )
 report(qs_value("bool", "config_sableShadeExtras") == "true", "shade header, Hub summary row and key hint are on")
 report(default_tiles[:4] == ["internet", "bt", "dark", "dnd"], "compact row is Wi-Fi, BT, Dark, DND (artifact)", str(default_tiles[:4]))

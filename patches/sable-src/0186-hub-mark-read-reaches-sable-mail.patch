@@ -1,0 +1,185 @@
+diff --git a/patches/README.md b/patches/README.md
+index 150807e..79e302f 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -318,3 +318,4 @@ Reserved:
+   0183 gives the upstream apps the BlackBerry look (owner, 2026-11-12: every SableOS app in the BlackBerry theme): DAVx⁵, ICSx⁵ and Sable Terminal (ConnectBot) replace their Material 3 colour schemes with the Sable colours, one table shared by the three flavors (black, white and #2E9BD6; raised #141414, dividers #262626; light: #1A6FA0 on #F5F7F9), and Terminal stops taking Android's wallpaper colours.
+   0184 moves what the DAVx⁵, ICSx⁵ and Terminal flavors share into `sable-src/apps/r8/sable_flavor_common.py` (the Sable colour table, `sable_scheme`, `copy_tree`, `check_commit`, `set_sable_icon`), and Sable Mail's Hub feed answers writes through one `readOnly()`; no change to what is built.
+   0185 marks DAVx⁵ as needing its git submodule (`DAVX5_SUBMODULES=yes`: the `l10n` translations, at the commit the pinned upstream records), which `scripts/build-apps.sh` now fetches.
++  0186 makes Hub's mark-read reach Sable Mail (owner, 2026-11-12): `SableMailHubProvider.update` marks one message read (`messages/<id>`, `read=1`, home and Sable Hub only, `Flag.SEEN` through `MessagingControllerWrapper`, so it syncs to the server), and the home flavor's `ConversationHub.markRead` calls `SableMailFeed.markRead`; both verifiers check it.
+diff --git a/sable-src/apps/r8/mail/README.md b/sable-src/apps/r8/mail/README.md
+index 328167f..98976d5 100644
+--- a/sable-src/apps/r8/mail/README.md
++++ b/sable-src/apps/r8/mail/README.md
+@@ -9,9 +9,10 @@ scratch.
+ 
+ `app/` next to the flavor script adds `SableMailHubProvider` (`content://org.sableos.mail.hub/messages`)
+ and `SableMailOpenActivity` (`org.sableos.mail.action.OPEN_MESSAGE`). The provider answers only the
+-SableOS home and Sable Hub, read-only, with the 50 newest Inbox messages across accounts: sender,
+-subject, preview, date, read, attachment flag and a message reference. No body, address book,
+-password or token leaves Sable Mail. It tells the Hub when a sync changes an inbox, so push mail
++SableOS home and Sable Hub with the 50 newest Inbox messages across accounts: sender, subject,
++preview, date, read, attachment flag and a message reference. Its one write marks a message read
++(`update messages/<id>` with `read=1`), which Sable Mail syncs to the server like any read. No body,
++address book, password or token leaves Sable Mail. It tells the Hub when a sync changes an inbox, so push mail
+ reaches the Hub as soon as Sable Mail has it.
+ 
+ ## Upstream pin
+diff --git a/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt b/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt
+index b8963de..64843cd 100644
+--- a/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt
++++ b/sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt
+@@ -12,6 +12,8 @@ import app.k9mail.legacy.mailstore.MessageDetailsAccessor
+ import app.k9mail.legacy.mailstore.MessageListChangedListener
+ import app.k9mail.legacy.mailstore.MessageListRepository
+ import app.k9mail.legacy.message.controller.MessageReference
++import com.fsck.k9.controller.MessagingControllerWrapper
++import net.thunderbird.core.common.mail.Flag
+ import net.thunderbird.core.android.account.LegacyAccount
+ import net.thunderbird.core.android.account.LegacyAccountManager
+ import org.koin.core.context.GlobalContext
+@@ -20,8 +22,9 @@ import org.koin.core.context.GlobalContext
+  * Sable Mail's inbox for the SableOS Hub: the newest messages of every account's Inbox, read-only.
+  *
+  * Sable Mail keeps the accounts, passwords and tokens and does the syncing and push (IMAP IDLE);
+- * the Hub only reads sender, subject, preview, date and read state from here, and opens a message
+- * through [SableMailOpenActivity]. Only the SableOS home and Sable Hub may read it.
++ * the Hub reads sender, subject, preview, date and read state from here, opens a message through
++ * [SableMailOpenActivity], and can mark one message read (update messages/<id> with read=1), which
++ * Sable Mail then syncs to the server. Only the SableOS home and Sable Hub may use it.
+  */
+ class SableMailHubProvider : ContentProvider() {
+     @Volatile
+@@ -88,15 +91,27 @@ class SableMailHubProvider : ContentProvider() {
+ 
+     override fun getType(uri: Uri): String = "vnd.android.cursor.dir/vnd.org.sableos.mail.hub.message"
+ 
+-    // The Hub only reads: nothing here changes Sable Mail's store.
++    // The Hub never adds or deletes mail.
+     override fun insert(uri: Uri, values: ContentValues?): Uri? = readOnly()
+ 
+     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = readOnly()
+ 
+-    override fun update(uri: Uri, values: ContentValues?, where: String?, whereArgs: Array<out String>?): Int =
+-        readOnly()
++    /** The one write: messages/<id> with read=1 marks that message read, as opening it in Sable Mail would. */
++    override fun update(uri: Uri, values: ContentValues?, where: String?, whereArgs: Array<out String>?): Int {
++        enforceHubCaller(checkNotNull(context))
++        val rowId = uri.pathSegments.takeIf { it.size == 2 && it[0] == PATH_MESSAGES }?.get(1)?.toLongOrNull()
++        if (rowId == null || values?.getAsInteger("read") != 1 || values.size() != 1) readOnly()
++        val accountNumber = (rowId ushr ACCOUNT_SHIFT).toInt() - 1
++        val messageId = rowId and ((1L shl ACCOUNT_SHIFT) - 1)
++        val koin = GlobalContext.get()
++        val account =
++            koin.get<LegacyAccountManager>().getAccounts().firstOrNull { it.accountNumber == accountNumber }
++                ?: return 0
++        koin.get<MessagingControllerWrapper>().setFlag(account.id, listOf(messageId), Flag.SEEN, true)
++        return 1
++    }
+ 
+-    private fun readOnly(): Nothing = throw UnsupportedOperationException("Read-only provider")
++    private fun readOnly(): Nothing = throw UnsupportedOperationException("The Hub may only mark one message read")
+ 
+     private class HubMail(
+         val id: Long,
+diff --git a/sable-src/apps/r8/mail/verify_sable_mail.py b/sable-src/apps/r8/mail/verify_sable_mail.py
+index 511bd97..797f3b4 100644
+--- a/sable-src/apps/r8/mail/verify_sable_mail.py
++++ b/sable-src/apps/r8/mail/verify_sable_mail.py
+@@ -514,6 +514,7 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
+         "UnsupportedOperationException",
+         "MAX_MESSAGES = 50",
+         "account.inboxFolderId",
++        "Flag.SEEN, true",
+     ):
+         require_text(hub_provider, needle, "SABLE_MAIL_HUB_FEED")
+     for secret in ("password", "token", "body"):
+diff --git a/sable-src/apps/r8/tenseven/README.md b/sable-src/apps/r8/tenseven/README.md
+index 1c082c2..63b695a 100644
+--- a/sable-src/apps/r8/tenseven/README.md
++++ b/sable-src/apps/r8/tenseven/README.md
+@@ -36,7 +36,8 @@ Hub email (owner, 2026-11-12) comes from Sable Mail, not from TenSeven. `patch_h
+ `content://org.sableos.mail.hub/messages` (sender, subject, preview, date, read), in memory only, and
+ re-reads when Sable Mail says the inboxes changed. While that feed answers, Sable Mail's own
+ notifications are left out of the Hub, so each email shows once. Enter on an email opens it in Sable
+-Mail (`org.sableos.mail.action.OPEN_MESSAGE`). Mail read in Sable Mail shows but is not counted as new.
++Mail (`org.sableos.mail.action.OPEN_MESSAGE`). Mail read in Sable Mail shows but is not counted as new, and marking an email read in the Hub marks
++it read in Sable Mail too.
+ 
+ The APK is platform-signed but not privileged (`platformapp`), as Sable Start was. The framework
+ overlay grants it notification listener access on first boot, so Hub fills without a setup step.
+diff --git a/sable-src/apps/r8/tenseven/apply_sable_flavor.py b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+index 89af575..eed67fc 100644
+--- a/sable-src/apps/r8/tenseven/apply_sable_flavor.py
++++ b/sable-src/apps/r8/tenseven/apply_sable_flavor.py
+@@ -670,6 +670,12 @@ def patch_hub_mail(root: pathlib.Path) -> None:
+         "synchronized(lock) { buildConversations(SableMailFeed.merge(items), sentReplies) }",
+         "SABLE_HOME_HUB_MAIL_CONVERSATIONS",
+     )
++    replace_once(
++        hub,
++        "            markHubSourceRead(context, n)\n",
++        "            markHubSourceRead(context, n)\n            SableMailFeed.markRead(context, n)\n",
++        "SABLE_HOME_HUB_MAIL_MARK_READ",
++    )
+     replace_once(
+         root / "app/src/main/AndroidManifest.xml",
+         '        <provider android:authorities="org.sableos.mail.snapshot" />\n',
+diff --git a/sable-src/apps/r8/tenseven/src/SableMailFeed.kt b/sable-src/apps/r8/tenseven/src/SableMailFeed.kt
+index f6b6313..0e6ef8b 100644
+--- a/sable-src/apps/r8/tenseven/src/SableMailFeed.kt
++++ b/sable-src/apps/r8/tenseven/src/SableMailFeed.kt
+@@ -1,6 +1,7 @@
+ package io.github.aimindseye.tenseven.conversations
+ 
+ import android.app.PendingIntent
++import android.content.ContentValues
+ import android.content.Context
+ import android.content.Intent
+ import android.database.ContentObserver
+@@ -16,7 +17,8 @@ import java.util.concurrent.atomic.AtomicBoolean
+  * SableOS: Sable Mail's inboxes in the Hub, read from Sable Mail's own feed (org.sableos.mail.hub), not from
+  * its notifications. Sable Mail keeps the accounts and does the syncing and push; the Hub holds the newest
+  * inbox messages in memory only, and opens one in Sable Mail. While the feed answers, Sable Mail's
+- * notifications are left out of the Hub so each email shows once.
++ * notifications are left out of the Hub so each email shows once. Marking an email read in the Hub marks it
++ * read in Sable Mail.
+  */
+ object SableMailFeed {
+     const val MAIL_PACKAGE = "org.sableos.mail"
+@@ -135,6 +137,21 @@ object SableMailFeed {
+             )
+         }.getOrNull()
+ 
++    /** Marking a Hub email read marks it read in Sable Mail too (which syncs it to the server). */
++    fun markRead(
++        context: Context,
++        notification: HubNotification,
++    ) {
++        val id = notification.key.removePrefix(KEY_PREFIX).takeIf { notification.key.startsWith(KEY_PREFIX) } ?: return
++        val app = context.applicationContext
++        reader.execute {
++            runCatching {
++                val values = ContentValues().apply { put("read", 1) }
++                app.contentResolver.update(URI.buildUpon().appendPath(id).build(), values, null, null)
++            }
++        }
++    }
++
+     /** "Subject · start of the text", or whichever of the two there is. Pure, unit tested. */
+     internal fun mailText(
+         subject: String,
+diff --git a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+index 8574612..6adec8c 100644
+--- a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
++++ b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
+@@ -43,7 +43,8 @@ def main() -> None:
+         "no_first_run_setup": "loadOnboardingDone()" not in activity,
+         # Hub reads Sable Mail's inboxes from its feed (patch_hub_mail).
+         "hub_mail": 'android:authorities="org.sableos.mail.hub"' in manifest
+-        and "SableMailFeed.merge(items)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8"),
++        and "SableMailFeed.merge(items)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
++        and "SableMailFeed.markRead(context, n)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8"),
+     }
+     bad = [name for name, ok in checks.items() if not ok]
+     if bad:

@@ -49,4 +49,15 @@
     <string name="voice_failed">Nie udało się pobrać modelu mowy.</string>
     <string name="voice_permission">Zezwól na mikrofon, abym słyszał Cię, gdy trzymasz.</string>
     <string name="voice_nothing">Nie zrozumiałem.</string>
+    <string name="sms_ready">I\'ve prepared a text to %1$s. Check it below and send it if it\'s right.</string>
+    <string name="sms_to">To %1$s · %2$s</string>
+    <string name="sms_send">Send text</string>
+    <string name="sms_in_messages">Open in Messages</string>
+    <string name="sms_cancel">Cancel</string>
+    <string name="sms_sent">Sent to %1$s.</string>
+    <string name="sms_cancelled">Not sent.</string>
+    <string name="sms_draft">I couldn\'t send it from here, so it\'s waiting in Messages for you to send.</string>
+    <string name="sms_no_contact">I couldn\'t find %1$s in your contacts. Try their number, or the name as it\'s saved.</string>
+    <string name="sms_contacts_permission">Allow contacts so I can find who to text.</string>
+    <string name="sms_send_permission">Allow sending texts so I can send it for you.</string>
 </resources>

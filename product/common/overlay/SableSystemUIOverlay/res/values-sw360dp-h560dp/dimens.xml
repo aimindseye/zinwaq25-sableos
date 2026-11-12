@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android's PIN keys on windows 560 dp and taller. -->
+    <dimen name="num_pad_key_width">84dp</dimen>
+    <dimen name="num_pad_row_margin_bottom">12dp</dimen>
+    <dimen name="num_pad_key_margin_end">20dp</dimen>
+</resources>

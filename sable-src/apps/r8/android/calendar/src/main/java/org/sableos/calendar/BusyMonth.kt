@@ -103,7 +103,8 @@ private fun BusyDayCell(
     val arc = MaterialTheme.colorScheme.primary
     val track = MaterialTheme.colorScheme.outlineVariant.copy(alpha = TRACK_ALPHA)
     val allDay = MaterialTheme.colorScheme.tertiary
-    val sweep = CalendarBusy.sweepDegrees(day)
+    val arcs = CalendarBusy.arcs(day)
+    val colors = LocalEventColors.current
     val label = dayLabel(date, day)
     Box(
         modifier =
@@ -123,16 +124,13 @@ private fun BusyDayCell(
             if (day != null) {
                 drawArc(track, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
             }
-            if (sweep > 0f) {
-                drawArc(
-                    arc,
-                    RING_START_DEGREES,
-                    sweep,
-                    false,
-                    Offset(inset, inset),
-                    arcSize,
-                    style = Stroke(stroke, cap = StrokeCap.Round),
-                )
+            // One arc per calendar in its colour; a lone arc keeps its round ends.
+            val cap = if (arcs.size == 1) StrokeCap.Round else StrokeCap.Butt
+            var start = RING_START_DEGREES
+            arcs.forEach { (calendar, sweep) ->
+                val color = colors[calendar]?.let { Color(it or OPAQUE_ALPHA) } ?: arc
+                drawArc(color, start, sweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = cap))
+                start += sweep
             }
             if (day?.allDay == true) {
                 drawCircle(allDay, radius = size.minDimension / 2 + stroke, style = Stroke(stroke / 2))
@@ -148,6 +146,7 @@ private fun BusyDayCell(
 }
 
 private const val DAYS_PER_WEEK = 7
+private const val OPAQUE_ALPHA = -0x1000000
 
 private fun weekdayInitials(): List<String> {
     val monday = LocalDate.of(2024, 1, 1)

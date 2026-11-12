@@ -12,7 +12,8 @@ main_display:
   physical_ppi: about 290
   logical_density: 280 (SABLE_LCD_DENSITY; LineageOS BoardConfig.mk has 193)
   smallest_width_dp: 411 (720 * 160 / 280)
-  refresh_modes: 60 Hz expected, NOT_MEASURED
+  refresh_modes: 60 Hz only (one mode, no alternative rates); MEASURED 2026-11-12 (owner, dumpsys display)
+  vsync: 16.67 ms period, app vsync offset 2.4 ms, present deadline 28.6 ms (dumpsys SurfaceFlinger)
   panel_type: IPS LCD (original BlackBerry Classic panel)
   natural_orientation: portrait (square)
   rotation_policy: locked to natural, keyboard below the screen
@@ -22,6 +23,14 @@ main_display:
   aod_policy: NO_BY_DEFAULT (LCD)
 secondary_display: none
 ```
+
+## Refresh rate (owner capture 2026-11-12)
+
+`dumpsys display` lists one mode, `720 x 720, fps=60.0, alternativeRefreshRates=[]`, and SurfaceFlinger
+reports a 16 666 667 ns vsync period, so the panel runs at 60 Hz only. There is no higher rate to unlock.
+LineageOS's default and peak refresh settings read 61 (render range 0 to 61), which simply allows 60.
+Smooth transitions on the Q25 therefore mean finishing each frame inside 16.7 ms: keep animations short
+(about 150 to 250 ms), animate transforms and alpha rather than layout, and avoid heavy blur.
 
 ## How it differs from Titan 2
 

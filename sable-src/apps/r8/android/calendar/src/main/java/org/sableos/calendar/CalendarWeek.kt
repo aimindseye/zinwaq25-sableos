@@ -48,9 +48,13 @@ object CalendarScreenKeys {
     val DOCK: String get() = t("c_create_t_today_v") + t("l_calendars")
 }
 
-/** The browsing views V cycles through: agenda (list with detail), week (5 columns), month. */
+/**
+ * The browsing views V cycles through: agenda (list with detail), day (one timeline, from TenSeven's
+ * Calendar, 2026-11-12), week (5 columns), month.
+ */
 enum class CalendarView {
     Agenda,
+    Day,
     Week,
     Month,
     ;

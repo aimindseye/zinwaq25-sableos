@@ -58,7 +58,8 @@ class CalendarWeekTest {
 
     @Test
     fun viewKeyCyclesAgendaWeekMonth() {
-        assertEquals(CalendarView.Week, CalendarView.Agenda.next())
+        assertEquals(CalendarView.Day, CalendarView.Agenda.next())
+        assertEquals(CalendarView.Week, CalendarView.Day.next())
         assertEquals(CalendarView.Month, CalendarView.Week.next())
         assertEquals(CalendarView.Agenda, CalendarView.Month.next())
     }

@@ -216,23 +216,30 @@ data class SableQuickSettingsLayout(
     val smallTileLabels: Boolean = false,
 ) {
     /**
-     * Visible labeled tiles per row: every column when small tiles are labeled (the
-     * sable-quick-settings-titan2 three-column grid), else the large tiles that fit.
+     * Visible labeled tiles per row in the expanded grid: the large tiles that fit when every
+     * default tile is large (the Q25's one-column list), else every column when small tiles are
+     * labeled, else the large tiles that fit.
      */
     val labeledTilesPerRow: Int
-        get() = if (smallTileLabels) gridColumns else gridColumns / largeTileSpan
+        get() =
+            when {
+                allDefaultTilesLarge -> gridColumns / largeTileSpan
+                smallTileLabels -> gridColumns
+                else -> gridColumns / largeTileSpan
+            }
 
     companion object {
         fun forDisplayClass(displayClass: SableDisplayClass): SableQuickSettingsLayout =
             when (displayClass) {
-                // sable-quick-settings-titan2: three columns of small labeled square tiles,
-                // one compact row of four.
+                // Owner decision 2026-11-12 (BB7-style, trackpad first): the expanded grid is a
+                // one-column list, every default tile large (icon, name and state on one row,
+                // spanning both columns); the compact shade keeps one row of four labeled tiles.
                 SableDisplayClass.SquareKeyboard ->
                     SableQuickSettingsLayout(
-                        gridColumns = 3,
+                        gridColumns = 2,
                         largeTileSpan = 2,
                         compactRows = 1,
-                        allDefaultTilesLarge = false,
+                        allDefaultTilesLarge = true,
                         compactColumns = 4,
                         smallTileLabels = true,
                     )

@@ -1,0 +1,17 @@
+diff --git a/patches/README.md b/patches/README.md
+index 4e59df4..150807e 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -317,3 +317,4 @@ Reserved:
+   0182 brings email into the Hub (owner, 2026-11-12: Hub email in 2.0, "just Sable Mail for sable os"): Sable Mail is back in the image; its flavor adds `SableMailHubProvider` (`content://org.sableos.mail.hub/messages`, the 50 newest Inbox headers across accounts, read-only, only for the SableOS home and Sable Hub, change-notified from Thunderbird's message list) and `SableMailOpenActivity` (`org.sableos.mail.action.OPEN_MESSAGE`). The home flavor's `patch_hub_mail` adds `SableMailFeed.kt` (unit-tested), which lists those messages in the Hub in place of Sable Mail's notifications and opens one in Sable Mail; `verify_sable_tenseven.py` checks it (`hub_mail`).
+   0183 gives the upstream apps the BlackBerry look (owner, 2026-11-12: every SableOS app in the BlackBerry theme): DAVx⁵, ICSx⁵ and Sable Terminal (ConnectBot) replace their Material 3 colour schemes with the Sable colours, one table shared by the three flavors (black, white and #2E9BD6; raised #141414, dividers #262626; light: #1A6FA0 on #F5F7F9), and Terminal stops taking Android's wallpaper colours.
+   0184 moves what the DAVx⁵, ICSx⁵ and Terminal flavors share into `sable-src/apps/r8/sable_flavor_common.py` (the Sable colour table, `sable_scheme`, `copy_tree`, `check_commit`, `set_sable_icon`), and Sable Mail's Hub feed answers writes through one `readOnly()`; no change to what is built.
++  0185 marks DAVx⁵ as needing its git submodule (`DAVX5_SUBMODULES=yes`: the `l10n` translations, at the commit the pinned upstream records), which `scripts/build-apps.sh` now fetches.
+diff --git a/sable-src/apps/r8/davx5/upstream.env b/sable-src/apps/r8/davx5/upstream.env
+index fe5bb0e..e4ac8ba 100644
+--- a/sable-src/apps/r8/davx5/upstream.env
++++ b/sable-src/apps/r8/davx5/upstream.env
+@@ -1,2 +1,3 @@
+ DAVX5_REPOSITORY=https://github.com/bitfireAT/davx5-ose.git
+ DAVX5_COMMIT=f07633b0bb2482aec5cdfe6bd63c9a4b12b4faa2
++DAVX5_SUBMODULES=yes
