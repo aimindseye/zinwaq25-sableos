@@ -511,6 +511,20 @@ grep -q $'^SableHome\tplatform\tflavor:tenseven\t' product/q25/apps.tsv &&
     python3 -I -m py_compile sable-src/apps/r8/tenseven/apply_sable_flavor.py sable-src/apps/r8/tenseven/verify_sable_tenseven.py &&
     pass "SableOS home flavor (TenSeven pinned, org.sableos.launcher)" || fail "SableOS home flavor"
 
+# 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
+# extras and screen capture, and the verify step fails the build if they come back.
+home_bad=""
+for c in TenSevenInCallService TenSevenCallScreeningService TenSevenPhoneActivity TenSevenCalendarActivity \
+    D5PhoneRoleRequestActivity ScreenCaptureService extras.games. extras.notes.MainActivity \
+    extras.calculator.MainActivity extras.profiles.MainActivity tasks.TasksLauncherActivity; do
+    grep -q "$c" sable-src/apps/r8/tenseven/apply_sable_flavor.py || home_bad="$home_bad flavor:$c"
+done
+for k in no_phone no_extras no_screen_capture no_first_run_setup; do
+    grep -q "\"$k\"" sable-src/apps/r8/tenseven/verify_sable_tenseven.py || home_bad="$home_bad verify:$k"
+done
+grep -q 'patch_leftovers(root)' sable-src/apps/r8/tenseven/apply_sable_flavor.py || home_bad="$home_bad not-applied"
+if [[ -z "$home_bad" ]]; then pass "SableOS home: no leftover TenSeven Phone, Calendar, extras or screen capture"; else fail "SableOS home leftovers:$home_bad"; fi
+
 # 6b1a. One Hub: Start's Hub page has the Contacts tab and the unread bar; Sable Hub has no launcher entry.
 hub_bad=""
 python3 -I -c 'import re,sys; s=open(sys.argv[1]).read(); sys.exit(1 if any("category.LAUNCHER" in f for f in re.findall(r"<intent-filter.*?</intent-filter>", s, re.S)) else 0)' sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml || hub_bad="$hub_bad hub-launcher"

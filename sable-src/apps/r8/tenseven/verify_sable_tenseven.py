@@ -30,6 +30,17 @@ def main() -> None:
         and (root / JAVA / "SableSystemMenuActivity.kt").is_file(),
         "fit": "heightIn(max = 360.dp)" in (root / JAVA / "ui/WidgetsPage.kt").read_text(encoding="utf-8"),
         "blue": "0xFF4D9CFF" not in (root / JAVA / "ui/StartPalette.kt").read_text(encoding="utf-8"),
+        # No leftover TenSeven code (apply_sable_flavor.py patch_leftovers): Sable Phone stays the only
+        # Phone app, and the Sable apps replace the bundled extras.
+        "no_phone": "android.telecom.InCallService" not in manifest
+        and "android.intent.action.DIAL" not in manifest
+        and "CallScreeningService" not in manifest
+        and not (root / JAVA / "features").exists(),
+        "no_extras": "extras." not in manifest and not (root / JAVA / "extras").exists(),
+        "no_screen_capture": "mediaProjection" not in manifest
+        and "MEDIA_PROJECTION" not in manifest
+        and not (root / JAVA / "ScreenCaptureActivity.kt").exists(),
+        "no_first_run_setup": "loadOnboardingDone()" not in activity,
     }
     bad = [name for name, ok in checks.items() if not ok]
     if bad:
