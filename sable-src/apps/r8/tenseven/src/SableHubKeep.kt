@@ -437,7 +437,7 @@ object SableHubHistory {
         if (!tmp.renameTo(file)) {
             // Rename can fail across a full disk or a stale target: write in place, then drop the copy.
             file.writeText(text)
-            tmp.delete()
+            if (!tmp.delete()) tmp.deleteOnExit()
         }
     }
 }

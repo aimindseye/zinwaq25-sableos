@@ -282,7 +282,7 @@ index 8b257aa..f82e02a 100644
  
 diff --git a/sable-src/apps/r8/tenseven/src/SableHubKeep.kt b/sable-src/apps/r8/tenseven/src/SableHubKeep.kt
 new file mode 100644
-index 0000000..aba3c36
+index 0000000..fd9f1ff
 --- /dev/null
 +++ b/sable-src/apps/r8/tenseven/src/SableHubKeep.kt
 @@ -0,0 +1,443 @@
@@ -725,7 +725,7 @@ index 0000000..aba3c36
 +        if (!tmp.renameTo(file)) {
 +            // Rename can fail across a full disk or a stale target: write in place, then drop the copy.
 +            file.writeText(text)
-+            tmp.delete()
++            if (!tmp.delete()) tmp.deleteOnExit()
 +        }
 +    }
 +}
