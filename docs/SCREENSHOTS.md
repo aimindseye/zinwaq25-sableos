@@ -199,12 +199,6 @@ The keyboard (keyboard-settings)
 
 ![Settings > Keyboard & input](images/q25/keyboard-settings.png)
 
-## Settings > Display > Accent
-
-Settings (accent)
-
-![Settings > Display > Accent](images/q25/accent.png)
-
 ## Settings > Display > App display compatibility > Sable app style
 
 Settings (app-style)

@@ -1,14 +1,10 @@
 # Build SableOS for the Zinwa Q25
 
-Status: **the Sable apps build and pass their quality gates in GitHub Actions
-(section 7). Q1 and Q2 images were built on ai-g732 on 2026-10-15 and boot on a
-Q25. Q4 (the framework layer) was first built on 2026-10-17 and boots. The
-PR #28 Q4 image was built on 2026-10-22 after three fixes from that run (PR #31,
-see Troubleshooting) and was flashed and reviewed on a Q25 the same day. PR #32
-(the review fixes, Sable Messages as the default SMS app, the one Hub page and
-the display tools) followed, and the image built after PR #33 was flashed and
-reviewed on 2026-10-28. PRs #34-#36 are not built into an image yet. Section
-"Publish a release" (section 6) packages a build for GitHub.**
+Status (2026-11-12): **the Sable apps build and pass their quality gates in
+GitHub Actions (section 7). SableOS 1.0 was built with these steps on LineageOS
+23.2 and released on 2026-10-29; SableOS 2.0 builds the same way from `main` on
+LineageOS 24.0. Section "Publish a release" (section 6) packages a build for
+GitHub.**
 
 ## The short way
 
@@ -126,7 +122,9 @@ with no apps is possible with `stage --allow-no-apps`.
 
 `Q4` stages the same layer plus the framework integration: it copies Sable
 Start and the Sable design sources into `vendor/sable/q25/src` and builds them
-as `SableLauncher` (HOME, platform-signed), makes Sable Keyboard override
+as `SableLauncher` (platform-signed). From 2.0 the `SableHome` row of
+`apps.tsv` (the TenSeven-based home, package `org.sableos.launcher`) overrides
+`SableLauncher`, so that is the HOME the image ships. Q4 also makes Sable Keyboard override
 LatinIME, and applies `patches/framework` to the LineageOS projects (see
 [`../patches/README.md`](../patches/README.md)). Staging Q1 or Q2 again reverts
 those patches. Stage Q4 only after gate Q3-TEXT passes, because Sable Keyboard

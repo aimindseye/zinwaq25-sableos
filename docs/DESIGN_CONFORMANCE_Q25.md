@@ -1,5 +1,11 @@
 # Q25 design conformance review
 
+> **Historical (2026-10-23).** This review was written before SableOS 1.0. For
+> SableOS 2.0 the home was rebuilt on TenSeven Launcher, following the approved
+> BB10 design review ([`../sable-src/apps/r8/tenseven/README.md`](../sable-src/apps/r8/tenseven/README.md)),
+> and the look became black and white with one blue accent. What is open today
+> is in [`SABLEOS_GAP_REVIEW.md`](SABLEOS_GAP_REVIEW.md).
+
 This review compares the 24 design artifacts in `sableos-project/platform_sable/docs/design/artifacts` with this port. Status as of 2026-10-23, after PR #25 and PR #28 were merged and with PR #32 open. The PR #28 image was flashed and reviewed on a Q25 on 2026-10-22; PR #32 answers that review ([q4-review](implementation/q4-review.md)) and is **in source only**. The matching on-device checks are the `NOT_RUN` Q4-* rows in [`QUALIFICATION.md`](QUALIFICATION.md).
 
 **Short answer:** 20 of the 24 artifacts are done in code, now sized for the Q25 (density 280, about 411 dp square) rather than the Titan 2. Files and Media are partial, Utilities is still missing, and the rear-screen artifact doesn't apply to the Q25. PR #26 records the owner's earlier BB10 Start attempt in [`DESIGN_CONFORMANCE_TB2_BB10_IMPLEMENTATION.md`](DESIGN_CONFORMANCE_TB2_BB10_IMPLEMENTATION.md); PR #28 replaced that Start code, so this file is the current status.

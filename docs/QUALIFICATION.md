@@ -7,6 +7,11 @@ output kept with the artifact directory). Status values follow SableOS:
 Support level today: **RESEARCH** (SableOS `DEVICE_SUPPORT_LEVELS.md`).
 Promotion to **PORTABILITY** needs Q2 + Q3 gates passing.
 
+Status (2026-11-12): R0, Q1 and Q2 pass. SableOS 1.0 was released on
+2026-10-29 from Q4 images flashed and reviewed on a Q25. Most Q3 rows and the
+Q4 rows for the 2.0 features are still `NOT_RUN`; they are recorded on the phone
+before the 2.0 release ([#27](https://github.com/aimindseye/zinwaq25-sableos/issues/27)).
+
 ## R0: way back to stock (before any flash)
 
 Nothing other than the stock archive is flashed on a phone until all three pass
