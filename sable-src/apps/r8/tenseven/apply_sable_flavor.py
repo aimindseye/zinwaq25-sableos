@@ -765,6 +765,13 @@ def patch_frame_covers(root: pathlib.Path) -> None:
         '    Local("Local summary"),\n    Cover("App cover"),\n',
         "SABLE_HOME_COVER_SOURCE",
     )
+    # A cover is the app's own words, so like Local data it needs no notification access.
+    replace_once(
+        root / TEST / "frames/AppSummaryTest.kt",
+        "source in setOf(SummarySource.Local)",
+        "source in setOf(SummarySource.Local, SummarySource.Cover)",
+        "SABLE_HOME_COVER_SUMMARY_TEST",
+    )
     replace_once(
         root / JAVA / "platform/AppFrameSummaryRepository.kt",
         "            buildList {\n                if (allowed) {\n",
@@ -787,6 +794,261 @@ def patch_frame_covers(root: pathlib.Path) -> None:
     )
 
 
+def patch_status_icons(root: pathlib.Path) -> None:
+    """Home status choices read Dials, Icons, Hidden everywhere (owner, 2026-11-12). TenSeven named the
+    icons choice "Text"; the saved value stays "text", so a phone keeps its choice."""
+    model = root / JAVA / "model/HomeStatusMode.kt"
+    replace_once(model, '    Text("text"),\n', '    Icons("text"),\n', "SABLE_HOME_STATUS_ICONS_ENUM")
+    replace_once(root / JAVA / "ui/BbHomeStatus.kt", "HomeStatusMode.Text ->", "HomeStatusMode.Icons ->", "SABLE_HOME_STATUS_ICONS_DRAW")
+    replace_once(
+        root / JAVA / "SettingsSections.kt",
+        'HomeStatusMode.Text to "Text",',
+        'HomeStatusMode.Icons to "Icons",',
+        "SABLE_HOME_STATUS_ICONS_LABEL",
+    )
+    settings = root / JAVA / "LauncherSettingsActivity.kt"
+    replace_once(
+        settings,
+        '        state.loadHomeStatusMode().name.let {\n            if (it ==\n                "Text"\n            ) {\n'
+        '                "Icons"\n            } else {\n                it\n            }\n        },\n',
+        "        state.loadHomeStatusMode().name,\n",
+        "SABLE_HOME_STATUS_ICONS_CARD",
+    )
+    replace_once(
+        settings,
+        'StyleCard(if (choice.name == "Text") "Icons" else choice.name, "",',
+        'StyleCard(choice.name, "",',
+        "SABLE_HOME_STATUS_ICONS_CHOICE",
+    )
+    replace_once(
+        settings,
+        'if (mode.name == "Text") "icons" else mode.name.lowercase()',
+        "mode.name.lowercase()",
+        "SABLE_HOME_STATUS_ICONS_ITEMS",
+    )
+    replace_once(
+        root / TEST / "model/HomeStatusModeTest.kt",
+        "HomeStatusMode.Text,",
+        "HomeStatusMode.Icons,",
+        "SABLE_HOME_STATUS_ICONS_TEST",
+    )
+
+
+def patch_extra_dim(root: pathlib.Path) -> None:
+    """Dimmer than the panel's lowest step (owner, 2026-11-12): with the brightness slider at the bottom the
+    home turns on Android's Extra dim, and turns it off when the slider moves up (SableExtraDim)."""
+    shutil.copyfile(HERE / "src/SableExtraDim.kt", root / JAVA / "platform/SableExtraDim.kt")
+    (root / TEST / "platform").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(HERE / "src/SableExtraDimTest.kt", root / TEST / "platform/SableExtraDimTest.kt")
+    replace_once(
+        root / "app/src/main/AndroidManifest.xml",
+        '    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n',
+        '    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n'
+        "    <!-- SableOS: Extra dim at the bottom of the brightness slider (platform certificate). -->\n"
+        '    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />\n',
+        "SABLE_HOME_EXTRA_DIM_PERMISSION",
+    )
+    replace_once(
+        root / JAVA / "SableStartActivity.kt",
+        "        StartText.t.bindTo(this)\n",
+        "        StartText.t.bindTo(this)\n"
+        "        io.github.aimindseye.tenseven.platform.SableExtraDim.start(this)\n",
+        "SABLE_HOME_EXTRA_DIM_START",
+    )
+    replace_once(
+        root / JAVA / "LauncherSettingsActivity.kt",
+        "    Settings2ReadabilityOptions(state)\n",
+        "    Settings2ReadabilityOptions(state)\n"
+        "    run {\n"
+        "        val dimContext = androidx.compose.ui.platform.LocalContext.current\n"
+        "        var extraDim by remember { mutableStateOf(io.github.aimindseye.tenseven.platform.SableExtraDim.isEnabled(dimContext)) }\n"
+        "        SwitchRow(\n"
+        '            "Extra dim at lowest brightness",\n'
+        '            "With the brightness slider at the bottom, Android\'s Extra dim makes the screen dimmer than the panel goes",\n'
+        "            extraDim,\n"
+        "        ) {\n"
+        "            extraDim = it\n"
+        "            io.github.aimindseye.tenseven.platform.SableExtraDim.setEnabled(dimContext, it)\n"
+        "        }\n"
+        "    }\n",
+        "SABLE_HOME_EXTRA_DIM_SETTING",
+    )
+
+
+def patch_hub_keep(root: pathlib.Path) -> None:
+    """Hub after the JL10 review (owner, 2026-11-12): items kept until deleted, Unread and date sections,
+    each app with its count and Priority Hub in Views, a ⋮ menu, Mark Unread, Delete, and Hub settings for
+    every message on its own, system notifications and the account apps."""
+    conv = root / JAVA / "conversations"
+    ui = root / JAVA / "ui"
+    shutil.copyfile(HERE / "src/SableHubKeep.kt", conv / "SableHubKeep.kt")
+    shutil.copyfile(HERE / "src/SableHubUi.kt", ui / "SableHubUi.kt")
+    (root / TEST / "conversations").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(HERE / "src/SableHubKeepTest.kt", root / TEST / "conversations/SableHubKeepTest.kt")
+
+    hub = conv / "ConversationHub.kt"
+    replace_once(
+        hub,
+        "        SableMailFeed.start(context) { listeners.forEach { it() } }\n",
+        "        SableMailFeed.start(context) { listeners.forEach { it() } }\n        SableHubHistory.init(context)\n",
+        "SABLE_HOME_HUB_KEEP_INIT",
+    )
+    replace_once(
+        hub,
+        "synchronized(lock) { SableMailFeed.merge(items) }",
+        "synchronized(lock) { SableHubHistory.view(SableMailFeed.merge(items)) }",
+        "SABLE_HOME_HUB_KEEP_NOTIFICATIONS",
+    )
+    replace_once(
+        hub,
+        "synchronized(lock) { buildConversations(SableMailFeed.merge(items), sentReplies) }",
+        "synchronized(lock) {\n"
+        "            SableHubHistory.rows(buildConversations(SableHubHistory.view(SableMailFeed.merge(items)), sentReplies))\n"
+        "        }",
+        "SABLE_HOME_HUB_KEEP_CONVERSATIONS",
+    )
+    replace_once(
+        hub,
+        "            items = change(items)\n",
+        "            items = change(items)\n            SableHubHistory.record(items)\n",
+        "SABLE_HOME_HUB_KEEP_RECORD",
+    )
+    replace_once(
+        hub,
+        "    fun clearNow() = clear()\n",
+        "    fun clearNow() {\n        SableHubHistory.clear()\n        clear()\n    }\n",
+        "SABLE_HOME_HUB_KEEP_CLEAR",
+    )
+    replace_once(
+        hub,
+        "    internal fun dropPackages(packages: Set<String>) = update { old -> old.filterNot { it.packageName in packages } }\n",
+        "    internal fun dropPackages(packages: Set<String>) {\n"
+        "        SableHubHistory.forget(packages)\n"
+        "        update { old -> old.filterNot { it.packageName in packages } }\n"
+        "    }\n",
+        "SABLE_HOME_HUB_KEEP_DROP",
+    )
+    replace_once(
+        hub,
+        "    const val DEFAULT_MAX_APPS = 32\n",
+        "    /** SableOS: the conversation counts as unread again, from its newest incoming message. */\n"
+        "    fun markUnread(\n"
+        "        context: Context,\n"
+        "        conversation: HubConversation,\n"
+        "    ) {\n"
+        "        val at = SableHubKeep.unreadMark(conversation) ?: return\n"
+        "        changeState(context) { it.markRead(conversation.id, at) }\n"
+        "    }\n"
+        "\n"
+        "    /** SableOS: Delete takes the row out of the Hub and its notifications out of the shade. */\n"
+        "    fun delete(\n"
+        "        context: Context,\n"
+        "        conversation: HubConversation,\n"
+        "    ) {\n"
+        "        ensureStateLoaded(context)\n"
+        "        SableHubHistory.delete(conversation.notifications)\n"
+        "        ConversationListenerService.cancelKeys(conversation.notifications.map(HubNotification::key))\n"
+        "        notifyChanged()\n"
+        "    }\n"
+        "\n"
+        "    fun notifyChanged() = listeners.forEach { it() }\n"
+        "\n"
+        "    const val DEFAULT_MAX_APPS = 32\n",
+        "SABLE_HOME_HUB_KEEP_ACTIONS",
+    )
+    replace_once(
+        conv / "ConversationListenerService.kt",
+        "        fun refreshConnected(): Boolean {\n",
+        "        /** SableOS Hub Delete: also clears those notifications from the shade (when the app allows). */\n"
+        "        fun cancelKeys(keys: List<String>) {\n"
+        "            val service = live.get() ?: return\n"
+        "            keys.forEach { key -> runCatching { service.cancelNotification(key) } }\n"
+        "        }\n"
+        "\n"
+        "        fun refreshConnected(): Boolean {\n",
+        "SABLE_HOME_HUB_KEEP_CANCEL",
+    )
+    state = conv / "ConversationState.kt"
+    replace_once(
+        state,
+        "    val snoozed: Boolean = false,\n",
+        "    val snoozed: Boolean = false,\n    /** SableOS Priority Hub. */\n    val priority: Boolean = false,\n",
+        "SABLE_HOME_HUB_PRIORITY_FILTER",
+    )
+    replace_once(
+        state,
+        "|| kind != ConversationKind.All || snoozed\n",
+        "|| kind != ConversationKind.All || snoozed || priority\n",
+        "SABLE_HOME_HUB_PRIORITY_ACTIVE",
+    )
+    replace_once(
+        state,
+        "            state.isSnoozed(c.id, now) == filter.snoozed &&\n",
+        "            state.isSnoozed(c.id, now) == filter.snoozed &&\n"
+        "                (!filter.priority || SableHubOptions.isPriority(c)) &&\n",
+        "SABLE_HOME_HUB_PRIORITY_VIEW",
+    )
+    rows = ui / "HubConversationsUi.kt"
+    replace_once(rows, "private const val MAX_CONVERSATIONS = 30\n", "private const val MAX_CONVERSATIONS = 300\n",
+                 "SABLE_HOME_HUB_KEEP_MAX")
+    replace_once(
+        rows,
+        '    conversationItems(visible.take(MAX_CONVERSATIONS), key = { "conversation:" + it.id }) { conversation ->\n'
+        "        ConversationRow(conversation, ui)\n"
+        "    }\n",
+        "    // SableOS: Unread first, then a section per day, as BB10's Hub.\n"
+        "    io.github.aimindseye.tenseven.conversations.SableHubKeep\n"
+        "        .sections(visible.take(MAX_CONVERSATIONS), { ui.state.unreadCount(it) }, ui.now)\n"
+        "        .forEach { section ->\n"
+        '            item(key = "section:" + section.key) { SableHubSectionHeader(section.label) }\n'
+        '            conversationItems(section.rows, key = { "conversation:" + it.id }) { conversation ->\n'
+        "                ConversationRow(conversation, ui)\n"
+        "            }\n"
+        "        }\n",
+        "SABLE_HOME_HUB_SECTIONS",
+    )
+    replace_once(
+        ui / "HubPage.kt",
+        "            modifier = Modifier.semantics { heading() },\n        )\n    }\n    Spacer(Modifier.height(6.dp))\n",
+        "            modifier = Modifier.semantics { heading() },\n        )\n    }\n"
+        "    SableHubSubtitle(session.data.conversations)\n"
+        "    Spacer(Modifier.height(6.dp))\n",
+        "SABLE_HOME_HUB_SUBTITLE",
+    )
+    bar = ui / "HubCompactBar.kt"
+    replace_once(
+        bar,
+        '        HubCompactControl("Search", LineIconPaths.SEARCH, Modifier.weight(1f), onSearch)\n',
+        '        HubCompactControl("Search", LineIconPaths.SEARCH, Modifier.weight(1f), onSearch)\n'
+        "        SableHubMoreControl()\n",
+        "SABLE_HOME_HUB_MORE",
+    )
+    replace_once(bar, "            .heightIn(max = 176.dp)\n", "            .heightIn(max = 300.dp)\n",
+                 "SABLE_HOME_HUB_VIEWS_HEIGHT")
+    replace_once(
+        bar,
+        "            }\n        }\n    }\n}\n\n/** Route a compact Hub action",
+        "            }\n        }\n        SableHubViewsExtras(ui, onTabChange, onDismiss)\n    }\n}\n\n/** Route a compact Hub action",
+        "SABLE_HOME_HUB_VIEWS_SOURCES",
+    )
+    panels = ui / "HubPanels.kt"
+    replace_once(panels, "private fun PanelAction(\n", "internal fun PanelAction(\n", "SABLE_HOME_HUB_PANEL_ACTION")
+    replace_once(
+        panels,
+        "    val remindLocation = remember { BringIntoViewRequester() }\n",
+        "    SableHubRowActions(conversation, ui, onClose)\n"
+        "    val remindLocation = remember { BringIntoViewRequester() }\n",
+        "SABLE_HOME_HUB_ROW_ACTIONS",
+    )
+    replace_once(
+        root / JAVA / "HubSettingsActivity.kt",
+        "                hubContentSection(content)\n",
+        "                hubContentSection(content)\n"
+        "                io.github.aimindseye.tenseven.ui.SableHubSettingsSection()\n",
+        "SABLE_HOME_HUB_SETTINGS",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -804,6 +1066,9 @@ def main() -> None:
     patch_back_to_frames(root)
     patch_hub_peek(root)
     patch_frame_covers(root)
+    patch_hub_keep(root)
+    patch_status_icons(root)
+    patch_extra_dim(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 

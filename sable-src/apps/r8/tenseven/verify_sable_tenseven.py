@@ -14,6 +14,7 @@ def main() -> None:
     build = (root / "app/build.gradle.kts").read_text(encoding="utf-8")
     manifest = (root / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
     activity = (root / JAVA / "SableStartActivity.kt").read_text(encoding="utf-8")
+    hub = (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
     checks = {
         "package": 'applicationId = "org.sableos.launcher"' in build,
         "home": "android.intent.category.HOME" in manifest,
@@ -43,8 +44,8 @@ def main() -> None:
         "no_first_run_setup": "loadOnboardingDone()" not in activity,
         # Hub reads Sable Mail's inboxes from its feed (patch_hub_mail).
         "hub_mail": 'android:authorities="org.sableos.mail.hub"' in manifest
-        and "SableMailFeed.merge(items)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
-        and "SableMailFeed.markRead(context, n)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8"),
+        and "SableMailFeed.merge(items)" in hub
+        and "SableMailFeed.markRead(context, n)" in hub,
         # Back at an app's root shows Active Frames, as Home does (patch_back_to_frames).
         # Hub over any app (patch_hub_peek).
         "hub_peek": ".SableHubPeekActivity" in manifest
@@ -52,6 +53,14 @@ def main() -> None:
         # The cover API (patch_frame_covers).
         "frame_covers": 'android:authorities="org.sableos.launcher.covers"' in manifest
         and (root / JAVA / "frames/SableCoverProvider.kt").is_file(),
+        # The Hub keeps items until deleted, with sections, Priority Hub and the ⋮ menu (patch_hub_keep).
+        "hub_keep": "SableHubHistory.record(items)" in hub
+        and (root / JAVA / "conversations/SableHubKeep.kt").is_file()
+        and "SableHubMoreControl()" in (root / JAVA / "ui/HubCompactBar.kt").read_text(encoding="utf-8"),
+        # Home status reads Dials, Icons, Hidden (patch_status_icons).
+        "status_icons": 'Icons("text")' in (root / JAVA / "model/HomeStatusMode.kt").read_text(encoding="utf-8"),
+        # Extra dim at the bottom of the brightness slider (patch_extra_dim).
+        "extra_dim": "android.permission.WRITE_SECURE_SETTINGS" in manifest and "SableExtraDim.start(this)" in activity,
         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
     }

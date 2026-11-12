@@ -49,6 +49,27 @@ app in front with the newest conversations, unread first (`SableHubPeek`, unit-t
 Recents key opens it (frameworks/base 0326), and so does Hub, the first row of the Alt+BlackBerry key
 menu. Enter opens a conversation in its app, Open Hub shows the full Hub, and Back returns to the app.
 
+Hub after the JL10 review (owner, 2026-11-12; ideas only, no JLauncher code or art): `patch_hub_keep`
+adds `SableHubKeep.kt` (unit-tested in `SableHubKeepTest`). The Hub keeps what the notification shade
+drops until you delete it, on the phone only (`noBackupFilesDir/sable_hub_kept.txt`, at most 1000 items;
+ongoing notices and Sable Mail are not kept). The list has an Unread section, then Today, Yesterday and
+dated sections, with "All accounts · N unread" under the title. Views adds Priority Hub, each app with
+its unread count, and Email accounts…; the Hub bar gets a ⋮ menu (Hub settings, Email accounts,
+Calendar accounts, Connected apps). The row menu adds Mark unread, Add to Priority Hub for the person and
+for the app, and Delete. Hub settings add Keep messages, Every message on its own and System
+notifications, and links to Sable Mail (email accounts) and DAVx⁵ (calendar accounts).
+
+Home status (owner, 2026-11-12): `patch_status_icons` renames TenSeven's "Text" status choice to
+Icons, so Launcher settings > Home status reads Dials, Icons, Hidden everywhere. The saved value stays
+`text`, so a phone keeps its choice.
+
+Extra dim (owner, 2026-11-12): the Q25 backlight has about 25 hardware steps and its lowest is still
+bright, which only the kernel can change. `patch_extra_dim` adds `SableExtraDim` (unit-tested): with manual
+brightness at the slider's bottom (0..255 value at or below 2) the home turns on Android's Extra dim
+(`reduce_bright_colors_activated`, strength 50 when never set) and turns it off when the slider moves up.
+Extra dim the person turned on themselves is left alone. Launcher settings > Home readability > Extra dim at
+lowest brightness switches it off. The home holds WRITE_SECURE_SETTINGS for this (platform certificate).
+
 Cover API (2.0 plan, BB10 Active Frame covers): `patch_frame_covers` adds the
 `content://org.sableos.launcher.covers` provider. An app says what its own Active Frame shows:
 
