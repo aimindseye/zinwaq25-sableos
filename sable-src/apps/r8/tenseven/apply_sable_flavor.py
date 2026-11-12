@@ -97,6 +97,23 @@ def patch_manifest(root: pathlib.Path) -> None:
         "SABLE_HOME_LOOK_RECEIVER",
     )
     shutil.copyfile(HERE / "src/SableLookReceiver.kt", root / JAVA / "SableLookReceiver.kt")
+    # The SableOS home icon (sable-src/tools/gen_first_party_icons.py, row home).
+    replace_once(
+        manifest,
+        'android:icon="@mipmap/ic_tenseven"\n',
+        'android:icon="@mipmap/ic_sable_home"\n',
+        "SABLE_HOME_ICON",
+    )
+    replace_once(
+        manifest,
+        'android:roundIcon="@mipmap/ic_tenseven_round"',
+        'android:roundIcon="@mipmap/ic_sable_home_round"',
+        "SABLE_HOME_ROUND_ICON",
+    )
+    icon_source = pathlib.Path(__file__).resolve().parent / "res"
+    if not (icon_source / "mipmap-anydpi-v26/ic_sable_home.xml").is_file():
+        fail("SABLE_HOME_ICON_SOURCE=FAIL")
+    shutil.copytree(icon_source, root / "app/src/main/res", dirs_exist_ok=True)
 
 
 def patch_command(root: pathlib.Path) -> None:
