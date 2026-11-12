@@ -34,6 +34,16 @@ mkdir -p "$SABLE_EVIDENCE_ROOT"
 log="$SABLE_EVIDENCE_ROOT/build-$RELEASE-$(sable_utc_stamp).log"
 sable_log "lunch $target; m bacon (log: $log)"
 
+# The Sable apps step leaves Gradle and Kotlin daemons holding several GiB;
+# stop this user's daemons so the image build has that memory. A later Gradle
+# run starts new ones. SABLE_KEEP_GRADLE_DAEMONS=1 keeps them.
+if [[ "${SABLE_KEEP_GRADLE_DAEMONS:-0}" != 1 ]]; then
+    if pkill -u "$(id -u)" -f 'GradleDaemon|KotlinCompileDaemon' 2>/dev/null; then
+        sable_log "stopped the Gradle and Kotlin daemons to free memory for the image build"
+    fi
+fi
+sable_log "building with $SABLE_JOBS jobs (set SABLE_JOBS to change)"
+
 export USE_CCACHE="${USE_CCACHE:-1}"
 export CCACHE_DIR="$SABLE_CCACHE_DIR"
 export CCACHE_EXEC="${CCACHE_EXEC:-$(command -v ccache || true)}"

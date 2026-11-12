@@ -273,6 +273,13 @@ its path filter never reports.
 
 ## Troubleshooting
 
+* **A step is `Killed` (exit status 137), often metalava or R8:** the host ran
+  out of memory. The build uses one job per 9 GiB of memory (at most one per
+  core), so a 61 GiB host builds with 6 jobs; `doctor` prints the number. Lower
+  it with `export SABLE_JOBS=4` (or `SABLE_GIB_PER_JOB=12`), add swap or zram,
+  and run the same command again: finished steps are kept. The build step also
+  stops your Gradle and Kotlin daemons first, since the apps step leaves them
+  holding memory (`SABLE_KEEP_GRADLE_DAEMONS=1` keeps them).
 * **`lunch` can't find the product:** check `device/xelex/Q25` synced and that
   `vendor/lineage/vars/aosp_target_release` exists (it gives `bp4a`). Override
   with `SABLE_Q25_TARGET_RELEASE`.

@@ -31,6 +31,7 @@ elif (( mem_gib >= 16 )); then
 else
     check memory no "${mem_gib} GiB (16 GiB minimum)"
 fi
+echo "INFO  build-jobs             $SABLE_JOBS (one per ${SABLE_GIB_PER_JOB:-9} GiB, at most one per core; set SABLE_JOBS to change)"
 
 mkdir -p "$SABLE_BUILD_ROOT" 2>/dev/null || true
 free_gib=$(( $(df -Pk "$SABLE_BUILD_ROOT" 2>/dev/null | awk 'NR==2 {print $4}' || echo 0) / 1024 / 1024 ))
