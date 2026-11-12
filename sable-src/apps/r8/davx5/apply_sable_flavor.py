@@ -17,6 +17,89 @@ import sys
 EXPECTED_COMMIT = "f07633b0bb2482aec5cdfe6bd63c9a4b12b4faa2"
 
 
+# SableOS 2.0 colours (black, white and the one blue #2E9BD6; raised #141414, dividers #262626),
+# as Material 3 roles. The same table is in sable-src/apps/r8/{davx5,icsx5,connectbot}.
+SABLE_DARK = {
+    "primary": "2E9BD6",
+    "onPrimary": "000000",
+    "primaryContainer": "262626",
+    "onPrimaryContainer": "FFFFFF",
+    "secondary": "2E9BD6",
+    "onSecondary": "000000",
+    "secondaryContainer": "262626",
+    "onSecondaryContainer": "FFFFFF",
+    "tertiary": "2E9BD6",
+    "onTertiary": "000000",
+    "tertiaryContainer": "262626",
+    "onTertiaryContainer": "FFFFFF",
+    "error": "E0463C",
+    "onError": "000000",
+    "errorContainer": "3A1210",
+    "onErrorContainer": "FFFFFF",
+    "background": "000000",
+    "onBackground": "FFFFFF",
+    "surface": "000000",
+    "onSurface": "FFFFFF",
+    "surfaceVariant": "262626",
+    "onSurfaceVariant": "A6A6A6",
+    "outline": "595959",
+    "outlineVariant": "262626",
+    "scrim": "000000",
+    "inverseSurface": "FFFFFF",
+    "inverseOnSurface": "000000",
+    "inversePrimary": "1A6FA0",
+    "surfaceDim": "000000",
+    "surfaceBright": "262626",
+    "surfaceContainerLowest": "000000",
+    "surfaceContainerLow": "0A0A0A",
+    "surfaceContainer": "141414",
+    "surfaceContainerHigh": "1A1A1A",
+    "surfaceContainerHighest": "262626",
+}
+SABLE_LIGHT = {
+    "primary": "1A6FA0",
+    "onPrimary": "FFFFFF",
+    "primaryContainer": "E9EDF2",
+    "onPrimaryContainer": "12171C",
+    "secondary": "1A6FA0",
+    "onSecondary": "FFFFFF",
+    "secondaryContainer": "E9EDF2",
+    "onSecondaryContainer": "12171C",
+    "tertiary": "1A6FA0",
+    "onTertiary": "FFFFFF",
+    "tertiaryContainer": "E9EDF2",
+    "onTertiaryContainer": "12171C",
+    "error": "BA1A1A",
+    "onError": "FFFFFF",
+    "errorContainer": "FFDAD6",
+    "onErrorContainer": "410002",
+    "background": "F5F7F9",
+    "onBackground": "12171C",
+    "surface": "FFFFFF",
+    "onSurface": "12171C",
+    "surfaceVariant": "E9EDF2",
+    "onSurfaceVariant": "515B66",
+    "outline": "8A939C",
+    "outlineVariant": "D5DBE1",
+    "scrim": "000000",
+    "inverseSurface": "12171C",
+    "inverseOnSurface": "FFFFFF",
+    "inversePrimary": "2E9BD6",
+    "surfaceDim": "E9EDF2",
+    "surfaceBright": "FFFFFF",
+    "surfaceContainerLowest": "FFFFFF",
+    "surfaceContainerLow": "F5F7F9",
+    "surfaceContainer": "F0F3F6",
+    "surfaceContainerHigh": "E9EDF2",
+    "surfaceContainerHighest": "E2E7EC",
+}
+
+
+def sable_scheme(function: str, roles: dict[str, str], indent: str) -> str:
+    lines = [f"{indent}    {role} = Color(0xFF{value})," for role, value in roles.items()]
+    return f"{function}(\n" + "\n".join(lines) + f"\n{indent})"
+
+
 def fail(message: str) -> None:
     raise SystemExit(message)
 
@@ -41,6 +124,25 @@ def apply_icon(root: pathlib.Path) -> int:
     return len(files)
 
 
+def apply_colours(root: pathlib.Path) -> None:
+    """DAVx5's green and orange become the Sable colours; its screens otherwise stay upstream's."""
+    theme = root / "core/src/main/kotlin/at/bitfire/davdroid/ui/OseTheme.kt"
+    if "object OseTheme {" not in theme.read_text(encoding="utf-8"):
+        fail("SABLE_DAVX5_COLOURS=FAIL")
+    theme.write_text(
+        "package at.bitfire.davdroid.ui\n\n"
+        "import androidx.compose.material3.darkColorScheme\n"
+        "import androidx.compose.material3.lightColorScheme\n"
+        "import androidx.compose.ui.graphics.Color\n\n"
+        "// SableOS: the Sable colours in place of DAVx5's (sable-src/apps/r8/davx5/apply_sable_flavor.py).\n"
+        "object OseTheme {\n"
+        f"    val lightScheme = {sable_scheme('lightColorScheme', SABLE_LIGHT, '    ')}\n\n"
+        f"    val darkScheme = {sable_scheme('darkColorScheme', SABLE_DARK, '    ')}\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <davx5-checkout>")
@@ -55,6 +157,7 @@ def main() -> None:
         fail("SABLE_DAVX5_SIGNING=FAIL")
     build.write_text(text.replace(line, "            // SableOS: unsigned; the platform build signs it.\n", 1), encoding="utf-8")
     icons = apply_icon(root)
+    apply_colours(root)
     print(f"SABLE_DAVX5_FLAVOR=PASS icons={icons}")
 
 
