@@ -159,9 +159,13 @@ class AppCompatTest {
             "com.google.android.youtube",
             "com.instagram.android",
             "com.zhiliaoapp.musically",
-            "com.facebook.katana"
+            "com.facebook.katana",
+            "com.tubitv",
+            "com.google.android.videos",
+            "com.google.android.apps.youtube.music"
         ).forEach {
             assertEquals(it, AppLayout.TallPhone, AppLayout.of(presets.getValue(it)))
+            assertEquals(it, LandscapeVideo.Fit, LandscapeVideo.of(presets.getValue(it)))
         }
         assertEquals(
             AppLayout.Square,
