@@ -295,7 +295,7 @@ index 0000000..6a778f8
 +        row(getString(R.string.sable_audio_codec),
 +                SableAudioCodecs.codecName(current.getCodecType()),
 +                () -> choose(R.string.sable_audio_codec, names, codecChecked, which -> {
-+                    BluetoothCodecConfig picked = pickedFor(selectable, codecs[which]);
++                    BluetoothCodecConfig picked = capsFor(selectable, codecs[which]);
 +                    if (picked == null) return;
 +                    apply(device, codecs[which],
 +                            SableAudioCodecs.highest(picked.getSampleRate(),
