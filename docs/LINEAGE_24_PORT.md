@@ -56,6 +56,8 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `frameworks/base/0321-SableOS-built-in-Picture-Password-pictures.patch` | new on 24.0 |
 | `frameworks/base/0322-SableOS-ticker-for-new-notifications-on-the-lock-scr.patch` | new on 24.0 |
 | `frameworks/base/0323-SableOS-no-extra-lock-screen-text-without-notificati.patch` | new on 24.0 |
+| `frameworks/base/0324-SableOS-Alt-BlackBerry-key-opens-the-system-menu.patch` | new on 24.0 |
+| `frameworks/base/0325-SableOS-optional-wipe-after-10-failed-unlock-tries.patch` | new on 24.0 |
 | `frameworks/base/0501-SableOS-notification-light-for-every-alerting-channe.patch` | applies as is |
 | `frameworks/base/0550-SableOS-microG-signature-spoofing-on-user-builds-whe.patch` | ported by hand |
 | `kernel/xelex/mt6789/0201-SableOS-report-the-fuel-gauge-s-learned-battery-health.patch` | applies as is |
@@ -148,6 +150,9 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
 | `packages/apps/Settings/1612-SableOS-no-Attention-row-on-the-Sable-page.patch` | new on 24.0 |
 | `packages/apps/Settings/1613-SableOS-Picture-Password-row-in-Settings-Security.patch` | new on 24.0 |
 | `packages/apps/Settings/1614-SableOS-near-grey-system-palette.patch` | new on 24.0 |
+| `packages/apps/Settings/1615-SableOS-Wipe-after-10-failed-tries-switch.patch` | new on 24.0 |
+| `packages/apps/Settings/1616-SableOS-Sable-Audio-Bluetooth-codec-picker.patch` | new on 24.0 |
+| `packages/apps/Settings/1617-SableOS-Key-remapping-in-Settings-Keyboard.patch` | new on 24.0 |
 | `packages/overlays/Lineage/0101-SableOS-Source-Sans-3-families-in-the-product-font-cu.patch` | new on 24.0 (24.0 installs its own fonts_customization.xml) |
 | `packages/apps/SetupWizard/0401-SableOS-keyboard-first-focus-in-setup-steps.patch` | ported by hand |
 | `packages/apps/SetupWizard/0402-SableOS-Sable-Keyboard-readiness-step-before-Wi-Fi-a.patch` | ported by hand |

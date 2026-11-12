@@ -709,6 +709,35 @@ else
     printf 'SKIP  javac not installed (Settings size tiles test)\n'
 fi
 
+# 6e3. 2.0 plan host tests: Sable Audio's codec rules (Settings 1616), Key remapping (1617) and the wipe after 10 failed
+# unlock tries (frameworks/base 0325), each extracted from its patch and compiled on the host.
+if command -v javac >/dev/null 2>&1; then
+    pt="$tmp/plan-hosttests"
+    mkdir -p "$pt/settings" "$pt/fb"
+    (cd "$pt/settings" && git apply --include='src/com/android/settings/sable/SableAudioCodecs.java' \
+        "$ROOT"/patches/framework/packages/apps/Settings/1616-*.patch &&
+        git apply --include='src/com/android/settings/sable/SableKeyRemap.java' \
+        "$ROOT"/patches/framework/packages/apps/Settings/1617-*.patch)
+    (cd "$pt/fb" && git apply --include='*/sable/SableUnlockWipe.java' \
+        "$ROOT"/patches/framework/frameworks/base/0325-*.patch)
+    if javac -d "$pt/out" "$pt"/settings/src/com/android/settings/sable/SableAudioCodecs.java \
+        "$pt"/settings/src/com/android/settings/sable/SableKeyRemap.java \
+        tests/java/settings/com/android/settings/sable/SableKeyRemapTest.java \
+        "$pt"/fb/services/devicepolicy/java/com/android/server/devicepolicy/sable/SableUnlockWipe.java \
+        tests/java/settings/com/android/settings/sable/SableAudioCodecsTest.java \
+        tests/java/frameworks/com/android/server/devicepolicy/sable/SableUnlockWipeTest.java \
+        tests/java/junit-shim/org/junit/*.java 2>"$tmp/err" &&
+        java -cp "$pt/out" org.junit.Run com.android.settings.sable.SableAudioCodecsTest \
+            com.android.settings.sable.SableKeyRemapTest \
+            com.android.server.devicepolicy.sable.SableUnlockWipeTest >"$tmp/out" 2>&1; then
+        pass "Sable Audio, key remapping and unlock wipe rules ($(grep -o 'RAN=[0-9]*' "$tmp/out"))"
+    else
+        fail "Sable Audio, key remapping and unlock wipe rules: $(cat "$tmp/err" "$tmp/out" | grep -v JAVA_TOOL | head -5)"
+    fi
+else
+    printf 'SKIP  javac not installed (Sable Audio and unlock wipe rules)\n'
+fi
+
 # 6f. Sable Applications model (Settings patches 0601, 1101 and 12xx) host tests, and the Sable
 # Tools Settings actions the Settings patches must export (settings-ui5).
 if command -v javac >/dev/null 2>&1; then

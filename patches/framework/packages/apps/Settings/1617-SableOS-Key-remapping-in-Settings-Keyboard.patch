@@ -1,0 +1,313 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 12 Nov 2026 12:45:00 +0000
+Subject: [PATCH] SableOS: Key remapping in Settings > Keyboard
+
+2.0 plan, key remapping (an idea from q25toolbox's Key Remapper; no code
+taken): Settings > Keyboard > Key remapping turns the Q25's $ key, right
+Shift or Recents key into Ctrl, Alt, Tab, Esc, Menu or Search in every
+app, or gives it its own job back with Default. It uses InputManager's
+own key remapping (Settings holds REMAP_MODIFIER_KEYS), which the system
+stores and restores at boot, so no keylayout is rewritten and no root is
+needed. Keyboard-first rows; the choices are in SableKeyRemap,
+unit-tested.
+---
+ AndroidManifest.xml                           |   6 +
+ res/values/sable_key_remap_strings.xml        |  41 ++++++
+ res/xml/keyboard_settings.xml                 |  12 ++
+ .../android/settings/sable/SableKeyRemap.java |  72 +++++++++++
+ .../settings/sable/SableKeyRemapActivity.java | 118 ++++++++++++++++++
+ 5 files changed, 249 insertions(+)
+ create mode 100644 res/values/sable_key_remap_strings.xml
+ create mode 100644 src/com/android/settings/sable/SableKeyRemap.java
+ create mode 100644 src/com/android/settings/sable/SableKeyRemapActivity.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index dd2e108..5ff9a6a 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -3948,6 +3948,12 @@
+             android:label="@string/sable_audio_title"
+             android:theme="@android:style/Theme.DeviceDefault.DayNight" />
+ 
++        <!-- SableOS: Key remapping (Keyboard). -->
++        <activity android:name=".sable.SableKeyRemapActivity"
++            android:exported="false"
++            android:label="@string/sable_key_remap_title"
++            android:theme="@android:style/Theme.DeviceDefault.DayNight" />
++
+         <receiver android:name=".TestingSettingsBroadcastReceiver"
+             android:exported="true">
+             <intent-filter>
+diff --git a/res/values/sable_key_remap_strings.xml b/res/values/sable_key_remap_strings.xml
+new file mode 100644
+index 0000000..22802b5
+--- /dev/null
++++ b/res/values/sable_key_remap_strings.xml
+@@ -0,0 +1,41 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <!-- SableOS Settings > Keyboard > Key remapping: give a Q25 key another job. -->
++    <string name="sable_key_remap_title">Key remapping</string>
++    <!-- Summary of the Key remapping row. -->
++    <string name="sable_key_remap_summary">Turn the $ key, right Shift or Recents key into Ctrl, Alt, Tab, Esc, Menu or Search</string>
++    <!-- Search keywords for Key remapping. -->
++    <string name="keywords_sable_key_remap">remap, key mapper, ctrl, control, escape, tab, currency key, right shift, recents key</string>
++    <!-- Hint at the bottom of the page. -->
++    <string name="sable_key_remap_hint">Enter picks a new job for a key. It works in every app. Choose Default to give the key its own job back.</string>
++    <!-- The keys, in the order of SableKeyRemap.KEYS. -->
++    <string-array name="sable_key_remap_keys" translatable="false">
++        <item>@string/sable_key_remap_key_currency</item>
++        <item>@string/sable_key_remap_key_shift</item>
++        <item>@string/sable_key_remap_key_recents</item>
++    </string-array>
++    <string name="sable_key_remap_key_currency">$ key</string>
++    <string name="sable_key_remap_key_shift">Right Shift</string>
++    <string name="sable_key_remap_key_recents">Recents key</string>
++    <!-- What a key can become, in the order of SableKeyRemap.TARGETS. -->
++    <string-array name="sable_key_remap_targets" translatable="false">
++        <item>@string/sable_key_remap_default</item>
++        <item>@string/sable_key_remap_ctrl</item>
++        <item>@string/sable_key_remap_alt</item>
++        <item>@string/sable_key_remap_tab</item>
++        <item>@string/sable_key_remap_esc</item>
++        <item>@string/sable_key_remap_menu</item>
++        <item>@string/sable_key_remap_search</item>
++    </string-array>
++    <string name="sable_key_remap_default">Default</string>
++    <string name="sable_key_remap_ctrl">Ctrl</string>
++    <string name="sable_key_remap_alt">Alt</string>
++    <string name="sable_key_remap_tab">Tab</string>
++    <string name="sable_key_remap_esc">Esc</string>
++    <string name="sable_key_remap_menu">Menu</string>
++    <string name="sable_key_remap_search">Search</string>
++</resources>
+diff --git a/res/xml/keyboard_settings.xml b/res/xml/keyboard_settings.xml
+index d1ac1ef..54013e6 100644
+--- a/res/xml/keyboard_settings.xml
++++ b/res/xml/keyboard_settings.xml
+@@ -97,6 +97,18 @@
+             android:targetClass="com.android.settings.sable.SableKeyboardFirmwareActivity" />
+     </Preference>
+ 
++    <!-- SableOS: Key remapping (2.0 plan): the $ key, right Shift or Recents key as another key. -->
++    <Preference
++        android:key="sable_key_remap"
++        android:title="@string/sable_key_remap_title"
++        android:summary="@string/sable_key_remap_summary"
++        android:persistent="false"
++        settings:keywords="@string/keywords_sable_key_remap">
++        <intent
++            android:targetPackage="com.android.settings"
++            android:targetClass="com.android.settings.sable.SableKeyRemapActivity" />
++    </Preference>
++
+     <!-- SableOS: Sable Tools links (Keyboard & input, approved design). Each row is hidden, and
+          left out of search, when Sable Tools is not installed (SableLinkPreferenceController). -->
+     <PreferenceCategory
+diff --git a/src/com/android/settings/sable/SableKeyRemap.java b/src/com/android/settings/sable/SableKeyRemap.java
+new file mode 100644
+index 0000000..5c5e3ea
+--- /dev/null
++++ b/src/com/android/settings/sable/SableKeyRemap.java
+@@ -0,0 +1,72 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++/**
++ * Pure rules for Settings > Keyboard > Key remapping (2.0 plan, after q25toolbox's Key Remapper;
++ * ideas only, no code taken). The Q25 keys that can be remapped, and what each can become, as
++ * android.view.KeyEvent key codes. No android.* imports, unit-tested off the device.
++ */
++public final class SableKeyRemap {
++    /** The currency key: scan code 41, GRAVE; the Q25 types $ on it (device tree 1501). */
++    public static final int KEY_CURRENCY = 68;
++    /** Right Shift, scan code 54. */
++    public static final int KEY_SHIFT_RIGHT = 60;
++    /** The Recents key, scan code 580, APP_SWITCH (opens Active Frames). */
++    public static final int KEY_RECENTS = 187;
++
++    /** Keys offered, in the order the page lists them. */
++    public static final int[] KEYS = {KEY_CURRENCY, KEY_SHIFT_RIGHT, KEY_RECENTS};
++
++    /** 0 = the key's own job; then Ctrl, Alt, Tab, Esc, Menu and Search. */
++    public static final int DEFAULT = 0;
++    public static final int[] TARGETS = {DEFAULT, 114, 57, 61, 111, 82, 84};
++
++    private SableKeyRemap() {
++    }
++
++    /** Index into {@link #TARGETS} for what {@code key} is mapped to now (absent or itself = 0). */
++    public static int targetIndex(int key, int mappedTo) {
++        if (mappedTo == key || mappedTo <= 0) {
++            return 0;
++        }
++        for (int i = 1; i < TARGETS.length; i++) {
++            if (TARGETS[i] == mappedTo) {
++                return i;
++            }
++        }
++        return 0;
++    }
++
++    /**
++     * The key code to hand InputManager for choice {@code index}: the target, or the key itself,
++     * which clears its remapping.
++     */
++    public static int remapTo(int key, int index) {
++        return index <= 0 || index >= TARGETS.length ? key : TARGETS[index];
++    }
++
++    /** True for a key the page offers. */
++    public static boolean isOffered(int key) {
++        for (int k : KEYS) {
++            if (k == key) {
++                return true;
++            }
++        }
++        return false;
++    }
++}
+diff --git a/src/com/android/settings/sable/SableKeyRemapActivity.java b/src/com/android/settings/sable/SableKeyRemapActivity.java
+new file mode 100644
+index 0000000..a3992df
+--- /dev/null
++++ b/src/com/android/settings/sable/SableKeyRemapActivity.java
+@@ -0,0 +1,118 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.app.Activity;
++import android.app.AlertDialog;
++import android.hardware.input.InputManager;
++import android.os.Bundle;
++import android.util.TypedValue;
++import android.view.ViewGroup;
++import android.widget.LinearLayout;
++import android.widget.ScrollView;
++import android.widget.TextView;
++
++import com.android.settings.R;
++
++import java.util.Map;
++
++/**
++ * Settings > Keyboard > Key remapping: turn the Q25's currency key, right Shift or Recents key
++ * into Ctrl, Alt, Tab, Esc, Menu or Search, for every app, through InputManager's own key
++ * remapping (Settings holds REMAP_MODIFIER_KEYS; the system stores the choice and restores it at
++ * boot). Default gives the key its own job back. Keys first: the trackpad moves, Enter picks.
++ */
++public class SableKeyRemapActivity extends Activity {
++
++    private InputManager mInput;
++    private LinearLayout mRows;
++    private String[] mTargetLabels;
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        setTitle(R.string.sable_key_remap_title);
++        mInput = getSystemService(InputManager.class);
++        mTargetLabels = getResources().getStringArray(R.array.sable_key_remap_targets);
++        mRows = new LinearLayout(this);
++        mRows.setOrientation(LinearLayout.VERTICAL);
++        mRows.setPadding(0, dp(8), 0, dp(16));
++        ScrollView scroll = new ScrollView(this);
++        scroll.addView(mRows);
++        setContentView(scroll);
++        refresh();
++    }
++
++    private void refresh() {
++        mRows.removeAllViews();
++        Map<Integer, Integer> current = mInput.getModifierKeyRemapping();
++        String[] keyLabels = getResources().getStringArray(R.array.sable_key_remap_keys);
++        for (int i = 0; i < SableKeyRemap.KEYS.length; i++) {
++            final int key = SableKeyRemap.KEYS[i];
++            Integer mapped = current.get(key);
++            final int at = SableKeyRemap.targetIndex(key, mapped != null ? mapped : 0);
++            row(keyLabels[i], mTargetLabels[at], () -> new AlertDialog.Builder(this)
++                    .setTitle(keyLabels[indexOf(key)])
++                    .setSingleChoiceItems(mTargetLabels, at, (dialog, which) -> {
++                        dialog.dismiss();
++                        mInput.remapModifierKey(key, SableKeyRemap.remapTo(key, which));
++                        mRows.postDelayed(this::refresh, 300);
++                    })
++                    .setNegativeButton(android.R.string.cancel, null)
++                    .show());
++        }
++        TextView hint = new TextView(this);
++        hint.setText(R.string.sable_key_remap_hint);
++        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
++        hint.setPadding(dp(16), dp(12), dp(16), 0);
++        mRows.addView(hint);
++    }
++
++    private static int indexOf(int key) {
++        for (int i = 0; i < SableKeyRemap.KEYS.length; i++) {
++            if (SableKeyRemap.KEYS[i] == key) return i;
++        }
++        return 0;
++    }
++
++    private void row(String title, String summary, Runnable action) {
++        LinearLayout row = new LinearLayout(this);
++        row.setOrientation(LinearLayout.VERTICAL);
++        row.setPadding(dp(16), dp(10), dp(16), dp(10));
++        TextView t = new TextView(this);
++        t.setText(title);
++        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
++        row.addView(t);
++        TextView s = new TextView(this);
++        s.setText(summary);
++        s.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
++        s.setAlpha(0.7f);
++        row.addView(s);
++        TypedValue bg = new TypedValue();
++        getTheme().resolveAttribute(android.R.attr.selectableItemBackground, bg, true);
++        row.setBackgroundResource(bg.resourceId);
++        row.setFocusable(true);
++        row.setClickable(true);
++        row.setOnClickListener(v -> action.run());
++        mRows.addView(row, new LinearLayout.LayoutParams(
++                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
++    }
++
++    private int dp(int v) {
++        return Math.round(v * getResources().getDisplayMetrics().density);
++    }
++}

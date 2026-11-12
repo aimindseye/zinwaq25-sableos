@@ -1,0 +1,127 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 12 Nov 2026 12:10:00 +0000
+Subject: [PATCH] SableOS: Wipe after 10 failed tries switch in Settings >
+ Security
+
+Settings > Security and privacy gets a Wipe after 10 failed tries switch
+after Picture Password, off by default and shown only to the phone's owner.
+It stores Settings.Secure sable_wipe_after_failed_unlocks for the system
+user; DevicePolicyManagerService (frameworks/base 0325) counts the tries,
+makes the lock screen warn before the last ones and resets the phone on
+the tenth.
+---
+ res/values/strings_sable_unlock_wipe.xml      | 13 ++++
+ res/xml/security_dashboard_settings.xml       |  9 +++
+ .../SableUnlockWipePreferenceController.java  | 62 +++++++++++++++++++
+ 3 files changed, 84 insertions(+)
+ create mode 100644 res/values/strings_sable_unlock_wipe.xml
+ create mode 100644 src/com/android/settings/sable/SableUnlockWipePreferenceController.java
+
+diff --git a/res/values/strings_sable_unlock_wipe.xml b/res/values/strings_sable_unlock_wipe.xml
+new file mode 100644
+index 0000000..75fee67
+--- /dev/null
++++ b/res/values/strings_sable_unlock_wipe.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <!-- SableOS Settings > Security: switch that factory resets the phone after 10 wrong PINs or passwords in a row. -->
++    <string name="sable_unlock_wipe_title">Wipe after 10 failed tries</string>
++    <!-- Summary of the wipe switch. -->
++    <string name="sable_unlock_wipe_summary">After 10 wrong PINs or passwords in a row, erase everything on the phone. The lock screen warns you before the last tries.</string>
++    <!-- Search keywords for the wipe switch. -->
++    <string name="keywords_sable_unlock_wipe">wipe, erase, failed attempts, wrong pin, security wipe, factory reset</string>
++</resources>
+diff --git a/res/xml/security_dashboard_settings.xml b/res/xml/security_dashboard_settings.xml
+index 9ab47fb..7d8b583 100644
+--- a/res/xml/security_dashboard_settings.xml
++++ b/res/xml/security_dashboard_settings.xml
+@@ -61,6 +61,15 @@
+                 android:targetPackage="com.android.systemui" />
+         </Preference>
+ 
++        <!-- SableOS: BlackBerry style wipe after 10 failed unlock tries (frameworks/base 0325). -->
++        <SwitchPreferenceCompat
++            android:key="sable_wipe_after_failed_unlocks"
++            android:title="@string/sable_unlock_wipe_title"
++            android:summary="@string/sable_unlock_wipe_summary"
++            android:persistent="false"
++            settings:keywords="@string/keywords_sable_unlock_wipe"
++            settings:controller="com.android.settings.sable.SableUnlockWipePreferenceController" />
++
+         <com.android.settingslib.RestrictedPreference
+             android:key="fingerprint_settings"
+             android:title="@string/security_settings_fingerprint_preference_title"
+diff --git a/src/com/android/settings/sable/SableUnlockWipePreferenceController.java b/src/com/android/settings/sable/SableUnlockWipePreferenceController.java
+new file mode 100644
+index 0000000..7957acd
+--- /dev/null
++++ b/src/com/android/settings/sable/SableUnlockWipePreferenceController.java
+@@ -0,0 +1,62 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++import android.os.UserHandle;
++import android.provider.Settings;
++
++import com.android.settings.R;
++import com.android.settings.core.TogglePreferenceController;
++
++/**
++ * Settings > Security > Wipe after 10 failed tries, as on BlackBerry. Off by default. Settings
++ * only stores the choice in Settings.Secure sable_wipe_after_failed_unlocks for the system user;
++ * DevicePolicyManagerService (frameworks/base 0325) counts the failed tries, makes the lock
++ * screen warn before the last ones, and resets the phone on the tenth. Only the phone's owner
++ * (the system user) sees the switch.
++ */
++public class SableUnlockWipePreferenceController extends TogglePreferenceController {
++
++    static final String SETTING = "sable_wipe_after_failed_unlocks";
++
++    public SableUnlockWipePreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return UserHandle.myUserId() == UserHandle.USER_SYSTEM ? AVAILABLE : DISABLED_FOR_USER;
++    }
++
++    @Override
++    public boolean isChecked() {
++        return Settings.Secure.getIntForUser(mContext.getContentResolver(), SETTING, 0,
++                UserHandle.USER_SYSTEM) == 1;
++    }
++
++    @Override
++    public boolean setChecked(boolean isChecked) {
++        return Settings.Secure.putIntForUser(mContext.getContentResolver(), SETTING,
++                isChecked ? 1 : 0, UserHandle.USER_SYSTEM);
++    }
++
++    @Override
++    public int getSliceHighlightMenuRes() {
++        return R.string.menu_key_security;
++    }
++}

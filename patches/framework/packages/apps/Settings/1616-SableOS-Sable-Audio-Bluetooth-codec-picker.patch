@@ -1,0 +1,578 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 12 Nov 2026 12:30:00 +0000
+Subject: [PATCH] SableOS: Sable Audio, the Bluetooth codec picker
+
+2.0 plan, Bluetooth codec picker: Settings > Connected devices gets Sable
+Audio, a keyboard-first page for the Bluetooth headphones playing now. It
+shows the device, HD audio (the codecs beyond SBC) for it, and lets Enter
+pick the codec, sample rate, bit depth and LDAC quality from what both the
+phone and the headphones offer, through BluetoothA2dp's codec preference
+(Settings holds BLUETOOTH_PRIVILEGED). Where the device has A2DP hardware
+offload, a Hardware offload row turns it off for stuttering audio (takes
+effect after a restart). Labels and ordering in SableAudioCodecs,
+unit-tested.
+---
+ AndroidManifest.xml                           |   6 +
+ res/values/sable_audio_strings.xml            |  43 +++
+ res/xml/connected_devices.xml                 |  12 +
+ .../settings/sable/SableAudioActivity.java    | 321 ++++++++++++++++++
+ .../settings/sable/SableAudioCodecs.java      | 131 +++++++
+ 5 files changed, 513 insertions(+)
+ create mode 100644 res/values/sable_audio_strings.xml
+ create mode 100644 src/com/android/settings/sable/SableAudioActivity.java
+ create mode 100644 src/com/android/settings/sable/SableAudioCodecs.java
+
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index f12ddb5..b08dcc3 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -3899,6 +3899,12 @@
+             </intent-filter>
+         </receiver>
+ 
++        <!-- SableOS: Sable Audio, Bluetooth codec choices (Connected devices). -->
++        <activity android:name=".sable.SableAudioActivity"
++            android:exported="false"
++            android:label="@string/sable_audio_title"
++            android:theme="@android:style/Theme.DeviceDefault.DayNight" />
++
+         <receiver android:name=".TestingSettingsBroadcastReceiver"
+             android:exported="true">
+             <intent-filter>
+diff --git a/res/values/sable_audio_strings.xml b/res/values/sable_audio_strings.xml
+new file mode 100644
+index 0000000..e3c8054
+--- /dev/null
++++ b/res/values/sable_audio_strings.xml
+@@ -0,0 +1,43 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <!-- SableOS Settings > Connected devices > Sable Audio: Bluetooth codec choices for the connected headphones. -->
++    <string name="sable_audio_title">Sable Audio</string>
++    <!-- Summary of the Sable Audio row in Connected devices. -->
++    <string name="sable_audio_summary">Bluetooth codec, sample rate and quality</string>
++    <!-- Search keywords for Sable Audio. -->
++    <string name="keywords_sable_audio">bluetooth, codec, ldac, aac, opus, lc3, sample rate, bit depth, audio quality, hd audio, offload</string>
++    <!-- Shown when no Bluetooth headphones or speaker is playing. -->
++    <string name="sable_audio_no_device">Connect Bluetooth headphones or a speaker to choose its codec.</string>
++    <!-- Row: the Bluetooth device the choices apply to. -->
++    <string name="sable_audio_device">Headphones</string>
++    <!-- Row: HD audio (the codecs beyond SBC) for this device. -->
++    <string name="sable_audio_hd">HD audio</string>
++    <!-- Row: the codec in use. -->
++    <string name="sable_audio_codec">Codec</string>
++    <!-- Row: the sample rate in use. -->
++    <string name="sable_audio_rate">Sample rate</string>
++    <!-- Row: the bit depth in use. -->
++    <string name="sable_audio_bits">Bit depth</string>
++    <!-- Row: LDAC's playback quality. -->
++    <string name="sable_audio_ldac">LDAC quality</string>
++    <!-- LDAC quality choices, in the order of SableAudioCodecs.LDAC_QUALITY. -->
++    <string name="sable_audio_ldac_high">Best audio (990 kbps)</string>
++    <string name="sable_audio_ldac_normal">Balanced (660 kbps)</string>
++    <string name="sable_audio_ldac_low">Best connection (330 kbps)</string>
++    <string name="sable_audio_ldac_adaptive">Adaptive</string>
++    <!-- Row: turn Bluetooth audio hardware offload off when audio stutters; needs a restart. -->
++    <string name="sable_audio_offload">Hardware offload</string>
++    <!-- Summary when offload is on. -->
++    <string name="sable_audio_offload_on">On. Turn off if Bluetooth audio stutters</string>
++    <!-- Summary when offload is off. -->
++    <string name="sable_audio_offload_off">Off. Restart the phone after changing this</string>
++    <!-- On / Off states. -->
++    <string name="sable_audio_on">On</string>
++    <string name="sable_audio_off">Off</string>
++    <!-- Hint line at the bottom of Sable Audio. -->
++    <string name="sable_audio_hint">Enter changes a row. The headphones must support a codec for it to be offered.</string>
++</resources>
+diff --git a/res/xml/connected_devices.xml b/res/xml/connected_devices.xml
+index deffbe3..5ad5675 100644
+--- a/res/xml/connected_devices.xml
++++ b/res/xml/connected_devices.xml
+@@ -101,6 +101,18 @@
+             settings:searchable="false" />
+     </PreferenceCategory>
+ 
++    <!-- SableOS: Sable Audio, Bluetooth codec choices for the headphones playing now. -->
++    <Preference
++        android:key="sable_audio"
++        android:title="@string/sable_audio_title"
++        android:summary="@string/sable_audio_summary"
++        settings:keywords="@string/keywords_sable_audio">
++        <intent
++            android:action="android.intent.action.MAIN"
++            android:targetPackage="com.android.settings"
++            android:targetClass="com.android.settings.sable.SableAudioActivity" />
++    </Preference>
++
+     <com.android.settingslib.widget.UntitledPreferenceCategory>
+       <Preference
+           android:fragment="com.android.settings.connecteddevice.AdvancedConnectedDeviceDashboardFragment"
+diff --git a/src/com/android/settings/sable/SableAudioActivity.java b/src/com/android/settings/sable/SableAudioActivity.java
+new file mode 100644
+index 0000000..6a778f8
+--- /dev/null
++++ b/src/com/android/settings/sable/SableAudioActivity.java
+@@ -0,0 +1,321 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.app.Activity;
++import android.app.AlertDialog;
++import android.bluetooth.BluetoothA2dp;
++import android.bluetooth.BluetoothAdapter;
++import android.bluetooth.BluetoothCodecConfig;
++import android.bluetooth.BluetoothCodecStatus;
++import android.bluetooth.BluetoothDevice;
++import android.bluetooth.BluetoothManager;
++import android.bluetooth.BluetoothProfile;
++import android.content.BroadcastReceiver;
++import android.content.Context;
++import android.content.Intent;
++import android.content.IntentFilter;
++import android.os.Bundle;
++import android.os.SystemProperties;
++import android.util.TypedValue;
++import android.view.ViewGroup;
++import android.widget.LinearLayout;
++import android.widget.ScrollView;
++import android.widget.TextView;
++
++import com.android.settings.R;
++
++import java.util.List;
++
++/**
++ * Settings > Connected devices > Sable Audio (2.0 plan, "Bluetooth codec picker"): the codec,
++ * sample rate, bit depth and LDAC quality of the Bluetooth headphones playing now, HD audio for
++ * that device, and the hardware offload fallback. Only what the headphones and the phone both
++ * offer is listed. Every row works with the trackpad and Enter. Settings holds
++ * BLUETOOTH_PRIVILEGED, which these A2DP calls need.
++ */
++public class SableAudioActivity extends Activity {
++
++    static final String OFFLOAD_SUPPORTED = "ro.bluetooth.a2dp_offload.supported";
++    static final String OFFLOAD_DISABLED = "persist.bluetooth.a2dp_offload.disabled";
++
++    private BluetoothAdapter mAdapter;
++    private BluetoothA2dp mA2dp;
++    private LinearLayout mRows;
++
++    private final BluetoothProfile.ServiceListener mListener = new BluetoothProfile.ServiceListener() {
++        @Override
++        public void onServiceConnected(int profile, BluetoothProfile proxy) {
++            mA2dp = (BluetoothA2dp) proxy;
++            refresh();
++        }
++
++        @Override
++        public void onServiceDisconnected(int profile) {
++            mA2dp = null;
++            refresh();
++        }
++    };
++
++    private final BroadcastReceiver mChanged = new BroadcastReceiver() {
++        @Override
++        public void onReceive(Context context, Intent intent) {
++            refresh();
++        }
++    };
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        setTitle(R.string.sable_audio_title);
++        mRows = new LinearLayout(this);
++        mRows.setOrientation(LinearLayout.VERTICAL);
++        int pad = dp(16);
++        mRows.setPadding(0, pad / 2, 0, pad);
++        ScrollView scroll = new ScrollView(this);
++        scroll.addView(mRows);
++        setContentView(scroll);
++
++        BluetoothManager manager = getSystemService(BluetoothManager.class);
++        mAdapter = manager != null ? manager.getAdapter() : null;
++        if (mAdapter != null) {
++            mAdapter.getProfileProxy(this, mListener, BluetoothProfile.A2DP);
++        }
++        IntentFilter filter = new IntentFilter(BluetoothA2dp.ACTION_CODEC_CONFIG_CHANGED);
++        filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
++        filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
++        registerReceiver(mChanged, filter, Context.RECEIVER_EXPORTED);
++        refresh();
++    }
++
++    @Override
++    protected void onDestroy() {
++        unregisterReceiver(mChanged);
++        if (mAdapter != null && mA2dp != null) {
++            mAdapter.closeProfileProxy(BluetoothProfile.A2DP, mA2dp);
++        }
++        super.onDestroy();
++    }
++
++    private BluetoothDevice activeDevice() {
++        if (mAdapter == null || mA2dp == null) return null;
++        List<BluetoothDevice> active = mAdapter.getActiveDevices(BluetoothProfile.A2DP);
++        return active.isEmpty() ? null : active.get(0);
++    }
++
++    private void refresh() {
++        mRows.removeAllViews();
++        BluetoothDevice device = activeDevice();
++        BluetoothCodecStatus status = device != null ? mA2dp.getCodecStatus(device) : null;
++        BluetoothCodecConfig current = status != null ? status.getCodecConfig() : null;
++        if (device == null || current == null) {
++            row(getString(R.string.sable_audio_no_device), null, null);
++        } else {
++            String name = device.getAlias();
++            row(getString(R.string.sable_audio_device), name != null ? name : device.getAddress(),
++                    null);
++            addHdRow(device);
++            addCodecRows(device, status, current);
++        }
++        addOffloadRow();
++        TextView hint = new TextView(this);
++        hint.setText(R.string.sable_audio_hint);
++        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
++        hint.setPadding(dp(16), dp(12), dp(16), 0);
++        mRows.addView(hint);
++    }
++
++    private void addHdRow(BluetoothDevice device) {
++        if (mA2dp.isOptionalCodecsSupported(device) != BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED) {
++            return;
++        }
++        final boolean on = mA2dp.isOptionalCodecsEnabled(device)
++                == BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED;
++        row(getString(R.string.sable_audio_hd),
++                getString(on ? R.string.sable_audio_on : R.string.sable_audio_off), () -> {
++                    mA2dp.setOptionalCodecsEnabled(device, on
++                            ? BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED
++                            : BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED);
++                    if (on) {
++                        mA2dp.disableOptionalCodecs(device);
++                    } else {
++                        mA2dp.enableOptionalCodecs(device);
++                    }
++                    mRows.postDelayed(this::refresh, 500);
++                });
++    }
++
++    private void addCodecRows(BluetoothDevice device, BluetoothCodecStatus status,
++            BluetoothCodecConfig current) {
++        final List<BluetoothCodecConfig> selectable = status.getCodecsSelectableCapabilities();
++        int[] types = new int[selectable.size()];
++        for (int i = 0; i < types.length; i++) types[i] = selectable.get(i).getCodecType();
++        final int[] codecs = SableAudioCodecs.sortCodecs(types);
++        String[] names = new String[codecs.length];
++        int checked = -1;
++        for (int i = 0; i < codecs.length; i++) {
++            names[i] = SableAudioCodecs.codecName(codecs[i]);
++            if (codecs[i] == current.getCodecType()) checked = i;
++        }
++        final int codecChecked = checked;
++        row(getString(R.string.sable_audio_codec),
++                SableAudioCodecs.codecName(current.getCodecType()),
++                () -> choose(R.string.sable_audio_codec, names, codecChecked, which -> {
++                    BluetoothCodecConfig picked = pickedFor(selectable, codecs[which]);
++                    if (picked == null) return;
++                    apply(device, codecs[which],
++                            SableAudioCodecs.highest(picked.getSampleRate(),
++                                    SableAudioCodecs.RATE_FLAGS),
++                            SableAudioCodecs.highest(picked.getBitsPerSample(),
++                                    SableAudioCodecs.BITS_FLAGS),
++                            codecs[which] == SableAudioCodecs.LDAC
++                                    ? current.getCodecSpecific1() : 0L, picked.getChannelMode());
++                }));
++
++        final BluetoothCodecConfig caps = capsFor(selectable, current.getCodecType());
++        if (caps == null) return;
++        final int[] rates = SableAudioCodecs.flagsIn(caps.getSampleRate(),
++                SableAudioCodecs.RATE_FLAGS);
++        if (rates.length > 1) {
++            String[] labels = new String[rates.length];
++            int at = -1;
++            for (int i = 0; i < rates.length; i++) {
++                labels[i] = SableAudioCodecs.rateLabel(rates[i]);
++                if (rates[i] == current.getSampleRate()) at = i;
++            }
++            final int rateChecked = at;
++            row(getString(R.string.sable_audio_rate),
++                    SableAudioCodecs.rateLabel(current.getSampleRate()),
++                    () -> choose(R.string.sable_audio_rate, labels, rateChecked, which ->
++                            apply(device, current.getCodecType(), rates[which],
++                                    current.getBitsPerSample(), current.getCodecSpecific1(),
++                                    current.getChannelMode())));
++        }
++        final int[] bits = SableAudioCodecs.flagsIn(caps.getBitsPerSample(),
++                SableAudioCodecs.BITS_FLAGS);
++        if (bits.length > 1) {
++            String[] labels = new String[bits.length];
++            int at = -1;
++            for (int i = 0; i < bits.length; i++) {
++                labels[i] = SableAudioCodecs.bitsLabel(bits[i]);
++                if (bits[i] == current.getBitsPerSample()) at = i;
++            }
++            final int bitsChecked = at;
++            row(getString(R.string.sable_audio_bits),
++                    SableAudioCodecs.bitsLabel(current.getBitsPerSample()),
++                    () -> choose(R.string.sable_audio_bits, labels, bitsChecked, which ->
++                            apply(device, current.getCodecType(), current.getSampleRate(),
++                                    bits[which], current.getCodecSpecific1(),
++                                    current.getChannelMode())));
++        }
++        if (current.getCodecType() == SableAudioCodecs.LDAC) {
++            final String[] labels = {
++                    getString(R.string.sable_audio_ldac_high),
++                    getString(R.string.sable_audio_ldac_normal),
++                    getString(R.string.sable_audio_ldac_low),
++                    getString(R.string.sable_audio_ldac_adaptive)};
++            final int at = SableAudioCodecs.ldacIndex(current.getCodecSpecific1());
++            row(getString(R.string.sable_audio_ldac), labels[at],
++                    () -> choose(R.string.sable_audio_ldac, labels, at, which ->
++                            apply(device, current.getCodecType(), current.getSampleRate(),
++                                    current.getBitsPerSample(),
++                                    SableAudioCodecs.LDAC_QUALITY[which],
++                                    current.getChannelMode())));
++        }
++    }
++
++    private static BluetoothCodecConfig capsFor(List<BluetoothCodecConfig> selectable, int type) {
++        for (BluetoothCodecConfig c : selectable) {
++            if (c.getCodecType() == type) return c;
++        }
++        return null;
++    }
++
++    private void apply(BluetoothDevice device, int type, int rate, int bits, long specific1,
++            int channelModes) {
++        int channel = (channelModes & BluetoothCodecConfig.CHANNEL_MODE_STEREO) != 0
++                ? BluetoothCodecConfig.CHANNEL_MODE_STEREO
++                : BluetoothCodecConfig.CHANNEL_MODE_MONO;
++        BluetoothCodecConfig config = new BluetoothCodecConfig.Builder()
++                .setCodecType(type)
++                .setCodecPriority(BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)
++                .setSampleRate(rate)
++                .setBitsPerSample(bits)
++                .setChannelMode(channel)
++                .setCodecSpecific1(specific1)
++                .build();
++        mA2dp.setCodecConfigPreference(device, config);
++        mRows.postDelayed(this::refresh, 500);
++    }
++
++    private void addOffloadRow() {
++        if (!SystemProperties.getBoolean(OFFLOAD_SUPPORTED, false)) return;
++        final boolean disabled = SystemProperties.getBoolean(OFFLOAD_DISABLED, false);
++        row(getString(R.string.sable_audio_offload),
++                getString(disabled ? R.string.sable_audio_offload_off
++                        : R.string.sable_audio_offload_on), () -> {
++                    SystemProperties.set(OFFLOAD_DISABLED, Boolean.toString(!disabled));
++                    refresh();
++                });
++    }
++
++    private interface Pick {
++        void picked(int which);
++    }
++
++    private void choose(int title, String[] items, int checked, Pick pick) {
++        new AlertDialog.Builder(this)
++                .setTitle(title)
++                .setSingleChoiceItems(items, checked, (dialog, which) -> {
++                    dialog.dismiss();
++                    pick.picked(which);
++                })
++                .setNegativeButton(android.R.string.cancel, null)
++                .show();
++    }
++
++    private void row(String title, String summary, Runnable action) {
++        LinearLayout row = new LinearLayout(this);
++        row.setOrientation(LinearLayout.VERTICAL);
++        row.setPadding(dp(16), dp(10), dp(16), dp(10));
++        TextView t = new TextView(this);
++        t.setText(title);
++        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
++        row.addView(t);
++        if (summary != null) {
++            TextView s = new TextView(this);
++            s.setText(summary);
++            s.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
++            s.setAlpha(0.7f);
++            row.addView(s);
++        }
++        if (action != null) {
++            TypedValue bg = new TypedValue();
++            getTheme().resolveAttribute(android.R.attr.selectableItemBackground, bg, true);
++            row.setBackgroundResource(bg.resourceId);
++            row.setFocusable(true);
++            row.setClickable(true);
++            row.setOnClickListener(v -> action.run());
++        }
++        mRows.addView(row, new LinearLayout.LayoutParams(
++                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
++    }
++
++    private int dp(int v) {
++        return Math.round(v * getResources().getDisplayMetrics().density);
++    }
++}
+diff --git a/src/com/android/settings/sable/SableAudioCodecs.java b/src/com/android/settings/sable/SableAudioCodecs.java
+new file mode 100644
+index 0000000..317498b
+--- /dev/null
++++ b/src/com/android/settings/sable/SableAudioCodecs.java
+@@ -0,0 +1,131 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import java.util.ArrayList;
++import java.util.List;
++
++/**
++ * Pure rules for Settings > Connected devices > Sable Audio (no android.* imports, unit-tested
++ * off the device). The int values are android.bluetooth.BluetoothCodecConfig's: codec types,
++ * sample rate and bit depth flags, and LDAC's quality in codec-specific value 1.
++ */
++public final class SableAudioCodecs {
++    public static final int SBC = 0;
++    public static final int AAC = 1;
++    public static final int APTX = 2;
++    public static final int APTX_HD = 3;
++    public static final int LDAC = 4;
++    public static final int LC3 = 5;
++    public static final int OPUS = 6;
++
++    /** Best first, as the picker lists them. */
++    public static final int[] CODEC_ORDER = {LDAC, OPUS, LC3, APTX_HD, APTX, AAC, SBC};
++    /** Sample rate flags, highest first. */
++    public static final int[] RATE_FLAGS = {32, 16, 8, 4, 2, 1};
++    /** Bit depth flags, highest first. */
++    public static final int[] BITS_FLAGS = {4, 2, 1};
++    /** LDAC quality values for codec-specific value 1, best first. */
++    public static final long[] LDAC_QUALITY = {1000L, 1001L, 1002L, 1003L};
++
++    private SableAudioCodecs() {
++    }
++
++    public static String codecName(int type) {
++        switch (type) {
++            case SBC: return "SBC";
++            case AAC: return "AAC";
++            case APTX: return "aptX";
++            case APTX_HD: return "aptX HD";
++            case LDAC: return "LDAC";
++            case LC3: return "LC3";
++            case OPUS: return "Opus";
++            default: return "?";
++        }
++    }
++
++    /** "44.1 kHz" for a sample rate flag, or "" for none. */
++    public static String rateLabel(int flag) {
++        switch (flag) {
++            case 1: return "44.1 kHz";
++            case 2: return "48 kHz";
++            case 4: return "88.2 kHz";
++            case 8: return "96 kHz";
++            case 16: return "176.4 kHz";
++            case 32: return "192 kHz";
++            default: return "";
++        }
++    }
++
++    /** "24-bit" for a bit depth flag, or "" for none. */
++    public static String bitsLabel(int flag) {
++        switch (flag) {
++            case 1: return "16-bit";
++            case 2: return "24-bit";
++            case 4: return "32-bit";
++            default: return "";
++        }
++    }
++
++    /** The flags of {@code order} that are set in {@code mask}, in that order. */
++    public static int[] flagsIn(int mask, int[] order) {
++        List<Integer> out = new ArrayList<>();
++        for (int flag : order) {
++            if ((mask & flag) != 0) {
++                out.add(flag);
++            }
++        }
++        int[] result = new int[out.size()];
++        for (int i = 0; i < result.length; i++) {
++            result[i] = out.get(i);
++        }
++        return result;
++    }
++
++    /** The highest flag of {@code order} set in {@code mask}, or 0. */
++    public static int highest(int mask, int[] order) {
++        int[] flags = flagsIn(mask, order);
++        return flags.length > 0 ? flags[0] : 0;
++    }
++
++    /** The codec types of {@code available}, best first, each once. */
++    public static int[] sortCodecs(int[] available) {
++        List<Integer> out = new ArrayList<>();
++        for (int type : CODEC_ORDER) {
++            for (int a : available) {
++                if (a == type && !out.contains(type)) {
++                    out.add(type);
++                }
++            }
++        }
++        int[] result = new int[out.size()];
++        for (int i = 0; i < result.length; i++) {
++            result[i] = out.get(i);
++        }
++        return result;
++    }
++
++    /** Index of the LDAC quality in {@link #LDAC_QUALITY}; anything unknown counts as best effort. */
++    public static int ldacIndex(long specific1) {
++        for (int i = 0; i < LDAC_QUALITY.length; i++) {
++            if (LDAC_QUALITY[i] == specific1) {
++                return i;
++            }
++        }
++        return LDAC_QUALITY.length - 1;
++    }
++}
