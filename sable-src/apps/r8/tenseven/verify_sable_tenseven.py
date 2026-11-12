@@ -64,7 +64,9 @@ def main() -> None:
         # The home grants itself its permissions, and has no Active Frames settings page (patch_home_access).
         "home_access": "android.permission.MANAGE_NOTIFICATION_LISTENERS" in manifest
         and "SableHomeAccess.ensure(this)" in activity
-        and "5. Active Frames Settings" not in (root / JAVA / "LauncherSettingsActivity.kt").read_text(encoding="utf-8"),
+        and "5. Active Frames Settings" not in (root / JAVA / "LauncherSettingsActivity.kt").read_text(encoding="utf-8")
+        and "1. Permissions" not in (root / JAVA / "LauncherSettingsActivity.kt").read_text(encoding="utf-8")
+        and '"frames",' not in (root / JAVA / "model/Settings2Flow.kt").read_text(encoding="utf-8"),
         # A slim name bar under each frame, and a log line that says why frames have no picture.
         "slim_frames": "heightIn(min = 22.dp)" in (root / JAVA / "ui/ActiveFramesPage.kt").read_text(encoding="utf-8")
         and "SableTaskSnapshots.explain(appContext)" in (root / JAVA / "platform/RecentTasksRepository.kt").read_text(encoding="utf-8"),
