@@ -103,4 +103,4 @@ SableSpeech	common	flavor:espeak	:assembleRelease	build/outputs/apk/release/*-un
 # SableHome is the SableOS 2.0 home and Hub (owner decision 2026-11-12): TenSeven Launcher, pinned
 # and composed by sable-src/apps/r8/tenseven as package org.sableos.launcher, so it replaces Sable
 # Start (SableLauncher) and keeps every framework patch, Setup and Settings link that names it.
-SableHome	platform	flavor:tenseven	:app:assembleRelease	app/build/outputs/apk/release/app-release-unsigned.apk	org.sableos.launcher	platformapp	SableLauncher	yes
+SableHome	platform	flavor:tenseven	:app:assembleRelease	app/build/outputs/apk/release/*-unsigned.apk	org.sableos.launcher	platformapp	SableLauncher	yes
