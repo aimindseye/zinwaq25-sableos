@@ -23,6 +23,8 @@ def main() -> None:
         "command": "org.sableos.start.action.COMMAND" in manifest and "ACTION_COMMAND -> SCREEN_SEARCH" in activity,
         "look": ".SableLookReceiver" in manifest and (root / JAVA / "SableLookReceiver.kt").is_file(),
         "look_guarded": 'android:permission="android.permission.WRITE_SECURE_SETTINGS"' in manifest,
+        "snapshots": "uses-permission android:name=\"android.permission.READ_FRAME_BUFFER\"" in manifest
+        and (root / JAVA / "platform/SableTaskSnapshots.kt").is_file(),
         "blue": "0xFF4D9CFF" not in (root / JAVA / "ui/StartPalette.kt").read_text(encoding="utf-8"),
     }
     bad = [name for name, ok in checks.items() if not ok]

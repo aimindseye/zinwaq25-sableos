@@ -16,9 +16,13 @@ in `upstream.env` (TenSeven PR 127), after `apply_sable_flavor.py` has changed:
 The APK is platform-signed but not privileged (`platformapp`), as Sable Start was. The framework
 overlay grants it notification listener access on first boot, so Hub fills without a setup step.
 
-Not done yet, and still Sable Start features: live Active Frame pictures from the system task
-snapshot (TenSeven uses screen-capture consent), and Sable Start's private-counts view. Sable
-Start's source stays in `sable-src/src/android/packages/apps/SableStart` until the home is
+Active Frames on SableOS (owner, 2026-11-12) never ask for screen capture. The flavor gives the home
+Sable Start's platform permissions, so frames follow the system's recent tasks and show the system task
+snapshot (`SableTaskSnapshots.kt`, Android 17's TaskSnapshotManager, then TenSeven's older call);
+`adb logcat -s SableFrames` says why a frame has no picture. Media frames come from every app's media
+session through the notification listener that the framework overlay grants on first boot.
+
+Sable Start's source stays in `sable-src/src/android/packages/apps/SableStart` until the home is
 qualified on a Q25. To go back to it, set the `SableHome` row's `enabled` column to `no`.
 
 To move to a newer TenSeven, change `TENSEVEN_COMMIT` and `EXPECTED_COMMIT` together. Each edit

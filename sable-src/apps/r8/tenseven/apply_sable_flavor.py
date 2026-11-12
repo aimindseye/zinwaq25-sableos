@@ -193,6 +193,72 @@ def patch_colours(root: pathlib.Path) -> None:
         replace_once(settings_theme, old, new, f"SABLE_HOME_SETTINGS_THEME_{marker}")
 
 
+SNAPSHOT_PERMISSIONS = (
+    "REAL_GET_TASKS",
+    "REORDER_TASKS",
+    "REMOVE_TASKS",
+    "START_TASKS_FROM_RECENTS",
+    "READ_FRAME_BUFFER",
+    "MANAGE_ACTIVITY_TASKS",
+    "INTERACT_ACROSS_USERS",
+    "OBSERVE_GRANT_REVOKE_PERMISSIONS",
+    "MODIFY_QUIET_MODE",
+)
+
+
+def patch_frames(root: pathlib.Path) -> None:
+    """Active Frames on SableOS: the system task snapshot, never screen capture (owner, 2026-11-12).
+
+    The home is platform-signed, so these signature permissions are granted; TenSeven's probe then
+    reports its snapshot bridge ready. Media frames already come from every app's media session
+    through the notification listener, which the framework overlay grants on first boot.
+    """
+    manifest = root / "app/src/main/AndroidManifest.xml"
+    permissions = "".join(
+        f'    <uses-permission android:name="android.permission.{name}" tools:ignore="ProtectedPermissions" />\n'
+        for name in SNAPSHOT_PERMISSIONS
+    )
+    replace_once(
+        manifest,
+        '    <uses-permission android:name="android.permission.READ_CALENDAR" />\n',
+        '    <uses-permission android:name="android.permission.READ_CALENDAR" />\n'
+        "    <!-- SableOS: the platform-signed home's permissions, as Sable Start held them: Active Frames'\n"
+        "         live pictures from the system task snapshot, and Private Space and work-profile rows. -->\n"
+        + permissions
+        + '    <uses-permission android:name="org.sableos.permission.SPEED_DIAL" />\n',
+        "SABLE_HOME_SNAPSHOT_PERMISSIONS",
+    )
+    shutil.copyfile(HERE / "src/SableTaskSnapshots.kt", root / JAVA / "platform/SableTaskSnapshots.kt")
+    replace_once(
+        root / JAVA / "platform/PlatformCapabilityProbe.kt",
+        '                    taskMethod(context, "getTaskSnapshot"),\n',
+        '                    (taskMethod(context, "getTaskSnapshot") || SableTaskSnapshots.available()),\n',
+        "SABLE_HOME_SNAPSHOT_PROBE",
+    )
+    replace_once(
+        root / JAVA / "platform/RecentTasksRepository.kt",
+        "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n",
+        "            if (PlatformCapabilityProbe.detect(appContext).thirdPartySnapshots != CapabilityStatus.Ready) return@runCatching null\n"
+        "            SableTaskSnapshots.snapshot(taskId, lowResolution)?.let { return@runCatching it }\n",
+        "SABLE_HOME_SNAPSHOT_CALL",
+    )
+    # Frames follow the system's recent tasks (REAL_GET_TASKS) rather than only the apps opened from the
+    # home, so a media app started from its notification or another app still gets its frame and media line.
+    replace_once(
+        root / JAVA / "frames/FrameModels.kt",
+        "            input.openings?.map { opening ->\n",
+        "            input.openings?.takeIf { native.isEmpty() }?.map { opening ->\n",
+        "SABLE_HOME_FRAMES_FROM_SYSTEM_TASKS",
+    )
+    # No screen-capture offer where the system snapshot works.
+    replace_once(
+        root / JAVA / "ui/FrameSettingsSection.kt",
+        "    ScreenCaptureControls()\n",
+        "    if (capabilities.thirdPartySnapshots != CapabilityStatus.Ready) ScreenCaptureControls()\n",
+        "SABLE_HOME_NO_SCREEN_CAPTURE",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -202,6 +268,7 @@ def main() -> None:
     patch_manifest(root)
     patch_command(root)
     patch_colours(root)
+    patch_frames(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 
