@@ -14,6 +14,8 @@
 #                 platform   = release APK signed with the platform certificate, privileged (Q4+ only;
 #                              the app runs as android.uid.system, so it is not staged before Q4)
 #                 privileged = release APK, default dev cert, privileged from Q4 (ordinary before)
+#                 platformapp = release APK signed with the platform certificate, not privileged and not
+#                              the system UID (Q4+ only), as Sable Start was
 #                 Privileged permissions: product/q25/permissions/privapp-permissions-sable-q25.xml
 #   overrides     comma-separated modules this app replaces, or -
 #   enabled       yes/no: whether scripts/build-apps.sh builds it by default
@@ -98,3 +100,7 @@ SableTerminal	common	flavor:connectbot	:app:assembleOssRelease	app/build/outputs
 # Sable Speech: the eSpeak NG 1.52.0 text-to-speech engine, built from source (sable-src/apps/r8/espeak,
 # GPL-3.0). The only engine on the phone, so Android uses it by default; no launcher entry.
 SableSpeech	common	flavor:espeak	:assembleRelease	build/outputs/apk/release/*-unsigned.apk	org.sableos.speech	unsigned	-	yes
+# SableHome is the SableOS 2.0 home and Hub (owner decision 2026-11-12): TenSeven Launcher, pinned
+# and composed by sable-src/apps/r8/tenseven as package org.sableos.launcher, so it replaces Sable
+# Start (SableLauncher) and keeps every framework patch, Setup and Settings link that names it.
+SableHome	platform	flavor:tenseven	:app:assembleRelease	app/build/outputs/apk/release/app-release-unsigned.apk	org.sableos.launcher	platformapp	SableLauncher	yes

@@ -54,7 +54,7 @@ if awk -F'\t' '
     $1 == "module" { next }
     NF != 9 { print "bad column count line " NR; bad = 1 }
     $2 != "platform" && $2 != "common" { print "bad group line " NR; bad = 1 }
-    $7 != "unsigned" && $7 != "presigned" && $7 != "platform" && $7 != "privileged" { print "bad signing line " NR; bad = 1 }
+    $7 != "unsigned" && $7 != "presigned" && $7 != "platform" && $7 != "privileged" && $7 != "platformapp" { print "bad signing line " NR; bad = 1 }
     $9 != "yes" && $9 != "no" { print "bad enabled line " NR; bad = 1 }
     seen[$1]++ { print "duplicate module " $1; bad = 1 }
     END { exit bad }
@@ -487,6 +487,29 @@ for part in ("part0", "part1"):
 PY
 rm -f "$ba_zip"
 if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, games, keyboard strip, wallpaper, boot animation)"; else fail "Q4 review fixes:$q4_bad"; fi
+
+# 6b0. The SableOS home (TenSeven, apps.tsv "platformapp"): platform certificate, not privileged,
+#      replaces Sable Start, Q4 only; and the flavor composes the pinned upstream's entry points.
+ha="$tmp/apps/home"
+mkdir -p "$ha/prebuilt"
+printf 'fake' > "$ha/prebuilt/SableHome.apk"
+(cd "$ha/prebuilt" && sha256sum ./*.apk > ../SHA256SUMS.txt)
+{
+    printf 'module\tgroup\tpackage\tsigning\toverrides\tfilename\tsha256\n'
+    printf 'SableHome\tplatform\torg.sableos.launcher\tplatformapp\tSableLauncher\tSableHome.apk\tx\n'
+} > "$ha/manifest.tsv"
+if stagerun Q4 --apps-dir "$ha" >/dev/null &&
+    grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'certificate: "platform"' &&
+    grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'privileged: false' &&
+    grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'overrides: \["SableLauncher"\]'; then
+    pass "stage SableOS home (platform cert, unprivileged, replaces Sable Start)"
+else
+    fail "stage SableOS home: $(cat "$tmp/err")"
+fi
+grep -q $'^SableHome\tplatform\tflavor:tenseven\t' product/q25/apps.tsv &&
+    grep -q '^TENSEVEN_COMMIT=[0-9a-f]\{40\}$' sable-src/apps/r8/tenseven/upstream.env &&
+    python3 -I -m py_compile sable-src/apps/r8/tenseven/apply_sable_flavor.py sable-src/apps/r8/tenseven/verify_sable_tenseven.py &&
+    pass "SableOS home flavor (TenSeven pinned, org.sableos.launcher)" || fail "SableOS home flavor"
 
 # 6b1a. One Hub: Start's Hub page has the Contacts tab and the unread bar; Sable Hub has no launcher entry.
 hub_bad=""

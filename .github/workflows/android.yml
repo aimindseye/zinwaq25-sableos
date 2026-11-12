@@ -83,6 +83,10 @@ jobs:
             root: flavor:connectbot
             java: '21'
             extra: ":app:testOssDebugUnitTest --tests org.connectbot.sable.* :app:lintOssRelease"
+          - name: home (TenSeven)
+            root: flavor:tenseven
+            java: '17'
+            extra: ''
           - name: speech engine
             root: flavor:espeak
             java: '17'
