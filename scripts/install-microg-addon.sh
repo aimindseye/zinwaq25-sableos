@@ -3,7 +3,8 @@
 #
 #   bash scripts/install-microg-addon.sh                install microG Services and Companion
 #   bash scripts/install-microg-addon.sh --with-gsf     also the Services Framework Proxy
-#   bash scripts/install-microg-addon.sh --with-aurora  also Aurora Store (Play Store apps)
+#   bash scripts/install-microg-addon.sh --with-aurora  also Aurora Store (Play Store apps), with the
+#                                                        Services Framework Proxy it needs
 #   bash scripts/install-microg-addon.sh --check        only verify the APKs and the phone
 #
 # Every APK is one of the official files pinned by sha256 in product/q25/microg/prebuilts.tsv
@@ -23,9 +24,10 @@ GSF=NO AURORA=NO CHECK=NO
 while (($#)); do
     case "$1" in
         --with-gsf) GSF=YES; shift ;;
-        --with-aurora) AURORA=YES; shift ;;
+        # Aurora Store does not work on SableOS without GsfProxy (owner, 2.0 build), so it brings it.
+        --with-aurora) AURORA=YES; GSF=YES; shift ;;
         --check) CHECK=YES; shift ;;
-        -h|--help) sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) sable_fail "unknown argument $1" ;;
     esac
 done
@@ -79,3 +81,7 @@ for p in GET_ACCOUNTS POST_NOTIFICATIONS; do grant com.android.vending "android.
 echo "ADDON_INSTALL=PASS ${modules[*]}"
 echo "Next: open microG Settings > Self-Check and tick what it asks (battery optimisation, then"
 echo "Google device registration and Cloud Messaging if you want push). docs/MICROG.md has the steps."
+if [[ "$AURORA" == YES ]]; then
+    echo "Aurora Store with your Google account: add the account in microG Settings > Google account"
+    echo "first, then choose Google in Aurora and pick it. Aurora's own web sign-in is often refused."
+fi
