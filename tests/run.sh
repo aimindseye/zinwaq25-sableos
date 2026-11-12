@@ -1374,9 +1374,10 @@ fi
 # BlackBerry look in the upstream flavors: DAVx5, ICSx5 and Sable Terminal take the Sable colours (one
 # shared table, black/white/#2E9BD6), and Terminal no longer takes Android's wallpaper colours.
 look_ok=1
+grep -q '"primary": "2E9BD6"' sable-src/apps/r8/sable_flavor_common.py &&
+    grep -q '"background": "000000"' sable-src/apps/r8/sable_flavor_common.py || look_ok=0
 for f in davx5 icsx5 connectbot; do
-    grep -q '"primary": "2E9BD6"' "sable-src/apps/r8/$f/apply_sable_flavor.py" &&
-        grep -q '"background": "000000"' "sable-src/apps/r8/$f/apply_sable_flavor.py" || look_ok=0
+    grep -q 'from sable_flavor_common import SABLE_DARK, SABLE_LIGHT' "sable-src/apps/r8/$f/apply_sable_flavor.py" || look_ok=0
 done
 grep -q 'dynamicColor: Boolean = false' sable-src/apps/r8/connectbot/apply_sable_flavor.py || look_ok=0
 if ((look_ok)); then pass "Sable look: DAVx5, ICSx5 and Terminal use the Sable colours"; else fail "Sable look: flavor colours"; fi

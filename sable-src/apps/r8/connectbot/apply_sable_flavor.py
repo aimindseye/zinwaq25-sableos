@@ -17,93 +17,13 @@ import shutil
 import subprocess
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+from sable_flavor_common import SABLE_DARK, SABLE_LIGHT, copy_tree, sable_scheme  # noqa: E402
+
 EXPECTED_COMMIT = "21ce6f47cf16785bf2314b4ea931900164c179c1"
 VERSION_CODE = 11009000  # upstream's own formula for v1.10.9
 VERSION_NAME = "1.10.9-sable"
 HERE = pathlib.Path(__file__).resolve().parent
-
-
-# SableOS 2.0 colours (black, white and the one blue #2E9BD6; raised #141414, dividers #262626),
-# as Material 3 roles. The same table is in sable-src/apps/r8/{davx5,icsx5,connectbot}.
-SABLE_DARK = {
-    "primary": "2E9BD6",
-    "onPrimary": "000000",
-    "primaryContainer": "262626",
-    "onPrimaryContainer": "FFFFFF",
-    "secondary": "2E9BD6",
-    "onSecondary": "000000",
-    "secondaryContainer": "262626",
-    "onSecondaryContainer": "FFFFFF",
-    "tertiary": "2E9BD6",
-    "onTertiary": "000000",
-    "tertiaryContainer": "262626",
-    "onTertiaryContainer": "FFFFFF",
-    "error": "E0463C",
-    "onError": "000000",
-    "errorContainer": "3A1210",
-    "onErrorContainer": "FFFFFF",
-    "background": "000000",
-    "onBackground": "FFFFFF",
-    "surface": "000000",
-    "onSurface": "FFFFFF",
-    "surfaceVariant": "262626",
-    "onSurfaceVariant": "A6A6A6",
-    "outline": "595959",
-    "outlineVariant": "262626",
-    "scrim": "000000",
-    "inverseSurface": "FFFFFF",
-    "inverseOnSurface": "000000",
-    "inversePrimary": "1A6FA0",
-    "surfaceDim": "000000",
-    "surfaceBright": "262626",
-    "surfaceContainerLowest": "000000",
-    "surfaceContainerLow": "0A0A0A",
-    "surfaceContainer": "141414",
-    "surfaceContainerHigh": "1A1A1A",
-    "surfaceContainerHighest": "262626",
-}
-SABLE_LIGHT = {
-    "primary": "1A6FA0",
-    "onPrimary": "FFFFFF",
-    "primaryContainer": "E9EDF2",
-    "onPrimaryContainer": "12171C",
-    "secondary": "1A6FA0",
-    "onSecondary": "FFFFFF",
-    "secondaryContainer": "E9EDF2",
-    "onSecondaryContainer": "12171C",
-    "tertiary": "1A6FA0",
-    "onTertiary": "FFFFFF",
-    "tertiaryContainer": "E9EDF2",
-    "onTertiaryContainer": "12171C",
-    "error": "BA1A1A",
-    "onError": "FFFFFF",
-    "errorContainer": "FFDAD6",
-    "onErrorContainer": "410002",
-    "background": "F5F7F9",
-    "onBackground": "12171C",
-    "surface": "FFFFFF",
-    "onSurface": "12171C",
-    "surfaceVariant": "E9EDF2",
-    "onSurfaceVariant": "515B66",
-    "outline": "8A939C",
-    "outlineVariant": "D5DBE1",
-    "scrim": "000000",
-    "inverseSurface": "12171C",
-    "inverseOnSurface": "FFFFFF",
-    "inversePrimary": "2E9BD6",
-    "surfaceDim": "E9EDF2",
-    "surfaceBright": "FFFFFF",
-    "surfaceContainerLowest": "FFFFFF",
-    "surfaceContainerLow": "F5F7F9",
-    "surfaceContainer": "F0F3F6",
-    "surfaceContainerHigh": "E9EDF2",
-    "surfaceContainerHighest": "E2E7EC",
-}
-
-
-def sable_scheme(function: str, roles: dict[str, str], indent: str) -> str:
-    lines = [f"{indent}    {role} = Color(0xFF{value})," for role, value in roles.items()]
-    return f"{function}(\n" + "\n".join(lines) + f"\n{indent})"
 
 
 def fail(message: str) -> None:
@@ -206,15 +126,6 @@ def patch_colours(theme: pathlib.Path) -> None:
     )
     theme.write_text(text[:start] + schemes + text[end:], encoding="utf-8")
     replace_once(theme, "    dynamicColor: Boolean = true,\n", "    dynamicColor: Boolean = false,\n", "SABLE_TERMINAL_NO_DYNAMIC_COLOUR")
-
-
-def copy_tree(source: pathlib.Path, destination: pathlib.Path) -> int:
-    files = sorted(p for p in source.rglob("*") if p.is_file())
-    for path in files:
-        target = destination / path.relative_to(source)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(path, target)
-    return len(files)
 
 
 def main() -> None:

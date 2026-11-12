@@ -88,23 +88,15 @@ class SableMailHubProvider : ContentProvider() {
 
     override fun getType(uri: Uri): String = "vnd.android.cursor.dir/vnd.org.sableos.mail.hub.message"
 
-    override fun insert(
-        uri: Uri,
-        values: ContentValues?,
-    ): Uri? = throw UnsupportedOperationException("Read-only provider")
+    // The Hub only reads: nothing here changes Sable Mail's store.
+    override fun insert(uri: Uri, values: ContentValues?): Uri? = readOnly()
 
-    override fun delete(
-        uri: Uri,
-        selection: String?,
-        selectionArgs: Array<out String>?,
-    ): Int = throw UnsupportedOperationException("Read-only provider")
+    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = readOnly()
 
-    override fun update(
-        uri: Uri,
-        values: ContentValues?,
-        selection: String?,
-        selectionArgs: Array<out String>?,
-    ): Int = throw UnsupportedOperationException("Read-only provider")
+    override fun update(uri: Uri, values: ContentValues?, where: String?, whereArgs: Array<out String>?): Int =
+        readOnly()
+
+    private fun readOnly(): Nothing = throw UnsupportedOperationException("Read-only provider")
 
     private class HubMail(
         val id: Long,
