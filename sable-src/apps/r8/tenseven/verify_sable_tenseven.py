@@ -52,6 +52,12 @@ def main() -> None:
         # The cover API (patch_frame_covers).
         "frame_covers": 'android:authorities="org.sableos.launcher.covers"' in manifest
         and (root / JAVA / "frames/SableCoverProvider.kt").is_file(),
+        # The Hub keeps items until deleted, with sections, Priority Hub and the ⋮ menu (patch_hub_keep).
+        "hub_keep": "SableHubHistory.record(items)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
+        and (root / JAVA / "conversations/SableHubKeep.kt").is_file()
+        and "SableHubMoreControl()" in (root / JAVA / "ui/HubCompactBar.kt").read_text(encoding="utf-8"),
+        # Home status reads Dials, Icons, Hidden (patch_status_icons).
+        "status_icons": 'Icons("text")' in (root / JAVA / "model/HomeStatusMode.kt").read_text(encoding="utf-8"),
         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
     }
