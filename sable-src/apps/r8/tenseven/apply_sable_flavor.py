@@ -964,6 +964,78 @@ def patch_home_access(root: pathlib.Path) -> None:
         "",
         "SABLE_HOME_ACCESS_NO_FRAMES_CARD",
     )
+    # No Permissions page either (owner, 2026-11-12): SableHomeAccess grants them, so setup and Settings
+    # open on Appearance & Home, the steps renumber from 1, and Next/Back skip both removed pages.
+    replace_once(
+        settings,
+        '    Settings2Category(\n        "permissions",\n        "1. Permissions",\n'
+        '        "Contacts, photos, recent apps and notifications",\n    ) { select(it) }\n',
+        "",
+        "SABLE_HOME_NO_PERMISSIONS_PAGE",
+    )
+    for old_title, new_title in (
+        ('"2. Appearance & Home"', '"1. Appearance & Home"'),
+        ('"3. Hub Settings"', '"2. Hub Settings"'),
+        ('"4. Lockscreen Settings"', '"3. Lockscreen Settings"'),
+        ('"5. Apps & Features"', '"4. Apps & Features"'),
+        ('"6. Review & Finish"', '"5. Review & Finish"'),
+    ):
+        replace_once(settings, old_title, new_title, "SABLE_HOME_NO_PERMISSIONS_RENUMBER")
+    replace_once(
+        settings,
+        'onSetup = { settingsPage.value = "permissions" },',
+        'onSetup = { settingsPage.value = "appearance_home" },',
+        "SABLE_HOME_NO_PERMISSIONS_SETUP",
+    )
+    text = settings.read_text(encoding="utf-8")
+    start = text.index("    val overlayAllowedForReview = android.provider.Settings.canDrawOverlays(context)\n")
+    end_marker = '    ) { select("permissions") }\n'
+    end = text.index(end_marker, start) + len(end_marker)
+    if text.count(end_marker) != 1:
+        fail("SABLE_HOME_NO_PERMISSIONS_CARD=FAIL")
+    settings.write_text(text[:start] + text[end:], encoding="utf-8")
+    replace_once(
+        settings,
+        '"Optional. Grant Weather location under Permissions; otherwise the manual city is used."',
+        '"Optional. Allow location for the home in Android Settings > Apps; otherwise the manual city is used."',
+        "SABLE_HOME_NO_PERMISSIONS_WEATHER_HINT",
+    )
+    replace_once(
+        root / JAVA / "OnboardingActivity.kt",
+        '.putExtra("tenseven.settings.category", "permissions"),',
+        '.putExtra("tenseven.settings.category", "appearance_home"),',
+        "SABLE_HOME_NO_PERMISSIONS_ONBOARDING",
+    )
+    flow = root / JAVA / "model/Settings2Flow.kt"
+    replace_once(flow, '            "permissions",\n', "", "SABLE_HOME_NO_PERMISSIONS_FLOW")
+    replace_once(flow, '            "frames",\n', "", "SABLE_HOME_NO_FRAMES_FLOW")
+    (root / TEST / "model/Settings2FlowTest.kt").write_text(
+        "package io.github.aimindseye.tenseven.model\n\n"
+        "import org.junit.Assert.assertEquals\n"
+        "import org.junit.Assert.assertNull\n"
+        "import org.junit.Test\n\n"
+        "class Settings2FlowTest {\n"
+        "    @Test fun fivePagesWithoutPermissionsOrFrames() {\n"
+        "        assertEquals(listOf(\"appearance_home\", \"hub\", \"lock\", \"apps\", \"review\"), Settings2Flow.ordered)\n"
+        "    }\n\n"
+        "    @Test fun footerCanTraverseEachPage() {\n"
+        "        assertEquals(\"appearance_home\", Settings2Flow.next(\"root\"))\n"
+        "        assertEquals(\"hub\", Settings2Flow.next(\"appearance_home\"))\n"
+        "        assertEquals(\"lock\", Settings2Flow.next(\"hub\"))\n"
+        "        assertEquals(\"apps\", Settings2Flow.next(\"lock\"))\n"
+        "        assertEquals(\"review\", Settings2Flow.next(\"apps\"))\n"
+        "        assertNull(Settings2Flow.next(\"review\"))\n"
+        "        assertEquals(\"root\", Settings2Flow.previous(\"appearance_home\"))\n"
+        "        assertEquals(1, Settings2Flow.position(\"appearance_home\"))\n"
+        "        assertNull(Settings2Flow.previous(\"root\"))\n"
+        "    }\n\n"
+        "    @Test fun themesReturnToAppearanceHome() {\n"
+        "        assertEquals(\"appearance_home\", Settings2Flow.previous(\"themes\"))\n"
+        "        assertEquals(\"appearance_home\", Settings2Flow.next(\"themes\"))\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
 
 
 def patch_hub_keep(root: pathlib.Path) -> None:
