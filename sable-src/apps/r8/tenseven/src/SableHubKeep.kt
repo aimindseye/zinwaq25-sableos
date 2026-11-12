@@ -434,6 +434,10 @@ object SableHubHistory {
     ) {
         val tmp = java.io.File(file.parentFile, file.name + ".tmp")
         tmp.writeText(text)
-        tmp.renameTo(file)
+        if (!tmp.renameTo(file)) {
+            // Rename can fail across a full disk or a stale target: write in place, then drop the copy.
+            file.writeText(text)
+            tmp.delete()
+        }
     }
 }

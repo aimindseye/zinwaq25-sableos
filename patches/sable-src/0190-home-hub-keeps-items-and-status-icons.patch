@@ -282,10 +282,10 @@ index 8b257aa..f82e02a 100644
  
 diff --git a/sable-src/apps/r8/tenseven/src/SableHubKeep.kt b/sable-src/apps/r8/tenseven/src/SableHubKeep.kt
 new file mode 100644
-index 0000000..b1849ca
+index 0000000..aba3c36
 --- /dev/null
 +++ b/sable-src/apps/r8/tenseven/src/SableHubKeep.kt
-@@ -0,0 +1,439 @@
+@@ -0,0 +1,443 @@
 +// SableOS: the Hub keeps what it has shown until you delete it, as BlackBerry 10's Hub did
 +// (owner, 2026-11-12, after a review of JL10's Hub). Part of the SableOS home flavor.
 +package io.github.aimindseye.tenseven.conversations
@@ -722,15 +722,19 @@ index 0000000..b1849ca
 +    ) {
 +        val tmp = java.io.File(file.parentFile, file.name + ".tmp")
 +        tmp.writeText(text)
-+        tmp.renameTo(file)
++        if (!tmp.renameTo(file)) {
++            // Rename can fail across a full disk or a stale target: write in place, then drop the copy.
++            file.writeText(text)
++            tmp.delete()
++        }
 +    }
 +}
 diff --git a/sable-src/apps/r8/tenseven/src/SableHubKeepTest.kt b/sable-src/apps/r8/tenseven/src/SableHubKeepTest.kt
 new file mode 100644
-index 0000000..7dd2028
+index 0000000..473ffcd
 --- /dev/null
 +++ b/sable-src/apps/r8/tenseven/src/SableHubKeepTest.kt
-@@ -0,0 +1,165 @@
+@@ -0,0 +1,167 @@
 +package io.github.aimindseye.tenseven.conversations
 +
 +import io.github.aimindseye.tenseven.model.HubMessageKind
@@ -743,6 +747,8 @@ index 0000000..7dd2028
 +import java.time.ZoneOffset
 +import java.util.Locale
 +
++private const val CHAT_APP = "app.chat"
++
 +class SableHubKeepTest {
 +    private fun msg(
 +        id: String,
@@ -751,12 +757,12 @@ index 0000000..7dd2028
 +        conv: String = "c",
 +        key: String = "k",
 +        out: Boolean = false,
-+    ) = ConversationMessage(id, conv, key, "app.chat", "Chat", text, at, "Ann", out)
++    ) = ConversationMessage(id, conv, key, CHAT_APP, "Chat", text, at, "Ann", out)
 +
 +    private fun note(
 +        key: String,
 +        at: Long,
-+        pkg: String = "app.chat",
++        pkg: String = CHAT_APP,
 +        conv: String = "c-$key",
 +        ongoing: Boolean = false,
 +        messages: List<ConversationMessage> = listOf(msg("m-$key", at, conv = conv, key = key)),
@@ -848,7 +854,7 @@ index 0000000..7dd2028
 +        val c = HubConversation("c", "Ann", listOf(note("k", 1)), listOf(msg("1", 1)))
 +        assertFalse(SableHubKeep.isPriority(c, emptySet(), emptySet()))
 +        assertTrue(SableHubKeep.isPriority(c, setOf(ConversationState.hash("c")), emptySet()))
-+        assertTrue(SableHubKeep.isPriority(c, emptySet(), setOf("app.chat")))
++        assertTrue(SableHubKeep.isPriority(c, emptySet(), setOf(CHAT_APP)))
 +        val replied = c.copy(messages = c.messages + msg("2", 2, out = true))
 +        assertTrue(SableHubKeep.isPriority(replied, emptySet(), emptySet()))
 +    }
@@ -1176,15 +1182,34 @@ index 0000000..303bdcf
 +    }.getOrDefault(false)
 +}
 diff --git a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
-index d163a02..d53f04a 100644
+index d163a02..81e686d 100644
 --- a/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
 +++ b/sable-src/apps/r8/tenseven/verify_sable_tenseven.py
-@@ -52,6 +52,12 @@ def main() -> None:
+@@ -14,6 +14,7 @@ def main() -> None:
+     build = (root / "app/build.gradle.kts").read_text(encoding="utf-8")
+     manifest = (root / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+     activity = (root / JAVA / "SableStartActivity.kt").read_text(encoding="utf-8")
++    hub = (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
+     checks = {
+         "package": 'applicationId = "org.sableos.launcher"' in build,
+         "home": "android.intent.category.HOME" in manifest,
+@@ -43,8 +44,8 @@ def main() -> None:
+         "no_first_run_setup": "loadOnboardingDone()" not in activity,
+         # Hub reads Sable Mail's inboxes from its feed (patch_hub_mail).
+         "hub_mail": 'android:authorities="org.sableos.mail.hub"' in manifest
+-        and "SableMailFeed.merge(items)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
+-        and "SableMailFeed.markRead(context, n)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8"),
++        and "SableMailFeed.merge(items)" in hub
++        and "SableMailFeed.markRead(context, n)" in hub,
+         # Back at an app's root shows Active Frames, as Home does (patch_back_to_frames).
+         # Hub over any app (patch_hub_peek).
+         "hub_peek": ".SableHubPeekActivity" in manifest
+@@ -52,6 +53,12 @@ def main() -> None:
          # The cover API (patch_frame_covers).
          "frame_covers": 'android:authorities="org.sableos.launcher.covers"' in manifest
          and (root / JAVA / "frames/SableCoverProvider.kt").is_file(),
 +        # The Hub keeps items until deleted, with sections, Priority Hub and the ⋮ menu (patch_hub_keep).
-+        "hub_keep": "SableHubHistory.record(items)" in (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
++        "hub_keep": "SableHubHistory.record(items)" in hub
 +        and (root / JAVA / "conversations/SableHubKeep.kt").is_file()
 +        and "SableHubMoreControl()" in (root / JAVA / "ui/HubCompactBar.kt").read_text(encoding="utf-8"),
 +        # Home status reads Dials, Icons, Hidden (patch_status_icons).

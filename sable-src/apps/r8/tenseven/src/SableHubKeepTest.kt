@@ -10,6 +10,8 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.Locale
 
+private const val CHAT_APP = "app.chat"
+
 class SableHubKeepTest {
     private fun msg(
         id: String,
@@ -18,12 +20,12 @@ class SableHubKeepTest {
         conv: String = "c",
         key: String = "k",
         out: Boolean = false,
-    ) = ConversationMessage(id, conv, key, "app.chat", "Chat", text, at, "Ann", out)
+    ) = ConversationMessage(id, conv, key, CHAT_APP, "Chat", text, at, "Ann", out)
 
     private fun note(
         key: String,
         at: Long,
-        pkg: String = "app.chat",
+        pkg: String = CHAT_APP,
         conv: String = "c-$key",
         ongoing: Boolean = false,
         messages: List<ConversationMessage> = listOf(msg("m-$key", at, conv = conv, key = key)),
@@ -115,7 +117,7 @@ class SableHubKeepTest {
         val c = HubConversation("c", "Ann", listOf(note("k", 1)), listOf(msg("1", 1)))
         assertFalse(SableHubKeep.isPriority(c, emptySet(), emptySet()))
         assertTrue(SableHubKeep.isPriority(c, setOf(ConversationState.hash("c")), emptySet()))
-        assertTrue(SableHubKeep.isPriority(c, emptySet(), setOf("app.chat")))
+        assertTrue(SableHubKeep.isPriority(c, emptySet(), setOf(CHAT_APP)))
         val replied = c.copy(messages = c.messages + msg("2", 2, out = true))
         assertTrue(SableHubKeep.isPriority(replied, emptySet(), emptySet()))
     }
