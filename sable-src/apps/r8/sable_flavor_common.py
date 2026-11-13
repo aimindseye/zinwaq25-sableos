@@ -134,7 +134,8 @@ def set_sable_app_icon(source: pathlib.Path, module: pathlib.Path, drawable: str
     tag = tags[0].group(0)
     if len(re.findall(r'android:icon="[^"]*"', tag)) != 1:
         raise SystemExit(f"{marker}_ICON=FAIL")
-    new = re.sub(r'\s*android:roundIcon="[^"]*"', "", tag)
+    # Drop upstream's round icon; the whitespace before it stays, which XML ignores.
+    new = re.sub(r'android:roundIcon="[^"]*"', "", tag)
     new = re.sub(
         r'android:icon="[^"]*"',
         f'android:icon="@mipmap/{drawable}"\n        android:roundIcon="@mipmap/{drawable}_round"',
