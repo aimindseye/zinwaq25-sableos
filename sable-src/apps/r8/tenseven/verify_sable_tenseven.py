@@ -75,6 +75,11 @@ def main() -> None:
         and "SableTaskSnapshots.note(" in (root / JAVA / "platform/ActiveFramesHost.kt").read_text(encoding="utf-8"),
         "back_to_frames": "SableBackToFrames.leftForAnotherApp(" in activity
         and (root / JAVA / "frames/SableBackToFrames.kt").is_file(),
+        # Q25 sizes for Hub and Command, and a Command icon on the BB10 home bar (patch_q25_fit).
+        "q25_fit": "displayMedium = SableTypography.displayMedium.copy(fontSize = 26.sp"
+        in (root / "design/src/main/java/io/github/aimindseye/tenseven/design/SableTheme.kt").read_text(encoding="utf-8")
+        and 'QuickSlot(QuickBar.COMMAND, "Command", null)\n        HomeShortcut(command,'
+        in (root / JAVA / "ui/ReferenceHomeBar.kt").read_text(encoding="utf-8"),
     }
     bad = [name for name, ok in checks.items() if not ok]
     if bad:
