@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 13 Nov 2026 12:00:00 +0000
+Subject: [PATCH] SableOS: no hidden num lock on the Q25 keyboard
+
+Holding Left Alt and pressing Right Shift flipped a num lock kept inside
+bbqX0kbd. Nothing showed it and Android never heard of it, it survived
+screen off, and while it was on the driver sent KEY_1..9 for W E R S D F
+Z X C and KEY_0 for the $ key. Search boxes, the command bar and every
+other text field then got "123" for "wer", and the keyboard app had no
+way to tell. Remove the toggle so those keys always reach Android as
+letters; digits come from the keyboard app's Alt layer.
+---
+ .../input/keyboard/bbqX0kbd/bbqX0kbd_main.c   | 23 ++++++++++++++-----
+ 1 file changed, 17 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c b/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c
+index 24cb01c..9fc0f3f 100644
+--- a/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c
++++ b/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c
+@@ -206,6 +206,21 @@ static uint8_t bbqX0kbd_modkeys_to_bits(unsigned short mod_keycode)
+ 	return returnValue;
+ }
+ 
++/*
++ * SableOS: no hidden num lock.
++ *
++ * Holding Left Alt and pressing Right Shift used to flip NUMS_LOCK_BIT here
++ * in the driver. Nothing showed it (no LED, no event to Android), it
++ * survived screen off, and while it was on the driver itself sent KEY_1..9
++ * for W E R S D F Z X C and KEY_0 for the $ key, so search boxes and every
++ * other text field got "123" instead of "wer" and no keyboard app could
++ * tell why. Alt + Shift is an ordinary chord when typing, so it was easy
++ * to switch on by accident.
++ *
++ * The toggle is gone and the lock bit is never set, so these keys always
++ * reach Android as letters. Digits come from the keyboard app: Alt + key,
++ * Alt locked by a double tap, or letters typing digits in number fields.
++ */
+ static unsigned short bbqX0kbd_get_num_lock_keycode(unsigned short keycode)
+ {
+ 	unsigned short returnValue;
+@@ -429,9 +444,7 @@ static void bbqX0kbd_work_handler(struct work_struct *work_struct)
+ 					BBQX0KBD_KEYBOARD_LOG("%s Could not get Keycode for Scancode: [0x%02X]\n", __func__, fifoData[1]);
+ 					break;
+ 				case KEY_RIGHTSHIFT:
+-					if (bbqX0kbd_data->modifier_keys_status & LEFT_ALT_BIT && fifoData[0] == KEY_PRESSED_STATE)
+-						bbqX0kbd_data->lockStatus ^= NUMS_LOCK_BIT;
+-					fallthrough;
++					/* SableOS: Left Alt + Right Shift no longer toggles num lock (see above bbqX0kbd_get_num_lock_keycode) */
+ 				case KEY_LEFTSHIFT:
+ 				case KEY_RIGHTALT:
+ 				case KEY_LEFTALT:
+@@ -580,9 +593,7 @@ static void bbqX0kbd_work_fnc(struct work_struct *work_struct_ptr)
+ 				BBQX0KBD_KEYBOARD_LOG("%s Could not get Keycode for Scancode: [0x%02X]\n", __func__, bbqX0kbd_data->fifoData[pos][1]);
+ 				break;
+ 			case KEY_RIGHTSHIFT:
+-				if (bbqX0kbd_data->modifier_keys_status & LEFT_ALT_BIT && bbqX0kbd_data->fifoData[pos][0] == KEY_PRESSED_STATE)
+-					bbqX0kbd_data->lockStatus ^= NUMS_LOCK_BIT;
+-				fallthrough;
++				/* SableOS: Left Alt + Right Shift no longer toggles num lock (see above bbqX0kbd_get_num_lock_keycode) */
+ 			case KEY_LEFTSHIFT:
+ 			case KEY_RIGHTALT:
+ 			case KEY_LEFTALT:
+-- 
+2.43.0
+

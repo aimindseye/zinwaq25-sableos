@@ -284,6 +284,7 @@ private fun mediaScreenActions(
                 onStep = host.fm::step,
                 onTune = host.fm::tune,
                 onToggleFavorite = controllers.fm::toggleFavorite,
+                onRename = controllers.fm::rename,
                 onToggleSpeaker = host.fm::toggleSpeaker,
                 onToggleMute = host.fm::toggleMute,
                 onScan = host.fm::toggleScan,

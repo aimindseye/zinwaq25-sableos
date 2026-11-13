@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.util.Log
 import android.webkit.CookieManager
@@ -27,10 +28,12 @@ import java.net.URISyntaxException
  * for privacy. No file or content access, no third-party cookies, no mixed content, Safe Browsing
  * on, one window, media starts only on a tap, location never shared. Links to other schemes (tel:,
  * mailto:, intent:) go to the app that handles them; downloads go to Android's download manager.
+ * Pages see the Sable theme's light or dark mode ([dark], and the theme of [context]).
  */
 @SuppressLint("SetJavaScriptEnabled")
 fun createBrowserWebView(
     context: Context,
+    dark: Boolean,
     state: BrowserState,
     onScale: (Float) -> Unit,
     fileChooser: FileChooser,
@@ -51,6 +54,9 @@ fun createBrowserWebView(
             loadWithOverviewMode = true
             setGeolocationEnabled(false)
             userAgentString = standaloneUserAgent(userAgentString)
+            // In the dark Sable theme, pages without a dark style of their own are darkened by
+            // WebView, as Chrome does with its dark theme for web content.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) isAlgorithmicDarkeningAllowed = dark
         }
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
         webViewClient = BrowserClient(state, onScale)

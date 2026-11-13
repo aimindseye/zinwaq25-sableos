@@ -236,6 +236,15 @@ PRIVACY_SCREEN_SERVICES = """        <service
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+        <activity
+            android:name="org.sableos.textreader.privacy.PrivacyScreenSettingsActivity"
+            android:exported="true"
+            android:label="@string/sable_privacy_screen_label"
+            android:theme="@android:style/Theme.DeviceDefault.DayNight">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
+        </activity>
         <receiver
             android:name="org.sableos.textreader.privacy.PrivacyScreenSwitchReceiver"
             android:exported="true"

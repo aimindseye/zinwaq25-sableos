@@ -25,15 +25,26 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalGameKeyHost provides keyHost) {
                     when (BuildConfig.SABLE_GAME) {
                         "sudoku" -> SudokuScreen()
+
                         "minesweeper" -> MinesweeperScreen()
+
                         "2048" -> Game2048Screen()
+
                         "bricks" -> BricksScreen()
+
                         "snake" -> SnakeScreen()
+
                         "blocks" -> BlocksScreen()
+
                         "reversi" -> ReversiScreen()
+
                         "solitaire" -> SolitaireScreen()
+
                         "mahjong" -> MahjongScreen()
+
                         "words" -> WordsScreen()
+
+                        // The console flavor starts org.sableos.games.console.ConsoleActivity instead.
                         else -> error("Unsupported Sable game flavor: ${BuildConfig.SABLE_GAME}")
                     }
                 }

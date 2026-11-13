@@ -1,7 +1,10 @@
 package org.sableos.calendar
 
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
@@ -76,6 +79,26 @@ object CalendarChrome {
             }
         }
     }
+
+    /**
+     * The events on [day], for the week list (TenSeven's Calendar, owner 2026-11-13): all-day events
+     * first, then by start. An event is on every day it overlaps; all-day events are stored at UTC
+     * midnights, so they are placed by UTC dates, timed events by [zone].
+     */
+    fun eventsOn(
+        day: LocalDate,
+        events: List<CalendarEvent>,
+        zone: ZoneId,
+    ): List<CalendarEvent> =
+        events
+            .filter { event ->
+                val eventZone = if (event.allDay) ZoneOffset.UTC else zone
+                val first = Instant.ofEpochMilli(event.startMillis).atZone(eventZone).toLocalDate()
+                // The end is exclusive: an event ending at midnight is not on the next day.
+                val lastMillis = maxOf(event.startMillis, event.endMillis - 1)
+                val last = Instant.ofEpochMilli(lastMillis).atZone(eventZone).toLocalDate()
+                !day.isBefore(first) && !day.isAfter(last)
+            }.sortedWith(compareBy({ !it.allDay }, { it.startMillis }))
 
     private const val DAYS_PER_WEEK = 7
 }

@@ -76,4 +76,13 @@ class FmModelTest {
             FmBand.status(connected.copy(antenna = true, powered = true, speaker = true)),
         )
     }
+
+    @Test
+    fun namesAreTrimmedKeptPerStationAndClearedWhenBlank() {
+        val named = FmPresets.rename(emptyMap(), 1015, "  Jazz   FM  ")
+        assertEquals(mapOf(1015 to "Jazz FM"), named)
+        assertEquals(FmPresets.MAX_NAME, FmPresets.rename(named, 889, "x".repeat(60)).getValue(889).length)
+        assertEquals(emptyMap<Int, String>(), FmPresets.rename(named, 1015, "   "))
+        assertEquals(named, FmPresets.rename(named, 2000, "Out of band"))
+    }
 }

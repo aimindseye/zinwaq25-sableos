@@ -1,0 +1,150 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 13 Nov 2026 02:45:00 +0000
+Subject: [PATCH] SableOS: PIN pad keys keep their compact height
+
+The Q25's PIN pad still showed 166 px square keys after 0330 (owner
+report 2026-11-13). NumPadKey and NumPadButton override onMeasure and,
+in portrait with an animator, make their height equal to their width
+to draw a round key. The compact pad sets wide, short keys (about 97 x
+44 dp), so each key measured itself 97 dp tall and ConstraintLayout
+used that height: the squares were the compact width, not Android's
+own size.
+
+Both views get setSableKeepHeight(boolean). KeyguardPINView turns it on
+with the compact pad and off when the window is tall enough for
+Android's pad; with it on, onMeasure keeps the height the layout gave.
+The key background's corner radius follows the height, so the keys
+draw as pills. No authentication code changes.
+---
+ .../src/com/android/keyguard/KeyguardPINView.java     | 19 +++++++++++++++++++
+ .../src/com/android/keyguard/NumPadButton.java        | 18 ++++++++++++++++++
+ .../SystemUI/src/com/android/keyguard/NumPadKey.java  | 18 ++++++++++++++++++
+ 3 files changed, 55 insertions(+)
+
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
+index c294b2c..ebd6676 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
+@@ -214,6 +214,7 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
+         SableLockSize.Pad pad = SableLockSize.compactPad(level, config.screenWidthDp,
+                 config.screenHeightDp, Math.round(sableSystemBarsPx() / density),
+                 config.fontScale, fallback);
++        setSableKeepHeight(pad != null);
+         if (pad == null) {
+             return;
+         }
+@@ -319,6 +320,24 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
+         return statusBar;
+     }
+ 
++    /**
++     * SableOS: NumPadKey and NumPadButton make themselves as tall as they are wide in portrait,
++     * which turned the compact pad's wide keys back into 166 px squares on the Q25. The compact
++     * pad tells them to keep the height it sets.
++     */
++    private void setSableKeepHeight(boolean keep) {
++        for (int row = 1; row < 5; row++) {
++            for (int column = 0; column < 3; column++) {
++                View key = mViews[row][column];
++                if (key instanceof NumPadKey) {
++                    ((NumPadKey) key).setSableKeepHeight(keep);
++                } else if (key instanceof NumPadButton) {
++                    ((NumPadButton) key).setSableKeepHeight(keep);
++                }
++            }
++        }
++    }
++
+     private static int px(int dp, float density) {
+         return Math.round(dp * density);
+     }
+diff --git a/packages/SystemUI/src/com/android/keyguard/NumPadButton.java b/packages/SystemUI/src/com/android/keyguard/NumPadButton.java
+index 7175194..2ce91c1 100644
+--- a/packages/SystemUI/src/com/android/keyguard/NumPadButton.java
++++ b/packages/SystemUI/src/com/android/keyguard/NumPadButton.java
+@@ -41,6 +41,8 @@ public class NumPadButton extends AlphaOptimizedImageButton implements NumPadAni
+     @Nullable
+     private NumPadAnimator mAnimator;
+     private int mOrientation;
++    /** SableOS: the compact PIN pad sets an exact height; keep it instead of squaring. */
++    private boolean mSableKeepHeight;
+     private int mStyleAttr;
+     private boolean mIsTransparentMode;
+ 
+@@ -61,6 +63,17 @@ public class NumPadButton extends AlphaOptimizedImageButton implements NumPadAni
+         mOrientation = newConfig.orientation;
+     }
+ 
++    /**
++     * SableOS: on the compact PIN pad the button keeps the height its layout gives it instead of
++     * making itself as tall as it is wide (KeyguardPINView).
++     */
++    public void setSableKeepHeight(boolean keep) {
++        if (mSableKeepHeight != keep) {
++            mSableKeepHeight = keep;
++            requestLayout();
++        }
++    }
++
+     @Override
+     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+@@ -70,6 +83,11 @@ public class NumPadButton extends AlphaOptimizedImageButton implements NumPadAni
+         // This is only used for PIN/PUK; the main PIN pad now uses ConstraintLayout, which will
+         // force our width/height to conform to the ratio in the layout.
+         int width = getMeasuredWidth();
++        if (mSableKeepHeight) {
++            // SableOS: wide, short keys on the compact PIN pad (KeyguardPINView); the height
++            // ConstraintLayout measured stays, so the pad fits a short window such as the Q25's.
++            return;
++        }
+ 
+         boolean shortenHeight = mAnimator == null
+                 || mOrientation == Configuration.ORIENTATION_LANDSCAPE;
+diff --git a/packages/SystemUI/src/com/android/keyguard/NumPadKey.java b/packages/SystemUI/src/com/android/keyguard/NumPadKey.java
+index 91c272f..dd6ae34 100644
+--- a/packages/SystemUI/src/com/android/keyguard/NumPadKey.java
++++ b/packages/SystemUI/src/com/android/keyguard/NumPadKey.java
+@@ -63,6 +63,8 @@ public class NumPadKey extends ViewGroup implements NumPadAnimationListener, Num
+     @Nullable
+     private NumPadAnimator mAnimator;
+     private int mOrientation;
++    /** SableOS: the compact PIN pad sets an exact height; keep it instead of squaring. */
++    private boolean mSableKeepHeight;
+     @Nullable
+     private BouncerHapticPlayer mBouncerHapticPlayer;
+ 
+@@ -139,6 +141,17 @@ public class NumPadKey extends ViewGroup implements NumPadAnimationListener, Num
+         }
+     }
+ 
++    /**
++     * SableOS: on the compact PIN pad the key keeps the height its layout gives it instead of
++     * making itself as tall as it is wide (KeyguardPINView).
++     */
++    public void setSableKeepHeight(boolean keep) {
++        if (mSableKeepHeight != keep) {
++            mSableKeepHeight = keep;
++            requestLayout();
++        }
++    }
++
+     /** SableOS: the digit's size in dp for the compact PIN pad (KeyguardPINView). */
+     public void setSableDigitSize(int dp) {
+         if (dp > 0) {
+@@ -236,6 +249,11 @@ public class NumPadKey extends ViewGroup implements NumPadAnimationListener, Num
+         // This is only used for PIN/PUK; the main PIN pad now uses ConstraintLayout, which will
+         // force our width/height to conform to the ratio in the layout.
+         int width = getMeasuredWidth();
++        if (mSableKeepHeight) {
++            // SableOS: wide, short keys on the compact PIN pad (KeyguardPINView); the height
++            // ConstraintLayout measured stays, so the pad fits a short window such as the Q25's.
++            return;
++        }
+ 
+         boolean shortenHeight = mAnimator == null
+                 || mOrientation == Configuration.ORIENTATION_LANDSCAPE;
+-- 
+2.43.0
+

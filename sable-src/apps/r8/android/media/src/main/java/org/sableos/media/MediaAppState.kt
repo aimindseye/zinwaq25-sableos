@@ -26,6 +26,7 @@ internal class MediaAppState(
 
     var stations by mutableStateOf(repositories.stations.loadStations())
     var fmFavorites by mutableStateOf(repositories.fmPresets.load())
+    var fmNames by mutableStateOf(repositories.fmPresets.loadNames())
     var favoriteAudioUris by mutableStateOf(repositories.libraryState.loadFavoriteAudioUris())
     var favoriteStationIds by mutableStateOf(repositories.libraryState.loadFavoriteStationIds())
     var playlists by mutableStateOf(emptyList<MediaPlaylist>())
@@ -153,6 +154,7 @@ internal class MediaAppState(
             searchFocusToken = searchFocusToken,
             fm = fm,
             fmFavorites = fmFavorites,
+            fmNames = fmNames,
         )
 }
 

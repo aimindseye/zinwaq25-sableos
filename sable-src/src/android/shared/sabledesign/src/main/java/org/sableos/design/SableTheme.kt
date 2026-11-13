@@ -182,20 +182,46 @@ private val SableTypography by lazy {
                 lineHeight = 18.sp,
                 fontWeight = FontWeight.Medium,
             ),
+        // The roles above were the whole scale; the rest fell back to Material's sizes in Roboto
+        // (displayMedium 45 sp, headlineSmall 24 sp, bodySmall 12 sp). Every role is Sable's now.
+        displayMedium = sableStyle(36, 42, FontWeight.Light),
+        displaySmall = sableStyle(30, 36, FontWeight.Light),
+        headlineSmall = sableStyle(22, 28, FontWeight.Normal),
+        titleSmall = sableStyle(15, 20, FontWeight.Medium),
+        bodySmall = sableStyle(13, 18, FontWeight.Normal),
+        labelMedium = sableStyle(12, 16, FontWeight.Medium),
+        labelSmall = sableStyle(11, 14, FontWeight.Medium),
     )
 }
 
-/** The type scale in a short window: the same roles, one step smaller, display and headline the most. */
+private fun sableStyle(
+    size: Int,
+    line: Int,
+    weight: FontWeight,
+) = TextStyle(fontFamily = SableFontFamily, fontSize = size.sp, lineHeight = line.sp, fontWeight = weight)
+
+/**
+ * The type scale in a short window (the Q25's 411 dp square screen): the same roles, one step
+ * smaller, display and headline the most. Titles follow the Q25 column of the approved TenSeven BB10
+ * design review (a 22-24 sp screen title, 15-16 sp rows, 11-12 sp meta lines).
+ */
 private val SableShortTypography by lazy {
     SableTypography.copy(
-        displayLarge = SableTypography.displayLarge.copy(fontSize = 28.sp, lineHeight = 32.sp, letterSpacing = (-0.4).sp),
-        headlineLarge = SableTypography.headlineLarge.copy(fontSize = 24.sp, lineHeight = 28.sp, letterSpacing = 0.sp),
+        displayLarge = SableTypography.displayLarge.copy(fontSize = 24.sp, lineHeight = 28.sp, letterSpacing = (-0.2).sp),
+        displayMedium = SableTypography.displayMedium.copy(fontSize = 24.sp, lineHeight = 28.sp),
+        displaySmall = SableTypography.displaySmall.copy(fontSize = 22.sp, lineHeight = 26.sp),
+        headlineLarge = SableTypography.headlineLarge.copy(fontSize = 22.sp, lineHeight = 26.sp, letterSpacing = 0.sp),
+        headlineSmall = SableTypography.headlineSmall.copy(fontSize = 18.sp, lineHeight = 23.sp),
         headlineMedium = SableTypography.headlineMedium.copy(fontSize = 20.sp, lineHeight = 25.sp),
         titleLarge = SableTypography.titleLarge.copy(fontSize = 18.sp, lineHeight = 23.sp),
         titleMedium = SableTypography.titleMedium.copy(fontSize = 16.sp, lineHeight = 21.sp),
         bodyLarge = SableTypography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 21.sp),
         bodyMedium = SableTypography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 19.sp),
         labelLarge = SableTypography.labelLarge.copy(fontSize = 13.sp, lineHeight = 17.sp),
+        titleSmall = SableTypography.titleSmall.copy(fontSize = 15.sp, lineHeight = 19.sp),
+        bodySmall = SableTypography.bodySmall.copy(fontSize = 12.sp, lineHeight = 16.sp),
+        labelMedium = SableTypography.labelMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
+        labelSmall = SableTypography.labelSmall.copy(fontSize = 11.sp, lineHeight = 14.sp),
     )
 }
 

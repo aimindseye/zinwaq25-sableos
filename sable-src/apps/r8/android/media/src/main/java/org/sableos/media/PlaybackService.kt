@@ -130,6 +130,7 @@ class PlaybackService : MediaSessionService() {
             MediaItem
                 .Builder()
                 .setUri(uri)
+                .setMediaId(uri.toString())
                 .setMediaMetadata(metadata)
                 .build()
 
@@ -196,6 +197,7 @@ class PlaybackService : MediaSessionService() {
         return MediaItem
             .Builder()
             .setUri(Uri.parse(uri))
+            .setMediaId(uri)
             .setMediaMetadata(metadata)
             .build()
     }

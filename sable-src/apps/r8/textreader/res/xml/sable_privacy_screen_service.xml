@@ -8,4 +8,5 @@
     android:description="@string/sable_privacy_screen_description"
     android:isAccessibilityTool="false"
     android:notificationTimeout="50"
+    android:settingsActivity="org.sableos.textreader.privacy.PrivacyScreenSettingsActivity"
     android:summary="@string/sable_privacy_screen_summary" />

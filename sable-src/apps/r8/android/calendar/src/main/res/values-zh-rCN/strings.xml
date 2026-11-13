@@ -81,4 +81,6 @@
     <string name="previous">上一个</string>
     <string name="next">下一个</string>
     <string name="more_options">更多选项</string>
+    <string name="one_event">1 个活动</string>
+    <string name="n_events">%1$s 个活动</string>
 </resources>

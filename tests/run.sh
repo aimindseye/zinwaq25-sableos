@@ -895,6 +895,31 @@ if [[ -f "${kq[0]}" ]]; then
 else pw_missing="$pw_missing file:kernel/0202"; fi
 if [[ -z "$pw_missing" ]]; then pass "battery drain guards: no Doze location prefetch, MediaTek and keyboard debug logging off"; else fail "battery drain guards:$pw_missing"; fi
 
+# Sable Games Console (sable-src 0207): Lua games in a sandbox, four motion games, no permissions.
+gc=sable-src/apps/r8/android/games/src/console
+gc_bad=""
+grep -qP '^SableGamesConsole\tcommon\tapps/r8/android\t:games:assembleConsoleRelease\t' product/q25/apps.tsv || gc_bad="$gc_bad apps.tsv"
+for g in tilt_maze motion_2048 sokoban_tilt tilt_racer; do
+    [[ -f "$gc/assets/console/$g/game.toml" && -f "$gc/assets/console/$g/main.lua" ]] || gc_bad="$gc_bad game:$g"
+done
+grep -q 'uses-permission' "$gc/AndroidManifest.xml" && gc_bad="$gc_bad permission"
+grep -q 'JseIoLib\|JseOsLib\|LuajavaLib\|CoroutineLib' "$gc/java/org/sableos/games/console/LuaGame.kt" && gc_bad="$gc_bad sandbox-libs"
+grep -q 'private class Runaway : Error' "$gc/java/org/sableos/games/console/LuaGame.kt" || gc_bad="$gc_bad budget"
+[[ -f sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/LuaGameTest.kt ]] || gc_bad="$gc_bad test"
+grep -q ':games:testConsoleDebugUnitTest' .github/workflows/android.yml || gc_bad="$gc_bad ci"
+if [[ -z "$gc_bad" ]]; then pass "Sable Games Console: sandboxed Lua games, four motion games, no permissions"; else fail "games console:$gc_bad"; fi
+
+# Q25 keyboard (kernel 0905): the driver's hidden Alt + Right Shift num lock is gone, so W..C stay letters.
+nl=(patches/framework/kernel/xelex/mt6789/0905-*.patch)
+nl_missing=""
+if [[ -f "${nl[0]}" ]]; then
+    grep -q '^diff --git a/drivers/input/keyboard/bbqX0kbd/bbqX0kbd_main.c' "${nl[0]}" || nl_missing="$nl_missing file"
+    [[ "$(grep -c '^-.*lockStatus ^= NUMS_LOCK_BIT;' "${nl[0]}")" == 2 ]] || nl_missing="$nl_missing toggle-removed"
+    grep -qE '^\+.*lockStatus (\^|\|)= NUMS_LOCK_BIT' "${nl[0]}" && nl_missing="$nl_missing toggle-readded"
+    grep -q '0905-SableOS-no-hidden-num-lock' patches/README.md || nl_missing="$nl_missing readme"
+else nl_missing=" file:kernel/0905"; fi
+if [[ -z "$nl_missing" ]]; then pass "Q25 keyboard has no hidden num lock turning W..C into 1..9"; else fail "Q25 keyboard num lock:$nl_missing"; fi
+
 tools_link=sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/SettingsLink.kt
 missing=""
 for action in org.sableos.settings.NETWORK_MANAGER org.sableos.settings.APP_SECURITY; do

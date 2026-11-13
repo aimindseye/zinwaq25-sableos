@@ -16,6 +16,8 @@ internal data class QueueItemUiState(
     val index: Int,
     val title: String,
     val source: String,
+    /** The item's address (its media id), used to find its picture. */
+    val uri: String = "",
 )
 
 internal enum class PlaybackSkip {
@@ -131,6 +133,7 @@ internal class PlaybackController(
             MediaItem
                 .Builder()
                 .setUri(uri)
+                .setMediaId(uri)
                 .setMediaMetadata(
                     MediaMetadata
                         .Builder()
@@ -233,9 +236,11 @@ internal class PlaybackController(
 
     private fun buildQueue(player: Player): List<QueueItemUiState> =
         List(player.mediaItemCount) { index ->
-            val metadata = player.getMediaItemAt(index).mediaMetadata
+            val mediaItem = player.getMediaItemAt(index)
+            val metadata = mediaItem.mediaMetadata
             QueueItemUiState(
                 index = index,
+                uri = mediaItem.mediaId,
                 title =
                     metadata.title
                         ?.toString()

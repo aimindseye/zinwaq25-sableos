@@ -193,4 +193,24 @@
     <string name="station_saved_locally">حُفظت المحطة محليًا.</string>
     <string name="choose_a_station_to_edit">اختر محطة لتعديلها.</string>
     <string name="station_updated">حُدّثت المحطة.</string>
+    <string name="hub_title">الوسائط</string>
+    <string name="hub_back">رجوع</string>
+    <string name="hub_search">بحث</string>
+    <string name="hub_more">خيارات أخرى</string>
+    <string name="hub_playing">قيد التشغيل</string>
+    <string name="hub_paused">متوقف مؤقتًا</string>
+    <string name="hub_add">إضافة</string>
+    <string name="hub_settings">الإعدادات</string>
+    <string name="hub_refresh">تحديث</string>
+    <string name="hub_save">حفظ</string>
+    <string name="hub_tab_songs">الأغاني</string>
+    <string name="hub_tab_artists">الفنانون</string>
+    <string name="hub_tab_albums">الألبومات</string>
+    <string name="hub_tab_playlists">قوائم التشغيل</string>
+    <string name="hub_tab_favourites">المفضلة</string>
+    <string name="hub_tab_podcasts">البودكاست</string>
+    <string name="hub_tab_radio">الراديو</string>
+    <string name="hub_tab_fm">FM</string>
+    <string name="fm_name">الاسم</string>
+    <string name="fm_clear_name">مسح الاسم</string>
 </resources>

@@ -47,6 +47,20 @@ Status words: **Done in code** (built and unit-tested, not yet seen on a device)
 | Battery drain | No location prefetch on Doze; the keyboard driver no longer logs every key. |
 | Apps | FM Radio inside Sable Media; Sable Games back as small release builds with keyboard play; microG and Aurora Store (`SABLE_Q25_MICROG`). |
 
+## Owner review 2026-11-13 (PR #69), not yet on a device
+
+| Area | What changed |
+|---|---|
+| Keyboard | Letters always type letters: the driver's hidden Alt + Right Shift num lock is gone (kernel 0905). |
+| Lock screen | Compact PIN keys are pills about 44 dp tall, not squares (frameworks/base 0331). The home's lock layer drops "Select a notification icon" when there are no notifications (sable-src 0203). |
+| Safe area | Every Sable app stays between the status bar and the navigation or gesture bar (sable-src 0201). |
+| Calendar | Week is a list of the seven days with counts and events, and the week strip dots days with events (sable-src 0201). |
+| Privacy Screen | Darkness: Dim, Dark or Black (sable-src 0202). |
+| Type | Every Material text role uses Source Sans 3 at a Sable size; Q25 titles are 24 sp, Weather's reading 56 sp (sable-src 0204). |
+| Browser | Pages follow the Sable theme (sable-src 0205). |
+| Media | Design A, "Hub list": a 40 dp title bar, one tab strip, the list, a now-playing line and an action bar; cover art, podcast covers, station logos and FM names (sable-src 0206). |
+| Games | Sable Games Console: Lua games in the Hub style, with tilt levelling and a lettered pause menu (sable-src 0207, [GAMES_CONSOLE.md](GAMES_CONSOLE.md)). |
+
 ## Sable Notes, not yet on a device
 
 Sable Notes follows the Notes part of platform_sable `docs/design/UTILITIES_NOTES_RECORDER_UX.md`.
@@ -107,10 +121,10 @@ One difference from the contract: the Q25 has no Ctrl or Esc key, so the contrac
 | private-space-dual-work-titan2 | Done in code | App lock is hidden (Android has no launch gate). |
 | connectivity-otg-nfc-cast-titan2 | Done in code | |
 | camera-capture-titan2 | Done in code | The lock-screen camera and video requests still go to Aperture. |
-| browser-webview-titan2 | Done in code | |
+| browser-webview-titan2 | Done in code | Pages follow the Sable theme, light or dark (sable-src 0205). |
 | files-documents-titan2 | Partial | No three-pane preview or F favourites (DocumentsUI has neither). |
 | mail-calendar-titan2 | Done in code | No inline quick reply in Mail. |
-| media-gallery-titan2 | Mostly done | Share moved from S to E; no I info on the grid. FM now plays inside Sable Media. |
+| media-gallery-titan2 | Mostly done | Share moved from S to E; no I info on the grid. FM now plays inside Sable Media. On the Q25 the media side uses the Hub list layout with pictures (sable-src 0206). |
 | utilities-notes-recorder-titan2 | Missing | Not part of this round. |
 | toolbox-hardware-titan2 | Done | |
 | subscreen-shortcut-keyboard-titan2 | N/A | |

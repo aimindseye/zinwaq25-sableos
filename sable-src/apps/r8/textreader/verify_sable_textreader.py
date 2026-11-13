@@ -181,6 +181,8 @@ def verify_manifest(manifest_path: pathlib.Path) -> None:
         "org.sableos.textreader.privacy.PrivacyScreenService",
         "org.sableos.textreader.privacy.PrivacyScreenTile",
         "org.sableos.textreader.privacy.PrivacyScreenSwitchReceiver",
+        "org.sableos.textreader.privacy.PrivacyScreenSettingsActivity",
+        "android.service.quicksettings.action.QS_TILE_PREFERENCES",
         'android:name="org.sableos.permission.PRIVACY_SCREEN"',
         "android.permission.BIND_QUICK_SETTINGS_TILE",
         "android.permission.BIND_ACCESSIBILITY_SERVICE",

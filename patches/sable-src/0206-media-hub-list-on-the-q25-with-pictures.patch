@@ -1,0 +1,3208 @@
+diff --git a/sable-src/apps/r8/android/config/detekt.yml b/sable-src/apps/r8/android/config/detekt.yml
+index 519bda3..5697a1b 100644
+--- a/sable-src/apps/r8/android/config/detekt.yml
++++ b/sable-src/apps/r8/android/config/detekt.yml
+@@ -46,6 +46,8 @@ naming:
+       - "**/media/FmScreen.kt"
+       - "**/media/MediaScreen.kt"
+       - "**/media/MediaResponsive.kt"
++      - "**/media/MediaHubChrome.kt"
++      - "**/media/MediaArtwork.kt"
+       - "**/media/MediaC2Screens.kt"
+       - "**/media/PodcastScreen.kt"
+       - "**/hub/ui/HubScreen.kt"
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmController.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmController.kt
+index 9f4ee00..84d1138 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmController.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmController.kt
+@@ -173,7 +173,23 @@ internal class FmPresetStore(
+         preferences.edit().putStringSet(KEY_FAVORITES, favorites.map(Int::toString).toSet()).apply()
+     }
+ 
++    /** The names the person gave stations, kept as "frequency=name" entries. */
++    fun loadNames(): Map<Int, String> =
++        preferences
++            .getStringSet(KEY_NAMES, emptySet())
++            .orEmpty()
++            .mapNotNull { entry ->
++                val station = entry.substringBefore('=').toIntOrNull() ?: return@mapNotNull null
++                val name = entry.substringAfter('=', "").trim()
++                (station to name).takeIf { FmBand.isValid(station) && name.isNotEmpty() }
++            }.toMap()
++
++    fun saveNames(names: Map<Int, String>) {
++        preferences.edit().putStringSet(KEY_NAMES, names.map { (station, name) -> "$station=$name" }.toSet()).apply()
++    }
++
+     private companion object {
+         const val KEY_FAVORITES = "fm_favorites"
++        const val KEY_NAMES = "fm_names"
+     }
+ }
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt
+index b5a0458..07dab88 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmModel.kt
+@@ -140,6 +140,22 @@ internal object FmPresets {
+         number: Int,
+     ): Int? = ordered(favorites).getOrNull(number - 1)?.takeIf { number in 1..MAX_KEYED }
+ 
++    /**
++     * A name the person gives a station (owner, 2026-11-13); a blank name removes it. Names are
++     * trimmed to [MAX_NAME] characters.
++     */
++    fun rename(
++        names: Map<Int, String>,
++        station: Int,
++        name: String,
++    ): Map<Int, String> {
++        if (!FmBand.isValid(station)) return names
++        val clean = name.trim().replace(Regex("\\s+"), " ").take(MAX_NAME)
++        return if (clean.isEmpty()) names - station else names + (station to clean)
++    }
++
++    const val MAX_NAME = 40
++
+     /** Starred stations first, then the stations the last scan found, each once. */
+     fun list(
+         favorites: Set<Int>,
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmScreen.kt
+index f5384d8..f3f36d5 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmScreen.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/FmScreen.kt
+@@ -9,14 +9,22 @@ import androidx.compose.foundation.layout.aspectRatio
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.text.KeyboardActions
++import androidx.compose.foundation.text.KeyboardOptions
+ import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedTextField
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
+ import androidx.compose.runtime.staticCompositionLocalOf
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.input.ImeAction
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+ import org.sableos.design.SableActionButton
+@@ -32,6 +40,7 @@ internal val LocalFmAvailable = staticCompositionLocalOf { false }
+ private val FM_KEY_HINT: String get() = t("space_on_off_j_k")
+ private const val FM_ACTION_TUNE = "tune"
+ private const val FM_ACTION_STAR = "star"
++private const val FM_ACTION_NAME = "name"
+ private val FmBadgeSize = 48.dp
+ 
+ internal data class FmScreenActions(
+@@ -43,6 +52,8 @@ internal data class FmScreenActions(
+     val onToggleSpeaker: () -> Unit,
+     val onToggleMute: () -> Unit,
+     val onScan: () -> Unit,
++    /** Gives a station a name of the person's own; a blank name removes it. */
++    val onRename: (Int, String) -> Unit = { _, _ -> },
+ )
+ 
+ /** Sable Media FM mode (SABLE_MEDIA_FM_RADIO_MODE): tuner, presets and the stations the last scan found. */
+@@ -51,6 +62,7 @@ internal fun FmScreen(
+     fm: FmUiState,
+     favorites: Set<Int>,
+     actions: FmScreenActions,
++    names: Map<Int, String> = emptyMap(),
+ ) {
+     Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg)) {
+         if (!fm.available) {
+@@ -60,23 +72,26 @@ internal fun FmScreen(
+                 supportingText = t("this_device_has_no_fm"),
+             )
+         } else {
+-            FmTunerPanel(fm)
++            FmTunerPanel(fm, names)
+             FmControls(fm, favorites, actions)
+             Text(
+                 text = FM_KEY_HINT,
+                 style = MaterialTheme.typography.bodySmall,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+-            FmStationList(fm, favorites, actions)
++            FmStationList(fm, favorites, names, actions)
+         }
+     }
+ }
+ 
+ @Composable
+-private fun FmTunerPanel(fm: FmUiState) {
++private fun FmTunerPanel(
++    fm: FmUiState,
++    names: Map<Int, String>,
++) {
+     val tuned = FmBand.isValid(fm.station)
+     val name =
+-        fm.programService.ifBlank {
++        names[fm.station] ?: fm.programService.ifBlank {
+             fm.stations
+                 .firstOrNull { it.station == fm.station }
+                 ?.name
+@@ -156,6 +171,8 @@ private fun FmControls(
+ /** A row of the station list. */
+ private data class FmStationItem(
+     val station: FmStation,
++    /** The person's own name for the station, or blank. */
++    val customName: String,
+     val presetNumber: Int?,
+     val starred: Boolean,
+     val current: Boolean,
+@@ -165,6 +182,7 @@ private data class FmStationItem(
+ private fun FmStationList(
+     fm: FmUiState,
+     favorites: Set<Int>,
++    names: Map<Int, String>,
+     actions: FmScreenActions,
+ ) {
+     val list = FmPresets.list(favorites, fm.stations)
+@@ -183,12 +201,14 @@ private fun FmStationList(
+             item =
+                 FmStationItem(
+                     station = station,
++                    customName = names[station.station].orEmpty(),
+                     presetNumber = if (index in 0 until FmPresets.MAX_KEYED) index + 1 else null,
+                     starred = station.station in favorites,
+                     current = station.station == fm.station && fm.powered,
+                 ),
+             onTune = { actions.onTune(station.station) },
+             onToggleFavorite = { actions.onToggleFavorite(station.station) },
++            onRename = { name -> actions.onRename(station.station, name) },
+         )
+     }
+ }
+@@ -198,7 +218,9 @@ private fun FmStationRow(
+     item: FmStationItem,
+     onTune: () -> Unit,
+     onToggleFavorite: () -> Unit,
++    onRename: (String) -> Unit,
+ ) {
++    var naming by remember(item.station.station) { mutableStateOf(false) }
+     val station = item.station
+     val starred = item.starred
+     val current = item.current
+@@ -209,46 +231,98 @@ private fun FmStationRow(
+         color = MaterialTheme.colorScheme.surface,
+         border = BorderStroke(1.dp, if (current) MediaAccent else MaterialTheme.colorScheme.outlineVariant),
+     ) {
+-        SableDenseRow(
+-            title = "${FmBand.format(station.station)} MHz" + if (starred) " ★" else "",
+-            subtitle =
+-                listOfNotNull(
+-                    station.name.takeIf { it.isNotBlank() },
+-                    presetNumber?.let { "Alt+$it" },
+-                    "playing".takeIf { current },
+-                ).joinToString(" · ").ifBlank { null },
+-            onClick = onTune,
+-            modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
+-            actions =
+-                listOf(
+-                    SableRowAction(FM_ACTION_TUNE, t("tune"), primary = true),
+-                    SableRowAction(FM_ACTION_STAR, if (starred) t("remove_star") else t("star_2")),
+-                ),
+-            onAction = { action ->
+-                when (action.id) {
+-                    FM_ACTION_TUNE -> onTune()
+-                    FM_ACTION_STAR -> onToggleFavorite()
+-                }
+-            },
+-            leading = {
+-                Surface(
+-                    modifier = Modifier.width(FmBadgeSize),
+-                    shape = MaterialTheme.shapes.small,
+-                    color = MediaAccent.copy(alpha = 0.18f),
+-                    border = BorderStroke(1.dp, MediaAccent.copy(alpha = 0.7f)),
+-                ) {
+-                    Box(modifier = Modifier.aspectRatio(1f), contentAlignment = Alignment.Center) {
+-                        Text(
+-                            text = "FM",
+-                            style = MaterialTheme.typography.labelLarge,
+-                            color = MediaAccent,
+-                            fontWeight = FontWeight.Bold,
+-                            maxLines = 1,
+-                            overflow = TextOverflow.Clip,
+-                        )
++        Column {
++            SableDenseRow(
++                title = item.customName.ifBlank { "${FmBand.format(station.station)} MHz" } + if (starred) " ★" else "",
++                subtitle =
++                    listOfNotNull(
++                        "${FmBand.format(station.station)} MHz".takeIf { item.customName.isNotBlank() },
++                        station.name.takeIf { it.isNotBlank() && it != item.customName },
++                        presetNumber?.let { "Alt+$it" },
++                        "playing".takeIf { current },
++                    ).joinToString(" · ").ifBlank { null },
++                onClick = onTune,
++                modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
++                actions =
++                    listOf(
++                        SableRowAction(FM_ACTION_TUNE, t("tune"), primary = true),
++                        SableRowAction(FM_ACTION_STAR, if (starred) t("remove_star") else t("star_2")),
++                    ) + listOfNotNull(SableRowAction(FM_ACTION_NAME, t("fm_name")).takeIf { starred }),
++                onAction = { action ->
++                    when (action.id) {
++                        FM_ACTION_TUNE -> onTune()
++                        FM_ACTION_STAR -> onToggleFavorite()
++                        FM_ACTION_NAME -> naming = true
+                     }
+-                }
+-            },
++                },
++                leading = { FmFrequencyTile(station.station) },
++            )
++            if (naming) {
++                FmNameEditor(
++                    initial = item.customName.ifBlank { station.name },
++                    onSave = { name ->
++                        naming = false
++                        onRename(name)
++                    },
++                    onCancel = { naming = false },
++                )
++            }
++        }
++    }
++}
++
++/** Names a starred station (owner, 2026-11-13): a name of the person's own, or blank to clear it. */
++@Composable
++private fun FmNameEditor(
++    initial: String,
++    onSave: (String) -> Unit,
++    onCancel: () -> Unit,
++) {
++    var name by remember { mutableStateOf(initial) }
++    Column(
++        modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
++        verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
++    ) {
++        OutlinedTextField(
++            value = name,
++            onValueChange = { name = it.take(FmPresets.MAX_NAME) },
++            label = { Text(t("station_name")) },
++            singleLine = true,
++            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
++            keyboardActions = KeyboardActions(onDone = { onSave(name) }),
++            modifier = Modifier.fillMaxWidth(),
+         )
++        Row(horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm)) {
++            SableActionButton(text = t("hub_save"), modifier = Modifier.weight(1f), onClick = { onSave(name) })
++            SableActionButton(
++                text = t("fm_clear_name"),
++                primary = false,
++                modifier = Modifier.weight(1f),
++                onClick = { onSave("") },
++            )
++            SableActionButton(text = t("cancel"), primary = false, modifier = Modifier.weight(1f), onClick = onCancel)
++        }
++    }
++}
++
++/** The row's tile: the station's frequency, as FM stations have no picture. */
++@Composable
++private fun FmFrequencyTile(station: Int) {
++    Surface(
++        modifier = Modifier.width(FmBadgeSize),
++        shape = MaterialTheme.shapes.small,
++        color = MediaAccent.copy(alpha = 0.18f),
++        border = BorderStroke(1.dp, MediaAccent.copy(alpha = 0.7f)),
++    ) {
++        Box(modifier = Modifier.aspectRatio(1f), contentAlignment = Alignment.Center) {
++            Text(
++                text = FmBand.format(station),
++                style = MaterialTheme.typography.labelLarge,
++                color = MediaAccent,
++                fontWeight = FontWeight.Bold,
++                maxLines = 1,
++                overflow = TextOverflow.Clip,
++            )
++        }
+     }
+ }
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt
+index 4055de9..b680710 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApp.kt
+@@ -284,6 +284,7 @@ private fun mediaScreenActions(
+                 onStep = host.fm::step,
+                 onTune = host.fm::tune,
+                 onToggleFavorite = controllers.fm::toggleFavorite,
++                onRename = controllers.fm::rename,
+                 onToggleSpeaker = host.fm::toggleSpeaker,
+                 onToggleMute = host.fm::toggleMute,
+                 onScan = host.fm::toggleScan,
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
+index 214db35..ddc887c 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppControllers.kt
+@@ -590,6 +590,17 @@ internal class MediaFmController(
+         }
+     }
+ 
++    fun rename(
++        station: Int,
++        name: String,
++    ) {
++        val updated = FmPresets.rename(state.fmNames, station, name)
++        if (updated != state.fmNames) {
++            state.fmNames = updated
++            repositories.fmPresets.saveNames(updated)
++        }
++    }
++
+     fun run(action: FmKeyAction): Boolean {
+         val fm = host.fm
+         when (action) {
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt
+index 719bf9f..e59efbc 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaAppState.kt
+@@ -26,6 +26,7 @@ internal class MediaAppState(
+ 
+     var stations by mutableStateOf(repositories.stations.loadStations())
+     var fmFavorites by mutableStateOf(repositories.fmPresets.load())
++    var fmNames by mutableStateOf(repositories.fmPresets.loadNames())
+     var favoriteAudioUris by mutableStateOf(repositories.libraryState.loadFavoriteAudioUris())
+     var favoriteStationIds by mutableStateOf(repositories.libraryState.loadFavoriteStationIds())
+     var playlists by mutableStateOf(emptyList<MediaPlaylist>())
+@@ -153,6 +154,7 @@ internal class MediaAppState(
+             searchFocusToken = searchFocusToken,
+             fm = fm,
+             fmFavorites = fmFavorites,
++            fmNames = fmNames,
+         )
+ }
+ 
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaArtwork.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaArtwork.kt
+new file mode 100644
+index 0000000..4d0d52c
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaArtwork.kt
+@@ -0,0 +1,330 @@
++package org.sableos.media
++
++import android.content.Context
++import android.graphics.Bitmap
++import android.graphics.BitmapFactory
++import android.media.MediaMetadataRetriever
++import android.net.Uri
++import android.util.LruCache
++import androidx.compose.foundation.Image
++import androidx.compose.foundation.background
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.produceState
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.graphics.ImageBitmap
++import androidx.compose.ui.graphics.asImageBitmap
++import androidx.compose.ui.layout.ContentScale
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.unit.Dp
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.withContext
++import java.io.File
++import java.net.HttpURLConnection
++import java.net.URI
++import java.security.MessageDigest
++import java.util.Locale
++
++/**
++ * Pictures for Media's rows and Now playing (owner, 2026-11-13): a song's cover art embedded in the file
++ * (MP3, FLAC, M4A, OGG), a podcast's cover from its feed, and a radio station's logo from the station's
++ * own website. Remote pictures are fetched once over HTTPS, kept in the app's cache and read from there
++ * afterwards; nothing is asked of any directory service. Whatever has no picture keeps its colour tile.
++ */
++internal sealed interface ArtworkSource {
++    val key: String
++
++    /** A local audio file's embedded picture. */
++    data class Embedded(
++        val uri: String,
++    ) : ArtworkSource {
++        override val key: String get() = "file:$uri"
++    }
++
++    /** A podcast's cover, named by its feed. */
++    data class Remote(
++        val url: String,
++    ) : ArtworkSource {
++        override val key: String get() = "web:$url"
++    }
++
++    /** A station's logo, looked up on the website behind its stream address. */
++    data class StationLogo(
++        val streamUrl: String,
++    ) : ArtworkSource {
++        override val key: String get() = "station:$streamUrl"
++    }
++}
++
++internal object MediaArtwork {
++    private val memory = LruCache<String, Bitmap>(MEMORY_ENTRIES)
++    private val missing = mutableSetOf<String>()
++
++    fun cached(
++        source: ArtworkSource,
++        sizePx: Int,
++    ): Bitmap? = memory.get(memoryKey(source, sizePx))
++
++    /** Loads off the main thread; null when the source has no picture. */
++    suspend fun load(
++        context: Context,
++        source: ArtworkSource,
++        sizePx: Int,
++    ): Bitmap? =
++        withContext(Dispatchers.IO) {
++            val memoryKey = memoryKey(source, sizePx)
++            memory.get(memoryKey)?.let { return@withContext it }
++            if (synchronized(missing) { memoryKey in missing }) return@withContext null
++            val bitmap =
++                runCatching {
++                    when (source) {
++                        is ArtworkSource.Embedded -> {
++                            embedded(context, source.uri)
++                        }
++
++                        is ArtworkSource.Remote -> {
++                            remote(context, source.key, listOf(source.url))
++                        }
++
++                        is ArtworkSource.StationLogo -> {
++                            remote(
++                                context,
++                                source.key,
++                                stationLogoCandidates(source.streamUrl),
++                            )
++                        }
++                    }
++                }.getOrNull()?.let { decodeSampled(it, sizePx) }
++            if (bitmap == null) {
++                synchronized(missing) { missing += memoryKey }
++            } else {
++                memory.put(memoryKey, bitmap)
++            }
++            bitmap
++        }
++
++    private fun memoryKey(
++        source: ArtworkSource,
++        sizePx: Int,
++    ) = "${source.key}@${sizeBucket(sizePx)}"
++
++    private fun sizeBucket(sizePx: Int) = if (sizePx <= SMALL_BUCKET_PX) SMALL_BUCKET_PX else LARGE_BUCKET_PX
++
++    private fun embedded(
++        context: Context,
++        uri: String,
++    ): ByteArray? {
++        val retriever = MediaMetadataRetriever()
++        return try {
++            retriever.setDataSource(context, Uri.parse(uri))
++            retriever.embeddedPicture
++        } finally {
++            retriever.release()
++        }
++    }
++
++    /**
++     * The first candidate that answers with a picture, from the disk cache when it was fetched before.
++     * A source with no picture is remembered for a week, so a station without a logo is not asked again
++     * each time the list is drawn.
++     */
++    private fun remote(
++        context: Context,
++        key: String,
++        candidates: List<String>,
++    ): ByteArray? {
++        val dir = File(context.cacheDir, CACHE_DIR).apply { mkdirs() }
++        val name = cacheName(key)
++        val file = File(dir, name)
++        val none = File(dir, "$name.none")
++        val recentlyMissing = none.isFile && System.currentTimeMillis() - none.lastModified() < RETRY_AFTER_MS
++        return when {
++            file.isFile -> {
++                file.readBytes()
++            }
++
++            recentlyMissing -> {
++                null
++            }
++
++            else -> {
++                val bytes = candidates.asSequence().mapNotNull(::download).firstOrNull()
++                if (bytes == null) {
++                    none.writeText("")
++                } else {
++                    file.writeBytes(bytes)
++                    none.delete()
++                }
++                bytes
++            }
++        }
++    }
++
++    private fun download(url: String): ByteArray? {
++        if (!PodcastUrlPolicy.isHttpsUrl(url)) return null
++        val connection = URI(url).toURL().openConnection() as HttpURLConnection
++        return try {
++            connection.connectTimeout = TIMEOUT_MS
++            connection.readTimeout = TIMEOUT_MS
++            connection.instanceFollowRedirects = true
++            connection.setRequestProperty("Accept", "image/*")
++            val isImage = connection.contentType?.lowercase(Locale.US)?.startsWith("image/") != false
++            if (connection.responseCode == HttpURLConnection.HTTP_OK && isImage) {
++                connection.inputStream.use(::readLimited)?.takeIf(::isPicture)
++            } else {
++                null
++            }
++        } catch (_: java.io.IOException) {
++            null
++        } finally {
++            connection.disconnect()
++        }
++    }
++
++    /** The whole stream, or null when it is larger than [MAX_IMAGE_BYTES]. */
++    private fun readLimited(input: java.io.InputStream): ByteArray? {
++        val out = java.io.ByteArrayOutputStream()
++        val buffer = ByteArray(BUFFER_BYTES)
++        var read = input.read(buffer)
++        while (read >= 0 && out.size() <= MAX_IMAGE_BYTES) {
++            out.write(buffer, 0, read)
++            read = input.read(buffer)
++        }
++        return out.toByteArray().takeIf { it.size <= MAX_IMAGE_BYTES }
++    }
++
++    private fun isPicture(bytes: ByteArray): Boolean {
++        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
++        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
++        return bounds.outWidth >= MIN_LOGO_PX && bounds.outHeight >= MIN_LOGO_PX
++    }
++
++    private fun decodeSampled(
++        bytes: ByteArray,
++        sizePx: Int,
++    ): Bitmap? {
++        val target = sizeBucket(sizePx)
++        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
++        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
++        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
++        var sample = 1
++        while (minOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= target) sample *= 2
++        return BitmapFactory.decodeByteArray(
++            bytes,
++            0,
++            bytes.size,
++            BitmapFactory.Options().apply { inSampleSize = sample },
++        )
++    }
++
++    private fun cacheName(value: String): String =
++        MessageDigest
++            .getInstance("SHA-256")
++            .digest(value.toByteArray())
++            .joinToString("") { "%02x".format(it) }
++
++    private const val MEMORY_ENTRIES = 96
++    private const val SMALL_BUCKET_PX = 96
++    private const val LARGE_BUCKET_PX = 320
++    private const val CACHE_DIR = "artwork"
++    private const val RETRY_AFTER_MS = 7L * 24 * 60 * 60 * 1_000
++    private const val TIMEOUT_MS = 8_000
++    private const val BUFFER_BYTES = 8_192
++    private const val MAX_IMAGE_BYTES = 2 * 1_024 * 1_024
++    private const val MIN_LOGO_PX = 16
++}
++
++/**
++ * Where a station's logo may be: the touch icon, then the favicon, on the stream's host and then on its
++ * parent domains (stream.example.com, then example.com). At most [MAX_LOGO_REQUESTS] addresses, all HTTPS,
++ * all on the station's own domain.
++ */
++internal fun stationLogoCandidates(streamUrl: String): List<String> {
++    val host =
++        runCatching { URI(streamUrl.trim()).host }
++            .getOrNull()
++            ?.lowercase(Locale.US)
++            ?.takeIf { it.contains('.') && !it.all { c -> c.isDigit() || c == '.' } }
++            ?: return emptyList()
++    val labels = host.split('.')
++    val hosts =
++        (0 until labels.size - 1)
++            .map { labels.drop(it).joinToString(".") }
++            // Stop before a bare public suffix such as co.uk or com.au.
++            .filter { candidate -> candidate.split('.').let { it.size > 2 || it[0].length > PUBLIC_SUFFIX_MAX_LABEL } }
++            .distinct()
++            .take(MAX_LOGO_HOSTS)
++    return hosts
++        .flatMap { listOf("https://$it/apple-touch-icon.png", "https://$it/favicon.ico") }
++        .take(MAX_LOGO_REQUESTS)
++}
++
++private const val MAX_LOGO_HOSTS = 2
++private const val MAX_LOGO_REQUESTS = 4
++private const val PUBLIC_SUFFIX_MAX_LABEL = 3
++
++/**
++ * A square picture for a row or Now playing: the source's picture when it has one, else a colour tile
++ * with the name's first letter.
++ */
++@Composable
++internal fun MediaArt(
++    source: ArtworkSource?,
++    name: String,
++    fallback: Color,
++    size: Dp,
++    modifier: Modifier = Modifier,
++) {
++    val context = LocalContext.current
++    val sizePx = (size.value * context.resources.displayMetrics.density).toInt()
++    val bitmap: ImageBitmap? by produceState(
++        initialValue = source?.let { MediaArtwork.cached(it, sizePx)?.asImageBitmap() },
++        key1 = source?.key,
++        key2 = sizePx,
++    ) {
++        if (value == null &&
++            source != null
++        ) {
++            value = MediaArtwork.load(context.applicationContext, source, sizePx)?.asImageBitmap()
++        }
++    }
++    val shape = RoundedCornerShape(if (size < LARGE_ART) 3.dp else 6.dp)
++    val picture = bitmap
++    if (picture != null) {
++        Image(
++            bitmap = picture,
++            contentDescription = null,
++            contentScale = ContentScale.Crop,
++            modifier = modifier.size(size).clip(shape),
++        )
++    } else {
++        Box(
++            modifier = modifier.size(size).clip(shape).background(fallback),
++            contentAlignment = Alignment.Center,
++        ) {
++            val letter = name.trim().firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()
++            if (letter != null && size >= LETTER_MIN) {
++                Text(
++                    text = letter.toString(),
++                    color = Color.White,
++                    fontWeight = FontWeight.SemiBold,
++                    fontSize = (size.value * LETTER_SCALE).sp,
++                )
++            }
++        }
++    }
++}
++
++private val LARGE_ART = 48.dp
++private val LETTER_MIN = 20.dp
++private const val LETTER_SCALE = 0.5f
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaHubChrome.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaHubChrome.kt
+new file mode 100644
+index 0000000..477b8aa
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaHubChrome.kt
+@@ -0,0 +1,407 @@
++package org.sableos.media
++
++import androidx.compose.foundation.background
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.horizontalScroll
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.layout.fillMaxHeight
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.material3.DropdownMenu
++import androidx.compose.material3.DropdownMenuItem
++import androidx.compose.material3.HorizontalDivider
++import androidx.compose.material3.Icon
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.graphics.SolidColor
++import androidx.compose.ui.graphics.StrokeCap
++import androidx.compose.ui.graphics.StrokeJoin
++import androidx.compose.ui.graphics.vector.ImageVector
++import androidx.compose.ui.graphics.vector.PathParser
++import androidx.compose.ui.semantics.Role
++import androidx.compose.ui.semantics.contentDescription
++import androidx.compose.ui.semantics.selected
++import androidx.compose.ui.semantics.semantics
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
++import org.sableos.design.sableFocusRing
++import org.sableos.media.MediaText.t
++
++/*
++ * Sable Media on the Q25, design A "Hub list" (owner pick, 2026-11-13): Hub's type and layout on the
++ * square screen. One 40 dp title bar (22 sp) with search and a menu, one 30 dp strip of 13 sp tabs for
++ * the library and the sources, Hub's rows, a 40 dp line for what is playing, and a 50 dp action bar with
++ * 11 sp labels. Taller windows keep the hero header layout.
++ */
++
++/** The Q25 tab strip: the library views, then the sources. */
++internal enum class MediaHubTab(
++    private val labelKey: String,
++    val destination: MediaDestination,
++    val pivot: LibraryPivot? = null,
++) {
++    Songs("hub_tab_songs", MediaDestination.Collection, LibraryPivot.Songs),
++    Artists("hub_tab_artists", MediaDestination.Collection, LibraryPivot.Artists),
++    Albums("hub_tab_albums", MediaDestination.Collection, LibraryPivot.Albums),
++    Playlists("hub_tab_playlists", MediaDestination.Collection, LibraryPivot.Playlists),
++    Favorites("hub_tab_favourites", MediaDestination.Collection, LibraryPivot.Favorites),
++    Podcasts("hub_tab_podcasts", MediaDestination.Podcasts),
++    Radio("hub_tab_radio", MediaDestination.Radio),
++    Fm("hub_tab_fm", MediaDestination.Fm),
++    ;
++
++    val label: String get() = t(labelKey)
++
++    companion object {
++        fun of(
++            destination: MediaDestination,
++            pivot: LibraryPivot,
++        ): MediaHubTab? =
++            when (destination) {
++                MediaDestination.Collection -> entries.first { it.pivot == pivot }
++                MediaDestination.Podcasts -> Podcasts
++                MediaDestination.Radio, MediaDestination.ManageStations, MediaDestination.AddStation -> Radio
++                MediaDestination.Fm -> Fm
++                else -> null
++            }
++    }
++}
++
++/** Destinations drawn inside the Q25 Hub frame; the rest (settings, editors, queue) keep their own. */
++internal fun MediaDestination.inHubFrame(): Boolean =
++    this == MediaDestination.Collection ||
++        this == MediaDestination.Podcasts ||
++        this == MediaDestination.Radio ||
++        this == MediaDestination.Fm ||
++        this == MediaDestination.NowPlaying
++
++internal class MediaMenuItem(
++    val label: String,
++    val onClick: () -> Unit,
++)
++
++/** The 40 dp title bar: an optional back mark, the title, a note, search and the ⋮ menu. */
++@Composable
++internal fun MediaHubTitleBar(
++    title: String,
++    onBack: (() -> Unit)? = null,
++    note: String? = null,
++    onSearch: (() -> Unit)? = null,
++    menu: List<MediaMenuItem> = emptyList(),
++) {
++    val muted = MaterialTheme.colorScheme.onSurfaceVariant
++    Row(
++        modifier =
++            Modifier
++                .fillMaxWidth()
++                .height(HubTitleHeight)
++                .padding(start = if (onBack == null) 12.dp else 0.dp, end = 4.dp),
++        verticalAlignment = Alignment.CenterVertically,
++    ) {
++        if (onBack != null) {
++            MediaIconButton(MediaIcons.Back, t("hub_back"), MaterialTheme.colorScheme.onSurface, onBack)
++        }
++        Text(
++            text = title,
++            modifier = Modifier.weight(1f),
++            fontSize = 22.sp,
++            lineHeight = 26.sp,
++            fontWeight = FontWeight.SemiBold,
++            maxLines = 1,
++            overflow = TextOverflow.Ellipsis,
++        )
++        if (note != null) {
++            Text(note, fontSize = 11.sp, color = muted, modifier = Modifier.padding(horizontal = 8.dp), maxLines = 1)
++        }
++        if (onSearch != null) MediaIconButton(MediaIcons.Search, t("hub_search"), muted, onSearch)
++        if (menu.isNotEmpty()) {
++            Box {
++                var open by remember { mutableStateOf(false) }
++                MediaIconButton(MediaIcons.More, t("hub_more"), muted) { open = true }
++                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
++                    menu.forEach { item ->
++                        DropdownMenuItem(
++                            text = { Text(item.label) },
++                            onClick = {
++                                open = false
++                                item.onClick()
++                            },
++                        )
++                    }
++                }
++            }
++        }
++    }
++}
++
++/** The 30 dp tab strip, scrolling sideways when the tabs do not fit; the chosen tab is underlined. */
++@Composable
++internal fun MediaHubTabs(
++    selected: MediaHubTab?,
++    songCount: Int,
++    newEpisodes: Int,
++    fmAvailable: Boolean,
++    onSelect: (MediaHubTab) -> Unit,
++) {
++    val accent = MaterialTheme.colorScheme.primary
++    val muted = MaterialTheme.colorScheme.onSurfaceVariant
++    Column(Modifier.fillMaxWidth()) {
++        Row(
++            modifier =
++                Modifier
++                    .fillMaxWidth()
++                    .height(HubTabsHeight)
++                    .horizontalScroll(rememberScrollState())
++                    .padding(horizontal = 6.dp),
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
++            MediaHubTab.entries
++                .filter { it != MediaHubTab.Fm || fmAvailable }
++                .forEach { tab ->
++                    val chosen = tab == selected
++                    val count =
++                        when (tab) {
++                            MediaHubTab.Songs -> songCount.takeIf { it > 0 }
++                            MediaHubTab.Podcasts -> newEpisodes.takeIf { it > 0 }
++                            else -> null
++                        }
++                    Column(
++                        modifier =
++                            Modifier
++                                .fillMaxHeight()
++                                .sableFocusRing()
++                                .clickable(role = Role.Tab) { onSelect(tab) }
++                                .semantics { this.selected = chosen }
++                                .padding(horizontal = 6.dp),
++                        verticalArrangement = Arrangement.Center,
++                        horizontalAlignment = Alignment.CenterHorizontally,
++                    ) {
++                        Spacer(Modifier.height(2.dp))
++                        Text(
++                            text = if (count == null) tab.label else "${tab.label} $count",
++                            fontSize = 13.sp,
++                            lineHeight = 16.sp,
++                            fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
++                            color = if (chosen) accent else muted,
++                            maxLines = 1,
++                            modifier = Modifier.padding(vertical = 4.dp),
++                        )
++                        Box(
++                            Modifier
++                                .height(2.dp)
++                                .width(TabUnderlineWidth)
++                                .background(if (chosen) accent else Color.Transparent),
++                        )
++                    }
++                }
++        }
++        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
++    }
++}
++
++/** The 40 dp line for what is playing; opens Now playing. */
++@Composable
++internal fun MediaNowLine(
++    playback: PlaybackUiState,
++    art: ArtworkSource?,
++    onOpen: () -> Unit,
++) {
++    if (playback.currentIndex < 0 && !playback.isPlaying) return
++    val accent = MaterialTheme.colorScheme.primary
++    Column(Modifier.fillMaxWidth()) {
++        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
++        Row(
++            modifier =
++                Modifier
++                    .fillMaxWidth()
++                    .height(HubNowLineHeight)
++                    .background(MaterialTheme.colorScheme.surfaceVariant)
++                    .sableFocusRing()
++                    .clickable(onClick = onOpen)
++                    .padding(horizontal = 12.dp),
++            verticalAlignment = Alignment.CenterVertically,
++            horizontalArrangement = Arrangement.spacedBy(10.dp),
++        ) {
++            MediaArt(source = art, name = playback.title, fallback = accent, size = 24.dp)
++            Text(
++                text = listOf(playback.title, playback.source).filter { it.isNotBlank() }.joinToString(" · "),
++                modifier = Modifier.weight(1f),
++                fontSize = 14.sp,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++            Text(
++                text = if (playback.isPlaying) t("hub_playing") else t("hub_paused"),
++                fontSize = 11.sp,
++                color = if (playback.isPlaying) accent else MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        }
++    }
++}
++
++internal class MediaBarAction(
++    val icon: ImageVector,
++    val label: String,
++    val onClick: () -> Unit,
++    val enabled: Boolean = true,
++    val active: Boolean = false,
++    /** When set, the button opens this menu instead of [onClick]. */
++    val menu: List<MediaMenuItem> = emptyList(),
++)
++
++/** The 50 dp action bar: up to five buttons, each a 20 dp icon over an 11 sp label. */
++@Composable
++internal fun MediaActionBar(actions: List<MediaBarAction>) {
++    if (actions.isEmpty()) return
++    Column(Modifier.fillMaxWidth()) {
++        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
++        Row(
++            modifier =
++                Modifier
++                    .fillMaxWidth()
++                    .height(HubActionBarHeight)
++                    .background(MaterialTheme.colorScheme.surface),
++        ) {
++            actions.forEach { action ->
++                Box(Modifier.weight(1f).fillMaxHeight()) { MediaActionButton(action) }
++            }
++        }
++    }
++}
++
++@Composable
++private fun MediaActionButton(action: MediaBarAction) {
++    var open by remember { mutableStateOf(false) }
++    val color =
++        when {
++            !action.enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = DISABLED_ALPHA)
++            action.active -> MaterialTheme.colorScheme.primary
++            else -> MaterialTheme.colorScheme.onSurface
++        }
++    Column(
++        modifier =
++            Modifier
++                .fillMaxSize()
++                .sableFocusRing()
++                .clickable(enabled = action.enabled, role = Role.Button) {
++                    if (action.menu.isEmpty()) action.onClick() else open = true
++                },
++        horizontalAlignment = Alignment.CenterHorizontally,
++        verticalArrangement = Arrangement.Center,
++    ) {
++        Icon(action.icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
++        Text(
++            text = action.label,
++            fontSize = 11.sp,
++            lineHeight = 13.sp,
++            color = color,
++            maxLines = 1,
++            overflow = TextOverflow.Ellipsis,
++            modifier = Modifier.padding(top = 2.dp, start = 2.dp, end = 2.dp),
++        )
++    }
++    if (action.menu.isNotEmpty()) {
++        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
++            action.menu.forEach { item ->
++                DropdownMenuItem(
++                    text = { Text(item.label) },
++                    onClick = {
++                        open = false
++                        item.onClick()
++                    },
++                )
++            }
++        }
++    }
++}
++
++private const val DISABLED_ALPHA = 0.5f
++
++@Composable
++internal fun MediaIconButton(
++    icon: ImageVector,
++    description: String,
++    tint: Color,
++    onClick: () -> Unit,
++) {
++    Box(
++        modifier =
++            Modifier
++                .size(40.dp)
++                .sableFocusRing()
++                .clickable(role = Role.Button, onClick = onClick)
++                .semantics { contentDescription = description },
++        contentAlignment = Alignment.Center,
++    ) {
++        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
++    }
++}
++
++/** Line icons on a 24-unit grid, drawn the way Hub's are (2-unit strokes, or filled shapes). */
++internal object MediaIcons {
++    val Play = filled("M7 5v14l12-7z")
++    val Pause = filled("M6 5h4v14H6zM14 5h4v14h-4z")
++    val Next = filled("M16 5h2v14h-2zM4 5v14l11-7z")
++    val Previous = filled("M6 5h2v14H6zM20 5v14L9 12z")
++    val Stop = filled("M6 6h12v12H6z")
++    val More =
++        filled(
++            "M12 3a2 2 0 1 0 0 4a2 2 0 1 0 0-4zM12 10a2 2 0 1 0 0 4a2 2 0 1 0 0-4zM12 17a2 2 0 1 0 0 4a2 2 0 1 0 0-4z",
++        )
++    val UpNext = stroked("M4 6h16M4 12h10M4 18h7M17 15v6M14 18h6")
++    val Add = stroked("M12 5v14M5 12h14")
++    val Settings =
++        stroked(
++            "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3" +
++                "M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1",
++        )
++    val Refresh = stroked("M20 12a8 8 0 1 1-3-6.2M20 4v5h-5")
++    val Search = stroked("M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4-4")
++    val Back = stroked("M15 5l-7 7 7 7")
++    val Manage = stroked("M4 6h16M4 12h16M4 18h16")
++    val Shuffle = stroked("M4 7h11l-3-3M20 17H9l3 3")
++
++    private fun filled(path: String) = icon(path, stroke = false)
++
++    private fun stroked(path: String) = icon(path, stroke = true)
++
++    private fun icon(
++        path: String,
++        stroke: Boolean,
++    ): ImageVector =
++        ImageVector
++            .Builder(defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f)
++            .addPath(
++                pathData = PathParser().parsePathString(path).toNodes(),
++                fill = if (stroke) null else SolidColor(Color.Black),
++                stroke = if (stroke) SolidColor(Color.Black) else null,
++                strokeLineWidth = if (stroke) 2f else 0f,
++                strokeLineCap = StrokeCap.Round,
++                strokeLineJoin = StrokeJoin.Round,
++            ).build()
++}
++
++private val HubTitleHeight = 40.dp
++private val HubTabsHeight = 30.dp
++private val HubNowLineHeight = 40.dp
++private val HubActionBarHeight = 50.dp
++private val TabUnderlineWidth = 24.dp
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
+index d67bcd1..7f2f64e 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaScreen.kt
+@@ -2,6 +2,7 @@ package org.sableos.media
+ 
+ import androidx.compose.foundation.BorderStroke
+ import androidx.compose.foundation.background
++import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+@@ -10,11 +11,13 @@ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.aspectRatio
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
+ import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.imePadding
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.safeDrawingPadding
+ import androidx.compose.foundation.layout.width
++import androidx.compose.foundation.layout.widthIn
+ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.lazy.LazyListScope
+ import androidx.compose.foundation.lazy.rememberLazyListState
+@@ -40,6 +43,7 @@ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
++import androidx.compose.ui.unit.sp
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+@@ -55,6 +59,7 @@ import org.sableos.design.SableRefreshableSurface
+ import org.sableos.design.SableResponsive
+ import org.sableos.design.SableRowAction
+ import org.sableos.design.SableSpacing
++import org.sableos.design.isSableShortWindow
+ import org.sableos.design.sableFocusRing
+ import org.sableos.design.sableLetterJump
+ import org.sableos.media.MediaText.t
+@@ -70,6 +75,21 @@ private val MediaControlSize = 48.dp
+ private val MediaPrimaryTouchHeight = 54.dp
+ private val MediaCompactPadding = 12.dp
+ private const val COLLECTION_FIXED_ITEM_COUNT = 6
++
++/**
++ * Header rows above the collection's items: the full header, or on the Q25 only the import row of an
++ * empty collection.
++ */
++private fun collectionFixedItemCount(
++    short: Boolean,
++    empty: Boolean,
++): Int =
++    when {
++        !short -> COLLECTION_FIXED_ITEM_COUNT
++        empty -> 1
++        else -> 0
++    }
++
+ private const val ROW_ACTION_PLAY = "play"
+ private const val ROW_ACTION_FAVORITE = "favorite"
+ private const val ROW_ACTION_EDIT = "edit"
+@@ -135,6 +155,8 @@ internal data class MediaScreenState(
+     /** FM mode (FmScreen); the FM destination is offered only when [FmUiState.available]. */
+     val fm: FmUiState = FmUiState(),
+     val fmFavorites: Set<Int> = emptySet(),
++    /** Names the person gave FM stations, by frequency. */
++    val fmNames: Map<Int, String> = emptyMap(),
+ )
+ 
+ internal data class MediaScreenActions(
+@@ -265,304 +287,317 @@ internal fun MediaScreen(
+         modifier = Modifier.fillMaxSize(),
+         color = MaterialTheme.colorScheme.background,
+     ) {
+-        when (destination) {
+-            MediaDestination.Collection -> {
+-                CollectionScreen(
+-                    pivot = libraryPivot,
+-                    localItems = localItems,
+-                    localLibraryLoading = localLibraryLoading,
+-                    playback = playback,
+-                    favoriteAudioUris = favoriteAudioUris,
+-                    playlists = playlists,
+-                    showMiniPlayer = settings.showMiniPlayer,
+-                    onDestinationChange = onDestinationChange,
+-                    onPivotChange = onLibraryPivotChange,
+-                    onAddLocalAudio = onAddLocalAudio,
+-                    onAddLocalFolder = onAddLocalFolder,
+-                    onPlay = onPlayLocal,
+-                    onToggleFavorite = onToggleFavoriteAudio,
+-                    onCreatePlaylist = onCreatePlaylist,
+-                    onEditPlaylist = onEditPlaylist,
+-                    onDeletePlaylist = onDeletePlaylist,
+-                    onPlayPlaylist = onPlayPlaylist,
+-                    onOpenNowPlaying = {
+-                        onDestinationChange(MediaDestination.NowPlaying)
+-                    },
+-                    onPlayPause = onPlayPause,
+-                    onPrevious = onPrevious,
+-                    onNext = onNext,
+-                    search =
+-                        CollectionSearch(
+-                            query = state.searchQuery,
+-                            onOpen = actions.onOpenSearch,
+-                            onQueryChange = actions.onSearchQueryChange,
+-                            onClose = actions.onCloseSearch,
+-                            focusToken = state.searchFocusToken,
+-                        ),
+-                    onTrackFocusChange = actions.onTrackFocusChange,
+-                )
+-            }
++        MediaHubFrame(
++            enabled = isSableShortWindow() && destination.inHubFrame(),
++            state = state,
++            actions = actions,
++        ) {
++            when (destination) {
++                MediaDestination.Collection -> {
++                    CollectionScreen(
++                        pivot = libraryPivot,
++                        localItems = localItems,
++                        localLibraryLoading = localLibraryLoading,
++                        playback = playback,
++                        favoriteAudioUris = favoriteAudioUris,
++                        playlists = playlists,
++                        showMiniPlayer = settings.showMiniPlayer,
++                        onDestinationChange = onDestinationChange,
++                        onPivotChange = onLibraryPivotChange,
++                        onAddLocalAudio = onAddLocalAudio,
++                        onAddLocalFolder = onAddLocalFolder,
++                        onPlay = onPlayLocal,
++                        onToggleFavorite = onToggleFavoriteAudio,
++                        onCreatePlaylist = onCreatePlaylist,
++                        onEditPlaylist = onEditPlaylist,
++                        onDeletePlaylist = onDeletePlaylist,
++                        onPlayPlaylist = onPlayPlaylist,
++                        onOpenNowPlaying = {
++                            onDestinationChange(MediaDestination.NowPlaying)
++                        },
++                        onPlayPause = onPlayPause,
++                        onPrevious = onPrevious,
++                        onNext = onNext,
++                        search =
++                            CollectionSearch(
++                                query = state.searchQuery,
++                                onOpen = actions.onOpenSearch,
++                                onQueryChange = actions.onSearchQueryChange,
++                                onClose = actions.onCloseSearch,
++                                focusToken = state.searchFocusToken,
++                            ),
++                        onTrackFocusChange = actions.onTrackFocusChange,
++                    )
++                }
+ 
+-            MediaDestination.Queue -> {
+-                QueueScreen(
+-                    playback = playback,
+-                    onPlayIndex = onPlayQueueIndex,
+-                    onMove = onMoveQueueItem,
+-                    onRemove = onRemoveQueueItem,
+-                    onPlayPause = onPlayPause,
+-                    onPrevious = onPrevious,
+-                    onNext = onNext,
+-                    onStop = onStop,
+-                    onBack = {
+-                        onDestinationChange(MediaDestination.NowPlaying)
+-                    },
+-                )
+-            }
++                MediaDestination.Queue -> {
++                    QueueScreen(
++                        playback = playback,
++                        onPlayIndex = onPlayQueueIndex,
++                        onMove = onMoveQueueItem,
++                        onRemove = onRemoveQueueItem,
++                        onPlayPause = onPlayPause,
++                        onPrevious = onPrevious,
++                        onNext = onNext,
++                        onStop = onStop,
++                        onBack = {
++                            onDestinationChange(MediaDestination.NowPlaying)
++                        },
++                    )
++                }
+ 
+-            MediaDestination.PlaylistEditor -> {
+-                PlaylistEditorScreen(
+-                    editingPlaylist = editingPlaylist,
+-                    playlistName = playlistName,
+-                    selectedUris = selectedPlaylistUris,
+-                    localItems = localItems,
+-                    onNameChange = onPlaylistNameChange,
+-                    onToggleItem = onTogglePlaylistItem,
+-                    onSave = onSavePlaylist,
+-                    onCancel = onCancelPlaylistEditor,
+-                )
+-            }
++                MediaDestination.PlaylistEditor -> {
++                    PlaylistEditorScreen(
++                        editingPlaylist = editingPlaylist,
++                        playlistName = playlistName,
++                        selectedUris = selectedPlaylistUris,
++                        localItems = localItems,
++                        onNameChange = onPlaylistNameChange,
++                        onToggleItem = onTogglePlaylistItem,
++                        onSave = onSavePlaylist,
++                        onCancel = onCancelPlaylistEditor,
++                    )
++                }
+ 
+-            MediaDestination.Podcasts,
+-            MediaDestination.NowPlaying,
+-            MediaDestination.Radio,
+-            MediaDestination.Fm,
+-            MediaDestination.ManageStations,
+-            MediaDestination.AddStation,
+-            MediaDestination.Settings,
+-            -> {
+-                val scrollableContent: @Composable () -> Unit = {
+-                    Column(
+-                        modifier =
+-                            Modifier
+-                                .fillMaxSize()
+-                                .safeDrawingPadding()
+-                                .imePadding(),
+-                    ) {
+-                        LazyColumn(
++                MediaDestination.Podcasts,
++                MediaDestination.NowPlaying,
++                MediaDestination.Radio,
++                MediaDestination.Fm,
++                MediaDestination.ManageStations,
++                MediaDestination.AddStation,
++                MediaDestination.Settings,
++                -> {
++                    val scrollableContent: @Composable () -> Unit = {
++                        val short = isSableShortWindow()
++                        Column(
+                             modifier =
+                                 Modifier
+-                                    .fillMaxWidth()
+-                                    .weight(1f),
+-                            contentPadding =
+-                                PaddingValues(
+-                                    horizontal = SableSpacing.ScreenHorizontal,
+-                                    vertical = SableSpacing.ScreenVertical,
+-                                ),
+-                            verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
++                                    .fillMaxSize()
++                                    .safeDrawingPadding()
++                                    .imePadding(),
+                         ) {
+-                            item {
+-                                SableHeroHeader(
+-                                    eyebrow = t("sable_media"),
+-                                    title =
+-                                        when (destination) {
+-                                            MediaDestination.Podcasts -> "podcasts"
+-
+-                                            MediaDestination.Fm -> t("fm_radio")
+-
+-                                            MediaDestination.Radio,
+-                                            MediaDestination.ManageStations,
+-                                            MediaDestination.AddStation,
+-                                            -> "radio"
+-
+-                                            MediaDestination.NowPlaying,
+-                                            MediaDestination.Queue,
+-                                            -> "playing"
+-
+-                                            MediaDestination.Settings -> "settings"
+-
+-                                            MediaDestination.Collection,
+-                                            MediaDestination.PlaylistEditor,
+-                                            -> "media"
+-                                        },
+-                                    subtitle = t("music_podcasts_and_radio_in"),
+-                                )
+-                            }
+-
+-                            item {
+-                                PrimaryPivot(
+-                                    destination = destination,
+-                                    onSelect = onDestinationChange,
+-                                )
+-                            }
+-
+-                            if (
+-                                destination == MediaDestination.NowPlaying ||
+-                                destination == MediaDestination.Podcasts ||
+-                                destination == MediaDestination.Radio
++                            LazyColumn(
++                                modifier =
++                                    Modifier
++                                        .fillMaxWidth()
++                                        .weight(1f),
++                                contentPadding = mediaListPadding(short),
++                                verticalArrangement =
++                                    Arrangement.spacedBy(
++                                        if (short) SableSpacing.Sm else SableSpacing.Lg,
++                                    ),
+                             ) {
+-                                item {
+-                                    MediaUtilityBar(
+-                                        queueCount = playback.queue.size,
+-                                        upNextCount = playback.upNextCount(),
+-                                        onQueue = {
+-                                            onDestinationChange(MediaDestination.Queue)
+-                                        },
+-                                        onSettings = {
+-                                            onDestinationChange(MediaDestination.Settings)
+-                                        },
+-                                        onSearch = actions.onOpenSearch,
+-                                    )
+-                                }
+-                            }
+-
+-                            item {
+-                                when (destination) {
+-                                    MediaDestination.Collection,
+-                                    MediaDestination.Queue,
+-                                    MediaDestination.PlaylistEditor,
+-                                    -> {
+-                                        Unit
+-                                    }
+-
+-                                    MediaDestination.Podcasts -> {
+-                                        PodcastScreen(
+-                                            state =
+-                                                PodcastScreenState(
+-                                                    subscriptions = podcastSubscriptions,
+-                                                    savedEpisodeIds = savedPodcastEpisodeIds,
+-                                                    playedEpisodeIds = playedPodcastEpisodeIds,
+-                                                    feedUrl = podcastFeedUrl,
+-                                                    busy = podcastBusy,
+-                                                    message = podcastMessage,
+-                                                    playback = playback,
+-                                                    // Pinned by this screen instead of inside the list.
+-                                                    showMiniPlayer = false,
+-                                                ),
+-                                            actions =
+-                                                PodcastScreenActions(
+-                                                    onFeedUrlChange = onPodcastFeedUrlChange,
+-                                                    onAddFeed = onAddPodcastFeed,
+-                                                    onRemoveSubscription = onRemovePodcastSubscription,
+-                                                    onPlayEpisode = onPlayPodcastEpisode,
+-                                                    onQueueEpisode = onQueuePodcastEpisode,
+-                                                    onToggleSavedEpisode = onToggleSavedPodcastEpisode,
+-                                                    onOpenNowPlaying = {
+-                                                        onDestinationChange(MediaDestination.NowPlaying)
+-                                                    },
+-                                                ),
++                                if (!short) {
++                                    item {
++                                        SableHeroHeader(
++                                            eyebrow = t("sable_media"),
++                                            title =
++                                                when (destination) {
++                                                    MediaDestination.Podcasts -> "podcasts"
++
++                                                    MediaDestination.Fm -> t("fm_radio")
++
++                                                    MediaDestination.Radio,
++                                                    MediaDestination.ManageStations,
++                                                    MediaDestination.AddStation,
++                                                    -> "radio"
++
++                                                    MediaDestination.NowPlaying,
++                                                    MediaDestination.Queue,
++                                                    -> "playing"
++
++                                                    MediaDestination.Settings -> "settings"
++
++                                                    MediaDestination.Collection,
++                                                    MediaDestination.PlaylistEditor,
++                                                    -> "media"
++                                                },
++                                            subtitle = t("music_podcasts_and_radio_in"),
+                                         )
+                                     }
++                                }
+ 
+-                                    MediaDestination.NowPlaying -> {
+-                                        NowPlayingScreen(
+-                                            playback = playback,
+-                                            onPlayPause = onPlayPause,
+-                                            onPrevious = onPrevious,
+-                                            onNext = onNext,
+-                                            onStop = onStop,
+-                                            onSeek = onSeek,
++                                if (!short) {
++                                    item {
++                                        PrimaryPivot(
++                                            destination = destination,
++                                            onSelect = onDestinationChange,
+                                         )
+                                     }
++                                }
+ 
+-                                    MediaDestination.Radio -> {
+-                                        RadioScreen(
+-                                            stations = stations,
+-                                            favoriteStationIds = favoriteStationIds,
+-                                            showFavoritesOnly = showFavoriteStationsOnly,
+-                                            message = message,
+-                                            onPlay = onPlayStation,
+-                                            onToggleFavorite = onToggleFavoriteStation,
+-                                            onFavoritesOnlyChange = onRadioFavoritesOnlyChange,
+-                                            onManage = onManageStations,
+-                                            onAdd = onAddStation,
++                                if (!short && destination in UTILITY_BAR_DESTINATIONS) {
++                                    item {
++                                        MediaUtilityBar(
++                                            queueCount = playback.queue.size,
++                                            upNextCount = playback.upNextCount(),
++                                            onQueue = {
++                                                onDestinationChange(MediaDestination.Queue)
++                                            },
++                                            onSettings = {
++                                                onDestinationChange(MediaDestination.Settings)
++                                            },
++                                            onSearch = actions.onOpenSearch,
+                                         )
+                                     }
++                                }
++
++                                item {
++                                    when (destination) {
++                                        MediaDestination.Collection,
++                                        MediaDestination.Queue,
++                                        MediaDestination.PlaylistEditor,
++                                        -> {
++                                            Unit
++                                        }
+ 
+-                                    MediaDestination.Fm -> {
+-                                        actions.fm?.let { fmActions ->
+-                                            FmScreen(
+-                                                fm = state.fm,
+-                                                favorites = state.fmFavorites,
+-                                                actions = fmActions,
++                                        MediaDestination.Podcasts -> {
++                                            PodcastScreen(
++                                                state =
++                                                    PodcastScreenState(
++                                                        subscriptions = podcastSubscriptions,
++                                                        savedEpisodeIds = savedPodcastEpisodeIds,
++                                                        playedEpisodeIds = playedPodcastEpisodeIds,
++                                                        feedUrl = podcastFeedUrl,
++                                                        busy = podcastBusy,
++                                                        message = podcastMessage,
++                                                        playback = playback,
++                                                        // Pinned by this screen instead of inside the list.
++                                                        showMiniPlayer = false,
++                                                    ),
++                                                actions =
++                                                    PodcastScreenActions(
++                                                        onFeedUrlChange = onPodcastFeedUrlChange,
++                                                        onAddFeed = onAddPodcastFeed,
++                                                        onRemoveSubscription = onRemovePodcastSubscription,
++                                                        onPlayEpisode = onPlayPodcastEpisode,
++                                                        onQueueEpisode = onQueuePodcastEpisode,
++                                                        onToggleSavedEpisode = onToggleSavedPodcastEpisode,
++                                                        onOpenNowPlaying = {
++                                                            onDestinationChange(MediaDestination.NowPlaying)
++                                                        },
++                                                    ),
+                                             )
+                                         }
+-                                    }
+ 
+-                                    MediaDestination.ManageStations -> {
+-                                        ManageStationsScreen(
+-                                            stations = stations,
+-                                            editingStation = editingStation,
+-                                            stationName = stationName,
+-                                            stationUrl = stationUrl,
+-                                            message = message,
+-                                            onEdit = onEditStation,
+-                                            onDelete = onDeleteStation,
+-                                            onStationNameChange = onStationNameChange,
+-                                            onStationUrlChange = onStationUrlChange,
+-                                            onSave = onSaveEditedStation,
+-                                            onCancelEdit = onCancelStationFlow,
+-                                            onBack = {
+-                                                onDestinationChange(MediaDestination.Radio)
+-                                            },
+-                                        )
+-                                    }
++                                        MediaDestination.NowPlaying -> {
++                                            if (short) {
++                                                NowPlayingQ25(
++                                                    playback = playback,
++                                                    art = { uri -> artworkFor(uri, podcastSubscriptions, stations) },
++                                                    onSeek = onSeek,
++                                                    onPlayIndex = onPlayQueueIndex,
++                                                )
++                                            } else {
++                                                NowPlayingScreen(
++                                                    playback = playback,
++                                                    onPlayPause = onPlayPause,
++                                                    onPrevious = onPrevious,
++                                                    onNext = onNext,
++                                                    onStop = onStop,
++                                                    onSeek = onSeek,
++                                                )
++                                            }
++                                        }
+ 
+-                                    MediaDestination.AddStation -> {
+-                                        AddStationScreen(
+-                                            stationName = stationName,
+-                                            stationUrl = stationUrl,
+-                                            message = message,
+-                                            onStationNameChange = onStationNameChange,
+-                                            onStationUrlChange = onStationUrlChange,
+-                                            onSave = onSaveNewStation,
+-                                            onCancel = onCancelStationFlow,
+-                                        )
+-                                    }
++                                        MediaDestination.Radio -> {
++                                            RadioScreen(
++                                                stations = stations,
++                                                favoriteStationIds = favoriteStationIds,
++                                                showFavoritesOnly = showFavoriteStationsOnly,
++                                                message = message,
++                                                onPlay = onPlayStation,
++                                                onToggleFavorite = onToggleFavoriteStation,
++                                                onFavoritesOnlyChange = onRadioFavoritesOnlyChange,
++                                                onManage = onManageStations,
++                                                onAdd = onAddStation,
++                                            )
++                                        }
+ 
+-                                    MediaDestination.Settings -> {
+-                                        SettingsScreen(
+-                                            settings = settings,
+-                                            onSettingsChange = onSettingsChange,
+-                                            onBack = {
+-                                                onDestinationChange(MediaDestination.Collection)
+-                                            },
+-                                        )
++                                        MediaDestination.Fm -> {
++                                            actions.fm?.let { fmActions ->
++                                                FmScreen(
++                                                    fm = state.fm,
++                                                    favorites = state.fmFavorites,
++                                                    names = state.fmNames,
++                                                    actions = fmActions,
++                                                )
++                                            }
++                                        }
++
++                                        MediaDestination.ManageStations -> {
++                                            ManageStationsScreen(
++                                                stations = stations,
++                                                editingStation = editingStation,
++                                                stationName = stationName,
++                                                stationUrl = stationUrl,
++                                                message = message,
++                                                onEdit = onEditStation,
++                                                onDelete = onDeleteStation,
++                                                onStationNameChange = onStationNameChange,
++                                                onStationUrlChange = onStationUrlChange,
++                                                onSave = onSaveEditedStation,
++                                                onCancelEdit = onCancelStationFlow,
++                                                onBack = {
++                                                    onDestinationChange(MediaDestination.Radio)
++                                                },
++                                            )
++                                        }
++
++                                        MediaDestination.AddStation -> {
++                                            AddStationScreen(
++                                                stationName = stationName,
++                                                stationUrl = stationUrl,
++                                                message = message,
++                                                onStationNameChange = onStationNameChange,
++                                                onStationUrlChange = onStationUrlChange,
++                                                onSave = onSaveNewStation,
++                                                onCancel = onCancelStationFlow,
++                                            )
++                                        }
++
++                                        MediaDestination.Settings -> {
++                                            SettingsScreen(
++                                                settings = settings,
++                                                onSettingsChange = onSettingsChange,
++                                                onBack = {
++                                                    onDestinationChange(MediaDestination.Collection)
++                                                },
++                                            )
++                                        }
+                                     }
+                                 }
+                             }
+-                        }
+ 
+-                        if (
+-                            destination == MediaDestination.Podcasts ||
+-                            destination == MediaDestination.Radio
+-                        ) {
+-                            // Pinned below the list: current state visible on open.
+-                            MediaPinnedMiniPlayer(
+-                                playback = playback,
+-                                enabled = settings.showMiniPlayer,
+-                                onPlayPause = onPlayPause,
+-                                onPrevious = onPrevious,
+-                                onNext = onNext,
+-                                onOpenNowPlaying = { onDestinationChange(MediaDestination.NowPlaying) },
+-                                onOpenQueue = { onDestinationChange(MediaDestination.Queue) },
+-                            )
++                            if (!short && destination in PINNED_PLAYER_DESTINATIONS) {
++                                // Pinned below the list: current state visible on open.
++                                MediaPinnedMiniPlayer(
++                                    playback = playback,
++                                    enabled = settings.showMiniPlayer,
++                                    onPlayPause = onPlayPause,
++                                    onPrevious = onPrevious,
++                                    onNext = onNext,
++                                    onOpenNowPlaying = { onDestinationChange(MediaDestination.NowPlaying) },
++                                    onOpenQueue = { onDestinationChange(MediaDestination.Queue) },
++                                )
++                            }
+                         }
+                     }
+-                }
+ 
+-                if (destination == MediaDestination.Podcasts) {
+-                    SableRefreshableSurface(
+-                        isRefreshing = podcastRefreshing,
+-                        onRefresh = {
+-                            if (!podcastBusy && podcastSubscriptions.isNotEmpty()) {
+-                                onRefreshPodcasts()
+-                            }
+-                        },
+-                    ) {
++                    if (destination == MediaDestination.Podcasts) {
++                        SableRefreshableSurface(
++                            isRefreshing = podcastRefreshing,
++                            onRefresh = {
++                                if (!podcastBusy && podcastSubscriptions.isNotEmpty()) {
++                                    onRefreshPodcasts()
++                                }
++                            },
++                        ) {
++                            scrollableContent()
++                        }
++                    } else {
+                         scrollableContent()
+                     }
+-                } else {
+-                    scrollableContent()
+                 }
+             }
+         }
+@@ -683,6 +718,14 @@ private fun MediaUtilityBar(
+     }
+ }
+ 
++/** List padding: Sable's screen padding, or the Q25's tighter one in a short window. */
++private fun mediaListPadding(short: Boolean): PaddingValues =
++    if (short) {
++        PaddingValues(horizontal = SableSpacing.ScreenHorizontalShort, vertical = SableSpacing.ScreenVerticalShort)
++    } else {
++        PaddingValues(horizontal = SableSpacing.ScreenHorizontal, vertical = SableSpacing.ScreenVertical)
++    }
++
+ @Composable
+ private fun CollectionScreen(
+     pivot: LibraryPivot,
+@@ -739,6 +782,8 @@ private fun CollectionScreen(
+             onPlay = onPlayPlaylist,
+         )
+ 
++    val short = isSableShortWindow()
++    val fixedCount = collectionFixedItemCount(short, !localLibraryLoading && localItems.isEmpty())
+     val alphabet = collectionIndex?.sections?.get(pivot) ?: EMPTY_ALPHABET
+     val railPadding = if (alphabet.isEmpty) 0.dp else SableAlphabetRailWidth
+     val listState = rememberLazyListState()
+@@ -747,7 +792,7 @@ private fun CollectionScreen(
+ 
+     fun jumpTo(itemIndex: Int) {
+         scope.launch {
+-            listState.animateScrollToItem(COLLECTION_FIXED_ITEM_COUNT + itemIndex)
++            listState.animateScrollToItem(fixedCount + itemIndex)
+         }
+     }
+ 
+@@ -768,7 +813,7 @@ private fun CollectionScreen(
+                 onClose = search.onClose,
+                 focusToken = search.focusToken,
+                 onSubmit = {
+-                    scope.launch { listState.scrollToItem(COLLECTION_FIXED_ITEM_COUNT) }
++                    scope.launch { listState.scrollToItem(fixedCount) }
+                 },
+             )
+         }
+@@ -786,14 +831,12 @@ private fun CollectionScreen(
+                         .sableLetterJump(alphabet, enabled = !alphabet.isEmpty, onJump = ::jumpTo)
+                         .padding(end = railPadding),
+                 state = listState,
+-                contentPadding =
+-                    PaddingValues(
+-                        horizontal = SableSpacing.ScreenHorizontal,
+-                        vertical = SableSpacing.ScreenVertical,
+-                    ),
+-                verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
++                contentPadding = mediaListPadding(short),
++                verticalArrangement = Arrangement.spacedBy(if (short) SableSpacing.Sm else SableSpacing.Lg),
+             ) {
+                 collectionHeader(
++                    short = short,
++                    empty = !localLibraryLoading && localItems.isEmpty(),
+                     pivot = pivot,
+                     playback = playback,
+                     onOpenSearch = search.onOpen,
+@@ -808,7 +851,7 @@ private fun CollectionScreen(
+             if (!alphabet.isEmpty) {
+                 SableAlphabetRail(
+                     index = alphabet,
+-                    activeKey = alphabet.sectionKeyAt((firstVisible - COLLECTION_FIXED_ITEM_COUNT).coerceAtLeast(0)),
++                    activeKey = alphabet.sectionKeyAt((firstVisible - fixedCount).coerceAtLeast(0)),
+                     onJump = ::jumpTo,
+                     modifier = Modifier.align(Alignment.CenterEnd),
+                 )
+@@ -818,7 +861,7 @@ private fun CollectionScreen(
+         // Pinned: the current playback state is visible on open, never at the end of the list.
+         MediaPinnedMiniPlayer(
+             playback = playback,
+-            enabled = showMiniPlayer,
++            enabled = showMiniPlayer && !short,
+             onPlayPause = onPlayPause,
+             onPrevious = onPrevious,
+             onNext = onNext,
+@@ -909,6 +952,8 @@ private fun collectionResultCount(
+ 
+ /** The fixed header rows; their count is [COLLECTION_FIXED_ITEM_COUNT]. */
+ private fun LazyListScope.collectionHeader(
++    short: Boolean,
++    empty: Boolean,
+     pivot: LibraryPivot,
+     playback: PlaybackUiState,
+     onOpenSearch: () -> Unit,
+@@ -917,6 +962,20 @@ private fun LazyListScope.collectionHeader(
+     onAddLocalAudio: () -> Unit,
+     onAddLocalFolder: () -> Unit,
+ ) {
++    if (short) {
++        // The Q25 (design A, owner 2026-11-13): the Hub frame around this list holds the title bar,
++        // the tabs and the action bar, so the songs start right under the tabs. The import buttons
++        // show only while the collection is empty; otherwise Add in the action bar adds audio.
++        if (empty) {
++            item {
++                CollectionImportButtons(
++                    onAddLocalAudio = onAddLocalAudio,
++                    onAddLocalFolder = onAddLocalFolder,
++                )
++            }
++        }
++        return
++    }
+     item {
+         SableHeroHeader(
+             eyebrow = t("sable_media"),
+@@ -1319,9 +1378,12 @@ private fun LocalTrackRow(
+                 }
+             },
+             leading = {
+-                ArtworkTile(
+-                    accent = accent,
+-                    modifier = Modifier.width(46.dp),
++                // The song's own cover art when the file carries one (owner, 2026-11-13).
++                MediaArt(
++                    source = ArtworkSource.Embedded(item.uri),
++                    name = item.title,
++                    fallback = accent,
++                    size = if (isSableShortWindow()) MediaRowArtShort else 46.dp,
+                 )
+             },
+         )
+@@ -1594,23 +1656,27 @@ private fun RadioScreen(
+     onManage: () -> Unit,
+     onAdd: () -> Unit,
+ ) {
++    val short = isSableShortWindow()
+     Column(
+-        verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
++        verticalArrangement = Arrangement.spacedBy(if (short) SableSpacing.Sm else SableSpacing.Lg),
+     ) {
+-        Row(
+-            modifier = Modifier.fillMaxWidth(),
+-            verticalAlignment = Alignment.CenterVertically,
+-        ) {
+-            Text(
+-                text = t("internet_radio"),
+-                modifier = Modifier.weight(1f),
+-                style = MaterialTheme.typography.headlineLarge,
+-            )
+-            SableActionButton(
+-                text = t("manage"),
+-                primary = false,
+-                onClick = onManage,
+-            )
++        // On the Q25 the Radio tab names the view and Manage is in the action bar.
++        if (!short) {
++            Row(
++                modifier = Modifier.fillMaxWidth(),
++                verticalAlignment = Alignment.CenterVertically,
++            ) {
++                Text(
++                    text = t("internet_radio"),
++                    modifier = Modifier.weight(1f),
++                    style = MaterialTheme.typography.headlineLarge,
++                )
++                SableActionButton(
++                    text = t("manage"),
++                    primary = false,
++                    onClick = onManage,
++                )
++            }
+         }
+ 
+         Row(
+@@ -1740,23 +1806,13 @@ private fun RadioStationRow(
+                 }
+             },
+             leading = {
+-                Surface(
+-                    modifier = Modifier.width(MediaControlSize),
+-                    shape = MaterialTheme.shapes.small,
+-                    color = MediaAccent.copy(alpha = 0.18f),
+-                    border = BorderStroke(1.dp, MediaAccent.copy(alpha = 0.7f)),
+-                ) {
+-                    Box(
+-                        modifier = Modifier.aspectRatio(1f),
+-                        contentAlignment = Alignment.Center,
+-                    ) {
+-                        Text(
+-                            text = "LIVE",
+-                            style = MaterialTheme.typography.labelLarge,
+-                            color = MediaAccent,
+-                        )
+-                    }
+-                }
++                // The station's logo from its own website, else its first letter (owner, 2026-11-13).
++                MediaArt(
++                    source = ArtworkSource.StationLogo(station.url),
++                    name = station.name,
++                    fallback = MediaAccent,
++                    size = if (isSableShortWindow()) MediaRowArtShort else MediaControlSize,
++                )
+             },
+         )
+     }
+@@ -2149,3 +2205,320 @@ private fun formatDuration(valueMs: Long): String {
+     val seconds = totalSeconds % SECONDS_PER_MINUTE
+     return "$minutes:${seconds.toString().padStart(2, '0')}"
+ }
++
++/** Row pictures on the Q25: big enough to tell covers apart in a 52 dp Hub row. */
++private val MediaRowArtShort = 36.dp
++
++private val UTILITY_BAR_DESTINATIONS =
++    setOf(MediaDestination.NowPlaying, MediaDestination.Podcasts, MediaDestination.Radio)
++
++private val PINNED_PLAYER_DESTINATIONS = setOf(MediaDestination.Podcasts, MediaDestination.Radio)
++
++/** The picture for what plays at [uri]: a file's cover, a podcast's cover or a station's logo. */
++internal fun artworkFor(
++    uri: String,
++    podcasts: List<PodcastSubscription>,
++    stations: List<RadioStation>,
++): ArtworkSource? =
++    when {
++        uri.isBlank() -> {
++            null
++        }
++
++        uri.startsWith("content:") || uri.startsWith("file:") -> {
++            ArtworkSource.Embedded(uri)
++        }
++
++        else -> {
++            podcasts
++                .firstOrNull { show -> show.imageUrl.isNotBlank() && show.episodes.any { it.mediaUrl == uri } }
++                ?.let { ArtworkSource.Remote(it.imageUrl) }
++                ?: stations.firstOrNull { it.url == uri }?.let { ArtworkSource.StationLogo(it.url) }
++        }
++    }
++
++/** Episodes from the last week not played yet: the count on the Podcasts tab. */
++private fun newEpisodeCount(state: MediaScreenState): Int {
++    val since = System.currentTimeMillis() - NEW_EPISODE_WINDOW_MS
++    return state.podcastSubscriptions.sumOf { show ->
++        show.episodes.count { it.publishedAt >= since && it.id !in state.playedPodcastEpisodeIds }
++    }
++}
++
++private const val NEW_EPISODE_WINDOW_MS = 7L * 24 * 60 * 60 * 1_000
++
++/**
++ * Design A on the Q25 (owner pick, 2026-11-13): the Hub frame around Music, Podcasts, Radio, FM and
++ * Now playing. Title bar and tabs on top (Now playing has a back mark instead of tabs), what is playing
++ * in one line, and the view's actions in the bar at the bottom. Off, it draws only [content].
++ */
++@Composable
++private fun MediaHubFrame(
++    enabled: Boolean,
++    state: MediaScreenState,
++    actions: MediaScreenActions,
++    content: @Composable () -> Unit,
++) {
++    if (!enabled) {
++        content()
++        return
++    }
++    val destination = state.destination
++    val playback = state.playback
++    val go = actions.onDestinationChange
++    val current = playback.queue.getOrNull(playback.currentIndex)
++    val nowArt = artworkFor(current?.uri.orEmpty(), state.podcastSubscriptions, state.stations)
++    val menu =
++        listOfNotNull(
++            MediaMenuItem(t("now_playing")) { go(MediaDestination.NowPlaying) }
++                .takeIf { destination != MediaDestination.NowPlaying },
++            MediaMenuItem(t("up_next_2")) { go(MediaDestination.Queue) }.takeIf { playback.queue.isNotEmpty() },
++            MediaMenuItem(t("hub_settings")) { go(MediaDestination.Settings) },
++        )
++    Column(Modifier.fillMaxSize()) {
++        if (destination == MediaDestination.NowPlaying) {
++            MediaHubTitleBar(
++                title = t("now_playing"),
++                onBack = { go(MediaDestination.Collection) },
++                note =
++                    if (playback.currentIndex >= 0 && playback.queue.size > 1) {
++                        t("of", playback.currentIndex + 1, playback.queue.size)
++                    } else {
++                        null
++                    },
++                menu = menu,
++            )
++        } else {
++            MediaHubTitleBar(
++                title = t("hub_title"),
++                onSearch =
++                    {
++                        go(MediaDestination.Collection)
++                        actions.onOpenSearch()
++                    },
++                menu = menu,
++            )
++            MediaHubTabs(
++                selected = MediaHubTab.of(destination, state.libraryPivot),
++                songCount = state.localItems.size,
++                newEpisodes = newEpisodeCount(state),
++                fmAvailable = LocalFmAvailable.current,
++                onSelect = { tab ->
++                    tab.pivot?.let(actions.onLibraryPivotChange)
++                    go(tab.destination)
++                },
++            )
++        }
++        Box(
++            Modifier
++                .weight(1f)
++                .fillMaxWidth(),
++        ) {
++            content()
++        }
++        if (destination != MediaDestination.NowPlaying && destination != MediaDestination.Fm) {
++            MediaNowLine(playback = playback, art = nowArt) { go(MediaDestination.NowPlaying) }
++        }
++        MediaActionBar(hubActions(state, actions))
++    }
++}
++
++/** The action bar of each view in the Q25 frame (design A). */
++private fun hubActions(
++    state: MediaScreenState,
++    actions: MediaScreenActions,
++): List<MediaBarAction> {
++    val playback = state.playback
++    val go = actions.onDestinationChange
++    val playPause =
++        MediaBarAction(
++            icon = if (playback.isPlaying) MediaIcons.Pause else MediaIcons.Play,
++            label = if (playback.isPlaying) t("pause") else t("play"),
++            onClick = actions.onPlayPause,
++            enabled = playback.queue.isNotEmpty() || playback.isPlaying,
++            active = playback.isPlaying,
++        )
++    val next = MediaBarAction(MediaIcons.Next, t("next"), actions.onNext, enabled = playback.hasNext)
++    val upNext =
++        MediaBarAction(
++            MediaIcons.UpNext,
++            t("up_next_2"),
++            { go(MediaDestination.Queue) },
++            enabled = playback.queue.isNotEmpty(),
++        )
++    val settings = MediaBarAction(MediaIcons.Settings, t("hub_settings"), { go(MediaDestination.Settings) })
++    return when (state.destination) {
++        MediaDestination.Collection -> {
++            listOf(
++                playPause,
++                next,
++                upNext,
++                MediaBarAction(
++                    icon = MediaIcons.Add,
++                    label = t("hub_add"),
++                    onClick = {},
++                    menu =
++                        listOf(
++                            MediaMenuItem(t("add_audio_files"), actions.onAddLocalAudio),
++                            MediaMenuItem(t("import_folder"), actions.onAddLocalFolder),
++                        ),
++                ),
++                settings,
++            )
++        }
++
++        MediaDestination.NowPlaying -> {
++            listOf(
++                MediaBarAction(MediaIcons.Previous, t("previous"), actions.onPrevious, enabled = playback.hasPrevious),
++                playPause,
++                next,
++                upNext,
++                MediaBarAction(MediaIcons.Stop, t("stop"), actions.onStop, enabled = playback.queue.isNotEmpty()),
++            )
++        }
++
++        MediaDestination.Podcasts -> {
++            listOf(
++                playPause,
++                next,
++                upNext,
++                MediaBarAction(
++                    MediaIcons.Refresh,
++                    t("hub_refresh"),
++                    actions.onRefreshPodcasts,
++                    enabled = state.podcastSubscriptions.isNotEmpty() && !state.podcastBusy,
++                ),
++            )
++        }
++
++        MediaDestination.Radio -> {
++            listOf(
++                playPause,
++                MediaBarAction(MediaIcons.Add, t("add_station_2"), actions.onAddStation),
++                MediaBarAction(
++                    MediaIcons.Manage,
++                    t("manage"),
++                    actions.onManageStations,
++                    enabled = state.stations.isNotEmpty(),
++                ),
++                settings,
++            )
++        }
++
++        else -> {
++            emptyList()
++        }
++    }
++}
++
++/**
++ * Now playing on the Q25 (design A): the picture beside the title, the seek bar, then what plays next.
++ * The transport is the action bar below.
++ */
++@Composable
++private fun NowPlayingQ25(
++    playback: PlaybackUiState,
++    art: (String) -> ArtworkSource?,
++    onSeek: (Long) -> Unit,
++    onPlayIndex: (Int) -> Unit,
++) {
++    val accent = MaterialTheme.colorScheme.primary
++    val muted = MaterialTheme.colorScheme.onSurfaceVariant
++    val current = playback.queue.getOrNull(playback.currentIndex)
++    Column(Modifier.fillMaxWidth()) {
++        Row(
++            modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 4.dp),
++            horizontalArrangement = Arrangement.spacedBy(14.dp),
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
++            MediaArt(
++                source = art(current?.uri.orEmpty()),
++                name = playback.title,
++                fallback = accentFor(playback.title.hashCode()),
++                size = NowPlayingArtShort,
++            )
++            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
++                Text(
++                    text = playback.title,
++                    fontSize = 20.sp,
++                    lineHeight = 24.sp,
++                    fontWeight = FontWeight.SemiBold,
++                    maxLines = 3,
++                    overflow = TextOverflow.Ellipsis,
++                )
++                Text(
++                    text = playback.source,
++                    fontSize = 14.sp,
++                    lineHeight = 18.sp,
++                    color = muted,
++                    maxLines = 2,
++                    overflow = TextOverflow.Ellipsis,
++                )
++            }
++        }
++        val duration = playback.durationMs.coerceAtLeast(0L)
++        Slider(
++            value = playback.positionMs.coerceIn(0L, duration).toFloat(),
++            onValueChange = { if (duration > 0L) onSeek(it.toLong()) },
++            valueRange = 0f..(duration.takeIf { it > 0L }?.toFloat() ?: 1f),
++            enabled = duration > 0L,
++            modifier = Modifier.fillMaxWidth().height(28.dp),
++        )
++        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
++            Text(formatDuration(playback.positionMs), fontSize = 11.sp, color = muted)
++            Text(
++                text = if (duration > 0L) formatDuration(duration) else "LIVE",
++                fontSize = 11.sp,
++                color = if (duration > 0L) muted else accent,
++            )
++        }
++        val upcoming = playback.queue.drop(playback.currentIndex + 1).take(NOW_PLAYING_UPCOMING_ROWS)
++        Text(
++            text = t("up_next_2"),
++            fontSize = 13.sp,
++            color = muted,
++            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
++        )
++        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
++        if (upcoming.isEmpty()) {
++            Text(
++                text = t("nothing_else_queued"),
++                fontSize = 14.sp,
++                color = muted,
++                modifier = Modifier.padding(vertical = 12.dp),
++            )
++        }
++        upcoming.forEach { item ->
++            Row(
++                modifier =
++                    Modifier
++                        .fillMaxWidth()
++                        .height(44.dp)
++                        .sableFocusRing()
++                        .clickable { onPlayIndex(item.index) },
++                horizontalArrangement = Arrangement.spacedBy(10.dp),
++                verticalAlignment = Alignment.CenterVertically,
++            ) {
++                MediaArt(art(item.uri), item.title, accentFor(item.title.hashCode()), 24.dp)
++                Text(
++                    text = item.title,
++                    modifier = Modifier.weight(1f),
++                    fontSize = 16.sp,
++                    maxLines = 1,
++                    overflow = TextOverflow.Ellipsis,
++                )
++                Text(
++                    item.source,
++                    fontSize = 11.sp,
++                    color = muted,
++                    maxLines = 1,
++                    modifier = Modifier.widthIn(max = 120.dp),
++                )
++            }
++            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
++        }
++    }
++}
++
++private val NowPlayingArtShort = 112.dp
++private const val NOW_PLAYING_UPCOMING_ROWS = 20
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaText.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaText.kt
+index 9993fcc..47d5360 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaText.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaText.kt
+@@ -246,6 +246,26 @@ object MediaText {
+             "station_saved_locally" to "Station saved locally.",
+             "choose_a_station_to_edit" to "Choose a station to edit.",
+             "station_updated" to "Station updated.",
++            "hub_title" to "media",
++            "hub_back" to "Back",
++            "hub_search" to "Search",
++            "hub_more" to "More options",
++            "hub_playing" to "playing",
++            "hub_paused" to "paused",
++            "hub_add" to "Add",
++            "hub_settings" to "Settings",
++            "hub_refresh" to "Refresh",
++            "hub_save" to "Save",
++            "hub_tab_songs" to "Songs",
++            "hub_tab_artists" to "Artists",
++            "hub_tab_albums" to "Albums",
++            "hub_tab_playlists" to "Playlists",
++            "hub_tab_favourites" to "Favourites",
++            "hub_tab_podcasts" to "Podcasts",
++            "hub_tab_radio" to "Radio",
++            "hub_tab_fm" to "FM",
++            "fm_name" to "Name",
++            "fm_clear_name" to "Clear name",
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackController.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackController.kt
+index 41207ed..a944be9 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackController.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackController.kt
+@@ -16,6 +16,8 @@ internal data class QueueItemUiState(
+     val index: Int,
+     val title: String,
+     val source: String,
++    /** The item's address (its media id), used to find its picture. */
++    val uri: String = "",
+ )
+ 
+ internal enum class PlaybackSkip {
+@@ -131,6 +133,7 @@ internal class PlaybackController(
+             MediaItem
+                 .Builder()
+                 .setUri(uri)
++                .setMediaId(uri)
+                 .setMediaMetadata(
+                     MediaMetadata
+                         .Builder()
+@@ -233,9 +236,11 @@ internal class PlaybackController(
+ 
+     private fun buildQueue(player: Player): List<QueueItemUiState> =
+         List(player.mediaItemCount) { index ->
+-            val metadata = player.getMediaItemAt(index).mediaMetadata
++            val mediaItem = player.getMediaItemAt(index)
++            val metadata = mediaItem.mediaMetadata
+             QueueItemUiState(
+                 index = index,
++                uri = mediaItem.mediaId,
+                 title =
+                     metadata.title
+                         ?.toString()
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackService.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackService.kt
+index 53f845f..b07fa1a 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackService.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PlaybackService.kt
+@@ -130,6 +130,7 @@ class PlaybackService : MediaSessionService() {
+             MediaItem
+                 .Builder()
+                 .setUri(uri)
++                .setMediaId(uri.toString())
+                 .setMediaMetadata(metadata)
+                 .build()
+ 
+@@ -196,6 +197,7 @@ class PlaybackService : MediaSessionService() {
+         return MediaItem
+             .Builder()
+             .setUri(Uri.parse(uri))
++            .setMediaId(uri)
+             .setMediaMetadata(metadata)
+             .build()
+     }
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastFeedParser.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastFeedParser.kt
+index 201f78b..1c58d86 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastFeedParser.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastFeedParser.kt
+@@ -120,6 +120,12 @@ internal object PodcastFeedParser {
+             state.inEpisode && tag == "link" -> {
+                 mediaUrlFromAtomLink(parser)?.let(state::setEpisodeMediaUrl)
+             }
++
++            // The show's cover: <itunes:image href="…"/>, or the RSS <image><url>…</url></image>.
++            !state.inEpisode && tag == "image" -> {
++                state.inImage = true
++                attribute(parser, "href")?.let(state::offerFeedImage)
++            }
+         }
+     }
+ 
+@@ -143,8 +149,11 @@ internal object PodcastFeedParser {
+         parser: XmlPullParser,
+         state: FeedParseState,
+     ) {
+-        if (localName(parser.name).isEpisodeContainer()) {
++        val tag = localName(parser.name)
++        if (tag.isEpisodeContainer()) {
+             state.finishEpisode()
++        } else if (tag == "image") {
++            state.inImage = false
+         }
+         state.currentTag = ""
+     }
+@@ -301,7 +310,15 @@ internal object PodcastFeedParser {
+         var currentTag: String = "",
+         var currentEpisode: EpisodeBuilder? = null,
+         val episodes: MutableList<PodcastEpisode> = mutableListOf(),
++        var inImage: Boolean = false,
++        var feedImage: String = "",
+     ) {
++        /** The first HTTPS cover the feed names wins. */
++        fun offerFeedImage(value: String) {
++            val candidate = value.trim()
++            if (feedImage.isBlank() && PodcastUrlPolicy.isHttpsUrl(candidate)) feedImage = candidate
++        }
++
+         fun beginEpisode() {
+             inEpisode = true
+             currentEpisode = EpisodeBuilder()
+@@ -346,6 +363,10 @@ internal object PodcastFeedParser {
+         }
+ 
+         fun appendFeedText(value: String) {
++            if (inImage) {
++                if (currentTag == "url") offerFeedImage(value)
++                return
++            }
+             when (currentTag) {
+                 "title" -> {
+                     if (feedTitle.isBlank()) {
+@@ -420,6 +441,7 @@ internal object PodcastFeedParser {
+                 description = cleanText(feedDescription),
+                 episodes = normalizedEpisodes,
+                 refreshedAt = System.currentTimeMillis(),
++                imageUrl = feedImage,
+             )
+         }
+     }
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastRepository.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastRepository.kt
+index d86e8ce..90f5da3 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastRepository.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastRepository.kt
+@@ -29,6 +29,8 @@ internal data class PodcastSubscription(
+     val description: String,
+     val episodes: List<PodcastEpisode>,
+     val refreshedAt: Long,
++    /** The feed's cover picture (itunes:image or the RSS image), HTTPS only; blank when it has none. */
++    val imageUrl: String = "",
+ )
+ 
+ internal data class PodcastRefreshResult(
+@@ -198,6 +200,7 @@ internal class PodcastRepository(
+             .put("author", subscription.author)
+             .put(JSON_DESCRIPTION, subscription.description)
+             .put("refreshedAt", subscription.refreshedAt)
++            .put("imageUrl", subscription.imageUrl)
+             .put(
+                 "episodes",
+                 JSONArray().apply {
+@@ -249,6 +252,7 @@ internal class PodcastRepository(
+                     description = json.optString(JSON_DESCRIPTION),
+                     episodes = episodes,
+                     refreshedAt = json.optLong("refreshedAt", 0L),
++                    imageUrl = json.optString("imageUrl").takeIf(PodcastUrlPolicy::isHttpsUrl).orEmpty(),
+                 )
+             }
+         }
+diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastScreen.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastScreen.kt
+index 46dbf4e..c63616f 100644
+--- a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastScreen.kt
++++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/PodcastScreen.kt
+@@ -32,6 +32,7 @@ import org.sableos.design.SableDenseRow
+ import org.sableos.design.SableDestination
+ import org.sableos.design.SableRowAction
+ import org.sableos.design.SableSpacing
++import org.sableos.design.isSableShortWindow
+ import org.sableos.media.MediaText.t
+ import java.text.DateFormat
+ import java.util.Date
+@@ -41,6 +42,7 @@ private const val PODCAST_SEED_MULTIPLIER = 31
+ private const val MILLIS_PER_MINUTE = 60_000L
+ private val PodcastHeroSize = 72.dp
+ private val PodcastArtworkSize = 58.dp
++private val PodcastShortArtworkSize = 40.dp
+ 
+ private enum class PodcastPivot(
+     val label: String,
+@@ -100,6 +102,8 @@ internal fun PodcastScreen(
+                 ).take(LATEST_EPISODE_LIMIT)
+         }
+ 
++    val covers = remember(subscriptions) { subscriptions.associate { it.id to it.imageUrl } }
++
+     val saved =
+         remember(subscriptions, savedEpisodeIds) {
+             subscriptions
+@@ -114,10 +118,13 @@ internal fun PodcastScreen(
+     Column(
+         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+     ) {
+-        PodcastStatusDeck(
+-            subscriptionCount = subscriptions.size,
+-            episodeCount = latest.size,
+-        )
++        // The Q25 frame already names the view and counts new episodes on its tab.
++        if (!isSableShortWindow()) {
++            PodcastStatusDeck(
++                subscriptionCount = subscriptions.size,
++                episodeCount = latest.size,
++            )
++        }
+ 
+         SableAdaptiveTopNav(
+             destinations = PODCAST_DESTINATIONS,
+@@ -140,6 +147,7 @@ internal fun PodcastScreen(
+                             episode = episode,
+                             saved = episode.id in savedEpisodeIds,
+                             played = episode.id in playedEpisodeIds,
++                            imageUrl = covers[episode.podcastId].orEmpty(),
+                             onPlay = { onPlayEpisode(episode) },
+                             onQueue = { onQueueEpisode(episode) },
+                             onToggleSaved = { onToggleSavedEpisode(episode) },
+@@ -178,6 +186,7 @@ internal fun PodcastScreen(
+                             episode = episode,
+                             saved = true,
+                             played = episode.id in playedEpisodeIds,
++                            imageUrl = covers[episode.podcastId].orEmpty(),
+                             onPlay = { onPlayEpisode(episode) },
+                             onQueue = { onQueueEpisode(episode) },
+                             onToggleSaved = { onToggleSavedEpisode(episode) },
+@@ -263,6 +272,7 @@ private fun PodcastEpisodeRow(
+     episode: PodcastEpisode,
+     saved: Boolean,
+     played: Boolean,
++    imageUrl: String,
+     onPlay: () -> Unit,
+     onQueue: () -> Unit,
+     onToggleSaved: () -> Unit,
+@@ -308,6 +318,7 @@ private fun PodcastEpisodeRow(
+             leading = {
+                 PodcastArtworkTile(
+                     seed = episode.podcastId.hashCode(),
++                    imageUrl = imageUrl,
+                     label =
+                         episode.podcastTitle
+                             .trim()
+@@ -350,6 +361,7 @@ private fun PodcastSubscriptionCard(
+             ) {
+                 PodcastArtworkTile(
+                     seed = subscription.id.hashCode(),
++                    imageUrl = subscription.imageUrl,
+                     label =
+                         subscription.title
+                             .trim()
+@@ -480,7 +492,18 @@ private fun PodcastArtworkTile(
+     seed: Int,
+     label: String,
+     size: androidx.compose.ui.unit.Dp = PodcastArtworkSize,
++    imageUrl: String = "",
+ ) {
++    // The show's own cover from its feed, when it names one (owner, 2026-11-13).
++    if (imageUrl.isNotBlank()) {
++        MediaArt(
++            source = ArtworkSource.Remote(imageUrl),
++            name = label,
++            fallback = MediaAccent,
++            size = if (isSableShortWindow()) minOf(size, PodcastShortArtworkSize) else size,
++        )
++        return
++    }
+     val palette =
+         listOf(
+             MediaGreyDark,
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-ar/strings.xml
+index b68975d..b604e0f 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-ar/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">حُفظت المحطة محليًا.</string>
+     <string name="choose_a_station_to_edit">اختر محطة لتعديلها.</string>
+     <string name="station_updated">حُدّثت المحطة.</string>
++    <string name="hub_title">الوسائط</string>
++    <string name="hub_back">رجوع</string>
++    <string name="hub_search">بحث</string>
++    <string name="hub_more">خيارات أخرى</string>
++    <string name="hub_playing">قيد التشغيل</string>
++    <string name="hub_paused">متوقف مؤقتًا</string>
++    <string name="hub_add">إضافة</string>
++    <string name="hub_settings">الإعدادات</string>
++    <string name="hub_refresh">تحديث</string>
++    <string name="hub_save">حفظ</string>
++    <string name="hub_tab_songs">الأغاني</string>
++    <string name="hub_tab_artists">الفنانون</string>
++    <string name="hub_tab_albums">الألبومات</string>
++    <string name="hub_tab_playlists">قوائم التشغيل</string>
++    <string name="hub_tab_favourites">المفضلة</string>
++    <string name="hub_tab_podcasts">البودكاست</string>
++    <string name="hub_tab_radio">الراديو</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">الاسم</string>
++    <string name="fm_clear_name">مسح الاسم</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-de/strings.xml
+index 4a1320a..11765d8 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-de/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">Sender lokal gespeichert.</string>
+     <string name="choose_a_station_to_edit">Wähle einen Sender zum Bearbeiten.</string>
+     <string name="station_updated">Sender aktualisiert.</string>
++    <string name="hub_title">medien</string>
++    <string name="hub_back">Zurück</string>
++    <string name="hub_search">Suchen</string>
++    <string name="hub_more">Weitere Optionen</string>
++    <string name="hub_playing">läuft</string>
++    <string name="hub_paused">pausiert</string>
++    <string name="hub_add">Hinzufügen</string>
++    <string name="hub_settings">Einstellungen</string>
++    <string name="hub_refresh">Aktualisieren</string>
++    <string name="hub_save">Speichern</string>
++    <string name="hub_tab_songs">Titel</string>
++    <string name="hub_tab_artists">Künstler</string>
++    <string name="hub_tab_albums">Alben</string>
++    <string name="hub_tab_playlists">Playlists</string>
++    <string name="hub_tab_favourites">Favoriten</string>
++    <string name="hub_tab_podcasts">Podcasts</string>
++    <string name="hub_tab_radio">Radio</string>
++    <string name="hub_tab_fm">UKW</string>
++    <string name="fm_name">Name</string>
++    <string name="fm_clear_name">Name löschen</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-el/strings.xml
+index 4bb7792..8bf3f3c 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-el/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">Ο σταθμός αποθηκεύτηκε τοπικά.</string>
+     <string name="choose_a_station_to_edit">Επιλέξτε έναν σταθμό για επεξεργασία.</string>
+     <string name="station_updated">Ο σταθμός ενημερώθηκε.</string>
++    <string name="hub_title">πολυμέσα</string>
++    <string name="hub_back">Πίσω</string>
++    <string name="hub_search">Αναζήτηση</string>
++    <string name="hub_more">Περισσότερες επιλογές</string>
++    <string name="hub_playing">παίζει</string>
++    <string name="hub_paused">σε παύση</string>
++    <string name="hub_add">Προσθήκη</string>
++    <string name="hub_settings">Ρυθμίσεις</string>
++    <string name="hub_refresh">Ανανέωση</string>
++    <string name="hub_save">Αποθήκευση</string>
++    <string name="hub_tab_songs">Τραγούδια</string>
++    <string name="hub_tab_artists">Καλλιτέχνες</string>
++    <string name="hub_tab_albums">Άλμπουμ</string>
++    <string name="hub_tab_playlists">Λίστες</string>
++    <string name="hub_tab_favourites">Αγαπημένα</string>
++    <string name="hub_tab_podcasts">Podcast</string>
++    <string name="hub_tab_radio">Ραδιόφωνο</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">Όνομα</string>
++    <string name="fm_clear_name">Διαγραφή ονόματος</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-es/strings.xml
+index 65e0d38..98a5c80 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-es/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">Emisora guardada localmente.</string>
+     <string name="choose_a_station_to_edit">Elige una emisora para editar.</string>
+     <string name="station_updated">Emisora actualizada.</string>
++    <string name="hub_title">multimedia</string>
++    <string name="hub_back">Atrás</string>
++    <string name="hub_search">Buscar</string>
++    <string name="hub_more">Más opciones</string>
++    <string name="hub_playing">sonando</string>
++    <string name="hub_paused">en pausa</string>
++    <string name="hub_add">Añadir</string>
++    <string name="hub_settings">Ajustes</string>
++    <string name="hub_refresh">Actualizar</string>
++    <string name="hub_save">Guardar</string>
++    <string name="hub_tab_songs">Canciones</string>
++    <string name="hub_tab_artists">Artistas</string>
++    <string name="hub_tab_albums">Álbumes</string>
++    <string name="hub_tab_playlists">Listas</string>
++    <string name="hub_tab_favourites">Favoritos</string>
++    <string name="hub_tab_podcasts">Pódcasts</string>
++    <string name="hub_tab_radio">Radio</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">Nombre</string>
++    <string name="fm_clear_name">Borrar nombre</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-fr/strings.xml
+index e04174b..2b1f295 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-fr/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">Station enregistrée localement.</string>
+     <string name="choose_a_station_to_edit">Choisissez une station à modifier.</string>
+     <string name="station_updated">Station mise à jour.</string>
++    <string name="hub_title">médias</string>
++    <string name="hub_back">Retour</string>
++    <string name="hub_search">Rechercher</string>
++    <string name="hub_more">Plus d\'options</string>
++    <string name="hub_playing">en lecture</string>
++    <string name="hub_paused">en pause</string>
++    <string name="hub_add">Ajouter</string>
++    <string name="hub_settings">Réglages</string>
++    <string name="hub_refresh">Actualiser</string>
++    <string name="hub_save">Enregistrer</string>
++    <string name="hub_tab_songs">Titres</string>
++    <string name="hub_tab_artists">Artistes</string>
++    <string name="hub_tab_albums">Albums</string>
++    <string name="hub_tab_playlists">Playlists</string>
++    <string name="hub_tab_favourites">Favoris</string>
++    <string name="hub_tab_podcasts">Podcasts</string>
++    <string name="hub_tab_radio">Radio</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">Nom</string>
++    <string name="fm_clear_name">Effacer le nom</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-hi/strings.xml
+index 646802f..b15dd4f 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-hi/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">स्टेशन स्थानीय रूप से सहेजा गया।</string>
+     <string name="choose_a_station_to_edit">संपादित करने के लिए स्टेशन चुनें।</string>
+     <string name="station_updated">स्टेशन अपडेट हुआ।</string>
++    <string name="hub_title">मीडिया</string>
++    <string name="hub_back">वापस</string>
++    <string name="hub_search">खोजें</string>
++    <string name="hub_more">और विकल्प</string>
++    <string name="hub_playing">चल रहा है</string>
++    <string name="hub_paused">रुका हुआ</string>
++    <string name="hub_add">जोड़ें</string>
++    <string name="hub_settings">सेटिंग</string>
++    <string name="hub_refresh">रीफ़्रेश</string>
++    <string name="hub_save">सहेजें</string>
++    <string name="hub_tab_songs">गाने</string>
++    <string name="hub_tab_artists">कलाकार</string>
++    <string name="hub_tab_albums">एल्बम</string>
++    <string name="hub_tab_playlists">प्लेलिस्ट</string>
++    <string name="hub_tab_favourites">पसंदीदा</string>
++    <string name="hub_tab_podcasts">पॉडकास्ट</string>
++    <string name="hub_tab_radio">रेडियो</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">नाम</string>
++    <string name="fm_clear_name">नाम हटाएं</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-it/strings.xml
+index f1684c5..e41cf4c 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-it/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">Stazione salvata in locale.</string>
+     <string name="choose_a_station_to_edit">Scegli una stazione da modificare.</string>
+     <string name="station_updated">Stazione aggiornata.</string>
++    <string name="hub_title">media</string>
++    <string name="hub_back">Indietro</string>
++    <string name="hub_search">Cerca</string>
++    <string name="hub_more">Altre opzioni</string>
++    <string name="hub_playing">in riproduzione</string>
++    <string name="hub_paused">in pausa</string>
++    <string name="hub_add">Aggiungi</string>
++    <string name="hub_settings">Impostazioni</string>
++    <string name="hub_refresh">Aggiorna</string>
++    <string name="hub_save">Salva</string>
++    <string name="hub_tab_songs">Brani</string>
++    <string name="hub_tab_artists">Artisti</string>
++    <string name="hub_tab_albums">Album</string>
++    <string name="hub_tab_playlists">Playlist</string>
++    <string name="hub_tab_favourites">Preferiti</string>
++    <string name="hub_tab_podcasts">Podcast</string>
++    <string name="hub_tab_radio">Radio</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">Nome</string>
++    <string name="fm_clear_name">Cancella nome</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-iw/strings.xml
+index 0d4b0f3..387217c 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-iw/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">התחנה נשמרה מקומית.</string>
+     <string name="choose_a_station_to_edit">בחרו תחנה לעריכה.</string>
+     <string name="station_updated">התחנה עודכנה.</string>
++    <string name="hub_title">מדיה</string>
++    <string name="hub_back">חזרה</string>
++    <string name="hub_search">חיפוש</string>
++    <string name="hub_more">אפשרויות נוספות</string>
++    <string name="hub_playing">מתנגן</string>
++    <string name="hub_paused">מושהה</string>
++    <string name="hub_add">הוספה</string>
++    <string name="hub_settings">הגדרות</string>
++    <string name="hub_refresh">רענון</string>
++    <string name="hub_save">שמירה</string>
++    <string name="hub_tab_songs">שירים</string>
++    <string name="hub_tab_artists">אמנים</string>
++    <string name="hub_tab_albums">אלבומים</string>
++    <string name="hub_tab_playlists">פלייליסטים</string>
++    <string name="hub_tab_favourites">מועדפים</string>
++    <string name="hub_tab_podcasts">פודקאסטים</string>
++    <string name="hub_tab_radio">רדיו</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">שם</string>
++    <string name="fm_clear_name">ניקוי השם</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-ja/strings.xml
+index 0663e3b..34e27d6 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-ja/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">局をローカルに保存しました。</string>
+     <string name="choose_a_station_to_edit">編集する局を選択してください。</string>
+     <string name="station_updated">局を更新しました。</string>
++    <string name="hub_title">メディア</string>
++    <string name="hub_back">戻る</string>
++    <string name="hub_search">検索</string>
++    <string name="hub_more">その他のオプション</string>
++    <string name="hub_playing">再生中</string>
++    <string name="hub_paused">一時停止中</string>
++    <string name="hub_add">追加</string>
++    <string name="hub_settings">設定</string>
++    <string name="hub_refresh">更新</string>
++    <string name="hub_save">保存</string>
++    <string name="hub_tab_songs">曲</string>
++    <string name="hub_tab_artists">アーティスト</string>
++    <string name="hub_tab_albums">アルバム</string>
++    <string name="hub_tab_playlists">プレイリスト</string>
++    <string name="hub_tab_favourites">お気に入り</string>
++    <string name="hub_tab_podcasts">ポッドキャスト</string>
++    <string name="hub_tab_radio">ラジオ</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">名前</string>
++    <string name="fm_clear_name">名前を消去</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-ko/strings.xml
+index 597a432..0cfeb5b 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-ko/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">방송국이 로컬에 저장되었습니다.</string>
+     <string name="choose_a_station_to_edit">편집할 방송국을 선택하세요.</string>
+     <string name="station_updated">방송국을 업데이트했습니다.</string>
++    <string name="hub_title">미디어</string>
++    <string name="hub_back">뒤로</string>
++    <string name="hub_search">검색</string>
++    <string name="hub_more">옵션 더보기</string>
++    <string name="hub_playing">재생 중</string>
++    <string name="hub_paused">일시정지됨</string>
++    <string name="hub_add">추가</string>
++    <string name="hub_settings">설정</string>
++    <string name="hub_refresh">새로고침</string>
++    <string name="hub_save">저장</string>
++    <string name="hub_tab_songs">노래</string>
++    <string name="hub_tab_artists">아티스트</string>
++    <string name="hub_tab_albums">앨범</string>
++    <string name="hub_tab_playlists">재생목록</string>
++    <string name="hub_tab_favourites">즐겨찾기</string>
++    <string name="hub_tab_podcasts">팟캐스트</string>
++    <string name="hub_tab_radio">라디오</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">이름</string>
++    <string name="fm_clear_name">이름 지우기</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-nl/strings.xml
+index dd6c806..394e23c 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-nl/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">Zender lokaal opgeslagen.</string>
+     <string name="choose_a_station_to_edit">Kies een zender om te bewerken.</string>
+     <string name="station_updated">Zender bijgewerkt.</string>
++    <string name="hub_title">media</string>
++    <string name="hub_back">Terug</string>
++    <string name="hub_search">Zoeken</string>
++    <string name="hub_more">Meer opties</string>
++    <string name="hub_playing">speelt</string>
++    <string name="hub_paused">gepauzeerd</string>
++    <string name="hub_add">Toevoegen</string>
++    <string name="hub_settings">Instellingen</string>
++    <string name="hub_refresh">Vernieuwen</string>
++    <string name="hub_save">Opslaan</string>
++    <string name="hub_tab_songs">Nummers</string>
++    <string name="hub_tab_artists">Artiesten</string>
++    <string name="hub_tab_albums">Albums</string>
++    <string name="hub_tab_playlists">Afspeellijsten</string>
++    <string name="hub_tab_favourites">Favorieten</string>
++    <string name="hub_tab_podcasts">Podcasts</string>
++    <string name="hub_tab_radio">Radio</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">Naam</string>
++    <string name="fm_clear_name">Naam wissen</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-pl/strings.xml
+index 30ee354..b8502b4 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-pl/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">Stację zapisano lokalnie.</string>
+     <string name="choose_a_station_to_edit">Wybierz stację do edycji.</string>
+     <string name="station_updated">Zaktualizowano stację.</string>
++    <string name="hub_title">multimedia</string>
++    <string name="hub_back">Wstecz</string>
++    <string name="hub_search">Szukaj</string>
++    <string name="hub_more">Więcej opcji</string>
++    <string name="hub_playing">odtwarzanie</string>
++    <string name="hub_paused">wstrzymano</string>
++    <string name="hub_add">Dodaj</string>
++    <string name="hub_settings">Ustawienia</string>
++    <string name="hub_refresh">Odśwież</string>
++    <string name="hub_save">Zapisz</string>
++    <string name="hub_tab_songs">Utwory</string>
++    <string name="hub_tab_artists">Wykonawcy</string>
++    <string name="hub_tab_albums">Albumy</string>
++    <string name="hub_tab_playlists">Playlisty</string>
++    <string name="hub_tab_favourites">Ulubione</string>
++    <string name="hub_tab_podcasts">Podcasty</string>
++    <string name="hub_tab_radio">Radio</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">Nazwa</string>
++    <string name="fm_clear_name">Usuń nazwę</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-pt/strings.xml
+index 2fc9d70..77d22fb 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-pt/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">Estação salva localmente.</string>
+     <string name="choose_a_station_to_edit">Escolha uma estação para editar.</string>
+     <string name="station_updated">Estação atualizada.</string>
++    <string name="hub_title">mídia</string>
++    <string name="hub_back">Voltar</string>
++    <string name="hub_search">Pesquisar</string>
++    <string name="hub_more">Mais opções</string>
++    <string name="hub_playing">tocando</string>
++    <string name="hub_paused">pausado</string>
++    <string name="hub_add">Adicionar</string>
++    <string name="hub_settings">Configurações</string>
++    <string name="hub_refresh">Atualizar</string>
++    <string name="hub_save">Salvar</string>
++    <string name="hub_tab_songs">Músicas</string>
++    <string name="hub_tab_artists">Artistas</string>
++    <string name="hub_tab_albums">Álbuns</string>
++    <string name="hub_tab_playlists">Playlists</string>
++    <string name="hub_tab_favourites">Favoritos</string>
++    <string name="hub_tab_podcasts">Podcasts</string>
++    <string name="hub_tab_radio">Rádio</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">Nome</string>
++    <string name="fm_clear_name">Apagar nome</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-ru/strings.xml
+index d9c53ea..9ec2b6b 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-ru/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">Станция сохранена локально.</string>
+     <string name="choose_a_station_to_edit">Выберите станцию для изменения.</string>
+     <string name="station_updated">Станция обновлена.</string>
++    <string name="hub_title">медиа</string>
++    <string name="hub_back">Назад</string>
++    <string name="hub_search">Поиск</string>
++    <string name="hub_more">Другие действия</string>
++    <string name="hub_playing">играет</string>
++    <string name="hub_paused">пауза</string>
++    <string name="hub_add">Добавить</string>
++    <string name="hub_settings">Настройки</string>
++    <string name="hub_refresh">Обновить</string>
++    <string name="hub_save">Сохранить</string>
++    <string name="hub_tab_songs">Песни</string>
++    <string name="hub_tab_artists">Исполнители</string>
++    <string name="hub_tab_albums">Альбомы</string>
++    <string name="hub_tab_playlists">Плейлисты</string>
++    <string name="hub_tab_favourites">Избранное</string>
++    <string name="hub_tab_podcasts">Подкасты</string>
++    <string name="hub_tab_radio">Радио</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">Название</string>
++    <string name="fm_clear_name">Убрать название</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-sv/strings.xml
+index d426192..4a28f76 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-sv/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">Station sparad lokalt.</string>
+     <string name="choose_a_station_to_edit">Välj en station att redigera.</string>
+     <string name="station_updated">Station uppdaterad.</string>
++    <string name="hub_title">media</string>
++    <string name="hub_back">Tillbaka</string>
++    <string name="hub_search">Sök</string>
++    <string name="hub_more">Fler alternativ</string>
++    <string name="hub_playing">spelas</string>
++    <string name="hub_paused">pausad</string>
++    <string name="hub_add">Lägg till</string>
++    <string name="hub_settings">Inställningar</string>
++    <string name="hub_refresh">Uppdatera</string>
++    <string name="hub_save">Spara</string>
++    <string name="hub_tab_songs">Låtar</string>
++    <string name="hub_tab_artists">Artister</string>
++    <string name="hub_tab_albums">Album</string>
++    <string name="hub_tab_playlists">Spellistor</string>
++    <string name="hub_tab_favourites">Favoriter</string>
++    <string name="hub_tab_podcasts">Poddar</string>
++    <string name="hub_tab_radio">Radio</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">Namn</string>
++    <string name="fm_clear_name">Rensa namn</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-tr/strings.xml
+index 793e15b..9a50e33 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-tr/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">İstasyon yerel olarak kaydedildi.</string>
+     <string name="choose_a_station_to_edit">Düzenlenecek bir istasyon seçin.</string>
+     <string name="station_updated">İstasyon güncellendi.</string>
++    <string name="hub_title">medya</string>
++    <string name="hub_back">Geri</string>
++    <string name="hub_search">Ara</string>
++    <string name="hub_more">Diğer seçenekler</string>
++    <string name="hub_playing">çalıyor</string>
++    <string name="hub_paused">duraklatıldı</string>
++    <string name="hub_add">Ekle</string>
++    <string name="hub_settings">Ayarlar</string>
++    <string name="hub_refresh">Yenile</string>
++    <string name="hub_save">Kaydet</string>
++    <string name="hub_tab_songs">Şarkılar</string>
++    <string name="hub_tab_artists">Sanatçılar</string>
++    <string name="hub_tab_albums">Albümler</string>
++    <string name="hub_tab_playlists">Çalma listeleri</string>
++    <string name="hub_tab_favourites">Favoriler</string>
++    <string name="hub_tab_podcasts">Podcastler</string>
++    <string name="hub_tab_radio">Radyo</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">Ad</string>
++    <string name="fm_clear_name">Adı temizle</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-ur/strings.xml
+index 6da9e0e..cf215eb 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-ur/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">اسٹیشن مقامی طور پر محفوظ ہو گیا۔</string>
+     <string name="choose_a_station_to_edit">ترمیم کے لیے اسٹیشن منتخب کریں۔</string>
+     <string name="station_updated">اسٹیشن اپ ڈیٹ ہو گیا۔</string>
++    <string name="hub_title">میڈیا</string>
++    <string name="hub_back">واپس</string>
++    <string name="hub_search">تلاش</string>
++    <string name="hub_more">مزید اختیارات</string>
++    <string name="hub_playing">چل رہا ہے</string>
++    <string name="hub_paused">رکا ہوا</string>
++    <string name="hub_add">شامل کریں</string>
++    <string name="hub_settings">ترتیبات</string>
++    <string name="hub_refresh">تازہ کریں</string>
++    <string name="hub_save">محفوظ کریں</string>
++    <string name="hub_tab_songs">گانے</string>
++    <string name="hub_tab_artists">فنکار</string>
++    <string name="hub_tab_albums">البم</string>
++    <string name="hub_tab_playlists">پلے لسٹس</string>
++    <string name="hub_tab_favourites">پسندیدہ</string>
++    <string name="hub_tab_podcasts">پوڈکاسٹ</string>
++    <string name="hub_tab_radio">ریڈیو</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">نام</string>
++    <string name="fm_clear_name">نام صاف کریں</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values-zh-rCN/strings.xml
+index 498da8a..31a2fff 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values-zh-rCN/strings.xml
+@@ -193,4 +193,24 @@
+     <string name="station_saved_locally">电台已保存在本地。</string>
+     <string name="choose_a_station_to_edit">选择要编辑的电台。</string>
+     <string name="station_updated">电台已更新。</string>
++    <string name="hub_title">媒体</string>
++    <string name="hub_back">返回</string>
++    <string name="hub_search">搜索</string>
++    <string name="hub_more">更多选项</string>
++    <string name="hub_playing">正在播放</string>
++    <string name="hub_paused">已暂停</string>
++    <string name="hub_add">添加</string>
++    <string name="hub_settings">设置</string>
++    <string name="hub_refresh">刷新</string>
++    <string name="hub_save">保存</string>
++    <string name="hub_tab_songs">歌曲</string>
++    <string name="hub_tab_artists">艺人</string>
++    <string name="hub_tab_albums">专辑</string>
++    <string name="hub_tab_playlists">播放列表</string>
++    <string name="hub_tab_favourites">收藏</string>
++    <string name="hub_tab_podcasts">播客</string>
++    <string name="hub_tab_radio">电台</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">名称</string>
++    <string name="fm_clear_name">清除名称</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/main/res/values/strings.xml b/sable-src/apps/r8/android/media/src/main/res/values/strings.xml
+index 678426c..3615b8e 100644
+--- a/sable-src/apps/r8/android/media/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/media/src/main/res/values/strings.xml
+@@ -195,4 +195,24 @@
+     <string name="station_saved_locally">Station saved locally.</string>
+     <string name="choose_a_station_to_edit">Choose a station to edit.</string>
+     <string name="station_updated">Station updated.</string>
++    <string name="hub_title">media</string>
++    <string name="hub_back">Back</string>
++    <string name="hub_search">Search</string>
++    <string name="hub_more">More options</string>
++    <string name="hub_playing">playing</string>
++    <string name="hub_paused">paused</string>
++    <string name="hub_add">Add</string>
++    <string name="hub_settings">Settings</string>
++    <string name="hub_refresh">Refresh</string>
++    <string name="hub_save">Save</string>
++    <string name="hub_tab_songs">Songs</string>
++    <string name="hub_tab_artists">Artists</string>
++    <string name="hub_tab_albums">Albums</string>
++    <string name="hub_tab_playlists">Playlists</string>
++    <string name="hub_tab_favourites">Favourites</string>
++    <string name="hub_tab_podcasts">Podcasts</string>
++    <string name="hub_tab_radio">Radio</string>
++    <string name="hub_tab_fm">FM</string>
++    <string name="fm_name">Name</string>
++    <string name="fm_clear_name">Clear name</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/FmModelTest.kt b/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/FmModelTest.kt
+index ec7621f..dcd0055 100644
+--- a/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/FmModelTest.kt
++++ b/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/FmModelTest.kt
+@@ -76,4 +76,13 @@ class FmModelTest {
+             FmBand.status(connected.copy(antenna = true, powered = true, speaker = true)),
+         )
+     }
++
++    @Test
++    fun namesAreTrimmedKeptPerStationAndClearedWhenBlank() {
++        val named = FmPresets.rename(emptyMap(), 1015, "  Jazz   FM  ")
++        assertEquals(mapOf(1015 to "Jazz FM"), named)
++        assertEquals(FmPresets.MAX_NAME, FmPresets.rename(named, 889, "x".repeat(60)).getValue(889).length)
++        assertEquals(emptyMap<Int, String>(), FmPresets.rename(named, 1015, "   "))
++        assertEquals(named, FmPresets.rename(named, 2000, "Out of band"))
++    }
+ }
+diff --git a/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaArtworkTest.kt b/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaArtworkTest.kt
+new file mode 100644
+index 0000000..aeb9b3d
+--- /dev/null
++++ b/sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaArtworkTest.kt
+@@ -0,0 +1,35 @@
++package org.sableos.media
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++/** Where Media looks for a station's logo: HTTPS only, the station's own domain, a few requests at most. */
++class MediaArtworkTest {
++    @Test
++    fun logoCandidatesStayOnTheStationsDomain() {
++        assertEquals(
++            listOf(
++                "https://stream.example.com/apple-touch-icon.png",
++                "https://stream.example.com/favicon.ico",
++                "https://example.com/apple-touch-icon.png",
++                "https://example.com/favicon.ico",
++            ),
++            stationLogoCandidates("http://stream.example.com:8000/live.mp3"),
++        )
++    }
++
++    @Test
++    fun logoCandidatesSkipPublicSuffixes() {
++        val hosts =
++            stationLogoCandidates("https://radio.bbc.co.uk/live")
++                .map { it.substringAfter("//").substringBefore('/') }
++        assertEquals(listOf("radio.bbc.co.uk", "bbc.co.uk"), hosts.distinct())
++    }
++
++    @Test
++    fun noCandidatesForAddressesOrJunk() {
++        assertTrue(stationLogoCandidates("http://192.168.1.4:8000/stream").isEmpty())
++        assertTrue(stationLogoCandidates("not a url").isEmpty())
++    }
++}

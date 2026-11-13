@@ -193,4 +193,24 @@
     <string name="station_saved_locally">局をローカルに保存しました。</string>
     <string name="choose_a_station_to_edit">編集する局を選択してください。</string>
     <string name="station_updated">局を更新しました。</string>
+    <string name="hub_title">メディア</string>
+    <string name="hub_back">戻る</string>
+    <string name="hub_search">検索</string>
+    <string name="hub_more">その他のオプション</string>
+    <string name="hub_playing">再生中</string>
+    <string name="hub_paused">一時停止中</string>
+    <string name="hub_add">追加</string>
+    <string name="hub_settings">設定</string>
+    <string name="hub_refresh">更新</string>
+    <string name="hub_save">保存</string>
+    <string name="hub_tab_songs">曲</string>
+    <string name="hub_tab_artists">アーティスト</string>
+    <string name="hub_tab_albums">アルバム</string>
+    <string name="hub_tab_playlists">プレイリスト</string>
+    <string name="hub_tab_favourites">お気に入り</string>
+    <string name="hub_tab_podcasts">ポッドキャスト</string>
+    <string name="hub_tab_radio">ラジオ</string>
+    <string name="hub_tab_fm">FM</string>
+    <string name="fm_name">名前</string>
+    <string name="fm_clear_name">名前を消去</string>
 </resources>

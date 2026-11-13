@@ -193,4 +193,24 @@
     <string name="station_saved_locally">Станция сохранена локально.</string>
     <string name="choose_a_station_to_edit">Выберите станцию для изменения.</string>
     <string name="station_updated">Станция обновлена.</string>
+    <string name="hub_title">медиа</string>
+    <string name="hub_back">Назад</string>
+    <string name="hub_search">Поиск</string>
+    <string name="hub_more">Другие действия</string>
+    <string name="hub_playing">играет</string>
+    <string name="hub_paused">пауза</string>
+    <string name="hub_add">Добавить</string>
+    <string name="hub_settings">Настройки</string>
+    <string name="hub_refresh">Обновить</string>
+    <string name="hub_save">Сохранить</string>
+    <string name="hub_tab_songs">Песни</string>
+    <string name="hub_tab_artists">Исполнители</string>
+    <string name="hub_tab_albums">Альбомы</string>
+    <string name="hub_tab_playlists">Плейлисты</string>
+    <string name="hub_tab_favourites">Избранное</string>
+    <string name="hub_tab_podcasts">Подкасты</string>
+    <string name="hub_tab_radio">Радио</string>
+    <string name="hub_tab_fm">FM</string>
+    <string name="fm_name">Название</string>
+    <string name="fm_clear_name">Убрать название</string>
 </resources>

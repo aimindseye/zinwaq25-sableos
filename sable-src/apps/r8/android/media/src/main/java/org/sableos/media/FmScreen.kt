@@ -9,14 +9,22 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.sableos.design.SableActionButton
@@ -32,6 +40,7 @@ internal val LocalFmAvailable = staticCompositionLocalOf { false }
 private val FM_KEY_HINT: String get() = t("space_on_off_j_k")
 private const val FM_ACTION_TUNE = "tune"
 private const val FM_ACTION_STAR = "star"
+private const val FM_ACTION_NAME = "name"
 private val FmBadgeSize = 48.dp
 
 internal data class FmScreenActions(
@@ -43,6 +52,8 @@ internal data class FmScreenActions(
     val onToggleSpeaker: () -> Unit,
     val onToggleMute: () -> Unit,
     val onScan: () -> Unit,
+    /** Gives a station a name of the person's own; a blank name removes it. */
+    val onRename: (Int, String) -> Unit = { _, _ -> },
 )
 
 /** Sable Media FM mode (SABLE_MEDIA_FM_RADIO_MODE): tuner, presets and the stations the last scan found. */
@@ -51,6 +62,7 @@ internal fun FmScreen(
     fm: FmUiState,
     favorites: Set<Int>,
     actions: FmScreenActions,
+    names: Map<Int, String> = emptyMap(),
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg)) {
         if (!fm.available) {
@@ -60,23 +72,26 @@ internal fun FmScreen(
                 supportingText = t("this_device_has_no_fm"),
             )
         } else {
-            FmTunerPanel(fm)
+            FmTunerPanel(fm, names)
             FmControls(fm, favorites, actions)
             Text(
                 text = FM_KEY_HINT,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            FmStationList(fm, favorites, actions)
+            FmStationList(fm, favorites, names, actions)
         }
     }
 }
 
 @Composable
-private fun FmTunerPanel(fm: FmUiState) {
+private fun FmTunerPanel(
+    fm: FmUiState,
+    names: Map<Int, String>,
+) {
     val tuned = FmBand.isValid(fm.station)
     val name =
-        fm.programService.ifBlank {
+        names[fm.station] ?: fm.programService.ifBlank {
             fm.stations
                 .firstOrNull { it.station == fm.station }
                 ?.name
@@ -156,6 +171,8 @@ private fun FmControls(
 /** A row of the station list. */
 private data class FmStationItem(
     val station: FmStation,
+    /** The person's own name for the station, or blank. */
+    val customName: String,
     val presetNumber: Int?,
     val starred: Boolean,
     val current: Boolean,
@@ -165,6 +182,7 @@ private data class FmStationItem(
 private fun FmStationList(
     fm: FmUiState,
     favorites: Set<Int>,
+    names: Map<Int, String>,
     actions: FmScreenActions,
 ) {
     val list = FmPresets.list(favorites, fm.stations)
@@ -183,12 +201,14 @@ private fun FmStationList(
             item =
                 FmStationItem(
                     station = station,
+                    customName = names[station.station].orEmpty(),
                     presetNumber = if (index in 0 until FmPresets.MAX_KEYED) index + 1 else null,
                     starred = station.station in favorites,
                     current = station.station == fm.station && fm.powered,
                 ),
             onTune = { actions.onTune(station.station) },
             onToggleFavorite = { actions.onToggleFavorite(station.station) },
+            onRename = { name -> actions.onRename(station.station, name) },
         )
     }
 }
@@ -198,7 +218,9 @@ private fun FmStationRow(
     item: FmStationItem,
     onTune: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onRename: (String) -> Unit,
 ) {
+    var naming by remember(item.station.station) { mutableStateOf(false) }
     val station = item.station
     val starred = item.starred
     val current = item.current
@@ -209,46 +231,98 @@ private fun FmStationRow(
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, if (current) MediaAccent else MaterialTheme.colorScheme.outlineVariant),
     ) {
-        SableDenseRow(
-            title = "${FmBand.format(station.station)} MHz" + if (starred) " ★" else "",
-            subtitle =
-                listOfNotNull(
-                    station.name.takeIf { it.isNotBlank() },
-                    presetNumber?.let { "Alt+$it" },
-                    "playing".takeIf { current },
-                ).joinToString(" · ").ifBlank { null },
-            onClick = onTune,
-            modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
-            actions =
-                listOf(
-                    SableRowAction(FM_ACTION_TUNE, t("tune"), primary = true),
-                    SableRowAction(FM_ACTION_STAR, if (starred) t("remove_star") else t("star_2")),
-                ),
-            onAction = { action ->
-                when (action.id) {
-                    FM_ACTION_TUNE -> onTune()
-                    FM_ACTION_STAR -> onToggleFavorite()
-                }
-            },
-            leading = {
-                Surface(
-                    modifier = Modifier.width(FmBadgeSize),
-                    shape = MaterialTheme.shapes.small,
-                    color = MediaAccent.copy(alpha = 0.18f),
-                    border = BorderStroke(1.dp, MediaAccent.copy(alpha = 0.7f)),
-                ) {
-                    Box(modifier = Modifier.aspectRatio(1f), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "FM",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MediaAccent,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Clip,
-                        )
+        Column {
+            SableDenseRow(
+                title = item.customName.ifBlank { "${FmBand.format(station.station)} MHz" } + if (starred) " ★" else "",
+                subtitle =
+                    listOfNotNull(
+                        "${FmBand.format(station.station)} MHz".takeIf { item.customName.isNotBlank() },
+                        station.name.takeIf { it.isNotBlank() && it != item.customName },
+                        presetNumber?.let { "Alt+$it" },
+                        "playing".takeIf { current },
+                    ).joinToString(" · ").ifBlank { null },
+                onClick = onTune,
+                modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Xs),
+                actions =
+                    listOf(
+                        SableRowAction(FM_ACTION_TUNE, t("tune"), primary = true),
+                        SableRowAction(FM_ACTION_STAR, if (starred) t("remove_star") else t("star_2")),
+                    ) + listOfNotNull(SableRowAction(FM_ACTION_NAME, t("fm_name")).takeIf { starred }),
+                onAction = { action ->
+                    when (action.id) {
+                        FM_ACTION_TUNE -> onTune()
+                        FM_ACTION_STAR -> onToggleFavorite()
+                        FM_ACTION_NAME -> naming = true
                     }
-                }
-            },
+                },
+                leading = { FmFrequencyTile(station.station) },
+            )
+            if (naming) {
+                FmNameEditor(
+                    initial = item.customName.ifBlank { station.name },
+                    onSave = { name ->
+                        naming = false
+                        onRename(name)
+                    },
+                    onCancel = { naming = false },
+                )
+            }
+        }
+    }
+}
+
+/** Names a starred station (owner, 2026-11-13): a name of the person's own, or blank to clear it. */
+@Composable
+private fun FmNameEditor(
+    initial: String,
+    onSave: (String) -> Unit,
+    onCancel: () -> Unit,
+) {
+    var name by remember { mutableStateOf(initial) }
+    Column(
+        modifier = Modifier.padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
+        verticalArrangement = Arrangement.spacedBy(SableSpacing.Sm),
+    ) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it.take(FmPresets.MAX_NAME) },
+            label = { Text(t("station_name")) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { onSave(name) }),
+            modifier = Modifier.fillMaxWidth(),
         )
+        Row(horizontalArrangement = Arrangement.spacedBy(SableSpacing.Sm)) {
+            SableActionButton(text = t("hub_save"), modifier = Modifier.weight(1f), onClick = { onSave(name) })
+            SableActionButton(
+                text = t("fm_clear_name"),
+                primary = false,
+                modifier = Modifier.weight(1f),
+                onClick = { onSave("") },
+            )
+            SableActionButton(text = t("cancel"), primary = false, modifier = Modifier.weight(1f), onClick = onCancel)
+        }
+    }
+}
+
+/** The row's tile: the station's frequency, as FM stations have no picture. */
+@Composable
+private fun FmFrequencyTile(station: Int) {
+    Surface(
+        modifier = Modifier.width(FmBadgeSize),
+        shape = MaterialTheme.shapes.small,
+        color = MediaAccent.copy(alpha = 0.18f),
+        border = BorderStroke(1.dp, MediaAccent.copy(alpha = 0.7f)),
+    ) {
+        Box(modifier = Modifier.aspectRatio(1f), contentAlignment = Alignment.Center) {
+            Text(
+                text = FmBand.format(station),
+                style = MaterialTheme.typography.labelLarge,
+                color = MediaAccent,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Clip,
+            )
+        }
     }
 }

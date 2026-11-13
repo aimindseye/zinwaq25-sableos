@@ -195,4 +195,24 @@
     <string name="station_saved_locally">Station saved locally.</string>
     <string name="choose_a_station_to_edit">Choose a station to edit.</string>
     <string name="station_updated">Station updated.</string>
+    <string name="hub_title">media</string>
+    <string name="hub_back">Back</string>
+    <string name="hub_search">Search</string>
+    <string name="hub_more">More options</string>
+    <string name="hub_playing">playing</string>
+    <string name="hub_paused">paused</string>
+    <string name="hub_add">Add</string>
+    <string name="hub_settings">Settings</string>
+    <string name="hub_refresh">Refresh</string>
+    <string name="hub_save">Save</string>
+    <string name="hub_tab_songs">Songs</string>
+    <string name="hub_tab_artists">Artists</string>
+    <string name="hub_tab_albums">Albums</string>
+    <string name="hub_tab_playlists">Playlists</string>
+    <string name="hub_tab_favourites">Favourites</string>
+    <string name="hub_tab_podcasts">Podcasts</string>
+    <string name="hub_tab_radio">Radio</string>
+    <string name="hub_tab_fm">FM</string>
+    <string name="fm_name">Name</string>
+    <string name="fm_clear_name">Clear name</string>
 </resources>

@@ -29,6 +29,8 @@ internal data class PodcastSubscription(
     val description: String,
     val episodes: List<PodcastEpisode>,
     val refreshedAt: Long,
+    /** The feed's cover picture (itunes:image or the RSS image), HTTPS only; blank when it has none. */
+    val imageUrl: String = "",
 )
 
 internal data class PodcastRefreshResult(
@@ -198,6 +200,7 @@ internal class PodcastRepository(
             .put("author", subscription.author)
             .put(JSON_DESCRIPTION, subscription.description)
             .put("refreshedAt", subscription.refreshedAt)
+            .put("imageUrl", subscription.imageUrl)
             .put(
                 "episodes",
                 JSONArray().apply {
@@ -249,6 +252,7 @@ internal class PodcastRepository(
                     description = json.optString(JSON_DESCRIPTION),
                     episodes = episodes,
                     refreshedAt = json.optLong("refreshedAt", 0L),
+                    imageUrl = json.optString("imageUrl").takeIf(PodcastUrlPolicy::isHttpsUrl).orEmpty(),
                 )
             }
         }

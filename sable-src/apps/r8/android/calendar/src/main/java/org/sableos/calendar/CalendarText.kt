@@ -97,6 +97,8 @@ object CalendarText {
             "previous" to "Previous",
             "next" to "Next",
             "more_options" to "More options",
+            "one_event" to "1 event",
+            "n_events" to "%1\$s events",
         )
 
     val t = SableTexts(EN)

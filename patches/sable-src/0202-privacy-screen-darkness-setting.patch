@@ -1,0 +1,292 @@
+diff --git a/sable-src/apps/r8/textreader/apply_sable_flavor.py b/sable-src/apps/r8/textreader/apply_sable_flavor.py
+index 3e75b4c..2b822f4 100644
+--- a/sable-src/apps/r8/textreader/apply_sable_flavor.py
++++ b/sable-src/apps/r8/textreader/apply_sable_flavor.py
+@@ -236,6 +236,15 @@ PRIVACY_SCREEN_SERVICES = """        <service
+                 <action android:name="android.service.quicksettings.action.QS_TILE" />
+             </intent-filter>
+         </service>
++        <activity
++            android:name="org.sableos.textreader.privacy.PrivacyScreenSettingsActivity"
++            android:exported="true"
++            android:label="@string/sable_privacy_screen_label"
++            android:theme="@android:style/Theme.DeviceDefault.DayNight">
++            <intent-filter>
++                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
++            </intent-filter>
++        </activity>
+         <receiver
+             android:name="org.sableos.textreader.privacy.PrivacyScreenSwitchReceiver"
+             android:exported="true"
+diff --git a/sable-src/apps/r8/textreader/res/values/sable_privacy_screen_strings.xml b/sable-src/apps/r8/textreader/res/values/sable_privacy_screen_strings.xml
+index 3087e87..e63502b 100644
+--- a/sable-src/apps/r8/textreader/res/values/sable_privacy_screen_strings.xml
++++ b/sable-src/apps/r8/textreader/res/values/sable_privacy_screen_strings.xml
+@@ -3,4 +3,9 @@
+     <string name="sable_privacy_screen_label">Privacy Screen</string>
+     <string name="sable_privacy_screen_summary">Dims everything but the item you are on</string>
+     <string name="sable_privacy_screen_description">Lets the Privacy Screen tile in Quick Settings dim the whole screen except a band around the item that has focus, so people beside you cannot read it. The band follows the trackpad and keys. It is never shown on the lock screen or over a call. It reads where the focused item is, never what it says, and it does not change how touch or the keyboard work.</string>
++    <string name="sable_privacy_screen_darkness">Darkness</string>
++    <string name="sable_privacy_screen_darkness_summary">How dark the Privacy Screen makes everything outside the band you are on. Hold the Privacy Screen tile in Quick Settings to come back here.</string>
++    <string name="sable_privacy_screen_darkness_dim">Dim: the rest stays faintly visible to you</string>
++    <string name="sable_privacy_screen_darkness_dark">Dark (default)</string>
++    <string name="sable_privacy_screen_darkness_black">Black: only the band shows</string>
+ </resources>
+diff --git a/sable-src/apps/r8/textreader/res/xml/sable_privacy_screen_service.xml b/sable-src/apps/r8/textreader/res/xml/sable_privacy_screen_service.xml
+index eac2bda..a6e99be 100644
+--- a/sable-src/apps/r8/textreader/res/xml/sable_privacy_screen_service.xml
++++ b/sable-src/apps/r8/textreader/res/xml/sable_privacy_screen_service.xml
+@@ -8,4 +8,5 @@
+     android:description="@string/sable_privacy_screen_description"
+     android:isAccessibilityTool="false"
+     android:notificationTimeout="50"
++    android:settingsActivity="org.sableos.textreader.privacy.PrivacyScreenSettingsActivity"
+     android:summary="@string/sable_privacy_screen_summary" />
+diff --git a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyDarkness.kt b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyDarkness.kt
+new file mode 100644
+index 0000000..be99821
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyDarkness.kt
+@@ -0,0 +1,42 @@
++package org.sableos.textreader.privacy
++
++import android.content.Context
++import android.content.SharedPreferences
++
++/**
++ * How dark the Privacy Screen makes everything outside the clear band (owner, 2026-11-13). Kept in
++ * the app's own preferences; the shade reads it whenever it changes. Pure apart from [prefs].
++ */
++object PrivacyDarkness {
++    enum class Level(
++        val alpha: Int,
++    ) {
++        /** Dim: the rest of the screen stays faintly readable to you. */
++        Dim(170),
++
++        /** Dark: the default since Sable 2.0. */
++        Dark(240),
++
++        /** Black: nothing but the band shows. */
++        Black(255),
++    }
++
++    val DEFAULT = Level.Dark
++
++    const val PREFS = "sable_privacy_screen"
++    const val KEY = "darkness"
++
++    /** The stored level, or [DEFAULT] for a missing or unknown name. */
++    fun parse(name: String?): Level = Level.entries.firstOrNull { it.name == name } ?: DEFAULT
++
++    fun prefs(context: Context): SharedPreferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
++
++    fun read(context: Context): Level = parse(prefs(context).getString(KEY, null))
++
++    fun write(
++        context: Context,
++        level: Level,
++    ) {
++        prefs(context).edit().putString(KEY, level.name).apply()
++    }
++}
+diff --git a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt
+index 7f667f1..6dfd30b 100644
+--- a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt
++++ b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt
+@@ -36,6 +36,12 @@ class PrivacyScreenService : AccessibilityService() {
+     private var frontPackage: String? = null
+     private var screenOn = true
+ 
++    // The shade's darkness follows the settings page at once (PrivacyDarkness).
++    private val darknessChanged =
++        android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
++            if (key == PrivacyDarkness.KEY) overlay?.setDarkness(PrivacyDarkness.read(this))
++        }
++
+     private val screenEvents =
+         object : BroadcastReceiver() {
+             override fun onReceive(
+@@ -61,6 +67,7 @@ class PrivacyScreenService : AccessibilityService() {
+         } else {
+             registerReceiver(screenEvents, filter)
+         }
++        PrivacyDarkness.prefs(this).registerOnSharedPreferenceChangeListener(darknessChanged)
+         requestTileUpdate()
+     }
+ 
+@@ -86,6 +93,7 @@ class PrivacyScreenService : AccessibilityService() {
+ 
+     override fun onDestroy() {
+         runCatching { unregisterReceiver(screenEvents) }
++        PrivacyDarkness.prefs(this).unregisterOnSharedPreferenceChangeListener(darknessChanged)
+         hide()
+         instance = null
+         on = false
+@@ -101,7 +109,7 @@ class PrivacyScreenService : AccessibilityService() {
+ 
+     private fun show() {
+         if (overlay != null) return
+-        val shade = Shade(this)
++        val shade = Shade(this).apply { setDarkness(PrivacyDarkness.read(this@PrivacyScreenService)) }
+         val params =
+             WindowManager
+                 .LayoutParams(
+@@ -146,15 +154,20 @@ class PrivacyScreenService : AccessibilityService() {
+         runCatching { TileService.requestListeningState(this, ComponentName(this, PrivacyScreenTile::class.java)) }
+     }
+ 
+-    /** The dark layer: everything but the band, drawn black at [SHADE_ALPHA]. */
++    /** The dark layer: everything but the band, drawn black at the chosen [PrivacyDarkness]. */
+     private class Shade(
+         context: Context,
+     ) : View(context) {
+-        private val paint = Paint().apply { color = Color.argb(SHADE_ALPHA, 0, 0, 0) }
++        private val paint = Paint().apply { color = Color.argb(PrivacyDarkness.DEFAULT.alpha, 0, 0, 0) }
+         private val minBand = (MIN_BAND_DP * context.resources.displayMetrics.density).toInt()
+         private val padding = (PADDING_DP * context.resources.displayMetrics.density).toInt()
+         private var focus: Rect? = null
+ 
++        fun setDarkness(level: PrivacyDarkness.Level) {
++            paint.color = Color.argb(level.alpha, 0, 0, 0)
++            invalidate()
++        }
++
+         fun moveTo(bounds: Rect?) {
+             focus = bounds?.takeIf { !it.isEmpty }
+             invalidate()
+@@ -172,7 +185,6 @@ class PrivacyScreenService : AccessibilityService() {
+ 
+     companion object {
+         private const val TAG = "SablePrivacy"
+-        private const val SHADE_ALPHA = 240
+         private const val MIN_BAND_DP = 96
+         private const val PADDING_DP = 12
+         private var instance: WeakReference<PrivacyScreenService>? = null
+diff --git a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenSettingsActivity.kt b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenSettingsActivity.kt
+new file mode 100644
+index 0000000..9dd3901
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenSettingsActivity.kt
+@@ -0,0 +1,80 @@
++package org.sableos.textreader.privacy
++
++import android.app.Activity
++import android.os.Bundle
++import android.util.TypedValue
++import android.view.View
++import android.view.ViewGroup
++import android.widget.LinearLayout
++import android.widget.RadioButton
++import android.widget.RadioGroup
++import android.widget.ScrollView
++import android.widget.TextView
++import org.vaachak.textreader.R
++
++/**
++ * Privacy Screen settings: how dark the shade is. Opened from the service's page in Accessibility
++ * settings and by holding the Quick Settings tile. The choice applies at once if the shade is up.
++ */
++class PrivacyScreenSettingsActivity : Activity() {
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        title = getString(R.string.sable_privacy_screen_label)
++        val pad = dp(16)
++        val column =
++            LinearLayout(this).apply {
++                orientation = LinearLayout.VERTICAL
++                setPadding(pad, pad, pad, pad)
++            }
++        column.addView(
++            TextView(this).apply {
++                setText(R.string.sable_privacy_screen_darkness)
++                setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
++            },
++        )
++        column.addView(
++            TextView(this).apply {
++                setText(R.string.sable_privacy_screen_darkness_summary)
++                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
++                setPadding(0, dp(4), 0, dp(8))
++            },
++        )
++        val current = PrivacyDarkness.read(this)
++        val group = RadioGroup(this)
++        PrivacyDarkness.Level.entries.forEach { level ->
++            group.addView(
++                RadioButton(this).apply {
++                    id = View.generateViewId()
++                    tag = level
++                    text = getString(labelFor(level))
++                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
++                    minHeight = dp(48)
++                    isChecked = level == current
++                },
++                ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
++            )
++        }
++        group.setOnCheckedChangeListener { radios, checkedId ->
++            val level = radios.findViewById<View>(checkedId)?.tag as? PrivacyDarkness.Level ?: return@setOnCheckedChangeListener
++            PrivacyDarkness.write(this, level)
++        }
++        column.addView(group)
++        val scroll = ScrollView(this).apply { addView(column) }
++        // Keep the page between the status bar and the navigation bar (edge to edge from Android 15).
++        scroll.setOnApplyWindowInsetsListener { view, insets ->
++            val bars = insets.getInsets(android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout())
++            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
++            insets
++        }
++        setContentView(scroll)
++    }
++
++    private fun labelFor(level: PrivacyDarkness.Level): Int =
++        when (level) {
++            PrivacyDarkness.Level.Dim -> R.string.sable_privacy_screen_darkness_dim
++            PrivacyDarkness.Level.Dark -> R.string.sable_privacy_screen_darkness_dark
++            PrivacyDarkness.Level.Black -> R.string.sable_privacy_screen_darkness_black
++        }
++
++    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
++}
+diff --git a/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/privacy/PrivacyDarknessTest.kt b/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/privacy/PrivacyDarknessTest.kt
+new file mode 100644
+index 0000000..a16f716
+--- /dev/null
++++ b/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/privacy/PrivacyDarknessTest.kt
+@@ -0,0 +1,22 @@
++package org.sableos.textreader.privacy
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class PrivacyDarknessTest {
++    @Test
++    fun `a missing or unknown choice is the Sable 2_0 darkness`() {
++        assertEquals(PrivacyDarkness.Level.Dark, PrivacyDarkness.parse(null))
++        assertEquals(PrivacyDarkness.Level.Dark, PrivacyDarkness.parse("Darker"))
++        assertEquals(240, PrivacyDarkness.parse(null).alpha)
++    }
++
++    @Test
++    fun `each level is darker than the one before and Black hides everything`() {
++        val alphas = PrivacyDarkness.Level.entries.map { it.alpha }
++        assertTrue(alphas.zipWithNext().all { (a, b) -> a < b })
++        assertEquals(255, PrivacyDarkness.Level.Black.alpha)
++        PrivacyDarkness.Level.entries.forEach { assertEquals(it, PrivacyDarkness.parse(it.name)) }
++    }
++}
+diff --git a/sable-src/apps/r8/textreader/verify_sable_textreader.py b/sable-src/apps/r8/textreader/verify_sable_textreader.py
+index f8c33f4..3a27a14 100644
+--- a/sable-src/apps/r8/textreader/verify_sable_textreader.py
++++ b/sable-src/apps/r8/textreader/verify_sable_textreader.py
+@@ -181,6 +181,8 @@ def verify_manifest(manifest_path: pathlib.Path) -> None:
+         "org.sableos.textreader.privacy.PrivacyScreenService",
+         "org.sableos.textreader.privacy.PrivacyScreenTile",
+         "org.sableos.textreader.privacy.PrivacyScreenSwitchReceiver",
++        "org.sableos.textreader.privacy.PrivacyScreenSettingsActivity",
++        "android.service.quicksettings.action.QS_TILE_PREFERENCES",
+         'android:name="org.sableos.permission.PRIVACY_SCREEN"',
+         "android.permission.BIND_QUICK_SETTINGS_TILE",
+         "android.permission.BIND_ACCESSIBILITY_SERVICE",

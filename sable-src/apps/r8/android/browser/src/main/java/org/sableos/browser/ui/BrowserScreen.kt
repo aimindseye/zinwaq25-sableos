@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -74,7 +75,12 @@ fun BrowserScreen(
             )
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
+            AndroidView(
+                factory = { webView },
+                modifier = Modifier.fillMaxSize(),
+                // A blank or still-loading page shows the theme's background, not white.
+                update = { it.setBackgroundColor(colors.background.toArgb()) },
+            )
             if (state.pointerShown) Pointer(state)
             if (state.failed) {
                 Text(

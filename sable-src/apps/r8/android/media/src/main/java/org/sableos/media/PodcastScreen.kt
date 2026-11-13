@@ -32,6 +32,7 @@ import org.sableos.design.SableDenseRow
 import org.sableos.design.SableDestination
 import org.sableos.design.SableRowAction
 import org.sableos.design.SableSpacing
+import org.sableos.design.isSableShortWindow
 import org.sableos.media.MediaText.t
 import java.text.DateFormat
 import java.util.Date
@@ -41,6 +42,7 @@ private const val PODCAST_SEED_MULTIPLIER = 31
 private const val MILLIS_PER_MINUTE = 60_000L
 private val PodcastHeroSize = 72.dp
 private val PodcastArtworkSize = 58.dp
+private val PodcastShortArtworkSize = 40.dp
 
 private enum class PodcastPivot(
     val label: String,
@@ -100,6 +102,8 @@ internal fun PodcastScreen(
                 ).take(LATEST_EPISODE_LIMIT)
         }
 
+    val covers = remember(subscriptions) { subscriptions.associate { it.id to it.imageUrl } }
+
     val saved =
         remember(subscriptions, savedEpisodeIds) {
             subscriptions
@@ -114,10 +118,13 @@ internal fun PodcastScreen(
     Column(
         verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
     ) {
-        PodcastStatusDeck(
-            subscriptionCount = subscriptions.size,
-            episodeCount = latest.size,
-        )
+        // The Q25 frame already names the view and counts new episodes on its tab.
+        if (!isSableShortWindow()) {
+            PodcastStatusDeck(
+                subscriptionCount = subscriptions.size,
+                episodeCount = latest.size,
+            )
+        }
 
         SableAdaptiveTopNav(
             destinations = PODCAST_DESTINATIONS,
@@ -140,6 +147,7 @@ internal fun PodcastScreen(
                             episode = episode,
                             saved = episode.id in savedEpisodeIds,
                             played = episode.id in playedEpisodeIds,
+                            imageUrl = covers[episode.podcastId].orEmpty(),
                             onPlay = { onPlayEpisode(episode) },
                             onQueue = { onQueueEpisode(episode) },
                             onToggleSaved = { onToggleSavedEpisode(episode) },
@@ -178,6 +186,7 @@ internal fun PodcastScreen(
                             episode = episode,
                             saved = true,
                             played = episode.id in playedEpisodeIds,
+                            imageUrl = covers[episode.podcastId].orEmpty(),
                             onPlay = { onPlayEpisode(episode) },
                             onQueue = { onQueueEpisode(episode) },
                             onToggleSaved = { onToggleSavedEpisode(episode) },
@@ -263,6 +272,7 @@ private fun PodcastEpisodeRow(
     episode: PodcastEpisode,
     saved: Boolean,
     played: Boolean,
+    imageUrl: String,
     onPlay: () -> Unit,
     onQueue: () -> Unit,
     onToggleSaved: () -> Unit,
@@ -308,6 +318,7 @@ private fun PodcastEpisodeRow(
             leading = {
                 PodcastArtworkTile(
                     seed = episode.podcastId.hashCode(),
+                    imageUrl = imageUrl,
                     label =
                         episode.podcastTitle
                             .trim()
@@ -350,6 +361,7 @@ private fun PodcastSubscriptionCard(
             ) {
                 PodcastArtworkTile(
                     seed = subscription.id.hashCode(),
+                    imageUrl = subscription.imageUrl,
                     label =
                         subscription.title
                             .trim()
@@ -480,7 +492,18 @@ private fun PodcastArtworkTile(
     seed: Int,
     label: String,
     size: androidx.compose.ui.unit.Dp = PodcastArtworkSize,
+    imageUrl: String = "",
 ) {
+    // The show's own cover from its feed, when it names one (owner, 2026-11-13).
+    if (imageUrl.isNotBlank()) {
+        MediaArt(
+            source = ArtworkSource.Remote(imageUrl),
+            name = label,
+            fallback = MediaAccent,
+            size = if (isSableShortWindow()) minOf(size, PodcastShortArtworkSize) else size,
+        )
+        return
+    }
     val palette =
         listOf(
             MediaGreyDark,

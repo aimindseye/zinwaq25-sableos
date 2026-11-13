@@ -36,6 +36,12 @@ class PrivacyScreenService : AccessibilityService() {
     private var frontPackage: String? = null
     private var screenOn = true
 
+    // The shade's darkness follows the settings page at once (PrivacyDarkness).
+    private val darknessChanged =
+        android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == PrivacyDarkness.KEY) overlay?.setDarkness(PrivacyDarkness.read(this))
+        }
+
     private val screenEvents =
         object : BroadcastReceiver() {
             override fun onReceive(
@@ -61,6 +67,7 @@ class PrivacyScreenService : AccessibilityService() {
         } else {
             registerReceiver(screenEvents, filter)
         }
+        PrivacyDarkness.prefs(this).registerOnSharedPreferenceChangeListener(darknessChanged)
         requestTileUpdate()
     }
 
@@ -86,6 +93,7 @@ class PrivacyScreenService : AccessibilityService() {
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(screenEvents) }
+        PrivacyDarkness.prefs(this).unregisterOnSharedPreferenceChangeListener(darknessChanged)
         hide()
         instance = null
         on = false
@@ -101,7 +109,7 @@ class PrivacyScreenService : AccessibilityService() {
 
     private fun show() {
         if (overlay != null) return
-        val shade = Shade(this)
+        val shade = Shade(this).apply { setDarkness(PrivacyDarkness.read(this@PrivacyScreenService)) }
         val params =
             WindowManager
                 .LayoutParams(
@@ -146,14 +154,19 @@ class PrivacyScreenService : AccessibilityService() {
         runCatching { TileService.requestListeningState(this, ComponentName(this, PrivacyScreenTile::class.java)) }
     }
 
-    /** The dark layer: everything but the band, drawn black at [SHADE_ALPHA]. */
+    /** The dark layer: everything but the band, drawn black at the chosen [PrivacyDarkness]. */
     private class Shade(
         context: Context,
     ) : View(context) {
-        private val paint = Paint().apply { color = Color.argb(SHADE_ALPHA, 0, 0, 0) }
+        private val paint = Paint().apply { color = Color.argb(PrivacyDarkness.DEFAULT.alpha, 0, 0, 0) }
         private val minBand = (MIN_BAND_DP * context.resources.displayMetrics.density).toInt()
         private val padding = (PADDING_DP * context.resources.displayMetrics.density).toInt()
         private var focus: Rect? = null
+
+        fun setDarkness(level: PrivacyDarkness.Level) {
+            paint.color = Color.argb(level.alpha, 0, 0, 0)
+            invalidate()
+        }
 
         fun moveTo(bounds: Rect?) {
             focus = bounds?.takeIf { !it.isEmpty }
@@ -172,7 +185,6 @@ class PrivacyScreenService : AccessibilityService() {
 
     companion object {
         private const val TAG = "SablePrivacy"
-        private const val SHADE_ALPHA = 240
         private const val MIN_BAND_DP = 96
         private const val PADDING_DP = 12
         private var instance: WeakReference<PrivacyScreenService>? = null

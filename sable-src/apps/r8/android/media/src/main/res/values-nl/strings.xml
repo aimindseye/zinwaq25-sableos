@@ -193,4 +193,24 @@
     <string name="station_saved_locally">Zender lokaal opgeslagen.</string>
     <string name="choose_a_station_to_edit">Kies een zender om te bewerken.</string>
     <string name="station_updated">Zender bijgewerkt.</string>
+    <string name="hub_title">media</string>
+    <string name="hub_back">Terug</string>
+    <string name="hub_search">Zoeken</string>
+    <string name="hub_more">Meer opties</string>
+    <string name="hub_playing">speelt</string>
+    <string name="hub_paused">gepauzeerd</string>
+    <string name="hub_add">Toevoegen</string>
+    <string name="hub_settings">Instellingen</string>
+    <string name="hub_refresh">Vernieuwen</string>
+    <string name="hub_save">Opslaan</string>
+    <string name="hub_tab_songs">Nummers</string>
+    <string name="hub_tab_artists">Artiesten</string>
+    <string name="hub_tab_albums">Albums</string>
+    <string name="hub_tab_playlists">Afspeellijsten</string>
+    <string name="hub_tab_favourites">Favorieten</string>
+    <string name="hub_tab_podcasts">Podcasts</string>
+    <string name="hub_tab_radio">Radio</string>
+    <string name="hub_tab_fm">FM</string>
+    <string name="fm_name">Naam</string>
+    <string name="fm_clear_name">Naam wissen</string>
 </resources>

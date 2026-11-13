@@ -7,6 +7,11 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.view.Window
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -14,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 
 object SableGlobalAppearanceContract {
@@ -186,8 +192,38 @@ fun SableGlobalTheme(
         }
     }
 
-    SableTheme(
-        appearance = appearance,
-        content = content,
-    )
+    SableTheme(appearance = appearance) {
+        if (window == null) {
+            content()
+        } else {
+            SableSafeArea(content)
+        }
+    }
+}
+
+/**
+ * Every Sable app screen sits between the status bar and the navigation or gesture bar, and above
+ * the keyboard and any display cutout. Android 15+ draws apps edge to edge, so an app that did not
+ * pad itself drew under the status bar (Calendar on the Q25, owner report 2026-11-12). The strips
+ * behind the bars take the app's background; a screen inside that pads itself again finds the
+ * insets already used, so nothing is padded twice. When an app hides the bars (a full-screen
+ * reader or video), the insets are zero and the screen fills the display.
+ */
+@Composable
+private fun SableSafeArea(content: @Composable () -> Unit) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .safeDrawingPadding(),
+        ) {
+            content()
+        }
+    }
 }

@@ -193,4 +193,24 @@
     <string name="station_saved_locally">Estação salva localmente.</string>
     <string name="choose_a_station_to_edit">Escolha uma estação para editar.</string>
     <string name="station_updated">Estação atualizada.</string>
+    <string name="hub_title">mídia</string>
+    <string name="hub_back">Voltar</string>
+    <string name="hub_search">Pesquisar</string>
+    <string name="hub_more">Mais opções</string>
+    <string name="hub_playing">tocando</string>
+    <string name="hub_paused">pausado</string>
+    <string name="hub_add">Adicionar</string>
+    <string name="hub_settings">Configurações</string>
+    <string name="hub_refresh">Atualizar</string>
+    <string name="hub_save">Salvar</string>
+    <string name="hub_tab_songs">Músicas</string>
+    <string name="hub_tab_artists">Artistas</string>
+    <string name="hub_tab_albums">Álbuns</string>
+    <string name="hub_tab_playlists">Playlists</string>
+    <string name="hub_tab_favourites">Favoritos</string>
+    <string name="hub_tab_podcasts">Podcasts</string>
+    <string name="hub_tab_radio">Rádio</string>
+    <string name="hub_tab_fm">FM</string>
+    <string name="fm_name">Nome</string>
+    <string name="fm_clear_name">Apagar nome</string>
 </resources>
