@@ -1,0 +1,1073 @@
+diff --git a/docs/USER_GUIDE.md b/docs/USER_GUIDE.md
+index 3b87c50..1ea3c14 100644
+--- a/docs/USER_GUIDE.md
++++ b/docs/USER_GUIDE.md
+@@ -140,7 +140,7 @@ Every Sable app uses the SableOS look (black and white with one blue accent) and
+ | Sable Messages | Default SMS app: sends SMS, receives SMS and MMS (no MMS sending yet) | T/B, N/P, Space pages |
+ | Hub (in Start) | One inbox for messages, calls and notifications | H on a notification opens it in Hub |
+ | Mail | Sable Mail holds your mail accounts and gets new mail by push; the Hub lists its inboxes, and Enter on a Hub email opens it here. Gmail sign-in: [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md), Outlook and Microsoft 365: [MAIL_MICROSOFT_SIGNIN.md](MAIL_MICROSOFT_SIGNIN.md) | B to bottom |
+-| Calendar | The month with busy rings over the day's agenda, a week view with a NOW line, and every calendar on the phone. A ring fills with how much of 8:00 to 20:00 is booked; a thin outer ring marks an all-day event. L lists your calendars to show or hide each one | C, T, V, J, K, R, L |
++| Calendar | Laid out as TenSeven's Calendar: a top bar whose ‹ › step the day, week or month, the week's seven days under it, and Today · Week · Month · Day · + along the bottom. Today lists the day's events; Week and Day show the hours with a NOW line; Month shows busy rings with the chosen day's events under it. A ring fills with how much of 8:00 to 20:00 is booked; a thin outer ring marks an all-day event. ▤ or L lists your calendars to show or hide each one; ⋮ has Search | C, T, V, J, K, R, L |
+ | Notes | Notes and checklists with colour labels, kept on the phone | See [Notes](#notes) below; C new, S find, K tasks |
+ | Tasks | Tasks with due dates, reminders and repeats, kept on the phone. A reminder shows in Hub with Done and Snooze 1 hour | See [Tasks](#tasks) below; C new, Space done, Z tomorrow |
+ | Text Reader | Reads text aloud: paste text, open a file, scan a page with the camera (OCR, English or Spanish) or pick an image from the Gallery. An upstream app with the Sable name and icon. It speaks with eSpeak NG, the offline speech engine SableOS ships (voice, rate and pitch in Settings > Accessibility > Text-to-speech output; see [Accessibility](ACCESSIBILITY.md#speech)). It also adds Speak what's focused (Settings > Accessibility), which speaks the item you move to with the trackpad or keys | Play and stop buttons on screen |
+diff --git a/patches/README.md b/patches/README.md
+index 5fb3d05..042a9e3 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -343,3 +343,4 @@ Reserved:
+   0197 fixes Active Frames' empty pictures on Android 17 (owner log 2026-11-12: "snapshot of task 85 has no hardware buffer"): `SableTaskSnapshots` no longer closes the snapshot's HardwareBuffer itself, which emptied the snapshot TaskSnapshotManager keeps in its cache; it copies the picture through `TaskSnapshot.wrapToBitmap` and releases it with `closeBuffer()`, asks for RESOLUTION_ANY when the wanted resolution has none, and logs what an empty snapshot holds.
+   0198 fixes the Privacy Screen dimming nothing in Chrome (owner, 2026-11-12): a focused item that fills the screen, such as a web page, made the clear band the whole screen. `PrivacyBand` now centres the band on the visible part of the focused item and keeps it to a third of the screen (or the minimum band, if more); `SablePrivacy` logs each switch and a shade that fails to show.
+   0199 fits the home's Hub and Command to the Q25 (owner, 2026-11-12: Hub "looks good on Titan 2 but doesn't scale well on the Q25"). In a short window, as the Q25 column of the approved TenSeven BB10 design review: Material's 45 sp display title becomes 26 sp and the Hub title 22 sp; the upcoming-calendar row is a flat 13 sp line instead of a card; message rows are 7 dp tighter with 24 dp icons; the selected message in Notification options shows one line; Command has less padding. The Titan 2 layout is unchanged. The BB10 home bar keeps a Command (search) icon before Camera, which the compact policy dropped on the Q25; `q25_fit` checks it.
++  0200 lays Sable Calendar out as TenSeven Launcher's Calendar (owner, 2026-11-12): a top bar with ‹ title › ("Today · Nov 13", "Nov 9 – Nov 15", "November 2026"), Calendars (▤) and a ⋮ menu with Search and Today; a seven-day strip with the chosen day filled blue; and Today · Week · Month · Day · + tabs instead of the action bar. The big "calendar" header, the identity mark and the month over the agenda are gone; Month keeps the busy rings and lists the chosen day under it; Week shows seven days. The key hints are hidden in a short window. `CalendarChrome` holds the titles, steps and strip (CalendarChromeTest); 6 new strings in all 19 languages.
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarChrome.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarChrome.kt
+new file mode 100644
+index 0000000..90ac294
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarChrome.kt
+@@ -0,0 +1,81 @@
++package org.sableos.calendar
++
++import java.time.DayOfWeek
++import java.time.LocalDate
++import java.time.format.DateTimeFormatter
++import java.time.temporal.TemporalAdjusters
++import java.util.Locale
++
++/**
++ * The browsing chrome, after TenSeven Launcher's Calendar (owner, 2026-11-12): a top bar whose
++ * arrows step the shown period, a seven-day strip and Today · Week · Month · Day · + tabs. Pure,
++ * so it is unit-tested off the phone.
++ */
++object CalendarChrome {
++    /** The tabs along the bottom, in order; [New] starts a new event. */
++    enum class Tab { Today, Week, Month, Day, New }
++
++    /** The tab shown as selected for a browsing [view]; the agenda is Today's list. */
++    fun tabFor(view: CalendarView): Tab =
++        when (view) {
++            CalendarView.Agenda -> Tab.Today
++            CalendarView.Week -> Tab.Week
++            CalendarView.Month -> Tab.Month
++            CalendarView.Day -> Tab.Day
++        }
++
++    /** The date the top bar's arrows move to: a day, a week or a month. */
++    fun step(
++        view: CalendarView,
++        date: LocalDate,
++        forward: Boolean,
++    ): LocalDate {
++        val sign = if (forward) 1L else -1L
++        return when (view) {
++            CalendarView.Agenda, CalendarView.Day -> date.plusDays(sign)
++            CalendarView.Week -> date.plusWeeks(sign)
++            CalendarView.Month -> date.plusMonths(sign)
++        }
++    }
++
++    /** The seven days of [date]'s week, starting on [firstDay]. */
++    fun weekStrip(
++        date: LocalDate,
++        firstDay: DayOfWeek,
++    ): List<LocalDate> {
++        val start = date.with(TemporalAdjusters.previousOrSame(firstDay))
++        return List(DAYS_PER_WEEK) { start.plusDays(it.toLong()) }
++    }
++
++    /** The top bar's title: "Today · Nov 13", "Fri, Nov 13", "Nov 8 – Nov 14" or "November 2026". */
++    fun title(
++        view: CalendarView,
++        date: LocalDate,
++        today: LocalDate,
++        firstDay: DayOfWeek,
++        todayLabel: String,
++        locale: Locale = Locale.getDefault(),
++    ): String {
++        val short = DateTimeFormatter.ofPattern("MMM d", locale)
++        return when (view) {
++            CalendarView.Agenda -> {
++                if (date == today) "$todayLabel · " + date.format(short) else date.format(DateTimeFormatter.ofPattern("EEE, MMM d", locale))
++            }
++
++            CalendarView.Day -> {
++                date.format(DateTimeFormatter.ofPattern("EEE, MMM d", locale))
++            }
++
++            CalendarView.Week -> {
++                val days = weekStrip(date, firstDay)
++                days.first().format(short) + " – " + days.last().format(short)
++            }
++
++            CalendarView.Month -> {
++                date.format(DateTimeFormatter.ofPattern("LLLL yyyy", locale)).replaceFirstChar { it.titlecase(locale) }
++            }
++        }
++    }
++
++    private const val DAYS_PER_WEEK = 7
++}
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+index f3f055e..99fb932 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt
+@@ -91,6 +91,12 @@ object CalendarText {
+             "colour" to "Colour",
+             "l_calendars" to " · L calendars",
+             "day_events" to "%1\$s, %2\$s events",
++            "view_week" to "Week",
++            "view_month" to "Month",
++            "view_day" to "Day",
++            "previous" to "Previous",
++            "next" to "Next",
++            "more_options" to "More options",
+         )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+index f4ebdd4..75849dc 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/MainActivity.kt
+@@ -17,7 +17,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
+ import androidx.activity.compose.setContent
+ import androidx.activity.enableEdgeToEdge
+ import androidx.activity.result.contract.ActivityResultContracts
+-import androidx.compose.foundation.Image
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+ import androidx.compose.foundation.clickable
+@@ -36,11 +35,12 @@ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.material3.DropdownMenu
++import androidx.compose.material3.DropdownMenuItem
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedTextField
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+-import androidx.compose.material3.TextButton
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.CompositionLocalProvider
+ import androidx.compose.runtime.LaunchedEffect
+@@ -57,11 +57,9 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.alpha
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.draw.shadow
+ import androidx.compose.ui.focus.FocusRequester
+ import androidx.compose.ui.focus.focusRequester
+ import androidx.compose.ui.focus.onFocusChanged
+-import androidx.compose.ui.graphics.Brush
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.input.key.KeyEventType
+ import androidx.compose.ui.input.key.isAltPressed
+@@ -71,9 +69,10 @@ import androidx.compose.ui.input.key.onKeyEvent
+ import androidx.compose.ui.input.key.type
+ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.platform.LocalContext
+-import androidx.compose.ui.res.painterResource
+ import androidx.compose.ui.semantics.contentDescription
++import androidx.compose.ui.semantics.heading
+ import androidx.compose.ui.semantics.semantics
++import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+ import kotlinx.coroutines.Dispatchers
+@@ -81,15 +80,15 @@ import kotlinx.coroutines.delay
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import org.sableos.calendar.CalendarText.t
+-import org.sableos.design.SableAction
+-import org.sableos.design.SableActionBar
+ import org.sableos.design.SableActionButton
+ import org.sableos.design.SableGlobalTheme
+ import org.sableos.design.SableRefreshableSurface
+ import org.sableos.design.SableSpacing
+ import org.sableos.design.SableUndoBar
++import org.sableos.design.isSableShortWindow
+ import org.sableos.design.sableFocusRing
+ import org.sableos.design.sableVerticalScroll
++import java.time.DayOfWeek
+ import java.time.Instant
+ import java.time.LocalDate
+ import java.time.LocalDateTime
+@@ -431,7 +430,7 @@ private fun CalendarApp(
+             state.events =
+                 withContext(Dispatchers.IO) {
+                     if (weekView) {
+-                        val days = WeekLayout.days(state.selectedDate)
++                        val days = CalendarChrome.weekStrip(state.selectedDate, FIRST_DAY)
+                         repository.range(days.first(), days.last().plusDays(1))
+                     } else {
+                         repository.agenda(state.selectedDate)
+@@ -480,7 +479,9 @@ private fun CalendarApp(
+             color = MaterialTheme.colorScheme.background,
+             contentColor = MaterialTheme.colorScheme.onBackground,
+         ) {
++            val browsing = repository.canRead() && state.mode == CalendarMode.Agenda
+             Column(Modifier.fillMaxSize()) {
++                if (browsing) CalendarTopBar(state)
+                 Box(Modifier.weight(1f)) {
+                     SableRefreshableSurface(
+                         isRefreshing = state.refreshing,
+@@ -492,15 +493,15 @@ private fun CalendarApp(
+                                     .fillMaxSize()
+                                     .sableVerticalScroll()
+                                     .padding(
+-                                        horizontal = SableSpacing.ScreenHorizontal,
+-                                        vertical = SableSpacing.ScreenVertical,
++                                        horizontal = if (isSableShortWindow()) 10.dp else SableSpacing.ScreenHorizontal,
++                                        vertical = if (browsing) SableSpacing.Sm else SableSpacing.ScreenVertical,
+                                     ),
+                         ) {
+-                            CalendarHeader()
+                             if (repository.canRead()) {
+                                 StatusLine(state.status)
+                                 CalendarModeContent(state, repository, onRefresh, onRequestPermissions)
+                             } else {
++                                CalendarHeader()
+                                 PermissionPanel(onRequestPermissions)
+                             }
+                         }
+@@ -520,30 +521,186 @@ private fun CalendarApp(
+                         },
+                     )
+                 }
+-                if (repository.canRead() && state.mode == CalendarMode.Agenda) {
+-                    CalendarActionBar(state, onRefresh)
++                if (browsing) {
++                    CalendarTabBar(state)
+                 }
+             }
+         }
+     }
+ }
+ 
+-/** The bottom bar, as in BlackBerry 10's Calendar: New event, Search, then Today, Views and Calendars. */
++/** Weeks start on Monday, as the month grid. */
++private val FIRST_DAY = DayOfWeek.MONDAY
++
++/**
++ * The top bar, after TenSeven Launcher's Calendar (owner, 2026-11-12): the arrows step the shown
++ * day, week or month, then Calendars and a menu with Search and Today. Under it, for the day,
++ * week and Today views, the seven days of the week with the selected day in blue.
++ */
+ @Composable
+-private fun CalendarActionBar(
+-    state: CalendarAppState,
+-    onRefresh: () -> Unit,
++private fun CalendarTopBar(state: CalendarAppState) {
++    val today = LocalDate.now()
++    var menu by remember { mutableStateOf(false) }
++    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
++        Row(
++            Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 2.dp),
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
++            ChromeButton("\u2039", t("previous")) { state.selectedDate = CalendarChrome.step(state.view, state.selectedDate, false) }
++            Text(
++                text = CalendarChrome.title(state.view, state.selectedDate, today, FIRST_DAY, t("today")),
++                modifier = Modifier.semantics { heading() },
++                style = MaterialTheme.typography.titleLarge,
++                fontWeight = FontWeight.SemiBold,
++                maxLines = 1,
++                overflow = TextOverflow.Ellipsis,
++            )
++            ChromeButton("\u203A", t("next")) { state.selectedDate = CalendarChrome.step(state.view, state.selectedDate, true) }
++            Spacer(Modifier.weight(1f))
++            ChromeButton("\u25A4", t("calendars")) {
++                state.status = null
++                state.mode = CalendarMode.Calendars
++            }
++            Box {
++                ChromeButton("\u22EE", t("more_options")) { menu = true }
++                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
++                    DropdownMenuItem(text = { Text(t("search")) }, onClick = {
++                        menu = false
++                        state.startSearch()
++                    })
++                    DropdownMenuItem(text = { Text(t("today")) }, onClick = {
++                        menu = false
++                        state.selectedDate = LocalDate.now()
++                    })
++                }
++            }
++        }
++        if (state.view != CalendarView.Month) {
++            WeekStrip(state.selectedDate, today) { state.selectedDate = it }
++        }
++        Box(
++            Modifier
++                .fillMaxWidth()
++                .height(1.dp)
++                .background(MaterialTheme.colorScheme.outlineVariant),
++        )
++    }
++}
++
++@Composable
++private fun ChromeButton(
++    glyph: String,
++    description: String,
++    onClick: () -> Unit,
+ ) {
+-    SableActionBar(
+-        signature = SableAction(t("new_event")) { state.startNewEvent() },
+-        actions =
+-            listOf(
+-                SableAction(t("search")) { state.startSearch() },
+-                SableAction(t("today")) { state.onScreenKey(CalendarScreenKey.Today, onRefresh) },
+-                SableAction(t("views")) { state.onScreenKey(CalendarScreenKey.View, onRefresh) },
+-                SableAction(t("calendars")) { state.onScreenKey(CalendarScreenKey.Calendars, onRefresh) },
+-            ),
+-    )
++    Box(
++        Modifier
++            .size(44.dp, 48.dp)
++            .sableFocusRing()
++            .clickable(onClick = onClick)
++            .semantics { contentDescription = description },
++        contentAlignment = Alignment.Center,
++    ) {
++        Text(glyph, style = MaterialTheme.typography.titleLarge)
++    }
++}
++
++/** The week's seven days as letter over date; the selected day is filled blue, today is blue. */
++@Composable
++private fun WeekStrip(
++    selected: LocalDate,
++    today: LocalDate,
++    onSelect: (LocalDate) -> Unit,
++) {
++    val letter = DateTimeFormatter.ofPattern("EEEEE", Locale.getDefault())
++    val label = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault())
++    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)) {
++        CalendarChrome.weekStrip(selected, FIRST_DAY).forEach { day ->
++            val chosen = day == selected
++            val colour =
++                when {
++                    chosen -> MaterialTheme.colorScheme.onPrimary
++                    day == today -> MaterialTheme.colorScheme.primary
++                    else -> MaterialTheme.colorScheme.onBackground
++                }
++            Column(
++                Modifier
++                    .weight(1f)
++                    .padding(horizontal = 2.dp)
++                    .clip(RoundedCornerShape(6.dp))
++                    .background(if (chosen) MaterialTheme.colorScheme.primary else Color.Transparent)
++                    .sableFocusRing()
++                    .clickable { onSelect(day) }
++                    .semantics { contentDescription = day.format(label) }
++                    .padding(vertical = 3.dp),
++                horizontalAlignment = Alignment.CenterHorizontally,
++            ) {
++                Text(day.format(letter), style = MaterialTheme.typography.labelSmall, color = colour)
++                Text(day.dayOfMonth.toString(), style = MaterialTheme.typography.titleMedium, color = colour)
++            }
++        }
++    }
++}
++
++/** Today · Week · Month · Day · + along the bottom, the shown view filled blue (TenSeven's Calendar). */
++@Composable
++private fun CalendarTabBar(state: CalendarAppState) {
++    val current = CalendarChrome.tabFor(state.view)
++    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
++        Box(
++            Modifier
++                .fillMaxWidth()
++                .height(1.dp)
++                .background(MaterialTheme.colorScheme.outlineVariant),
++        )
++        Row(
++            Modifier.fillMaxWidth().heightIn(min = 50.dp).padding(horizontal = 4.dp, vertical = 3.dp),
++            verticalAlignment = Alignment.CenterVertically,
++        ) {
++            CalendarChrome.Tab.entries.forEach { tab ->
++                val chosen = tab == current
++                val label =
++                    when (tab) {
++                        CalendarChrome.Tab.Today -> t("today")
++                        CalendarChrome.Tab.Week -> t("view_week")
++                        CalendarChrome.Tab.Month -> t("view_month")
++                        CalendarChrome.Tab.Day -> t("view_day")
++                        CalendarChrome.Tab.New -> "+"
++                    }
++                Box(
++                    Modifier
++                        .weight(1f)
++                        .heightIn(min = 44.dp)
++                        .padding(horizontal = 2.dp)
++                        .clip(RoundedCornerShape(6.dp))
++                        .background(if (chosen) MaterialTheme.colorScheme.primary else Color.Transparent)
++                        .sableFocusRing()
++                        .clickable {
++                            state.status = null
++                            when (tab) {
++                                CalendarChrome.Tab.Today -> {
++                                    state.selectedDate = LocalDate.now()
++                                    state.view = CalendarView.Agenda
++                                }
++
++                                CalendarChrome.Tab.Week -> state.view = CalendarView.Week
++                                CalendarChrome.Tab.Month -> state.view = CalendarView.Month
++                                CalendarChrome.Tab.Day -> state.view = CalendarView.Day
++                                CalendarChrome.Tab.New -> state.startNewEvent()
++                            }
++                        }.semantics { if (tab == CalendarChrome.Tab.New) contentDescription = t("new_event") },
++                    contentAlignment = Alignment.Center,
++                ) {
++                    Text(
++                        text = label,
++                        style = if (tab == CalendarChrome.Tab.New) MaterialTheme.typography.titleLarge else MaterialTheme.typography.labelLarge,
++                        color = if (chosen) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
++                        maxLines = 1,
++                    )
++                }
++            }
++        }
++    }
+ }
+ 
+ /** Search (BB10): type words; events within a year of today whose title or calendar has them all. */
+@@ -669,8 +826,6 @@ private fun AgendaPane(state: CalendarAppState) {
+         busy = state.busy,
+         selected = state.openEvent,
+         onSelectDate = { state.selectedDate = it },
+-        onOpenMonth = { state.view = CalendarView.Month },
+-        onNewEvent = state::startNewEvent,
+         onOpenEvent = state::openDetail,
+         onFocusEvent = state::select,
+         onEditEvent = state::openEditor,
+@@ -689,19 +844,48 @@ private fun AgendaPane(state: CalendarAppState) {
+ 
+ @Composable
+ private fun MonthPane(state: CalendarAppState) {
+-    BackToAgenda { state.view = CalendarView.Agenda }
+     MonthView(
+         month = YearMonth.from(state.selectedDate),
+         selectedDate = state.selectedDate,
+         busy = state.busy,
+-        onSelectDate = { date ->
+-            state.selectedDate = date
+-            state.view = CalendarView.Agenda
+-        },
++        onSelectDate = { date -> state.selectedDate = date },
+     )
++    // The selected day under the month, as TenSeven's Calendar.
++    Spacer(Modifier.height(SableSpacing.Sm))
++    DayList(state)
+     KeyDock()
+ }
+ 
++/** The selected day's heading and its events, or a quiet line when it has none. */
++@Composable
++private fun DayList(state: CalendarAppState) {
++    Text(
++        text = state.selectedDate.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.getDefault())),
++        style = MaterialTheme.typography.titleMedium,
++        fontWeight = FontWeight.SemiBold,
++    )
++    Spacer(Modifier.height(4.dp))
++    val events = state.events.filter { it.id != state.pendingDelete?.eventId }
++    if (events.isEmpty()) {
++        Text(
++            text = t("nothing_scheduled_2"),
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++    } else {
++        events.forEach { event ->
++            AgendaEventRow(
++                event = event,
++                selected = sameOccurrence(state.openEvent, event),
++                onOpen = { state.openDetail(event) },
++                onFocus = { state.select(event) },
++                onEdit = { state.openEditor(event) },
++                onDelete = { state.askDelete(event.id, event.title, event.recurring, event.canModify) },
++            )
++        }
++    }
++}
++
+ @Composable
+ private fun CalendarsPane(
+     state: CalendarAppState,
+@@ -889,54 +1073,16 @@ private fun ApprovedCalendarLanding(
+     busy: Map<LocalDate, BusyDay>,
+     selected: CalendarEvent?,
+     onSelectDate: (LocalDate) -> Unit,
+-    onOpenMonth: () -> Unit,
+-    onNewEvent: () -> Unit,
+     onOpenEvent: (CalendarEvent) -> Unit,
+     onFocusEvent: (CalendarEvent) -> Unit,
+     onEditEvent: (CalendarEvent) -> Unit,
+     onDeleteEvent: (CalendarEvent) -> Unit,
+     sidePane: (@Composable () -> Unit)?,
+ ) {
+-    Row(
+-        modifier =
+-            Modifier
+-                .fillMaxWidth()
+-                .clickable(onClick = onOpenMonth),
+-        verticalAlignment = Alignment.CenterVertically,
+-    ) {
+-        CalendarIdentityMark()
+-        Spacer(Modifier.width(14.dp))
+-        Column {
+-            Text(
+-                text =
+-                    selectedDate.month.name
+-                        .lowercase()
+-                        .replaceFirstChar { it.uppercase() }
+-                        .lowercase(),
+-                style = MaterialTheme.typography.headlineLarge,
+-            )
+-            Text(
+-                text = selectedDate.year.toString(),
+-                style = MaterialTheme.typography.titleLarge,
+-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+-            )
+-        }
+-    }
+-
+-    Spacer(Modifier.height(12.dp))
+-    // The month with busy rings over the agenda (owner decision 2026-11-04).
+-    BusyMonthGrid(
+-        month = YearMonth.from(selectedDate),
+-        selectedDate = selectedDate,
+-        busy = busy,
+-        compact = true,
+-        onSelectDate = onSelectDate,
+-    )
+-    Spacer(Modifier.height(12.dp))
+     Text(
+-        text = CalendarLabels.dayHeading(selectedDate, LocalDate.now()),
+-        style = MaterialTheme.typography.labelLarge,
+-        color = MaterialTheme.colorScheme.primary,
++        text = selectedDate.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.getDefault())),
++        style = MaterialTheme.typography.titleMedium,
++        fontWeight = FontWeight.SemiBold,
+     )
+     Spacer(Modifier.height(4.dp))
+ 
+@@ -944,10 +1090,10 @@ private fun ApprovedCalendarLanding(
+         if (events.isEmpty()) {
+             Text(
+                 text = t("nothing_scheduled_2"),
+-                style = MaterialTheme.typography.titleLarge,
++                style = MaterialTheme.typography.bodyMedium,
+                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+             )
+-            Spacer(Modifier.height(18.dp))
++            Spacer(Modifier.height(SableSpacing.Md))
+         } else {
+             events.forEach { event ->
+                 AgendaEventRow(
+@@ -961,12 +1107,6 @@ private fun ApprovedCalendarLanding(
+             }
+             Spacer(Modifier.height(14.dp))
+         }
+-
+-        SableActionButton(
+-            text = t("new_event_c"),
+-            primary = false,
+-            onClick = onNewEvent,
+-        )
+     }
+     if (sidePane == null) {
+         list()
+@@ -982,44 +1122,6 @@ private fun ApprovedCalendarLanding(
+     }
+ }
+ 
+-@Composable
+-private fun CalendarIdentityMark() {
+-    val shape = RoundedCornerShape(14.dp)
+-    Box(
+-        modifier =
+-            Modifier
+-                .size(58.dp)
+-                .shadow(4.dp, shape)
+-                .clip(shape)
+-                .background(
+-                    Brush.linearGradient(
+-                        listOf(
+-                            MaterialTheme.colorScheme.surfaceVariant,
+-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+-                        ),
+-                    ),
+-                ).border(
+-                    1.dp,
+-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
+-                    shape,
+-                ),
+-        contentAlignment = Alignment.Center,
+-    ) {
+-        Image(
+-            painter = painterResource(R.drawable.ic_sable_calendar),
+-            contentDescription = null,
+-            modifier = Modifier.size(42.dp),
+-        )
+-        Box(
+-            modifier =
+-                Modifier
+-                    .align(Alignment.BottomCenter)
+-                    .fillMaxWidth()
+-                    .height(3.dp)
+-                    .background(MaterialTheme.colorScheme.primary),
+-        )
+-    }
+-}
+ 
+ /** Agenda row: Enter opens the event, E edits, Del asks to delete; focus (or J/K) selects it. */
+ @Composable
+@@ -1242,21 +1344,11 @@ private fun MonthView(
+     busy: Map<LocalDate, BusyDay>,
+     onSelectDate: (LocalDate) -> Unit,
+ ) {
+-    Text(
+-        text =
+-            month.month.name
+-                .lowercase()
+-                .replaceFirstChar { it.uppercase() } +
+-                " " +
+-                month.year,
+-        style = MaterialTheme.typography.headlineMedium,
+-    )
+-    Spacer(Modifier.height(SableSpacing.Md))
+     BusyMonthGrid(
+         month = month,
+         selectedDate = selectedDate,
+         busy = busy,
+-        compact = false,
++        compact = true,
+         onSelectDate = onSelectDate,
+     )
+ }
+@@ -1424,6 +1516,8 @@ private fun PermissionPanel(onRequestPermissions: () -> Unit) {
+ /** Key hints under the browsing views (design: "[C Create] [T Today] [V View] [J/K Event]"). */
+ @Composable
+ private fun KeyDock() {
++    // The Q25 has no room for the key hints; the keys still work.
++    if (isSableShortWindow()) return
+     Spacer(Modifier.height(SableSpacing.Md))
+     Surface(
+         modifier = Modifier.fillMaxWidth(),
+@@ -1527,19 +1621,8 @@ private fun WeekPane(state: CalendarAppState) {
+             value = LocalDateTime.now()
+         }
+     }
+-    val days = WeekLayout.days(state.selectedDate)
+-
+-    // BB10: the month with its busy rings sits over the week's timeline.
+-    BusyMonthGrid(
+-        month = YearMonth.from(state.selectedDate),
+-        selectedDate = state.selectedDate,
+-        busy = state.busy,
+-        compact = true,
+-        onSelectDate = { state.selectedDate = it },
+-    )
+-    Spacer(Modifier.height(SableSpacing.Sm))
+-    Text(text = WeekLayout.title(days), style = MaterialTheme.typography.titleLarge)
+-    Spacer(Modifier.height(SableSpacing.Sm))
++    // The top bar names the week and the strip under it picks the day (TenSeven's Calendar).
++    val days = CalendarChrome.weekStrip(state.selectedDate, FIRST_DAY)
+     state.events.filter { it.allDay }.forEach { event ->
+         Text(
+             text = t("all_day_3") + event.title,
+@@ -1570,17 +1653,6 @@ private fun DayPane(state: CalendarAppState) {
+         }
+     }
+     val day = state.selectedDate
+-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+-        DayStep(day.minusDays(1), "\u2039") { state.selectedDate = it }
+-        Text(
+-            text = day.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault())),
+-            modifier = Modifier.weight(1f),
+-            style = MaterialTheme.typography.titleLarge,
+-            color = if (day == now.toLocalDate()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+-        )
+-        DayStep(day.plusDays(1), "\u203A") { state.selectedDate = it }
+-    }
+-    Spacer(Modifier.height(SableSpacing.Sm))
+     state.events.filter { it.allDay }.forEach { event ->
+         Text(
+             text = t("all_day_3") + event.title,
+@@ -1596,25 +1668,6 @@ private fun DayPane(state: CalendarAppState) {
+     KeyDock()
+ }
+ 
+-/** An arrow beside the day's title that moves to [target]; read out as that date. */
+-@Composable
+-private fun DayStep(
+-    target: LocalDate,
+-    arrow: String,
+-    onStep: (LocalDate) -> Unit,
+-) {
+-    val label = target.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault()))
+-    Text(
+-        text = arrow,
+-        modifier =
+-            Modifier
+-                .sableFocusRing()
+-                .clickable { onStep(target) }
+-                .semantics { contentDescription = label }
+-                .padding(horizontal = SableSpacing.Md, vertical = SableSpacing.Sm),
+-        style = MaterialTheme.typography.titleLarge,
+-    )
+-}
+ 
+ @Composable
+ private fun WeekColumnHeaders(
+@@ -1626,8 +1679,10 @@ private fun WeekColumnHeaders(
+         Spacer(Modifier.width(timeColumnWidth))
+         days.forEach { day ->
+             Text(
+-                text = WeekLayout.columnLabel(day),
++                // Seven columns on the Q25: the date only; the strip above names the days.
++                text = if (days.size > WeekLayout.COLUMNS) day.dayOfMonth.toString() else WeekLayout.columnLabel(day),
+                 modifier = Modifier.weight(1f).clickable { onSelectDate(day) }.padding(vertical = 4.dp),
++                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                 style = MaterialTheme.typography.labelLarge,
+                 color =
+                     if (day == selectedDate) {
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
+index 4c6adad..f626c59 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ar/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">اللون</string>
+     <string name="l_calendars">" · L التقويمات"</string>
+     <string name="day_events">%1$s، %2$s أحداث</string>
++    <string name="view_week">أسبوع</string>
++    <string name="view_month">شهر</string>
++    <string name="view_day">يوم</string>
++    <string name="previous">السابق</string>
++    <string name="next">التالي</string>
++    <string name="more_options">خيارات أخرى</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
+index 9289e38..758cfe8 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-de/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">Farbe</string>
+     <string name="l_calendars">" · L Kalender"</string>
+     <string name="day_events">%1$s, %2$s Termine</string>
++    <string name="view_week">Woche</string>
++    <string name="view_month">Monat</string>
++    <string name="view_day">Tag</string>
++    <string name="previous">Zurück</string>
++    <string name="next">Weiter</string>
++    <string name="more_options">Weitere Optionen</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
+index 973430a..944d041 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-el/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">Χρώμα</string>
+     <string name="l_calendars">" · L ημερολόγια"</string>
+     <string name="day_events">%1$s, %2$s συμβάντα</string>
++    <string name="view_week">Εβδομάδα</string>
++    <string name="view_month">Μήνας</string>
++    <string name="view_day">Ημέρα</string>
++    <string name="previous">Προηγούμενο</string>
++    <string name="next">Επόμενο</string>
++    <string name="more_options">Περισσότερες επιλογές</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
+index 92156c1..7e820d5 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-es/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">Color</string>
+     <string name="l_calendars">" · L calendarios"</string>
+     <string name="day_events">%1$s, %2$s eventos</string>
++    <string name="view_week">Semana</string>
++    <string name="view_month">Mes</string>
++    <string name="view_day">Día</string>
++    <string name="previous">Anterior</string>
++    <string name="next">Siguiente</string>
++    <string name="more_options">Más opciones</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
+index 918ce86..e565474 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-fr/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">Couleur</string>
+     <string name="l_calendars">" · L agendas"</string>
+     <string name="day_events">%1$s, %2$s événements</string>
++    <string name="view_week">Semaine</string>
++    <string name="view_month">Mois</string>
++    <string name="view_day">Jour</string>
++    <string name="previous">Précédent</string>
++    <string name="next">Suivant</string>
++    <string name="more_options">Plus d’options</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
+index dabc93e..af568cb 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-hi/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">रंग</string>
+     <string name="l_calendars">" · L कैलेंडर"</string>
+     <string name="day_events">%1$s, %2$s इवेंट</string>
++    <string name="view_week">सप्ताह</string>
++    <string name="view_month">महीना</string>
++    <string name="view_day">दिन</string>
++    <string name="previous">पिछला</string>
++    <string name="next">अगला</string>
++    <string name="more_options">और विकल्प</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
+index 43106ac..87ff6b0 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-it/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">Colore</string>
+     <string name="l_calendars">" · L calendari"</string>
+     <string name="day_events">%1$s, %2$s eventi</string>
++    <string name="view_week">Settimana</string>
++    <string name="view_month">Mese</string>
++    <string name="view_day">Giorno</string>
++    <string name="previous">Precedente</string>
++    <string name="next">Successivo</string>
++    <string name="more_options">Altre opzioni</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
+index 2d17496..388f963 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-iw/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">צבע</string>
+     <string name="l_calendars">" · L יומנים"</string>
+     <string name="day_events">%1$s, %2$s אירועים</string>
++    <string name="view_week">שבוע</string>
++    <string name="view_month">חודש</string>
++    <string name="view_day">יום</string>
++    <string name="previous">הקודם</string>
++    <string name="next">הבא</string>
++    <string name="more_options">אפשרויות נוספות</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
+index 573cbec..2701c07 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ja/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">色</string>
+     <string name="l_calendars">" · L カレンダー"</string>
+     <string name="day_events">%1$s、予定 %2$s 件</string>
++    <string name="view_week">週</string>
++    <string name="view_month">月</string>
++    <string name="view_day">日</string>
++    <string name="previous">前へ</string>
++    <string name="next">次へ</string>
++    <string name="more_options">その他のオプション</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
+index e28ca12..d653f52 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ko/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">색상</string>
+     <string name="l_calendars">" · L 캘린더"</string>
+     <string name="day_events">%1$s, 일정 %2$s개</string>
++    <string name="view_week">주</string>
++    <string name="view_month">월</string>
++    <string name="view_day">일</string>
++    <string name="previous">이전</string>
++    <string name="next">다음</string>
++    <string name="more_options">옵션 더보기</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
+index 64d5f82..81afdb4 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-nl/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">Kleur</string>
+     <string name="l_calendars">" · L agenda\'s"</string>
+     <string name="day_events">%1$s, %2$s afspraken</string>
++    <string name="view_week">Week</string>
++    <string name="view_month">Maand</string>
++    <string name="view_day">Dag</string>
++    <string name="previous">Vorige</string>
++    <string name="next">Volgende</string>
++    <string name="more_options">Meer opties</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
+index 2c8d61e..7de3dbd 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-pl/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">Kolor</string>
+     <string name="l_calendars">" · L kalendarze"</string>
+     <string name="day_events">%1$s, wydarzenia: %2$s</string>
++    <string name="view_week">Tydzień</string>
++    <string name="view_month">Miesiąc</string>
++    <string name="view_day">Dzień</string>
++    <string name="previous">Wstecz</string>
++    <string name="next">Dalej</string>
++    <string name="more_options">Więcej opcji</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
+index 2008dee..6d27010 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-pt/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">Cor</string>
+     <string name="l_calendars">" · L agendas"</string>
+     <string name="day_events">%1$s, %2$s eventos</string>
++    <string name="view_week">Semana</string>
++    <string name="view_month">Mês</string>
++    <string name="view_day">Dia</string>
++    <string name="previous">Anterior</string>
++    <string name="next">Próximo</string>
++    <string name="more_options">Mais opções</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
+index 2072ec1..4dc1276 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ru/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">Цвет</string>
+     <string name="l_calendars">" · L календари"</string>
+     <string name="day_events">%1$s, событий: %2$s</string>
++    <string name="view_week">Неделя</string>
++    <string name="view_month">Месяц</string>
++    <string name="view_day">День</string>
++    <string name="previous">Назад</string>
++    <string name="next">Вперёд</string>
++    <string name="more_options">Другие параметры</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
+index d6c2428..6f6f2e0 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-sv/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">Färg</string>
+     <string name="l_calendars">" · L kalendrar"</string>
+     <string name="day_events">%1$s, %2$s händelser</string>
++    <string name="view_week">Vecka</string>
++    <string name="view_month">Månad</string>
++    <string name="view_day">Dag</string>
++    <string name="previous">Föregående</string>
++    <string name="next">Nästa</string>
++    <string name="more_options">Fler alternativ</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
+index c5d5933..f1c6ce3 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-tr/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">Renk</string>
+     <string name="l_calendars">" · L takvimler"</string>
+     <string name="day_events">%1$s, %2$s etkinlik</string>
++    <string name="view_week">Hafta</string>
++    <string name="view_month">Ay</string>
++    <string name="view_day">Gün</string>
++    <string name="previous">Önceki</string>
++    <string name="next">Sonraki</string>
++    <string name="more_options">Diğer seçenekler</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
+index b91c672..a3b0c7e 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-ur/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">رنگ</string>
+     <string name="l_calendars">" · L کیلنڈر"</string>
+     <string name="day_events">%1$s، %2$s ایونٹس</string>
++    <string name="view_week">ہفتہ</string>
++    <string name="view_month">مہینہ</string>
++    <string name="view_day">دن</string>
++    <string name="previous">پچھلا</string>
++    <string name="next">اگلا</string>
++    <string name="more_options">مزید اختیارات</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
+index 8e00aec..ccd09ac 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values-zh-rCN/strings.xml
+@@ -75,4 +75,10 @@
+     <string name="colour">颜色</string>
+     <string name="l_calendars">" · L 日历"</string>
+     <string name="day_events">%1$s，%2$s 个活动</string>
++    <string name="view_week">周</string>
++    <string name="view_month">月</string>
++    <string name="view_day">日</string>
++    <string name="previous">上一个</string>
++    <string name="next">下一个</string>
++    <string name="more_options">更多选项</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+index a9340e8..69d0f6f 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
++++ b/sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml
+@@ -77,4 +77,10 @@
+     <string name="colour">Colour</string>
+     <string name="l_calendars">" · L calendars"</string>
+     <string name="day_events">%1$s, %2$s events</string>
++    <string name="view_week">Week</string>
++    <string name="view_month">Month</string>
++    <string name="view_day">Day</string>
++    <string name="previous">Previous</string>
++    <string name="next">Next</string>
++    <string name="more_options">More options</string>
+ </resources>
+diff --git a/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarChromeTest.kt b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarChromeTest.kt
+new file mode 100644
+index 0000000..17be67e
+--- /dev/null
++++ b/sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarChromeTest.kt
+@@ -0,0 +1,45 @@
++package org.sableos.calendar
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++import java.time.DayOfWeek
++import java.time.LocalDate
++import java.util.Locale
++
++class CalendarChromeTest {
++    private val friday = LocalDate.of(2026, 11, 13)
++
++    @Test
++    fun `arrows step a day, a week or a month`() {
++        assertEquals(LocalDate.of(2026, 11, 14), CalendarChrome.step(CalendarView.Agenda, friday, true))
++        assertEquals(LocalDate.of(2026, 11, 12), CalendarChrome.step(CalendarView.Day, friday, false))
++        assertEquals(LocalDate.of(2026, 11, 20), CalendarChrome.step(CalendarView.Week, friday, true))
++        assertEquals(LocalDate.of(2026, 10, 13), CalendarChrome.step(CalendarView.Month, friday, false))
++    }
++
++    @Test
++    fun `the strip is the seven days of the week from its first day`() {
++        val sunday = CalendarChrome.weekStrip(friday, DayOfWeek.SUNDAY)
++        assertEquals(LocalDate.of(2026, 11, 8), sunday.first())
++        assertEquals(LocalDate.of(2026, 11, 14), sunday.last())
++        val monday = CalendarChrome.weekStrip(LocalDate.of(2026, 11, 15), DayOfWeek.MONDAY)
++        assertEquals(LocalDate.of(2026, 11, 9), monday.first())
++        assertEquals(7, monday.size)
++    }
++
++    @Test
++    fun `titles name the shown period`() {
++        val us = Locale.US
++        assertEquals("Today · Nov 13", CalendarChrome.title(CalendarView.Agenda, friday, friday, DayOfWeek.SUNDAY, "Today", us))
++        assertEquals("Sat, Nov 14", CalendarChrome.title(CalendarView.Agenda, friday.plusDays(1), friday, DayOfWeek.SUNDAY, "Today", us))
++        assertEquals("Fri, Nov 13", CalendarChrome.title(CalendarView.Day, friday, friday, DayOfWeek.SUNDAY, "Today", us))
++        assertEquals("Nov 8 – Nov 14", CalendarChrome.title(CalendarView.Week, friday, friday, DayOfWeek.SUNDAY, "Today", us))
++        assertEquals("November 2026", CalendarChrome.title(CalendarView.Month, friday, friday, DayOfWeek.SUNDAY, "Today", us))
++    }
++
++    @Test
++    fun `each view selects its tab`() {
++        assertEquals(CalendarChrome.Tab.Today, CalendarChrome.tabFor(CalendarView.Agenda))
++        assertEquals(CalendarChrome.Tab.Month, CalendarChrome.tabFor(CalendarView.Month))
++    }
++}

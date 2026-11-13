@@ -75,4 +75,10 @@
     <string name="colour">צבע</string>
     <string name="l_calendars">" · L יומנים"</string>
     <string name="day_events">%1$s, %2$s אירועים</string>
+    <string name="view_week">שבוע</string>
+    <string name="view_month">חודש</string>
+    <string name="view_day">יום</string>
+    <string name="previous">הקודם</string>
+    <string name="next">הבא</string>
+    <string name="more_options">אפשרויות נוספות</string>
 </resources>

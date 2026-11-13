@@ -75,4 +75,10 @@
     <string name="colour">Χρώμα</string>
     <string name="l_calendars">" · L ημερολόγια"</string>
     <string name="day_events">%1$s, %2$s συμβάντα</string>
+    <string name="view_week">Εβδομάδα</string>
+    <string name="view_month">Μήνας</string>
+    <string name="view_day">Ημέρα</string>
+    <string name="previous">Προηγούμενο</string>
+    <string name="next">Επόμενο</string>
+    <string name="more_options">Περισσότερες επιλογές</string>
 </resources>

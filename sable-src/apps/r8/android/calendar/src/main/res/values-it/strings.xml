@@ -75,4 +75,10 @@
     <string name="colour">Colore</string>
     <string name="l_calendars">" · L calendari"</string>
     <string name="day_events">%1$s, %2$s eventi</string>
+    <string name="view_week">Settimana</string>
+    <string name="view_month">Mese</string>
+    <string name="view_day">Giorno</string>
+    <string name="previous">Precedente</string>
+    <string name="next">Successivo</string>
+    <string name="more_options">Altre opzioni</string>
 </resources>

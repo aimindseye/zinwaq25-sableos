@@ -75,4 +75,10 @@
     <string name="colour">رنگ</string>
     <string name="l_calendars">" · L کیلنڈر"</string>
     <string name="day_events">%1$s، %2$s ایونٹس</string>
+    <string name="view_week">ہفتہ</string>
+    <string name="view_month">مہینہ</string>
+    <string name="view_day">دن</string>
+    <string name="previous">پچھلا</string>
+    <string name="next">اگلا</string>
+    <string name="more_options">مزید اختیارات</string>
 </resources>

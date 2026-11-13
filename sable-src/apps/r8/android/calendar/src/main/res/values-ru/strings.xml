@@ -75,4 +75,10 @@
     <string name="colour">Цвет</string>
     <string name="l_calendars">" · L календари"</string>
     <string name="day_events">%1$s, событий: %2$s</string>
+    <string name="view_week">Неделя</string>
+    <string name="view_month">Месяц</string>
+    <string name="view_day">День</string>
+    <string name="previous">Назад</string>
+    <string name="next">Вперёд</string>
+    <string name="more_options">Другие параметры</string>
 </resources>

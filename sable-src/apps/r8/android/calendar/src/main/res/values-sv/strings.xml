@@ -75,4 +75,10 @@
     <string name="colour">Färg</string>
     <string name="l_calendars">" · L kalendrar"</string>
     <string name="day_events">%1$s, %2$s händelser</string>
+    <string name="view_week">Vecka</string>
+    <string name="view_month">Månad</string>
+    <string name="view_day">Dag</string>
+    <string name="previous">Föregående</string>
+    <string name="next">Nästa</string>
+    <string name="more_options">Fler alternativ</string>
 </resources>

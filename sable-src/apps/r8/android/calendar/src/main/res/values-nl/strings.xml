@@ -75,4 +75,10 @@
     <string name="colour">Kleur</string>
     <string name="l_calendars">" · L agenda\'s"</string>
     <string name="day_events">%1$s, %2$s afspraken</string>
+    <string name="view_week">Week</string>
+    <string name="view_month">Maand</string>
+    <string name="view_day">Dag</string>
+    <string name="previous">Vorige</string>
+    <string name="next">Volgende</string>
+    <string name="more_options">Meer opties</string>
 </resources>
