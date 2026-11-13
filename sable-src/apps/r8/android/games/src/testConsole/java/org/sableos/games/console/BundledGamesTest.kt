@@ -130,19 +130,29 @@ class BundledGamesTest {
                 end
                 sable.tilt = function() return bot(), 0 end
                 """.trimIndent()
-        val g = LuaGame(source, "main.lua", MemoryGameStore(), pictures).also { it.start() }
-        var frames = 0
-        while (g.over == null && frames < 60 * 120) {
-            g.update(1.0 / 60)
-            assertTrue(g.frame().size < 200)
-            frames++
+        // Both circuits can be raced: the menu picks one (Down for the second) and Space starts it.
+        for (circuit in 1..2) {
+            val store = MemoryGameStore()
+            val g = LuaGame(source, "main.lua", store, pictures).also { it.start() }
+            assertTrue(g.status, g.status.startsWith("Choose a circuit"))
+            if (circuit == 2) g.tilt(TiltStep.Down)
+            g.key("space")
+            assertEquals("$circuit", store.get("circuit"))
+            var frames = 0
+            while (g.over == null && frames < 60 * 120) {
+                g.update(1.0 / 60)
+                assertTrue(g.frame().size < 200)
+                frames++
+            }
+            val over = g.over.orEmpty()
+            assertTrue(over, over.contains("best lap"))
+            assertTrue("$circuit ${g.score}", (g.score ?: 0) in (if (circuit == 1) 15L..40L else 30L..90L))
+            assertTrue(store.get("best_$circuit") != null)
         }
-        val over = g.over.orEmpty()
-        assertTrue(over, over.contains("best lap"))
-        assertTrue((g.score ?: 0) in 30L..90L)
 
         // Without steering the car leaves the road and never finishes a lap.
         val (_, idle) = load("tilt_circuit")
+        idle.key("space")
         repeat(60 * 60) { idle.update(1.0 / 60) }
         assertEquals(null, idle.over)
         assertTrue(idle.status, idle.status.startsWith("Lap 1/3"))

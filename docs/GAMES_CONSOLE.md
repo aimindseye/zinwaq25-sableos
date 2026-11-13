@@ -114,8 +114,9 @@ With `best = "low"` in its `game.toml`, the library keeps the fewest moves.
 `sable-src/apps/r8/android/games/src/console/assets/console/` holds the eight games that come with
 the console: `tilt_maze`, `motion_2048` and `sokoban_tilt` (ported from rustmix-wave, MIT),
 `tilt_racer`, whose F1 car pictures are EdSquare's "Top Down F1 Cars" (CC0), and `tilt_circuit`,
-three laps against two rivals on a circuit laid out from TRBRY's "Track Tiles" (CC-BY 3.0) and cut
-into 10-cell `track_<row>_<col>.png` squares, and `ball_maze`, which makes a new round or square
+three laps against two rivals on two circuits laid out from TRBRY's "Track Tiles" (CC-BY 3.0)
+and cut into 10-cell squares (`easy_<row>_<col>.png` for the oval, `track_<row>_<col>.png` for the
+twisty one; with the six cars that is the full 32 pictures), and `ball_maze`, which makes a new round or square
 maze each game, rolls the balls with `sable.tilt()` and draws its plastic and wooden boards from
 pictures made for Sable, `sky_roll`, eight levels of floating platforms drawn from pictures made
 for Sable (stone tiles, rock, sky, clouds, a shaded ball and its shine as two layers), and

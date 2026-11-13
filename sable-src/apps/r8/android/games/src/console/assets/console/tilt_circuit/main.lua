@@ -1,10 +1,23 @@
 -- Tilt Circuit for Sable Games Console: three laps of a closed circuit against two rival cars.
 -- Lean the phone to steer, lean it back to brake; the grass slows you down. C changes your car.
--- The track is TRBRY's "Track Tiles" (OpenGameArt, CC-BY 3.0), its pieces laid out into this
--- circuit and cut into 10-cell squares; the cars are EdSquare's "Top Down F1 Cars" (CC0).
+-- Two circuits: an easy oval for starters and a twisty one. The tracks are TRBRY's "Track Tiles"
+-- (OpenGameArt, CC-BY 3.0), their pieces laid out into these circuits and cut into 10-cell
+-- squares; the cars are EdSquare's "Top Down F1 Cars" (CC0).
 local VIEW = 12
-local TILES_X, TILES_Y, TILE = 5, 4, 10
-local TRACK = {
+local TILE = 10
+local EASY = {
+  { 7.408, 3.875, 12.408, 3.875 },
+  { 12.408, 3.875, 17.408, 3.875 },
+  { 17.408, 3.875, 20.942, 7.408, 17.408, 7.408, 1 },
+  { 20.942, 7.408, 20.942, 12.408 },
+  { 20.942, 12.408, 17.408, 15.942, 17.408, 12.408, 1 },
+  { 17.408, 15.942, 12.408, 15.942 },
+  { 12.408, 15.942, 7.408, 15.942 },
+  { 7.408, 15.942, 3.875, 12.408, 7.408, 12.408, 1 },
+  { 3.875, 12.408, 3.875, 7.408 },
+  { 3.875, 7.408, 7.408, 3.875, 7.408, 7.408, 1 },
+}
+local TWISTY = {
   { 8.658, 12.192, 13.658, 12.192 },
   { 13.658, 12.192, 17.192, 8.658, 13.658, 8.658, -1 },
   { 17.192, 8.658, 20.725, 5.125, 20.725, 8.658, 1 },
@@ -28,6 +41,12 @@ local TRACK = {
   { 5.125, 20.725, 5.125, 15.725 },
   { 5.125, 15.725, 8.658, 12.192, 8.658, 15.725, 1 },
 }
+-- Each circuit: its pieces, its squares (columns, rows, picture names), the piece the start line
+-- is on, and how fast the rivals go there.
+local CIRCUITS = {
+  { name = "Easy oval", pieces = EASY, tiles = { 3, 2, "easy" }, start = 1, pace = 0.65 },
+  { name = "Twisty", pieces = TWISTY, tiles = { 5, 4, "track" }, start = 10, pace = 1 },
+}
 local HALF_ROAD, KERB = 2.5, 0.45
 local CAR_W, CAR_H = 1.6, 2.0
 local LAPS = 3
@@ -37,21 +56,37 @@ local RIVALS = { { pace = 8.4, lane = 1.4 }, { pace = 8.9, lane = -1.4 } }
 
 -- Each piece: its length, where it starts along the lap, and for a bend its centre, radius,
 -- starting angle and sweep (clockwise is positive, as y grows downwards).
-local LENGTH = 0
-for _, p in ipairs(TRACK) do
-  if p[5] then
-    p.r = math.sqrt((p[1] - p[5]) ^ 2 + (p[2] - p[6]) ^ 2)
-    p.a0 = math.atan2(p[2] - p[6], p[1] - p[5])
-    p.sweep = p[7] * math.pi / 2
-    p.len = p.r * math.pi / 2
-  else
-    p.len = math.sqrt((p[3] - p[1]) ^ 2 + (p[4] - p[2]) ^ 2)
+for _, c in ipairs(CIRCUITS) do
+  c.length = 0
+  for _, p in ipairs(c.pieces) do
+    if p[5] then
+      p.r = math.sqrt((p[1] - p[5]) ^ 2 + (p[2] - p[6]) ^ 2)
+      p.a0 = math.atan2(p[2] - p[6], p[1] - p[5])
+      p.sweep = p[7] * math.pi / 2
+      p.len = p.r * math.pi / 2
+    else
+      p.len = math.sqrt((p[3] - p[1]) ^ 2 + (p[4] - p[2]) ^ 2)
+    end
+    p.at = c.length
+    c.length = c.length + p.len
   end
-  p.at = LENGTH
-  LENGTH = LENGTH + p.len
+  c.tile_list = {}
+  for row = 0, c.tiles[2] - 1 do
+    for col = 0, c.tiles[1] - 1 do
+      c.tile_list[#c.tile_list + 1] = { col * TILE, row * TILE, string.format("%s_%d_%d.png", c.tiles[3], row, col) }
+    end
+  end
 end
--- The start line, two cells into the long straight down the right-hand side.
-local START_D = TRACK[10].at + 2
+
+-- The circuit being raced: its pieces, the length of a lap and where the start line is (two
+-- cells into a straight).
+local circuit, TRACK, LENGTH, START_D
+local function use(n)
+  circuit = CIRCUITS[n]
+  TRACK, LENGTH = circuit.pieces, circuit.length
+  START_D = TRACK[circuit.start].at + 2
+end
+use(2)
 
 -- The point t (0 to 1) along a piece, and the direction of travel there.
 local function along(p, t)
@@ -96,6 +131,10 @@ end
 local car, rivals, clock, countdown, lap_start, best_lap, wrong, finished
 local mine = tonumber(sable.load("color") or "1") or 1
 if not COLORS[mine] then mine = 1 end
+-- The circuit menu shows before each race; the choice is kept.
+local menu = true
+local choice = tonumber(sable.load("circuit") or "1") or 1
+if not CIRCUITS[choice] then choice = 1 end
 
 local function other(n)
   local i = (mine + n - 1) % #COLORS + 1
@@ -113,6 +152,10 @@ end
 local ORDINAL = { "1st", "2nd", "3rd" }
 
 local function report()
+  if menu then
+    sable.status("Choose a circuit · Up/Down picks · Space starts · C colour")
+    return
+  end
   local lap = math.max(1, math.min(LAPS, math.floor(car.d / LENGTH) + 1))
   local text
   if countdown > 0 then
@@ -126,16 +169,36 @@ local function report()
   sable.status(text)
 end
 
-function init()
-  sable.grid(VIEW, VIEW)
+local function start_race()
+  menu = false
+  use(choice)
+  sable.save("circuit", tostring(choice))
   local sx, sy, dx, dy = at_distance(START_D - 2.2)
   car = { x = sx, y = sy, a = math.atan2(dy, dx), v = 0, d = -2.2, last = LENGTH - 2.2, lap = -1, sector = 3,
     off = false }
   rivals = {}
   for i, r in ipairs(RIVALS) do
-    rivals[i] = { d = -0.2 - (i - 1) * 4.2, v = 0, pace = r.pace, lane = r.lane, color = i }
+    rivals[i] = { d = -0.2 - (i - 1) * 4.2, v = 0, pace = r.pace * circuit.pace, lane = r.lane, color = i }
   end
   clock, countdown, lap_start, best_lap, wrong, finished = 0, 3, 0, nil, 0, false
+  report()
+end
+
+function init()
+  sable.grid(VIEW, VIEW)
+  menu = true
+  use(choice)
+  local sx, sy, dx, dy = at_distance(START_D - 2.2)
+  car = { x = sx, y = sy, a = math.atan2(dy, dx), v = 0, d = -2.2, last = LENGTH - 2.2, lap = -1, sector = 3,
+    off = false }
+  rivals, clock, countdown, wrong, finished = {}, 0, 3, 0, false
+  report()
+end
+
+function tilt(step)
+  if not menu then return end
+  if step == "up" or step == "left" then choice = math.max(1, choice - 1) end
+  if step == "down" or step == "right" then choice = math.min(#CIRCUITS, choice + 1) end
   report()
 end
 
@@ -157,7 +220,7 @@ local function rival_place(r)
 end
 
 function update(dt)
-  if finished then return end
+  if finished or menu then return end
   dt = math.min(dt, 0.1)
   if countdown > 0 then
     countdown = countdown - dt
@@ -213,6 +276,9 @@ function update(dt)
   if car.lap >= LAPS then
     finished = true
     sable.score(math.floor(clock + 0.5))
+    local key = "best_" .. choice
+    local old = tonumber(sable.load(key) or "")
+    if not old or clock < old then sable.save(key, string.format("%.1f", clock)) end
     sable.over(string.format("%s in %.1f s · best lap %.1f s · Space races again",
       ORDINAL[place()], clock, best_lap or clock))
   end
@@ -220,17 +286,49 @@ function update(dt)
 end
 
 function key(name)
-  if name == "c" then
+  if menu and (name == "space" or name == "enter") then
+    start_race()
+  elseif name == "c" then
     mine = mine % #COLORS + 1
     sable.save("color", tostring(mine))
     report()
   end
 end
 
-local TILES = {}
-for row = 0, TILES_Y - 1 do
-  for col = 0, TILES_X - 1 do
-    TILES[#TILES + 1] = { col * TILE, row * TILE, string.format("track_%d_%d.png", row, col) }
+-- The menu: each circuit's shape, drawn small from points along its middle.
+for _, c in ipairs(CIRCUITS) do
+  c.outline = {}
+  local d, pieces = 0, c.pieces
+  for k = 0, 47 do
+    d = c.length * k / 48
+    for _, p in ipairs(pieces) do
+      if d <= p.at + p.len then
+        local x, y = along(p, (d - p.at) / p.len)
+        c.outline[#c.outline + 1] = { x, y }
+        break
+      end
+    end
+  end
+end
+
+local function draw_menu()
+  sable.rect(0, 0, VIEW, VIEW, "#2F5B3A")
+  sable.text(VIEW / 2, 1.1, "Tilt Circuit", "#FFFFFF", 1.1)
+  for n, c in ipairs(CIRCUITS) do
+    local top = 2.3 + (n - 1) * 4.9
+    local on = n == choice
+    sable.rect(0.6, top, VIEW - 1.2, 4.4, on and "#FFFFFF33" or "#00000033")
+    if on then sable.rect(0.6, top, 0.2, 4.4, "#FFE066") end
+    -- The shape, fitted into a 4 by 3.4 box on the left.
+    local w, h = c.tiles[1] * TILE, c.tiles[2] * TILE
+    local k = math.min(3.6 / w, 3.4 / h)
+    for _, pt in ipairs(c.outline) do
+      sable.circle(1.2 + (pt[1] * k) + (3.6 - w * k) / 2, top + 0.5 + pt[2] * k + (3.4 - h * k) / 2, 0.16, "#3C3C3C")
+    end
+    local best = sable.load("best_" .. n)
+    sable.text(8.1, top + 1.4, c.name, on and "#FFE066" or "#FFFFFF", 0.7)
+    sable.text(8.1, top + 2.6, best and ("best " .. best .. " s") or (n == 1 and "for starters" or "tight bends"),
+      "#DDDDDD", 0.5)
   end
 end
 
@@ -240,11 +338,15 @@ local function sprite(x, y, a, color, ox, oy)
 end
 
 function draw()
+  if menu then
+    draw_menu()
+    return
+  end
   -- The camera looks a little ahead of the car.
   local ox = car.x + math.cos(car.a) * 1.5 - VIEW / 2
   local oy = car.y + math.sin(car.a) * 1.5 - VIEW / 2
   sable.rect(0, 0, VIEW, VIEW, "#2F5B3A")
-  for _, t in ipairs(TILES) do
+  for _, t in ipairs(circuit.tile_list) do
     if t[1] < ox + VIEW and t[1] + TILE > ox and t[2] < oy + VIEW and t[2] + TILE > oy then
       sable.image(t[1] - ox, t[2] - oy, TILE, TILE, t[3])
     end
