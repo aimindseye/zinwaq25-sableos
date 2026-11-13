@@ -1,0 +1,45 @@
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleApp.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleApp.kt
+index be6a54d..b3ed6da 100644
+--- a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleApp.kt
++++ b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleApp.kt
+@@ -1,7 +1,9 @@
+ package org.sableos.games.console
+ 
+ import android.net.Uri
++import android.os.SystemClock
+ import android.view.KeyEvent
++import androidx.activity.compose.BackHandler
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.ColumnScope
+ import androidx.compose.foundation.layout.fillMaxSize
+@@ -114,6 +116,13 @@ class ConsoleState(
+ 
+ @Composable
+ fun ConsoleApp(state: ConsoleState) {
++    // The app targets API 36, so the system's Back comes through the back dispatcher, not as a key
++    // event: hand it to the screen's own Back key (pause, close the menu, back to the library).
++    // In the library Back is left to the system, which leaves the app.
++    val keys = LocalConsoleKeys.current
++    BackHandler(enabled = state.route != ConsoleRoute.Library) {
++        if (!consoleBack(keys)) back(state)
++    }
+     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+             when (val route = state.route) {
+@@ -150,6 +159,16 @@ private fun back(state: ConsoleState) {
+     state.route = ConsoleRoute.Library
+ }
+ 
++/** Sends a Back press (down, then up) to the showing screen's key handler; false if none took it. */
++internal fun consoleBack(keys: ConsoleKeyHost): Boolean {
++    val handler = keys.handler ?: return false
++    val now = SystemClock.uptimeMillis()
++    val down = KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0)
++    val taken = handler(down)
++    handler(KeyEvent.changeAction(down, KeyEvent.ACTION_UP))
++    return taken
++}
++
+ @Composable
+ private fun ColumnScope.LibraryScreen(state: ConsoleState) {
+     val tabs = ConsoleTab.entries
