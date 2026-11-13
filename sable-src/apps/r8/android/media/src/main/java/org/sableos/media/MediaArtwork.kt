@@ -144,7 +144,7 @@ internal object MediaArtwork {
         candidates: List<String>,
     ): ByteArray? {
         val dir = File(context.cacheDir, CACHE_DIR).apply { mkdirs() }
-        val name = sha1(key)
+        val name = cacheName(key)
         val file = File(dir, name)
         val none = File(dir, "$name.none")
         val recentlyMissing = none.isFile && System.currentTimeMillis() - none.lastModified() < RETRY_AFTER_MS
@@ -227,9 +227,9 @@ internal object MediaArtwork {
         )
     }
 
-    private fun sha1(value: String): String =
+    private fun cacheName(value: String): String =
         MessageDigest
-            .getInstance("SHA-1")
+            .getInstance("SHA-256")
             .digest(value.toByteArray())
             .joinToString("") { "%02x".format(it) }
 

@@ -385,7 +385,7 @@ index 719bf9f..e59efbc 100644
  
 diff --git a/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaArtwork.kt b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaArtwork.kt
 new file mode 100644
-index 0000000..ac24cff
+index 0000000..4d0d52c
 --- /dev/null
 +++ b/sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaArtwork.kt
 @@ -0,0 +1,330 @@
@@ -535,7 +535,7 @@ index 0000000..ac24cff
 +        candidates: List<String>,
 +    ): ByteArray? {
 +        val dir = File(context.cacheDir, CACHE_DIR).apply { mkdirs() }
-+        val name = sha1(key)
++        val name = cacheName(key)
 +        val file = File(dir, name)
 +        val none = File(dir, "$name.none")
 +        val recentlyMissing = none.isFile && System.currentTimeMillis() - none.lastModified() < RETRY_AFTER_MS
@@ -618,9 +618,9 @@ index 0000000..ac24cff
 +        )
 +    }
 +
-+    private fun sha1(value: String): String =
++    private fun cacheName(value: String): String =
 +        MessageDigest
-+            .getInstance("SHA-1")
++            .getInstance("SHA-256")
 +            .digest(value.toByteArray())
 +            .joinToString("") { "%02x".format(it) }
 +
