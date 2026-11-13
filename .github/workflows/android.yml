@@ -95,6 +95,10 @@ jobs:
             root: flavor:icsx5
             java: '21'
             extra: ''
+          - name: key remapping (Key Mapper)
+            root: flavor:keymapper
+            java: '21'
+            extra: ''
           - name: speech engine
             root: flavor:espeak
             java: '17'
@@ -121,7 +125,16 @@ jobs:
           # eSpeak NG 1.52.0 pins its own NDK, CMake and build-tools (sable-src/apps/r8/espeak).
           [[ '${{ matrix.root }}' != flavor:espeak ]] ||
             pkgs+=('platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' 'cmake;3.22.1')
+          # Key Mapper 4.7.0 compiles against SDK 37, and its evdev module pins its NDK.
+          [[ '${{ matrix.root }}' != flavor:keymapper ]] || pkgs+=('platforms;android-37' 'ndk;27.3.13750724')
           "$sdkmanager" "${pkgs[@]}"
+      - name: Rust for Key Mapper's evdev module
+        if: matrix.root == 'flavor:keymapper'
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.93.0 --profile minimal
+          rustup default 1.93.0
+          rustup target add armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
       - name: Build, test and check
         env:
