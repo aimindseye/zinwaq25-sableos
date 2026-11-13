@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 13 Nov 2026 15:10:00 +0000
+Subject: [PATCH] SableOS: no keyboard fallback line on the PIN and password
+ bouncer
+
+On the Q25 (owner photo 2026-11-13) the "Software keyboard fallback ·
+tap the on-screen keys" line under the bouncer message ran into the PIN
+field and the top row of keys. The note adds nothing (the on-screen
+keys plainly work, and typing works too), so the PIN and password
+controllers keep it hidden. KeyguardPINView still sizes the compact pad
+as if the line were there, so its height is spare room between the
+message and the PIN row.
+---
+ .../src/com/android/keyguard/KeyguardPasswordViewController.java    | 6 +++++-
+ .../com/android/keyguard/KeyguardPinBasedInputViewController.java   | 6 +++++-
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
+index ca995a8..e1d5a5b 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPasswordViewController.java
+@@ -244,7 +244,11 @@ public class KeyguardPasswordViewController
+         }
+         final View sableFallback = mView.findViewById(R.id.sable_keyboard_fallback);
+         if (sableFallback != null) {
+-            sableFallback.setVisibility(sableKeyboard ? View.VISIBLE : View.GONE);
++            // SableOS (owner photo 2026-11-13): the "Software keyboard fallback" line ran into
++            // the PIN field on the Q25, and the on-screen keys need no note, so it stays hidden.
++            // The compact pad still keeps its height free (KeyguardPINView), so the message has
++            // room above the PIN row.
++            sableFallback.setVisibility(View.GONE);
+         }
+ 
+         if (Flags.pinInputFieldStyledFocusState()) {
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
+index 0a08d30..0d6207c 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPinBasedInputViewController.java
+@@ -232,7 +232,11 @@ public abstract class KeyguardPinBasedInputViewController<T extends KeyguardPinB
+         }
+         final View sableFallback = mView.findViewById(R.id.sable_keyboard_fallback);
+         if (sableFallback != null) {
+-            sableFallback.setVisibility(sableKeyboard ? View.VISIBLE : View.GONE);
++            // SableOS (owner photo 2026-11-13): the "Software keyboard fallback" line ran into
++            // the PIN field on the Q25, and the on-screen keys need no note, so it stays hidden.
++            // The compact pad still keeps its height free (KeyguardPINView), so the message has
++            // room above the PIN row.
++            sableFallback.setVisibility(View.GONE);
+         }
+ 
+         mPasswordEntry.sendAccessibilityEvent(TYPE_VIEW_FOCUSED);
+-- 
+2.43.0
+
