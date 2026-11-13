@@ -46,6 +46,13 @@ sealed interface DrawOp {
         override val color: String,
     ) : DrawOp
 
+    /** A filled polygon through the points ([xs] and [ys] in step, 3 to [LuaGame.MAX_POINTS]). */
+    data class Poly(
+        val xs: List<Double>,
+        val ys: List<Double>,
+        override val color: String,
+    ) : DrawOp
+
     /**
      * One of the game's own pictures ([name], a PNG in its folder) stretched over the box, turned
      * [angle] degrees clockwise about the box's centre.
@@ -111,6 +118,7 @@ class GameScriptError(
  * - `sable.grid(cols, rows)` the drawing grid (default 10 by 10), scaled to fill the square
  * - `sable.rect(x, y, w, h, color)`, `sable.circle(x, y, r, color)`, and `sable.text(x, y, text, color, size)`
  *   centred on x, y, `size` its height in cells (default 1)
+ * - `sable.poly({x1, y1, x2, y2, ...}, color)` a filled polygon of 3 to 64 corners
  * - `sable.image(x, y, w, h, name, angle)` one of the game's PNG pictures ([pictures]) over that box,
  *   turned `angle` degrees clockwise about its centre (default 0)
  * - `sable.status(text)` the line above the game, `sable.score(n)` the score the library keeps
@@ -119,7 +127,7 @@ class GameScriptError(
  * - `sable.save(key, value)` and `sable.load(key)` small saved text
  *
  * Colours are Sable theme names ("bg", "wall", "floor", "player", "goal", "box", "accent", "warn",
- * "good", "text", "dim") or "#rrggbb".
+ * "good", "text", "dim"), "#rrggbb", or "#rrggbbaa" where aa is how opaque it is (00 clear, ff solid).
  */
 class LuaGame(
     source: String,
@@ -303,6 +311,7 @@ class LuaGame(
                 draw(DrawOp.Text(a.n(1), a.n(2), a.tojstring(3).take(MAX_TEXT), a.optdouble(5, 1.0), a.color(4)))
             },
         )
+        t.set("poly", fn { a -> poly(a) })
         t.set(
             "image",
             fn { a ->
@@ -335,6 +344,20 @@ class LuaGame(
         rows = a.optint(2, cols).coerceIn(1, MAX_GRID)
     }
 
+    private fun poly(a: Varargs) {
+        val points = a.checktable(1)
+        val n = points.length()
+        if (n < MIN_POINTS * 2 || n % 2 != 0) throw LuaError("sable.poly needs at least 3 corners as x, y pairs")
+        val count = minOf(n / 2, MAX_POINTS)
+        val xs = ArrayList<Double>(count)
+        val ys = ArrayList<Double>(count)
+        for (k in 0 until count) {
+            xs += points.get(2 * k + 1).checkdouble()
+            ys += points.get(2 * k + 2).checkdouble()
+        }
+        draw(DrawOp.Poly(xs, ys, a.color(2)))
+    }
+
     private fun picture(name: String): String {
         if (name !in pictures) throw LuaError("no picture $name in the game's folder")
         return name
@@ -365,6 +388,8 @@ class LuaGame(
         const val DEFAULT_GRID = 10
         const val MAX_GRID = 200
         const val MAX_OPS = 4_000
+        const val MAX_POINTS = 64
+        private const val MIN_POINTS = 3
         const val MAX_TEXT = 120
         const val MAX_KEY = 40
         const val MAX_VALUE = 2_000

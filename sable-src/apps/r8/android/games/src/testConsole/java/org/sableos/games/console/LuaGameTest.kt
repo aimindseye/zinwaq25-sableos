@@ -178,4 +178,19 @@ class LuaGameTest {
         assertTrue(GamePictures.isPicture("f1_red.png"))
         assertTrue(!GamePictures.isPicture("Car.PNG") && !GamePictures.isPicture("../x.png"))
     }
+
+    @Test
+    fun polygonsKeepTheirCornersAndSeeThroughColours() {
+        val g =
+            game(
+                """
+                function draw() sable.poly({ 0, 0, 4, 0, 2, 3 }, "#FF000080") end
+                function key(k) sable.poly({ 0, 0, 1, 1 }) end
+                """.trimIndent(),
+            )
+        assertEquals(listOf(DrawOp.Poly(listOf(0.0, 4.0, 2.0), listOf(0.0, 0.0, 3.0), "#FF000080")), g.frame())
+        assertTrue(error { g.key("x") }.contains("at least 3 corners"))
+        val big = game("function draw() local p = {} for i = 1, 400 do p[i] = i end sable.poly(p) end")
+        assertEquals(LuaGame.MAX_POINTS, (big.frame().single() as DrawOp.Poly).xs.size)
+    }
 }
