@@ -26,9 +26,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import org.sableos.calendar.CalendarText.t
+import org.sableos.design.isSableShortWindow
 import org.sableos.design.sableFocusRing
 import java.time.LocalDate
 import java.time.YearMonth
@@ -44,6 +46,9 @@ private data class RingSizes(
 
 private val COMPACT = RingSizes(cell = 36.dp, ring = 30.dp, stroke = 3.dp)
 private val FULL = RingSizes(cell = 48.dp, ring = 40.dp, stroke = 4.dp)
+
+/** The Q25's short window: small circles, so the week strip and the day fit under the month. */
+private val SHORT = RingSizes(cell = 27.dp, ring = 22.dp, stroke = 2.dp)
 private const val TRACK_ALPHA = 0.35f
 private const val SELECTED_ALPHA = 0.22f
 private const val RING_START_DEGREES = -90f
@@ -61,20 +66,26 @@ internal fun BusyMonthGrid(
     compact: Boolean,
     onSelectDate: (LocalDate) -> Unit,
 ) {
-    val sizes = if (compact) COMPACT else FULL
+    val sizes =
+        when {
+            compact && isSableShortWindow() -> SHORT
+            compact -> COMPACT
+            else -> FULL
+        }
     val today = LocalDate.now()
     Row(Modifier.fillMaxWidth()) {
         weekdayInitials().forEach { label ->
             Text(
                 text = label,
                 modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
-    Spacer(Modifier.height(4.dp))
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Spacer(Modifier.height(if (sizes == SHORT) 2.dp else 4.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(if (sizes == SHORT) 1.dp else 2.dp)) {
         CalendarBusy.monthCells(month).chunked(DAYS_PER_WEEK).forEach { week ->
             Row(Modifier.fillMaxWidth()) {
                 week.forEach { date ->

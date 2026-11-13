@@ -81,4 +81,6 @@
     <string name="previous">Précédent</string>
     <string name="next">Suivant</string>
     <string name="more_options">Plus d’options</string>
+    <string name="one_event">1 événement</string>
+    <string name="n_events">%1$s événements</string>
 </resources>

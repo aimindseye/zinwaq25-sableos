@@ -81,4 +81,6 @@
     <string name="previous">Önceki</string>
     <string name="next">Sonraki</string>
     <string name="more_options">Diğer seçenekler</string>
+    <string name="one_event">1 etkinlik</string>
+    <string name="n_events">%1$s etkinlik</string>
 </resources>

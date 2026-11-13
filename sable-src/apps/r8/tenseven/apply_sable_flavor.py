@@ -1352,6 +1352,28 @@ def patch_q25_fit(root: pathlib.Path) -> None:
     )
 
 
+def patch_quiet_lock(root: pathlib.Path) -> None:
+    """With no notifications the home's lock layer is just the clock and date (owner, 2026-11-13).
+
+    "Select a notification icon" only makes sense beside a column of icons; with none it read as an
+    instruction with nothing to select. It shows again as soon as a notification arrives.
+    """
+    lock = root / JAVA / "ui/LockNotificationScreen.kt"
+    replace_once(
+        lock,
+        "        content.source == null -> {\n"
+        "            Text(\"Select a notification icon\", color = Bb10Muted, style = MaterialTheme.typography.bodyMedium)\n"
+        "        }\n",
+        "        content.source == null -> {\n"
+        "            // SableOS: no hint without icons to pick from (owner, 2026-11-13).\n"
+        "            if (content.entries.isNotEmpty()) {\n"
+        "                Text(\"Select a notification icon\", color = Bb10Muted, style = MaterialTheme.typography.bodyMedium)\n"
+        "            }\n"
+        "        }\n",
+        "SABLE_HOME_QUIET_LOCK",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -1374,6 +1396,7 @@ def main() -> None:
     patch_extra_dim(root)
     patch_home_access(root)
     patch_q25_fit(root)
+    patch_quiet_lock(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 

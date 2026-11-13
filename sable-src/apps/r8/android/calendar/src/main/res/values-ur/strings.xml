@@ -81,4 +81,6 @@
     <string name="previous">پچھلا</string>
     <string name="next">اگلا</string>
     <string name="more_options">مزید اختیارات</string>
+    <string name="one_event">1 ایونٹ</string>
+    <string name="n_events">%1$s ایونٹس</string>
 </resources>

@@ -81,4 +81,6 @@
     <string name="previous">Προηγούμενο</string>
     <string name="next">Επόμενο</string>
     <string name="more_options">Περισσότερες επιλογές</string>
+    <string name="one_event">1 συμβάν</string>
+    <string name="n_events">%1$s συμβάντα</string>
 </resources>

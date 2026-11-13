@@ -193,6 +193,10 @@ private class CalendarAppState {
 
     // Busy rings for the month holding selectedDate, and the calendars list (L).
     var busy by mutableStateOf<Map<LocalDate, BusyDay>>(emptyMap())
+
+    /** A dot in the week strip: the month's busy days, or the loaded events (a week across months). */
+    fun hasEvents(day: LocalDate): Boolean =
+        busy[day] != null || CalendarChrome.eventsOn(day, events, ZoneId.systemDefault()).isNotEmpty()
     var calendars by mutableStateOf<List<CalendarSource>>(emptyList())
     var colorChoices by mutableStateOf<Map<Long, Int>>(emptyMap())
     var refreshing by mutableStateOf(false)
@@ -576,7 +580,7 @@ private fun CalendarTopBar(state: CalendarAppState) {
             }
         }
         if (state.view != CalendarView.Month) {
-            WeekStrip(state.selectedDate, today) { state.selectedDate = it }
+            WeekStrip(state.selectedDate, today, state::hasEvents) { state.selectedDate = it }
         }
         Box(
             Modifier
@@ -605,11 +609,15 @@ private fun ChromeButton(
     }
 }
 
-/** The week's seven days as letter over date; the selected day is filled blue, today is blue. */
+/**
+ * The week's seven days as letter over date and a dot for a day with events; the selected day is
+ * filled blue, today is blue.
+ */
 @Composable
 private fun WeekStrip(
     selected: LocalDate,
     today: LocalDate,
+    hasEvents: (LocalDate) -> Boolean,
     onSelect: (LocalDate) -> Unit,
 ) {
     val letter = DateTimeFormatter.ofPattern("EEEEE", Locale.getDefault())
@@ -637,6 +645,14 @@ private fun WeekStrip(
             ) {
                 Text(day.format(letter), style = MaterialTheme.typography.labelSmall, color = colour)
                 Text(day.dayOfMonth.toString(), style = MaterialTheme.typography.titleMedium, color = colour)
+                // A dot under a day with events, as TenSeven's Calendar.
+                Box(
+                    Modifier
+                        .padding(top = 1.dp)
+                        .size(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(if (hasEvents(day)) MaterialTheme.colorScheme.tertiary else Color.Transparent),
+                )
             }
         }
     }
@@ -850,7 +866,15 @@ private fun MonthPane(state: CalendarAppState) {
         busy = state.busy,
         onSelectDate = { date -> state.selectedDate = date },
     )
-    // The selected day under the month, as TenSeven's Calendar.
+    // The selected week and day under the month, as TenSeven's Calendar.
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .height(1.dp)
+            .background(MaterialTheme.colorScheme.outlineVariant),
+    )
+    WeekStrip(state.selectedDate, LocalDate.now(), state::hasEvents) { state.selectedDate = it }
     Spacer(Modifier.height(SableSpacing.Sm))
     DayList(state)
     KeyDock()
@@ -1132,6 +1156,7 @@ private fun AgendaEventRow(
     onFocus: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    compact: Boolean = false,
 ) {
     val context = LocalContext.current
     val tint = eventTint(event)
@@ -1148,7 +1173,7 @@ private fun AgendaEventRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 64.dp)
+                .heightIn(min = if (compact) 44.dp else 64.dp)
                 .alpha(pastAlpha(event))
                 .border(
                     if (selected) 2.dp else 0.dp,
@@ -1158,31 +1183,46 @@ private fun AgendaEventRow(
                 .calendarKeys(onEdit = onEdit, onDelete = onDelete)
                 .sableFocusRing()
                 .clickable(onClick = onOpen)
-                .padding(vertical = 8.dp, horizontal = 6.dp),
+                .padding(vertical = if (compact) 4.dp else 8.dp, horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = time,
-            modifier = Modifier.width(76.dp),
-            style = MaterialTheme.typography.titleMedium,
-            color = tint,
-        )
-        Box(
-            Modifier
-                .width(3.dp)
-                .height(48.dp)
-                .background(tint),
-        )
-        Spacer(Modifier.width(12.dp))
+        if (compact) {
+            // The week list (TenSeven's Calendar): the calendar's bar, then time and title on one line.
+            Box(
+                Modifier
+                    .width(3.dp)
+                    .height(36.dp)
+                    .background(tint),
+            )
+            Spacer(Modifier.width(8.dp))
+        } else {
+            Text(
+                text = time,
+                modifier = Modifier.width(76.dp),
+                style = MaterialTheme.typography.titleMedium,
+                color = tint,
+            )
+            Box(
+                Modifier
+                    .width(3.dp)
+                    .height(48.dp)
+                    .background(tint),
+            )
+            Spacer(Modifier.width(12.dp))
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = event.title,
-                style = MaterialTheme.typography.titleMedium,
+                text = if (compact) "$time   ${event.title}" else event.title,
+                style = if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
+                maxLines = if (compact) 1 else Int.MAX_VALUE,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = if (event.recurring) event.calendarName + t("repeats") else event.calendarName,
-                style = MaterialTheme.typography.bodyMedium,
+                style = if (compact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (compact) 1 else Int.MAX_VALUE,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         Text(
@@ -1615,27 +1655,47 @@ private const val BLOCK_FILL_ALPHA = 0.18f
  */
 @Composable
 private fun WeekPane(state: CalendarAppState) {
-    val now by produceState(LocalDateTime.now()) {
-        while (true) {
-            delay(NOW_TICK_MS)
-            value = LocalDateTime.now()
-        }
-    }
-    // The top bar names the week and the strip under it picks the day (TenSeven's Calendar).
-    val days = CalendarChrome.weekStrip(state.selectedDate, FIRST_DAY)
-    state.events.filter { it.allDay }.forEach { event ->
+    // TenSeven Launcher's Calendar (owner, 2026-11-13): the week as a list, each day's heading with
+    // its count and then its events; the top bar names the week and the strip picks the day.
+    val today = LocalDate.now()
+    val zone = ZoneId.systemDefault()
+    val heading = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault())
+    val shown = state.events.filter { it.id != state.pendingDelete?.eventId }
+    CalendarChrome.weekStrip(state.selectedDate, FIRST_DAY).forEach { day ->
+        val events = CalendarChrome.eventsOn(day, shown, zone)
+        val count = if (events.size == 1) t("one_event") else t("n_events", events.size.toString())
         Text(
-            text = t("all_day_3") + event.title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = day.format(heading) + " · " + count,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .sableFocusRing()
+                    .clickable { state.selectedDate = day }
+                    .padding(horizontal = 2.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = if (day == today) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        events.forEach { event ->
+            AgendaEventRow(
+                event = event,
+                selected = sameOccurrence(state.openEvent, event),
+                onOpen = { state.openDetail(event) },
+                onFocus = { state.select(event) },
+                onEdit = { state.openEditor(event) },
+                onDelete = { state.askDelete(event.id, event.title, event.recurring, event.canModify) },
+                compact = true,
+            )
+        }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant),
+        )
     }
-    WeekColumnHeaders(days, state.selectedDate) { state.selectedDate = it }
-    WeekGrid(state, days, now)
-    Spacer(Modifier.height(SableSpacing.Sm))
-    WeekSelection(state)
     KeyDock()
 }
 
@@ -1668,32 +1728,6 @@ private fun DayPane(state: CalendarAppState) {
     KeyDock()
 }
 
-
-@Composable
-private fun WeekColumnHeaders(
-    days: List<LocalDate>,
-    selectedDate: LocalDate,
-    onSelectDate: (LocalDate) -> Unit,
-) {
-    Row(Modifier.fillMaxWidth()) {
-        Spacer(Modifier.width(timeColumnWidth))
-        days.forEach { day ->
-            Text(
-                // Seven columns on the Q25: the date only; the strip above names the days.
-                text = if (days.size > WeekLayout.COLUMNS) day.dayOfMonth.toString() else WeekLayout.columnLabel(day),
-                modifier = Modifier.weight(1f).clickable { onSelectDate(day) }.padding(vertical = 4.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                style = MaterialTheme.typography.labelLarge,
-                color =
-                    if (day == selectedDate) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-            )
-        }
-    }
-}
 
 private fun sameOccurrence(
     a: CalendarEvent?,

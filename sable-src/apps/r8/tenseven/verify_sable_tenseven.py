@@ -80,6 +80,9 @@ def main() -> None:
         in (root / "design/src/main/java/io/github/aimindseye/tenseven/design/SableTheme.kt").read_text(encoding="utf-8")
         and 'QuickSlot(QuickBar.COMMAND, "Command", null)\n        HomeShortcut(command,'
         in (root / JAVA / "ui/ReferenceHomeBar.kt").read_text(encoding="utf-8"),
+        # No "Select a notification icon" on the lock layer without notifications (patch_quiet_lock).
+        "quiet_lock": "if (content.entries.isNotEmpty()) {"
+        in (root / JAVA / "ui/LockNotificationScreen.kt").read_text(encoding="utf-8"),
     }
     bad = [name for name, ok in checks.items() if not ok]
     if bad:
