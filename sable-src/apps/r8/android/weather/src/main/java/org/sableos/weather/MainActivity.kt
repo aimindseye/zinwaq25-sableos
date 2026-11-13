@@ -45,6 +45,7 @@ import kotlinx.coroutines.withContext
 import org.sableos.design.SableGlobalTheme
 import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableSpacing
+import org.sableos.design.isSableShortWindow
 import org.sableos.design.sableVerticalScroll
 import org.sableos.weather.WeatherText.t
 
@@ -341,6 +342,8 @@ private fun CurrentLocationRow(
 @Composable
 private fun CurrentConditions(snapshot: WeatherSnapshot) {
     val current = snapshot.current
+    // The Q25's short window: a smaller temperature and picture, so the hours show on the first screen.
+    val short = isSableShortWindow()
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -348,8 +351,8 @@ private fun CurrentConditions(snapshot: WeatherSnapshot) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = current.temperature.toInt().toString() + "°",
-                fontSize = 84.sp,
-                lineHeight = 88.sp,
+                fontSize = if (short) 56.sp else 84.sp,
+                lineHeight = if (short) 60.sp else 88.sp,
                 fontWeight = FontWeight.Light,
                 color = MaterialTheme.colorScheme.onBackground,
             )
@@ -372,8 +375,8 @@ private fun CurrentConditions(snapshot: WeatherSnapshot) {
             condition = current.condition,
             modifier =
                 Modifier
-                    .padding(top = 16.dp)
-                    .size(104.dp),
+                    .padding(top = if (short) 8.dp else 16.dp)
+                    .size(if (short) 72.dp else 104.dp),
             accent = MaterialTheme.colorScheme.primary,
             muted = MaterialTheme.colorScheme.onSurfaceVariant,
         )
