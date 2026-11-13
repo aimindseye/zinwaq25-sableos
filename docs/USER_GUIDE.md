@@ -156,7 +156,7 @@ Every Sable app uses the SableOS look (black and white with one blue accent) and
 | Reader | Books (EPUB), PDF, comics and audiobooks, all stored on the phone | See [Comics and audiobooks](#comics-and-audiobooks) below; B bookmark, T contents, A view settings |
 | Calculator | Keyboard-first | Digits and operators from the keys |
 | Games | Ten games, each its own app: Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words | See [Games](#games) below |
-| Sable Games Console | Games you add without a new build: each is a small Lua script. Comes with five motion games: Tilt Maze, Motion 2048, Sokoban Tilt, Tilt Racer and Tilt Circuit | See [Sable Games Console](#sable-games-console) below |
+| Sable Games Console | Games you add without a new build: each is a small Lua script. Comes with six motion games: Tilt Maze, Motion 2048, Sokoban Tilt, Tilt Racer, Tilt Circuit and Ball Maze | See [Sable Games Console](#sable-games-console) below |
 | Tools | Device reports you can save to Download/SableTools. Its utilities (SOS and alarm, pedometer with a goal and 7-day history, flashlight, compass and more) show on the Q25 only when Developer options and Tools' developer mode are on, until each is proven on the phone | C copy, S save, M more. In the pedometer, Menu sets height, weight and goal |
 | Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, Deep sleeping apps, Focus and Student mode) | Deep sleeping apps: Settings > Apps > Mobile Manager > Deep sleeping apps. To see what an app can do and what changed in it, open Settings > Apps > App security & privacy (signing, permissions, exposed parts, tracker signals, changes seen on this phone) |
 | App Compatibility | Square, Tall phone or Custom layout, App size and landscape video per app, with Sable presets | Alt+Shift+R |
@@ -209,7 +209,7 @@ Every game plays from the keyboard or the trackpad (which sends arrow keys), and
 
 ### Sable Games Console
 
-Sable Games Console plays games written as small Lua scripts, so new games can be added to the phone without rebuilding SableOS. It comes with five games you play by tilting the phone. Each also plays with the trackpad, the arrow keys or W A S D.
+Sable Games Console plays games written as small Lua scripts, so new games can be added to the phone without rebuilding SableOS. It comes with six games you play by tilting the phone. Each also plays with the trackpad, the arrow keys or W A S D.
 
 | Game | How to play | Keys |
 | --- | --- | --- |
@@ -218,6 +218,7 @@ Sable Games Console plays games written as small Lua scripts, so new games can b
 | Sokoban Tilt | Walk and push the crates onto the marks. One tilt, one step | Tilt, trackpad or W A S D walk; U undoes a step; Space starts the level over |
 | Tilt Racer | Steer through the traffic without crashing; it gets faster the further you go | Tilt, or hold Left/Right (trackpad, A and D), to steer; Space boosts; C changes the colour of your F1 car, and the console remembers it |
 | Tilt Circuit | Three laps of a twisting circuit against two rival cars; the library keeps your fastest race in seconds. The grass slows you down, and laps only count when you go all the way round | Tilt, or hold Left/Right, to steer; lean back or hold Down (S) to brake; C changes the colour of your car |
+| Ball Maze | Steel balls in a maze under a clear lid, like the hand-held toy: roll every ball into the middle at the same time. A menu picks a round or square board, plastic or wood, and Easy (2 balls) to Expert (5 balls); each game makes a new maze, and the library keeps your fastest time in seconds | Tilt, or hold the arrows (W A S D), to roll the balls; in the menu Up/Down and Left/Right choose and Space starts; N makes a new maze and M goes back to the menu |
 
 **The library.** Left and Right switch between the all, motion, puzzles, keyboard and recent tabs; Up and Down pick a game, and Space or Enter plays it. Each row shows the game's best score and a TILT or KEYS tag. I opens a game's details (best score, Reset progress, Remove for a game you added), A opens Add games and S opens Settings.
 

@@ -23,21 +23,21 @@ class BundledGamesTest {
     }
 
     @Test
-    fun theFiveMotionGamesAreThere() {
+    fun theSixMotionGamesAreThere() {
         val ids =
             root
                 .listFiles()
                 .orEmpty()
                 .map { it.name }
                 .toSet()
-        assertEquals(setOf("tilt_maze", "motion_2048", "sokoban_tilt", "tilt_racer", "tilt_circuit"), ids)
+        assertEquals(setOf("tilt_maze", "motion_2048", "sokoban_tilt", "tilt_racer", "tilt_circuit", "ball_maze"), ids)
         ids.forEach { assertTrue(it, load(it).first.usesTilt) }
     }
 
     @Test
     fun everyGameSurvivesRandomPlay() {
         val random = Random(25)
-        for (id in listOf("tilt_maze", "motion_2048", "sokoban_tilt", "tilt_racer", "tilt_circuit")) {
+        for (id in listOf("tilt_maze", "motion_2048", "sokoban_tilt", "tilt_racer", "tilt_circuit", "ball_maze")) {
             val (_, g) = load(id)
             repeat(3_000) { i ->
                 when (random.nextInt(4)) {
@@ -134,6 +134,44 @@ class BundledGamesTest {
         repeat(60 * 60) { idle.update(1.0 / 60) }
         assertEquals(null, idle.over)
         assertTrue(idle.status, idle.status.startsWith("Lap 1/3"))
+    }
+
+    @Test
+    fun ballMazeKeepsItsBallsOnEveryBoard() {
+        val random = Random(13)
+        for (shape in 0..1) {
+            for (level in 0..3) {
+                val store = MemoryGameStore()
+                val (_, g) = load("ball_maze", store)
+                assertTrue(g.status.contains("Space starts"))
+                repeat(shape) { g.tilt(TiltStep.Right) }
+                repeat(2) { g.tilt(TiltStep.Down) }
+                repeat(level) { g.tilt(TiltStep.Right) }
+                g.key("space")
+                assertEquals("${shape + 1}", store.get("shape"))
+                assertEquals("${level + 1}", store.get("level"))
+                assertTrue(g.status, g.status.contains("home"))
+                repeat(60 * 20) { i ->
+                    if (i % 40 == 0) {
+                        g.tiltX = random.nextDouble(-1.0, 1.0)
+                        g.tiltY = random.nextDouble(-1.0, 1.0)
+                    }
+                    g.update(1.0 / 60)
+                }
+                val frame = g.frame()
+                assertTrue(frame.size < LuaGame.MAX_OPS)
+                // Each ball's body is one grey circle; every one is still on the board.
+                val bodies = frame.filterIsInstance<DrawOp.Circle>().filter { it.color == "#7E878E" }
+                assertEquals(level + 2, bodies.size)
+                for (b in bodies) {
+                    if (shape == 0) {
+                        assertTrue("$level $b", (b.x - 6) * (b.x - 6) + (b.y - 6) * (b.y - 6) < 5.4 * 5.4)
+                    } else {
+                        assertTrue("$level $b", b.x in 0.5..11.5 && b.y in 0.5..11.5)
+                    }
+                }
+            }
+        }
     }
 
     @Test

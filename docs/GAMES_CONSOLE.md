@@ -107,11 +107,13 @@ With `best = "low"` in its `game.toml`, the library keeps the fewest moves.
 
 ## Bundled games
 
-`sable-src/apps/r8/android/games/src/console/assets/console/` holds the five games that come with
+`sable-src/apps/r8/android/games/src/console/assets/console/` holds the six games that come with
 the console: `tilt_maze`, `motion_2048` and `sokoban_tilt` (ported from rustmix-wave, MIT),
 `tilt_racer`, whose F1 car pictures are EdSquare's "Top Down F1 Cars" (CC0), and `tilt_circuit`,
 three laps against two rivals on a circuit laid out from TRBRY's "Track Tiles" (CC-BY 3.0) and cut
-into 10-cell `track_<row>_<col>.png` squares. `BundledGamesTest` plays each through a long random session in the sandbox, and
+into 10-cell `track_<row>_<col>.png` squares, and `ball_maze`, which makes a new round or square
+maze each game, rolls the balls with `sable.tilt()` and draws its plastic and wooden boards from
+pictures made for Sable. `BundledGamesTest` plays each through a long random session in the sandbox, and
 every maze and Sokoban level was checked solvable.
 
 ## rustmix-wave games
