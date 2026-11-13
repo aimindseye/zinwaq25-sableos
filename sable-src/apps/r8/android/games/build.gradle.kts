@@ -77,6 +77,13 @@ android {
             resValue("string", "app_name", "Sable Words")
             buildConfigField("String", "SABLE_GAME", "\"words\"")
         }
+        // Sable Games Console: games written in Lua, added from a folder without rebuilding the app.
+        create("console") {
+            dimension = "game"
+            applicationId = "org.sableos.gamesconsole"
+            resValue("string", "app_name", "Sable Games Console")
+            buildConfigField("String", "SABLE_GAME", "\"console\"")
+        }
     }
 
     buildTypes {
@@ -114,6 +121,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    // Only the Games Console carries the Lua engine.
+    "consoleImplementation"(libs.luaj.jse)
 
     testImplementation(libs.junit)
 }

@@ -70,6 +70,7 @@ SableReversi	common	apps/r8/android	:games:assembleReversiRelease	games/build/ou
 SableSolitaire	common	apps/r8/android	:games:assembleSolitaireRelease	games/build/outputs/apk/solitaire/release/*.apk	org.sableos.solitaire	unsigned	-	yes
 SableMahjong	common	apps/r8/android	:games:assembleMahjongRelease	games/build/outputs/apk/mahjong/release/*.apk	org.sableos.mahjong	unsigned	-	yes
 SableWords	common	apps/r8/android	:games:assembleWordsRelease	games/build/outputs/apk/words/release/*.apk	org.sableos.words	unsigned	-	yes
+SableGamesConsole	common	apps/r8/android	:games:assembleConsoleRelease	games/build/outputs/apk/console/release/*.apk	org.sableos.gamesconsole	unsigned	-	yes
 # Sable Media and Sable Calendar replace LineageOS Twelve and Etar (they duplicated them in the app grid).
 SableMedia	common	apps/r8/android	:media:assembleDebug	media/build/outputs/apk/debug/media-debug.apk	org.sableos.media	presigned	Twelve	yes
 SableHub	common	apps/r8/android	:hub:assembleDebug	hub/build/outputs/apk/debug/hub-debug.apk	org.sableos.hub	presigned	-	yes
