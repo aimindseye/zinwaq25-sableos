@@ -1,0 +1,595 @@
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/luaj/vm2/lib/MeteredPatterns.java b/sable-src/apps/r8/android/games/src/console/java/org/luaj/vm2/lib/MeteredPatterns.java
+new file mode 100644
+index 0000000..295bbac
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/console/java/org/luaj/vm2/lib/MeteredPatterns.java
+@@ -0,0 +1,199 @@
++/*
++ * Lua pattern functions (string.find, match, gmatch and gsub) that charge their work to a budget.
++ *
++ * LuaJ's own versions run in Java, outside the Lua instruction hook, so a pattern that backtracks
++ * badly (such as ("a?"):rep(40) .. ("a"):rep(40) against 40 "a"s) could keep the phone busy for
++ * hours. These use LuaJ's matcher but count each step: every match and single-character test costs
++ * one, and a %b scan costs the text it could cover. When the budget runs out, Spend throws.
++ *
++ * The loops below follow LuaJ 3.0.1's StringLib (MIT licence, Copyright (c) 2009-2011 Luaj.org);
++ * this file lives in its package to reach the matcher, which is package-private.
++ */
++package org.luaj.vm2.lib;
++
++import org.luaj.vm2.Buffer;
++import org.luaj.vm2.LuaError;
++import org.luaj.vm2.LuaString;
++import org.luaj.vm2.LuaTable;
++import org.luaj.vm2.LuaValue;
++import org.luaj.vm2.Varargs;
++
++public final class MeteredPatterns {
++    /** Takes [units] of work from the budget, or throws when it is spent. */
++    public interface Spend {
++        void spend(int units);
++    }
++
++    /** The longest pattern accepted; real patterns are a few dozen characters. */
++    public static final int MAX_PATTERN = 512;
++
++    private static final LuaString SPECIALS = LuaValue.valueOf("^$*+?.([%-");
++
++    private MeteredPatterns() {}
++
++    /** Replaces find, match, gmatch and gsub in [string] (the sandbox's string table). */
++    public static void install(LuaTable string, final Spend spend) {
++        string.set("find", new VarArgFunction() {
++            @Override
++            public Varargs invoke(Varargs args) {
++                return findAux(args, true, spend);
++            }
++        });
++        string.set("match", new VarArgFunction() {
++            @Override
++            public Varargs invoke(Varargs args) {
++                return findAux(args, false, spend);
++            }
++        });
++        string.set("gmatch", new VarArgFunction() {
++            @Override
++            public Varargs invoke(Varargs args) {
++                LuaString src = args.checkstring(1);
++                LuaString pat = pattern(args, 2);
++                return new GMatch(state(args, src, pat, spend), src.length());
++            }
++        });
++        string.set("gsub", new VarArgFunction() {
++            @Override
++            public Varargs invoke(Varargs args) {
++                return gsub(args, spend);
++            }
++        });
++    }
++
++    private static LuaString pattern(Varargs args, int i) {
++        LuaString p = args.checkstring(i);
++        if (p.length() > MAX_PATTERN) {
++            throw new LuaError("pattern longer than " + MAX_PATTERN + " characters");
++        }
++        return p;
++    }
++
++    private static Metered state(Varargs args, LuaString s, LuaString p, Spend spend) {
++        return new Metered(args, s, p, spend);
++    }
++
++    private static Varargs findAux(Varargs args, boolean find, Spend spend) {
++        LuaString s = args.checkstring(1);
++        LuaString pat = pattern(args, 2);
++        int init = args.optint(3, 1);
++        if (init > 0) {
++            init = Math.min(init - 1, s.length());
++        } else if (init < 0) {
++            init = Math.max(0, s.length() + init);
++        }
++        boolean plain = find && (args.arg(4).toboolean() || pat.indexOfAny(SPECIALS) == -1);
++        if (plain) {
++            int result = s.indexOf(pat, init);
++            if (result != -1) {
++                return LuaValue.varargsOf(LuaValue.valueOf(result + 1), LuaValue.valueOf(result + pat.length()));
++            }
++            return LuaValue.NIL;
++        }
++        Metered ms = state(args, s, pat, spend);
++        boolean anchor = false;
++        int poff = 0;
++        if (pat.length() > 0 && pat.luaByte(0) == '^') {
++            anchor = true;
++            poff = 1;
++        }
++        int soff = init;
++        do {
++            ms.reset();
++            int res = ms.match(soff, poff);
++            if (res != -1) {
++                if (find) {
++                    return LuaValue.varargsOf(LuaValue.valueOf(soff + 1), LuaValue.valueOf(res), ms.push_captures(false, soff, res));
++                }
++                return ms.push_captures(true, soff, res);
++            }
++        } while (soff++ < s.length() && !anchor);
++        return LuaValue.NIL;
++    }
++
++    private static Varargs gsub(Varargs args, Spend spend) {
++        LuaString src = args.checkstring(1);
++        final int srclen = src.length();
++        LuaString p = pattern(args, 2);
++        LuaValue repl = args.arg(3);
++        int maxS = args.optint(4, srclen + 1);
++        final boolean anchor = p.length() > 0 && p.charAt(0) == '^';
++        Buffer lbuf = new Buffer(srclen);
++        Metered ms = state(args, src, p, spend);
++        int soffset = 0;
++        int n = 0;
++        while (n < maxS) {
++            ms.reset();
++            int res = ms.match(soffset, anchor ? 1 : 0);
++            if (res != -1) {
++                n++;
++                ms.add_value(lbuf, soffset, res, repl);
++            }
++            if (res != -1 && res > soffset) {
++                soffset = res;
++            } else if (soffset < srclen) {
++                lbuf.append((byte) src.luaByte(soffset++));
++            } else {
++                break;
++            }
++            if (anchor) {
++                break;
++            }
++        }
++        lbuf.append(src.substring(soffset, srclen));
++        return LuaValue.varargsOf(lbuf.tostring(), LuaValue.valueOf(n));
++    }
++
++    private static final class GMatch extends VarArgFunction {
++        private final Metered ms;
++        private final int srclen;
++        private int soffset;
++
++        GMatch(Metered ms, int srclen) {
++            this.ms = ms;
++            this.srclen = srclen;
++        }
++
++        @Override
++        public Varargs invoke(Varargs args) {
++            for (; soffset < srclen; soffset++) {
++                ms.reset();
++                int res = ms.match(soffset, 0);
++                if (res >= 0) {
++                    int soff = soffset;
++                    soffset = res;
++                    return ms.push_captures(true, soff, res);
++                }
++            }
++            return LuaValue.NIL;
++        }
++    }
++
++    /** LuaJ's matcher, counting its steps. */
++    private static final class Metered extends StringLib.MatchState {
++        private final Spend spend;
++
++        Metered(Varargs args, LuaString s, LuaString p, Spend spend) {
++            super(args, s, p);
++            this.spend = spend;
++        }
++
++        @Override
++        int match(int soffset, int poffset) {
++            spend.spend(1);
++            return super.match(soffset, poffset);
++        }
++
++        @Override
++        boolean singlematch(int c, int poff, int ep) {
++            spend.spend(1);
++            return super.singlematch(c, poff, ep);
++        }
++
++        @Override
++        int matchbalance(int soff, int poff) {
++            spend.spend(Math.max(1, s.length() - soff));
++            return super.matchbalance(soff, poff);
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsolePlay.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsolePlay.kt
+index 57b35f7..a10dbf9 100644
+--- a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsolePlay.kt
++++ b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsolePlay.kt
+@@ -39,13 +39,16 @@ import java.io.IOException
+ /** One run of a game: the Lua game, what it last reported, and the console's own state around it. */
+ class PlaySession(
+     private val manifest: GameManifest,
+-    private val lua: LuaGame?,
++    lua: LuaGame?,
+     startError: String?,
+     private val progress: ConsoleProgress,
+     keysOnly: Boolean,
+     /** The game's pictures for `sable.image`, by file name. */
+     val pictures: Map<String, ImageBitmap> = emptyMap(),
+ ) {
++    /** The running game; let go when it stops with an error, so the memory it held is freed. */
++    private var lua: LuaGame? = lua
++
+     var ops by mutableStateOf(emptyList<DrawOp>())
+         private set
+     var status by mutableStateOf("")
+@@ -109,6 +112,8 @@ class PlaySession(
+             }
+         } catch (e: GameScriptError) {
+             error = e.message
++            ops = emptyList()
++            lua = null
+             save()
+         }
+     }
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/LuaGame.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/LuaGame.kt
+index 6fe5d9d..9dc36df 100644
+--- a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/LuaGame.kt
++++ b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/LuaGame.kt
+@@ -3,6 +3,7 @@ package org.sableos.games.console
+ import org.luaj.vm2.Globals
+ import org.luaj.vm2.LoadState
+ import org.luaj.vm2.LuaError
++import org.luaj.vm2.LuaString
+ import org.luaj.vm2.LuaTable
+ import org.luaj.vm2.LuaValue
+ import org.luaj.vm2.Varargs
+@@ -10,6 +11,7 @@ import org.luaj.vm2.compiler.LuaC
+ import org.luaj.vm2.lib.BaseLib
+ import org.luaj.vm2.lib.Bit32Lib
+ import org.luaj.vm2.lib.DebugLib
++import org.luaj.vm2.lib.MeteredPatterns
+ import org.luaj.vm2.lib.PackageLib
+ import org.luaj.vm2.lib.StringLib
+ import org.luaj.vm2.lib.TableLib
+@@ -102,7 +104,9 @@ class GameScriptError(
+  *
+  * The script sees Lua's base, string, table, math and bit32 libraries and one table, `sable`, and
+  * nothing else: no files, no `require`, no `load`, no Java, no network, no other apps. Every call
+- * into it has an instruction budget, so a loop that never ends stops the game instead of the phone.
++ * into it has an instruction budget, so a loop that never ends stops the game instead of the phone;
++ * the pattern functions (find, match, gmatch, gsub) are metered too ([MeteredPatterns]), and a game
++ * that grows its memory past a share of the app's heap is stopped ([HEAP_SHARE]).
+  *
+  * A game defines any of these global functions; the console calls them:
+  *
+@@ -153,6 +157,10 @@ class LuaGame(
+ 
+     private val ops = ArrayList<DrawOp>()
+     private var ticks = 0
++    private var work = 0L
++
++    /** This game's own `string` table, a copy of Lua's; `("x"):rep(3)` reaches it ([StringIndex]). */
++    private val strings = LuaTable().also { t -> forEachKey(STRING_LIB) { k, v -> t.set(k, v) } }
+     private val globals = sandbox()
+     private val chunk: LuaValue
+ 
+@@ -213,6 +221,10 @@ class LuaGame(
+ 
+     private fun guarded(block: () -> Unit) {
+         ticks = 0
++        work = 0
++        val outer = running.get()
++        running.set(strings)
++        LuaString.s_metatable = STRING_META
+         try {
+             block()
+         } catch (e: LuaError) {
+@@ -221,6 +233,41 @@ class LuaGame(
+             throw GameScriptError("The game took too long and was stopped.")
+         } catch (_: StackOverflowError) {
+             throw GameScriptError("The game called itself too deeply and was stopped.")
++        } catch (_: OutOfMemoryError) {
++            throw GameScriptError(TOO_MUCH_MEMORY)
++        } finally {
++            running.set(outer)
++        }
++        if (heapTooFull()) {
++            // Most of the heap may be garbage; only stop the game if it is still full once collected.
++            System.gc()
++            if (heapTooFull()) throw GameScriptError(TOO_MUCH_MEMORY)
++        }
++    }
++
++    private fun heapTooFull(): Boolean {
++        val rt = Runtime.getRuntime()
++        return rt.totalMemory() - rt.freeMemory() > rt.maxMemory() * HEAP_SHARE
++    }
++
++    /** Pattern matching's share of the budget; see [MeteredPatterns]. */
++    private fun spend(units: Int) {
++        work += units
++        if (work > BUDGET_WORK) throw Runaway()
++    }
++
++    /** `string.rep` that refuses to make a string longer than [MAX_STRING] instead of filling the heap. */
++    private class BoundedRep(
++        private val luaj: LuaValue,
++    ) : VarArgFunction() {
++        override fun invoke(args: Varargs): Varargs {
++            val one = args.checkstring(1).length().toLong()
++            val n = args.checklong(2)
++            val sep = if (args.isnoneornil(3)) 0L else args.checkstring(3).length().toLong()
++            if (n > 0 && one * n + sep * (n - 1) > MAX_STRING) {
++                throw LuaError("string.rep would make a string longer than $MAX_STRING characters")
++            }
++            return luaj.invoke(args)
+         }
+     }
+ 
+@@ -246,6 +293,8 @@ class LuaGame(
+                     }
+ 
+                     'f', 'F', 'e', 'E', 'g', 'G' -> {
++                        // Lua's own rule: at most two digits of width and of precision.
++                        if (WIDE.containsMatchIn(spec)) throw LuaError("invalid format (width or precision too long)")
+                         out.append(String.format(Locale.ROOT, spec.replace('F', 'f'), args.checkdouble(next++)))
+                     }
+ 
+@@ -260,6 +309,7 @@ class LuaGame(
+ 
+         private companion object {
+             val SPEC = Regex("%[-+ #0]*[0-9]*(?:\\.[0-9]+)?[a-zA-Z%]")
++            val WIDE = Regex("[0-9]{3,}")
+         }
+     }
+ 
+@@ -272,7 +322,8 @@ class LuaGame(
+         // The other libraries register in package.loaded; package and require are removed below.
+         g.load(PackageLib())
+         g.load(TableLib())
+-        g.load(StringLib())
++        // Not g.load(StringLib()): that would point every string's methods at this game's table.
++        g.set("string", strings)
+         g.load(JseMathLib())
+         g.load(Bit32Lib())
+         g.load(DebugLib())
+@@ -294,8 +345,11 @@ class LuaGame(
+             }
+         g.get("debug").get("sethook").call(hook, LuaValue.valueOf(""), LuaValue.valueOf(TICK_INSTRUCTIONS))
+         for (name in BLOCKED) g.set(name, LuaValue.NIL)
+-        val strings = g.get("string")
+         strings.set("format", PreciseFormat(strings.get("format")))
++        strings.set("rep", BoundedRep(strings.get("rep")))
++        // Compiled code is no use without load, but there is no reason to hand it out.
++        strings.set("dump", LuaValue.NIL)
++        MeteredPatterns.install(strings) { spend(it) }
+         g.set("sable", sableTable())
+         return g
+     }
+@@ -400,6 +454,54 @@ class LuaGame(
+         /** About 300 000 Lua instructions per call: far more than a frame needs. */
+         const val BUDGET_TICKS = 300
+ 
++        /** Pattern-matching steps per call: a few hundredths of a second at most. */
++        const val BUDGET_WORK = 3_000_000L
++
++        /** The longest string `string.rep` makes (a game's strings are short; this is 1 MB). */
++        const val MAX_STRING = 1_000_000L
++
++        /** A game is stopped when, after a call, the app's heap is fuller than this share. */
++        const val HEAP_SHARE = 0.6
++
++        private const val TOO_MUCH_MEMORY = "The game used too much memory and was stopped."
++
++        /** The string table of the game whose code is running on this thread, for `s:method()`. */
++        private val running = ThreadLocal<LuaTable?>()
++
++        /**
++         * Lua's string functions, made once. LuaJ keeps one metatable for all strings, shared by every
++         * game, so it is set here once and for all: its `__index` looks the method up in the running
++         * game's own `string` table, and `__metatable` hides it, so no game can change how another
++         * game's strings behave or slip its own code into them.
++         */
++        private val STRING_LIB: LuaTable =
++            Globals()
++                .also {
++                    it.load(PackageLib())
++                    it.load(StringLib())
++                }.get("string")
++                .checktable()
++
++        private val STRING_META: LuaTable =
++            LuaValue.tableOf(arrayOf(LuaValue.INDEX, StringIndex, LuaValue.METATABLE, LuaValue.valueOf("strings")))
++
++        private object StringIndex : VarArgFunction() {
++            override fun invoke(args: Varargs): Varargs = running.get()?.get(args.arg(2)) ?: LuaValue.NIL
++        }
++
++        private fun forEachKey(
++            t: LuaTable,
++            body: (LuaValue, LuaValue) -> Unit,
++        ) {
++            var k = LuaValue.NIL
++            while (true) {
++                val next = t.next(k)
++                k = next.arg1()
++                if (k.isnil()) return
++                body(k, next.arg(2))
++            }
++        }
++
+         private val BLOCKED =
+             listOf("debug", "dofile", "loadfile", "load", "loadstring", "collectgarbage", "print", "require", "package")
+     }
+diff --git a/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/LuaSandboxAttackTest.kt b/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/LuaSandboxAttackTest.kt
+new file mode 100644
+index 0000000..ce894a4
+--- /dev/null
++++ b/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/LuaSandboxAttackTest.kt
+@@ -0,0 +1,163 @@
++package org.sableos.games.console
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Assert.fail
++import org.junit.Test
++
++/**
++ * Scripts a hostile game might ship. Each must either find nothing to reach or be stopped with a
++ * message, quickly, without taking the app down: no way out of the sandbox, no freezing the phone,
++ * no filling its memory.
++ */
++class LuaSandboxAttackTest {
++    /** Runs [source] through start and two frames; the message it was stopped with, or null. */
++    private fun run(source: String): String? =
++        try {
++            val g = LuaGame(source, "main.lua", MemoryGameStore(), setOf("ok.png"))
++            g.start()
++            g.update(0.016)
++            g.update(0.016)
++            g.frame()
++            null
++        } catch (e: GameScriptError) {
++            e.message.orEmpty()
++        }
++
++    private fun stopped(
++        source: String,
++        why: String,
++    ) {
++        val message = run(source) ?: fail("expected the game to be stopped: $source")
++        assertTrue("$message", message.toString().contains(why))
++    }
++
++    private fun status(source: String): String {
++        val g = LuaGame(source, "main.lua", MemoryGameStore())
++        g.start()
++        g.update(0.016)
++        return g.status
++    }
++
++    /** What [source]'s `update` saved under "out" (saves hold more than the status line). */
++    private fun saved(source: String): String? {
++        val store = MemoryGameStore()
++        val g = LuaGame(source, "main.lua", store)
++        g.start()
++        g.update(0.016)
++        return store.get("out")
++    }
++
++    @Test(timeout = 20_000)
++    fun theOnlyGlobalsAreLuasSafeOnesAndSable() {
++        val globals =
++            saved(
++                """
++                function update()
++                  local seen = {}
++                  for k in pairs(_G) do seen[#seen + 1] = k end
++                  table.sort(seen)
++                  sable.save("out", table.concat(seen, ","))
++                end
++                """.trimIndent(),
++            )
++        assertEquals(
++            "_G,_VERSION,assert,bit32,error,getmetatable,ipairs,math,next,pairs,pcall,rawequal,rawget," +
++                "rawlen,rawset,sable,select,setmetatable,string,table,tonumber,tostring,type,update,xpcall",
++            globals,
++        )
++        val strings =
++            status(
++                "function update() local s = {} for k in pairs(string) do s[#s + 1] = k end " +
++                    "table.sort(s) sable.status(table.concat(s, ',')) end",
++            )
++        assertEquals("byte,char,find,format,gmatch,gsub,len,lower,match,rep,reverse,sub,upper", strings)
++    }
++
++    @Test(timeout = 20_000)
++    fun oneGameCantChangeAnothersStrings() {
++        // The shared string metatable is hidden, so a game can't reroute string methods.
++        stopped("function update() getmetatable('').__index = function() return print end end", "index expected, got string")
++        val a =
++            LuaGame(
++                "function update() string.upper = function() return 'stolen' end end",
++                "main.lua",
++                MemoryGameStore(),
++            )
++        val b = LuaGame("function update() sable.status(('quiet'):upper()) end", "main.lua", MemoryGameStore())
++        a.start()
++        b.start()
++        a.update(0.016)
++        b.update(0.016)
++        assertEquals("QUIET", b.status)
++        // Its own string table is its own business.
++        assertEquals("stolen", status("function update() string.upper = function() return 'stolen' end sable.status(('x'):upper()) end"))
++    }
++
++    @Test(timeout = 20_000)
++    fun compiledCodeAndHiddenLibrariesCantBeReached() {
++        // A chunk of compiled Lua is refused: the source is always compiled from text.
++        assertTrue(run("\u001bLuaR\u0000") != null)
++        assertEquals("nil nil nil", status("function update() sable.status(tostring(rawget(_G, 'debug')) .. ' ' .. tostring(string.dump) .. ' ' .. tostring(rawget(_G, 'package'))) end"))
++        stopped("function update() local c = sable.rect.getClass end", "attempt to index")
++        // Pictures are looked up by name among the game's own; a path gets nowhere.
++        stopped("function draw() sable.image(0, 0, 1, 1, '../../shared_prefs/console.xml') end", "no picture")
++    }
++
++    @Test(timeout = 20_000)
++    fun loopsAreStoppedWhereverTheyHide() {
++        stopped("function update() while true do end end", "too long")
++        stopped("function update() xpcall(function() while true do end end, function(e) return e end) end", "too long")
++        stopped("function update() while true do xpcall(error, function() while true do end end) end end", "too long")
++        stopped("function update() tostring(setmetatable({}, {__tostring = function() while true do end end})) end", "too long")
++        stopped("function update() local t = {} for i = 1, 200 do t[i] = i end table.sort(t, function() while true do end end) end", "too long")
++        stopped("function update() local function f() return 1 + f() end pcall(f) end", "too deeply")
++        stopped("function update() for i = 1, 1e6 do sable.save('k' .. i, 'v') end end", "too long")
++    }
++
++    @Test(timeout = 20_000)
++    fun patternsThatBacktrackForeverAreStopped() {
++        // Each of these would keep LuaJ's own matcher busy for hours.
++        stopped(
++            "function update() local s = ('a'):rep(100) s:find(('a?'):rep(100) .. ('a'):rep(100)) end",
++            "too long",
++        )
++        stopped(
++            "function update() for x in ('a'):rep(200000):gmatch('a*a*a*a*b') do end end",
++            "too long",
++        )
++        stopped("function update() ('('):rep(200000):find('%b()') end", "too long")
++        stopped("function update() ('a'):rep(200000):gsub('a-a-a-b', '') end", "too long")
++        stopped("function update() ('a'):find(('x'):rep(600)) end", "pattern longer")
++        // Ordinary patterns still work.
++        assertEquals(
++            "Hello, world 42|42|Hello,world|10,14|(a(b)c)",
++            status(
++                """
++                function update()
++                  local s = "  Hello, world 42  "
++                  local t = s:gsub("^%s*(.-)%s*$", "%1")
++                  local n = tonumber(s:match("(%d+)"))
++                  local w = {}
++                  for x in s:gmatch("%a+") do w[#w + 1] = x end
++                  local a, b = s:find("world", 1, true)
++                  sable.status(t .. "|" .. n .. "|" .. table.concat(w, ",") .. "|" .. a .. "," .. b .. "|" .. ("f(a(b)c)"):match("%b()"))
++                end
++                """.trimIndent(),
++            ),
++        )
++    }
++
++    @Test(timeout = 60_000)
++    fun aGameCantFillTheMemory() {
++        stopped("function update() local s = ('x'):rep(2^31 - 2) end", "longer than")
++        stopped("function update() local s = string.format('%999999999.1f', 1) end", "too long")
++        stopped("function update() local n = select('#', table.unpack({}, 1, 2^31 - 1)) end", "memory")
++        // Doubling a string a frame at a time, and growing it with gsub, run into the heap limit.
++        stopped("local s = 'x' function update() for i = 1, 40 do s = s .. s end end", "memory")
++        stopped(
++            "local t = {} function update() local s = ('y'):rep(1e6) for i = 1, 3000 do t[#t + 1] = s .. i end end",
++            "memory",
++        )
++    }
++}

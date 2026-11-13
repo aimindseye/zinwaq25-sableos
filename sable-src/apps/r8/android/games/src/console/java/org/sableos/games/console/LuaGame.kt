@@ -3,6 +3,7 @@ package org.sableos.games.console
 import org.luaj.vm2.Globals
 import org.luaj.vm2.LoadState
 import org.luaj.vm2.LuaError
+import org.luaj.vm2.LuaString
 import org.luaj.vm2.LuaTable
 import org.luaj.vm2.LuaValue
 import org.luaj.vm2.Varargs
@@ -10,6 +11,7 @@ import org.luaj.vm2.compiler.LuaC
 import org.luaj.vm2.lib.BaseLib
 import org.luaj.vm2.lib.Bit32Lib
 import org.luaj.vm2.lib.DebugLib
+import org.luaj.vm2.lib.MeteredPatterns
 import org.luaj.vm2.lib.PackageLib
 import org.luaj.vm2.lib.StringLib
 import org.luaj.vm2.lib.TableLib
@@ -102,7 +104,9 @@ class GameScriptError(
  *
  * The script sees Lua's base, string, table, math and bit32 libraries and one table, `sable`, and
  * nothing else: no files, no `require`, no `load`, no Java, no network, no other apps. Every call
- * into it has an instruction budget, so a loop that never ends stops the game instead of the phone.
+ * into it has an instruction budget, so a loop that never ends stops the game instead of the phone;
+ * the pattern functions (find, match, gmatch, gsub) are metered too ([MeteredPatterns]), and a game
+ * that grows its memory past a share of the app's heap is stopped ([HEAP_SHARE]).
  *
  * A game defines any of these global functions; the console calls them:
  *
@@ -153,6 +157,10 @@ class LuaGame(
 
     private val ops = ArrayList<DrawOp>()
     private var ticks = 0
+    private var work = 0L
+
+    /** This game's own `string` table, a copy of Lua's; `("x"):rep(3)` reaches it ([StringIndex]). */
+    private val strings = LuaTable().also { t -> forEachKey(STRING_LIB) { k, v -> t.set(k, v) } }
     private val globals = sandbox()
     private val chunk: LuaValue
 
@@ -213,6 +221,10 @@ class LuaGame(
 
     private fun guarded(block: () -> Unit) {
         ticks = 0
+        work = 0
+        val outer = running.get()
+        running.set(strings)
+        LuaString.s_metatable = STRING_META
         try {
             block()
         } catch (e: LuaError) {
@@ -221,6 +233,41 @@ class LuaGame(
             throw GameScriptError("The game took too long and was stopped.")
         } catch (_: StackOverflowError) {
             throw GameScriptError("The game called itself too deeply and was stopped.")
+        } catch (_: OutOfMemoryError) {
+            throw GameScriptError(TOO_MUCH_MEMORY)
+        } finally {
+            running.set(outer)
+        }
+        if (heapTooFull()) {
+            // Most of the heap may be garbage; only stop the game if it is still full once collected.
+            System.gc()
+            if (heapTooFull()) throw GameScriptError(TOO_MUCH_MEMORY)
+        }
+    }
+
+    private fun heapTooFull(): Boolean {
+        val rt = Runtime.getRuntime()
+        return rt.totalMemory() - rt.freeMemory() > rt.maxMemory() * HEAP_SHARE
+    }
+
+    /** Pattern matching's share of the budget; see [MeteredPatterns]. */
+    private fun spend(units: Int) {
+        work += units
+        if (work > BUDGET_WORK) throw Runaway()
+    }
+
+    /** `string.rep` that refuses to make a string longer than [MAX_STRING] instead of filling the heap. */
+    private class BoundedRep(
+        private val luaj: LuaValue,
+    ) : VarArgFunction() {
+        override fun invoke(args: Varargs): Varargs {
+            val one = args.checkstring(1).length().toLong()
+            val n = args.checklong(2)
+            val sep = if (args.isnoneornil(3)) 0L else args.checkstring(3).length().toLong()
+            if (n > 0 && one * n + sep * (n - 1) > MAX_STRING) {
+                throw LuaError("string.rep would make a string longer than $MAX_STRING characters")
+            }
+            return luaj.invoke(args)
         }
     }
 
@@ -246,6 +293,8 @@ class LuaGame(
                     }
 
                     'f', 'F', 'e', 'E', 'g', 'G' -> {
+                        // Lua's own rule: at most two digits of width and of precision.
+                        if (WIDE.containsMatchIn(spec)) throw LuaError("invalid format (width or precision too long)")
                         out.append(String.format(Locale.ROOT, spec.replace('F', 'f'), args.checkdouble(next++)))
                     }
 
@@ -260,6 +309,7 @@ class LuaGame(
 
         private companion object {
             val SPEC = Regex("%[-+ #0]*[0-9]*(?:\\.[0-9]+)?[a-zA-Z%]")
+            val WIDE = Regex("[0-9]{3,}")
         }
     }
 
@@ -272,7 +322,8 @@ class LuaGame(
         // The other libraries register in package.loaded; package and require are removed below.
         g.load(PackageLib())
         g.load(TableLib())
-        g.load(StringLib())
+        // Not g.load(StringLib()): that would point every string's methods at this game's table.
+        g.set("string", strings)
         g.load(JseMathLib())
         g.load(Bit32Lib())
         g.load(DebugLib())
@@ -294,8 +345,11 @@ class LuaGame(
             }
         g.get("debug").get("sethook").call(hook, LuaValue.valueOf(""), LuaValue.valueOf(TICK_INSTRUCTIONS))
         for (name in BLOCKED) g.set(name, LuaValue.NIL)
-        val strings = g.get("string")
         strings.set("format", PreciseFormat(strings.get("format")))
+        strings.set("rep", BoundedRep(strings.get("rep")))
+        // Compiled code is no use without load, but there is no reason to hand it out.
+        strings.set("dump", LuaValue.NIL)
+        MeteredPatterns.install(strings) { spend(it) }
         g.set("sable", sableTable())
         return g
     }
@@ -399,6 +453,54 @@ class LuaGame(
 
         /** About 300 000 Lua instructions per call: far more than a frame needs. */
         const val BUDGET_TICKS = 300
+
+        /** Pattern-matching steps per call: a few hundredths of a second at most. */
+        const val BUDGET_WORK = 3_000_000L
+
+        /** The longest string `string.rep` makes (a game's strings are short; this is 1 MB). */
+        const val MAX_STRING = 1_000_000L
+
+        /** A game is stopped when, after a call, the app's heap is fuller than this share. */
+        const val HEAP_SHARE = 0.6
+
+        private const val TOO_MUCH_MEMORY = "The game used too much memory and was stopped."
+
+        /** The string table of the game whose code is running on this thread, for `s:method()`. */
+        private val running = ThreadLocal<LuaTable?>()
+
+        /**
+         * Lua's string functions, made once. LuaJ keeps one metatable for all strings, shared by every
+         * game, so it is set here once and for all: its `__index` looks the method up in the running
+         * game's own `string` table, and `__metatable` hides it, so no game can change how another
+         * game's strings behave or slip its own code into them.
+         */
+        private val STRING_LIB: LuaTable =
+            Globals()
+                .also {
+                    it.load(PackageLib())
+                    it.load(StringLib())
+                }.get("string")
+                .checktable()
+
+        private val STRING_META: LuaTable =
+            LuaValue.tableOf(arrayOf(LuaValue.INDEX, StringIndex, LuaValue.METATABLE, LuaValue.valueOf("strings")))
+
+        private object StringIndex : VarArgFunction() {
+            override fun invoke(args: Varargs): Varargs = running.get()?.get(args.arg(2)) ?: LuaValue.NIL
+        }
+
+        private fun forEachKey(
+            t: LuaTable,
+            body: (LuaValue, LuaValue) -> Unit,
+        ) {
+            var k = LuaValue.NIL
+            while (true) {
+                val next = t.next(k)
+                k = next.arg1()
+                if (k.isnil()) return
+                body(k, next.arg(2))
+            }
+        }
 
         private val BLOCKED =
             listOf("debug", "dofile", "loadfile", "load", "loadstring", "collectgarbage", "print", "require", "package")

@@ -39,13 +39,16 @@ import java.io.IOException
 /** One run of a game: the Lua game, what it last reported, and the console's own state around it. */
 class PlaySession(
     private val manifest: GameManifest,
-    private val lua: LuaGame?,
+    lua: LuaGame?,
     startError: String?,
     private val progress: ConsoleProgress,
     keysOnly: Boolean,
     /** The game's pictures for `sable.image`, by file name. */
     val pictures: Map<String, ImageBitmap> = emptyMap(),
 ) {
+    /** The running game; let go when it stops with an error, so the memory it held is freed. */
+    private var lua: LuaGame? = lua
+
     var ops by mutableStateOf(emptyList<DrawOp>())
         private set
     var status by mutableStateOf("")
@@ -109,6 +112,8 @@ class PlaySession(
             }
         } catch (e: GameScriptError) {
             error = e.message
+            ops = emptyList()
+            lua = null
             save()
         }
     }

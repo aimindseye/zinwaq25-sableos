@@ -281,6 +281,9 @@ short; Ball Maze, Sky Roll and Ramp Rush show pictures, physics and a 3D road.
 | Read another game's saved data | Each game's `sable.save` store is its own |
 | Run in the background | The game pauses when the app leaves the screen, and the tilt sensor stops |
 | Use coroutines or `print` | Not in the sandbox; show values with `sable.status` while you test |
+| Install, hide or run anything outside the console | A game is only `game.toml`, one `.lua` script and PNGs, copied into the console's own storage and run in the sandbox |
+| Freeze or fill up the phone | Loops, runaway patterns and memory floods stop the game with a message |
+| Change another game, or how its strings behave | Each game has its own tables and saves; the shared string metatable is hidden |
 
 ## Limits
 
@@ -293,6 +296,9 @@ short; Ball Maze, Sky Roll and Ramp Rush show pictures, physics and a 3D road.
 | Grid | 1 to 200 cells each way (default 10 by 10) |
 | Text | 120 characters per `sable.text`, `sable.status` or `sable.over` |
 | Lua work per call | about 300,000 instructions per `init`, `update`, `draw`, `tilt` or `key` |
+| Pattern matching per call | about 3 million steps across `find`, `match`, `gmatch` and `gsub`; patterns up to 512 characters |
+| `string.rep` | up to 1,000,000 characters |
+| Memory | a game holding more than 60% of the app's memory is stopped |
 | Saved data | 64 keys per game; a key up to 40 characters, a value up to 2,000 |
 | `game.toml` | name up to 40 characters; summary and controls up to 200 |
 | Add games | up to 50 game folders at a time |
