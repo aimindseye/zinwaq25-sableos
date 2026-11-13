@@ -193,4 +193,24 @@
     <string name="station_saved_locally">Ο σταθμός αποθηκεύτηκε τοπικά.</string>
     <string name="choose_a_station_to_edit">Επιλέξτε έναν σταθμό για επεξεργασία.</string>
     <string name="station_updated">Ο σταθμός ενημερώθηκε.</string>
+    <string name="hub_title">πολυμέσα</string>
+    <string name="hub_back">Πίσω</string>
+    <string name="hub_search">Αναζήτηση</string>
+    <string name="hub_more">Περισσότερες επιλογές</string>
+    <string name="hub_playing">παίζει</string>
+    <string name="hub_paused">σε παύση</string>
+    <string name="hub_add">Προσθήκη</string>
+    <string name="hub_settings">Ρυθμίσεις</string>
+    <string name="hub_refresh">Ανανέωση</string>
+    <string name="hub_save">Αποθήκευση</string>
+    <string name="hub_tab_songs">Τραγούδια</string>
+    <string name="hub_tab_artists">Καλλιτέχνες</string>
+    <string name="hub_tab_albums">Άλμπουμ</string>
+    <string name="hub_tab_playlists">Λίστες</string>
+    <string name="hub_tab_favourites">Αγαπημένα</string>
+    <string name="hub_tab_podcasts">Podcast</string>
+    <string name="hub_tab_radio">Ραδιόφωνο</string>
+    <string name="hub_tab_fm">FM</string>
+    <string name="fm_name">Όνομα</string>
+    <string name="fm_clear_name">Διαγραφή ονόματος</string>
 </resources>

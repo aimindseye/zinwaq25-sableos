@@ -173,7 +173,23 @@ internal class FmPresetStore(
         preferences.edit().putStringSet(KEY_FAVORITES, favorites.map(Int::toString).toSet()).apply()
     }
 
+    /** The names the person gave stations, kept as "frequency=name" entries. */
+    fun loadNames(): Map<Int, String> =
+        preferences
+            .getStringSet(KEY_NAMES, emptySet())
+            .orEmpty()
+            .mapNotNull { entry ->
+                val station = entry.substringBefore('=').toIntOrNull() ?: return@mapNotNull null
+                val name = entry.substringAfter('=', "").trim()
+                (station to name).takeIf { FmBand.isValid(station) && name.isNotEmpty() }
+            }.toMap()
+
+    fun saveNames(names: Map<Int, String>) {
+        preferences.edit().putStringSet(KEY_NAMES, names.map { (station, name) -> "$station=$name" }.toSet()).apply()
+    }
+
     private companion object {
         const val KEY_FAVORITES = "fm_favorites"
+        const val KEY_NAMES = "fm_names"
     }
 }

@@ -590,6 +590,17 @@ internal class MediaFmController(
         }
     }
 
+    fun rename(
+        station: Int,
+        name: String,
+    ) {
+        val updated = FmPresets.rename(state.fmNames, station, name)
+        if (updated != state.fmNames) {
+            state.fmNames = updated
+            repositories.fmPresets.saveNames(updated)
+        }
+    }
+
     fun run(action: FmKeyAction): Boolean {
         val fm = host.fm
         when (action) {

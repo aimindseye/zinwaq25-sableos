@@ -46,6 +46,8 @@ naming:
       - "**/media/FmScreen.kt"
       - "**/media/MediaScreen.kt"
       - "**/media/MediaResponsive.kt"
+      - "**/media/MediaHubChrome.kt"
+      - "**/media/MediaArtwork.kt"
       - "**/media/MediaC2Screens.kt"
       - "**/media/PodcastScreen.kt"
       - "**/hub/ui/HubScreen.kt"

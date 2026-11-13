@@ -120,6 +120,12 @@ internal object PodcastFeedParser {
             state.inEpisode && tag == "link" -> {
                 mediaUrlFromAtomLink(parser)?.let(state::setEpisodeMediaUrl)
             }
+
+            // The show's cover: <itunes:image href="…"/>, or the RSS <image><url>…</url></image>.
+            !state.inEpisode && tag == "image" -> {
+                state.inImage = true
+                attribute(parser, "href")?.let(state::offerFeedImage)
+            }
         }
     }
 
@@ -143,8 +149,11 @@ internal object PodcastFeedParser {
         parser: XmlPullParser,
         state: FeedParseState,
     ) {
-        if (localName(parser.name).isEpisodeContainer()) {
+        val tag = localName(parser.name)
+        if (tag.isEpisodeContainer()) {
             state.finishEpisode()
+        } else if (tag == "image") {
+            state.inImage = false
         }
         state.currentTag = ""
     }
@@ -301,7 +310,15 @@ internal object PodcastFeedParser {
         var currentTag: String = "",
         var currentEpisode: EpisodeBuilder? = null,
         val episodes: MutableList<PodcastEpisode> = mutableListOf(),
+        var inImage: Boolean = false,
+        var feedImage: String = "",
     ) {
+        /** The first HTTPS cover the feed names wins. */
+        fun offerFeedImage(value: String) {
+            val candidate = value.trim()
+            if (feedImage.isBlank() && PodcastUrlPolicy.isHttpsUrl(candidate)) feedImage = candidate
+        }
+
         fun beginEpisode() {
             inEpisode = true
             currentEpisode = EpisodeBuilder()
@@ -346,6 +363,10 @@ internal object PodcastFeedParser {
         }
 
         fun appendFeedText(value: String) {
+            if (inImage) {
+                if (currentTag == "url") offerFeedImage(value)
+                return
+            }
             when (currentTag) {
                 "title" -> {
                     if (feedTitle.isBlank()) {
@@ -420,6 +441,7 @@ internal object PodcastFeedParser {
                 description = cleanText(feedDescription),
                 episodes = normalizedEpisodes,
                 refreshedAt = System.currentTimeMillis(),
+                imageUrl = feedImage,
             )
         }
     }

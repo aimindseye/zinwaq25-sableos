@@ -140,6 +140,22 @@ internal object FmPresets {
         number: Int,
     ): Int? = ordered(favorites).getOrNull(number - 1)?.takeIf { number in 1..MAX_KEYED }
 
+    /**
+     * A name the person gives a station (owner, 2026-11-13); a blank name removes it. Names are
+     * trimmed to [MAX_NAME] characters.
+     */
+    fun rename(
+        names: Map<Int, String>,
+        station: Int,
+        name: String,
+    ): Map<Int, String> {
+        if (!FmBand.isValid(station)) return names
+        val clean = name.trim().replace(Regex("\\s+"), " ").take(MAX_NAME)
+        return if (clean.isEmpty()) names - station else names + (station to clean)
+    }
+
+    const val MAX_NAME = 40
+
     /** Starred stations first, then the stations the last scan found, each once. */
     fun list(
         favorites: Set<Int>,

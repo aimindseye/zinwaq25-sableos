@@ -193,4 +193,24 @@
     <string name="station_saved_locally">اسٹیشن مقامی طور پر محفوظ ہو گیا۔</string>
     <string name="choose_a_station_to_edit">ترمیم کے لیے اسٹیشن منتخب کریں۔</string>
     <string name="station_updated">اسٹیشن اپ ڈیٹ ہو گیا۔</string>
+    <string name="hub_title">میڈیا</string>
+    <string name="hub_back">واپس</string>
+    <string name="hub_search">تلاش</string>
+    <string name="hub_more">مزید اختیارات</string>
+    <string name="hub_playing">چل رہا ہے</string>
+    <string name="hub_paused">رکا ہوا</string>
+    <string name="hub_add">شامل کریں</string>
+    <string name="hub_settings">ترتیبات</string>
+    <string name="hub_refresh">تازہ کریں</string>
+    <string name="hub_save">محفوظ کریں</string>
+    <string name="hub_tab_songs">گانے</string>
+    <string name="hub_tab_artists">فنکار</string>
+    <string name="hub_tab_albums">البم</string>
+    <string name="hub_tab_playlists">پلے لسٹس</string>
+    <string name="hub_tab_favourites">پسندیدہ</string>
+    <string name="hub_tab_podcasts">پوڈکاسٹ</string>
+    <string name="hub_tab_radio">ریڈیو</string>
+    <string name="hub_tab_fm">FM</string>
+    <string name="fm_name">نام</string>
+    <string name="fm_clear_name">نام صاف کریں</string>
 </resources>

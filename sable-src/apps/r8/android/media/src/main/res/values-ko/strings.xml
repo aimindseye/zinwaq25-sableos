@@ -193,4 +193,24 @@
     <string name="station_saved_locally">방송국이 로컬에 저장되었습니다.</string>
     <string name="choose_a_station_to_edit">편집할 방송국을 선택하세요.</string>
     <string name="station_updated">방송국을 업데이트했습니다.</string>
+    <string name="hub_title">미디어</string>
+    <string name="hub_back">뒤로</string>
+    <string name="hub_search">검색</string>
+    <string name="hub_more">옵션 더보기</string>
+    <string name="hub_playing">재생 중</string>
+    <string name="hub_paused">일시정지됨</string>
+    <string name="hub_add">추가</string>
+    <string name="hub_settings">설정</string>
+    <string name="hub_refresh">새로고침</string>
+    <string name="hub_save">저장</string>
+    <string name="hub_tab_songs">노래</string>
+    <string name="hub_tab_artists">아티스트</string>
+    <string name="hub_tab_albums">앨범</string>
+    <string name="hub_tab_playlists">재생목록</string>
+    <string name="hub_tab_favourites">즐겨찾기</string>
+    <string name="hub_tab_podcasts">팟캐스트</string>
+    <string name="hub_tab_radio">라디오</string>
+    <string name="hub_tab_fm">FM</string>
+    <string name="fm_name">이름</string>
+    <string name="fm_clear_name">이름 지우기</string>
 </resources>

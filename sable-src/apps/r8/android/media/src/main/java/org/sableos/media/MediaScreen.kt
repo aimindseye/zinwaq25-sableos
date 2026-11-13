@@ -2,6 +2,7 @@ package org.sableos.media
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,11 +11,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -40,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,6 +59,7 @@ import org.sableos.design.SableRefreshableSurface
 import org.sableos.design.SableResponsive
 import org.sableos.design.SableRowAction
 import org.sableos.design.SableSpacing
+import org.sableos.design.isSableShortWindow
 import org.sableos.design.sableFocusRing
 import org.sableos.design.sableLetterJump
 import org.sableos.media.MediaText.t
@@ -70,6 +75,21 @@ private val MediaControlSize = 48.dp
 private val MediaPrimaryTouchHeight = 54.dp
 private val MediaCompactPadding = 12.dp
 private const val COLLECTION_FIXED_ITEM_COUNT = 6
+
+/**
+ * Header rows above the collection's items: the full header, or on the Q25 only the import row of an
+ * empty collection.
+ */
+private fun collectionFixedItemCount(
+    short: Boolean,
+    empty: Boolean,
+): Int =
+    when {
+        !short -> COLLECTION_FIXED_ITEM_COUNT
+        empty -> 1
+        else -> 0
+    }
+
 private const val ROW_ACTION_PLAY = "play"
 private const val ROW_ACTION_FAVORITE = "favorite"
 private const val ROW_ACTION_EDIT = "edit"
@@ -135,6 +155,8 @@ internal data class MediaScreenState(
     /** FM mode (FmScreen); the FM destination is offered only when [FmUiState.available]. */
     val fm: FmUiState = FmUiState(),
     val fmFavorites: Set<Int> = emptySet(),
+    /** Names the person gave FM stations, by frequency. */
+    val fmNames: Map<Int, String> = emptyMap(),
 )
 
 internal data class MediaScreenActions(
@@ -265,304 +287,317 @@ internal fun MediaScreen(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        when (destination) {
-            MediaDestination.Collection -> {
-                CollectionScreen(
-                    pivot = libraryPivot,
-                    localItems = localItems,
-                    localLibraryLoading = localLibraryLoading,
-                    playback = playback,
-                    favoriteAudioUris = favoriteAudioUris,
-                    playlists = playlists,
-                    showMiniPlayer = settings.showMiniPlayer,
-                    onDestinationChange = onDestinationChange,
-                    onPivotChange = onLibraryPivotChange,
-                    onAddLocalAudio = onAddLocalAudio,
-                    onAddLocalFolder = onAddLocalFolder,
-                    onPlay = onPlayLocal,
-                    onToggleFavorite = onToggleFavoriteAudio,
-                    onCreatePlaylist = onCreatePlaylist,
-                    onEditPlaylist = onEditPlaylist,
-                    onDeletePlaylist = onDeletePlaylist,
-                    onPlayPlaylist = onPlayPlaylist,
-                    onOpenNowPlaying = {
-                        onDestinationChange(MediaDestination.NowPlaying)
-                    },
-                    onPlayPause = onPlayPause,
-                    onPrevious = onPrevious,
-                    onNext = onNext,
-                    search =
-                        CollectionSearch(
-                            query = state.searchQuery,
-                            onOpen = actions.onOpenSearch,
-                            onQueryChange = actions.onSearchQueryChange,
-                            onClose = actions.onCloseSearch,
-                            focusToken = state.searchFocusToken,
-                        ),
-                    onTrackFocusChange = actions.onTrackFocusChange,
-                )
-            }
+        MediaHubFrame(
+            enabled = isSableShortWindow() && destination.inHubFrame(),
+            state = state,
+            actions = actions,
+        ) {
+            when (destination) {
+                MediaDestination.Collection -> {
+                    CollectionScreen(
+                        pivot = libraryPivot,
+                        localItems = localItems,
+                        localLibraryLoading = localLibraryLoading,
+                        playback = playback,
+                        favoriteAudioUris = favoriteAudioUris,
+                        playlists = playlists,
+                        showMiniPlayer = settings.showMiniPlayer,
+                        onDestinationChange = onDestinationChange,
+                        onPivotChange = onLibraryPivotChange,
+                        onAddLocalAudio = onAddLocalAudio,
+                        onAddLocalFolder = onAddLocalFolder,
+                        onPlay = onPlayLocal,
+                        onToggleFavorite = onToggleFavoriteAudio,
+                        onCreatePlaylist = onCreatePlaylist,
+                        onEditPlaylist = onEditPlaylist,
+                        onDeletePlaylist = onDeletePlaylist,
+                        onPlayPlaylist = onPlayPlaylist,
+                        onOpenNowPlaying = {
+                            onDestinationChange(MediaDestination.NowPlaying)
+                        },
+                        onPlayPause = onPlayPause,
+                        onPrevious = onPrevious,
+                        onNext = onNext,
+                        search =
+                            CollectionSearch(
+                                query = state.searchQuery,
+                                onOpen = actions.onOpenSearch,
+                                onQueryChange = actions.onSearchQueryChange,
+                                onClose = actions.onCloseSearch,
+                                focusToken = state.searchFocusToken,
+                            ),
+                        onTrackFocusChange = actions.onTrackFocusChange,
+                    )
+                }
 
-            MediaDestination.Queue -> {
-                QueueScreen(
-                    playback = playback,
-                    onPlayIndex = onPlayQueueIndex,
-                    onMove = onMoveQueueItem,
-                    onRemove = onRemoveQueueItem,
-                    onPlayPause = onPlayPause,
-                    onPrevious = onPrevious,
-                    onNext = onNext,
-                    onStop = onStop,
-                    onBack = {
-                        onDestinationChange(MediaDestination.NowPlaying)
-                    },
-                )
-            }
+                MediaDestination.Queue -> {
+                    QueueScreen(
+                        playback = playback,
+                        onPlayIndex = onPlayQueueIndex,
+                        onMove = onMoveQueueItem,
+                        onRemove = onRemoveQueueItem,
+                        onPlayPause = onPlayPause,
+                        onPrevious = onPrevious,
+                        onNext = onNext,
+                        onStop = onStop,
+                        onBack = {
+                            onDestinationChange(MediaDestination.NowPlaying)
+                        },
+                    )
+                }
 
-            MediaDestination.PlaylistEditor -> {
-                PlaylistEditorScreen(
-                    editingPlaylist = editingPlaylist,
-                    playlistName = playlistName,
-                    selectedUris = selectedPlaylistUris,
-                    localItems = localItems,
-                    onNameChange = onPlaylistNameChange,
-                    onToggleItem = onTogglePlaylistItem,
-                    onSave = onSavePlaylist,
-                    onCancel = onCancelPlaylistEditor,
-                )
-            }
+                MediaDestination.PlaylistEditor -> {
+                    PlaylistEditorScreen(
+                        editingPlaylist = editingPlaylist,
+                        playlistName = playlistName,
+                        selectedUris = selectedPlaylistUris,
+                        localItems = localItems,
+                        onNameChange = onPlaylistNameChange,
+                        onToggleItem = onTogglePlaylistItem,
+                        onSave = onSavePlaylist,
+                        onCancel = onCancelPlaylistEditor,
+                    )
+                }
 
-            MediaDestination.Podcasts,
-            MediaDestination.NowPlaying,
-            MediaDestination.Radio,
-            MediaDestination.Fm,
-            MediaDestination.ManageStations,
-            MediaDestination.AddStation,
-            MediaDestination.Settings,
-            -> {
-                val scrollableContent: @Composable () -> Unit = {
-                    Column(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .safeDrawingPadding()
-                                .imePadding(),
-                    ) {
-                        LazyColumn(
+                MediaDestination.Podcasts,
+                MediaDestination.NowPlaying,
+                MediaDestination.Radio,
+                MediaDestination.Fm,
+                MediaDestination.ManageStations,
+                MediaDestination.AddStation,
+                MediaDestination.Settings,
+                -> {
+                    val scrollableContent: @Composable () -> Unit = {
+                        val short = isSableShortWindow()
+                        Column(
                             modifier =
                                 Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                            contentPadding =
-                                PaddingValues(
-                                    horizontal = SableSpacing.ScreenHorizontal,
-                                    vertical = SableSpacing.ScreenVertical,
-                                ),
-                            verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+                                    .fillMaxSize()
+                                    .safeDrawingPadding()
+                                    .imePadding(),
                         ) {
-                            item {
-                                SableHeroHeader(
-                                    eyebrow = t("sable_media"),
-                                    title =
-                                        when (destination) {
-                                            MediaDestination.Podcasts -> "podcasts"
-
-                                            MediaDestination.Fm -> t("fm_radio")
-
-                                            MediaDestination.Radio,
-                                            MediaDestination.ManageStations,
-                                            MediaDestination.AddStation,
-                                            -> "radio"
-
-                                            MediaDestination.NowPlaying,
-                                            MediaDestination.Queue,
-                                            -> "playing"
-
-                                            MediaDestination.Settings -> "settings"
-
-                                            MediaDestination.Collection,
-                                            MediaDestination.PlaylistEditor,
-                                            -> "media"
-                                        },
-                                    subtitle = t("music_podcasts_and_radio_in"),
-                                )
-                            }
-
-                            item {
-                                PrimaryPivot(
-                                    destination = destination,
-                                    onSelect = onDestinationChange,
-                                )
-                            }
-
-                            if (
-                                destination == MediaDestination.NowPlaying ||
-                                destination == MediaDestination.Podcasts ||
-                                destination == MediaDestination.Radio
+                            LazyColumn(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                contentPadding = mediaListPadding(short),
+                                verticalArrangement =
+                                    Arrangement.spacedBy(
+                                        if (short) SableSpacing.Sm else SableSpacing.Lg,
+                                    ),
                             ) {
-                                item {
-                                    MediaUtilityBar(
-                                        queueCount = playback.queue.size,
-                                        upNextCount = playback.upNextCount(),
-                                        onQueue = {
-                                            onDestinationChange(MediaDestination.Queue)
-                                        },
-                                        onSettings = {
-                                            onDestinationChange(MediaDestination.Settings)
-                                        },
-                                        onSearch = actions.onOpenSearch,
-                                    )
+                                if (!short) {
+                                    item {
+                                        SableHeroHeader(
+                                            eyebrow = t("sable_media"),
+                                            title =
+                                                when (destination) {
+                                                    MediaDestination.Podcasts -> "podcasts"
+
+                                                    MediaDestination.Fm -> t("fm_radio")
+
+                                                    MediaDestination.Radio,
+                                                    MediaDestination.ManageStations,
+                                                    MediaDestination.AddStation,
+                                                    -> "radio"
+
+                                                    MediaDestination.NowPlaying,
+                                                    MediaDestination.Queue,
+                                                    -> "playing"
+
+                                                    MediaDestination.Settings -> "settings"
+
+                                                    MediaDestination.Collection,
+                                                    MediaDestination.PlaylistEditor,
+                                                    -> "media"
+                                                },
+                                            subtitle = t("music_podcasts_and_radio_in"),
+                                        )
+                                    }
                                 }
-                            }
 
-                            item {
-                                when (destination) {
-                                    MediaDestination.Collection,
-                                    MediaDestination.Queue,
-                                    MediaDestination.PlaylistEditor,
-                                    -> {
-                                        Unit
+                                if (!short) {
+                                    item {
+                                        PrimaryPivot(
+                                            destination = destination,
+                                            onSelect = onDestinationChange,
+                                        )
                                     }
+                                }
 
-                                    MediaDestination.Podcasts -> {
-                                        PodcastScreen(
-                                            state =
-                                                PodcastScreenState(
-                                                    subscriptions = podcastSubscriptions,
-                                                    savedEpisodeIds = savedPodcastEpisodeIds,
-                                                    playedEpisodeIds = playedPodcastEpisodeIds,
-                                                    feedUrl = podcastFeedUrl,
-                                                    busy = podcastBusy,
-                                                    message = podcastMessage,
+                                if (!short && destination in UTILITY_BAR_DESTINATIONS) {
+                                    item {
+                                        MediaUtilityBar(
+                                            queueCount = playback.queue.size,
+                                            upNextCount = playback.upNextCount(),
+                                            onQueue = {
+                                                onDestinationChange(MediaDestination.Queue)
+                                            },
+                                            onSettings = {
+                                                onDestinationChange(MediaDestination.Settings)
+                                            },
+                                            onSearch = actions.onOpenSearch,
+                                        )
+                                    }
+                                }
+
+                                item {
+                                    when (destination) {
+                                        MediaDestination.Collection,
+                                        MediaDestination.Queue,
+                                        MediaDestination.PlaylistEditor,
+                                        -> {
+                                            Unit
+                                        }
+
+                                        MediaDestination.Podcasts -> {
+                                            PodcastScreen(
+                                                state =
+                                                    PodcastScreenState(
+                                                        subscriptions = podcastSubscriptions,
+                                                        savedEpisodeIds = savedPodcastEpisodeIds,
+                                                        playedEpisodeIds = playedPodcastEpisodeIds,
+                                                        feedUrl = podcastFeedUrl,
+                                                        busy = podcastBusy,
+                                                        message = podcastMessage,
+                                                        playback = playback,
+                                                        // Pinned by this screen instead of inside the list.
+                                                        showMiniPlayer = false,
+                                                    ),
+                                                actions =
+                                                    PodcastScreenActions(
+                                                        onFeedUrlChange = onPodcastFeedUrlChange,
+                                                        onAddFeed = onAddPodcastFeed,
+                                                        onRemoveSubscription = onRemovePodcastSubscription,
+                                                        onPlayEpisode = onPlayPodcastEpisode,
+                                                        onQueueEpisode = onQueuePodcastEpisode,
+                                                        onToggleSavedEpisode = onToggleSavedPodcastEpisode,
+                                                        onOpenNowPlaying = {
+                                                            onDestinationChange(MediaDestination.NowPlaying)
+                                                        },
+                                                    ),
+                                            )
+                                        }
+
+                                        MediaDestination.NowPlaying -> {
+                                            if (short) {
+                                                NowPlayingQ25(
                                                     playback = playback,
-                                                    // Pinned by this screen instead of inside the list.
-                                                    showMiniPlayer = false,
-                                                ),
-                                            actions =
-                                                PodcastScreenActions(
-                                                    onFeedUrlChange = onPodcastFeedUrlChange,
-                                                    onAddFeed = onAddPodcastFeed,
-                                                    onRemoveSubscription = onRemovePodcastSubscription,
-                                                    onPlayEpisode = onPlayPodcastEpisode,
-                                                    onQueueEpisode = onQueuePodcastEpisode,
-                                                    onToggleSavedEpisode = onToggleSavedPodcastEpisode,
-                                                    onOpenNowPlaying = {
-                                                        onDestinationChange(MediaDestination.NowPlaying)
-                                                    },
-                                                ),
-                                        )
-                                    }
+                                                    art = { uri -> artworkFor(uri, podcastSubscriptions, stations) },
+                                                    onSeek = onSeek,
+                                                    onPlayIndex = onPlayQueueIndex,
+                                                )
+                                            } else {
+                                                NowPlayingScreen(
+                                                    playback = playback,
+                                                    onPlayPause = onPlayPause,
+                                                    onPrevious = onPrevious,
+                                                    onNext = onNext,
+                                                    onStop = onStop,
+                                                    onSeek = onSeek,
+                                                )
+                                            }
+                                        }
 
-                                    MediaDestination.NowPlaying -> {
-                                        NowPlayingScreen(
-                                            playback = playback,
-                                            onPlayPause = onPlayPause,
-                                            onPrevious = onPrevious,
-                                            onNext = onNext,
-                                            onStop = onStop,
-                                            onSeek = onSeek,
-                                        )
-                                    }
+                                        MediaDestination.Radio -> {
+                                            RadioScreen(
+                                                stations = stations,
+                                                favoriteStationIds = favoriteStationIds,
+                                                showFavoritesOnly = showFavoriteStationsOnly,
+                                                message = message,
+                                                onPlay = onPlayStation,
+                                                onToggleFavorite = onToggleFavoriteStation,
+                                                onFavoritesOnlyChange = onRadioFavoritesOnlyChange,
+                                                onManage = onManageStations,
+                                                onAdd = onAddStation,
+                                            )
+                                        }
 
-                                    MediaDestination.Radio -> {
-                                        RadioScreen(
-                                            stations = stations,
-                                            favoriteStationIds = favoriteStationIds,
-                                            showFavoritesOnly = showFavoriteStationsOnly,
-                                            message = message,
-                                            onPlay = onPlayStation,
-                                            onToggleFavorite = onToggleFavoriteStation,
-                                            onFavoritesOnlyChange = onRadioFavoritesOnlyChange,
-                                            onManage = onManageStations,
-                                            onAdd = onAddStation,
-                                        )
-                                    }
+                                        MediaDestination.Fm -> {
+                                            actions.fm?.let { fmActions ->
+                                                FmScreen(
+                                                    fm = state.fm,
+                                                    favorites = state.fmFavorites,
+                                                    names = state.fmNames,
+                                                    actions = fmActions,
+                                                )
+                                            }
+                                        }
 
-                                    MediaDestination.Fm -> {
-                                        actions.fm?.let { fmActions ->
-                                            FmScreen(
-                                                fm = state.fm,
-                                                favorites = state.fmFavorites,
-                                                actions = fmActions,
+                                        MediaDestination.ManageStations -> {
+                                            ManageStationsScreen(
+                                                stations = stations,
+                                                editingStation = editingStation,
+                                                stationName = stationName,
+                                                stationUrl = stationUrl,
+                                                message = message,
+                                                onEdit = onEditStation,
+                                                onDelete = onDeleteStation,
+                                                onStationNameChange = onStationNameChange,
+                                                onStationUrlChange = onStationUrlChange,
+                                                onSave = onSaveEditedStation,
+                                                onCancelEdit = onCancelStationFlow,
+                                                onBack = {
+                                                    onDestinationChange(MediaDestination.Radio)
+                                                },
+                                            )
+                                        }
+
+                                        MediaDestination.AddStation -> {
+                                            AddStationScreen(
+                                                stationName = stationName,
+                                                stationUrl = stationUrl,
+                                                message = message,
+                                                onStationNameChange = onStationNameChange,
+                                                onStationUrlChange = onStationUrlChange,
+                                                onSave = onSaveNewStation,
+                                                onCancel = onCancelStationFlow,
+                                            )
+                                        }
+
+                                        MediaDestination.Settings -> {
+                                            SettingsScreen(
+                                                settings = settings,
+                                                onSettingsChange = onSettingsChange,
+                                                onBack = {
+                                                    onDestinationChange(MediaDestination.Collection)
+                                                },
                                             )
                                         }
                                     }
-
-                                    MediaDestination.ManageStations -> {
-                                        ManageStationsScreen(
-                                            stations = stations,
-                                            editingStation = editingStation,
-                                            stationName = stationName,
-                                            stationUrl = stationUrl,
-                                            message = message,
-                                            onEdit = onEditStation,
-                                            onDelete = onDeleteStation,
-                                            onStationNameChange = onStationNameChange,
-                                            onStationUrlChange = onStationUrlChange,
-                                            onSave = onSaveEditedStation,
-                                            onCancelEdit = onCancelStationFlow,
-                                            onBack = {
-                                                onDestinationChange(MediaDestination.Radio)
-                                            },
-                                        )
-                                    }
-
-                                    MediaDestination.AddStation -> {
-                                        AddStationScreen(
-                                            stationName = stationName,
-                                            stationUrl = stationUrl,
-                                            message = message,
-                                            onStationNameChange = onStationNameChange,
-                                            onStationUrlChange = onStationUrlChange,
-                                            onSave = onSaveNewStation,
-                                            onCancel = onCancelStationFlow,
-                                        )
-                                    }
-
-                                    MediaDestination.Settings -> {
-                                        SettingsScreen(
-                                            settings = settings,
-                                            onSettingsChange = onSettingsChange,
-                                            onBack = {
-                                                onDestinationChange(MediaDestination.Collection)
-                                            },
-                                        )
-                                    }
                                 }
                             }
-                        }
 
-                        if (
-                            destination == MediaDestination.Podcasts ||
-                            destination == MediaDestination.Radio
-                        ) {
-                            // Pinned below the list: current state visible on open.
-                            MediaPinnedMiniPlayer(
-                                playback = playback,
-                                enabled = settings.showMiniPlayer,
-                                onPlayPause = onPlayPause,
-                                onPrevious = onPrevious,
-                                onNext = onNext,
-                                onOpenNowPlaying = { onDestinationChange(MediaDestination.NowPlaying) },
-                                onOpenQueue = { onDestinationChange(MediaDestination.Queue) },
-                            )
+                            if (!short && destination in PINNED_PLAYER_DESTINATIONS) {
+                                // Pinned below the list: current state visible on open.
+                                MediaPinnedMiniPlayer(
+                                    playback = playback,
+                                    enabled = settings.showMiniPlayer,
+                                    onPlayPause = onPlayPause,
+                                    onPrevious = onPrevious,
+                                    onNext = onNext,
+                                    onOpenNowPlaying = { onDestinationChange(MediaDestination.NowPlaying) },
+                                    onOpenQueue = { onDestinationChange(MediaDestination.Queue) },
+                                )
+                            }
                         }
                     }
-                }
 
-                if (destination == MediaDestination.Podcasts) {
-                    SableRefreshableSurface(
-                        isRefreshing = podcastRefreshing,
-                        onRefresh = {
-                            if (!podcastBusy && podcastSubscriptions.isNotEmpty()) {
-                                onRefreshPodcasts()
-                            }
-                        },
-                    ) {
+                    if (destination == MediaDestination.Podcasts) {
+                        SableRefreshableSurface(
+                            isRefreshing = podcastRefreshing,
+                            onRefresh = {
+                                if (!podcastBusy && podcastSubscriptions.isNotEmpty()) {
+                                    onRefreshPodcasts()
+                                }
+                            },
+                        ) {
+                            scrollableContent()
+                        }
+                    } else {
                         scrollableContent()
                     }
-                } else {
-                    scrollableContent()
                 }
             }
         }
@@ -683,6 +718,14 @@ private fun MediaUtilityBar(
     }
 }
 
+/** List padding: Sable's screen padding, or the Q25's tighter one in a short window. */
+private fun mediaListPadding(short: Boolean): PaddingValues =
+    if (short) {
+        PaddingValues(horizontal = SableSpacing.ScreenHorizontalShort, vertical = SableSpacing.ScreenVerticalShort)
+    } else {
+        PaddingValues(horizontal = SableSpacing.ScreenHorizontal, vertical = SableSpacing.ScreenVertical)
+    }
+
 @Composable
 private fun CollectionScreen(
     pivot: LibraryPivot,
@@ -739,6 +782,8 @@ private fun CollectionScreen(
             onPlay = onPlayPlaylist,
         )
 
+    val short = isSableShortWindow()
+    val fixedCount = collectionFixedItemCount(short, !localLibraryLoading && localItems.isEmpty())
     val alphabet = collectionIndex?.sections?.get(pivot) ?: EMPTY_ALPHABET
     val railPadding = if (alphabet.isEmpty) 0.dp else SableAlphabetRailWidth
     val listState = rememberLazyListState()
@@ -747,7 +792,7 @@ private fun CollectionScreen(
 
     fun jumpTo(itemIndex: Int) {
         scope.launch {
-            listState.animateScrollToItem(COLLECTION_FIXED_ITEM_COUNT + itemIndex)
+            listState.animateScrollToItem(fixedCount + itemIndex)
         }
     }
 
@@ -768,7 +813,7 @@ private fun CollectionScreen(
                 onClose = search.onClose,
                 focusToken = search.focusToken,
                 onSubmit = {
-                    scope.launch { listState.scrollToItem(COLLECTION_FIXED_ITEM_COUNT) }
+                    scope.launch { listState.scrollToItem(fixedCount) }
                 },
             )
         }
@@ -786,14 +831,12 @@ private fun CollectionScreen(
                         .sableLetterJump(alphabet, enabled = !alphabet.isEmpty, onJump = ::jumpTo)
                         .padding(end = railPadding),
                 state = listState,
-                contentPadding =
-                    PaddingValues(
-                        horizontal = SableSpacing.ScreenHorizontal,
-                        vertical = SableSpacing.ScreenVertical,
-                    ),
-                verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+                contentPadding = mediaListPadding(short),
+                verticalArrangement = Arrangement.spacedBy(if (short) SableSpacing.Sm else SableSpacing.Lg),
             ) {
                 collectionHeader(
+                    short = short,
+                    empty = !localLibraryLoading && localItems.isEmpty(),
                     pivot = pivot,
                     playback = playback,
                     onOpenSearch = search.onOpen,
@@ -808,7 +851,7 @@ private fun CollectionScreen(
             if (!alphabet.isEmpty) {
                 SableAlphabetRail(
                     index = alphabet,
-                    activeKey = alphabet.sectionKeyAt((firstVisible - COLLECTION_FIXED_ITEM_COUNT).coerceAtLeast(0)),
+                    activeKey = alphabet.sectionKeyAt((firstVisible - fixedCount).coerceAtLeast(0)),
                     onJump = ::jumpTo,
                     modifier = Modifier.align(Alignment.CenterEnd),
                 )
@@ -818,7 +861,7 @@ private fun CollectionScreen(
         // Pinned: the current playback state is visible on open, never at the end of the list.
         MediaPinnedMiniPlayer(
             playback = playback,
-            enabled = showMiniPlayer,
+            enabled = showMiniPlayer && !short,
             onPlayPause = onPlayPause,
             onPrevious = onPrevious,
             onNext = onNext,
@@ -909,6 +952,8 @@ private fun collectionResultCount(
 
 /** The fixed header rows; their count is [COLLECTION_FIXED_ITEM_COUNT]. */
 private fun LazyListScope.collectionHeader(
+    short: Boolean,
+    empty: Boolean,
     pivot: LibraryPivot,
     playback: PlaybackUiState,
     onOpenSearch: () -> Unit,
@@ -917,6 +962,20 @@ private fun LazyListScope.collectionHeader(
     onAddLocalAudio: () -> Unit,
     onAddLocalFolder: () -> Unit,
 ) {
+    if (short) {
+        // The Q25 (design A, owner 2026-11-13): the Hub frame around this list holds the title bar,
+        // the tabs and the action bar, so the songs start right under the tabs. The import buttons
+        // show only while the collection is empty; otherwise Add in the action bar adds audio.
+        if (empty) {
+            item {
+                CollectionImportButtons(
+                    onAddLocalAudio = onAddLocalAudio,
+                    onAddLocalFolder = onAddLocalFolder,
+                )
+            }
+        }
+        return
+    }
     item {
         SableHeroHeader(
             eyebrow = t("sable_media"),
@@ -1319,9 +1378,12 @@ private fun LocalTrackRow(
                 }
             },
             leading = {
-                ArtworkTile(
-                    accent = accent,
-                    modifier = Modifier.width(46.dp),
+                // The song's own cover art when the file carries one (owner, 2026-11-13).
+                MediaArt(
+                    source = ArtworkSource.Embedded(item.uri),
+                    name = item.title,
+                    fallback = accent,
+                    size = if (isSableShortWindow()) MediaRowArtShort else 46.dp,
                 )
             },
         )
@@ -1594,23 +1656,27 @@ private fun RadioScreen(
     onManage: () -> Unit,
     onAdd: () -> Unit,
 ) {
+    val short = isSableShortWindow()
     Column(
-        verticalArrangement = Arrangement.spacedBy(SableSpacing.Lg),
+        verticalArrangement = Arrangement.spacedBy(if (short) SableSpacing.Sm else SableSpacing.Lg),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = t("internet_radio"),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.headlineLarge,
-            )
-            SableActionButton(
-                text = t("manage"),
-                primary = false,
-                onClick = onManage,
-            )
+        // On the Q25 the Radio tab names the view and Manage is in the action bar.
+        if (!short) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = t("internet_radio"),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.headlineLarge,
+                )
+                SableActionButton(
+                    text = t("manage"),
+                    primary = false,
+                    onClick = onManage,
+                )
+            }
         }
 
         Row(
@@ -1740,23 +1806,13 @@ private fun RadioStationRow(
                 }
             },
             leading = {
-                Surface(
-                    modifier = Modifier.width(MediaControlSize),
-                    shape = MaterialTheme.shapes.small,
-                    color = MediaAccent.copy(alpha = 0.18f),
-                    border = BorderStroke(1.dp, MediaAccent.copy(alpha = 0.7f)),
-                ) {
-                    Box(
-                        modifier = Modifier.aspectRatio(1f),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "LIVE",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MediaAccent,
-                        )
-                    }
-                }
+                // The station's logo from its own website, else its first letter (owner, 2026-11-13).
+                MediaArt(
+                    source = ArtworkSource.StationLogo(station.url),
+                    name = station.name,
+                    fallback = MediaAccent,
+                    size = if (isSableShortWindow()) MediaRowArtShort else MediaControlSize,
+                )
             },
         )
     }
@@ -2149,3 +2205,320 @@ private fun formatDuration(valueMs: Long): String {
     val seconds = totalSeconds % SECONDS_PER_MINUTE
     return "$minutes:${seconds.toString().padStart(2, '0')}"
 }
+
+/** Row pictures on the Q25: big enough to tell covers apart in a 52 dp Hub row. */
+private val MediaRowArtShort = 36.dp
+
+private val UTILITY_BAR_DESTINATIONS =
+    setOf(MediaDestination.NowPlaying, MediaDestination.Podcasts, MediaDestination.Radio)
+
+private val PINNED_PLAYER_DESTINATIONS = setOf(MediaDestination.Podcasts, MediaDestination.Radio)
+
+/** The picture for what plays at [uri]: a file's cover, a podcast's cover or a station's logo. */
+internal fun artworkFor(
+    uri: String,
+    podcasts: List<PodcastSubscription>,
+    stations: List<RadioStation>,
+): ArtworkSource? =
+    when {
+        uri.isBlank() -> {
+            null
+        }
+
+        uri.startsWith("content:") || uri.startsWith("file:") -> {
+            ArtworkSource.Embedded(uri)
+        }
+
+        else -> {
+            podcasts
+                .firstOrNull { show -> show.imageUrl.isNotBlank() && show.episodes.any { it.mediaUrl == uri } }
+                ?.let { ArtworkSource.Remote(it.imageUrl) }
+                ?: stations.firstOrNull { it.url == uri }?.let { ArtworkSource.StationLogo(it.url) }
+        }
+    }
+
+/** Episodes from the last week not played yet: the count on the Podcasts tab. */
+private fun newEpisodeCount(state: MediaScreenState): Int {
+    val since = System.currentTimeMillis() - NEW_EPISODE_WINDOW_MS
+    return state.podcastSubscriptions.sumOf { show ->
+        show.episodes.count { it.publishedAt >= since && it.id !in state.playedPodcastEpisodeIds }
+    }
+}
+
+private const val NEW_EPISODE_WINDOW_MS = 7L * 24 * 60 * 60 * 1_000
+
+/**
+ * Design A on the Q25 (owner pick, 2026-11-13): the Hub frame around Music, Podcasts, Radio, FM and
+ * Now playing. Title bar and tabs on top (Now playing has a back mark instead of tabs), what is playing
+ * in one line, and the view's actions in the bar at the bottom. Off, it draws only [content].
+ */
+@Composable
+private fun MediaHubFrame(
+    enabled: Boolean,
+    state: MediaScreenState,
+    actions: MediaScreenActions,
+    content: @Composable () -> Unit,
+) {
+    if (!enabled) {
+        content()
+        return
+    }
+    val destination = state.destination
+    val playback = state.playback
+    val go = actions.onDestinationChange
+    val current = playback.queue.getOrNull(playback.currentIndex)
+    val nowArt = artworkFor(current?.uri.orEmpty(), state.podcastSubscriptions, state.stations)
+    val menu =
+        listOfNotNull(
+            MediaMenuItem(t("now_playing")) { go(MediaDestination.NowPlaying) }
+                .takeIf { destination != MediaDestination.NowPlaying },
+            MediaMenuItem(t("up_next_2")) { go(MediaDestination.Queue) }.takeIf { playback.queue.isNotEmpty() },
+            MediaMenuItem(t("hub_settings")) { go(MediaDestination.Settings) },
+        )
+    Column(Modifier.fillMaxSize()) {
+        if (destination == MediaDestination.NowPlaying) {
+            MediaHubTitleBar(
+                title = t("now_playing"),
+                onBack = { go(MediaDestination.Collection) },
+                note =
+                    if (playback.currentIndex >= 0 && playback.queue.size > 1) {
+                        t("of", playback.currentIndex + 1, playback.queue.size)
+                    } else {
+                        null
+                    },
+                menu = menu,
+            )
+        } else {
+            MediaHubTitleBar(
+                title = t("hub_title"),
+                onSearch =
+                    {
+                        go(MediaDestination.Collection)
+                        actions.onOpenSearch()
+                    },
+                menu = menu,
+            )
+            MediaHubTabs(
+                selected = MediaHubTab.of(destination, state.libraryPivot),
+                songCount = state.localItems.size,
+                newEpisodes = newEpisodeCount(state),
+                fmAvailable = LocalFmAvailable.current,
+                onSelect = { tab ->
+                    tab.pivot?.let(actions.onLibraryPivotChange)
+                    go(tab.destination)
+                },
+            )
+        }
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+        ) {
+            content()
+        }
+        if (destination != MediaDestination.NowPlaying && destination != MediaDestination.Fm) {
+            MediaNowLine(playback = playback, art = nowArt) { go(MediaDestination.NowPlaying) }
+        }
+        MediaActionBar(hubActions(state, actions))
+    }
+}
+
+/** The action bar of each view in the Q25 frame (design A). */
+private fun hubActions(
+    state: MediaScreenState,
+    actions: MediaScreenActions,
+): List<MediaBarAction> {
+    val playback = state.playback
+    val go = actions.onDestinationChange
+    val playPause =
+        MediaBarAction(
+            icon = if (playback.isPlaying) MediaIcons.Pause else MediaIcons.Play,
+            label = if (playback.isPlaying) t("pause") else t("play"),
+            onClick = actions.onPlayPause,
+            enabled = playback.queue.isNotEmpty() || playback.isPlaying,
+            active = playback.isPlaying,
+        )
+    val next = MediaBarAction(MediaIcons.Next, t("next"), actions.onNext, enabled = playback.hasNext)
+    val upNext =
+        MediaBarAction(
+            MediaIcons.UpNext,
+            t("up_next_2"),
+            { go(MediaDestination.Queue) },
+            enabled = playback.queue.isNotEmpty(),
+        )
+    val settings = MediaBarAction(MediaIcons.Settings, t("hub_settings"), { go(MediaDestination.Settings) })
+    return when (state.destination) {
+        MediaDestination.Collection -> {
+            listOf(
+                playPause,
+                next,
+                upNext,
+                MediaBarAction(
+                    icon = MediaIcons.Add,
+                    label = t("hub_add"),
+                    onClick = {},
+                    menu =
+                        listOf(
+                            MediaMenuItem(t("add_audio_files"), actions.onAddLocalAudio),
+                            MediaMenuItem(t("import_folder"), actions.onAddLocalFolder),
+                        ),
+                ),
+                settings,
+            )
+        }
+
+        MediaDestination.NowPlaying -> {
+            listOf(
+                MediaBarAction(MediaIcons.Previous, t("previous"), actions.onPrevious, enabled = playback.hasPrevious),
+                playPause,
+                next,
+                upNext,
+                MediaBarAction(MediaIcons.Stop, t("stop"), actions.onStop, enabled = playback.queue.isNotEmpty()),
+            )
+        }
+
+        MediaDestination.Podcasts -> {
+            listOf(
+                playPause,
+                next,
+                upNext,
+                MediaBarAction(
+                    MediaIcons.Refresh,
+                    t("hub_refresh"),
+                    actions.onRefreshPodcasts,
+                    enabled = state.podcastSubscriptions.isNotEmpty() && !state.podcastBusy,
+                ),
+            )
+        }
+
+        MediaDestination.Radio -> {
+            listOf(
+                playPause,
+                MediaBarAction(MediaIcons.Add, t("add_station_2"), actions.onAddStation),
+                MediaBarAction(
+                    MediaIcons.Manage,
+                    t("manage"),
+                    actions.onManageStations,
+                    enabled = state.stations.isNotEmpty(),
+                ),
+                settings,
+            )
+        }
+
+        else -> {
+            emptyList()
+        }
+    }
+}
+
+/**
+ * Now playing on the Q25 (design A): the picture beside the title, the seek bar, then what plays next.
+ * The transport is the action bar below.
+ */
+@Composable
+private fun NowPlayingQ25(
+    playback: PlaybackUiState,
+    art: (String) -> ArtworkSource?,
+    onSeek: (Long) -> Unit,
+    onPlayIndex: (Int) -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val current = playback.queue.getOrNull(playback.currentIndex)
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MediaArt(
+                source = art(current?.uri.orEmpty()),
+                name = playback.title,
+                fallback = accentFor(playback.title.hashCode()),
+                size = NowPlayingArtShort,
+            )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = playback.title,
+                    fontSize = 20.sp,
+                    lineHeight = 24.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = playback.source,
+                    fontSize = 14.sp,
+                    lineHeight = 18.sp,
+                    color = muted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        val duration = playback.durationMs.coerceAtLeast(0L)
+        Slider(
+            value = playback.positionMs.coerceIn(0L, duration).toFloat(),
+            onValueChange = { if (duration > 0L) onSeek(it.toLong()) },
+            valueRange = 0f..(duration.takeIf { it > 0L }?.toFloat() ?: 1f),
+            enabled = duration > 0L,
+            modifier = Modifier.fillMaxWidth().height(28.dp),
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(formatDuration(playback.positionMs), fontSize = 11.sp, color = muted)
+            Text(
+                text = if (duration > 0L) formatDuration(duration) else "LIVE",
+                fontSize = 11.sp,
+                color = if (duration > 0L) muted else accent,
+            )
+        }
+        val upcoming = playback.queue.drop(playback.currentIndex + 1).take(NOW_PLAYING_UPCOMING_ROWS)
+        Text(
+            text = t("up_next_2"),
+            fontSize = 13.sp,
+            color = muted,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        if (upcoming.isEmpty()) {
+            Text(
+                text = t("nothing_else_queued"),
+                fontSize = 14.sp,
+                color = muted,
+                modifier = Modifier.padding(vertical = 12.dp),
+            )
+        }
+        upcoming.forEach { item ->
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .sableFocusRing()
+                        .clickable { onPlayIndex(item.index) },
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                MediaArt(art(item.uri), item.title, accentFor(item.title.hashCode()), 24.dp)
+                Text(
+                    text = item.title,
+                    modifier = Modifier.weight(1f),
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    item.source,
+                    fontSize = 11.sp,
+                    color = muted,
+                    maxLines = 1,
+                    modifier = Modifier.widthIn(max = 120.dp),
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        }
+    }
+}
+
+private val NowPlayingArtShort = 112.dp
+private const val NOW_PLAYING_UPCOMING_ROWS = 20
