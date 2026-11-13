@@ -2,8 +2,9 @@
 
 Sable Games Console (`org.sableos.gamesconsole`, sable-src 0207) runs games written in Lua, so a
 game can be added to the phone without rebuilding SableOS. The idea comes from rustmix-wave's SD
-card Lua apps. This page is for people writing a game; how to play and add games is in the
-[user guide](USER_GUIDE.md#sable-games-console).
+card Lua apps. This page is the reference for people writing a game. To learn by building one, start with the
+[tutorial](GAMES_CONSOLE_TUTORIAL.md), which also lists what a game can and can't do. How to play
+and add games is in the [user guide](USER_GUIDE.md#sable-games-console).
 
 ## A game's folder
 
@@ -56,7 +57,7 @@ The `sable` table is the only way out of the script:
 | `sable.status(text)` | The line above the game |
 | `sable.score(n)` | The score; the library keeps the best one (higher or lower, from `best`) |
 | `sable.over(text)` | Ends the game with that message; `sable.over()` clears it |
-| `sable.tilt()` | The current lean as two numbers, x and y from -1 to 1 (both 0 when playing with keys). Use it in `update` for games that steer |
+| `sable.tilt()` | The current lean as two numbers, x and y from -1 to 1 (in a tilt game played with keys, a held arrow or A/D, W/S gives -1 or 1; otherwise both 0). Use it in `update` for games that steer |
 | `sable.save(key, value)`, `sable.load(key)` | Small saved text (a level reached, a setting), kept for this game only; `sable.save(key, nil)` removes it |
 
 Colours are Sable theme names, which follow the light or dark theme: `bg`, `text`, `dim`,
