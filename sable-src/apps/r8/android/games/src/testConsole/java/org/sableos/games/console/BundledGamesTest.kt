@@ -11,11 +11,15 @@ import kotlin.random.Random
 class BundledGamesTest {
     private val root = File("src/console/assets/console")
 
-    private fun load(id: String): Pair<GameManifest, LuaGame> {
+    private fun load(
+        id: String,
+        store: GameStore = MemoryGameStore(),
+    ): Pair<GameManifest, LuaGame> {
         val dir = File(root, id)
         val m = GameManifest.parse(File(dir, GameManifest.FILE).readText()).getOrThrow()
         assertEquals(id, m.id)
-        return m to LuaGame(File(dir, m.entry).readText(), m.entry, MemoryGameStore()).also { it.start() }
+        val pictures = dir.list().orEmpty().filter { GamePictures.isPicture(it) }.toSet()
+        return m to LuaGame(File(dir, m.entry).readText(), m.entry, store, pictures).also { it.start() }
     }
 
     @Test
@@ -64,6 +68,30 @@ class BundledGamesTest {
         repeat(60 * 120) { if (g.over == null) g.update(1.0 / 60) }
         assertNotNull(g.over)
         assertTrue((g.score ?: 0) > 0)
+    }
+
+    @Test
+    fun tiltRacerDrawsTheF1CarsAndCKeepsTheChosenColour() {
+        val dir = File(root, "tilt_racer")
+        val pictures = dir.list().orEmpty().filter { GamePictures.isPicture(it) }.toSet()
+        assertEquals(
+            setOf("blue", "red", "yellow", "green", "purple", "violet").map { "f1_$it.png" }.toSet(),
+            pictures,
+        )
+        pictures.forEach { assertTrue(it, File(dir, it).length() <= GamePictures.MAX_BYTES) }
+        val store = MemoryGameStore()
+        val (_, g) = load("tilt_racer", store)
+        fun player() = g.frame().filterIsInstance<DrawOp.Image>().last().name
+        assertEquals("f1_red.png", player())
+        g.key("c")
+        assertEquals("f1_blue.png", player())
+        assertEquals("2", store.get("color"))
+        // A new run (and a new start of the app) keeps the colour.
+        val (_, again) = load("tilt_racer", store)
+        assertEquals("f1_blue.png", again.frame().filterIsInstance<DrawOp.Image>().last().name)
+        // Six presses go round every colour and back.
+        repeat(6) { g.key("c") }
+        assertEquals("f1_blue.png", player())
     }
 
     @Test

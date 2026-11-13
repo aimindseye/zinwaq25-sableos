@@ -7,7 +7,9 @@ card Lua apps. This page is for people writing a game; how to play and add games
 
 ## A game's folder
 
-A game is one folder holding `game.toml` and one `.lua` script. Each file may be up to 256 KB.
+A game is one folder holding `game.toml`, one `.lua` script and, if it wants them, up to 24 PNG
+pictures for `sable.image`. Each file may be up to 256 KB, and a picture at most 512 by 512 pixels.
+A picture's name is 1-32 of a-z, 0-9 and _ then `.png` (`car_red.png`); other files are ignored.
 
 ```toml
 id = "tilt_maze"          # required: 1-32 of a-z, 0-9 and _; must not be a bundled game's id
@@ -25,8 +27,9 @@ Only plain `key = value` lines are read. A value is quoted text, a whole number 
 quoted text; `#` starts a comment, and `[section]` lines are skipped.
 
 In Add games the console reads the folder the person picks (or each folder inside it), checks the
-manifest and compiles the script. A problem is shown on the game's row instead of adding it, for
-example `id must be 1-32 of a-z, 0-9 and _` or `main.lua:12: '=' expected near 'end'`.
+manifest, the pictures and compiles the script. A problem is shown on the game's row instead of
+adding it, for example `id must be 1-32 of a-z, 0-9 and _`, `car.png is bigger than 512 by 512` or
+`main.lua:12: '=' expected near 'end'`.
 
 ## The script
 
@@ -47,6 +50,7 @@ The `sable` table is the only way out of the script:
 | `sable.grid(cols, rows)` | Sets the drawing grid (default 10 by 10, at most 200); it is scaled to fill the square screen |
 | `sable.rect(x, y, w, h, color)` | A rectangle with slightly rounded corners, in grid cells |
 | `sable.circle(x, y, r, color)` | A circle centred on x, y |
+| `sable.image(x, y, w, h, name)` | One of the game's pictures (`"car_red.png"`), stretched over that box; a name that isn't in the folder stops the game with an error |
 | `sable.text(x, y, text, color, size)` | Text centred on x, y; `size` is its height in cells (default 1) |
 | `sable.status(text)` | The line above the game |
 | `sable.score(n)` | The score; the library keeps the best one (higher or lower, from `best`) |
@@ -105,7 +109,7 @@ With `best = "low"` in its `game.toml`, the library keeps the fewest moves.
 
 `sable-src/apps/r8/android/games/src/console/assets/console/` holds the four games that come with
 the console: `tilt_maze`, `motion_2048` and `sokoban_tilt` (ported from rustmix-wave, MIT) and
-`tilt_racer`. `BundledGamesTest` plays each through a long random session in the sandbox, and
+`tilt_racer`, whose F1 car pictures are EdSquare's "Top Down F1 Cars" (CC0). `BundledGamesTest` plays each through a long random session in the sandbox, and
 every maze and Sokoban level was checked solvable.
 
 ## rustmix-wave games

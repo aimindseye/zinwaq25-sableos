@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
 import android.provider.DocumentsContract
+import androidx.compose.ui.graphics.ImageBitmap
 import java.io.File
 
 /** A game in the library: one that comes with Sable (in the app's assets) or one the owner added. */
@@ -21,6 +22,8 @@ data class FoundGame(
     val problem: String?,
     val manifestUri: Uri?,
     val scriptUri: Uri?,
+    /** The game's pictures for `sable.image`, by file name. */
+    val pictureUris: Map<String, Uri> = emptyMap(),
 )
 
 /** Best scores, recently played, settings and each game's own saved values (`sable.save`). */
@@ -96,7 +99,8 @@ class ConsoleProgress(
 /**
  * Finds the games: the ones in `assets/console/<id>/` and the ones added to `files/console/<id>/`.
  * Adding reads a folder the owner picked with the system's folder picker, so the app needs no storage
- * permission and sees only that folder; each game's `game.toml` and its one `.lua` file are copied in.
+ * permission and sees only that folder; each game's `game.toml`, its one `.lua` file and its PNG
+ * pictures ([GamePictures]) are copied in.
  */
 class ConsoleLibrary(
     context: Context,
@@ -149,6 +153,31 @@ class ConsoleLibrary(
             File(game.path, game.manifest.entry).readText()
         }
 
+    /** The game's pictures by file name; one that breaks the [GamePictures] limits is left out. */
+    fun pictures(game: ConsoleGame): Map<String, ImageBitmap> {
+        val names =
+            if (game.builtIn) {
+                app.assets.list(game.path).orEmpty().toList()
+            } else {
+                File(game.path).list().orEmpty().toList()
+            }
+        return names
+            .filter { GamePictures.isPicture(it) }
+            .sorted()
+            .take(GamePictures.MAX)
+            .mapNotNull { name ->
+                val bytes =
+                    runCatching {
+                        if (game.builtIn) {
+                            app.assets.open("${game.path}/$name").use { it.readBytes() }
+                        } else {
+                            File(game.path, name).readBytes()
+                        }
+                    }.getOrNull()
+                bytes?.let { GamePictures.decode(name, it) }?.let { name to it }
+            }.toMap()
+    }
+
     fun remove(game: ConsoleGame) {
         if (!game.builtIn) File(game.path).deleteRecursively()
     }
@@ -176,6 +205,15 @@ class ConsoleLibrary(
         dir.mkdirs()
         File(dir, GameManifest.FILE).writeText(manifestText)
         File(dir, manifest.entry).writeText(scriptText)
+        for ((name, uri) in found.pictureUris) {
+            val bytes = readBytes(uri, GamePictures.MAX_BYTES)
+            val problem = GamePictures.problem(name, bytes)
+            if (bytes == null || problem != null) {
+                dir.deleteRecursively()
+                return problem ?: "$name can't be read"
+            }
+            File(dir, name).writeBytes(bytes)
+        }
         return null
     }
 
@@ -192,6 +230,10 @@ class ConsoleLibrary(
         val script = manifest?.let { m -> files.firstOrNull { it.name == m.entry } }
         val scriptUri = script?.let { DocumentsContract.buildDocumentUriUsingTree(tree, it.id) }
         val builtInIds = games().filter { it.builtIn }.map { it.manifest.id }.toSet()
+        val pictures =
+            files
+                .filter { !it.isDir && GamePictures.isPicture(it.name) }
+                .associate { it.name to DocumentsContract.buildDocumentUriUsingTree(tree, it.id) }
         val problem =
             when {
                 toml == null -> "no game.toml"
@@ -199,35 +241,46 @@ class ConsoleLibrary(
                 manifest == null -> parsed?.exceptionOrNull()?.message ?: "game.toml can't be read"
                 manifest.id in builtInIds -> "it has the same id as a game that comes with Sable"
                 script == null -> "${manifest.entry} is missing"
-                else -> compileProblem(scriptUri, manifest)
+                pictures.size > GamePictures.MAX -> "it has more than ${GamePictures.MAX} pictures"
+                else -> picturesProblem(pictures) ?: compileProblem(scriptUri, manifest, pictures.keys)
             }
-        return FoundGame(manifest?.name ?: folder, manifest, problem, tomlUri, scriptUri)
+        return FoundGame(manifest?.name ?: folder, manifest, problem, tomlUri, scriptUri, pictures)
     }
+
+    private fun picturesProblem(pictures: Map<String, Uri>): String? =
+        pictures.firstNotNullOfOrNull { (name, uri) -> GamePictures.problem(name, readBytes(uri, GamePictures.MAX_BYTES)) }
 
     private fun compileProblem(
         uri: Uri?,
         manifest: GameManifest,
+        pictures: Set<String>,
     ): String? {
         val source = uri?.let { read(it) } ?: return "${manifest.entry} is too big or can't be read"
         return try {
-            LuaGame(source, manifest.entry, MemoryGameStore())
+            LuaGame(source, manifest.entry, MemoryGameStore(), pictures)
             null
         } catch (e: GameScriptError) {
             e.message
         }
     }
 
-    private fun read(uri: Uri): String? =
+    private fun read(uri: Uri): String? = readBytes(uri, MAX_FILE_BYTES)?.toString(Charsets.UTF_8)
+
+    /** The file's bytes, or null when it is longer than [limit] or can't be read. */
+    private fun readBytes(
+        uri: Uri,
+        limit: Int,
+    ): ByteArray? =
         runCatching {
             app.contentResolver.openInputStream(uri)?.use { input ->
                 val out = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(BUFFER_BYTES)
                 var n = input.read(buffer)
-                while (n >= 0 && out.size() <= MAX_FILE_BYTES) {
+                while (n >= 0 && out.size() <= limit) {
                     out.write(buffer, 0, n)
                     n = input.read(buffer)
                 }
-                if (out.size() > MAX_FILE_BYTES) null else out.toString(Charsets.UTF_8.name())
+                if (out.size() > limit) null else out.toByteArray()
             }
         }.getOrNull()
 

@@ -140,4 +140,38 @@ class LuaGameTest {
         assertEquals(10L, g.score)
         assertEquals("Done in 10 moves", g.over)
     }
+
+    /** LuaJ ignores "%.2f"; the sandbox's string.format keeps it (Tilt Racer showed 0.20044544069364575 km). */
+    @Test
+    fun formatKeepsDecimalPlaces() {
+        val g =
+            game(
+                """
+                function init()
+                  sable.status(string.format("%.2f km|%5.1f|%d:%02d|%s %%|%x", 0.20044544069364575, 3.14159, 1, 5, "ok", 255))
+                  sable.over(("%.1f"):format(2.25))
+                end
+                """.trimIndent(),
+            )
+        assertEquals("0.20 km|  3.1|1:05|ok %|ff", g.status)
+        assertEquals("2.3", g.over)
+    }
+
+    @Test
+    fun imagesDrawTheGamesOwnPicturesOnly() {
+        val g =
+            LuaGame(
+                """
+                function draw() sable.image(1, 2, 3, 4, "car.png") end
+                function key(k) if k == "x" then sable.image(0, 0, 1, 1, "other.png") end end
+                """.trimIndent(),
+                "main.lua",
+                MemoryGameStore(),
+                setOf("car.png"),
+            ).also { it.start() }
+        assertEquals(listOf(DrawOp.Image(1.0, 2.0, 3.0, 4.0, "car.png")), g.frame())
+        assertTrue(error { g.key("x") }.contains("no picture other.png"))
+        assertTrue(GamePictures.isPicture("f1_red.png"))
+        assertTrue(!GamePictures.isPicture("Car.PNG") && !GamePictures.isPicture("../x.png"))
+    }
 }
