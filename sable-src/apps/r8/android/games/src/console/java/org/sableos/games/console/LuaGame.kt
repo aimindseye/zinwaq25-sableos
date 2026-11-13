@@ -45,6 +45,17 @@ sealed interface DrawOp {
         val size: Double,
         override val color: String,
     ) : DrawOp
+
+    /** One of the game's own pictures ([name], a PNG in its folder) stretched over the box. */
+    data class Image(
+        val x: Double,
+        val y: Double,
+        val w: Double,
+        val h: Double,
+        val name: String,
+    ) : DrawOp {
+        override val color: String get() = ""
+    }
 }
 
 /** A game's small saved values (`sable.save` / `sable.load`): levels reached, settings. */
@@ -96,6 +107,7 @@ class GameScriptError(
  * - `sable.grid(cols, rows)` the drawing grid (default 10 by 10), scaled to fill the square
  * - `sable.rect(x, y, w, h, color)`, `sable.circle(x, y, r, color)`, and `sable.text(x, y, text, color, size)`
  *   centred on x, y, `size` its height in cells (default 1)
+ * - `sable.image(x, y, w, h, name)` one of the game's PNG pictures ([pictures]) over that box
  * - `sable.status(text)` the line above the game, `sable.score(n)` the score the library keeps
  *   the best of, `sable.over(text)` ends the game with that message (`sable.over()` clears it)
  * - `sable.tilt()` the current lean, x and y from -1 to 1 (0, 0 when playing with keys)
@@ -108,6 +120,8 @@ class LuaGame(
     source: String,
     chunkName: String,
     private val store: GameStore,
+    /** The names of the pictures in the game's folder ("car_red.png"), for `sable.image`. */
+    private val pictures: Set<String> = emptySet(),
 ) {
     var cols = DEFAULT_GRID
         private set
@@ -284,6 +298,7 @@ class LuaGame(
                 draw(DrawOp.Text(a.n(1), a.n(2), a.tojstring(3).take(MAX_TEXT), a.optdouble(5, 1.0), a.color(4)))
             },
         )
+        t.set("image", fn { a -> draw(DrawOp.Image(a.n(1), a.n(2), a.n(3), a.n(4), picture(a.checkjstring(5)))) })
         t.set("status", fn { a -> status = a.optjstring(1, "").take(MAX_TEXT) })
         t.set("score", fn { a -> score = a.checklong(1) })
         t.set("over", fn { a -> over = if (a.isnil(1)) null else a.tojstring(1).take(MAX_TEXT) })
@@ -308,6 +323,11 @@ class LuaGame(
     private fun grid(a: Varargs) {
         cols = a.checkint(1).coerceIn(1, MAX_GRID)
         rows = a.optint(2, cols).coerceIn(1, MAX_GRID)
+    }
+
+    private fun picture(name: String): String {
+        if (name !in pictures) throw LuaError("no picture $name in the game's folder")
+        return name
     }
 
     private fun draw(op: DrawOp) {

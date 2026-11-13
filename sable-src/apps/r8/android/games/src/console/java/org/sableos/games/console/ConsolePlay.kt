@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,6 +43,8 @@ class PlaySession(
     startError: String?,
     private val progress: ConsoleProgress,
     keysOnly: Boolean,
+    /** The game's pictures for `sable.image`, by file name. */
+    val pictures: Map<String, ImageBitmap> = emptyMap(),
 ) {
     var ops by mutableStateOf(emptyList<DrawOp>())
         private set
@@ -119,8 +122,9 @@ class PlaySession(
             val m = game.manifest
             val store = state.progress.store(m.id)
             return try {
-                val lua = LuaGame(state.library.script(game), m.entry, store)
-                PlaySession(m, lua, null, state.progress, keysOnly).also { session ->
+                val pictures = state.library.pictures(game)
+                val lua = LuaGame(state.library.script(game), m.entry, store, pictures.keys)
+                PlaySession(m, lua, null, state.progress, keysOnly, pictures).also { session ->
                     session.safely { it.start() }
                 }
             } catch (e: GameScriptError) {
@@ -239,7 +243,7 @@ internal fun ColumnScope.PlayScreen(
             }
 
             else -> {
-                GameCanvas(session.ops, session.cols, session.rows, Modifier.fillMaxSize())
+                GameCanvas(session.ops, session.cols, session.rows, Modifier.fillMaxSize(), session.pictures)
                 session.over?.let { OverBanner(it) }
             }
         }

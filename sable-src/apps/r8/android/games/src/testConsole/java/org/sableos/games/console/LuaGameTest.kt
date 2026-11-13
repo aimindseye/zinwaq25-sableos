@@ -156,4 +156,22 @@ class LuaGameTest {
         assertEquals("0.20 km|  3.1|1:05|ok %|ff", g.status)
         assertEquals("2.3", g.over)
     }
+
+    @Test
+    fun imagesDrawTheGamesOwnPicturesOnly() {
+        val g =
+            LuaGame(
+                """
+                function draw() sable.image(1, 2, 3, 4, "car.png") end
+                function key(k) if k == "x" then sable.image(0, 0, 1, 1, "other.png") end end
+                """.trimIndent(),
+                "main.lua",
+                MemoryGameStore(),
+                setOf("car.png"),
+            ).also { it.start() }
+        assertEquals(listOf(DrawOp.Image(1.0, 2.0, 3.0, 4.0, "car.png")), g.frame())
+        assertTrue(error { g.key("x") }.contains("no picture other.png"))
+        assertTrue(GamePictures.isPicture("f1_red.png"))
+        assertTrue(!GamePictures.isPicture("Car.PNG") && !GamePictures.isPicture("../x.png"))
+    }
 }

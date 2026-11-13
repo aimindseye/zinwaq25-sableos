@@ -32,13 +32,18 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 
 /** The console's key handler for whichever screen is showing (down and up, so held keys steer). */
 class ConsoleKeyHost {
@@ -108,6 +113,7 @@ fun GameCanvas(
     cols: Int,
     rows: Int,
     modifier: Modifier = Modifier,
+    pictures: Map<String, ImageBitmap> = emptyMap(),
 ) {
     val named = ConsolePalette.colors()
     val paint =
@@ -121,11 +127,10 @@ fun GameCanvas(
         val left = (size.width - cell * cols) / 2
         val top = (size.height - cell * rows) / 2
         for (op in ops) {
-            val color = ConsolePalette.resolve(op.color, named)
             when (op) {
                 is DrawOp.Rect -> {
                     drawRoundRect(
-                        color,
+                        ConsolePalette.resolve(op.color, named),
                         Offset(left + op.x.toFloat() * cell, top + op.y.toFloat() * cell),
                         Size(op.w.toFloat() * cell, op.h.toFloat() * cell),
                         CornerRadius(cell * CORNER),
@@ -134,7 +139,7 @@ fun GameCanvas(
 
                 is DrawOp.Circle -> {
                     drawCircle(
-                        color,
+                        ConsolePalette.resolve(op.color, named),
                         op.r.toFloat() * cell,
                         Offset(
                             left + op.x.toFloat() * cell,
@@ -144,10 +149,20 @@ fun GameCanvas(
                 }
 
                 is DrawOp.Text -> {
-                    paint.color = color.toArgb()
+                    paint.color = ConsolePalette.resolve(op.color, named).toArgb()
                     paint.textSize = op.size.toFloat() * cell
                     val baseline = top + op.y.toFloat() * cell - (paint.descent() + paint.ascent()) / 2
                     drawContext.canvas.nativeCanvas.drawText(op.text, left + op.x.toFloat() * cell, baseline, paint)
+                }
+
+                is DrawOp.Image -> {
+                    val image = pictures[op.name] ?: continue
+                    drawImage(
+                        image,
+                        dstOffset = IntOffset((left + op.x * cell).roundToInt(), (top + op.y * cell).roundToInt()),
+                        dstSize = IntSize((op.w * cell).roundToInt(), (op.h * cell).roundToInt()),
+                        filterQuality = FilterQuality.Medium,
+                    )
                 }
             }
         }
