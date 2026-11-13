@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.ContextThemeWrapper
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -18,6 +19,8 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import org.sableos.browser.core.BrowserText.t
 import org.sableos.browser.core.UrlInput
 import org.sableos.browser.ui.BrowserController
@@ -25,6 +28,9 @@ import org.sableos.browser.ui.BrowserScreen
 import org.sableos.browser.ui.BrowserState
 import org.sableos.browser.ui.createBrowserWebView
 import org.sableos.design.SableGlobalTheme
+import org.sableos.design.readGlobalSableAppearance
+import org.sableos.design.rememberGlobalSableAppearance
+import org.sableos.design.resolveSableDarkAppearance
 
 /**
  * Sable Browser: Android's WebView with a BB10-style trackpad pointer and keys. Opens web links
@@ -45,14 +51,28 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val dark = resolveSableDarkAppearance(this, readGlobalSableAppearance(this))
+        // WebView tells pages light or dark (prefers-color-scheme) from its context's theme, so it
+        // gets the Sable theme's mode rather than the manifest's fixed dark Material theme.
+        val pageTheme =
+            if (dark) android.R.style.Theme_Material_NoActionBar else android.R.style.Theme_Material_Light_NoActionBar
         webView =
-            createBrowserWebView(this, state, onScale = { controller.pageScale = it }) { intent, callback ->
-                chooseFiles(intent, callback)
-            }
+            createBrowserWebView(
+                context = ContextThemeWrapper(this, pageTheme),
+                dark = dark,
+                state = state,
+                onScale = { controller.pageScale = it },
+                fileChooser = { intent, callback -> chooseFiles(intent, callback) },
+            )
         controller = BrowserController(webView, state, Actions())
         onBackPressedDispatcher.addCallback(this, BackCallback())
         setContent {
             SableGlobalTheme(window = window) {
+                val context = LocalContext.current
+                val nowDark = resolveSableDarkAppearance(context, rememberGlobalSableAppearance(context))
+                // The page's light or dark mode is fixed when WebView is made; a theme change
+                // rebuilds the activity, and the open page comes back from the saved state.
+                LaunchedEffect(nowDark) { if (nowDark != dark) recreate() }
                 BrowserScreen(state, webView, onGo = ::go, onLeaveAddress = ::leaveAddress)
             }
         }

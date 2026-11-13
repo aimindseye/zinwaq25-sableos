@@ -1,0 +1,124 @@
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt
+index 3536234..21d9a40 100644
+--- a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/MainActivity.kt
+@@ -7,6 +7,7 @@ import android.content.Intent
+ import android.net.Uri
+ import android.os.Bundle
+ import android.util.Log
++import android.view.ContextThemeWrapper
+ import android.view.InputDevice
+ import android.view.KeyEvent
+ import android.view.MotionEvent
+@@ -18,6 +19,8 @@ import androidx.activity.OnBackPressedCallback
+ import androidx.activity.compose.setContent
+ import androidx.activity.enableEdgeToEdge
+ import androidx.activity.result.contract.ActivityResultContracts
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.ui.platform.LocalContext
+ import org.sableos.browser.core.BrowserText.t
+ import org.sableos.browser.core.UrlInput
+ import org.sableos.browser.ui.BrowserController
+@@ -25,6 +28,9 @@ import org.sableos.browser.ui.BrowserScreen
+ import org.sableos.browser.ui.BrowserState
+ import org.sableos.browser.ui.createBrowserWebView
+ import org.sableos.design.SableGlobalTheme
++import org.sableos.design.readGlobalSableAppearance
++import org.sableos.design.rememberGlobalSableAppearance
++import org.sableos.design.resolveSableDarkAppearance
+ 
+ /**
+  * Sable Browser: Android's WebView with a BB10-style trackpad pointer and keys. Opens web links
+@@ -45,14 +51,28 @@ class MainActivity : ComponentActivity() {
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+         enableEdgeToEdge()
++        val dark = resolveSableDarkAppearance(this, readGlobalSableAppearance(this))
++        // WebView tells pages light or dark (prefers-color-scheme) from its context's theme, so it
++        // gets the Sable theme's mode rather than the manifest's fixed dark Material theme.
++        val pageTheme =
++            if (dark) android.R.style.Theme_Material_NoActionBar else android.R.style.Theme_Material_Light_NoActionBar
+         webView =
+-            createBrowserWebView(this, state, onScale = { controller.pageScale = it }) { intent, callback ->
+-                chooseFiles(intent, callback)
+-            }
++            createBrowserWebView(
++                context = ContextThemeWrapper(this, pageTheme),
++                dark = dark,
++                state = state,
++                onScale = { controller.pageScale = it },
++                fileChooser = { intent, callback -> chooseFiles(intent, callback) },
++            )
+         controller = BrowserController(webView, state, Actions())
+         onBackPressedDispatcher.addCallback(this, BackCallback())
+         setContent {
+             SableGlobalTheme(window = window) {
++                val context = LocalContext.current
++                val nowDark = resolveSableDarkAppearance(context, rememberGlobalSableAppearance(context))
++                // The page's light or dark mode is fixed when WebView is made; a theme change
++                // rebuilds the activity, and the open page comes back from the saved state.
++                LaunchedEffect(nowDark) { if (nowDark != dark) recreate() }
+                 BrowserScreen(state, webView, onGo = ::go, onLeaveAddress = ::leaveAddress)
+             }
+         }
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserScreen.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserScreen.kt
+index 3dde51f..0cc5f92 100644
+--- a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserScreen.kt
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserScreen.kt
+@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.Path
+ import androidx.compose.ui.graphics.SolidColor
+ import androidx.compose.ui.graphics.drawscope.Stroke
++import androidx.compose.ui.graphics.toArgb
+ import androidx.compose.ui.input.key.Key
+ import androidx.compose.ui.input.key.key
+ import androidx.compose.ui.input.key.onPreviewKeyEvent
+@@ -74,7 +75,12 @@ fun BrowserScreen(
+             )
+         }
+         Box(Modifier.weight(1f).fillMaxWidth()) {
+-            AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
++            AndroidView(
++                factory = { webView },
++                modifier = Modifier.fillMaxSize(),
++                // A blank or still-loading page shows the theme's background, not white.
++                update = { it.setBackgroundColor(colors.background.toArgb()) },
++            )
+             if (state.pointerShown) Pointer(state)
+             if (state.failed) {
+                 Text(
+diff --git a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt
+index 280dae2..9217920 100644
+--- a/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt
++++ b/sable-src/apps/r8/android/browser/src/main/java/org/sableos/browser/ui/BrowserWeb.kt
+@@ -7,6 +7,7 @@ import android.content.Context
+ import android.content.Intent
+ import android.graphics.Bitmap
+ import android.net.Uri
++import android.os.Build
+ import android.os.Environment
+ import android.util.Log
+ import android.webkit.CookieManager
+@@ -27,10 +28,12 @@ import java.net.URISyntaxException
+  * for privacy. No file or content access, no third-party cookies, no mixed content, Safe Browsing
+  * on, one window, media starts only on a tap, location never shared. Links to other schemes (tel:,
+  * mailto:, intent:) go to the app that handles them; downloads go to Android's download manager.
++ * Pages see the Sable theme's light or dark mode ([dark], and the theme of [context]).
+  */
+ @SuppressLint("SetJavaScriptEnabled")
+ fun createBrowserWebView(
+     context: Context,
++    dark: Boolean,
+     state: BrowserState,
+     onScale: (Float) -> Unit,
+     fileChooser: FileChooser,
+@@ -51,6 +54,9 @@ fun createBrowserWebView(
+             loadWithOverviewMode = true
+             setGeolocationEnabled(false)
+             userAgentString = standaloneUserAgent(userAgentString)
++            // In the dark Sable theme, pages without a dark style of their own are darkened by
++            // WebView, as Chrome does with its dark theme for web content.
++            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) isAlgorithmicDarkeningAllowed = dark
+         }
+         CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+         webViewClient = BrowserClient(state, onScale)
