@@ -7,7 +7,7 @@ card Lua apps. This page is for people writing a game; how to play and add games
 
 ## A game's folder
 
-A game is one folder holding `game.toml`, one `.lua` script and, if it wants them, up to 24 PNG
+A game is one folder holding `game.toml`, one `.lua` script and, if it wants them, up to 32 PNG
 pictures for `sable.image`. Each file may be up to 256 KB, and a picture at most 512 by 512 pixels.
 A picture's name is 1-32 of a-z, 0-9 and _ then `.png` (`car_red.png`); other files are ignored.
 
@@ -50,7 +50,8 @@ The `sable` table is the only way out of the script:
 | `sable.grid(cols, rows)` | Sets the drawing grid (default 10 by 10, at most 200); it is scaled to fill the square screen |
 | `sable.rect(x, y, w, h, color)` | A rectangle with slightly rounded corners, in grid cells |
 | `sable.circle(x, y, r, color)` | A circle centred on x, y |
-| `sable.image(x, y, w, h, name)` | One of the game's pictures (`"car_red.png"`), stretched over that box; a name that isn't in the folder stops the game with an error |
+| `sable.poly({x1, y1, x2, y2, ...}, color)` | A filled polygon through 3 to 64 corners, in grid cells, with sharp corners: a road seen in perspective, a band across the screen, an arrow |
+| `sable.image(x, y, w, h, name, angle)` | One of the game's pictures (`"car_red.png"`), stretched over that box and turned `angle` degrees clockwise about its centre (default 0); a name that isn't in the folder stops the game with an error |
 | `sable.text(x, y, text, color, size)` | Text centred on x, y; `size` is its height in cells (default 1) |
 | `sable.status(text)` | The line above the game |
 | `sable.score(n)` | The score; the library keeps the best one (higher or lower, from `best`) |
@@ -59,7 +60,9 @@ The `sable` table is the only way out of the script:
 | `sable.save(key, value)`, `sable.load(key)` | Small saved text (a level reached, a setting), kept for this game only; `sable.save(key, nil)` removes it |
 
 Colours are Sable theme names, which follow the light or dark theme: `bg`, `text`, `dim`,
-`accent`, `wall`, `floor`, `player`, `goal`, `good`, `box`, `warn`. `"#rrggbb"` also works.
+`accent`, `wall`, `floor`, `player`, `goal`, `good`, `box`, `warn`. `"#rrggbb"` also works, and
+`"#rrggbbaa"` is see-through: `aa` is how opaque it is, from `00` (clear) to `ff` (solid), so
+`"#00000044"` darkens what is under it a little.
 
 A frame draws at most 4,000 shapes, and text is cut at 120 characters.
 
@@ -107,10 +110,19 @@ With `best = "low"` in its `game.toml`, the library keeps the fewest moves.
 
 ## Bundled games
 
-`sable-src/apps/r8/android/games/src/console/assets/console/` holds the four games that come with
-the console: `tilt_maze`, `motion_2048` and `sokoban_tilt` (ported from rustmix-wave, MIT) and
-`tilt_racer`, whose F1 car pictures are EdSquare's "Top Down F1 Cars" (CC0). `BundledGamesTest` plays each through a long random session in the sandbox, and
-every maze and Sokoban level was checked solvable.
+`sable-src/apps/r8/android/games/src/console/assets/console/` holds the eight games that come with
+the console: `tilt_maze`, `motion_2048` and `sokoban_tilt` (ported from rustmix-wave, MIT),
+`tilt_racer`, whose F1 car pictures are EdSquare's "Top Down F1 Cars" (CC0), and `tilt_circuit`,
+three laps against two rivals on a circuit laid out from TRBRY's "Track Tiles" (CC-BY 3.0) and cut
+into 10-cell `track_<row>_<col>.png` squares, and `ball_maze`, which makes a new round or square
+maze each game, rolls the balls with `sable.tilt()` and draws its plastic and wooden boards from
+pictures made for Sable, `sky_roll`, eight levels of floating platforms drawn from pictures made
+for Sable (stone tiles, rock, sky, clouds, a shaded ball and its shine as two layers), and
+`ramp_rush`, a road seen from behind the car, projected segment by segment and painted far to near
+with `sable.poly`, fading into a haze with distance, with its own sky, mesa, cactus, rock and car
+pictures. `BundledGamesTest` plays each through a long random session in the sandbox, and
+every maze and Sokoban level was checked solvable; Sky Roll and Ramp Rush are each played to the
+end by a driver in the test.
 
 ## rustmix-wave games
 

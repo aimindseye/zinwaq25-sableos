@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.asImageBitmap
  * [MAX_SIDE] pixels a side and [MAX_BYTES] long.
  */
 object GamePictures {
-    const val MAX = 24
+    const val MAX = 32
     const val MAX_SIDE = 512
     const val MAX_BYTES = 256 * 1024
     private val NAME = Regex("[a-z0-9_]{1,32}\\.png")

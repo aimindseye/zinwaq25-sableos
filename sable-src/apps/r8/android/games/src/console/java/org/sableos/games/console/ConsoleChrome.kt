@@ -34,6 +34,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -96,12 +98,22 @@ object ConsolePalette {
     ): Color {
         named[name]?.let { return it }
         val hex = name.removePrefix("#")
-        val rgb = if (name.startsWith("#") && hex.length == HEX_RGB) hex.toLongOrNull(HEX_RADIX) else null
-        return rgb?.let { Color(OPAQUE or it) } ?: named.getValue("text")
+        val value = if (name.startsWith("#")) hex.toLongOrNull(HEX_RADIX) else null
+        return when {
+            value == null -> named.getValue("text")
+            hex.length == HEX_RGB -> Color(OPAQUE or value)
+            // "#rrggbbaa": the last two digits are how opaque the colour is.
+            hex.length == HEX_RGBA -> Color(((value and BYTE) shl ALPHA_SHIFT) or (value shr BYTE_BITS))
+            else -> named.getValue("text")
+        }
     }
 
     private const val HALF = 0.5f
     private const val HEX_RGB = 6
+    private const val HEX_RGBA = 8
+    private const val BYTE = 0xFFL
+    private const val BYTE_BITS = 8
+    private const val ALPHA_SHIFT = 24
     private const val HEX_RADIX = 16
     private const val OPAQUE = 0xFF000000L
 }
@@ -155,14 +167,31 @@ fun GameCanvas(
                     drawContext.canvas.nativeCanvas.drawText(op.text, left + op.x.toFloat() * cell, baseline, paint)
                 }
 
+                is DrawOp.Poly -> {
+                    val path = Path()
+                    path.moveTo(left + op.xs[0].toFloat() * cell, top + op.ys[0].toFloat() * cell)
+                    for (k in 1 until op.xs.size) {
+                        path.lineTo(left + op.xs[k].toFloat() * cell, top + op.ys[k].toFloat() * cell)
+                    }
+                    path.close()
+                    drawPath(path, ConsolePalette.resolve(op.color, named))
+                }
+
                 is DrawOp.Image -> {
                     val image = pictures[op.name] ?: continue
-                    drawImage(
-                        image,
-                        dstOffset = IntOffset((left + op.x * cell).roundToInt(), (top + op.y * cell).roundToInt()),
-                        dstSize = IntSize((op.w * cell).roundToInt(), (op.h * cell).roundToInt()),
-                        filterQuality = FilterQuality.Medium,
-                    )
+                    // Both edges rounded, so pictures laid side by side (a track in squares) meet exactly.
+                    val x0 = (left + op.x * cell).roundToInt()
+                    val y0 = (top + op.y * cell).roundToInt()
+                    val x1 = (left + (op.x + op.w) * cell).roundToInt()
+                    val y1 = (top + (op.y + op.h) * cell).roundToInt()
+                    rotate(op.angle.toFloat(), Offset((x0 + x1) / 2f, (y0 + y1) / 2f)) {
+                        drawImage(
+                            image,
+                            dstOffset = IntOffset(x0, y0),
+                            dstSize = IntSize(x1 - x0, y1 - y0),
+                            filterQuality = FilterQuality.Medium,
+                        )
+                    }
                 }
             }
         }
