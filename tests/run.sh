@@ -391,8 +391,10 @@ if FAKE_SPOOF=false ADB="$fa/adb" bash scripts/install-microg-addon.sh >/dev/nul
     fail "microG add-on installed on an image without spoofing"
 else
     : > "$FAKE_ADB_LOG"
-    if FAKE_SPOOF=true ADB="$fa/adb" bash scripts/install-microg-addon.sh --with-aurora 2>"$tmp/err" |
-        grep -q '^ADDON_INSTALL=PASS GmsCore FakeStore GsfProxy AuroraStore' &&
+    # Read the installer's whole output from a file: grep -q on a pipe can close it while the installer
+    # still prints its closing lines, and the broken pipe then fails the check now and then.
+    if FAKE_SPOOF=true ADB="$fa/adb" bash scripts/install-microg-addon.sh --with-aurora >"$tmp/addon.out" 2>"$tmp/err" &&
+        grep -q '^ADDON_INSTALL=PASS GmsCore FakeStore GsfProxy AuroraStore' "$tmp/addon.out" &&
         [[ "$(grep '^install' "$FAKE_ADB_LOG" | grep -o '[A-Za-z]*\.apk' | tr '\n' ' ')" == 'GmsCore.apk FakeStore.apk GsfProxy.apk AuroraStore.apk ' ]] &&
         grep -q '^install -r --bypass-low-target-sdk-block .*GsfProxy.apk' "$FAKE_ADB_LOG" &&
         grep -q 'pm grant com.google.android.gms android.permission.ACCESS_FINE_LOCATION' "$FAKE_ADB_LOG" &&
