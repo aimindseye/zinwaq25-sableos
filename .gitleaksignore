@@ -3,3 +3,37 @@
 4306f81e3621adfcbb9a87d14dc39d64849dfadf:patches/sable-src/0017-zinwa-q25-waves-2-3-and-sonar-cleanup.patch:generic-api-key:8767
 # False positive: the public SonarQube Cloud project key in sonar-project.properties.
 dec74dc17110e6765638fc457fa02f8c1f250f61:sonar-project.properties:generic-api-key:4
+# False positives: the 40-hex git blob ids on the "index 0000000..<id>" lines of the 31 new pictures
+# in sable-src patch 0214. The base85 picture data happens to contain "sgp_", which wakes the
+# sourcegraph-access-token rule, and that rule matches any 40 hex digits.
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:3
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:35
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:236
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:308
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:516
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:721
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:923
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:1117
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:1633
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:2104
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:2548
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:2825
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:2870
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:3641
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:3908
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:4317
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:4754
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:5290
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:5375
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:5451
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:6105
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:6124
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:6399
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:6874
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:7370
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:7407
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:7554
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:7830
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:7851
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:8024
+f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:8212
