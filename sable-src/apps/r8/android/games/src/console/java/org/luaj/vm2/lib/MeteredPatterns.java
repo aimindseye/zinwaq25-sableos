@@ -76,27 +76,31 @@ public final class MeteredPatterns {
     private static Varargs findAux(Varargs args, boolean find, Spend spend) {
         LuaString s = args.checkstring(1);
         LuaString pat = pattern(args, 2);
-        int init = args.optint(3, 1);
-        if (init > 0) {
-            init = Math.min(init - 1, s.length());
-        } else if (init < 0) {
-            init = Math.max(0, s.length() + init);
-        }
+        int init = start(args.optint(3, 1), s.length());
         boolean plain = find && (args.arg(4).toboolean() || pat.indexOfAny(SPECIALS) == -1);
-        if (plain) {
-            int result = s.indexOf(pat, init);
-            if (result != -1) {
-                return LuaValue.varargsOf(LuaValue.valueOf(result + 1), LuaValue.valueOf(result + pat.length()));
-            }
+        return plain ? plainFind(s, pat, init) : patternFind(args, s, pat, init, find, spend);
+    }
+
+    /** Lua's init: 1-based, negative from the end; as a 0-based offset within the text. */
+    private static int start(int init, int length) {
+        if (init > 0) {
+            return Math.min(init - 1, length);
+        }
+        return init < 0 ? Math.max(0, length + init) : 0;
+    }
+
+    private static Varargs plainFind(LuaString s, LuaString pat, int init) {
+        int result = s.indexOf(pat, init);
+        if (result == -1) {
             return LuaValue.NIL;
         }
+        return LuaValue.varargsOf(LuaValue.valueOf(result + 1), LuaValue.valueOf(result + pat.length()));
+    }
+
+    private static Varargs patternFind(Varargs args, LuaString s, LuaString pat, int init, boolean find, Spend spend) {
         Metered ms = state(args, s, pat, spend);
-        boolean anchor = false;
-        int poff = 0;
-        if (pat.length() > 0 && pat.luaByte(0) == '^') {
-            anchor = true;
-            poff = 1;
-        }
+        boolean anchor = pat.length() > 0 && pat.luaByte(0) == '^';
+        int poff = anchor ? 1 : 0;
         int soff = init;
         do {
             ms.reset();
@@ -122,7 +126,8 @@ public final class MeteredPatterns {
         Metered ms = state(args, src, p, spend);
         int soffset = 0;
         int n = 0;
-        while (n < maxS) {
+        boolean more = true;
+        while (more && n < maxS) {
             ms.reset();
             int res = ms.match(soffset, anchor ? 1 : 0);
             if (res != -1) {
@@ -134,11 +139,9 @@ public final class MeteredPatterns {
             } else if (soffset < srclen) {
                 lbuf.append((byte) src.luaByte(soffset++));
             } else {
-                break;
+                more = false;
             }
-            if (anchor) {
-                break;
-            }
+            more = more && !anchor;
         }
         lbuf.append(src.substring(soffset, srclen));
         return LuaValue.varargsOf(lbuf.tostring(), LuaValue.valueOf(n));

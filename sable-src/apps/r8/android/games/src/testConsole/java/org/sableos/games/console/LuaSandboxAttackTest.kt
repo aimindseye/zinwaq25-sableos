@@ -14,7 +14,7 @@ class LuaSandboxAttackTest {
     /** Runs [source] through start and two frames; the message it was stopped with, or null. */
     private fun run(source: String): String? =
         try {
-            val g = LuaGame(source, "main.lua", MemoryGameStore(), setOf("ok.png"))
+            val g = LuaGame(source, MAIN, MemoryGameStore(), setOf("ok.png"))
             g.start()
             g.update(0.016)
             g.update(0.016)
@@ -33,7 +33,7 @@ class LuaSandboxAttackTest {
     }
 
     private fun status(source: String): String {
-        val g = LuaGame(source, "main.lua", MemoryGameStore())
+        val g = LuaGame(source, MAIN, MemoryGameStore())
         g.start()
         g.update(0.016)
         return g.status
@@ -42,7 +42,7 @@ class LuaSandboxAttackTest {
     /** What [source]'s `update` saved under "out" (saves hold more than the status line). */
     private fun saved(source: String): String? {
         val store = MemoryGameStore()
-        val g = LuaGame(source, "main.lua", store)
+        val g = LuaGame(source, MAIN, store)
         g.start()
         g.update(0.016)
         return store.get("out")
@@ -81,10 +81,10 @@ class LuaSandboxAttackTest {
         val a =
             LuaGame(
                 "function update() string.upper = function() return 'stolen' end end",
-                "main.lua",
+                MAIN,
                 MemoryGameStore(),
             )
-        val b = LuaGame("function update() sable.status(('quiet'):upper()) end", "main.lua", MemoryGameStore())
+        val b = LuaGame("function update() sable.status(('quiet'):upper()) end", MAIN, MemoryGameStore())
         a.start()
         b.start()
         a.update(0.016)
@@ -106,13 +106,13 @@ class LuaSandboxAttackTest {
 
     @Test(timeout = 20_000)
     fun loopsAreStoppedWhereverTheyHide() {
-        stopped("function update() while true do end end", "too long")
-        stopped("function update() xpcall(function() while true do end end, function(e) return e end) end", "too long")
-        stopped("function update() while true do xpcall(error, function() while true do end end) end end", "too long")
-        stopped("function update() tostring(setmetatable({}, {__tostring = function() while true do end end})) end", "too long")
-        stopped("function update() local t = {} for i = 1, 200 do t[i] = i end table.sort(t, function() while true do end end) end", "too long")
+        stopped("function update() while true do end end", TOO_LONG)
+        stopped("function update() xpcall(function() while true do end end, function(e) return e end) end", TOO_LONG)
+        stopped("function update() while true do xpcall(error, function() while true do end end) end end", TOO_LONG)
+        stopped("function update() tostring(setmetatable({}, {__tostring = function() while true do end end})) end", TOO_LONG)
+        stopped("function update() local t = {} for i = 1, 200 do t[i] = i end table.sort(t, function() while true do end end) end", TOO_LONG)
         stopped("function update() local function f() return 1 + f() end pcall(f) end", "too deeply")
-        stopped("function update() for i = 1, 1e6 do sable.save('k' .. i, 'v') end end", "too long")
+        stopped("function update() for i = 1, 1e6 do sable.save('k' .. i, 'v') end end", TOO_LONG)
     }
 
     @Test(timeout = 20_000)
@@ -120,14 +120,14 @@ class LuaSandboxAttackTest {
         // Each of these would keep LuaJ's own matcher busy for hours.
         stopped(
             "function update() local s = ('a'):rep(100) s:find(('a?'):rep(100) .. ('a'):rep(100)) end",
-            "too long",
+            TOO_LONG,
         )
         stopped(
             "function update() for x in ('a'):rep(200000):gmatch('a*a*a*a*b') do end end",
-            "too long",
+            TOO_LONG,
         )
-        stopped("function update() ('('):rep(200000):find('%b()') end", "too long")
-        stopped("function update() ('a'):rep(200000):gsub('a-a-a-b', '') end", "too long")
+        stopped("function update() ('('):rep(200000):find('%b()') end", TOO_LONG)
+        stopped("function update() ('a'):rep(200000):gsub('a-a-a-b', '') end", TOO_LONG)
         stopped("function update() ('a'):find(('x'):rep(600)) end", "pattern longer")
         // Ordinary patterns still work.
         assertEquals(
@@ -151,7 +151,7 @@ class LuaSandboxAttackTest {
     @Test(timeout = 60_000)
     fun aGameCantFillTheMemory() {
         stopped("function update() local s = ('x'):rep(2^31 - 2) end", "longer than")
-        stopped("function update() local s = string.format('%999999999.1f', 1) end", "too long")
+        stopped("function update() local s = string.format('%999999999.1f', 1) end", TOO_LONG)
         stopped("function update() local n = select('#', table.unpack({}, 1, 2^31 - 1)) end", "memory")
         // Doubling a string a frame at a time, and growing it with gsub, run into the heap limit.
         stopped("local s = 'x' function update() for i = 1, 40 do s = s .. s end end", "memory")
@@ -159,5 +159,10 @@ class LuaSandboxAttackTest {
             "local t = {} function update() local s = ('y'):rep(1e6) for i = 1, 3000 do t[#t + 1] = s .. i end end",
             "memory",
         )
+    }
+
+    private companion object {
+        const val MAIN = "main.lua"
+        const val TOO_LONG = "too long"
     }
 }
