@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 13 Nov 2026 12:00:00 +0000
+Subject: [PATCH] SableOS: dim to dark and brighter on the Q25 with the PWM
+ backlight
+
+The Q25 overlay set the backlight through the OCP2131 gate IC, stepping
+its output from 4.0 to 6.5 V in 25 steps, so the lowest step was still
+bright and the top was capped. The brightness dtbo shared for the stock OS
+drives the backlight with the display PWM instead (mediatek,pwm-leds,
+led_mode 5, 1023 levels, a 393,850 ns period) and leaves the OCP2131
+off. Do the same here, keeping the rest of the Q25 overlay (board_name
+"q20_v12" and the other devices) as it was.
+---
+ .../arm64/boot/dts/mediatek/q20_v12_factory.dts | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/q20_v12_factory.dts b/arch/arm64/boot/dts/mediatek/q20_v12_factory.dts
+index a982a5cd6537..4e6dbe8c9ae6 100644
+--- a/arch/arm64/boot/dts/mediatek/q20_v12_factory.dts
++++ b/arch/arm64/boot/dts/mediatek/q20_v12_factory.dts
+@@ -16,14 +16,20 @@ &chosen {
+ 
+ };
+ 
++/*
++ * SableOS: drive the backlight with the display PWM (1023 levels) instead of
++ * stepping the OCP2131's output voltage (25 levels), as the brightness dtbo
++ * shared for the stock OS does. The lowest levels are now really dim and the
++ * top is brighter.
++ */
+ &mtk_leds {
+-	compatible = "mediatek,i2c-leds";
++	compatible = "mediatek,pwm-leds";
+ 
+ 	backlight {
+-		led_mode = <6>;
+-		gate_enable = <0>;
++		led_mode = <5>;
++		pwms = <&disp_pwm 0 393850>;
++		pwm-names = "lcd-backlight";
+ 		pwm_config = <0 1 0 0 0>;
+-		max-hw-brightness = <25>;
+ 	};
+ };
+ 
+@@ -236,12 +242,13 @@ bbqX0kbd: bbqX0kbd@1f {
+ };
+ 
+ &i2c7 {
++	/* SableOS: no longer the backlight (see &mtk_leds); off, as in that dtbo. */
+ 	i2c_lcd_bias_mtk:i2c_lcd_bias@3e {
+ 		compatible = "mediatek,mtk-gateic-drv-ocp2131";
+ 		reg = <0x3e>;
+ 		id = <6>;
+ 		gate-power-gpios = <&pio 84 0>;
+-		status = "okay";
++		status = "disabled";
+ 	};
+ };
+ 
