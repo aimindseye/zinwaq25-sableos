@@ -15,6 +15,7 @@ import android.graphics.Rect
 import android.os.Build
 import android.os.PowerManager
 import android.service.quicksettings.TileService
+import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
@@ -118,6 +119,7 @@ class PrivacyScreenService : AccessibilityService() {
                 }
         runCatching { getSystemService(WindowManager::class.java).addView(shade, params) }
             .onSuccess { overlay = shade }
+            .onFailure { Log.w(TAG, "could not show the shade", it) }
     }
 
     private fun hide() {
@@ -131,7 +133,11 @@ class PrivacyScreenService : AccessibilityService() {
         apply()
         if (value) {
             val focused = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-            overlay?.moveTo(focused?.let { Rect().also(it::getBoundsInScreen) })
+            val bounds = focused?.let { Rect().also(it::getBoundsInScreen) }
+            overlay?.moveTo(bounds)
+            Log.i(TAG, "on; shade shown=${overlay != null}, front=$frontPackage, focus=$bounds")
+        } else {
+            Log.i(TAG, "off")
         }
         requestTileUpdate()
     }
@@ -165,6 +171,7 @@ class PrivacyScreenService : AccessibilityService() {
     }
 
     companion object {
+        private const val TAG = "SablePrivacy"
         private const val SHADE_ALPHA = 240
         private const val MIN_BAND_DP = 96
         private const val PADDING_DP = 12

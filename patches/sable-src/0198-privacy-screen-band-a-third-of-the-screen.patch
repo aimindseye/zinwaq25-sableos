@@ -1,0 +1,125 @@
+diff --git a/patches/README.md b/patches/README.md
+index 7363612..cb71110 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -341,3 +341,4 @@ Reserved:
+   0195 adds Sable presets for Tubi (`com.tubitv`), Google TV (`com.google.android.videos`) and YouTube Music (`com.google.android.apps.youtube.music`): Tall phone with landscape video Fit, like YouTube and Instagram (owner's videos, 2026-11-12). The shipped-presets test now also checks Fit.
+   0196 drops the home's Permissions page as well (owner, 2026-11-12): SableHomeAccess already grants them, so Launcher settings and first-run setup open on Appearance & Home, the steps renumber 1-5, the Review page loses its Permissions card, and the Next/Back footer (`Settings2Flow`) no longer walks into the removed Permissions or Active Frames pages. The Weather hint points to Android Settings > Apps for location; `home_access` checks it.
+   0197 fixes Active Frames' empty pictures on Android 17 (owner log 2026-11-12: "snapshot of task 85 has no hardware buffer"): `SableTaskSnapshots` no longer closes the snapshot's HardwareBuffer itself, which emptied the snapshot TaskSnapshotManager keeps in its cache; it copies the picture through `TaskSnapshot.wrapToBitmap` and releases it with `closeBuffer()`, asks for RESOLUTION_ANY when the wanted resolution has none, and logs what an empty snapshot holds.
++  0198 fixes the Privacy Screen dimming nothing in Chrome (owner, 2026-11-12): a focused item that fills the screen, such as a web page, made the clear band the whole screen. `PrivacyBand` now centres the band on the visible part of the focused item and keeps it to a third of the screen (or the minimum band, if more); `SablePrivacy` logs each switch and a shade that fails to show.
+diff --git a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyBand.kt b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyBand.kt
+index 9d6b623..752d24c 100644
+--- a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyBand.kt
++++ b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyBand.kt
+@@ -8,8 +8,10 @@ data class Band(
+ 
+ /**
+  * Where the Privacy Screen leaves the screen readable: a full-width band around the focused item,
+- * at least [minHeight] tall and centred on it, kept inside the screen. With nothing focused the
+- * band sits in the middle of the screen. Pure, so it is unit-tested off the phone.
++ * at least [minHeight] tall and centred on its visible part. The band is never taller than a third
++ * of the screen (or [minHeight], if that is more), so a focused item that fills the screen, such as
++ * a browser page, still leaves most of the screen dimmed. With nothing focused the band sits in the
++ * middle of the screen. Pure, so it is unit-tested off the phone.
+  */
+ object PrivacyBand {
+     /** The band for a focused item spanning rows [focusTop, focusBottom), or null for no focus. */
+@@ -21,19 +23,18 @@ object PrivacyBand {
+         padding: Int,
+     ): Band {
+         val height = screenHeight.coerceAtLeast(1)
++        val maxHeight = maxOf(minHeight, height / 3)
++        val visibleTop = focusTop?.coerceIn(0, height)
++        val visibleBottom = focusBottom?.coerceIn(0, height)
++        val focused = visibleTop != null && visibleBottom != null && visibleBottom > visibleTop
+         val wanted =
+-            if (focusTop == null || focusBottom == null || focusBottom <= focusTop) {
+-                minHeight
++            if (focused) {
++                (visibleBottom!! - visibleTop!! + 2 * padding).coerceIn(minHeight, maxHeight)
+             } else {
+-                maxOf(minHeight, focusBottom - focusTop + 2 * padding)
++                minHeight
+             }
+         val size = wanted.coerceIn(1, height)
+-        val centre =
+-            if (focusTop == null || focusBottom == null || focusBottom <= focusTop) {
+-                height / 2
+-            } else {
+-                (focusTop + focusBottom) / 2
+-            }
++        val centre = if (focused) (visibleTop!! + visibleBottom!!) / 2 else height / 2
+         val top = (centre - size / 2).coerceIn(0, height - size)
+         return Band(top, top + size)
+     }
+diff --git a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt
+index ce83235..7f667f1 100644
+--- a/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt
++++ b/sable-src/apps/r8/textreader/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt
+@@ -15,6 +15,7 @@ import android.graphics.Rect
+ import android.os.Build
+ import android.os.PowerManager
+ import android.service.quicksettings.TileService
++import android.util.Log
+ import android.view.View
+ import android.view.WindowManager
+ import android.view.accessibility.AccessibilityEvent
+@@ -118,6 +119,7 @@ class PrivacyScreenService : AccessibilityService() {
+                 }
+         runCatching { getSystemService(WindowManager::class.java).addView(shade, params) }
+             .onSuccess { overlay = shade }
++            .onFailure { Log.w(TAG, "could not show the shade", it) }
+     }
+ 
+     private fun hide() {
+@@ -131,7 +133,11 @@ class PrivacyScreenService : AccessibilityService() {
+         apply()
+         if (value) {
+             val focused = rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+-            overlay?.moveTo(focused?.let { Rect().also(it::getBoundsInScreen) })
++            val bounds = focused?.let { Rect().also(it::getBoundsInScreen) }
++            overlay?.moveTo(bounds)
++            Log.i(TAG, "on; shade shown=${overlay != null}, front=$frontPackage, focus=$bounds")
++        } else {
++            Log.i(TAG, "off")
+         }
+         requestTileUpdate()
+     }
+@@ -165,6 +171,7 @@ class PrivacyScreenService : AccessibilityService() {
+     }
+ 
+     companion object {
++        private const val TAG = "SablePrivacy"
+         private const val SHADE_ALPHA = 240
+         private const val MIN_BAND_DP = 96
+         private const val PADDING_DP = 12
+diff --git a/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/privacy/PrivacyBandTest.kt b/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/privacy/PrivacyBandTest.kt
+index 57c25ea..e45ad25 100644
+--- a/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/privacy/PrivacyBandTest.kt
++++ b/sable-src/apps/r8/textreader/speak/test/org/sableos/textreader/privacy/PrivacyBandTest.kt
+@@ -9,15 +9,22 @@ class PrivacyBandTest {
+     @Test
+     fun `band is centred on the focused item and at least the minimum height`() {
+         assertEquals(Band(260, 460), PrivacyBand.bandFor(340, 380, 720, 200, 16))
+-        // A tall item gets its own height plus padding.
+-        assertEquals(Band(84, 516), PrivacyBand.bandFor(100, 500, 720, 200, 16))
++        // A taller item gets its own height plus padding, up to a third of the screen.
++        assertEquals(Band(144, 296), PrivacyBand.bandFor(160, 280, 720, 100, 16))
++        assertEquals(Band(180, 420), PrivacyBand.bandFor(100, 500, 720, 200, 16))
++    }
++
++    @Test
++    fun `a focused item that fills the screen still leaves most of it dimmed`() {
++        assertEquals(Band(240, 480), PrivacyBand.bandFor(0, 720, 720, 200, 16))
++        assertEquals(Band(240, 480), PrivacyBand.bandFor(-300, 1020, 720, 200, 16))
+     }
+ 
+     @Test
+     fun `band stays inside the screen`() {
+         assertEquals(Band(0, 200), PrivacyBand.bandFor(0, 40, 720, 200, 16))
+         assertEquals(Band(520, 720), PrivacyBand.bandFor(690, 720, 720, 200, 16))
+-        assertEquals(Band(0, 720), PrivacyBand.bandFor(0, 2000, 720, 200, 16))
++        assertEquals(Band(0, 200), PrivacyBand.bandFor(-50, 30, 720, 200, 16))
+     }
+ 
+     @Test
