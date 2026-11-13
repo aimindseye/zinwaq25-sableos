@@ -78,6 +78,41 @@ Each call into the script may run about 300,000 Lua instructions. A game that go
 recurses too deeply, is stopped with a message ("The game took too long and was stopped."), and a
 `pcall` in the script can't catch it. A Lua error stops the game with its message and line.
 
+The work Lua does in Java, outside the instruction count, is bounded too:
+
+- `string.find`, `match`, `gmatch` and `gsub` count each matching step, about 3 million per call,
+  so a pattern that backtracks without end stops the game the same way. A pattern may be up to 512
+  characters.
+- `string.rep` won't make a string longer than 1,000,000 characters, and `string.format` takes at
+  most two digits of width or precision, as in standard Lua.
+- A game that runs out of memory, or holds more than 60% of the app's memory after a call, is
+  stopped with "The game used too much memory and was stopped.", and the console lets go of it.
+- `string.dump` is removed. Compiled Lua can't be loaded anyway: the script is always compiled from
+  text.
+- Lua's string methods (`s:upper()`) come from the running game's own `string` table, and the
+  shared string metatable is hidden from `getmetatable`. A game can't change how another game's
+  strings behave.
+
+### What a game file can and can't do to the phone
+
+A game folder holds only `game.toml`, one `.lua` script and PNG pictures. Adding it copies those
+files, by name, into the console's own storage. Names are checked: the id is `a-z`, `0-9` and `_`;
+the script is `<name>.lua`; pictures are `<name>.png`. So no file lands anywhere else, and nothing
+is installed or run outside the console.
+
+The worst a hostile script can do is to fail. It stops with a message, and the person goes back to
+the library. It can't:
+
+- read or change files, saves of other games, contacts, photos, messages or settings;
+- reach the network;
+- start apps or install anything;
+- outlive its screen.
+
+Pictures are decoded by Android only after their size has been checked from the header.
+
+`LuaSandboxAttackTest` keeps these promises: it runs escape, freeze and memory attacks against the
+sandbox on every build.
+
 ## A small example
 
 ```lua
