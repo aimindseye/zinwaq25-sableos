@@ -47,10 +47,26 @@ class TiltFilterTest {
         val high = TiltFilter(TiltSensitivity.High)
         low.hold(0.0, 0.0)
         high.hold(0.0, 0.0)
-        low.hold(-lean(15.0), 0.0)
-        high.hold(-lean(15.0), 0.0)
-        assertTrue(high.x > 0.95)
-        assertTrue(low.x in 0.4..0.6)
+        low.hold(-lean(22.0), 0.0)
+        high.hold(-lean(22.0), 0.0)
+        assertTrue(high.x > 0.99)
+        assertTrue(low.x in 0.1..0.5)
         assertEquals(TiltSensitivity.Low, TiltSensitivity.High.next())
+    }
+
+    @Test
+    fun aSmallLeanDoesNotSteerAndHalfALeanSteersGently() {
+        val f = TiltFilter()
+        f.hold(0.0, 0.0)
+        // A hand's shake, two degrees, counts as level.
+        f.hold(-lean(2.0), lean(2.0))
+        assertEquals(0.0, f.x, 1e-9)
+        assertEquals(0.0, f.y, 1e-9)
+        // Half of a full lean (32 degrees at Mid) steers well under half.
+        f.hold(-lean(16.0), 0.0)
+        assertTrue("${f.x}", f.x in 0.2..0.45)
+        // A full lean is full steering, either way.
+        f.hold(lean(32.0), 0.0)
+        assertTrue("${f.x}", f.x < -0.99)
     }
 }
