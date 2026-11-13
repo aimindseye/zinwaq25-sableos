@@ -2,6 +2,8 @@
 // steps, and its lowest is still bright. With the slider at the bottom, the home turns on Android's Extra dim
 // (reduce bright colors) and turns it off again when the slider moves up. Extra dim that the person turned on
 // themselves is never touched. Part of the SableOS home flavor.
+// Off unless switched on (owner, 2026-11-13): the kernel now drives the backlight with the display PWM
+// (kernel patch 0906), whose lowest level is already dark, so Extra dim on top of it is too dark.
 package io.github.aimindseye.tenseven.platform
 
 import android.content.Context
@@ -16,6 +18,9 @@ object SableExtraDim {
 
     /** Extra dim strength used when the person never set one (0..100). */
     const val DEFAULT_LEVEL = 50
+
+    /** Whether the bottom of the slider adds Extra dim when the person never chose. */
+    const val DEFAULT_ENABLED = false
 
     const val PREFS = "sable_extra_dim"
     const val KEY_ENABLED = "enabled"
@@ -62,7 +67,7 @@ object SableExtraDim {
     }
 
     fun isEnabled(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, true)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, DEFAULT_ENABLED)
 
     fun setEnabled(
         context: Context,

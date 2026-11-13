@@ -107,6 +107,10 @@ SableSpeech	common	flavor:espeak	:assembleRelease	build/outputs/apk/release/*-un
 # sable-src/apps/r8/icsx5, GPL-3.0), unsigned for the platform build.
 SableDAVx5	common	flavor:davx5	:app-ose:assembleOseRelease	app-ose/build/outputs/apk/ose/release/*.apk	at.bitfire.davdroid	unsigned	-	yes
 SableICSx5	common	flavor:icsx5	:app:assembleStandardRelease	app/build/outputs/apk/standard/release/*.apk	at.bitfire.icsdroid	unsigned	-	yes
+# Key Mapper (owner request 2026-11-13): remap Q25 keys, long-press and double-press actions. Upstream
+# source at the commit F-Droid builds, pinned (sable-src/apps/r8/keymapper; GPL-3.0), unsigned for the
+# platform build. It needs Rust and NDK 27.3.13750724 to build (its evdev module).
+SableKeyMapper	common	flavor:keymapper	:app:assembleRelease	app/build/outputs/apk/release/*.apk	io.github.sds100.keymapper	unsigned	-	yes
 # SableHome is the SableOS 2.0 home and Hub (owner decision 2026-11-12): TenSeven Launcher, pinned
 # and composed by sable-src/apps/r8/tenseven as package org.sableos.launcher, so it replaces Sable
 # Start (SableLauncher) and keeps every framework patch, Setup and Settings link that names it.

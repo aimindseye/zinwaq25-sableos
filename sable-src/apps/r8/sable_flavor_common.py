@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import shutil
 import subprocess
 
@@ -118,3 +119,28 @@ def set_sable_icon(source: pathlib.Path, module: pathlib.Path, drawable: str, ma
     new = f'android:icon="@mipmap/{drawable}"\n        android:roundIcon="@mipmap/{drawable}_round"'
     manifest.write_text(text.replace(old, new, 1), encoding="utf-8")
     return files
+
+
+def set_sable_app_icon(source: pathlib.Path, module: pathlib.Path, drawable: str, marker: str) -> int:
+    """Like [set_sable_icon], for an upstream whose <application> names its own icon (any name) and maybe a
+    round icon: both become the generated Sable icon. Only the <application> start tag changes, so the
+    app's shortcuts keep their icons; the name stays upstream's. Returns the files copied."""
+    files = copy_tree(source, module / "src/main/res")
+    manifest = module / "src/main/AndroidManifest.xml"
+    text = manifest.read_text(encoding="utf-8")
+    tags = list(re.finditer(r"<application\b[^>]*>", text))
+    if len(tags) != 1:
+        raise SystemExit(f"{marker}_ICON=FAIL")
+    tag = tags[0].group(0)
+    if len(re.findall(r'android:icon="[^"]*"', tag)) != 1:
+        raise SystemExit(f"{marker}_ICON=FAIL")
+    # Drop upstream's round icon; the whitespace before it stays, which XML ignores.
+    new = re.sub(r'android:roundIcon="[^"]*"', "", tag)
+    new = re.sub(
+        r'android:icon="[^"]*"',
+        f'android:icon="@mipmap/{drawable}"\n        android:roundIcon="@mipmap/{drawable}_round"',
+        new,
+    )
+    manifest.write_text(text[: tags[0].start()] + new + text[tags[0].end() :], encoding="utf-8")
+    return files
+

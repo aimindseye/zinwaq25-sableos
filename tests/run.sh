@@ -1419,6 +1419,19 @@ for f in davx5:SableDAVx5:at.bitfire.davdroid icsx5:SableICSx5:at.bitfire.icsdro
 done
 if ((cal_ok)); then pass "Calendar accounts: DAVx5 and ICSx5 pinned, built in CI, unsigned, with notices"; else fail "Calendar accounts: DAVx5/ICSx5 rows, pins, CI or notices"; fi
 
+# Key Mapper (owner request 2026-11-13) ships from pinned source, unsigned for the platform build,
+# checking the commit upstream.env pins.
+kb_ok=1
+pin="$(sed -n 's/^KEYMAPPER_COMMIT=//p' sable-src/apps/r8/keymapper/upstream.env)"
+[[ "$pin" =~ ^[0-9a-f]{40}$ ]] || kb_ok=0
+grep -q "EXPECTED_COMMIT = \"$pin\"" sable-src/apps/r8/keymapper/apply_sable_flavor.py || kb_ok=0
+awk -F'\t' '$1 == "SableKeyMapper" && $3 == "flavor:keymapper" && $6 == "io.github.sds100.keymapper" && $7 == "unsigned" && $9 == "yes"' \
+    product/q25/apps.tsv | grep -q . || kb_ok=0
+grep -q "root: flavor:keymapper" .github/workflows/android.yml || kb_ok=0
+grep -q "apps/r8/keymapper" THIRD_PARTY_NOTICES.md || kb_ok=0
+grep -q "rustup target add armv7-linux-androideabi aarch64-linux-android" .github/workflows/android.yml || kb_ok=0
+if ((kb_ok)); then pass "Key Mapper: pinned, built in CI, unsigned, with notices"; else fail "Key Mapper: row, pin, CI or notices"; fi
+
 # Hub email in 2.0: Sable Mail ships, answers only the home and Sable Hub with inbox headers, and the
 # home's Hub reads that feed instead of Sable Mail's notifications.
 if awk -F'\t' '$1 == "SableMail" && $9 == "yes"' product/q25/apps.tsv | grep -q . &&
