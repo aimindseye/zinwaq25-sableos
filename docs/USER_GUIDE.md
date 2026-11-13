@@ -41,6 +41,7 @@ The keyboard does almost everything. Typing on the home screen searches, arrows 
 ### The keyboard
 
 - **Alt layer:** Alt types the printed legend on each key. W E R = 1 2 3, S D F = 4 5 6, Z X C = 7 8 9, and 0 is 0.
+- **No hidden number lock:** letters always type letters. Older builds had a number lock inside the keyboard driver, turned on by holding Left Alt and pressing Right Shift, that made W E R S D F Z X C type 1 to 9 in every app with nothing on screen to show it. 2.0 removes it. If your phone still types digits for letters, hold Alt and press Right Shift once to turn it off.
 - **Sticky keys:** press Shift or Alt once for the next key, twice to lock. Holding a key types its Alt character.
 - **The $ key** types $ in every app and keyboard.
 - **AutoText** (on by default) fixes typos and contractions (`dont` becomes "don't"). It also expands `ld` to the date, `lt` to the time and `myver` to the build. Backspace right after a change undoes it. Add your own in Keyboard settings > AutoText entries.
@@ -127,7 +128,7 @@ Nothing is sent or saved from Command: each app opens with the text filled in, a
 | Recents key | Active Frames. Hold it for the Hub over the app you are in (Back returns to the app) |
 | Alt+BlackBerry key | The system menu: Hub, the app's menu, Close, Switch Application, Notifications, Quick Settings |
 | Alt+Shift+R | Next display size for the app in front (App Compatibility) |
-| Alt+Shift+P | Privacy Screen on or off over any app (the first time, Accessibility opens to turn it on) |
+| Alt+Shift+P | Privacy Screen on or off over any app (the first time, Accessibility opens to turn it on). Its Darkness setting is Dim, Dark (the default) or Black: open the service's settings in Settings > Accessibility, or hold its Quick Settings tile. A change shows at once |
 | Alt+Space on the lock screen | Emergency dialer |
 
 ## Apps
@@ -140,14 +141,14 @@ Every Sable app uses the SableOS look (black and white with one blue accent) and
 | Sable Messages | Default SMS app: sends SMS, receives SMS and MMS (no MMS sending yet) | T/B, N/P, Space pages |
 | Hub (in Start) | One inbox for messages, calls and notifications | H on a notification opens it in Hub |
 | Mail | Sable Mail holds your mail accounts and gets new mail by push; the Hub lists its inboxes, and Enter on a Hub email opens it here. Gmail sign-in: [MAIL_GMAIL_SIGNIN.md](MAIL_GMAIL_SIGNIN.md), Outlook and Microsoft 365: [MAIL_MICROSOFT_SIGNIN.md](MAIL_MICROSOFT_SIGNIN.md) | B to bottom |
-| Calendar | Laid out as TenSeven's Calendar: a top bar whose ‹ › step the day, week or month, the week's seven days under it, and Today · Week · Month · Day · + along the bottom. Today lists the day's events; Week lists each day with its count and events; Day shows the hours with a NOW line; Month shows small busy rings, the week strip and the chosen day's events. A dot under a day in the strip means it has events. A ring fills with how much of 8:00 to 20:00 is booked; a thin outer ring marks an all-day event. ▤ or L lists your calendars to show or hide each one; ⋮ has Search | C, T, V, J, K, R, L |
+| Calendar | Laid out as TenSeven's Calendar: a top bar whose ‹ › step the day, week or month, the week's seven days under it, and Today · Week · Month · Day · + along the bottom. Today lists the day's events; Week is a list of the seven days, each with its count ("Mon, Nov 9 · 2 events") and its events; Day shows the hours with a NOW line; Month shows small busy rings, the week strip and the chosen day's events. A dot under a day in the strip means it has events. A ring fills with how much of 8:00 to 20:00 is booked; a thin outer ring marks an all-day event. ▤ or L lists your calendars to show or hide each one; ⋮ has Search | C, T, V, J, K, R, L |
 | Notes | Notes and checklists with colour labels, kept on the phone | See [Notes](#notes) below; C new, S find, K tasks |
 | Tasks | Tasks with due dates, reminders and repeats, kept on the phone. A reminder shows in Hub with Done and Snooze 1 hour | See [Tasks](#tasks) below; C new, Space done, Z tomorrow |
 | Text Reader | Reads text aloud: paste text, open a file, scan a page with the camera (OCR, English or Spanish) or pick an image from the Gallery. An upstream app with the Sable name and icon. It speaks with eSpeak NG, the offline speech engine SableOS ships (voice, rate and pitch in Settings > Accessibility > Text-to-speech output; see [Accessibility](ACCESSIBILITY.md#speech)). It also adds Speak what's focused (Settings > Accessibility), which speaks the item you move to with the trackpad or keys | Play and stop buttons on screen |
 | Terminal | SSH, Telnet and a local shell (ConnectBot) | See [Terminal](#terminal) below; Menu is Ctrl |
 | Weather | Forecast for your city, refreshed in the background. Optional notifications, both off until you turn them on under "notifications": a Morning forecast (the day's forecast once, between 6 and 11 am) and Rain alerts (a heads-up when rain is likely in the next 3 hours, at most one every 6 hours). They show in Hub like any notification, and tapping one opens Sable Weather | Feeds Start's header |
 | Camera | Sable Camera for stills; video uses Aperture | Tap the viewfinder for touch controls |
-| Media | Music, photos, FM radio | E shares |
+| Media | Music, podcasts, internet radio and FM radio. On the Q25 it uses a Hub-style list: a small "media" title bar, one row of tabs (Songs, Artists, Albums, Playlists, Favourites, Podcasts, Radio, and FM when there is a tuner), the list, a line for what is playing, and an action bar. Songs show their cover art, podcasts their feed's cover and radio stations their own logo; anything without a picture shows its first letter, and FM stations their frequency. You can give a starred FM station your own name. Now playing shows the picture beside the title, the seek bar and what plays next | E shares |
 | Sound Profiles | Normal, Loud, Vibrate only, Phone calls only, All alerts off | Enter uses, E edits, Menu for more; Quick Settings tile |
 | Sable Compass | Which way you face, in degrees and words, on a card that leans with the phone. Read it flat, or upright looking the way the back of the phone points | T true north (asks for your rough location the first time; magnetic north otherwise), C calibration guide, H holds the reading. The number turns orange when accuracy is low: press C |
 | Sable Print To Go | Print from a computer to the phone: each print is saved as a PDF in Documents/Print To Go | Enter switches it on or off, O opens the folder. While on, the phone appears as a printer on the same Wi-Fi (Windows: Add a printer; Mac: System Settings > Printers; Linux: it appears by itself). It turns off after 10 minutes with nothing printed |
@@ -155,6 +156,7 @@ Every Sable app uses the SableOS look (black and white with one blue accent) and
 | Reader | Books (EPUB), PDF, comics and audiobooks, all stored on the phone | See [Comics and audiobooks](#comics-and-audiobooks) below; B bookmark, T contents, A view settings |
 | Calculator | Keyboard-first | Digits and operators from the keys |
 | Games | Ten games, each its own app: Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words | See [Games](#games) below |
+| Sable Games Console | Games you add without a new build: each is a small Lua script. Comes with four motion games: Tilt Maze, Motion 2048, Sokoban Tilt and Tilt Racer | See [Sable Games Console](#sable-games-console) below |
 | Tools | Device reports you can save to Download/SableTools. Its utilities (SOS and alarm, pedometer with a goal and 7-day history, flashlight, compass and more) show on the Q25 only when Developer options and Tools' developer mode are on, until each is proven on the phone | C copy, S save, M more. In the pedometer, Menu sets height, weight and goal |
 | Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, Deep sleeping apps, Focus and Student mode) | Deep sleeping apps: Settings > Apps > Mobile Manager > Deep sleeping apps. To see what an app can do and what changed in it, open Settings > Apps > App security & privacy (signing, permissions, exposed parts, tracker signals, changes seen on this phone) |
 | App Compatibility | Square, Tall phone or Custom layout, App size and landscape video per app, with Sable presets | Alt+Shift+R |
@@ -204,6 +206,29 @@ Every game plays from the keyboard or the trackpad (which sends arrow keys), and
 <img src="images/q25/mahjong.png" alt="Mahjong" width="150">
 <img src="images/q25/words.png" alt="Words" width="150">
 </p>
+
+### Sable Games Console
+
+Sable Games Console plays games written as small Lua scripts, so new games can be added to the phone without rebuilding SableOS. It comes with four games you play by tilting the phone. Each also plays with the trackpad, the arrow keys or W A S D.
+
+| Game | How to play | Keys |
+| --- | --- | --- |
+| Tilt Maze | Roll the ball through the maze to the green square | Tilt, trackpad or W A S D roll; Space starts the level over |
+| Motion 2048 | Every tile slides the way you tilt; equal tiles merge. One tilt, one slide | Tilt, trackpad or W A S D slide; level the phone between slides |
+| Sokoban Tilt | Walk and push the crates onto the marks. One tilt, one step | Tilt, trackpad or W A S D walk; U undoes a step; Space starts the level over |
+| Tilt Racer | Steer through the traffic without crashing; it gets faster the further you go | Tilt, or hold Left/Right (trackpad, A and D), to steer; Space boosts |
+
+**The library.** Left and Right switch between the all, motion, puzzles, keyboard and recent tabs; Up and Down pick a game, and Space or Enter plays it. Each row shows the game's best score and a TILT or KEYS tag. I opens a game's details (best score, Reset progress, Remove for a game you added), A opens Add games and S opens Settings.
+
+**Hold it how you'll play.** Before a tilt game starts, hold the phone the way you want to play and press Space: that angle becomes level, so you can play sitting up, lying back or with the phone flat on a table. K plays with the keys instead. One lean makes one step, and the next step needs the phone back near level, so a game never runs away from you.
+
+**Pause.** Back (or P in a tilt game) pauses. The pause menu has a letter for each choice: R resume, N new game, L level again from where you are, T tilt sensitivity, K play with keys, Q quit to the library.
+
+**Settings** (S in the library): T cycles tilt sensitivity (Low, Mid or High: how far you lean for a full turn or a step) and K switches Play with keys on or off. The motion sensor is used only while a tilt game or the levelling screen is showing.
+
+**Adding games.** Copy a game's folder to the phone, then in the library press A and choose the folder that holds it (or a folder of several games) in the system's folder picker. The app needs no storage permission: it only reads the folder you pick. It lists each game it finds; Enter adds one, and a game with a mistake shows what is wrong and on which line instead. Added games are copied into the app, so the folder can be deleted afterwards.
+
+Each game is a folder with two files: `game.toml`, which names it (`id`, `name`, `entry`, and optionally `shelf`, `input`, `best`, `summary` and `controls`), and one `.lua` script. Games run in a sandbox with Lua's basic, text, table and maths libraries only: they cannot read or write files, use the network, run other programs or see your data, and a game stuck in a loop is stopped without harming the phone. How to write a game, with the full list of what a script can call, is in [GAMES_CONSOLE.md](GAMES_CONSOLE.md).
 
 ### Notes
 
@@ -262,6 +287,11 @@ The browser asks for nothing but the internet: pages can't use your location, ca
 microphone, and other sites can't follow you with third-party cookies. Downloads go to Downloads.
 Jelly, LineageOS's browser, is still installed; pick your default in Settings > Apps > Default
 apps > Browser app.
+
+Pages follow the Sable theme. With a light theme, sites show their light look; with a dark theme
+they show their dark look, and a site with no dark look of its own is darkened for you, as Chrome's
+dark theme does. A blank or loading page has the theme's own background, and changing the theme
+keeps the page you have open.
 
 ### Cosgrove, the assistant
 
@@ -458,6 +488,7 @@ Do these once after setup. The first group protects you; the second makes the Q2
 | --- | --- |
 | Sideload stops at 47% | Normal. Wait for recovery to say the install finished |
 | Start says "open Sable Weather to set it up" | Open Weather and choose a city. On alpha-20261028 this was a bug fixed by PR #38 |
+| Letters type numbers (W types 1, C types 9) in every app | Hold Alt and press Right Shift once. That turns off the keyboard driver's hidden number lock; 2.0 builds no longer have it |
 | Keyboard light stays dark | The stock keyboard firmware ignores the light; see the Keyboard firmware notes in [KEYBOARD_AND_INPUT.md](KEYBOARD_AND_INPUT.md) |
 | Lock screen time is wrong | Set the time zone in Settings > System > Date & time |
 | An app needs Google Play services | Install the microG add-on ([MICROG.md](MICROG.md)) and turn on the matching feature; some apps that require Play Integrity will not run |

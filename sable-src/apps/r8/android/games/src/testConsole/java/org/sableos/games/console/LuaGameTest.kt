@@ -101,4 +101,43 @@ class LuaGameTest {
         assertEquals(LuaGame.MAX_GRID, g.cols)
         assertEquals(1, g.rows)
     }
+
+    /** The example in docs/GAMES_CONSOLE.md; keep the two the same. */
+    @Test
+    fun theAuthorGuideExamplePlays() {
+        val g =
+            game(
+                """
+                local x, y, moves
+
+                function init()
+                  sable.grid(8, 8)
+                  x, y, moves = 1, 1, 0
+                  sable.status("Reach the green square")
+                end
+
+                function tilt(step)
+                  local dx = (step == "right" and 1) or (step == "left" and -1) or 0
+                  local dy = (step == "down" and 1) or (step == "up" and -1) or 0
+                  x = math.max(0, math.min(7, x + dx))
+                  y = math.max(0, math.min(7, y + dy))
+                  moves = moves + 1
+                  sable.score(moves)
+                  if x == 6 and y == 6 then sable.over("Done in " .. moves .. " moves") end
+                end
+
+                function draw()
+                  sable.rect(0, 0, 8, 8, "floor")
+                  sable.rect(6, 6, 1, 1, "goal")
+                  sable.circle(x + 0.5, y + 0.5, 0.4, "player")
+                end
+                """.trimIndent(),
+            )
+        assertEquals(8, g.cols)
+        assertEquals(3, g.frame().size)
+        repeat(5) { g.tilt(TiltStep.Right) }
+        repeat(5) { g.tilt(TiltStep.Down) }
+        assertEquals(10L, g.score)
+        assertEquals("Done in 10 moves", g.over)
+    }
 }

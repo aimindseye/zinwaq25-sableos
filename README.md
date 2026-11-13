@@ -86,6 +86,7 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Hardening plan](docs/HARDENING_PLAN.md) | GrapheneOS-style protections: what SableOS has, what can be ported, and what blocks it |
 | [Architecture](docs/ARCHITECTURE.md) | How the LineageOS base and Sable layer fit together |
 | [Keyboard and input](docs/KEYBOARD_AND_INPUT.md) | Q25 keyboard, trackpad, key profile, AutoText and speed dial |
+| [Games Console games](docs/GAMES_CONSOLE.md) | Writing a Lua game for Sable Games Console: `game.toml`, the script's calls, the sandbox |
 | [Languages](docs/LANGUAGES.md) | What is translated and how to translate a Sable app |
 | [Qualification](docs/QUALIFICATION.md) | Gates each phase must pass |
 | [Crash evidence](docs/CRASH_EVIDENCE.md) | Capture crash logs over adb before anything is cleared |
