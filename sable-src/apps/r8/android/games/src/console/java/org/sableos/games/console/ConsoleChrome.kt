@@ -34,6 +34,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -157,12 +158,19 @@ fun GameCanvas(
 
                 is DrawOp.Image -> {
                     val image = pictures[op.name] ?: continue
-                    drawImage(
-                        image,
-                        dstOffset = IntOffset((left + op.x * cell).roundToInt(), (top + op.y * cell).roundToInt()),
-                        dstSize = IntSize((op.w * cell).roundToInt(), (op.h * cell).roundToInt()),
-                        filterQuality = FilterQuality.Medium,
-                    )
+                    // Both edges rounded, so pictures laid side by side (a track in squares) meet exactly.
+                    val x0 = (left + op.x * cell).roundToInt()
+                    val y0 = (top + op.y * cell).roundToInt()
+                    val x1 = (left + (op.x + op.w) * cell).roundToInt()
+                    val y1 = (top + (op.y + op.h) * cell).roundToInt()
+                    rotate(op.angle.toFloat(), Offset((x0 + x1) / 2f, (y0 + y1) / 2f)) {
+                        drawImage(
+                            image,
+                            dstOffset = IntOffset(x0, y0),
+                            dstSize = IntSize(x1 - x0, y1 - y0),
+                            filterQuality = FilterQuality.Medium,
+                        )
+                    }
                 }
             }
         }

@@ -46,13 +46,17 @@ sealed interface DrawOp {
         override val color: String,
     ) : DrawOp
 
-    /** One of the game's own pictures ([name], a PNG in its folder) stretched over the box. */
+    /**
+     * One of the game's own pictures ([name], a PNG in its folder) stretched over the box, turned
+     * [angle] degrees clockwise about the box's centre.
+     */
     data class Image(
         val x: Double,
         val y: Double,
         val w: Double,
         val h: Double,
         val name: String,
+        val angle: Double = 0.0,
     ) : DrawOp {
         override val color: String get() = ""
     }
@@ -107,7 +111,8 @@ class GameScriptError(
  * - `sable.grid(cols, rows)` the drawing grid (default 10 by 10), scaled to fill the square
  * - `sable.rect(x, y, w, h, color)`, `sable.circle(x, y, r, color)`, and `sable.text(x, y, text, color, size)`
  *   centred on x, y, `size` its height in cells (default 1)
- * - `sable.image(x, y, w, h, name)` one of the game's PNG pictures ([pictures]) over that box
+ * - `sable.image(x, y, w, h, name, angle)` one of the game's PNG pictures ([pictures]) over that box,
+ *   turned `angle` degrees clockwise about its centre (default 0)
  * - `sable.status(text)` the line above the game, `sable.score(n)` the score the library keeps
  *   the best of, `sable.over(text)` ends the game with that message (`sable.over()` clears it)
  * - `sable.tilt()` the current lean, x and y from -1 to 1 (0, 0 when playing with keys)
@@ -298,7 +303,12 @@ class LuaGame(
                 draw(DrawOp.Text(a.n(1), a.n(2), a.tojstring(3).take(MAX_TEXT), a.optdouble(5, 1.0), a.color(4)))
             },
         )
-        t.set("image", fn { a -> draw(DrawOp.Image(a.n(1), a.n(2), a.n(3), a.n(4), picture(a.checkjstring(5)))) })
+        t.set(
+            "image",
+            fn { a ->
+                draw(DrawOp.Image(a.n(1), a.n(2), a.n(3), a.n(4), picture(a.checkjstring(5)), a.optdouble(6, 0.0) % FULL_TURN))
+            },
+        )
         t.set("status", fn { a -> status = a.optjstring(1, "").take(MAX_TEXT) })
         t.set("score", fn { a -> score = a.checklong(1) })
         t.set("over", fn { a -> over = if (a.isnil(1)) null else a.tojstring(1).take(MAX_TEXT) })
@@ -360,6 +370,7 @@ class LuaGame(
         const val MAX_VALUE = 2_000
         const val MAX_COLOR = 16
         const val TICK_INSTRUCTIONS = 1_000
+        private const val FULL_TURN = 360.0
 
         /** About 300 000 Lua instructions per call: far more than a frame needs. */
         const val BUDGET_TICKS = 300

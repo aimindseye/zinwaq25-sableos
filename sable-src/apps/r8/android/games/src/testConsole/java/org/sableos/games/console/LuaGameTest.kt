@@ -170,6 +170,10 @@ class LuaGameTest {
                 setOf("car.png"),
             ).also { it.start() }
         assertEquals(listOf(DrawOp.Image(1.0, 2.0, 3.0, 4.0, "car.png")), g.frame())
+        val turned =
+            LuaGame("function draw() sable.image(0, 0, 1, 1, \"car.png\", 450) end", "main.lua", MemoryGameStore(), setOf("car.png"))
+                .also { it.start() }
+        assertEquals(90.0, (turned.frame().single() as DrawOp.Image).angle, 0.0)
         assertTrue(error { g.key("x") }.contains("no picture other.png"))
         assertTrue(GamePictures.isPicture("f1_red.png"))
         assertTrue(!GamePictures.isPicture("Car.PNG") && !GamePictures.isPicture("../x.png"))

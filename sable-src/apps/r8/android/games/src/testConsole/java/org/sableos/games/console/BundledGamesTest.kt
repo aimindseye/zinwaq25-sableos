@@ -23,21 +23,21 @@ class BundledGamesTest {
     }
 
     @Test
-    fun theFourMotionGamesAreThere() {
+    fun theFiveMotionGamesAreThere() {
         val ids =
             root
                 .listFiles()
                 .orEmpty()
                 .map { it.name }
                 .toSet()
-        assertEquals(setOf("tilt_maze", "motion_2048", "sokoban_tilt", "tilt_racer"), ids)
+        assertEquals(setOf("tilt_maze", "motion_2048", "sokoban_tilt", "tilt_racer", "tilt_circuit"), ids)
         ids.forEach { assertTrue(it, load(it).first.usesTilt) }
     }
 
     @Test
     fun everyGameSurvivesRandomPlay() {
         val random = Random(25)
-        for (id in listOf("tilt_maze", "motion_2048", "sokoban_tilt", "tilt_racer")) {
+        for (id in listOf("tilt_maze", "motion_2048", "sokoban_tilt", "tilt_racer", "tilt_circuit")) {
             val (_, g) = load(id)
             repeat(3_000) { i ->
                 when (random.nextInt(4)) {
@@ -92,6 +92,48 @@ class BundledGamesTest {
         // Six presses go round every colour and back.
         repeat(6) { g.key("c") }
         assertEquals("f1_blue.png", player())
+    }
+
+    @Test
+    fun tiltCircuitIsRaceableAndCountsOnlyWholeLaps() {
+        val dir = File(root, "tilt_circuit")
+        val pictures = dir.list().orEmpty().filter { GamePictures.isPicture(it) }.toSet()
+        assertTrue(pictures.size <= GamePictures.MAX)
+        pictures.forEach { assertTrue(it, File(dir, it).length() <= GamePictures.MAX_BYTES) }
+        // A driver that follows the road: the script's car and track helpers made reachable.
+        val source =
+            File(dir, "main.lua")
+                .readText()
+                .replace("local car, rivals,", "car, rivals,")
+                .replace("lap_start, best_lap, wrong, finished\n", "lap_start, best_lap, wrong, finished = nil\n")
+                .replace("local function nearest", "function nearest")
+                .replace("local function at_distance", "function at_distance") +
+                """
+
+                function bot()
+                  local _, where = nearest(car.x, car.y)
+                  local tx, ty = at_distance(where + 3.5)
+                  local diff = (math.atan2(ty - car.y, tx - car.x) - car.a + math.pi) % (2 * math.pi) - math.pi
+                  return math.max(-1, math.min(1, diff * 2))
+                end
+                sable.tilt = function() return bot(), 0 end
+                """.trimIndent()
+        val g = LuaGame(source, "main.lua", MemoryGameStore(), pictures).also { it.start() }
+        var frames = 0
+        while (g.over == null && frames < 60 * 120) {
+            g.update(1.0 / 60)
+            assertTrue(g.frame().size < 200)
+            frames++
+        }
+        val over = g.over.orEmpty()
+        assertTrue(over, over.contains("best lap"))
+        assertTrue((g.score ?: 0) in 30L..90L)
+
+        // Without steering the car leaves the road and never finishes a lap.
+        val (_, idle) = load("tilt_circuit")
+        repeat(60 * 60) { idle.update(1.0 / 60) }
+        assertEquals(null, idle.over)
+        assertTrue(idle.status, idle.status.startsWith("Lap 1/3"))
     }
 
     @Test
