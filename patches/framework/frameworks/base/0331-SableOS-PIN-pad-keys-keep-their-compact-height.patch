@@ -23,10 +23,10 @@ draw as pills. No authentication code changes.
  3 files changed, 55 insertions(+)
 
 diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
-index c294b2c..ebd6676 100644
+index 5f1b084..8b1a619 100644
 --- a/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
 +++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
-@@ -214,6 +214,7 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
+@@ -215,6 +215,7 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
          SableLockSize.Pad pad = SableLockSize.compactPad(level, config.screenWidthDp,
                  config.screenHeightDp, Math.round(sableSystemBarsPx() / density),
                  config.fontScale, fallback);
@@ -34,7 +34,7 @@ index c294b2c..ebd6676 100644
          if (pad == null) {
              return;
          }
-@@ -319,6 +320,24 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
+@@ -320,6 +321,24 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
          return statusBar;
      }
  
@@ -60,10 +60,10 @@ index c294b2c..ebd6676 100644
          return Math.round(dp * density);
      }
 diff --git a/packages/SystemUI/src/com/android/keyguard/NumPadButton.java b/packages/SystemUI/src/com/android/keyguard/NumPadButton.java
-index 7175194..2ce91c1 100644
+index b22b039..6713df6 100644
 --- a/packages/SystemUI/src/com/android/keyguard/NumPadButton.java
 +++ b/packages/SystemUI/src/com/android/keyguard/NumPadButton.java
-@@ -41,6 +41,8 @@ public class NumPadButton extends AlphaOptimizedImageButton implements NumPadAni
+@@ -46,6 +46,8 @@ public class NumPadButton extends AlphaOptimizedImageButton
      @Nullable
      private NumPadAnimator mAnimator;
      private int mOrientation;
@@ -72,7 +72,7 @@ index 7175194..2ce91c1 100644
      private int mStyleAttr;
      private boolean mIsTransparentMode;
  
-@@ -61,6 +63,17 @@ public class NumPadButton extends AlphaOptimizedImageButton implements NumPadAni
+@@ -66,6 +68,17 @@ public class NumPadButton extends AlphaOptimizedImageButton
          mOrientation = newConfig.orientation;
      }
  
@@ -88,9 +88,9 @@ index 7175194..2ce91c1 100644
 +    }
 +
      @Override
-     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-@@ -70,6 +83,11 @@ public class NumPadButton extends AlphaOptimizedImageButton implements NumPadAni
+     public void setEnabled(boolean enabled) {
+         super.setEnabled(enabled);
+@@ -94,6 +107,11 @@ public class NumPadButton extends AlphaOptimizedImageButton
          // This is only used for PIN/PUK; the main PIN pad now uses ConstraintLayout, which will
          // force our width/height to conform to the ratio in the layout.
          int width = getMeasuredWidth();
