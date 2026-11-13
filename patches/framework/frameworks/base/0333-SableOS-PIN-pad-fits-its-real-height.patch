@@ -1,0 +1,203 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 13 Nov 2026 17:36:03 +0000
+Subject: [PATCH] SableOS: PIN pad fits its real height, so the keys stay off
+ the PIN field
+
+On the Q25 (owner photo 2026-11-13, newest build) the top row of keys
+still covered the PIN field and the message touched it, even after 0327,
+0331 and 0332. KeyguardPINView sized the pad from an estimate of the
+other views' heights (message lines, emergency button, margins), and
+the real views are taller on this ROM. With too little room the
+MotionLayout centres the PIN row between the message and the first row
+of keys with negative free space, so it overlaps both.
+
+After each layout the compact pad now measures the gap above and
+below the PIN row and the bottom row's distance to the emergency
+button. If either is short, it takes the difference out of the keys
+(never under 28 dp) and then out of the PIN row (never under 32 dp),
+writes the new heights into the keys' layout params and every
+constraint set, and lays out again. Sizes only shrink, so it settles
+in a pass or two; the split landscape pad is left alone. The minimum
+sizes in SableLockSize become public. No authentication code changes.
+---
+ .../com/android/keyguard/KeyguardPINView.java | 126 ++++++++++++++++++
+ .../android/keyguard/sable/SableLockSize.java |   4 +-
+ 2 files changed, 128 insertions(+), 2 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
+index 8b1a619..d9e1d14 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
+@@ -80,7 +80,12 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
+     private boolean mIsSmallLockScreenLandscapeEnabled = false;
+     @DevicePostureInt private int mLastDevicePosture = DEVICE_POSTURE_UNKNOWN;
+     public static final long ANIMATION_DURATION = 650;
++    /** SableOS: the least gap, in dp, kept above and below the PIN row on the compact pad. */
++    private static final int SABLE_PAD_BREATHING_DP = 8;
+     private boolean mScramblePin;
++    /** SableOS: the compact pad's key height in px, or 0 when Android's own pad is showing. */
++    private int mSableKeyHeightPx;
++    private boolean mSableFitPosted;
+ 
+     private List<Integer> mNumbers = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 0);
+     private final List<Integer> mDefaultNumbers = List.of(mNumbers.toArray(new Integer[0]));
+@@ -217,10 +222,12 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
+                 config.fontScale, fallback);
+         setSableKeepHeight(pad != null);
+         if (pad == null) {
++            mSableKeyHeightPx = 0;
+             return;
+         }
+         int keyWidth = px(pad.keyWidth, density);
+         int keyHeight = px(pad.keyHeight, density);
++        mSableKeyHeightPx = keyHeight;
+         int gap = px(pad.gap, density);
+         for (int row = 1; row < 5; row++) {
+             for (int column = 0; column < 3; column++) {
+@@ -300,6 +307,125 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
+         }
+     }
+ 
++    @Override
++    protected void onLayout(boolean changed, int l, int t, int r, int b) {
++        super.onLayout(changed, l, t, r, b);
++        if (mSableKeyHeightPx > 0 && !mSableFitPosted && sableShortage() > 0) {
++            mSableFitPosted = true;
++            post(() -> {
++                mSableFitPosted = false;
++                fitSableCompactPad();
++            });
++        }
++    }
++
++    /**
++     * SableOS: how many px the laid-out pad is short of room, measured rather than estimated. The
++     * message, PIN row and keys sit in one column; the PIN row is centred between the message and
++     * the first row of keys, so when the column is too tall it is pushed up into the message and
++     * down into the keys (owner photo 2026-11-13: the keys covered the PIN field on the Q25). The
++     * estimate in {@link SableLockSize} cannot know the real height of the message lines or of the
++     * emergency button on every ROM, so the views are measured after layout. Returns 0 when there
++     * is a small gap above and below the PIN row, or when this is not the single-column pad.
++     */
++    private int sableShortage() {
++        if (mAlreadyUsingSplitBouncer || mViews == null || mViews[1][0] == null) {
++            return 0;
++        }
++        View message = findViewById(R.id.keyguard_bouncer_message_container);
++        View row0 = findViewById(R.id.row0);
++        View key1 = mViews[1][0];
++        if (message == null || row0 == null || key1.getHeight() == 0 || row0.getHeight() == 0
++                || key1.getLeft() >= row0.getRight()) {
++            return 0;
++        }
++        float density = getResources().getDisplayMetrics().density;
++        int breathing = px(SABLE_PAD_BREATHING_DP, density);
++        int free = key1.getTop() - message.getBottom() - row0.getHeight();
++        int shortage = breathing - free;
++        View lastKey = mViews[4][1];
++        View eca = findViewById(R.id.keyguard_selector_fade_container);
++        if (lastKey != null && eca != null && eca.getHeight() > 0) {
++            shortage = Math.max(shortage, lastKey.getBottom() - eca.getTop());
++        }
++        return Math.max(0, shortage);
++    }
++
++    /**
++     * SableOS: takes the shortage out of the keys first (never under the minimum key height), then
++     * out of the PIN row (never under the minimum), and lays out again. Sizes only shrink, so this
++     * settles in a pass or two and cannot loop.
++     */
++    private void fitSableCompactPad() {
++        int need = sableShortage();
++        if (mSableKeyHeightPx <= 0 || need <= 0) {
++            return;
++        }
++        float density = getResources().getDisplayMetrics().density;
++        int perKey = Math.min((need + 3) / 4,
++                mSableKeyHeightPx - px(SableLockSize.MIN_KEY_DP, density));
++        boolean changed = false;
++        if (perKey > 0) {
++            mSableKeyHeightPx -= perKey;
++            need -= 4 * perKey;
++            applySableKeyHeight(mSableKeyHeightPx);
++            changed = true;
++        }
++        View entry = findViewById(R.id.pinEntry);
++        if (need > 0 && entry != null) {
++            ViewGroup.LayoutParams lp = entry.getLayoutParams();
++            int less = Math.min(need, lp.height - px(SableLockSize.MIN_ENTRY_DP, density));
++            if (less > 0) {
++                lp.height -= less;
++                entry.setLayoutParams(lp);
++                changed = true;
++            }
++        }
++        if (changed) {
++            requestLayout();
++        }
++    }
++
++    /** SableOS: the compact keys' height, in the keys' layout params and every constraint set. */
++    private void applySableKeyHeight(int keyHeight) {
++        for (int row = 1; row < 5; row++) {
++            for (int column = 0; column < 3; column++) {
++                View key = mViews[row][column];
++                if (key != null && key.getLayoutParams() instanceof ConstraintLayout.LayoutParams) {
++                    ViewGroup.LayoutParams lp = key.getLayoutParams();
++                    lp.height = keyHeight;
++                    key.setLayoutParams(lp);
++                }
++            }
++        }
++        View container = findViewById(R.id.pin_container);
++        MotionLayout motion = container instanceof MotionLayout
++                ? (MotionLayout) container : mContainerMotionLayout;
++        if (motion == null) {
++            return;
++        }
++        int[] ids = motion.getConstraintSetIds();
++        if (ids == null) {
++            return;
++        }
++        for (int id : ids) {
++            ConstraintSet set = motion.getConstraintSet(id);
++            if (set == null) {
++                continue;
++            }
++            for (int row = 1; row < 5; row++) {
++                for (int column = 0; column < 3; column++) {
++                    View key = mViews[row][column];
++                    if (key != null) {
++                        set.constrainHeight(key.getId(), keyHeight);
++                    }
++                }
++            }
++            motion.updateState(id, set);
++        }
++        motion.requestLayout();
++    }
++
+     /**
+      * SableOS: the status bar, navigation bar and display cutout, which the bouncer does not draw
+      * over. The window's height in dp counts them, so the pad must leave room for all three, not
+diff --git a/packages/SystemUI/src/com/android/keyguard/sable/SableLockSize.java b/packages/SystemUI/src/com/android/keyguard/sable/SableLockSize.java
+index 94b1596..c5651f1 100644
+--- a/packages/SystemUI/src/com/android/keyguard/sable/SableLockSize.java
++++ b/packages/SystemUI/src/com/android/keyguard/sable/SableLockSize.java
+@@ -41,10 +41,10 @@ public final class SableLockSize {
+     public static final int COMPACT_BELOW_DP = 560;
+ 
+     static final int KEY_DP = 44;
+-    static final int MIN_KEY_DP = 28;
++    public static final int MIN_KEY_DP = 28;
+     static final int GAP_DP = 6;
+     static final int ENTRY_DP = 40;
+-    static final int MIN_ENTRY_DP = 32;
++    public static final int MIN_ENTRY_DP = 32;
+     static final int DIGIT_DP = 22;
+     static final int SIDE_DP = 16;
+     static final int SECURITY_WIDTH_DP = 420;
+-- 
+2.43.0
+
