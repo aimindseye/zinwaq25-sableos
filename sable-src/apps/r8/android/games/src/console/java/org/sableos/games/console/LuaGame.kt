@@ -17,6 +17,7 @@ import org.luaj.vm2.lib.VarArgFunction
 import org.luaj.vm2.lib.jse.JseMathLib
 import java.io.OutputStream
 import java.io.PrintStream
+import java.util.Locale
 
 /** One shape a game drew this frame, in grid cells ([LuaGame.cols] by [LuaGame.rows]). */
 sealed interface DrawOp {
@@ -196,6 +197,45 @@ class LuaGame(
         }
     }
 
+    /**
+     * `string.format` that keeps the precision of `%.2f` and the other float conversions, which
+     * LuaJ 3.0.1 ignores ("%.2f" of 0.2004 gave "0.2004"). Each other conversion goes to LuaJ's own.
+     */
+    private class PreciseFormat(
+        private val luaj: LuaValue,
+    ) : VarArgFunction() {
+        override fun invoke(args: Varargs): Varargs {
+            val format = args.checkjstring(1)
+            val out = StringBuilder()
+            var next = 2
+            var at = 0
+            for (m in SPEC.findAll(format)) {
+                out.append(format, at, m.range.first)
+                at = m.range.last + 1
+                val spec = m.value
+                when (spec.last()) {
+                    '%' -> {
+                        out.append('%')
+                    }
+
+                    'f', 'F', 'e', 'E', 'g', 'G' -> {
+                        out.append(String.format(Locale.ROOT, spec.replace('F', 'f'), args.checkdouble(next++)))
+                    }
+
+                    else -> {
+                        out.append(luaj.call(LuaValue.valueOf(spec), args.arg(next++)).tojstring())
+                    }
+                }
+            }
+            out.append(format, at, format.length)
+            return LuaValue.valueOf(out.toString())
+        }
+
+        private companion object {
+            val SPEC = Regex("%[-+ #0]*[0-9]*(?:\\.[0-9]+)?[a-zA-Z%]")
+        }
+    }
+
     /** Thrown from the instruction hook; an Error, so a script's `pcall` can't catch it. */
     private class Runaway : Error("instruction budget spent")
 
@@ -227,6 +267,8 @@ class LuaGame(
             }
         g.get("debug").get("sethook").call(hook, LuaValue.valueOf(""), LuaValue.valueOf(TICK_INSTRUCTIONS))
         for (name in BLOCKED) g.set(name, LuaValue.NIL)
+        val strings = g.get("string")
+        strings.set("format", PreciseFormat(strings.get("format")))
         g.set("sable", sableTable())
         return g
     }
