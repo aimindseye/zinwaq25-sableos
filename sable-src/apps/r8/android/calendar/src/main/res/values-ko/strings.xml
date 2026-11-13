@@ -75,4 +75,10 @@
     <string name="colour">색상</string>
     <string name="l_calendars">" · L 캘린더"</string>
     <string name="day_events">%1$s, 일정 %2$s개</string>
+    <string name="view_week">주</string>
+    <string name="view_month">월</string>
+    <string name="view_day">일</string>
+    <string name="previous">이전</string>
+    <string name="next">다음</string>
+    <string name="more_options">옵션 더보기</string>
 </resources>

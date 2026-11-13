@@ -75,4 +75,10 @@
     <string name="colour">Renk</string>
     <string name="l_calendars">" · L takvimler"</string>
     <string name="day_events">%1$s, %2$s etkinlik</string>
+    <string name="view_week">Hafta</string>
+    <string name="view_month">Ay</string>
+    <string name="view_day">Gün</string>
+    <string name="previous">Önceki</string>
+    <string name="next">Sonraki</string>
+    <string name="more_options">Diğer seçenekler</string>
 </resources>

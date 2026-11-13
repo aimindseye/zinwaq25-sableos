@@ -8,8 +8,10 @@ data class Band(
 
 /**
  * Where the Privacy Screen leaves the screen readable: a full-width band around the focused item,
- * at least [minHeight] tall and centred on it, kept inside the screen. With nothing focused the
- * band sits in the middle of the screen. Pure, so it is unit-tested off the phone.
+ * at least [minHeight] tall and centred on its visible part. The band is never taller than a third
+ * of the screen (or [minHeight], if that is more), so a focused item that fills the screen, such as
+ * a browser page, still leaves most of the screen dimmed. With nothing focused the band sits in the
+ * middle of the screen. Pure, so it is unit-tested off the phone.
  */
 object PrivacyBand {
     /** The band for a focused item spanning rows [focusTop, focusBottom), or null for no focus. */
@@ -21,19 +23,18 @@ object PrivacyBand {
         padding: Int,
     ): Band {
         val height = screenHeight.coerceAtLeast(1)
+        val maxHeight = maxOf(minHeight, height / 3)
+        val visibleTop = focusTop?.coerceIn(0, height)
+        val visibleBottom = focusBottom?.coerceIn(0, height)
+        val focused = visibleTop != null && visibleBottom != null && visibleBottom > visibleTop
         val wanted =
-            if (focusTop == null || focusBottom == null || focusBottom <= focusTop) {
-                minHeight
+            if (focused) {
+                (visibleBottom!! - visibleTop!! + 2 * padding).coerceIn(minHeight, maxHeight)
             } else {
-                maxOf(minHeight, focusBottom - focusTop + 2 * padding)
+                minHeight
             }
         val size = wanted.coerceIn(1, height)
-        val centre =
-            if (focusTop == null || focusBottom == null || focusBottom <= focusTop) {
-                height / 2
-            } else {
-                (focusTop + focusBottom) / 2
-            }
+        val centre = if (focused) (visibleTop!! + visibleBottom!!) / 2 else height / 2
         val top = (centre - size / 2).coerceIn(0, height - size)
         return Band(top, top + size)
     }

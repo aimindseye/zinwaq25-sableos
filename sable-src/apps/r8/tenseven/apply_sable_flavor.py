@@ -1212,6 +1212,146 @@ def patch_hub_keep(root: pathlib.Path) -> None:
     )
 
 
+SHORT = "io.github.aimindseye.tenseven.design.isSableShortWindow()"
+
+
+def patch_q25_fit(root: pathlib.Path) -> None:
+    """Fits the Hub, Command and the home bar to the Q25's 411 dp square screen (owner, 2026-11-12).
+
+    Sizes follow the Zinwa Q25 column of the approved TenSeven BB10 design review: a 22 sp Hub
+    title, a flat 13 sp calendar row, 20-24 dp message icons, a one-line selected message and a
+    26 sp screen title instead of Material's 45 sp display style. Each change applies only in a
+    short window (isSableShortWindow), so the Titan 2 layout is unchanged. The BB10 home bar keeps
+    a Command (search) icon on the Q25, where the compact policy used to drop it.
+    """
+    theme = root / DESIGN / "SableTheme.kt"
+    replace_once(
+        theme,
+        "        labelLarge = SableTypography.labelLarge.copy(fontSize = 13.sp, lineHeight = 17.sp),\n    )\n",
+        "        labelLarge = SableTypography.labelLarge.copy(fontSize = 13.sp, lineHeight = 17.sp),\n"
+        "        // SableOS Q25: the Material roles the short scale left at phone sizes (display 45 sp).\n"
+        "        displayMedium = SableTypography.displayMedium.copy(fontSize = 26.sp, lineHeight = 30.sp),\n"
+        "        displaySmall = SableTypography.displaySmall.copy(fontSize = 24.sp, lineHeight = 28.sp),\n"
+        "        headlineSmall = SableTypography.headlineSmall.copy(fontSize = 22.sp, lineHeight = 26.sp),\n"
+        "        titleSmall = SableTypography.titleSmall.copy(fontSize = 15.sp, lineHeight = 19.sp),\n"
+        "    )\n",
+        "SABLE_HOME_Q25_TYPE",
+    )
+    peek = root / JAVA / "ui/HubCalendarPeek.kt"
+    replace_once(
+        peek,
+        "                    .fillMaxWidth()\n"
+        "                    .clip(RoundedCornerShape(7.dp))\n"
+        "                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))\n"
+        "                    .padding(horizontal = 9.dp, vertical = 6.dp),\n"
+        "            verticalArrangement = Arrangement.spacedBy(8.dp),\n",
+        "                    .fillMaxWidth()\n"
+        "                    .then(\n"
+        f"                        if ({SHORT}) {{\n"
+        "                            Modifier.padding(horizontal = 4.dp)\n"
+        "                        } else {\n"
+        "                            Modifier\n"
+        "                                .clip(RoundedCornerShape(7.dp))\n"
+        "                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))\n"
+        "                                .padding(horizontal = 9.dp, vertical = 6.dp)\n"
+        "                        },\n"
+        "                    ),\n"
+        f"            verticalArrangement = Arrangement.spacedBy(if ({SHORT}) 2.dp else 8.dp),\n",
+        "SABLE_HOME_Q25_CALENDAR_ROW",
+    )
+    replace_once(
+        peek,
+        "                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 6.dp),\n"
+        "                color = MaterialTheme.colorScheme.primary,\n"
+        "                style = MaterialTheme.typography.titleSmall,\n",
+        "                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 6.dp),\n"
+        "                color = MaterialTheme.colorScheme.primary,\n"
+        f"                style = if ({SHORT}) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleSmall,\n",
+        "SABLE_HOME_Q25_CALENDAR_TEXT",
+    )
+    rows = root / JAVA / "ui/HubConversationsUi.kt"
+    replace_once(
+        rows,
+        "                        .padding(horizontal = 4.dp, vertical = 10.dp),\n",
+        f"                        .padding(horizontal = 4.dp, vertical = if ({SHORT}) 7.dp else 10.dp),\n",
+        "SABLE_HOME_Q25_ROW_HEIGHT",
+    )
+    replace_once(
+        rows,
+        "SableGlyphIcon(glyph = sourceGlyph, modifier = Modifier.size(30.dp))",
+        f"SableGlyphIcon(glyph = sourceGlyph, modifier = Modifier.size(if ({SHORT}) 24.dp else 30.dp))",
+        "SABLE_HOME_Q25_ROW_GLYPH",
+    )
+    replace_once(
+        rows,
+        "modifier = Modifier.size(36.dp).clip(RoundedCornerShape(7.dp)),",
+        f"modifier = Modifier.size(if ({SHORT}) 28.dp else 36.dp).clip(RoundedCornerShape(7.dp)),",
+        "SABLE_HOME_Q25_ROW_ICON",
+    )
+    panels = root / JAVA / "ui/HubPanels.kt"
+    replace_once(
+        panels,
+        "            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {\n",
+        f"            val short = {SHORT}\n"
+        "            Column(Modifier.padding(if (short) 7.dp else 10.dp), verticalArrangement = Arrangement.spacedBy(if (short) 2.dp else 5.dp)) {\n",
+        "SABLE_HOME_Q25_SELECTED_PADDING",
+    )
+    replace_once(
+        panels,
+        "Text(preview, color = Bb10Muted, style = MaterialTheme.typography.bodyMedium, maxLines = 3)",
+        "Text(\n"
+        "                        preview,\n"
+        "                        color = Bb10Muted,\n"
+        "                        style = MaterialTheme.typography.bodyMedium,\n"
+        "                        maxLines = if (short) 1 else 3,\n"
+        "                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,\n"
+        "                    )",
+        "SABLE_HOME_Q25_SELECTED_ONE_LINE",
+    )
+    page = root / JAVA / "ui/HubPage.kt"
+    replace_once(
+        page,
+        "    SableHubSubtitle(session.data.conversations)\n    Spacer(Modifier.height(6.dp))\n",
+        f"    SableHubSubtitle(session.data.conversations)\n    Spacer(Modifier.height(if ({SHORT}) 2.dp else 6.dp))\n",
+        "SABLE_HOME_Q25_HUB_HEADER",
+    )
+    command = root / JAVA / "ui/CommandScreen.kt"
+    replace_once(
+        command,
+        "    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp)) {\n"
+        "        MetroHeader(title = \"search\", onBack = onBack)\n",
+        f"    val short = {SHORT}\n"
+        "    Column(\n"
+        "        modifier =\n"
+        "            Modifier.fillMaxSize().padding(\n"
+        "                horizontal = if (short) 12.dp else 20.dp,\n"
+        "                vertical = if (short) 6.dp else 18.dp,\n"
+        "            ),\n"
+        "    ) {\n"
+        "        MetroHeader(title = \"search\", onBack = onBack)\n",
+        "SABLE_HOME_Q25_COMMAND_PADDING",
+    )
+    replace_once(
+        command,
+        "                .heightIn(min = 62.dp),\n",
+        f"                .heightIn(min = if ({SHORT}) 48.dp else 62.dp),\n",
+        "SABLE_HOME_Q25_COMMAND_FIELD",
+    )
+    bar = root / JAVA / "ui/ReferenceHomeBar.kt"
+    replace_once(
+        bar,
+        "        slots.filter { it.token in shown && it.token == QuickBar.COMMAND }.forEach { slot ->\n"
+        "            HomeShortcut(slot, actions.openSlot, actions.options, actions.phoneFocus)\n"
+        "        }\n",
+        "        // SableOS: Command always has its icon before Camera, also on the Q25 (owner, 2026-11-12).\n"
+        "        val command =\n"
+        "            slots.firstOrNull { it.token in shown && it.token == QuickBar.COMMAND }\n"
+        "                ?: QuickSlot(QuickBar.COMMAND, \"Command\", null)\n"
+        "        HomeShortcut(command, actions.openSlot, actions.options, actions.phoneFocus)\n",
+        "SABLE_HOME_Q25_COMMAND_ICON",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -1233,6 +1373,7 @@ def main() -> None:
     patch_status_icons(root)
     patch_extra_dim(root)
     patch_home_access(root)
+    patch_q25_fit(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 

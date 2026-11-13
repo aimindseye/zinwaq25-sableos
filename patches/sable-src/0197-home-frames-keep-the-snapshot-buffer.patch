@@ -1,0 +1,137 @@
+diff --git a/patches/README.md b/patches/README.md
+index de4a755..7363612 100644
+--- a/patches/README.md
++++ b/patches/README.md
+@@ -262,6 +262,7 @@
+ | `framework/frameworks/base/0327-SableOS-PIN-pad-leaves-room-for-the-navigation-bar.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0326 | The compact PIN pad (0315) now leaves room for the navigation bar and cutout as well as the status bar (WindowMetrics insets) and for the security container's padding, and keys may shrink to 28 dp high, so the bottom row (Delete, 0, OK) and the emergency button are never under the navigation bar on the Q25 (owner report 2026-11-12); `SableLockSizeTest` checks every size and text size above a 48 dp navigation bar. No authentication code changes. |
+ | `framework/frameworks/base/0328-SableOS-older-code-loading-for-listed-apps-Pluto-TV.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0327 | Android 14's read-only rule for loaded code (ENFORCE_READ_ONLY_JAVA_DCL, 218865702) is off for the apps listed in `persist.sys.sable.legacy_dcl` (comma-separated, `-` for none; `tv.pluto.android` until App Compatibility sets the list), so Pluto TV, whose ad library loads a jar it wrote to its cache, no longer crashes at start (owner report 2026-11-12). A user build refuses `am compat disable` for Play Store apps. Every other app keeps the rule; `SableCodeLoadingTest` checks the list. |
+ | `framework/frameworks/base/0329-SableOS-Alt-Shift-P-switches-the-Privacy-Screen-from-any-app.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0328 | Alt+Shift+P (either Alt; Sym is Right Alt) from a physical keyboard, after setup and off the keyguard, sends Text Reader's `TOGGLE_PRIVACY_SCREEN` (sable-src 0175) as an ordered broadcast for the current user; when the answer is not RESULT_OK (the service is not turned on yet) Accessibility opens instead. Alt+P alone types '@' on the Q25, so the chord takes Shift (owner, 2026-11-12: the shortcut the 2.0 plan listed). `SablePrivacyKeysTest` checks the chord. |
++| `framework/frameworks/base/0330-SableOS-compact-PIN-pad-reaches-its-MotionLayout.patch` | `f4ed08a03b518772ba77c3c0a1b4185fa1712c9b` + 0101-0329 | Compact PIN pad on the Q25: the keys stayed Android's 166 px circles over the message and PIN field (owner report 2026-11-12) because 0315 wrote the compact sizes into the scene's constraint sets only when `mContainerMotionLayout` was set, which needs the small-landscape flag. `applySableCompactPad` now uses `pin_container` whenever it is a MotionLayout, updates every constraint set it has and lays it out again. |
+ | `framework/packages/apps/Jelly/1043-SableOS-Browser-keys-follow-the-design-s-T-B-L-and-a.patch` | `1bb5edd564f2adb475fb565373426166f3ca252a` + 1041-1042 | Browser keys on the browser-webview design: single keys after the page declined them are T top, B bottom, L / Shift+L next/previous link, R reader, F or `/` find, Space paging; address and new tab move to Alt+L / Alt+T; Alt+W close tab, Alt+J/K (and Ctrl+Tab / Ctrl+Shift+Tab) switch tabs, Alt+A tab grid; dock hint per mode (start, page, reader). Host tests rewritten. |
+ | `framework/packages/apps/Jelly/1044-SableOS-Browser-start-page-command-dock-reader-mode-.patch` | `1bb5edd564f2adb475fb565373426166f3ca252a` + 1041-1043 | Start page cards (Bookmarks, Private, History, Downloads, keys) with the Sable focus ring instead of autoloading the home page (`default_home_page_autoload` false); command dock with hint line; reader mode (scripted, position kept); tab grid dialog over the app's tasks; private tabs labelled "Private tab" with no Recents screenshot; camera/microphone asks per site (Deny focused) and other permission dialogs focus their negative button. Kotlin compiled with Gradle. |
+ | `framework/packages/apps/FMRadio/1061-SableOS-pure-FM-bridge-protocol-for-Sable-Media.patch` | `095ae21580f2893b1f00f0bd9b503dc766899ad1` | FM in Sable Media: `sable/SableFmProtocol` (pure Java, host-tested in `tests/java/stock-apps/FMRadio`): bridge message numbers, state keys, the 87.5-108 MHz band and the caller policy (own uid, system uid, or `org.sableos.media` installed on the system image). Sable Media keeps the same numbers in `FmModel.kt`; `tests/run.sh` checks they agree. |
+@@ -339,3 +340,4 @@ Reserved:
+   0194 adds **Older code loading** to App Compatibility's one-app page (owner, 2026-11-12): it adds or removes the app in `persist.sys.sable.legacy_dcl`, the list frameworks/base 0328 reads to let an app load code it wrote itself (Pluto TV's ad library), then stops the app so its next start uses it. `CodeLoading` matches the framework's default list (`tv.pluto.android`) and the 91-character property limit; 4 new strings in all 19 languages.
+   0195 adds Sable presets for Tubi (`com.tubitv`), Google TV (`com.google.android.videos`) and YouTube Music (`com.google.android.apps.youtube.music`): Tall phone with landscape video Fit, like YouTube and Instagram (owner's videos, 2026-11-12). The shipped-presets test now also checks Fit.
+   0196 drops the home's Permissions page as well (owner, 2026-11-12): SableHomeAccess already grants them, so Launcher settings and first-run setup open on Appearance & Home, the steps renumber 1-5, the Review page loses its Permissions card, and the Next/Back footer (`Settings2Flow`) no longer walks into the removed Permissions or Active Frames pages. The Weather hint points to Android Settings > Apps for location; `home_access` checks it.
++  0197 fixes Active Frames' empty pictures on Android 17 (owner log 2026-11-12: "snapshot of task 85 has no hardware buffer"): `SableTaskSnapshots` no longer closes the snapshot's HardwareBuffer itself, which emptied the snapshot TaskSnapshotManager keeps in its cache; it copies the picture through `TaskSnapshot.wrapToBitmap` and releases it with `closeBuffer()`, asks for RESOLUTION_ANY when the wanted resolution has none, and logs what an empty snapshot holds.
+diff --git a/sable-src/apps/r8/tenseven/src/SableTaskSnapshots.kt b/sable-src/apps/r8/tenseven/src/SableTaskSnapshots.kt
+index 1e9163e..904e384 100644
+--- a/sable-src/apps/r8/tenseven/src/SableTaskSnapshots.kt
++++ b/sable-src/apps/r8/tenseven/src/SableTaskSnapshots.kt
+@@ -12,7 +12,7 @@ import android.util.Log
+  * SableOS: Active Frames' live pictures straight from the system task snapshot, with no screen-capture
+  * consent. The home is platform-signed on SableOS and holds READ_FRAME_BUFFER and MANAGE_ACTIVITY_TASKS.
+  * Android 17 moved snapshots from IActivityTaskManager into android.window.TaskSnapshotManager
+- * (getTaskSnapshot(taskId, resolution); RESOLUTION_HIGH 1, RESOLUTION_LOW 2); TenSeven's own bridge
++ * (getTaskSnapshot(taskId, resolution); RESOLUTION_HIGH 1, RESOLUTION_LOW 2, RESOLUTION_ANY 3); TenSeven's own bridge
+  * still tries the older IActivityTaskManager call after this one. Each failure is logged once under
+  * the tag SableFrames, so `adb logcat -s SableFrames` says why a frame has no picture. Added by the
+  * SableOS flavor (sable-src/apps/r8/tenseven).
+@@ -21,6 +21,7 @@ internal object SableTaskSnapshots {
+     private const val TAG = "SableFrames"
+     private const val RESOLUTION_HIGH = 1
+     private const val RESOLUTION_LOW = 2
++    private const val RESOLUTION_ANY = 3
+     private const val MAX_EDGE = 512
+     private val logged = mutableSetOf<String>()
+ 
+@@ -80,11 +81,19 @@ internal object SableTaskSnapshots {
+     fun snapshot(
+         taskId: Int,
+         lowResolution: Boolean,
++    ): Bitmap? {
++        val wanted = if (lowResolution) RESOLUTION_LOW else RESOLUTION_HIGH
++        // Android 17 may keep only one resolution of a task's picture: ask for the wanted one, then any.
++        return pictureAt(taskId, wanted) ?: pictureAt(taskId, RESOLUTION_ANY)
++    }
++
++    private fun pictureAt(
++        taskId: Int,
++        resolution: Int,
+     ): Bitmap? =
+         runCatching {
+             val call = method ?: return@runCatching null
+             val manager = manager() ?: return@runCatching null
+-            val resolution = if (lowResolution) RESOLUTION_LOW else RESOLUTION_HIGH
+             val args =
+                 listOf<Any>(taskId) +
+                     call.parameterTypes.drop(1).mapIndexed { i, type ->
+@@ -92,36 +101,57 @@ internal object SableTaskSnapshots {
+                     }
+             val snapshot = call.invoke(manager, *args.toTypedArray())
+             if (snapshot == null) {
+-                if (synchronized(logged) { logged.add("null") }) Log.w(TAG, "${call.name}(task $taskId) returned no snapshot")
++                note("null:$resolution", "${call.name}(task $taskId, resolution $resolution) returned no snapshot")
+                 return@runCatching null
+             }
+             bitmapOf(snapshot) ?: null.also {
+-                if (synchronized(logged) { logged.add("nobuffer") }) Log.w(TAG, "snapshot of task $taskId has no hardware buffer")
++                note("nobuffer:$resolution", "snapshot of task $taskId (resolution $resolution) has no picture: ${describe(snapshot)}")
+             }
+         }.onFailure { log("TaskSnapshotManager.getTaskSnapshot", it) }
+             .getOrNull()
+ 
++    /** What a snapshot without a usable picture holds, for the log. */
++    private fun describe(snapshot: Any): String =
++        listOf("isBufferValid", "isRealSnapshot", "isLowResolution", "getHardwareBuffer").joinToString { name ->
++            "$name=" + runCatching { snapshot.javaClass.getMethod(name).invoke(snapshot) }.getOrElse { "?" }
++        }
++
++    /**
++     * A software copy of the snapshot's picture. Android 17's TaskSnapshot wraps its own buffer
++     * (wrapToBitmap) and shares it with TaskSnapshotManager's cache, so the buffer is never closed here:
++     * closing it left the cached snapshot empty for every later frame. The copy is released with
++     * closeBuffer(), which lets the cache drop it properly.
++     */
+     private fun bitmapOf(snapshot: Any): Bitmap? {
+-        val buffer = snapshot.javaClass.getMethod("getHardwareBuffer").invoke(snapshot) as? HardwareBuffer ?: return null
++        val type = snapshot.javaClass
++        val valid = runCatching { type.getMethod("isBufferValid").invoke(snapshot) as? Boolean }.getOrNull()
++        if (valid == false) return null
+         val colorSpace =
+-            runCatching { snapshot.javaClass.getMethod("getColorSpace").invoke(snapshot) as? ColorSpace }.getOrNull()
++            runCatching { type.getMethod("getColorSpace").invoke(snapshot) as? ColorSpace }.getOrNull()
+                 ?: ColorSpace.get(ColorSpace.Named.SRGB)
+-        return buffer.use {
+-            val hardware = Bitmap.wrapHardwareBuffer(it, colorSpace) ?: return null
+-            val software = hardware.copy(Bitmap.Config.ARGB_8888, false)
+-            hardware.recycle()
+-            if (software.width <= MAX_EDGE && software.height <= MAX_EDGE) {
+-                software
+-            } else {
+-                val scale = MAX_EDGE.toFloat() / maxOf(software.width, software.height)
+-                Bitmap
+-                    .createScaledBitmap(
+-                        software,
+-                        (software.width * scale).toInt().coerceAtLeast(1),
+-                        (software.height * scale).toInt().coerceAtLeast(1),
+-                        true,
+-                    ).also { software.recycle() }
+-            }
++        val hardware =
++            runCatching { type.getMethod("wrapToBitmap", ColorSpace::class.java).invoke(snapshot, colorSpace) as? Bitmap }
++                .getOrNull()
++                ?: runCatching {
++                    val buffer = type.getMethod("getHardwareBuffer").invoke(snapshot) as? HardwareBuffer
++                    buffer?.takeUnless { it.isClosed }?.let { Bitmap.wrapHardwareBuffer(it, colorSpace) }
++                }.getOrNull()
++                ?: return null
++        val software = hardware.copy(Bitmap.Config.ARGB_8888, false)
++        hardware.recycle()
++        runCatching { type.getMethod("closeBuffer").invoke(snapshot) }
++        if (software == null) return null
++        return if (software.width <= MAX_EDGE && software.height <= MAX_EDGE) {
++            software
++        } else {
++            val scale = MAX_EDGE.toFloat() / maxOf(software.width, software.height)
++            Bitmap
++                .createScaledBitmap(
++                    software,
++                    (software.width * scale).toInt().coerceAtLeast(1),
++                    (software.height * scale).toInt().coerceAtLeast(1),
++                    true,
++                ).also { software.recycle() }
+         }
+     }
+ 

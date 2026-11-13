@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 13 Nov 2026 00:30:00 +0000
+Subject: [PATCH] SableOS: compact PIN pad reaches the MotionLayout it lives in
+
+On the Q25 the PIN pad showed Android's 166 px round keys over the
+message and PIN field (owner report 2026-11-12, uiautomator: key0
+[277,385][443,551], flow1 [0,49][720,551]). The compact sizes from 0315
+went into the keys' layout params and, only when mContainerMotionLayout
+was set, into the scene's constraint sets. That field is set only when
+the small-landscape flag is on; with it off, keyguard_pin_motion_layout
+is still inflated, and a MotionLayout lays its children out from its
+constraint sets, so the layout params were ignored.
+
+applySableCompactPad now takes pin_container itself whenever it is a
+MotionLayout, writes the compact key sizes and emergency margins into
+every constraint set it has (getConstraintSetIds), updates each state
+and asks for a new layout. No authentication code changes.
+---
+ .../com/android/keyguard/KeyguardPINView.java | 22 ++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java b/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
+index 2a20b9a..c294b2c 100644
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardPINView.java
+@@ -258,11 +258,22 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
+                         row0.getPaddingRight(), gap);
+             }
+         }
+-        if (mContainerMotionLayout != null) {
++        // SableOS: the PIN pad is a MotionLayout whenever keyguard_pin_motion_layout is inflated,
++        // even when the small-landscape flag is off and mContainerMotionLayout stays null. A
++        // MotionLayout lays its children out from its scene's constraint sets, not their layout
++        // params, so the compact sizes must go into every set or Android's keys stay.
++        View container = findViewById(R.id.pin_container);
++        MotionLayout motion = container instanceof MotionLayout
++                ? (MotionLayout) container : mContainerMotionLayout;
++        if (motion != null) {
+             int ecaMargin = px(pad.ecaMargin, density);
+-            for (int id : new int[] {R.id.single_constraints,
+-                    R.id.half_folded_single_constraints, R.id.split_constraints}) {
+-                ConstraintSet set = mContainerMotionLayout.getConstraintSet(id);
++            int[] ids = motion.getConstraintSetIds();
++            if (ids == null) {
++                ids = new int[] {R.id.single_constraints, R.id.half_folded_single_constraints,
++                        R.id.split_constraints};
++            }
++            for (int id : ids) {
++                ConstraintSet set = motion.getConstraintSet(id);
+                 if (set == null) {
+                     continue;
+                 }
+@@ -281,8 +292,9 @@ public class KeyguardPINView extends KeyguardPinBasedInputView {
+                 set.setMargin(R.id.keyguard_selector_fade_container, ConstraintSet.TOP, ecaMargin);
+                 set.setMargin(R.id.keyguard_selector_fade_container, ConstraintSet.BOTTOM,
+                         ecaMargin);
+-                mContainerMotionLayout.updateState(id, set);
++                motion.updateState(id, set);
+             }
++            motion.requestLayout();
+         }
+     }
+ 
+-- 
+2.43.0

@@ -75,4 +75,10 @@
     <string name="colour">颜色</string>
     <string name="l_calendars">" · L 日历"</string>
     <string name="day_events">%1$s，%2$s 个活动</string>
+    <string name="view_week">周</string>
+    <string name="view_month">月</string>
+    <string name="view_day">日</string>
+    <string name="previous">上一个</string>
+    <string name="next">下一个</string>
+    <string name="more_options">更多选项</string>
 </resources>

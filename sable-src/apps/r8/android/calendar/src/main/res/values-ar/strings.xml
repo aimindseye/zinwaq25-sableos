@@ -75,4 +75,10 @@
     <string name="colour">اللون</string>
     <string name="l_calendars">" · L التقويمات"</string>
     <string name="day_events">%1$s، %2$s أحداث</string>
+    <string name="view_week">أسبوع</string>
+    <string name="view_month">شهر</string>
+    <string name="view_day">يوم</string>
+    <string name="previous">السابق</string>
+    <string name="next">التالي</string>
+    <string name="more_options">خيارات أخرى</string>
 </resources>

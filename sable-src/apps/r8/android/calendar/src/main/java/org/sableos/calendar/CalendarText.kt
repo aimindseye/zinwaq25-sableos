@@ -91,6 +91,12 @@ object CalendarText {
             "colour" to "Colour",
             "l_calendars" to " · L calendars",
             "day_events" to "%1\$s, %2\$s events",
+            "view_week" to "Week",
+            "view_month" to "Month",
+            "view_day" to "Day",
+            "previous" to "Previous",
+            "next" to "Next",
+            "more_options" to "More options",
         )
 
     val t = SableTexts(EN)
