@@ -305,6 +305,13 @@ class BundledGamesTest {
     }
 
     @Test
+    fun theConsoleStaysInPortraitSoLeaningNeverTurnsTheScreen() {
+        val manifest = File("src/console/AndroidManifest.xml").readText()
+        val activity = manifest.substringAfter("android:name=\"org.sableos.games.console.ConsoleActivity\"").substringBefore(">")
+        assertTrue(activity, activity.contains("android:screenOrientation=\"portrait\""))
+    }
+
+    @Test
     fun motion2048SlidesAndScores() {
         val (_, g) = load("motion_2048")
         repeat(200) { g.tilt(TiltStep.entries[it % 4]) }

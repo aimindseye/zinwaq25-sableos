@@ -1,0 +1,36 @@
+diff --git a/sable-src/apps/r8/android/games/src/console/AndroidManifest.xml b/sable-src/apps/r8/android/games/src/console/AndroidManifest.xml
+index 0bf9fee..bc65701 100644
+--- a/sable-src/apps/r8/android/games/src/console/AndroidManifest.xml
++++ b/sable-src/apps/r8/android/games/src/console/AndroidManifest.xml
+@@ -14,10 +14,13 @@
+         <activity
+             android:name="org.sableos.games.MainActivity"
+             tools:node="remove" />
++        <!-- Held in portrait: leaning the phone to play a tilt game must not turn the screen, and
++             the lean is read in the phone's own axes. -->
+         <activity
+             android:name="org.sableos.games.console.ConsoleActivity"
+             android:exported="true"
+             android:launchMode="singleTask"
++            android:screenOrientation="portrait"
+             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation">
+             <intent-filter>
+                 <action android:name="android.intent.action.MAIN" />
+diff --git a/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/BundledGamesTest.kt b/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/BundledGamesTest.kt
+index 14908ae..276639f 100644
+--- a/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/BundledGamesTest.kt
++++ b/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/BundledGamesTest.kt
+@@ -304,6 +304,13 @@ class BundledGamesTest {
+         assertEquals("car_red.png", load("ramp_rush", store).second.frame().filterIsInstance<DrawOp.Image>().last().name)
+     }
+ 
++    @Test
++    fun theConsoleStaysInPortraitSoLeaningNeverTurnsTheScreen() {
++        val manifest = File("src/console/AndroidManifest.xml").readText()
++        val activity = manifest.substringAfter("android:name=\"org.sableos.games.console.ConsoleActivity\"").substringBefore(">")
++        assertTrue(activity, activity.contains("android:screenOrientation=\"portrait\""))
++    }
++
+     @Test
+     fun motion2048SlidesAndScores() {
+         val (_, g) = load("motion_2048")
