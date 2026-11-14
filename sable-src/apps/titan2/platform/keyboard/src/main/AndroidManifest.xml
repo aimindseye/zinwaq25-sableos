@@ -29,6 +29,19 @@
             <meta-data android:name="android.view.im" android:resource="@xml/method" />
         </service>
 
+        <!-- System spell checker, offered under Settings > Languages & input. Never selected for the user. -->
+        <service
+            android:name=".android.SableSpellCheckerService"
+            android:directBootAware="true"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_TEXT_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.textservice.SpellCheckerService" />
+            </intent-filter>
+            <meta-data android:name="android.view.textservice.scs" android:resource="@xml/spellchecker" />
+        </service>
+
         <activity
             android:name=".android.KeyboardSettingsActivity"
             android:directBootAware="true"

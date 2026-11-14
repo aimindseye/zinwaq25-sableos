@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<spell-checker xmlns:android="http://schemas.android.com/apk/res/android"
+    android:label="@string/app_name"
+    android:settingsActivity="org.sableos.titan2.keyboard.android.KeyboardSettingsActivity">
+    <subtype android:label="English (US)" android:subtypeLocale="en_US" />
+    <subtype android:label="Español" android:subtypeLocale="es_ES" />
+    <subtype android:label="Français" android:subtypeLocale="fr_FR" />
+    <subtype android:label="Deutsch" android:subtypeLocale="de_DE" />
+    <subtype android:label="Português (Brasil)" android:subtypeLocale="pt_BR" />
+    <subtype android:label="Italiano" android:subtypeLocale="it_IT" />
+    <subtype android:label="Nederlands" android:subtypeLocale="nl_NL" />
+    <subtype android:label="Svenska" android:subtypeLocale="sv_SE" />
+    <subtype android:label="Polski" android:subtypeLocale="pl_PL" />
+    <subtype android:label="Türkçe" android:subtypeLocale="tr_TR" />
+</spell-checker>

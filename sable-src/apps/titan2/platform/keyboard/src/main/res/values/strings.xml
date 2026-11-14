@@ -43,4 +43,6 @@
     <string name="could_not_open_blocked_by">Could not open %1$s: blocked by the system.</string>
     <string name="could_not_open">Could not open %1$s.</string>
     <string name="app_name" translatable="false">Sable Keyboard</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">Word suggestions (autocomplete, spelling, emoji)</string>
+    <string name="system_spell_checker_settings">System spell checker settings</string>
 </resources>

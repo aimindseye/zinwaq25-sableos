@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">%1$s konnte nicht geöffnet werden: auf diesem Gerät nicht verfügbar.</string>
     <string name="could_not_open_blocked_by">%1$s konnte nicht geöffnet werden: vom System blockiert.</string>
     <string name="could_not_open">%1$s konnte nicht geöffnet werden.</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">Wortvorschläge (Autovervollständigung, Rechtschreibung, Emoji)</string>
+    <string name="system_spell_checker_settings">Rechtschreibprüfung des Systems</string>
 </resources>

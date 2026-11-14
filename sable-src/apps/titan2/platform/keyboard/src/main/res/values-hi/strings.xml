@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">%1$s खोला नहीं जा सका: इस डिवाइस पर उपलब्ध नहीं है।</string>
     <string name="could_not_open_blocked_by">%1$s खोला नहीं जा सका: सिस्टम ने रोक दिया।</string>
     <string name="could_not_open">%1$s खोला नहीं जा सका।</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">शब्द सुझाव (ऑटोकम्प्लीट, वर्तनी, इमोजी)</string>
+    <string name="system_spell_checker_settings">सिस्टम वर्तनी जाँच सेटिंग</string>
 </resources>

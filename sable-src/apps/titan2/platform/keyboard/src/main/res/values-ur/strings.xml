@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">%1$s کھولا نہیں جا سکا: اس آلے پر دستیاب نہیں۔</string>
     <string name="could_not_open_blocked_by">%1$s کھولا نہیں جا سکا: سسٹم نے روک دیا۔</string>
     <string name="could_not_open">%1$s کھولا نہیں جا سکا۔</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">الفاظ کی تجاویز (خودکار تکمیل، ہجے، ایموجی)</string>
+    <string name="system_spell_checker_settings">سسٹم ہجے جانچ کی ترتیبات</string>
 </resources>

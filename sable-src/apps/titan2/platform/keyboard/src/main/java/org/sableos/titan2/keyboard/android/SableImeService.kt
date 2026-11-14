@@ -32,6 +32,9 @@ import org.sableos.titan2.keyboard.core.PinyinDict
 import org.sableos.titan2.keyboard.core.Resolver
 import org.sableos.titan2.keyboard.core.StripInputs
 import org.sableos.titan2.keyboard.core.StripMode
+import org.sableos.titan2.keyboard.core.Suggestion
+import org.sableos.titan2.keyboard.core.WordSuggester
+import org.sableos.titan2.keyboard.core.Cand
 
 /**
  * Physical-keyboard-first IME. Hardware keys are resolved by the pure-Kotlin [Resolver]; the on-screen view is only a
@@ -51,6 +54,10 @@ class SableImeService : InputMethodService() {
         // enough for an AutoText shortcut and the expansion Backspace undoes
         const val BEFORE_CURSOR_CHARS = 64
         const val COMPOSITION_LOST_MS = 400L
+
+        // the strip stays up this long after the last suggestion, so it does not blink between words
+        const val SUGGEST_HOLD_MS = 2000L
+        const val WORD_CONTEXT_CHARS = 40
     }
 
     override fun onCreate() {
@@ -86,6 +93,7 @@ class SableImeService : InputMethodService() {
         }
         fieldClass = classify(attribute)
         resolver.clearVariation()
+        suggestions = emptyList()
         refreshStrip()
     }
 
@@ -117,6 +125,7 @@ class SableImeService : InputMethodService() {
         applyLanguage(subtype?.locale, subtype?.extraValue, announce = false)
         softView?.let { applyNumericPad(it) }
         softView?.refreshAutoCap()
+        updateSuggestions(true)
         refreshStrip()
     }
 
@@ -141,7 +150,7 @@ class SableImeService : InputMethodService() {
 
     override fun onCreateCandidatesView(): View = CompactStripView(
         this,
-        { i -> composer?.let { applyComposition(it.pick(i)) } },
+        { i -> pickAt(i) },
         { s ->
             resolver.mods.consumeOneShots()
             commitOut(s)
@@ -236,7 +245,9 @@ class SableImeService : InputMethodService() {
         sym = resolver.mods.state(Mod.Sym),
         navOn = resolver.navActive,
         navEffective = resolver.navEffective(fieldClass),
-        candidates = composer?.candidates ?: emptyList(),
+        candidates = composer?.candidates?.takeIf { it.isNotEmpty() }
+            ?: suggestions.map { Cand(it.text, it.replaces) },
+        holdOpen = suggestions.isEmpty() && android.os.SystemClock.uptimeMillis() < suggestHoldUntil,
         variation = resolver.variation(),
         layout = resolver.layout,
         nowMs = android.os.SystemClock.uptimeMillis(),
@@ -264,6 +275,7 @@ class SableImeService : InputMethodService() {
             candidatesStart,
             candidatesEnd
         )
+        updateSuggestions(newSelStart == newSelEnd)
         val comp = composer ?: return
         if (comp.composing.isEmpty()) return
         val moved =
@@ -279,6 +291,8 @@ class SableImeService : InputMethodService() {
         clipSelected = null
         fieldClass = InputClass.None
         resolver.clearVariation()
+        suggestions = emptyList()
+        suggestHoldUntil = 0L
         dropComposition()
     }
 
@@ -372,6 +386,7 @@ class SableImeService : InputMethodService() {
     /** History picker keys, candidate picks (Ctrl+1/2/3, Ctrl+W/E/R), Enter-to-send, Alt+Shift+V. */
     private fun handleShortcut(keyCode: Int, event: KeyEvent): Boolean = clipKey(keyCode, event) ||
         pickCandidate(keyCode, event) ||
+        acceptWithTab(keyCode, event) ||
         sendWithEnter(keyCode, event) ||
         openClips(keyCode, event)
 
@@ -437,17 +452,83 @@ class SableImeService : InputMethodService() {
     }
 
     private fun pickCandidate(keyCode: Int, event: KeyEvent): Boolean {
-        val comp = composer
         val pick = KeyShortcuts.candidateIndex(
             keyCode,
             event.isCtrlPressed,
             event.isAltPressed || event.isMetaPressed || event.isShiftPressed,
-            comp?.candidates?.size ?: 0
+            composer?.candidates?.size?.takeIf { it > 0 } ?: suggestions.size
         )
-        if (comp == null || pick == null) return false
-        applyComposition(comp.pick(pick))
+        return pick != null && pickAt(pick)
+    }
+
+    /** Picks candidate [i]: the composer's while one is composing, else the word suggestion. */
+    private fun pickAt(i: Int): Boolean {
+        val comp = composer
+        if (comp != null && comp.candidates.isNotEmpty()) {
+            applyComposition(comp.pick(i))
+            return true
+        }
+        return acceptSuggestion(i)
+    }
+
+    // ---- word suggestions: autocomplete, spelling and emoji for the word before the cursor
+    private var suggestions: List<Suggestion> = emptyList()
+    private var suggestHoldUntil = 0L
+    private val suggestHoldEnd = Runnable { refreshStrip() }
+
+    /**
+     * Recomputes [suggestions] from the text before the cursor, so the physical keys, the on-screen keyboard and a
+     * moved cursor all go through one path. Only in prose fields (never secret, address or no-suggestions fields),
+     * only for a typing language that types letters directly, and only with the cursor at the end of a word.
+     */
+    private fun updateSuggestions(noSelection: Boolean) {
+        val old = suggestions
+        suggestions = computeSuggestions(noSelection)
+        if (suggestions.isNotEmpty()) {
+            suggestHoldUntil = android.os.SystemClock.uptimeMillis() + SUGGEST_HOLD_MS
+            ui.removeCallbacks(suggestHoldEnd)
+            ui.postDelayed(suggestHoldEnd, SUGGEST_HOLD_MS + 50)
+        }
+        if (suggestions != old) refreshStrip()
+    }
+
+    private fun computeSuggestions(noSelection: Boolean): List<Suggestion> {
+        val ic = currentInputConnection
+        val lang = Dictionaries.languageOf(language.tag)
+        val allowed = noSelection && ic != null && prefs.getBool(WORD_SUGGEST, true) &&
+            fieldClass == InputClass.Text && composer == null && language.latin &&
+            FieldPolicy.autoTextAllowed(currentInputEditorInfo?.inputType)
+        if (!allowed || ic == null) return emptyList()
+        val onReady = { ui.post { updateSuggestions(true) }; Unit }
+        val words = lang?.let { Dictionaries.words(this, it, onReady) }
+        val emoji = Dictionaries.emoji(this, onReady)
+        if (words == null && emoji == null) return emptyList()
+        val after = ic.getTextAfterCursor(1, 0)?.toString().orEmpty()
+        if (after.firstOrNull()?.isLetterOrDigit() == true) return emptyList()
+        val before = ic.getTextBeforeCursor(WORD_CONTEXT_CHARS, 0)?.toString().orEmpty()
+        return runCatching { WordSuggester(words, emoji).suggest(before) }.getOrDefault(emptyList())
+    }
+
+    private fun acceptSuggestion(i: Int): Boolean {
+        val s = suggestions.getOrNull(i)
+        val ic = currentInputConnection
+        if (s == null || ic == null) return false
+        ic.beginBatchEdit()
+        ic.deleteSurroundingText(s.replaces, 0)
+        ic.commitText(WordSuggester.accept(s), 1)
+        ic.endBatchEdit()
+        resolver.mods.consumeOneShots()
+        suggestions = emptyList()
+        refreshStrip()
         return true
     }
+
+    /** Tab alone takes the first suggestion while any is showing; otherwise it stays Tab. */
+    private fun acceptWithTab(keyCode: Int, event: KeyEvent): Boolean = keyCode == KeyEvent.KEYCODE_TAB &&
+        suggestions.isNotEmpty() &&
+        event.repeatCount == 0 &&
+        !event.isShiftPressed && !event.isAltPressed && !event.isCtrlPressed && !event.isMetaPressed &&
+        acceptSuggestion(0)
 
     private fun sendWithEnter(keyCode: Int, event: KeyEvent): Boolean {
         val send = keyCode == KeyEvent.KEYCODE_ENTER && event.repeatCount == 0 &&

@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">Nie udało się otworzyć: %1$s — niedostępne na tym urządzeniu.</string>
     <string name="could_not_open_blocked_by">Nie udało się otworzyć: %1$s — zablokowane przez system.</string>
     <string name="could_not_open">Nie udało się otworzyć: %1$s.</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">Podpowiedzi słów (autouzupełnianie, pisownia, emoji)</string>
+    <string name="system_spell_checker_settings">Ustawienia systemowego sprawdzania pisowni</string>
 </resources>

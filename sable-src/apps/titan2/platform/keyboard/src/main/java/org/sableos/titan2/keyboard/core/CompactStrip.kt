@@ -119,7 +119,9 @@ data class StripInputs(
     val layout: KeyLayout,
     val nowMs: Long,
     /** Chips of the open clipboard history picker ([ClipPicker.chips]), or null when it is closed. */
-    val clips: List<String>? = null
+    val clips: List<String>? = null,
+    /** Word suggestions went away a moment ago: keep the (empty) strip up so the app does not resize per word. */
+    val holdOpen: Boolean = false
 )
 
 sealed interface StripContent {
@@ -163,7 +165,7 @@ object CompactStrip {
         i.clips != null -> StripMode.CandidatesOnly
 
         i.softKeyboardShown || !i.enabled ->
-            if (i.candidates.isEmpty()) StripMode.Hidden else StripMode.CandidatesOnly
+            if (i.candidates.isEmpty() && !i.holdOpen) StripMode.Hidden else StripMode.CandidatesOnly
 
         else -> StripMode.Compact
     }

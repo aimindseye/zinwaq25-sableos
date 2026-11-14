@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">Kunde inte öppna %1$s: inte tillgängligt på den här enheten.</string>
     <string name="could_not_open_blocked_by">Kunde inte öppna %1$s: blockerat av systemet.</string>
     <string name="could_not_open">Kunde inte öppna %1$s.</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">Ordförslag (autokomplettering, stavning, emoji)</string>
+    <string name="system_spell_checker_settings">Inställningar för systemets stavningskontroll</string>
 </resources>

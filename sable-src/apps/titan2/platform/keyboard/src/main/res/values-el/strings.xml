@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">Δεν ήταν δυνατό το άνοιγμα του %1$s: δεν είναι διαθέσιμο σε αυτήν τη συσκευή.</string>
     <string name="could_not_open_blocked_by">Δεν ήταν δυνατό το άνοιγμα του %1$s: αποκλείστηκε από το σύστημα.</string>
     <string name="could_not_open">Δεν ήταν δυνατό το άνοιγμα του %1$s.</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">Προτάσεις λέξεων (αυτόματη συμπλήρωση, ορθογραφία, emoji)</string>
+    <string name="system_spell_checker_settings">Ρυθμίσεις ορθογραφικού ελέγχου συστήματος</string>
 </resources>

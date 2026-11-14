@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">无法打开 %1$s：此设备上不可用。</string>
     <string name="could_not_open_blocked_by">无法打开 %1$s：被系统拦截。</string>
     <string name="could_not_open">无法打开 %1$s。</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">单词建议(自动补全、拼写检查、表情符号)</string>
+    <string name="system_spell_checker_settings">系统拼写检查设置</string>
 </resources>

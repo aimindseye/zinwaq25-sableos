@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">%1$s을(를) 열 수 없음: 이 기기에서 사용할 수 없습니다.</string>
     <string name="could_not_open_blocked_by">%1$s을(를) 열 수 없음: 시스템에서 차단했습니다.</string>
     <string name="could_not_open">%1$s을(를) 열 수 없습니다.</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">단어 추천(자동 완성, 맞춤법 검사, 이모지)</string>
+    <string name="system_spell_checker_settings">시스템 맞춤법 검사 설정</string>
 </resources>

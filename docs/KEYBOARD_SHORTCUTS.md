@@ -33,7 +33,8 @@ This is the full key list for every Sable app, taken from each app's key code. T
 | Shift or Alt once / twice | Sticky for the next key / locked. A third press releases it |
 | Hold a letter | Types its Alt character |
 | Backspace right after an AutoText change | Undoes the change |
-| Ctrl+1/2/3 or Ctrl+W/E/R | Picks a word from the suggestion strip (keyboards with Ctrl) |
+| Ctrl+1/2/3 or Ctrl+W/E/R | Picks a word, spelling fix or emoji from the suggestion strip (keyboards with Ctrl) |
+| Tab | Takes the first word or emoji suggestion while the strip shows one (otherwise Tab as usual) |
 | Enter | Sends, where the app has a Send button and "Enter sends" is on in Keyboard settings (off by default) |
 | Alt+Shift+V (held) | Clipboard history: Space or the trackpad moves, Enter pastes, Backspace removes, Back closes |
 

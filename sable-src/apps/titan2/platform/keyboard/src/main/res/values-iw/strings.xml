@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">לא ניתן לפתוח את %1$s: לא זמין במכשיר הזה.</string>
     <string name="could_not_open_blocked_by">לא ניתן לפתוח את %1$s: נחסם על ידי המערכת.</string>
     <string name="could_not_open">לא ניתן לפתוח את %1$s.</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">הצעות מילים (השלמה אוטומטית, איות, אימוג\'ים)</string>
+    <string name="system_spell_checker_settings">הגדרות בודק האיות של המערכת</string>
 </resources>

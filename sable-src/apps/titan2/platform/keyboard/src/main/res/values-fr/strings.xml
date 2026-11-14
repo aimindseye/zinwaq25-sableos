@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">Impossible d’ouvrir %1$s : indisponible sur cet appareil.</string>
     <string name="could_not_open_blocked_by">Impossible d’ouvrir %1$s : bloqué par le système.</string>
     <string name="could_not_open">Impossible d’ouvrir %1$s.</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">Suggestions de mots (saisie semi-automatique, orthographe, émojis)</string>
+    <string name="system_spell_checker_settings">Réglages du correcteur orthographique du système</string>
 </resources>

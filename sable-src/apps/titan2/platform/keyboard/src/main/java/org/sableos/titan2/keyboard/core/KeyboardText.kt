@@ -31,6 +31,9 @@ object KeyboardText {
             "auto_capitalise_sentences" to "Auto-capitalise sentences",
             "double_space_inserts_period" to "Double space inserts period",
             "autotext_dont_becomes_don_t" to "AutoText (dont becomes don't, ld the date)",
+            "word_suggestions_autocomplete_spelling_emoji" to
+                "Word suggestions (autocomplete, spelling, emoji)",
+            "system_spell_checker_settings" to "System spell checker settings",
             "long_press_a_letter_for" to "Long-press a letter for its Alt character",
             "letters_type_digits_in_numeric" to "Letters type digits in numeric fields",
             "nav_mode_ijkl_arrows_enabled" to "Nav mode (IJKL arrows) enabled",

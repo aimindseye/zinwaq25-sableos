@@ -14,6 +14,9 @@ internal const val ENTER_SENDS = "enterSends"
 /** Clipboard history (core ClipboardHistory), kept in memory only; off by default. */
 internal const val CLIP_HISTORY = "clipHistory"
 
+/** Word suggestions (autocomplete, spelling, emoji) for the word before the cursor; on by default. */
+internal const val WORD_SUGGEST = "wordSuggest"
+
 /**
  * Stored in device-protected storage so the keyboard works at the lockscreen and during direct boot
  * (critical text entry).

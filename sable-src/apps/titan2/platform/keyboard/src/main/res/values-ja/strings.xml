@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">%1$s を開けませんでした: この端末では利用できません。</string>
     <string name="could_not_open_blocked_by">%1$s を開けませんでした: システムにブロックされました。</string>
     <string name="could_not_open">%1$s を開けませんでした。</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">単語の候補(自動補完、スペルチェック、絵文字)</string>
+    <string name="system_spell_checker_settings">システムのスペルチェック設定</string>
 </resources>

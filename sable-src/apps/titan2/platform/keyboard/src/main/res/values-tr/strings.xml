@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">%1$s açılamadı: bu cihazda kullanılamıyor.</string>
     <string name="could_not_open_blocked_by">%1$s açılamadı: sistem tarafından engellendi.</string>
     <string name="could_not_open">%1$s açılamadı.</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">Kelime önerileri (otomatik tamamlama, yazım denetimi, emoji)</string>
+    <string name="system_spell_checker_settings">Sistem yazım denetimi ayarları</string>
 </resources>

@@ -41,4 +41,6 @@
     <string name="could_not_open_not_available">Kan %1$s niet openen: niet beschikbaar op dit apparaat.</string>
     <string name="could_not_open_blocked_by">Kan %1$s niet openen: geblokkeerd door het systeem.</string>
     <string name="could_not_open">Kan %1$s niet openen.</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">Woordsuggesties (automatisch aanvullen, spelling, emoji)</string>
+    <string name="system_spell_checker_settings">Instellingen voor de systeemspellingscontrole</string>
 </resources>
