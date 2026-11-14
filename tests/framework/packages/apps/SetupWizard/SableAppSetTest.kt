@@ -26,7 +26,7 @@ class SableAppSetTest {
             "org.sableos.tools", "org.sableos.hub", "org.sableos.messages",
             "org.sableos.titan2.camera", "org.sableos.titan2.vault",
         ).forEach { assertEquals(it, true, plan[it]) }
-        listOf("org.sableos.calendar", "org.sableos.notes", "org.sableos.titan2.compass", "org.sableos.sudoku")
+        listOf("org.sableos.calendar", "org.sableos.notes", "org.sableos.titan2.compass", "org.sableos.weather")
             .forEach { assertEquals(it, false, plan[it]) }
         // The browser is off, so Jelly, which stands in for it, is on.
         assertEquals(false, plan["org.sableos.browser"])

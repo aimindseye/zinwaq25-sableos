@@ -36,6 +36,8 @@ puzzle-piece, shopping-bag, video-camera.
 
 Added for the seven new Sable games (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): wall (Bricks), path (Snake),
 squares-four (Blocks), circle-half (Reversi), cards (Solitaire, Indian Games), stack (Mahjong), text-aa (Words).
+The games moved to aimindseye/sablegames (2026-11-14, sable-src 0221), so their icon rows are gone; the glyphs
+stay because Sable Start draws them as the games' app glyphs.
 
 Added for Sable Notes (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): notepad.
 

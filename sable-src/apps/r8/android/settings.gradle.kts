@@ -18,7 +18,6 @@ rootProject.name = "sable-r8-apps"
 include(":design")
 include(":calculator")
 include(":convert")
-include(":games")
 include(":media")
 include(":hub")
 include(":messages")

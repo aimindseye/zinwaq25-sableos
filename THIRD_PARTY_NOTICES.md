@@ -18,9 +18,6 @@ are kept next to it.
 | OpenDyslexic fonts | `.../res/font/open_dyslexic_*.otf` | **To verify.** Upstream publishes it under SIL OFL 1.1 | https://opendyslexic.org |
 | "Monospace" fonts | `.../res/font/monospace_*.ttf` | **To verify.** Name table credits George Williams (FontForge); likely GNU FreeFont, GPL-3.0+ with font exception | unknown |
 | Titan AI status rings: ring drawing and device stats sampler, ported and trimmed | `sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt`, `.../platform/DeviceStatsSampler.kt` | MIT (`sable-src/third_party/titan-ai/LICENSE`; notice kept in each file header) | https://github.com/andrehafner/aiassistant @ `2f4b5d76` |
-| Tilt Maze, Motion 2048 and Sokoban Tilt (Lua games and their levels, ported from rustmix-wave; Sokoban Tilt's later levels are new) | `sable-src/apps/r8/android/games/src/console/assets/console/{tilt_maze,motion_2048,sokoban_tilt}/` | MIT, Copyright Piyush Daiya (noted at the top of each file) | https://github.com/aimindseye/rustmix-wave @ `6feeeb4f` |
-| Tilt Racer's six F1 cars (`f1_*.png`, cut from "Top Down F1 Cars" by EdSquare) | `sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/` | CC0 1.0 (public domain; credit not required, given here and at the top of `main.lua`) | https://opengameart.org/content/top-down-f1-cars (`RacingCars_F1.png`) |
-| Tilt Circuit's track (`track_*.png`): pieces of "Track Tiles" by TRBRY, rearranged into one circuit and cut into squares (changed); the six F1 cars as in Tilt Racer | `sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/` | CC-BY 3.0 (https://creativecommons.org/licenses/by/3.0/), credit to TRBRY; also offered under OGA-BY 3.0 | https://opengameart.org/content/track-tiles (`trackSVG.svg`) |
 | Q25 50 MP remosaic library (`remosaic_shim_v4_rc1.c`) and the byte-edit table in `scripts/camera-50mp.py` | `product/q25/camera-50mp/`, `scripts/camera-50mp.py` | MIT (`product/q25/camera-50mp/LICENSE`) | https://github.com/bellhopsw/q25-50mp @ `caf855d5` |
 | Q25 50 MP kernel change (s5kjn1 sensor driver) | `product/q25/camera-50mp/kernel/` | GPL-2.0, like the kernel it patches | https://github.com/bellhopsw/q25-50mp @ `caf855d5` |
 
@@ -38,7 +35,6 @@ licence text next to each before a public release.
 | `LineageOS/android_hardware_mediatek`, `android_device_mediatek_sepolicy_vndr` | Apache-2.0 |
 | `TheMuppets/proprietary_vendor_xelex_Q25` | Proprietary (Zinwa/MediaTek), redistributed by TheMuppets |
 | Gradle and Android/Maven dependencies of the Sable apps | per dependency |
-| LuaJ 3.0.1 (`org.luaj:luaj-jse`, bundled into Sable Games Console only) | MIT (https://github.com/luaj/luaj) |
 | microG GmsCore and Companion APKs (`SABLE_Q25_MICROG`, pinned in `product/q25/microg/prebuilts.tsv`, shipped unmodified as microG signed them) | Apache-2.0 (https://github.com/microg/GmsCore) |
 | Aurora Store APK (same flag and pin file, unmodified) | GPL-3.0 (https://gitlab.com/AuroraOSS/AuroraStore); its source is at the pinned release tag |
 | eSpeak NG 1.52.0, built from source as Sable Speech (`sable-src/apps/r8/espeak`; application id, ABI and launcher entry changed by `apply_sable_flavor.py`) | GPL-3.0-or-later (https://github.com/espeak-ng/espeak-ng); its source is the pinned commit `4870adfa` plus that folder |

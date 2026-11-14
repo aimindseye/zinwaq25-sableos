@@ -458,9 +458,6 @@ grep -q 'WeatherRefreshJob.ensureScheduled' "$wx/java/org/sableos/weather/Weathe
 # Weather alerts are opt-in (both off by default) and post from the background refresh.
 grep -q 'getBoolean(KEY_MORNING, false), preferences.getBoolean(KEY_RAIN, false)' "$wx/java/org/sableos/weather/WeatherNotifier.kt" && grep -q 'WeatherNotifier.afterRefresh' "$wx/java/org/sableos/weather/WeatherRefreshJob.kt" && grep -q 'POST_NOTIFICATIONS' "$wx/AndroidManifest.xml" || q4_bad="$q4_bad weather-alerts"
 grep -q '\.clickable { onClick() }' sable-src/apps/titan2/platform/displaycompat/src/main/java/org/sableos/titan2/displaycompat/ui/AppListScreen.kt || q4_bad="$q4_bad displaycompat-tap"
-gm=sable-src/apps/r8/android/games/src/main/java/org/sableos/games
-grep -q 'GameLayout.isSquare(width.value, height.value)' "$gm/GameFrame.kt" || q4_bad="$q4_bad games-square"
-for g in SudokuScreen Game2048Screen MinesweeperScreen; do grep -q '^    GameFrame($' "$gm/$g.kt" || q4_bad="$q4_bad games-frame-$g"; done
 grep -q 'ro.sable.keyboard.compact_strip=false' product/q25/sable-q25.mk || q4_bad="$q4_bad strip-prop"
 grep -q 'COMPACT_STRIP_PROP = "ro.sable.keyboard.compact_strip"' sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/KeyboardPrefs.kt || q4_bad="$q4_bad strip-default"
 grep -q 'ro.config.wallpaper=/product/media/wallpaper/sable_default_wallpaper.png' scripts/stage-product.sh || q4_bad="$q4_bad wallpaper-prop"
@@ -470,7 +467,7 @@ grep -q 'METHOD_SELECT = "setup_select_city"' sable-src/apps/r8/android/weather/
 grep -q 'android:authorities="org.sableos.weather.snapshot"' sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml || q4_bad="$q4_bad setup-queries"
 grep -q 'org.sableos.start.action.SHOW_ACTIVE_FRAMES' sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml || q4_bad="$q4_bad start-recents-filter"
 grep -q 'const val COLUMNS = 5' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt || q4_bad="$q4_bad start-5-columns"
-for g in DENSITY GAMES KEYBOARD-STRIP WALLPAPER APPS WEATHER WEATHER-CITY DISPLAYCOMPAT RECENTS START-ICONS; do grep -q "^| Q4-REVIEW-$g |" docs/QUALIFICATION.md || q4_bad="$q4_bad gate:$g"; done
+for g in DENSITY KEYBOARD-STRIP WALLPAPER APPS WEATHER WEATHER-CITY DISPLAYCOMPAT RECENTS START-ICONS; do grep -q "^| Q4-REVIEW-$g |" docs/QUALIFICATION.md || q4_bad="$q4_bad gate:$g"; done
 # Sable boot animation instead of LineageOS's: staged, wired through TARGET_BOOTANIMATION, a stored
 # (uncompressed) zip whose desc.txt fills the 720x720 panel and names both parts.
 grep -q 'TARGET_BOOTANIMATION := vendor/sable/q25/media/bootanimation.zip' scripts/stage-product.sh || q4_bad="$q4_bad bootanimation-wiring"
@@ -488,7 +485,7 @@ for part in ("part0", "part1"):
     assert any(n.startswith(part + "/") and n.endswith(".png") for n in z.namelist())
 PY
 rm -f "$ba_zip"
-if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, games, keyboard strip, wallpaper, boot animation)"; else fail "Q4 review fixes:$q4_bad"; fi
+if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, keyboard strip, wallpaper, boot animation)"; else fail "Q4 review fixes:$q4_bad"; fi
 
 # 6b0. The SableOS home (TenSeven, apps.tsv "platformapp"): platform certificate, not privileged,
 #      replaces Sable Start, Q4 only; and the flavor composes the pinned upstream's entry points.
@@ -895,32 +892,17 @@ if [[ -f "${kq[0]}" ]]; then
 else pw_missing="$pw_missing file:kernel/0202"; fi
 if [[ -z "$pw_missing" ]]; then pass "battery drain guards: no Doze location prefetch, MediaTek and keyboard debug logging off"; else fail "battery drain guards:$pw_missing"; fi
 
-# Sable Indian Games (sable-src 0219): ten card games and two board games in one app, play money only.
-ig=sable-src/apps/r8/android/games/src/main/java/org/sableos/games
-ig_bad=""
-grep -qP '^SableIndianGames\tcommon\tapps/r8/android\t:games:assembleIndiangamesRelease\t' product/q25/apps.tsv || ig_bad="$ig_bad apps.tsv"
-for f in TeenPattiGame RummyGame TrickGame BluffGame DonkeyGame GulamChoorGame BoardGames IndianUi IndianCardScreens IndianBoardScreens; do
-    [[ -f "$ig/$f.kt" ]] || ig_bad="$ig_bad file:$f"
-done
-[[ -f sable-src/apps/r8/android/games/src/test/java/org/sableos/games/IndianGamesTest.kt ]] || ig_bad="$ig_bad test"
-grep -q 'Practice chips only' "$ig/IndianCardScreens.kt" || ig_bad="$ig_bad practice-chips-banner"
-grep -qi 'purchase\|billing\|payment' "$ig/TeenPattiGame.kt" "$ig/IndianCardScreens.kt" && ig_bad="$ig_bad real-money"
-grep -q '^| Q4-INDIAN-GAMES-MENU |' docs/QUALIFICATION.md || ig_bad="$ig_bad qualification"
-if [[ -z "$ig_bad" ]]; then pass "Sable Indian Games: twelve games, play money only, tests present"; else fail "indian games:$ig_bad"; fi
-
-# Sable Games Console (sable-src 0207): Lua games in a sandbox, four motion games, no permissions.
-gc=sable-src/apps/r8/android/games/src/console
-gc_bad=""
-grep -qP '^SableGamesConsole\tcommon\tapps/r8/android\t:games:assembleConsoleRelease\t' product/q25/apps.tsv || gc_bad="$gc_bad apps.tsv"
-for g in tilt_maze motion_2048 sokoban_tilt tilt_racer; do
-    [[ -f "$gc/assets/console/$g/game.toml" && -f "$gc/assets/console/$g/main.lua" ]] || gc_bad="$gc_bad game:$g"
-done
-grep -q 'uses-permission' "$gc/AndroidManifest.xml" && gc_bad="$gc_bad permission"
-grep -q 'JseIoLib\|JseOsLib\|LuajavaLib\|CoroutineLib' "$gc/java/org/sableos/games/console/LuaGame.kt" && gc_bad="$gc_bad sandbox-libs"
-grep -q 'private class Runaway : Error' "$gc/java/org/sableos/games/console/LuaGame.kt" || gc_bad="$gc_bad budget"
-[[ -f sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/LuaGameTest.kt ]] || gc_bad="$gc_bad test"
-grep -q ':games:testConsoleDebugUnitTest' .github/workflows/android.yml || gc_bad="$gc_bad ci"
-if [[ -z "$gc_bad" ]]; then pass "Sable Games Console: sandboxed Lua games, four motion games, no permissions"; else fail "games console:$gc_bad"; fi
+# Sable games moved to aimindseye/sablegames (owner, 2026-11-14; sable-src 0221): SableOS no longer
+# builds or ships them, so no games module, no game rows in apps.tsv and no games tasks in CI.
+games_bad=""
+[[ -e sable-src/apps/r8/android/games ]] && games_bad="$games_bad module"
+grep -q '":games"' sable-src/apps/r8/android/settings.gradle.kts && games_bad="$games_bad settings"
+grep -q 'luaj' sable-src/apps/r8/android/gradle/libs.versions.toml && games_bad="$games_bad luaj"
+grep -qP '^[^#][^\t]*\t[^\t]*\t[^\t]*\t:games:' product/q25/apps.tsv && games_bad="$games_bad apps.tsv"
+grep -q ':games:' .github/workflows/android.yml && games_bad="$games_bad ci"
+grep -q 'org.sableos.sudoku' patches/framework/packages/apps/SetupWizard/0416-*.patch && games_bad="$games_bad setup-optional"
+[[ -f patches/sable-src/0221-games-moved-to-sablegames.patch ]] || games_bad="$games_bad patch"
+if [[ -z "$games_bad" ]]; then pass "Sable games moved to sablegames: not built or shipped by SableOS"; else fail "games removal:$games_bad"; fi
 
 # Q25 keyboard (kernel 0905): the driver's hidden Alt + Right Shift num lock is gone, so W..C stay letters.
 nl=(patches/framework/kernel/xelex/mt6789/0905-*.patch)
@@ -1349,7 +1331,6 @@ done <<EOF_I18N
 sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorText.kt sable-src/apps/r8/android/calculator/src/main/res/values/strings.xml sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorApplication.kt sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/CalculatorTextTest.kt
 sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarText.kt sable-src/apps/r8/android/calendar/src/main/res/values/strings.xml sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarApplication.kt sable-src/apps/r8/android/calendar/src/test/java/org/sableos/calendar/CalendarTextTest.kt
 sable-src/apps/r8/android/convert/src/main/java/org/sableos/convert/ConvertText.kt sable-src/apps/r8/android/convert/src/main/res/values/strings.xml sable-src/apps/r8/android/calculator/src/main/java/org/sableos/calculator/CalculatorApplication.kt sable-src/apps/r8/android/calculator/src/test/java/org/sableos/calculator/ConvertTextTest.kt
-sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesText.kt sable-src/apps/r8/android/games/src/main/res/values/strings.xml sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesApplication.kt sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GamesTextTest.kt
 sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubText.kt sable-src/apps/r8/android/hub/src/main/res/values/strings.xml sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubApplication.kt sable-src/apps/r8/android/hub/src/test/java/org/sableos/hub/HubTextTest.kt
 sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaText.kt sable-src/apps/r8/android/media/src/main/res/values/strings.xml sable-src/apps/r8/android/media/src/main/java/org/sableos/media/MediaApplication.kt sable-src/apps/r8/android/media/src/test/java/org/sableos/media/MediaTextTest.kt
 sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/core/MessagesText.kt sable-src/apps/r8/android/messages/src/main/res/values/strings.xml sable-src/apps/r8/android/messages/src/main/java/org/sableos/messages/MessagesApplication.kt sable-src/apps/r8/android/messages/src/test/java/org/sableos/messages/MessagesTextTest.kt
