@@ -37,3 +37,7 @@ f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-sh
 f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:7851
 f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:8024
 f74d1800af26ab806402c71b2867cc3af41bbddc:patches/sable-src/0214-games-console-shapes-sky-roll-and-ramp-rush.patch:sourcegraph-access-token:8212
+# False positive: Key Mapper's pinned upstream git commit (KEYMAPPER_COMMIT); "KEY" in the variable name
+# matches generic-api-key.
+94f7f9791e5dec3462743a977a10a0ff4c6e9f87:sable-src/apps/r8/keymapper/upstream.env:generic-api-key:2
+94f7f9791e5dec3462743a977a10a0ff4c6e9f87:patches/sable-src/0218-key-mapper.patch:generic-api-key:179
