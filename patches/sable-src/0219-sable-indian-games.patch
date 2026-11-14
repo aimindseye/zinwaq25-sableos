@@ -4875,7 +4875,7 @@ index 00000000..9e30db46
 +    }
 +}
 diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
-index d9450e22..a87db97e 100644
+index 75bf51f2..1c164bce 100644
 --- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
 +++ b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
 @@ -25,6 +25,7 @@ blocks	ic_sable_game	squares-four	f70d6b20e08e028ab5b1714077681910a2431092cf7a23
