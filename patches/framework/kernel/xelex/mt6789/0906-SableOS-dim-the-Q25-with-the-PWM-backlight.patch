@@ -1,0 +1,117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 14 Nov 2026 15:24:31 +0000
+Subject: [PATCH] SableOS: dim the Q25 with the PWM backlight, as the stock
+ brightness dtbo does
+
+The Q25 overlay set the backlight through the OCP2131 gate IC, stepping
+its output in 25 steps, so the lowest step was still bright. The Q25's
+stock brightness dtbo drives it with the display PWM instead. Make the
+same display changes here, all of which were needed on the owner's Q25
+(2026-11-14, dtbo tests A to D):
+
+- mtk_leds: mediatek,pwm-leds, led_mode 5, pwms = <&disp_pwm 0 393850>.
+- GPIO 84 starts in mode 1, DISP_PWM (cust.dtsi), so the PWM reaches the
+  backlight. It was a plain GPIO for the OCP2131's gate power.
+- The panel's LED enable pins move from GPIO 84 to GPIO 156. On GPIO 84
+  they forced the PWM pin high at every screen on, so the slider barely
+  dimmed and the lock screen stayed bright.
+- The OCP2131 node is disabled and the panel's board_name is dropped, as
+  in the stock dtbo. (The first version of this patch kept board_name and
+  GPIO 84 as they were and left the panel black.)
+
+q20_v12_factory/cust.dtsi is a link to q20_v1_factory/cust.dtsi, so the
+GPIO 84 row is changed there; SableOS builds only the Q25 (q20_v12).
+---
+ .../boot/dts/mediatek/q20_v12_factory.dts     | 27 +++++++++++++------
+ .../dts/mediatek/q20_v1_factory/cust.dtsi     |  2 +-
+ 2 files changed, 20 insertions(+), 9 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/mediatek/q20_v12_factory.dts b/arch/arm64/boot/dts/mediatek/q20_v12_factory.dts
+index a982a5c..e26e079 100644
+--- a/arch/arm64/boot/dts/mediatek/q20_v12_factory.dts
++++ b/arch/arm64/boot/dts/mediatek/q20_v12_factory.dts
+@@ -16,14 +16,20 @@
+ 
+ };
+ 
++/*
++ * SableOS: drive the backlight with the display PWM, as the Q25's stock
++ * brightness dtbo does, instead of stepping the OCP2131's output voltage in
++ * 25 steps whose lowest is still bright. The PWM leaves on GPIO 84 (see the
++ * panel's LED enable pins below and GPIO 84 in cust.dtsi).
++ */
+ &mtk_leds {
+-	compatible = "mediatek,i2c-leds";
++	compatible = "mediatek,pwm-leds";
+ 
+ 	backlight {
+-		led_mode = <6>;
+-		gate_enable = <0>;
++		led_mode = <5>;
++		pwms = <&disp_pwm 0 393850>;
++		pwm-names = "lcd-backlight";
+ 		pwm_config = <0 1 0 0 0>;
+-		max-hw-brightness = <25>;
+ 	};
+ };
+ 
+@@ -63,9 +69,14 @@
+ 
+ 
+ &pio {
++	/*
++	 * SableOS: the panel's LED enable is GPIO 156, as in the stock brightness
++	 * dtbo. On GPIO 84 it forced the PWM pin to a plain high at every screen
++	 * on, so the slider barely dimmed.
++	 */
+ 	mtkfb_pins_lcm_led_en1: lcm_led_en1_gpio {
+ 		pins_cmd_dat {
+-			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
++			pinmux = <PINMUX_GPIO156__FUNC_GPIO156>;
+ 			slew-rate = <1>;
+ 			output-high;
+ 		};
+@@ -73,7 +84,7 @@
+ 
+ 	mtkfb_pins_lcm_led_en0: lcm_led_en0_gpio {
+ 		pins_cmd_dat {
+-			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
++			pinmux = <PINMUX_GPIO156__FUNC_GPIO156>;
+ 			slew-rate = <1>;
+ 			output-low;
+ 		};
+@@ -133,7 +144,6 @@
+ 		reg = <0>;
+ 		reset-gpios = <&pio 85 0>;
+ 		avdd-gpios  = <&pio 156 0>;
+-		board_name = "q20_v12";
+ 		port {
+ 			panel_in1: endpoint {
+ 				remote-endpoint = <&dsi_out>;
+@@ -241,7 +251,8 @@
+ 		reg = <0x3e>;
+ 		id = <6>;
+ 		gate-power-gpios = <&pio 84 0>;
+-		status = "okay";
++		/* SableOS: off, as in the stock brightness dtbo; GPIO 84 is the PWM now. */
++		status = "disabled";
+ 	};
+ };
+ 
+diff --git a/arch/arm64/boot/dts/mediatek/q20_v1_factory/cust.dtsi b/arch/arm64/boot/dts/mediatek/q20_v1_factory/cust.dtsi
+index cb5d383..698ee05 100644
+--- a/arch/arm64/boot/dts/mediatek/q20_v1_factory/cust.dtsi
++++ b/arch/arm64/boot/dts/mediatek/q20_v1_factory/cust.dtsi
+@@ -105,7 +105,7 @@
+ 		<81 1 0 0 0 0 1>,
+ 		<82 1 0 0 1 1 1>,
+ 		<83 1 0 0 1 0 1>,
+-		<84 0 1 0 1 0 1>,
++		<84 1 0 0 0 0 1>,
+ 		<85 1 0 0 0 0 1>,
+ 		<86 1 0 0 1 0 0>,
+ 		<87 1 0 0 1 0 0>,
+-- 
+2.43.0
+

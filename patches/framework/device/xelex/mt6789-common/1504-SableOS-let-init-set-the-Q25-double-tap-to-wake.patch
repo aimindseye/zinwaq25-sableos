@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 14 Nov 2026 15:25:06 +0000
+Subject: [PATCH] SableOS: let init set the Q25 double-tap to wake
+
+The touch driver's wake_gesture module parameter (kernel patch 0903)
+carries the generic sysfs label, so init could not copy Settings'
+Double-tap to wake choice into it (sable-dt2w.rc). On the owner's Q25
+(2026-11-14) the switch was on, the parameter stayed N, and init logged
+avc: denied { write } for name="wake_gesture" scontext=u:r:init:s0
+tcontext=u:object_r:sysfs:s0. Label it sysfs_sable_dt2w and let init
+write it; no app can.
+---
+ sepolicy/vendor/genfs_contexts | 3 +++
+ sepolicy/vendor/sable_dt2w.te  | 6 ++++++
+ 2 files changed, 9 insertions(+)
+ create mode 100644 sepolicy/vendor/sable_dt2w.te
+
+diff --git a/sepolicy/vendor/genfs_contexts b/sepolicy/vendor/genfs_contexts
+index 0d3cab9..faae1a4 100644
+--- a/sepolicy/vendor/genfs_contexts
++++ b/sepolicy/vendor/genfs_contexts
+@@ -11,3 +11,6 @@ genfscon proc /firmware_upgrade u:object_r:proc_sable_kbd_fw:s0
+ 
+ # SableOS: trackpad mode switch (bbqX0kbd), 1 arrow keys, 0 pointer; init writes Settings' choice
+ genfscon proc /q20_switch_key_mouse u:object_r:proc_sable_trackpad:s0
++
++# SableOS: double-tap to wake switch (synaptics_dsx, kernel 0903); init writes Settings' choice
++genfscon sysfs /module/mtk_touchscreen_hodafonehw/parameters/wake_gesture u:object_r:sysfs_sable_dt2w:s0
+diff --git a/sepolicy/vendor/sable_dt2w.te b/sepolicy/vendor/sable_dt2w.te
+new file mode 100644
+index 0000000..bad9369
+--- /dev/null
++++ b/sepolicy/vendor/sable_dt2w.te
+@@ -0,0 +1,6 @@
++# SableOS: /sys/module/mtk_touchscreen_hodafonehw/parameters/wake_gesture, the Q25 touch panel's
++# double-tap to wake (kernel patch 0903). Settings stores the choice in persist.sys.sable.dt2w and
++# init writes the node (system_ext/etc/init/sable-dt2w.rc); no app may write it.
++type sysfs_sable_dt2w, fs_type, sysfs_type;
++
++allow init sysfs_sable_dt2w:file w_file_perms;
+-- 
+2.43.0
+
