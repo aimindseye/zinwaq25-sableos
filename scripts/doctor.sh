@@ -64,6 +64,28 @@ else
     warn android-sdk "ANDROID_HOME=$ANDROID_HOME missing (needed only for 'apps')"
 fi
 
+# Key Mapper (flavor:keymapper) builds its evdev module with NDK 27.3 and Rust for four Android
+# targets, against SDK 37; GitHub CI installs the same (.github/workflows/android.yml).
+if [[ -d "$ANDROID_HOME" ]]; then
+    for pkg in ndk/27.3.13750724 platforms/android-37.0; do
+        if [[ -d "$ANDROID_HOME/$pkg" ]]; then
+            check "android-sdk:$pkg" yes "$ANDROID_HOME/$pkg"
+        else
+            warn "android-sdk:$pkg" "missing; Key Mapper needs it: sdkmanager '${pkg/\//;}'"
+        fi
+    done
+fi
+if command -v rustup >/dev/null 2>&1; then
+    rust_targets="$(rustup target list --installed 2>/dev/null)"
+    for target in armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android; do
+        grep -qx "$target" <<< "$rust_targets" ||
+            warn "rust:$target" "missing; Key Mapper needs it: rustup target add $target"
+    done
+    check tool:rustup yes "$(command -v rustup)"
+else
+    warn tool:rustup "not on PATH; Key Mapper needs Rust 1.93.0 with the Android targets (docs/BUILD.md)"
+fi
+
 java_bin="${SABLE_JDK:+$SABLE_JDK/bin/}java"
 if command -v "$java_bin" >/dev/null 2>&1; then
     check jdk yes "$("$java_bin" -version 2>&1 | grep -m1 ' version ')"
