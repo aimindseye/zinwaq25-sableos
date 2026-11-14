@@ -29,10 +29,11 @@ import org.sableos.titan2.keyboard.core.KeyboardText.t
 import org.sableos.titan2.keyboard.core.Mod
 import org.sableos.titan2.keyboard.core.ModState
 import org.sableos.titan2.keyboard.core.Out
-import org.sableos.titan2.keyboard.core.PinyinDict
 import org.sableos.titan2.keyboard.core.Resolver
 import org.sableos.titan2.keyboard.core.StripInputs
 import org.sableos.titan2.keyboard.core.StripMode
+import org.sableos.titan2.keyboard.core.SymGrid
+import org.sableos.titan2.keyboard.core.SymGridSession
 
 /**
  * Physical-keyboard-first IME. Hardware keys are resolved by the pure-Kotlin [Resolver]; the on-screen view is only a
@@ -138,8 +139,7 @@ class SableImeService : InputMethodService() {
     private var strip: CompactStripView? = null
     private var stripMode = StripMode.Hidden
 
-    @Volatile private var pinyinDict: PinyinDict? = null
-    private var pinyinLoading = false
+    private val pinyin = PinyinLoader(this) { ui.post { refreshStrip() } }
     private var lastComposeAt = 0L
     private val ui = android.os.Handler(android.os.Looper.getMainLooper())
 
@@ -151,32 +151,13 @@ class SableImeService : InputMethodService() {
             commitOut(s)
             refreshStrip()
         },
-        { chip -> clipSelected?.let { ClipPicker.entryForChip(chip, it) }?.let(::pasteClip) }
+        { chip -> clipSelected?.let { ClipPicker.entryForChip(chip, it) }?.let(::pasteClip) },
+        { chip -> sym.page?.let { SymGrid.symbolForChip(chip, it) }?.let(::pickSymbol) }
     ).also {
         strip = it
         refreshStrip()
     }
 
-    private fun loadPinyinOnce() {
-        if (pinyinDict != null || pinyinLoading) return
-        pinyinLoading = true
-        Thread {
-            try {
-                val d = assets.open("pinyin_zh.tsv").bufferedReader(Charsets.UTF_8).use {
-                    PinyinDict.parse(it.lineSequence())
-                }
-                pinyinDict = d
-                ui.post { refreshStrip() }
-            } catch (_: Exception) {
-                pinyinLoading = false
-            }
-        }.start()
-    }
-
-    /**
-     * Commits [commit] (which replaces the old composing region), then shows the composer's new composing text and
-     * candidates.
-     */
     private fun applyComposition(commit: String) {
         val ic = currentInputConnection ?: return
         val comp = composer ?: return
@@ -246,7 +227,8 @@ class SableImeService : InputMethodService() {
         variation = resolver.variation(),
         layout = resolver.layout,
         nowMs = android.os.SystemClock.uptimeMillis(),
-        clips = clipSelected?.let { ClipPicker.chips(ClipboardWatcher.history.entries, it) }
+        clips = clipSelected?.let { ClipPicker.chips(ClipboardWatcher.history.entries, it) },
+        symGrid = sym.page?.let { SymGrid.chips(it) }
     )
 
     private fun dropComposition() {
@@ -285,6 +267,7 @@ class SableImeService : InputMethodService() {
     override fun onFinishInput() {
         super.onFinishInput()
         clipSelected = null
+        sym.close()
         fieldClass = InputClass.None
         resolver.clearVariation()
         suggester.reset()
@@ -305,8 +288,8 @@ class SableImeService : InputMethodService() {
         resolver.language = l
         softView?.setLanguage(l)
         if (changed || (composer == null && l.engine != Engine.Direct)) {
-            composer = Composers.create(l.engine, { pinyinDict }, l.phonetic)
-            if (l.engine == Engine.Pinyin) loadPinyinOnce()
+            composer = Composers.create(l.engine, { pinyin.dict }, l.phonetic)
+            if (l.engine == Engine.Pinyin) pinyin.loadOnce()
             refreshStrip()
         }
         refreshStrip()
@@ -393,11 +376,51 @@ class SableImeService : InputMethodService() {
     }
 
     /** History picker keys, candidate picks (Ctrl+1/2/3, Ctrl+W/E/R), Enter-to-send, Alt+Shift+V. */
-    private fun handleShortcut(keyCode: Int, event: KeyEvent): Boolean = clipKey(keyCode, event) ||
-        pickCandidate(keyCode, event) ||
-        acceptWithTab(keyCode, event) ||
-        sendWithEnter(keyCode, event) ||
-        openClips(keyCode, event)
+    private fun handleShortcut(keyCode: Int, event: KeyEvent): Boolean =
+        symGridKey(keyCode, event) ||
+            toggleSoftKeyboard(keyCode, event) ||
+            clipKey(keyCode, event) ||
+            pickCandidate(keyCode, event) ||
+            acceptWithTab(keyCode, event) ||
+            sendWithEnter(keyCode, event) ||
+            openClips(keyCode, event)
+
+    // ---- Sym grid (letter-labelled symbol chart opened by a Sym tap)
+    private val sym = SymGridSession()
+
+    /** A key while the Sym grid is open (letter types its symbol, Sym turns the page, Back closes). */
+    private fun symGridKey(keyCode: Int, event: KeyEvent): Boolean {
+        val action = sym.onDown(keyCode, event.repeatCount, event.eventTime)
+        when (action) {
+            is SymGrid.Action.Pick -> pickSymbol(action.symbol)
+            SymGrid.Action.ClosePass -> refreshStrip()
+            else -> Unit
+        }
+        return action != null && action != SymGrid.Action.Ignore &&
+            action != SymGrid.Action.ClosePass
+    }
+
+    private fun pickSymbol(symbol: String) {
+        sym.close()
+        resolver.mods.consumeOneShots()
+        composer?.let { applyComposition(it.flush()) }
+        commitOut(symbol)
+        refreshStrip()
+    }
+
+    private fun toggleSoftKeyboard(keyCode: Int, event: KeyEvent): Boolean {
+        val hit = event.repeatCount == 0 && SymGrid.togglesSoftKeyboard(
+            keyCode,
+            event.isAltPressed,
+            event.isShiftPressed,
+            event.isCtrlPressed || event.isMetaPressed
+        )
+        if (hit) {
+            resolver.mods.markChordUse()
+            apply(Out.ToggleSoftKeyboard)
+        }
+        return hit
+    }
 
     // ---- clipboard history picker: null while closed, else the selected entry
     private var clipSelected: Int? = null
@@ -623,8 +646,13 @@ class SableImeService : InputMethodService() {
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         val key = KeyMapper.map(keyCode, event.getUnicodeChar(0))
-        if (key !is Key.Other) resolver.onKey(KeyEv(key, false, event.eventTime), fieldCtx())
-        if (key !is Key.Other) refreshStrip()
+        // Before the resolver sees the release, so the tap does not also leave a one-shot modifier.
+        val opened = sym.onUp(keyCode, event.eventTime, fieldClass != InputClass.None)
+        if (opened) resolver.mods.markChordUse()
+        if (key !is Key.Other && !sym.swallowsUp(keyCode)) {
+            resolver.onKey(KeyEv(key, false, event.eventTime), fieldCtx())
+        }
+        if (key !is Key.Other || opened) refreshStrip()
         return handledDown.remove(keyCode) || super.onKeyUp(keyCode, event)
     }
 

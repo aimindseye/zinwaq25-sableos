@@ -26,7 +26,8 @@ class CompactStripView(
     context: Context,
     private val onCandidate: (Int) -> Unit,
     private val onSymbol: (String) -> Unit,
-    private val onClipChip: (Int) -> Unit
+    private val onClipChip: (Int) -> Unit,
+    private val onGridChip: (Int) -> Unit
 ) : LinearLayout(context) {
     private val dp = resources.displayMetrics.density
     private val status = LinearLayout(context).apply {
@@ -110,6 +111,7 @@ class CompactStripView(
             is StripContent.Variation -> content.showItems(c.options, c.selected, null)
             is StripContent.Symbols -> content.showItems(c.items, -1) { onSymbol(c.items[it]) }
             is StripContent.Clips -> content.showItems(c.chips, 1) { onClipChip(it) }
+            is StripContent.SymGridChips -> content.showItems(c.chips, 0) { onGridChip(it) }
         }
     }
 
