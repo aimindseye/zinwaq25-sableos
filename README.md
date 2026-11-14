@@ -86,6 +86,7 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Hardening plan](docs/HARDENING_PLAN.md) | GrapheneOS-style protections: what SableOS has, what can be ported, and what blocks it |
 | [Architecture](docs/ARCHITECTURE.md) | How the LineageOS base and Sable layer fit together |
 | [Keyboard and input](docs/KEYBOARD_AND_INPUT.md) | Q25 keyboard, trackpad, key profile, AutoText and speed dial |
+| [Sable Indian Games](docs/USER_GUIDE.md#sable-indian-games) | Ten card games (Teen Patti with practice chips only, Indian Rummy, Mendicot, Callbreak, Judgement, 2-3-5, Bluff, Donkey, Gulam Choor, Filmi Rummy) and Snakes & Ladders and Ludo in one app: how to play and the keys |
 | [Games Console games](docs/GAMES_CONSOLE.md) | Writing a Lua game for Sable Games Console: `game.toml`, the script's calls, the sandbox |
 | [Make your own game](docs/GAMES_CONSOLE_TUTORIAL.md) | A step-by-step tutorial: build Star Catch, put it on the phone, and what games can and can't do |
 | [Languages](docs/LANGUAGES.md) | What is translated and how to translate a Sable app |

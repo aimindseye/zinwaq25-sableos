@@ -53,7 +53,7 @@ jobs:
               :calendar:testDebugUnitTest :tasks:testDebugUnitTest :browser:testDebugUnitTest :assistant:testDebugUnitTest :games:testSudokuDebugUnitTest :games:testConsoleDebugUnitTest
               :sablestart-visual-review:assembleDebug
               :design:lintDebug :calculator:lintDebug :convert:lintDebug
-              :games:lintSudokuDebug :games:lintMinesweeperDebug :games:lintGame2048Debug :games:lintConsoleDebug
+              :games:lintSudokuDebug :games:lintMinesweeperDebug :games:lintGame2048Debug :games:lintConsoleDebug :games:lintIndiangamesDebug
               :media:lintDebug :hub:lintDebug :messages:lintDebug :weather:lintDebug
               :calendar:lintDebug :notes:lintDebug :tasks:lintDebug :browser:lintDebug :assistant:lintDebug :sablestart-presentation-check:lintDebug
               :design:detekt :calculator:detekt :convert:detekt :games:detekt :media:detekt

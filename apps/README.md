@@ -44,7 +44,7 @@ anything looks like web-page account data. Review the diff before committing.
 ## Which apps go into the image
 
 `product/q25/apps.tsv` lists them. Enabled: the five keyboard-first platform
-apps (Keyboard, Camera, DisplayCompat, Setup, Sable Tools) and the common set (Calculator, the ten games,
+apps (Keyboard, Camera, DisplayCompat, Setup, Sable Tools) and the common set (Calculator, the ten games, Sable Indian Games,
 Media, Hub, Weather, Calendar, Messages, Notes, Reader v2, Mail, Text Reader, Terminal).
 Mail, Text Reader and Terminal are `flavor:` rows: the build fetches the pinned upstream
 (Thunderbird, Vaachak Text Reader, ConnectBot) once into `SABLE_UPSTREAM_CACHE`, which needs
