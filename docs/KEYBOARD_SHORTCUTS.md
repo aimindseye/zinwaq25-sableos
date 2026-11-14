@@ -373,6 +373,7 @@ The keys for each game are in [Games](USER_GUIDE.md#games) and [Sable Games Cons
 - **Sudoku:** W E R S D F Z X C (or Alt+digits) enter 1 to 9, Del erases.
 - **Minesweeper:** F or G flags.
 - **Mahjong:** H shows a pair. **Solitaire:** A sends a card to its foundation, Del lets go.
+- **Sable Indian Games:** arrows or the trackpad choose, Enter confirms, Space selects or rolls, Del cancels, T switches tab in the menu. Teen Patti: C chaal, R raise, T show, P pack, L look. Rummy: Z stock, X open pile, M declare, G group, O sort. Bluff: B calls. Donkey: Space grabs a spoon.
 - **Console library:** Left / Right change tab, Up / Down pick, Space or Enter plays, I details, A add games, S settings.
 - **Console tilt games:** W A S D work like the arrows, Space sets level before a game, K plays with keys, Back or P pauses. In the pause menu: R resume, N new game, L level again, T tilt sensitivity, K keys, Q quit.
 

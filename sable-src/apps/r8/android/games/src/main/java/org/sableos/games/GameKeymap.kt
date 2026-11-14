@@ -47,6 +47,9 @@ internal sealed interface GameCommand {
 
     /** A in Solitaire: send the selected card to its foundation. */
     data object Auto : GameCommand
+
+    /** Space in the Indian card and board games: select, or roll. */
+    data object Select : GameCommand
 }
 
 /** A key-down reduced to what the keymap needs, so the mapping is testable on the JVM. */
@@ -59,7 +62,7 @@ internal data class GameKeyPress(
     val repeatCount: Int = 0,
 )
 
-internal enum class GameKind { Sudoku, Minesweeper, Game2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words }
+internal enum class GameKind { Sudoku, Minesweeper, Game2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words, Indian }
 
 internal object GameKeymap {
     /** BlackBerry-style digit keys: W E R S D F Z X C are 1-9. */
@@ -93,6 +96,45 @@ internal object GameKeymap {
             GameKind.Solitaire -> solitaire(press)
             GameKind.Mahjong -> mahjong(press)
             GameKind.Words -> words(press)
+            GameKind.Indian -> indian(press)
+        }
+    }
+
+    /**
+     * The Indian card and board games. Arrows or the trackpad move. Enter is Primary, Space is Select, Del
+     * or Escape cancels, and every letter is a [GameCommand.Letter] the screen may use. A digit key (the
+     * Alt layer on the Q25 included) gives [GameCommand.Digit].
+     */
+    private fun indian(press: GameKeyPress): GameCommand? {
+        if (press.alt && press.char?.isDigit() != true) return null
+        val digit = press.char?.takeIf { it in '0'..'9' }
+        return when {
+            digit != null -> {
+                GameCommand.Digit(digit.digitToInt())
+            }
+
+            press.alt -> {
+                null
+            }
+
+            press.keyCode == KeyEvent.KEYCODE_ENTER || press.keyCode == KeyEvent.KEYCODE_DPAD_CENTER -> {
+                GameCommand.Primary
+            }
+
+            press.keyCode == KeyEvent.KEYCODE_SPACE -> {
+                GameCommand.Select
+            }
+
+            press.keyCode == KeyEvent.KEYCODE_DEL || press.keyCode == KeyEvent.KEYCODE_ESCAPE -> {
+                GameCommand.Erase
+            }
+
+            else -> {
+                press.char
+                    ?.takeIf {
+                        it.isLetter() && it.lowercaseChar() in 'a'..'z'
+                    }?.let { GameCommand.Letter(it.uppercaseChar()) }
+            }
         }
     }
 

@@ -77,6 +77,13 @@ android {
             resValue("string", "app_name", "Sable Words")
             buildConfigField("String", "SABLE_GAME", "\"words\"")
         }
+        // Sable Indian Games: ten card games and two board games in one app, with a game menu.
+        create("indiangames") {
+            dimension = "game"
+            applicationId = "org.sableos.indiangames"
+            resValue("string", "app_name", "Sable Indian Games")
+            buildConfigField("String", "SABLE_GAME", "\"indiangames\"")
+        }
         // Sable Games Console: games written in Lua, added from a folder without rebuilding the app.
         create("console") {
             dimension = "game"

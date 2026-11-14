@@ -35,7 +35,7 @@ the same path data): address-book, clock, folder-simple, gear-six, globe, image-
 puzzle-piece, shopping-bag, video-camera.
 
 Added for the seven new Sable games (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): wall (Bricks), path (Snake),
-squares-four (Blocks), circle-half (Reversi), cards (Solitaire), stack (Mahjong), text-aa (Words).
+squares-four (Blocks), circle-half (Reversi), cards (Solitaire, Indian Games), stack (Mahjong), text-aa (Words).
 
 Added for Sable Notes (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): notepad.
 

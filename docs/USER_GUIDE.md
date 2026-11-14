@@ -156,6 +156,7 @@ Every Sable app uses the SableOS look (black and white with one blue accent) and
 | Reader | Books (EPUB), PDF, comics and audiobooks, all stored on the phone | See [Comics and audiobooks](#comics-and-audiobooks) below; B bookmark, T contents, A view settings |
 | Calculator | Keyboard-first | Digits (W E R S D F Z X C work without Alt), + - * /, Enter or = equals, Del deletes, Esc clears |
 | Games | Ten games, each its own app: Sudoku, Minesweeper, 2048, Bricks, Snake, Blocks, Reversi, Solitaire, Mahjong, Words | See [Games](#games) below |
+| Sable Indian Games | Ten card games and two board games in one app, with a menu: Teen Patti (practice chips only, no real value), Indian Rummy, Mendicot, Callbreak, Judgement, 2-3-5, Bluff, Donkey, Gulam Choor and Filmi Rummy; Snakes & Ladders and Ludo. You play against phone players with names from all over the world | See [Sable Indian Games](#sable-indian-games) below |
 | Sable Games Console | Games you add without a new build: each is a small Lua script. Comes with eight motion games: Tilt Maze, Motion 2048, Sokoban Tilt, Tilt Racer, Tilt Circuit, Ball Maze, Sky Roll and Ramp Rush | See [Sable Games Console](#sable-games-console) below |
 | Tools | Device reports you can save to Download/SableTools. Its utilities (SOS and alarm, pedometer with a goal and 7-day history, flashlight, compass and more) show on the Q25 only when Developer options and Tools' developer mode are on, until each is proven on the phone | C copy, S save, M more. In the pedometer, Menu sets height, weight and goal |
 | Vault | Private Space and Mobile Manager's app controls (App Control Center, Network access, Freezer, Deep sleeping apps, Focus and Student mode) | Deep sleeping apps: Settings > Apps > Mobile Manager > Deep sleeping apps. To see what an app can do and what changed in it, open Settings > Apps > App security & privacy (signing, permissions, exposed parts, tracker signals, changes seen on this phone) |
@@ -207,6 +208,25 @@ Every game plays from the keyboard or the trackpad (which sends arrow keys), and
 <img src="images/q25/mahjong.png" alt="Mahjong" width="150">
 <img src="images/q25/words.png" alt="Words" width="150">
 </p>
+
+### Sable Indian Games
+
+Sable Indian Games opens on a menu with two tabs, Card games and Board games. Arrows or the trackpad choose a game, Enter opens it, T switches tab and Back returns to the menu. In every game the arrows move, Enter confirms, Space selects (or rolls), Del cancels and N starts over; touch works too. You play against phone players, and their names are drawn from names all over the world.
+
+| Game | How to play | Keys |
+| --- | --- | --- |
+| Teen Patti | Three-card brag against three phone players, with practice chips only: they cannot be bought, sold or won as anything else. Play blind or look; chaal, raise, pack, or ask for a show | Left/Right and Enter choose; C chaal, R raise, T show, P pack, L look |
+| Indian Rummy | 13 cards, two decks, a wild joker for the round. Declare with two sequences (one pure) and the rest in sets or sequences; a wrong declaration costs 80 points | Z draws from the stock, X takes the open card; Space picks a card up, then arrows move it; Enter throws; M declares; G groups your melds; O sorts |
+| Filmi Rummy | The same rules as Indian Rummy with an original film theme: four invented roles in place of the suits and "plot twist" jokers. No real people or films | As Indian Rummy |
+| Mendicot | Four players in partnerships, hidden trump (shown when someone cannot follow suit); win the tens | Left/Right choose a card; Enter plays |
+| Callbreak | Bid the tricks you will win, over five rounds; spades are always trump | Up/Down set the bid; Left/Right and Enter play |
+| Judgement | Bid exactly the tricks you will win; the trump suit changes every round and the last bidder may not make the bids add up | As Callbreak |
+| 2-3-5 | Three players aim for 5, 3 and 2 tricks; the 5 player picks trump after the first five cards | Left/Right choose a suit or a card; Enter confirms |
+| Bluff | Put cards down as the rank whose turn it is; call a bluff when you doubt it | Space picks up to four cards; Enter puts them down; B calls; Del clears |
+| Donkey | Pass cards to get four of a kind, then grab a spoon before the others; the one left without gets a letter of D-O-N-K-E-Y | Left/Right choose; Enter passes; Space grabs |
+| Gulam Choor | Take cards from the next player and throw pairs; whoever keeps the odd Jack loses | Left/Right choose a card; Enter takes it |
+| Snakes & Ladders | 8 x 8 board, two to four players, exact finish | Space rolls; 2, 3, 4 set the number of players |
+| Ludo | Four colours (you are red): a six brings a token out; capture, sixes and reaching home roll again | Space rolls and moves; Left/Right choose a token |
 
 ### Sable Games Console
 
