@@ -11,11 +11,20 @@ object SpellVerdict {
     const val LOOKS_LIKE_TYPO = 0x0002
 
     fun of(list: WordList?, word: String, limit: Int): SpellVerdictResult {
-        if (list == null || !checkable(word) || list.contains(word) || isAcronym(word)) {
-            return SpellVerdictResult(IN_DICTIONARY, emptyList())
+        val fixes = if (list != null && isMisspelt(list, word)) {
+            list.corrections(word, limit.coerceIn(1, MAX_SUGGESTIONS))
+        } else {
+            null
         }
-        return SpellVerdictResult(LOOKS_LIKE_TYPO, list.corrections(word, limit.coerceIn(1, MAX_SUGGESTIONS)))
+        return if (fixes == null) {
+            SpellVerdictResult(IN_DICTIONARY, emptyList())
+        } else {
+            SpellVerdictResult(LOOKS_LIKE_TYPO, fixes)
+        }
     }
+
+    private fun isMisspelt(list: WordList, word: String): Boolean =
+        checkable(word) && !isAcronym(word) && !list.contains(word)
 
     private const val MAX_SUGGESTIONS = 5
 

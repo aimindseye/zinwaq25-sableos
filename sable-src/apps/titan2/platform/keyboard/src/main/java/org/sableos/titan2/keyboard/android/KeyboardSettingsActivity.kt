@@ -98,7 +98,9 @@ class KeyboardSettingsActivity : Activity() {
                 text = t("system_spell_checker_settings")
                 setOnClickListener {
                     runCatching {
-                        startActivity(Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS))
+                        startActivity(
+                            Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS)
+                        )
                     }
                 }
             }

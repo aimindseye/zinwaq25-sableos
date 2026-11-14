@@ -165,7 +165,13 @@ object CompactStrip {
         i.clips != null -> StripMode.CandidatesOnly
 
         i.softKeyboardShown || !i.enabled ->
-            if (i.candidates.isEmpty() && !i.holdOpen) StripMode.Hidden else StripMode.CandidatesOnly
+            if (i.candidates.isEmpty() &&
+                !i.holdOpen
+            ) {
+                StripMode.Hidden
+            } else {
+                StripMode.CandidatesOnly
+            }
 
         else -> StripMode.Compact
     }

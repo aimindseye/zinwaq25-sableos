@@ -32,7 +32,10 @@ class WordList private constructor(
             if (have == null || freq[i] > freq[have]) byLower[l] = i
         }
         sorted = words.indices.sortedBy { lowers[it] }.toIntArray()
-        alphabet = lowers.flatMap { it.asIterable() }.filter { it.isLetter() || it == '\'' }.toSortedSet().toCharArray()
+        alphabet =
+            lowers.flatMap {
+                it.asIterable()
+            }.filter { it.isLetter() || it == '\'' }.toSortedSet().toCharArray()
     }
 
     val size: Int get() = words.size
@@ -55,7 +58,9 @@ class WordList private constructor(
             if (lowers[i].length > p.length) best.add(i)
         }
         // a word listed in two casings: the more common one only
-        return best.sortedByDescending { freq[it] }.filter { byLower[lowers[it]] == it }.take(limit).map { words[it] }
+        return best.sortedByDescending {
+            freq[it]
+        }.filter { byLower[lowers[it]] == it }.take(limit).map { words[it] }
     }
 
     private fun lowerBound(p: String): Int {
@@ -74,18 +79,27 @@ class WordList private constructor(
      */
     fun corrections(word: String, limit: Int): List<String> {
         val w = norm(word)
-        if (w.length < MIN_CHECK || w.length > MAX_CHECK || byLower.containsKey(w)) return emptyList()
-        val one = edits1(w).mapNotNull { byLower[it] }.distinct().sortedByDescending { freq[it] }
-        if (one.isNotEmpty() || w.length < MIN_TWO_EDITS) return one.take(limit).map { words[it] }
-        val two = ArrayList<Int>()
-        for (i in words.indices) {
-            val l = lowers[i]
-            if (l.length < w.length - 2 || l.length > w.length + 2 || byLower[l] != i) continue
-            if (l[0] != w[0] && l.getOrNull(1) != w.getOrNull(1)) continue
-            if (editDistance(w, l, 2) <= 2) two.add(i)
+        val ranked = if (w.length in MIN_CHECK..MAX_CHECK && !byLower.containsKey(w)) {
+            edits1(w).mapNotNull { byLower[it] }.distinct().sortedByDescending { freq[it] }
+                .ifEmpty { if (w.length >= MIN_TWO_EDITS) twoEdits(w) else emptyList() }
+        } else {
+            emptyList()
         }
-        return two.sortedByDescending { freq[it] }.take(limit).map { words[it] }
+        return ranked.take(limit).map { words[it] }
     }
+
+    private fun twoEdits(w: String): List<Int> =
+        words.indices.filter { near(w, it) }.sortedByDescending { freq[it] }
+
+    private fun near(w: String, i: Int): Boolean {
+        val l = lowers[i]
+        if (byLower[l] != i || !sharesStart(l, w)) return false
+        return editDistance(w, l, 2) <= 2
+    }
+
+    // a cheap filter: a typo rarely changes both of the first two letters
+    private fun sharesStart(a: String, b: String): Boolean =
+        a[0] == b[0] || a.getOrNull(1) == b.getOrNull(1)
 
     private fun edits1(w: String): Set<String> {
         val out = HashSet<String>()
@@ -108,16 +122,18 @@ class WordList private constructor(
 
         /** Parses `word<TAB>frequency` lines; malformed lines are skipped. */
         fun parse(lines: Sequence<String>, locale: Locale = Locale.ROOT): WordList {
-            val w = ArrayList<String>()
-            val f = ArrayList<Int>()
-            for (line in lines) {
-                val tab = line.indexOf('\t')
-                if (tab <= 0) continue
-                val fr = line.substring(tab + 1).trim().toIntOrNull() ?: continue
-                w.add(line.substring(0, tab))
-                f.add(fr)
-            }
-            return WordList(w.toTypedArray(), f.toIntArray(), locale)
+            val entries = lines.mapNotNull { entry(it) }.toList()
+            return WordList(
+                entries.map { it.first }.toTypedArray(),
+                entries.map { it.second }.toIntArray(),
+                locale
+            )
+        }
+
+        private fun entry(line: String): Pair<String, Int>? {
+            val tab = line.indexOf('\t')
+            val fr = if (tab > 0) line.substring(tab + 1).trim().toIntOrNull() else null
+            return fr?.let { line.substring(0, tab) to it }
         }
 
         /** Damerau-Levenshtein distance, or [max] + 1 as soon as it is known to exceed [max]. */
@@ -125,22 +141,32 @@ class WordList private constructor(
             if (kotlin.math.abs(a.length - b.length) > max) return max + 1
             var prev2 = IntArray(b.length + 1)
             var prev = IntArray(b.length + 1) { it }
-            for (i in 1..a.length) {
-                val cur = IntArray(b.length + 1)
-                cur[0] = i
-                var rowMin = cur[0]
-                for (j in 1..b.length) {
-                    val cost = if (a[i - 1] == b[j - 1]) 0 else 1
-                    var v = minOf(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
-                    if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) v = minOf(v, prev2[j - 2] + 1)
-                    cur[j] = v
-                    if (v < rowMin) rowMin = v
-                }
-                if (rowMin > max) return max + 1
+            var i = 1
+            var rowMin = 0
+            while (i <= a.length && rowMin <= max) {
+                val cur = row(a, b, i, prev, prev2)
+                rowMin = cur.min()
                 prev2 = prev
                 prev = cur
+                i++
             }
-            return prev[b.length]
+            // a row whose smallest entry is over [max] has nothing at or under it in the last cell either
+            return minOf(prev[b.length], max + 1)
         }
+
+        private fun row(a: String, b: String, i: Int, prev: IntArray, prev2: IntArray): IntArray {
+            val cur = IntArray(b.length + 1)
+            cur[0] = i
+            for (j in 1..b.length) {
+                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+                var v = minOf(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+                if (swapped(a, b, i, j)) v = minOf(v, prev2[j - 2] + 1)
+                cur[j] = v
+            }
+            return cur
+        }
+
+        private fun swapped(a: String, b: String, i: Int, j: Int): Boolean =
+            i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]
     }
 }

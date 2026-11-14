@@ -11,12 +11,18 @@ class WordSuggesterTest {
     private val assets = File("src/main/assets")
     private val words = WordList.parse(
         sequenceOf(
-            "the\t200", "they\t150", "there\t140", "then\t130", "thin\t60", "think\t120", "thing\t110",
-            "hello\t100", "world\t90", "Ramirez\t80", "don't\t95", "love\t70", "receive\t65", "separate\t64"
+            "the\t200", "they\t150", "there\t140", "then\t130", "thin\t60", "think\t120",
+            "thing\t110", "hello\t100", "world\t90", "Ramirez\t80", "don't\t95", "love\t70",
+            "receive\t65", "separate\t64"
         )
     )
     private val emoji = EmojiIndex.parse(
-        sequenceOf("😄\tsmile happy joy", "❤\theart love red", "👍\t+1 thumbsup approve", "😀\tgrinning smile")
+        sequenceOf(
+            "😄\tsmile happy joy",
+            "❤\theart love red",
+            "👍\t+1 thumbsup approve",
+            "😀\tgrinning smile"
+        )
     )
     private val s = WordSuggester(words, emoji)
 
@@ -54,7 +60,12 @@ class WordSuggesterTest {
 
     @Test fun emojiForAKeyword() {
         val r = s.suggest("smile")
-        assertEquals(listOf("😄", "😀"), r.filter { it.kind == SuggestionKind.Emoji }.map { it.text })
+        assertEquals(
+            listOf("😄", "😀"),
+            r.filter {
+                it.kind == SuggestionKind.Emoji
+            }.map { it.text }
+        )
         assertEquals(5, r.first().replaces)
     }
 
@@ -73,7 +84,10 @@ class WordSuggesterTest {
     }
 
     @Test fun acceptingAWordAddsASpaceAndEmojiDoNot() {
-        assertEquals("hello ", WordSuggester.accept(Suggestion("hello", 3, SuggestionKind.Completion)))
+        assertEquals(
+            "hello ",
+            WordSuggester.accept(Suggestion("hello", 3, SuggestionKind.Completion))
+        )
         assertEquals("😄", WordSuggester.accept(Suggestion("😄", 5, SuggestionKind.Emoji)))
     }
 
@@ -85,7 +99,12 @@ class WordSuggesterTest {
 
     @Test fun noDictionaryMeansNoWordSuggestions() {
         assertTrue(WordSuggester(null, null).suggest("th").isEmpty())
-        assertEquals(listOf("😄", "😀"), WordSuggester(null, emoji).suggest("smile").map { it.text })
+        assertEquals(
+            listOf("😄", "😀"),
+            WordSuggester(null, emoji).suggest("smile").map {
+                it.text
+            }
+        )
     }
 
     @Test fun editDistanceIsBoundedAndCountsSwaps() {
@@ -125,7 +144,11 @@ class WordSuggesterTest {
     }
 
     @Test fun shippedEnglishFixesCommonTypos() {
-        val list = WordList.parse(File(assets, "words_en.tsv").useLines { it.toList().asSequence() })
+        val list = WordList.parse(
+            File(assets, "words_en.tsv").useLines {
+                it.toList().asSequence()
+            }
+        )
         assertEquals("the", list.corrections("teh", 1).first())
         assertEquals("definitely", list.corrections("definately", 1).first())
         assertEquals("because", list.corrections("becuase", 1).first())
@@ -133,7 +156,11 @@ class WordSuggesterTest {
     }
 
     @Test fun shippedEmojiFindsTheObviousOnes() {
-        val index = EmojiIndex.parse(File(assets, "emoji_en.tsv").useLines { it.toList().asSequence() })
+        val index = EmojiIndex.parse(
+            File(assets, "emoji_en.tsv").useLines {
+                it.toList().asSequence()
+            }
+        )
         assertTrue(index.size > 1500)
         assertTrue("😄" in index.search("smile", 5))
         assertTrue("❤️" in index.forWord("heart", 10) || "❤" in index.forWord("heart", 10))

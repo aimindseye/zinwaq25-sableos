@@ -3,6 +3,7 @@ package org.sableos.titan2.keyboard.android
 import android.service.textservice.SpellCheckerService
 import android.view.textservice.SuggestionsInfo
 import android.view.textservice.TextInfo
+import org.sableos.titan2.keyboard.core.SpellVerdict
 
 /**
  * System spell checker: apps that use Android's spell check (messages, notes, mail, browsers' text areas) underline
@@ -22,7 +23,12 @@ class SableSpellCheckerService : SpellCheckerService() {
             val list = lang?.let { Dictionaries.wordsBlocking(this@SableSpellCheckerService, it) }
             val word = textInfo.text.orEmpty()
             return SpellVerdict.of(list, word, suggestionsLimit).let {
-                SuggestionsInfo(it.attributes, it.suggestions.toTypedArray(), textInfo.cookie, textInfo.sequence)
+                SuggestionsInfo(
+                    it.attributes,
+                    it.suggestions.toTypedArray(),
+                    textInfo.cookie,
+                    textInfo.sequence
+                )
             }
         }
     }

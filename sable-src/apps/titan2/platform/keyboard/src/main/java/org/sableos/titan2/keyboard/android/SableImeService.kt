@@ -11,6 +11,7 @@ import android.view.inputmethod.InputMethodSubtype
 import android.widget.Toast
 import org.sableos.titan2.keyboard.R
 import org.sableos.titan2.keyboard.core.AutoText
+import org.sableos.titan2.keyboard.core.Cand
 import org.sableos.titan2.keyboard.core.ClipAction
 import org.sableos.titan2.keyboard.core.ClipPicker
 import org.sableos.titan2.keyboard.core.CompactStrip
@@ -34,7 +35,6 @@ import org.sableos.titan2.keyboard.core.StripInputs
 import org.sableos.titan2.keyboard.core.StripMode
 import org.sableos.titan2.keyboard.core.Suggestion
 import org.sableos.titan2.keyboard.core.WordSuggester
-import org.sableos.titan2.keyboard.core.Cand
 
 /**
  * Physical-keyboard-first IME. Hardware keys are resolved by the pure-Kotlin [Resolver]; the on-screen view is only a
@@ -57,6 +57,7 @@ class SableImeService : InputMethodService() {
 
         // the strip stays up this long after the last suggestion, so it does not blink between words
         const val SUGGEST_HOLD_MS = 2000L
+        const val SUGGEST_HOLD_SLACK_MS = 50L
         const val WORD_CONTEXT_CHARS = 40
     }
 
@@ -247,7 +248,8 @@ class SableImeService : InputMethodService() {
         navEffective = resolver.navEffective(fieldClass),
         candidates = composer?.candidates?.takeIf { it.isNotEmpty() }
             ?: suggestions.map { Cand(it.text, it.replaces) },
-        holdOpen = suggestions.isEmpty() && android.os.SystemClock.uptimeMillis() < suggestHoldUntil,
+        holdOpen = suggestions.isEmpty() &&
+            android.os.SystemClock.uptimeMillis() < suggestHoldUntil,
         variation = resolver.variation(),
         layout = resolver.layout,
         nowMs = android.os.SystemClock.uptimeMillis(),
@@ -487,26 +489,44 @@ class SableImeService : InputMethodService() {
         if (suggestions.isNotEmpty()) {
             suggestHoldUntil = android.os.SystemClock.uptimeMillis() + SUGGEST_HOLD_MS
             ui.removeCallbacks(suggestHoldEnd)
-            ui.postDelayed(suggestHoldEnd, SUGGEST_HOLD_MS + 50)
+            ui.postDelayed(suggestHoldEnd, SUGGEST_HOLD_MS + SUGGEST_HOLD_SLACK_MS)
         }
         if (suggestions != old) refreshStrip()
     }
 
     private fun computeSuggestions(noSelection: Boolean): List<Suggestion> {
         val ic = currentInputConnection
-        val lang = Dictionaries.languageOf(language.tag)
-        val allowed = noSelection && ic != null && prefs.getBool(WORD_SUGGEST, true) &&
-            fieldClass == InputClass.Text && composer == null && language.latin &&
-            FieldPolicy.autoTextAllowed(currentInputEditorInfo?.inputType)
-        if (!allowed || ic == null) return emptyList()
-        val onReady = { ui.post { updateSuggestions(true) }; Unit }
-        val words = lang?.let { Dictionaries.words(this, it, onReady) }
+        return if (ic != null && noSelection &&
+            suggestionsWanted()
+        ) {
+            suggestionsFor(ic)
+        } else {
+            emptyList()
+        }
+    }
+
+    private fun suggestionsWanted(): Boolean = prefs.getBool(WORD_SUGGEST, true) &&
+        fieldClass == InputClass.Text &&
+        composer == null &&
+        language.latin &&
+        FieldPolicy.autoTextAllowed(currentInputEditorInfo?.inputType)
+
+    private fun suggestionsFor(ic: android.view.inputmethod.InputConnection): List<Suggestion> {
+        val onReady = {
+            ui.post { updateSuggestions(true) }
+            Unit
+        }
+        val words = Dictionaries.languageOf(language.tag)?.let {
+            Dictionaries.words(this, it, onReady)
+        }
         val emoji = Dictionaries.emoji(this, onReady)
-        if (words == null && emoji == null) return emptyList()
-        val after = ic.getTextAfterCursor(1, 0)?.toString().orEmpty()
-        if (after.firstOrNull()?.isLetterOrDigit() == true) return emptyList()
-        val before = ic.getTextBeforeCursor(WORD_CONTEXT_CHARS, 0)?.toString().orEmpty()
-        return runCatching { WordSuggester(words, emoji).suggest(before) }.getOrDefault(emptyList())
+        val midWord = ic.getTextAfterCursor(1, 0)?.firstOrNull()?.isLetterOrDigit() == true
+        return if ((words == null && emoji == null) || midWord) {
+            emptyList()
+        } else {
+            val before = ic.getTextBeforeCursor(WORD_CONTEXT_CHARS, 0)?.toString().orEmpty()
+            runCatching { WordSuggester(words, emoji).suggest(before) }.getOrDefault(emptyList())
+        }
     }
 
     private fun acceptSuggestion(i: Int): Boolean {
@@ -524,11 +544,13 @@ class SableImeService : InputMethodService() {
     }
 
     /** Tab alone takes the first suggestion while any is showing; otherwise it stays Tab. */
-    private fun acceptWithTab(keyCode: Int, event: KeyEvent): Boolean = keyCode == KeyEvent.KEYCODE_TAB &&
-        suggestions.isNotEmpty() &&
-        event.repeatCount == 0 &&
-        !event.isShiftPressed && !event.isAltPressed && !event.isCtrlPressed && !event.isMetaPressed &&
-        acceptSuggestion(0)
+    private fun acceptWithTab(keyCode: Int, event: KeyEvent): Boolean =
+        keyCode == KeyEvent.KEYCODE_TAB &&
+            suggestions.isNotEmpty() &&
+            event.repeatCount == 0 &&
+            !event.isShiftPressed && !event.isAltPressed && !event.isCtrlPressed &&
+            !event.isMetaPressed &&
+            acceptSuggestion(0)
 
     private fun sendWithEnter(keyCode: Int, event: KeyEvent): Boolean {
         val send = keyCode == KeyEvent.KEYCODE_ENTER && event.repeatCount == 0 &&

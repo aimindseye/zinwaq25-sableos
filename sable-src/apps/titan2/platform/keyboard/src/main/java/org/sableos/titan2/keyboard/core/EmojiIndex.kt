@@ -12,7 +12,9 @@ class EmojiIndex private constructor(
     private val exact = HashMap<String, MutableList<Int>>()
 
     init {
-        keywords.forEachIndexed { i, ks -> ks.forEach { exact.getOrPut(it) { ArrayList() }.add(i) } }
+        keywords.forEachIndexed { i, ks ->
+            ks.forEach { exact.getOrPut(it) { ArrayList() }.add(i) }
+        }
     }
 
     val size: Int get() = emoji.size
@@ -29,8 +31,14 @@ class EmojiIndex private constructor(
         val p = prefix.lowercase()
         if (p.isEmpty()) return emptyList()
         val byName = emoji.indices.filter { keywords[it].first().startsWith(p) }
-        val byTag = emoji.indices.filter { i -> i !in byName && keywords[i].any { it.startsWith(p) } }
-        return (byName.sortedBy { keywords[it].first().length } + byTag).take(limit).map { emoji[it] }
+        val byTag = emoji.indices.filter { i ->
+            i !in byName && keywords[i].any { it.startsWith(p) }
+        }
+        return (
+            byName.sortedBy {
+                keywords[it].first().length
+            } + byTag
+            ).take(limit).map { emoji[it] }
     }
 
     companion object {
@@ -38,17 +46,20 @@ class EmojiIndex private constructor(
         private val STOP = setOf("with", "and", "the", "of", "in", "on", "for")
 
         fun parse(lines: Sequence<String>): EmojiIndex {
-            val e = ArrayList<String>()
-            val k = ArrayList<List<String>>()
-            for (line in lines) {
-                val tab = line.indexOf('\t')
-                if (tab <= 0) continue
-                val ks = line.substring(tab + 1).split(' ').filter { it.isNotEmpty() && it !in STOP }
-                if (ks.isEmpty()) continue
-                e.add(line.substring(0, tab))
-                k.add(ks)
+            val entries = lines.mapNotNull { entry(it) }.toList()
+            return EmojiIndex(entries.map { it.first }, entries.map { it.second })
+        }
+
+        private fun entry(line: String): Pair<String, List<String>>? {
+            val tab = line.indexOf('\t')
+            val ks = if (tab >
+                0
+            ) {
+                line.substring(tab + 1).split(' ').filter { it.isNotEmpty() && it !in STOP }
+            } else {
+                null
             }
-            return EmojiIndex(e, k)
+            return ks?.takeIf { it.isNotEmpty() }?.let { line.substring(0, tab) to it }
         }
     }
 }
