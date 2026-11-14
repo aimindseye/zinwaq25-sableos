@@ -41,4 +41,10 @@
     <string name="could_not_open_not_available">%1$s کھولا نہیں جا سکا: اس آلے پر دستیاب نہیں۔</string>
     <string name="could_not_open_blocked_by">%1$s کھولا نہیں جا سکا: سسٹم نے روک دیا۔</string>
     <string name="could_not_open">%1$s کھولا نہیں جا سکا۔</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">الفاظ کی تجاویز (خودکار تکمیل، ہجے، ایموجی)</string>
+    <string name="system_spell_checker_settings">سسٹم ہجے جانچ کی ترتیبات</string>
+    <string name="learn_my_words_and_phrases_kept">میرے الفاظ اور فقرے سیکھیں (اسی آلے پر رہتے ہیں)</string>
+    <string name="auto_correct_on_space_backspace_undoes">اسپیس پر خودکار درستی (بیک اسپیس واپس کرتا ہے)</string>
+    <string name="forget_learned_words">سیکھے ہوئے الفاظ بھولیں</string>
+    <string name="learned_words_forgotten">سیکھے ہوئے الفاظ بھلا دیے گئے</string>
 </resources>

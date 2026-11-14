@@ -41,4 +41,10 @@
     <string name="could_not_open_not_available">No se pudo abrir %1$s: no está disponible en este dispositivo.</string>
     <string name="could_not_open_blocked_by">No se pudo abrir %1$s: bloqueado por el sistema.</string>
     <string name="could_not_open">No se pudo abrir %1$s.</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">Sugerencias de palabras (autocompletar, ortografía, emojis)</string>
+    <string name="system_spell_checker_settings">Ajustes del corrector ortográfico del sistema</string>
+    <string name="learn_my_words_and_phrases_kept">Aprender mis palabras y frases (se quedan en este dispositivo)</string>
+    <string name="auto_correct_on_space_backspace_undoes">Autocorrección al pulsar Espacio (Retroceso la deshace)</string>
+    <string name="forget_learned_words">Olvidar las palabras aprendidas</string>
+    <string name="learned_words_forgotten">Palabras aprendidas olvidadas</string>
 </resources>

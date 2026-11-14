@@ -41,4 +41,10 @@
     <string name="could_not_open_not_available">تعذّر فتح %1$s: غير متاح على هذا الجهاز.</string>
     <string name="could_not_open_blocked_by">تعذّر فتح %1$s: حظره النظام.</string>
     <string name="could_not_open">تعذّر فتح %1$s.</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">اقتراحات الكلمات (إكمال تلقائي، إملاء، رموز تعبيرية)</string>
+    <string name="system_spell_checker_settings">إعدادات المدقق الإملائي للنظام</string>
+    <string name="learn_my_words_and_phrases_kept">تعلّم كلماتي وعباراتي (تبقى على هذا الجهاز)</string>
+    <string name="auto_correct_on_space_backspace_undoes">تصحيح تلقائي عند المسافة (يتراجع عنه مفتاح الحذف)</string>
+    <string name="forget_learned_words">نسيان الكلمات المتعلَّمة</string>
+    <string name="learned_words_forgotten">تم نسيان الكلمات المتعلَّمة</string>
 </resources>

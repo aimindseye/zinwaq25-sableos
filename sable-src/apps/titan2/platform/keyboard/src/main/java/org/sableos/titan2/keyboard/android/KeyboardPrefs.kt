@@ -14,6 +14,15 @@ internal const val ENTER_SENDS = "enterSends"
 /** Clipboard history (core ClipboardHistory), kept in memory only; off by default. */
 internal const val CLIP_HISTORY = "clipHistory"
 
+/** Word suggestions (autocomplete, spelling, emoji) for the word before the cursor; on by default. */
+internal const val WORD_SUGGEST = "wordSuggest"
+
+/** Learn the user's own words and phrases (core UserWords), kept on the device; on by default. */
+internal const val LEARN_WORDS = "learnWords"
+
+/** Auto-correct the word before Space when sure, Backspace undoes it (core AutoCorrect); off by default. */
+internal const val AUTO_CORRECT = "autoCorrect"
+
 /**
  * Stored in device-protected storage so the keyboard works at the lockscreen and during direct boot
  * (critical text entry).
@@ -87,12 +96,27 @@ class KeyboardPrefs(context: Context) {
             prefs.edit().putString("autoTextUser", AutoText.format(v)).apply()
         }
 
+    /** The learned words and phrases of typing language [lang], as UserWords.serialize text. */
+    fun userWords(lang: String): String = prefs.getString(USER_WORDS + lang, "").orEmpty()
+
+    fun setUserWords(lang: String, text: String) {
+        prefs.edit().putString(USER_WORDS + lang, text).apply()
+    }
+
+    /** Forgets the learned words of every language. */
+    fun clearUserWords() {
+        val editor = prefs.edit()
+        prefs.all.keys.filter { it.startsWith(USER_WORDS) }.forEach { editor.remove(it) }
+        editor.apply()
+    }
+
     fun setBool(key: String, v: Boolean) {
         prefs.edit().putBoolean(key, v).apply()
     }
     fun getBool(key: String, d: Boolean) = prefs.getBoolean(key, d)
 
     companion object {
+        private const val USER_WORDS = "userWords_"
         private const val COMPACT_STRIP_PROP = "ro.sable.keyboard.compact_strip"
 
         /**

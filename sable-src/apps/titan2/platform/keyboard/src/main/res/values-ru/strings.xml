@@ -41,4 +41,10 @@
     <string name="could_not_open_not_available">Не удалось открыть %1$s: недоступно на этом устройстве.</string>
     <string name="could_not_open_blocked_by">Не удалось открыть %1$s: заблокировано системой.</string>
     <string name="could_not_open">Не удалось открыть %1$s.</string>
+    <string name="word_suggestions_autocomplete_spelling_emoji">Подсказки слов (автодополнение, орфография, эмодзи)</string>
+    <string name="system_spell_checker_settings">Настройки проверки орфографии системы</string>
+    <string name="learn_my_words_and_phrases_kept">Запоминать мои слова и фразы (остаются на устройстве)</string>
+    <string name="auto_correct_on_space_backspace_undoes">Автоисправление по пробелу (Backspace отменяет)</string>
+    <string name="forget_learned_words">Забыть выученные слова</string>
+    <string name="learned_words_forgotten">Выученные слова забыты</string>
 </resources>
