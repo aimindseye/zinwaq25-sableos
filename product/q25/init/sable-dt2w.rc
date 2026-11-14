@@ -6,6 +6,10 @@
 # double-tap gesture the next time the screen turns off. Persist properties
 # load at boot, so the saved choice is restored then too. Installed to
 # system_ext/etc/init at Q4.
+#
+# Only where the product sets ro.sable.double_tap_wake=true. The Q25 sets it false
+# (owner, 2026-11-14): its touch controller never reports a double tap, so a choice
+# saved by an earlier build no longer arms the driver.
 
-on property:persist.sys.sable.dt2w=*
+on property:persist.sys.sable.dt2w=* && property:ro.sable.double_tap_wake=true
     write /sys/module/mtk_touchscreen_hodafonehw/parameters/wake_gesture ${persist.sys.sable.dt2w}

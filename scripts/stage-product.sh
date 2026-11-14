@@ -245,10 +245,12 @@ PRODUCT_PACKAGES += \
     SableLineagePlatformOverlay \
     SableNoUpdater
 SABLE_Q25_NO_UPDATER := true
+# Double-tap to wake stays hidden (owner, 2026-11-14): the Q25 touch controller takes the
+# wakeup-gesture mode but never reports a double tap (docs/QUALIFICATION.md Q4-DT2W-RELIABLE).
 PRODUCT_SYSTEM_EXT_PROPERTIES += \
     ro.sable.home=org.sableos.launcher \
     ro.sable.keyboard_backlight=true \
-    ro.sable.double_tap_wake=true
+    ro.sable.double_tap_wake=false
 # App display compatibility applies profiles: the framework overlay turns on per-app user
 # aspect ratios (SableFrameworkOverlay sable_displaycompat.xml) and this opens the app's gate.
 PRODUCT_PRODUCT_PROPERTIES += \
