@@ -41,14 +41,16 @@ git lfs install
 
 * For the Sable apps only: an Android SDK (`ANDROID_HOME`, platform 36, build-tools
   36.0.0) and JDK 17 or 21.
-* Key Mapper also needs NDK 27.3, SDK platform 37 and Rust with the Android targets (its
-  evdev module is Rust and C):
+* Key Mapper also needs NDK 27.3, SDK platform 37, Rust with the Android targets (its
+  evdev module is Rust and C), and a `python` command, which its Rust linker wrapper runs
+  (on Debian and Ubuntu, `python-is-python3` provides it):
 
 ```bash
 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;27.3.13750724' 'platforms;android-37.0'
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.93.0
 source "$HOME/.cargo/env"
 rustup target add armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android
+sudo apt install python-is-python3
 ```
 
 Check everything:

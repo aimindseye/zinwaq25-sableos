@@ -85,6 +85,12 @@ if command -v rustup >/dev/null 2>&1; then
 else
     warn tool:rustup "not on PATH; Key Mapper needs Rust 1.93.0 with the Android targets (docs/BUILD.md)"
 fi
+# The Rust Android Gradle plugin's linker wrapper runs `python`, not python3.
+if command -v python >/dev/null 2>&1; then
+    check tool:python yes "$(command -v python)"
+else
+    warn tool:python "not on PATH; Key Mapper's Rust linker runs 'python': sudo apt install python-is-python3"
+fi
 
 java_bin="${SABLE_JDK:+$SABLE_JDK/bin/}java"
 if command -v "$java_bin" >/dev/null 2>&1; then
