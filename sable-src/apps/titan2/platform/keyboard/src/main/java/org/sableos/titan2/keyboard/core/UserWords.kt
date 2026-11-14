@@ -3,8 +3,8 @@ package org.sableos.titan2.keyboard.core
 /**
  * What the user has typed that the shipped word list does not know, and which word follows which, kept in memory and
  * saved by the Android layer in the keyboard's device-protected preferences. It never leaves the device. A word the
- * list lacks counts as the user's own after [PROMOTE] sightings (so one typo is not remembered); a word pair is offered as a next
- * word after [PROMOTE] sightings too. Both tables are capped, dropping the least used first.
+ * list lacks counts as the user's own after [PROMOTE] sightings (so one typo is not remembered); a word pair is
+ * offered as a next word after [PROMOTE] sightings too. Both tables are capped, dropping the least used first.
  */
 class UserWords(private val maxWords: Int = MAX_WORDS, private val maxPairs: Int = MAX_PAIRS) {
     private class Entry(var form: String, var count: Int)
