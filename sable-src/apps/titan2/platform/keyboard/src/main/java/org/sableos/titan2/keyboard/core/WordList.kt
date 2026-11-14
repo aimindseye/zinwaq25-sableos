@@ -35,7 +35,7 @@ class WordList private constructor(
         alphabet =
             lowers.flatMap {
                 it.asIterable()
-            }.filter { it.isLetter() || it == '\'' }.toSortedSet().toCharArray()
+            }.filter { Tokens.isWordChar(it) || it == '\'' }.toSortedSet().toCharArray()
     }
 
     val size: Int get() = words.size

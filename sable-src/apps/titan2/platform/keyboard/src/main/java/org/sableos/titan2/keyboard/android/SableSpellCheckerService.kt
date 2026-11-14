@@ -16,7 +16,7 @@ class SableSpellCheckerService : SpellCheckerService() {
         private var lang: String? = null
 
         override fun onCreate() {
-            lang = Dictionaries.languageOf(locale)
+            lang = Dictionaries.languageOf(locale)?.takeIf { it in Dictionaries.FULL_LANGUAGES }
         }
 
         override fun onGetSuggestions(textInfo: TextInfo, suggestionsLimit: Int): SuggestionsInfo {

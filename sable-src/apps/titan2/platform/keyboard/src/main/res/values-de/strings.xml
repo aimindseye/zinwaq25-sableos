@@ -43,4 +43,8 @@
     <string name="could_not_open">%1$s konnte nicht geöffnet werden.</string>
     <string name="word_suggestions_autocomplete_spelling_emoji">Wortvorschläge (Autovervollständigung, Rechtschreibung, Emoji)</string>
     <string name="system_spell_checker_settings">Rechtschreibprüfung des Systems</string>
+    <string name="learn_my_words_and_phrases_kept">Meine Wörter und Wendungen lernen (nur auf diesem Gerät)</string>
+    <string name="auto_correct_on_space_backspace_undoes">Autokorrektur bei Leertaste (Rücktaste macht sie rückgängig)</string>
+    <string name="forget_learned_words">Gelernte Wörter vergessen</string>
+    <string name="learned_words_forgotten">Gelernte Wörter vergessen</string>
 </resources>

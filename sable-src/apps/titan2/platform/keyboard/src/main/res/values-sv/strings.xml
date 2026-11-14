@@ -43,4 +43,8 @@
     <string name="could_not_open">Kunde inte öppna %1$s.</string>
     <string name="word_suggestions_autocomplete_spelling_emoji">Ordförslag (autokomplettering, stavning, emoji)</string>
     <string name="system_spell_checker_settings">Inställningar för systemets stavningskontroll</string>
+    <string name="learn_my_words_and_phrases_kept">Lär dig mina ord och fraser (stannar på den här enheten)</string>
+    <string name="auto_correct_on_space_backspace_undoes">Autokorrigering vid blanksteg (Backsteg ångrar)</string>
+    <string name="forget_learned_words">Glöm inlärda ord</string>
+    <string name="learned_words_forgotten">Inlärda ord glömda</string>
 </resources>

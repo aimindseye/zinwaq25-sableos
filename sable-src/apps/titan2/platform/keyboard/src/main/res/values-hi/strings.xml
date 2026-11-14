@@ -43,4 +43,8 @@
     <string name="could_not_open">%1$s खोला नहीं जा सका।</string>
     <string name="word_suggestions_autocomplete_spelling_emoji">शब्द सुझाव (ऑटोकम्प्लीट, वर्तनी, इमोजी)</string>
     <string name="system_spell_checker_settings">सिस्टम वर्तनी जाँच सेटिंग</string>
+    <string name="learn_my_words_and_phrases_kept">मेरे शब्द और वाक्यांश सीखें (इसी डिवाइस पर रहते हैं)</string>
+    <string name="auto_correct_on_space_backspace_undoes">स्पेस पर स्वतः सुधार (बैकस्पेस से वापस होता है)</string>
+    <string name="forget_learned_words">सीखे हुए शब्द भूल जाएँ</string>
+    <string name="learned_words_forgotten">सीखे हुए शब्द भुला दिए गए</string>
 </resources>

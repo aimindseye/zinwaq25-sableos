@@ -42,6 +42,8 @@ class KeyboardSettingsActivity : Activity() {
         sw(t("double_space_inserts_period"), "doubleSpace", true)
         sw(t("autotext_dont_becomes_don_t"), AUTO_TEXT, true)
         sw(t("word_suggestions_autocomplete_spelling_emoji"), WORD_SUGGEST, true)
+        sw(t("learn_my_words_and_phrases_kept"), LEARN_WORDS, true)
+        sw(t("auto_correct_on_space_backspace_undoes"), AUTO_CORRECT, false)
         sw(t("long_press_a_letter_for"), "longPressAlt", true)
         sw(t("letters_type_digits_in_numeric"), "numericAutoAlt", true)
         sw(t("nav_mode_ijkl_arrows_enabled"), "navMode", true)
@@ -93,6 +95,15 @@ class KeyboardSettingsActivity : Activity() {
             }
         )
         open(t("autotext_entries"), AutoTextActivity::class.java)
+        col.addView(
+            Button(this).apply {
+                text = t("forget_learned_words")
+                setOnClickListener {
+                    UserWordsStore.clearAll(context)
+                    Toast.makeText(context, t("learned_words_forgotten"), Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
         col.addView(
             Button(this).apply {
                 text = t("system_spell_checker_settings")

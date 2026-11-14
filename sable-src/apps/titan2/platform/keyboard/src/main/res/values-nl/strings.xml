@@ -43,4 +43,8 @@
     <string name="could_not_open">Kan %1$s niet openen.</string>
     <string name="word_suggestions_autocomplete_spelling_emoji">Woordsuggesties (automatisch aanvullen, spelling, emoji)</string>
     <string name="system_spell_checker_settings">Instellingen voor de systeemspellingscontrole</string>
+    <string name="learn_my_words_and_phrases_kept">Mijn woorden en zinnen leren (blijven op dit apparaat)</string>
+    <string name="auto_correct_on_space_backspace_undoes">Autocorrectie bij spatie (Backspace maakt het ongedaan)</string>
+    <string name="forget_learned_words">Geleerde woorden vergeten</string>
+    <string name="learned_words_forgotten">Geleerde woorden vergeten</string>
 </resources>

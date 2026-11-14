@@ -1,7 +1,7 @@
 package org.sableos.titan2.keyboard.core
 
 /** What a suggestion is, for ordering and for how accepting it edits the text. */
-enum class SuggestionKind { Completion, Correction, Emoji }
+enum class SuggestionKind { Completion, Correction, Emoji, NextWord }
 
 /**
  * A suggestion for the word being typed. Accepting it replaces the [replaces] characters before the cursor with
@@ -14,12 +14,16 @@ data class Suggestion(val text: String, val replaces: Int, val kind: SuggestionK
  * the editor reports, so it behaves the same for the physical keys, the on-screen keyboard and a cursor moved by
  * hand, and it stores nothing the user types.
  */
-class WordSuggester(private val words: WordList?, private val emoji: EmojiIndex?) {
+class WordSuggester(
+    private val words: WordList?,
+    private val emoji: EmojiIndex?,
+    private val user: UserWords? = null
+) {
 
     fun suggest(before: String): List<Suggestion> {
-        val token = tokenBefore(before)
+        val token = Tokens.before(before)
         return when {
-            token == null -> emptyList()
+            token == null -> nextWords(before)
             token.startsWith(':') -> shortcodeEmoji(token)
             else -> forWord(token)
         }
@@ -27,9 +31,10 @@ class WordSuggester(private val words: WordList?, private val emoji: EmojiIndex?
 
     private fun forWord(token: String): List<Suggestion> {
         val word = token.replace('’', '\'')
-        if (!isPlainWord(word)) return emptyList()
+        if (!Tokens.isPlainWord(word)) return emptyList()
         val typed = token.length
-        val completions = words?.complete(word, MAX_WORDS + 1).orEmpty()
+        val own = user?.complete(word, MAX_OWN).orEmpty()
+        val completions = (own + words?.complete(word, MAX_WORDS + 1).orEmpty())
             .map { matchCase(word, it) }
             .filter { !it.equals(word, true) }
             .map { Suggestion(it, typed, SuggestionKind.Completion) }
@@ -43,13 +48,19 @@ class WordSuggester(private val words: WordList?, private val emoji: EmojiIndex?
 
     private fun misspeltFixes(word: String): List<String> {
         val list = words
-        return if (list != null &&
-            !list.contains(word)
-        ) {
+        val known = user?.isKnown(word) == true
+        return if (list != null && !known && !list.contains(word)) {
             list.corrections(word, MAX_WORDS)
         } else {
             emptyList()
         }
+    }
+
+    /** After a word and one space: what the user usually types next, from their own phrases. */
+    private fun nextWords(before: String): List<Suggestion> {
+        val previous = if (before.endsWith(" ")) Tokens.currentWord(before.dropLast(1)) else null
+        return previous?.let { user?.next(it, MAX_WORDS) }.orEmpty()
+            .map { Suggestion(it, 0, SuggestionKind.NextWord) }
     }
 
     private fun emojiFor(word: String): List<String> = if (word.length >=
@@ -81,41 +92,18 @@ class WordSuggester(private val words: WordList?, private val emoji: EmojiIndex?
 
     companion object {
         const val MAX_WORDS = 4
+        const val MAX_OWN = 2
         const val MAX_EMOJI = 3
         const val MIN_EMOJI_WORD = 3
         const val MIN_SHORTCODE = 2
         const val EMOJI_SLOT = 2
-        private const val MAX_TOKEN = 32
-        private const val TOKEN_PUNCTUATION = "'’_+-"
         private const val SHORTCODE_PUNCTUATION = "_+-"
-
-        private fun isPlainWord(word: String): Boolean =
-            word.isNotEmpty() && word.all { it.isLetter() || it == '\'' }
 
         private fun isShortcodeName(name: String): Boolean = name.length >= MIN_SHORTCODE &&
             name.all { it.isLetterOrDigit() || it in SHORTCODE_PUNCTUATION }
 
-        private fun isTokenChar(c: Char): Boolean = c.isLetterOrDigit() || c in TOKEN_PUNCTUATION
-
-        // a ':' that opens a shortcode follows a space or the start, not a word (so "a:b" is not one)
-        private fun opensShortcode(before: String, i: Int): Boolean =
-            i > 0 && before[i - 1] == ':' && (i == 1 || !before[i - 2].isLetterOrDigit())
-
-        private fun tokenStart(before: String): Int {
-            var i = before.length
-            while (i > 0 && isTokenChar(before[i - 1])) i--
-            return if (opensShortcode(before, i)) i - 1 else i
-        }
-
-        /** The trailing run of letters and inner apostrophes (or a `:` shortcode) of [before]; quotes dropped. */
-        private fun tokenBefore(before: String): String? {
-            val word = before.substring(tokenStart(before)).trimStart('\'', '’')
-            return word.takeIf { it.isNotEmpty() && it.length <= MAX_TOKEN }
-        }
-
         /** The partial word ending at the cursor, or null when the cursor is not at the end of a word. */
-        fun currentWord(before: String): String? =
-            tokenBefore(before)?.takeUnless { it.startsWith(':') }
+        fun currentWord(before: String): String? = Tokens.currentWord(before)
 
         /**
          * The text to commit for [s]: words get a trailing space so typing carries on at once, emoji do not. The

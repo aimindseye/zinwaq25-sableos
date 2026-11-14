@@ -43,4 +43,8 @@
     <string name="could_not_open">Nie udało się otworzyć: %1$s.</string>
     <string name="word_suggestions_autocomplete_spelling_emoji">Podpowiedzi słów (autouzupełnianie, pisownia, emoji)</string>
     <string name="system_spell_checker_settings">Ustawienia systemowego sprawdzania pisowni</string>
+    <string name="learn_my_words_and_phrases_kept">Ucz się moich słów i fraz (zostają na tym urządzeniu)</string>
+    <string name="auto_correct_on_space_backspace_undoes">Autokorekta po spacji (Backspace ją cofa)</string>
+    <string name="forget_learned_words">Zapomnij nauczone słowa</string>
+    <string name="learned_words_forgotten">Nauczone słowa zapomniane</string>
 </resources>

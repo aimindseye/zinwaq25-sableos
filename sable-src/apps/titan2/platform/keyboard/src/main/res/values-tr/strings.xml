@@ -43,4 +43,8 @@
     <string name="could_not_open">%1$s açılamadı.</string>
     <string name="word_suggestions_autocomplete_spelling_emoji">Kelime önerileri (otomatik tamamlama, yazım denetimi, emoji)</string>
     <string name="system_spell_checker_settings">Sistem yazım denetimi ayarları</string>
+    <string name="learn_my_words_and_phrases_kept">Kelimelerimi ve ifadelerimi öğren (bu cihazda kalır)</string>
+    <string name="auto_correct_on_space_backspace_undoes">Boşlukta otomatik düzeltme (Backspace geri alır)</string>
+    <string name="forget_learned_words">Öğrenilen kelimeleri unut</string>
+    <string name="learned_words_forgotten">Öğrenilen kelimeler unutuldu</string>
 </resources>

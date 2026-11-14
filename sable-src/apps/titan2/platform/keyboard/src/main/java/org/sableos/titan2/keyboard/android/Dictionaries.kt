@@ -20,7 +20,16 @@ object Dictionaries {
     @Volatile private var emojiLoading = false
 
     /** Languages that ship a word list (assets/words_<language>.tsv). */
-    val LANGUAGES = setOf("en", "es", "fr", "de", "pt", "it", "nl", "sv", "pl", "tr")
+    val LANGUAGES = setOf(
+        "en", "es", "fr", "de", "pt", "it", "nl", "sv", "pl", "tr",
+        "hi", "bn", "ta", "te", "ml", "ur"
+    )
+
+    /**
+     * The full dictionaries (40 000 words): enough to tell a typo from a word, so the only ones that
+     * auto-correct and the system spell checker use.
+     */
+    val FULL_LANGUAGES = setOf("en", "es", "fr", "de", "pt", "it", "nl", "sv", "pl", "tr")
 
     /** Two-letter language of a locale tag such as en_US or pt-BR, or null when none ships. */
     fun languageOf(tag: String?): String? =

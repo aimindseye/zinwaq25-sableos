@@ -34,6 +34,11 @@ object KeyboardText {
             "word_suggestions_autocomplete_spelling_emoji" to
                 "Word suggestions (autocomplete, spelling, emoji)",
             "system_spell_checker_settings" to "System spell checker settings",
+            "learn_my_words_and_phrases_kept" to "Learn my words and phrases (kept on this device)",
+            "auto_correct_on_space_backspace_undoes" to
+                "Auto-correct on Space (Backspace undoes it)",
+            "forget_learned_words" to "Forget learned words",
+            "learned_words_forgotten" to "Learned words forgotten",
             "long_press_a_letter_for" to "Long-press a letter for its Alt character",
             "letters_type_digits_in_numeric" to "Letters type digits in numeric fields",
             "nav_mode_ijkl_arrows_enabled" to "Nav mode (IJKL arrows) enabled",

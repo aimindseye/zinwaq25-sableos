@@ -43,4 +43,8 @@
     <string name="could_not_open">%1$s を開けませんでした。</string>
     <string name="word_suggestions_autocomplete_spelling_emoji">単語の候補(自動補完、スペルチェック、絵文字)</string>
     <string name="system_spell_checker_settings">システムのスペルチェック設定</string>
+    <string name="learn_my_words_and_phrases_kept">よく使う単語やフレーズを学習(この端末内のみ)</string>
+    <string name="auto_correct_on_space_backspace_undoes">スペースで自動修正(Backspaceで元に戻す)</string>
+    <string name="forget_learned_words">学習した単語を消去</string>
+    <string name="learned_words_forgotten">学習した単語を消去しました</string>
 </resources>

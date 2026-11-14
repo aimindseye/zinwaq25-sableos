@@ -33,8 +33,6 @@ import org.sableos.titan2.keyboard.core.PinyinDict
 import org.sableos.titan2.keyboard.core.Resolver
 import org.sableos.titan2.keyboard.core.StripInputs
 import org.sableos.titan2.keyboard.core.StripMode
-import org.sableos.titan2.keyboard.core.Suggestion
-import org.sableos.titan2.keyboard.core.WordSuggester
 
 /**
  * Physical-keyboard-first IME. Hardware keys are resolved by the pure-Kotlin [Resolver]; the on-screen view is only a
@@ -54,11 +52,6 @@ class SableImeService : InputMethodService() {
         // enough for an AutoText shortcut and the expansion Backspace undoes
         const val BEFORE_CURSOR_CHARS = 64
         const val COMPOSITION_LOST_MS = 400L
-
-        // the strip stays up this long after the last suggestion, so it does not blink between words
-        const val SUGGEST_HOLD_MS = 2000L
-        const val SUGGEST_HOLD_SLACK_MS = 50L
-        const val WORD_CONTEXT_CHARS = 40
     }
 
     override fun onCreate() {
@@ -94,7 +87,8 @@ class SableImeService : InputMethodService() {
         }
         fieldClass = classify(attribute)
         resolver.clearVariation()
-        suggestions = emptyList()
+        suggester.reset()
+        corrector.clear()
         refreshStrip()
     }
 
@@ -126,7 +120,7 @@ class SableImeService : InputMethodService() {
         applyLanguage(subtype?.locale, subtype?.extraValue, announce = false)
         softView?.let { applyNumericPad(it) }
         softView?.refreshAutoCap()
-        updateSuggestions(true)
+        updateSuggestions()
         refreshStrip()
     }
 
@@ -247,9 +241,8 @@ class SableImeService : InputMethodService() {
         navOn = resolver.navActive,
         navEffective = resolver.navEffective(fieldClass),
         candidates = composer?.candidates?.takeIf { it.isNotEmpty() }
-            ?: suggestions.map { Cand(it.text, it.replaces) },
-        holdOpen = suggestions.isEmpty() &&
-            android.os.SystemClock.uptimeMillis() < suggestHoldUntil,
+            ?: suggester.suggestions.map { Cand(it.text, it.replaces) },
+        holdOpen = suggester.holdOpen,
         variation = resolver.variation(),
         layout = resolver.layout,
         nowMs = android.os.SystemClock.uptimeMillis(),
@@ -277,7 +270,8 @@ class SableImeService : InputMethodService() {
             candidatesStart,
             candidatesEnd
         )
-        updateSuggestions(newSelStart == newSelEnd)
+        noSelection = newSelStart == newSelEnd
+        updateSuggestions()
         val comp = composer ?: return
         if (comp.composing.isEmpty()) return
         val moved =
@@ -293,8 +287,8 @@ class SableImeService : InputMethodService() {
         clipSelected = null
         fieldClass = InputClass.None
         resolver.clearVariation()
-        suggestions = emptyList()
-        suggestHoldUntil = 0L
+        suggester.reset()
+        corrector.clear()
         dropComposition()
     }
 
@@ -329,29 +323,42 @@ class SableImeService : InputMethodService() {
                     ?: ""
             )
 
+    private fun softAutoCorrect(typed: String) {
+        if (typed == " ") autoCorrectOnSpace() else corrector.clear()
+    }
+
+    private fun softText(
+        ic: android.view.inputmethod.InputConnection,
+        comp: Composer?,
+        text: String
+    ) {
+        when {
+            comp == null -> ic.commitText(text, 1)
+
+            text == " " -> {
+                val r = comp.space()
+                applyComposition(r.commit)
+                if (r.addSpace) ic.commitText(" ", 1)
+            }
+
+            else -> applyComposition(comp.type(text))
+        }
+    }
+
     private fun softKey(e: SoftKeyboardView.Event) {
         val ic = currentInputConnection ?: return
         // Secret fields (passwords, PINs) never go through composition: no candidates, no IME-held text.
         val comp = composer.takeUnless { fieldClass in FieldPolicy.SECRET_CLASSES }
         when (e) {
-            is SoftKeyboardView.Event.Text -> when {
-                comp == null -> ic.commitText(e.s, 1)
-
-                e.s == " " -> {
-                    val r = comp.space()
-                    applyComposition(r.commit)
-                    if (r.addSpace) ic.commitText(" ", 1)
-                }
-
-                else -> applyComposition(comp.type(e.s))
+            is SoftKeyboardView.Event.Text -> {
+                if (comp == null) softAutoCorrect(e.s)
+                softText(ic, comp, e.s)
             }
 
-            SoftKeyboardView.Event.Backspace -> if (comp != null &&
-                comp.backspace()
-            ) {
-                applyComposition("")
-            } else {
-                sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+            SoftKeyboardView.Event.Backspace -> when {
+                comp != null && comp.backspace() -> applyComposition("")
+                undoAutoCorrect() -> Unit
+                else -> sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
             }
 
             SoftKeyboardView.Event.Enter -> {
@@ -373,7 +380,7 @@ class SableImeService : InputMethodService() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (handleShortcut(keyCode, event)) {
+        if (autoCorrectKey(keyCode, event) || handleShortcut(keyCode, event)) {
             handledDown.add(keyCode)
             refreshStrip()
             return true
@@ -458,7 +465,7 @@ class SableImeService : InputMethodService() {
             keyCode,
             event.isCtrlPressed,
             event.isAltPressed || event.isMetaPressed || event.isShiftPressed,
-            composer?.candidates?.size?.takeIf { it > 0 } ?: suggestions.size
+            composer?.candidates?.size?.takeIf { it > 0 } ?: suggester.suggestions.size
         )
         return pick != null && pickAt(pick)
     }
@@ -473,80 +480,79 @@ class SableImeService : InputMethodService() {
         return acceptSuggestion(i)
     }
 
-    // ---- word suggestions: autocomplete, spelling and emoji for the word before the cursor
-    private var suggestions: List<Suggestion> = emptyList()
-    private var suggestHoldUntil = 0L
-    private val suggestHoldEnd = Runnable { refreshStrip() }
+    // ---- word suggestions, learning and auto-correct (see SuggestionController, AutoCorrector)
+    private val suggester = SuggestionController(this, ui) { refreshStrip() }
+    private val corrector = AutoCorrector(this)
+    private var noSelection = true
 
-    /**
-     * Recomputes [suggestions] from the text before the cursor, so the physical keys, the on-screen keyboard and a
-     * moved cursor all go through one path. Only in prose fields (never secret, address or no-suggestions fields),
-     * only for a typing language that types letters directly, and only with the cursor at the end of a word.
-     */
-    private fun updateSuggestions(noSelection: Boolean) {
-        val old = suggestions
-        suggestions = computeSuggestions(noSelection)
-        if (suggestions.isNotEmpty()) {
-            suggestHoldUntil = android.os.SystemClock.uptimeMillis() + SUGGEST_HOLD_MS
-            ui.removeCallbacks(suggestHoldEnd)
-            ui.postDelayed(suggestHoldEnd, SUGGEST_HOLD_MS + SUGGEST_HOLD_SLACK_MS)
-        }
-        if (suggestions != old) refreshStrip()
-    }
-
-    private fun computeSuggestions(noSelection: Boolean): List<Suggestion> {
-        val ic = currentInputConnection
-        return if (ic != null && noSelection &&
-            suggestionsWanted()
-        ) {
-            suggestionsFor(ic)
-        } else {
-            emptyList()
-        }
-    }
-
-    private fun suggestionsWanted(): Boolean = prefs.getBool(WORD_SUGGEST, true) &&
+    private fun suggestionsAllowed(): Boolean = noSelection &&
+        prefs.getBool(WORD_SUGGEST, true) &&
         fieldClass == InputClass.Text &&
         composer == null &&
-        language.latin &&
         FieldPolicy.autoTextAllowed(currentInputEditorInfo?.inputType)
 
-    private fun suggestionsFor(ic: android.view.inputmethod.InputConnection): List<Suggestion> {
-        val onReady = {
-            ui.post { updateSuggestions(true) }
-            Unit
+    private fun suggestionField(): SuggestionField {
+        val allowed = suggestionsAllowed() &&
+            (language.latin || Dictionaries.languageOf(language.tag) != null)
+        val optOut = (currentInputEditorInfo?.imeOptions ?: 0) and
+            EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0
+        return SuggestionField(
+            allowed,
+            language.tag,
+            allowed && !optOut && prefs.getBool(LEARN_WORDS, true)
+        )
+    }
+
+    private fun updateSuggestions() = suggester.update(currentInputConnection, suggestionField())
+
+    private fun acceptSuggestion(i: Int): Boolean =
+        suggester.accept(currentInputConnection, i, suggestionField()).also {
+            if (it) resolver.mods.consumeOneShots()
         }
-        val words = Dictionaries.languageOf(language.tag)?.let {
-            Dictionaries.words(this, it, onReady)
-        }
-        val emoji = Dictionaries.emoji(this, onReady)
-        val midWord = ic.getTextAfterCursor(1, 0)?.firstOrNull()?.isLetterOrDigit() == true
-        return if ((words == null && emoji == null) || midWord) {
-            emptyList()
-        } else {
-            val before = ic.getTextBeforeCursor(WORD_CONTEXT_CHARS, 0)?.toString().orEmpty()
-            runCatching { WordSuggester(words, emoji).suggest(before) }.getOrDefault(emptyList())
+
+    /** Space is about to be typed: fixes the word before it when auto-correct is on and sure. */
+    private fun autoCorrectOnSpace() {
+        val ic = currentInputConnection ?: return
+        if (!prefs.getBool(AUTO_CORRECT, false)) return
+        val english = language.tag.startsWith("en")
+        corrector.onSpace(ic, suggestionField()) { before ->
+            resolver.autoText.match(before, english, resolver.autoTextVar) != null
         }
     }
 
-    private fun acceptSuggestion(i: Int): Boolean {
-        val s = suggestions.getOrNull(i)
-        val ic = currentInputConnection
-        if (s == null || ic == null) return false
-        ic.beginBatchEdit()
-        ic.deleteSurroundingText(s.replaces, 0)
-        ic.commitText(WordSuggester.accept(s), 1)
-        ic.endBatchEdit()
-        resolver.mods.consumeOneShots()
-        suggestions = emptyList()
-        refreshStrip()
-        return true
+    /**
+     * Space types after the word before it is fixed (the key then goes on as usual); Backspace straight after a fix
+     * puts the typed word back and is consumed; any other key ends the chance to undo.
+     */
+    private fun autoCorrectKey(keyCode: Int, event: KeyEvent): Boolean {
+        val plain = !event.isCtrlPressed && !event.isMetaPressed && !event.isAltPressed
+        val spaceTypes = plain && event.repeatCount == 0 && !resolver.mods.active(Mod.Sym) &&
+            !resolver.navEffective(fieldClass)
+        return when {
+            keyCode == KeyEvent.KEYCODE_DEL && plain -> undoAutoCorrect()
+
+            keyCode == KeyEvent.KEYCODE_SPACE && spaceTypes -> {
+                autoCorrectOnSpace()
+                false
+            }
+
+            else -> {
+                if (keyCode != KeyEvent.KEYCODE_SPACE) corrector.clear()
+                false
+            }
+        }
+    }
+
+    /** Backspace right after an auto-correction puts back what was typed; true when it did. */
+    private fun undoAutoCorrect(): Boolean {
+        val ic = currentInputConnection ?: return false
+        return corrector.undo(ic, suggestionField())
     }
 
     /** Tab alone takes the first suggestion while any is showing; otherwise it stays Tab. */
     private fun acceptWithTab(keyCode: Int, event: KeyEvent): Boolean =
         keyCode == KeyEvent.KEYCODE_TAB &&
-            suggestions.isNotEmpty() &&
+            suggester.suggestions.isNotEmpty() &&
             event.repeatCount == 0 &&
             !event.isShiftPressed && !event.isAltPressed && !event.isCtrlPressed &&
             !event.isMetaPressed &&

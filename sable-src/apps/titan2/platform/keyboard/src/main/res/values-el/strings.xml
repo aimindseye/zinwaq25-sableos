@@ -43,4 +43,8 @@
     <string name="could_not_open">Δεν ήταν δυνατό το άνοιγμα του %1$s.</string>
     <string name="word_suggestions_autocomplete_spelling_emoji">Προτάσεις λέξεων (αυτόματη συμπλήρωση, ορθογραφία, emoji)</string>
     <string name="system_spell_checker_settings">Ρυθμίσεις ορθογραφικού ελέγχου συστήματος</string>
+    <string name="learn_my_words_and_phrases_kept">Εκμάθηση των λέξεων και φράσεών μου (μένουν στη συσκευή)</string>
+    <string name="auto_correct_on_space_backspace_undoes">Αυτόματη διόρθωση στο Space (το Backspace την αναιρεί)</string>
+    <string name="forget_learned_words">Διαγραφή των μαθημένων λέξεων</string>
+    <string name="learned_words_forgotten">Οι μαθημένες λέξεις διαγράφηκαν</string>
 </resources>
