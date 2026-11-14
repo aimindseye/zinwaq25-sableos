@@ -1,0 +1,47 @@
+diff --git a/sable-src/apps/r8/tenseven/src/SableExtraDim.kt b/sable-src/apps/r8/tenseven/src/SableExtraDim.kt
+index ff31f64..653a7ca 100644
+--- a/sable-src/apps/r8/tenseven/src/SableExtraDim.kt
++++ b/sable-src/apps/r8/tenseven/src/SableExtraDim.kt
+@@ -2,8 +2,9 @@
+ // steps, and its lowest is still bright. With the slider at the bottom, the home turns on Android's Extra dim
+ // (reduce bright colors) and turns it off again when the slider moves up. Extra dim that the person turned on
+ // themselves is never touched. Part of the SableOS home flavor.
+-// Off unless switched on (owner, 2026-11-13): the kernel now drives the backlight with the display PWM
+-// (kernel patch 0906), whose lowest level is already dark, so Extra dim on top of it is too dark.
++// On by default again (owner, 2026-11-14): kernel patch 0906 (the PWM backlight) left the Q25 screen black
++// and was taken out, so the backlight is back on the OCP2131's 25 steps and Extra dim is what makes the
++// bottom of the slider dim.
+ package io.github.aimindseye.tenseven.platform
+ 
+ import android.content.Context
+@@ -20,7 +21,7 @@ object SableExtraDim {
+     const val DEFAULT_LEVEL = 50
+ 
+     /** Whether the bottom of the slider adds Extra dim when the person never chose. */
+-    const val DEFAULT_ENABLED = false
++    const val DEFAULT_ENABLED = true
+ 
+     const val PREFS = "sable_extra_dim"
+     const val KEY_ENABLED = "enabled"
+diff --git a/sable-src/apps/r8/tenseven/src/SableExtraDimTest.kt b/sable-src/apps/r8/tenseven/src/SableExtraDimTest.kt
+index da649ad..4c2bece 100644
+--- a/sable-src/apps/r8/tenseven/src/SableExtraDimTest.kt
++++ b/sable-src/apps/r8/tenseven/src/SableExtraDimTest.kt
+@@ -2,14 +2,14 @@ package io.github.aimindseye.tenseven.platform
+ 
+ import io.github.aimindseye.tenseven.platform.SableExtraDim.Action
+ import org.junit.Assert.assertEquals
+-import org.junit.Assert.assertFalse
+ import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
+ import org.junit.Test
+ 
+ class SableExtraDimTest {
+     @Test
+-    fun itIsOffUntilSwitchedOnNowThatTheBacklightGoesDark() {
+-        assertFalse(SableExtraDim.DEFAULT_ENABLED)
++    fun itIsOnByDefaultWithTheStepBacklight() {
++        assertTrue(SableExtraDim.DEFAULT_ENABLED)
+     }
+ 
+     @Test
