@@ -1,0 +1,148 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 14 Nov 2026 20:15:00 +0000
+Subject: [PATCH] SableOS: debug double-tap to wake on the Q25
+
+On the owner's Q25 (2026-11-14) double-tap to wake arms when the screen
+turns off, but no tap raises a touch interrupt afterwards, whether the
+panel keeps its power (0909) or not and with either backlight setup
+(dtbo tests E to G). This is a diagnostic patch, to be replaced by the
+fix it points to:
+
+- The touch driver logs, at each arm and disarm, F01 device control, F12
+  ctrl20 (reporting mode) and ctrl27 (gesture enables) as read back from
+  the controller, the attention line and the driver's state, and logs
+  (rate-limited) every interrupt that arrives while armed.
+- The panel driver gets a debug knob, sable_sleep_skip (0 by default,
+  set by hand through sysfs): 1 skips the panel's sleep-in command at
+  screen off, 2 also skips display-off. If touches come through with it
+  set, the panel's sleep stops the touch controller scanning.
+---
+ .../drm/panel/panel-q20-hd720-lcm-dsi-vdo.c   | 34 +++++++++++-----
+ .../synaptics_dsx/synaptics_dsx_core.c        | 40 ++++++++++++++++++-
+ 2 files changed, 64 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/panel/panel-q20-hd720-lcm-dsi-vdo.c b/drivers/gpu/drm/panel/panel-q20-hd720-lcm-dsi-vdo.c
+index 38acb91..e4bbb6e 100644
+--- a/drivers/gpu/drm/panel/panel-q20-hd720-lcm-dsi-vdo.c
++++ b/drivers/gpu/drm/panel/panel-q20-hd720-lcm-dsi-vdo.c
+@@ -227,6 +227,17 @@ static int lcm_disable(struct drm_panel *panel)
+ 	return 0;
+ }
+ 
++/*
++ * SableOS (debug, double-tap to wake): how much of its sleep the panel skips at
++ * screen off. 0: all of it (normal); 1: no sleep-in (DCS 0x10); 2: neither
++ * display-off (0x28) nor sleep-in. Set by hand through
++ * /sys/module/panel_q20_hd720_lcm_dsi_vdo/parameters/sable_sleep_skip to find
++ * whether the panel's sleep stops the touch controller scanning.
++ */
++static int sable_sleep_skip;
++module_param(sable_sleep_skip, int, 0644);
++MODULE_PARM_DESC(sable_sleep_skip, "Debug: skip the panel's sleep at screen off (SableOS)");
++
+ static int lcm_unprepare(struct drm_panel *panel)
+ {
+ 	struct hodafone_lcm *ctx = panel_to_hodafone_lcm(panel);
+@@ -237,18 +248,23 @@ static int lcm_unprepare(struct drm_panel *panel)
+ 	if (!ctx->prepared)
+ 		return 0;
+ 
+-	ret = mipi_dsi_dcs_set_display_off(dsi);
+-	if (ret) {
+-		dev_err(ctx->dev, "failed to turn display off (%d)\n", ret);
+-		return ret;
++	dev_info(ctx->dev, "SableOS: screen off, sable_sleep_skip=%d\n", sable_sleep_skip);
++	if (sable_sleep_skip < 2) {
++		ret = mipi_dsi_dcs_set_display_off(dsi);
++		if (ret) {
++			dev_err(ctx->dev, "failed to turn display off (%d)\n", ret);
++			return ret;
++		}
++		usleep_range(10000, 20000);
+ 	}
+-	usleep_range(10000, 20000);
+ 
+ 	/* Enter sleep mode */
+-	ret = mipi_dsi_dcs_enter_sleep_mode(dsi);
+-	if (ret) {
+-		dev_err(ctx->dev, "failed to enter sleep mode (%d)\n", ret);
+-		return ret;
++	if (sable_sleep_skip < 1) {
++		ret = mipi_dsi_dcs_enter_sleep_mode(dsi);
++		if (ret) {
++			dev_err(ctx->dev, "failed to enter sleep mode (%d)\n", ret);
++			return ret;
++		}
+ 	}
+ 		
+ 	if (is_board_q20_v12(ctx)) {
+diff --git a/drivers/input/touchscreen/mtk_touchscreen_hodafonehw/synaptics_dsx/synaptics_dsx_core.c b/drivers/input/touchscreen/mtk_touchscreen_hodafonehw/synaptics_dsx/synaptics_dsx_core.c
+index e4e2e6c..925eec6 100644
+--- a/drivers/input/touchscreen/mtk_touchscreen_hodafonehw/synaptics_dsx/synaptics_dsx_core.c
++++ b/drivers/input/touchscreen/mtk_touchscreen_hodafonehw/synaptics_dsx/synaptics_dsx_core.c
+@@ -804,6 +804,39 @@ static int sable_wg_set_mode(struct synaptics_rmi4_data *rmi4_data, bool gesture
+ 	return retval < 0 ? retval : 0;
+ }
+ 
++/*
++ * SableOS (debug): log what the controller holds after arming or disarming:
++ * F01 device control, F12 ctrl20 (reporting mode in byte 2) and ctrl27
++ * (wakeup-gesture enables), and the attention line.
++ */
++static void sable_wg_dump(struct synaptics_rmi4_data *rmi4_data, const char *when)
++{
++	const struct synaptics_dsx_board_data *bdata =
++			rmi4_data->hw_if->board_data;
++	struct synaptics_rmi4_fn *fhandler = sable_wg_f12(rmi4_data);
++	struct synaptics_rmi4_f12_extra_data *extra_data;
++	unsigned char f01 = 0, ctrl20[3] = {0}, ctrl27 = 0;
++	int r1, r2, r3 = -1;
++
++	if (!fhandler)
++		return;
++	extra_data = (struct synaptics_rmi4_f12_extra_data *)fhandler->extra;
++	r1 = synaptics_rmi4_reg_read(rmi4_data, rmi4_data->f01_ctrl_base_addr,
++			&f01, sizeof(f01));
++	r2 = synaptics_rmi4_reg_read(rmi4_data,
++			fhandler->full_addr.ctrl_base + extra_data->ctrl20_offset,
++			ctrl20, sizeof(ctrl20));
++	if (rmi4_data->f12_wakeup_gesture)
++		r3 = synaptics_rmi4_reg_read(rmi4_data,
++				fhandler->full_addr.ctrl_base + extra_data->ctrl27_offset,
++				&ctrl27, sizeof(ctrl27));
++	dev_info(rmi4_data->pdev->dev.parent,
++			"%s: %s: f01 0x%02x (%d) ctrl20 %02x %02x %02x (%d) ctrl27 0x%02x (%d) attn %d irq_enabled %d suspend %d\n",
++			__func__, when, f01, r1, ctrl20[0], ctrl20[1], ctrl20[2], r2,
++			ctrl27, r3, gpio_get_value(bdata->irq_gpio),
++			rmi4_data->irq_enabled, rmi4_data->suspend);
++}
++
+ static void sable_wg_arm(struct synaptics_rmi4_data *rmi4_data, bool arm)
+ {
+ 	mutex_lock(&rmi4_data->input_dev->mutex);
+@@ -820,6 +853,7 @@ static void sable_wg_arm(struct synaptics_rmi4_data *rmi4_data, bool arm)
+ 	else
+ 		disable_irq_wake(rmi4_data->irq);
+ 	sable_wg_armed = arm;
++	sable_wg_dump(rmi4_data, arm ? "armed" : "disarmed");
+ 	dev_info(rmi4_data->pdev->dev.parent, "%s: double-tap to wake %s\n",
+ 			__func__, arm ? "armed" : "disarmed");
+ out:
+@@ -1499,8 +1533,12 @@ static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
+ 	struct synaptics_rmi4_data *rmi4_data = data;
+ 
+ 	/* SableOS: keep the system awake until the double tap is read and reported. */
+-	if (sable_wg_armed)
++	if (sable_wg_armed) {
+ 		pm_wakeup_dev_event(&rmi4_data->pdev->dev, SABLE_WG_WAKE_MS, true);
++		/* SableOS (debug): show that an interrupt came while armed. */
++		dev_info_ratelimited(rmi4_data->pdev->dev.parent,
++				"%s: interrupt while double-tap to wake is armed\n", __func__);
++	}
+ 
+ 	synaptics_rmi4_diable_irq_nosync(irq, rmi4_data, true);
+ 	queue_work(rmi4_data->workqueue, &rmi4_data->irq_work);
+-- 
+2.43.0
+
