@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Sat, 14 Nov 2026 17:30:00 +0000
+Subject: [PATCH] SableOS: catch a double tap that woke the Q25 from suspend
+
+On the owner's Q25 (2026-11-14) with 0907, a double tap with the screen
+off lit the notification LED and raised the touch interrupt count in
+/proc/interrupts, but the screen stayed off. A tap that wakes the phone
+from system suspend raises its falling edge while interrupts are
+suspended; the interrupt core marks it pending and should replay it on
+resume. If that replay is lost, the work that reads the gesture never
+runs, the phone goes back to sleep, and the attention line stays low, so
+no later tap raises a new edge.
+
+When this driver resumes with the gesture armed and the attention line
+still asserted, queue the work itself, keeping the interrupt's disable
+and enable balanced with the handler. Each gesture read while armed is
+logged with the value the panel reported, so dmesg shows whether a tap
+reached the driver and what it said.
+---
+ .../synaptics_dsx/synaptics_dsx_core.c        | 34 +++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/drivers/input/touchscreen/mtk_touchscreen_hodafonehw/synaptics_dsx/synaptics_dsx_core.c b/drivers/input/touchscreen/mtk_touchscreen_hodafonehw/synaptics_dsx/synaptics_dsx_core.c
+index 795d9a7..e4e2e6c 100644
+--- a/drivers/input/touchscreen/mtk_touchscreen_hodafonehw/synaptics_dsx/synaptics_dsx_core.c
++++ b/drivers/input/touchscreen/mtk_touchscreen_hodafonehw/synaptics_dsx/synaptics_dsx_core.c
+@@ -722,6 +722,35 @@ static bool sable_wg_armed;
+ static bool sable_wg_sleeping;
+ static DECLARE_COMPLETION(sable_wg_resumed);
+ 
++/*
++ * SableOS: a tap that woke the phone from system suspend raises its falling
++ * edge while interrupts are suspended. The interrupt core marks it pending and
++ * should replay it on resume, but if the replay is lost the work never runs:
++ * the tap is not read, the phone goes back to sleep, and the attention line
++ * stays low, so no later tap raises a new edge. On resume, if the line is still
++ * asserted, queue the work here. The interrupt is disabled first, as the
++ * handler does, and enabled again if the handler already queued the work, so
++ * the work's enable_irq() stays balanced.
++ */
++static void sable_wg_catch_lost_tap(struct synaptics_rmi4_data *rmi4_data)
++{
++	const struct synaptics_dsx_board_data *bdata =
++			rmi4_data->hw_if->board_data;
++
++	if (!sable_wg_armed || !rmi4_data->irq_enabled ||
++			gpio_get_value(bdata->irq_gpio) != bdata->irq_on_state)
++		return;
++	disable_irq_nosync(rmi4_data->irq);
++	if (queue_work(rmi4_data->workqueue, &rmi4_data->irq_work)) {
++		pm_wakeup_dev_event(&rmi4_data->pdev->dev, SABLE_WG_WAKE_MS, true);
++		dev_info(rmi4_data->pdev->dev.parent,
++				"%s: reading a tap whose interrupt was lost\n",
++				__func__);
++	} else {
++		enable_irq(rmi4_data->irq);
++	}
++}
++
+ static struct synaptics_rmi4_fn *sable_wg_f12(struct synaptics_rmi4_data *rmi4_data)
+ {
+ 	struct synaptics_rmi4_fn *fhandler;
+@@ -1116,6 +1145,10 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
+ 		retval = synaptics_rmi4_reg_read(rmi4_data,
+ 				data_addr + extra_data->data4_offset,
+ 				&gesture, sizeof(gesture));
++		/* Logged, so dmesg shows what the panel reported for each tap. */
++		dev_info(rmi4_data->pdev->dev.parent,
++				"%s: wakeup gesture 0x%02x (read %d)\n",
++				__func__, gesture, retval);
+ 		if (retval >= 0 && gesture == F12_GESTURE_DOUBLE_TAP) {
+ 			input_report_key(rmi4_data->input_dev, KEY_WAKEUP, 1);
+ 			input_sync(rmi4_data->input_dev);
+@@ -3457,6 +3490,7 @@ static int synaptics_rmi4_resume(struct device *dev)
+ 	if (READ_ONCE(sable_wg_sleeping)) {
+ 		WRITE_ONCE(sable_wg_sleeping, false);
+ 		complete_all(&sable_wg_resumed);
++		sable_wg_catch_lost_tap(rmi4_data);
+ 	}
+ 
+ 	mutex_lock(&rmi4_data->input_dev->mutex);
+-- 
+2.43.0
+

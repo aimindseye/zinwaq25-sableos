@@ -1,0 +1,835 @@
+Sable games moved to aimindseye/sablegames (owner, 2026-11-14): remove the games module (all its
+flavors: the ten puzzles, the Games Console and Sable Indian Games), its settings include, its icon rows and LuaJ,
+which only the Games Console used. The deleted files are listed without their contents (git diff -D);
+they live on in aimindseye/sablegames.
+
+diff --git a/sable-src/apps/r8/android/games/build.gradle.kts b/sable-src/apps/r8/android/games/build.gradle.kts
+deleted file mode 100644
+index 022af98..0000000
+diff --git a/sable-src/apps/r8/android/games/gradle.lockfile b/sable-src/apps/r8/android/games/gradle.lockfile
+deleted file mode 100644
+index 33c7d34..0000000
+diff --git a/sable-src/apps/r8/android/games/proguard-rules.pro b/sable-src/apps/r8/android/games/proguard-rules.pro
+deleted file mode 100644
+index bbb5b88..0000000
+diff --git a/sable-src/apps/r8/android/games/src/blocks/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/blocks/res/drawable/ic_sable_game.xml
+deleted file mode 100644
+index 2dc9705..0000000
+diff --git a/sable-src/apps/r8/android/games/src/blocks/res/drawable/ic_sable_game_background.xml b/sable-src/apps/r8/android/games/src/blocks/res/drawable/ic_sable_game_background.xml
+deleted file mode 100644
+index b3f6733..0000000
+diff --git a/sable-src/apps/r8/android/games/src/blocks/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/blocks/res/drawable/ic_sable_game_foreground.xml
+deleted file mode 100644
+index 1295a4c..0000000
+diff --git a/sable-src/apps/r8/android/games/src/blocks/res/drawable/ic_sable_game_monochrome.xml b/sable-src/apps/r8/android/games/src/blocks/res/drawable/ic_sable_game_monochrome.xml
+deleted file mode 100644
+index 0e38f72..0000000
+diff --git a/sable-src/apps/r8/android/games/src/blocks/res/mipmap-anydpi-v26/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/blocks/res/mipmap-anydpi-v26/ic_sable_game.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/blocks/res/mipmap-anydpi-v26/ic_sable_game_round.xml b/sable-src/apps/r8/android/games/src/blocks/res/mipmap-anydpi-v26/ic_sable_game_round.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/bricks/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/bricks/res/drawable/ic_sable_game.xml
+deleted file mode 100644
+index f57c5ce..0000000
+diff --git a/sable-src/apps/r8/android/games/src/bricks/res/drawable/ic_sable_game_background.xml b/sable-src/apps/r8/android/games/src/bricks/res/drawable/ic_sable_game_background.xml
+deleted file mode 100644
+index b3f6733..0000000
+diff --git a/sable-src/apps/r8/android/games/src/bricks/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/bricks/res/drawable/ic_sable_game_foreground.xml
+deleted file mode 100644
+index 7f2c9e0..0000000
+diff --git a/sable-src/apps/r8/android/games/src/bricks/res/drawable/ic_sable_game_monochrome.xml b/sable-src/apps/r8/android/games/src/bricks/res/drawable/ic_sable_game_monochrome.xml
+deleted file mode 100644
+index ef2978a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/bricks/res/mipmap-anydpi-v26/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/bricks/res/mipmap-anydpi-v26/ic_sable_game.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/bricks/res/mipmap-anydpi-v26/ic_sable_game_round.xml b/sable-src/apps/r8/android/games/src/bricks/res/mipmap-anydpi-v26/ic_sable_game_round.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/AndroidManifest.xml b/sable-src/apps/r8/android/games/src/console/AndroidManifest.xml
+deleted file mode 100644
+index bc65701..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ball_maze/game.toml b/sable-src/apps/r8/android/games/src/console/assets/console/ball_maze/game.toml
+deleted file mode 100644
+index c62a0ab..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ball_maze/main.lua b/sable-src/apps/r8/android/games/src/console/assets/console/ball_maze/main.lua
+deleted file mode 100644
+index 95cad6b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ball_maze/plastic_round.png b/sable-src/apps/r8/android/games/src/console/assets/console/ball_maze/plastic_round.png
+deleted file mode 100644
+index 518bcb0..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ball_maze/plastic_square.png b/sable-src/apps/r8/android/games/src/console/assets/console/ball_maze/plastic_square.png
+deleted file mode 100644
+index 5072d6e..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ball_maze/wood_round.png b/sable-src/apps/r8/android/games/src/console/assets/console/ball_maze/wood_round.png
+deleted file mode 100644
+index 710f919..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ball_maze/wood_square.png b/sable-src/apps/r8/android/games/src/console/assets/console/ball_maze/wood_square.png
+deleted file mode 100644
+index a9b1a0a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/motion_2048/game.toml b/sable-src/apps/r8/android/games/src/console/assets/console/motion_2048/game.toml
+deleted file mode 100644
+index f9297b5..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/motion_2048/main.lua b/sable-src/apps/r8/android/games/src/console/assets/console/motion_2048/main.lua
+deleted file mode 100644
+index 711d78c..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/arch.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/arch.png
+deleted file mode 100644
+index 4842148..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/boulder.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/boulder.png
+deleted file mode 100644
+index ceffc77..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/cactus.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/cactus.png
+deleted file mode 100644
+index 5671603..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/car_blue.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/car_blue.png
+deleted file mode 100644
+index c2e03be..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/car_green.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/car_green.png
+deleted file mode 100644
+index 00c6dbe..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/car_orange.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/car_orange.png
+deleted file mode 100644
+index 2d69e6b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/car_red.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/car_red.png
+deleted file mode 100644
+index c6f6e7b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/cliff.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/cliff.png
+deleted file mode 100644
+index 4e90796..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/flame.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/flame.png
+deleted file mode 100644
+index 12b1440..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/game.toml b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/game.toml
+deleted file mode 100644
+index 0e7dda2..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/main.lua b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/main.lua
+deleted file mode 100644
+index 7edc825..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/mesa_far.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/mesa_far.png
+deleted file mode 100644
+index 7e8f209..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/mesa_near.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/mesa_near.png
+deleted file mode 100644
+index ecc9141..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/shadow.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/shadow.png
+deleted file mode 100644
+index 0ab4045..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/sky.png b/sable-src/apps/r8/android/games/src/console/assets/console/ramp_rush/sky.png
+deleted file mode 100644
+index 9d4baba..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/ball.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/ball.png
+deleted file mode 100644
+index cfb2cf1..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/cloud_0.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/cloud_0.png
+deleted file mode 100644
+index 4e4f2b8..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/cloud_1.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/cloud_1.png
+deleted file mode 100644
+index db3852a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/cloud_2.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/cloud_2.png
+deleted file mode 100644
+index cd54533..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/game.toml b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/game.toml
+deleted file mode 100644
+index 20e6d8a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/gem.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/gem.png
+deleted file mode 100644
+index 45531a8..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/goal.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/goal.png
+deleted file mode 100644
+index 706f4e8..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/lift.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/lift.png
+deleted file mode 100644
+index 89f9566..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/main.lua b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/main.lua
+deleted file mode 100644
+index d09b843..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/rail.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/rail.png
+deleted file mode 100644
+index 7f30a11..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/ring.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/ring.png
+deleted file mode 100644
+index ae03ddf..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/rock_0.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/rock_0.png
+deleted file mode 100644
+index 6ea2fd2..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/rock_1.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/rock_1.png
+deleted file mode 100644
+index 3b8bde1..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/shadow.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/shadow.png
+deleted file mode 100644
+index 37ebdf7..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/shine.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/shine.png
+deleted file mode 100644
+index 39e11f7..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/sky.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/sky.png
+deleted file mode 100644
+index bd63a1f..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/sparkle.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/sparkle.png
+deleted file mode 100644
+index 926eac0..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/stone_0.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/stone_0.png
+deleted file mode 100644
+index ed520e9..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/stone_1.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/stone_1.png
+deleted file mode 100644
+index 3990616..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/stone_2.png b/sable-src/apps/r8/android/games/src/console/assets/console/sky_roll/stone_2.png
+deleted file mode 100644
+index d66cc4a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sokoban_tilt/game.toml b/sable-src/apps/r8/android/games/src/console/assets/console/sokoban_tilt/game.toml
+deleted file mode 100644
+index 530ad07..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/sokoban_tilt/main.lua b/sable-src/apps/r8/android/games/src/console/assets/console/sokoban_tilt/main.lua
+deleted file mode 100644
+index 5195dc2..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/easy_0_0.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/easy_0_0.png
+deleted file mode 100644
+index f08d314..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/easy_0_1.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/easy_0_1.png
+deleted file mode 100644
+index 619cc4e..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/easy_0_2.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/easy_0_2.png
+deleted file mode 100644
+index 0de694f..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/easy_1_0.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/easy_1_0.png
+deleted file mode 100644
+index b5be1c1..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/easy_1_1.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/easy_1_1.png
+deleted file mode 100644
+index 969f402..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/easy_1_2.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/easy_1_2.png
+deleted file mode 100644
+index c2f2ed5..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/f1_blue.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/f1_blue.png
+deleted file mode 100644
+index 016fe76..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/f1_green.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/f1_green.png
+deleted file mode 100644
+index 3b5ed54..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/f1_purple.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/f1_purple.png
+deleted file mode 100644
+index c18dc95..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/f1_red.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/f1_red.png
+deleted file mode 100644
+index 30dab6b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/f1_violet.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/f1_violet.png
+deleted file mode 100644
+index 5f8dcee..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/f1_yellow.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/f1_yellow.png
+deleted file mode 100644
+index db382b0..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/game.toml b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/game.toml
+deleted file mode 100644
+index 7f293ed..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/main.lua b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/main.lua
+deleted file mode 100644
+index 44701f1..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_0_0.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_0_0.png
+deleted file mode 100644
+index 0d3e3ed..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_0_1.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_0_1.png
+deleted file mode 100644
+index 1461f19..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_0_2.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_0_2.png
+deleted file mode 100644
+index 7520558..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_0_3.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_0_3.png
+deleted file mode 100644
+index 0e4ed13..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_0_4.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_0_4.png
+deleted file mode 100644
+index 994116b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_1_0.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_1_0.png
+deleted file mode 100644
+index 2ddfe45..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_1_1.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_1_1.png
+deleted file mode 100644
+index 1d6ebed..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_1_2.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_1_2.png
+deleted file mode 100644
+index 4d55f42..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_1_3.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_1_3.png
+deleted file mode 100644
+index bc47f57..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_1_4.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_1_4.png
+deleted file mode 100644
+index 94eba99..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_2_0.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_2_0.png
+deleted file mode 100644
+index 74a8c93..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_2_1.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_2_1.png
+deleted file mode 100644
+index 8b18458..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_2_2.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_2_2.png
+deleted file mode 100644
+index 0c18416..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_2_3.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_2_3.png
+deleted file mode 100644
+index f8a8eaf..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_2_4.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_2_4.png
+deleted file mode 100644
+index effdb13..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_3_0.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_3_0.png
+deleted file mode 100644
+index 14314bf..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_3_1.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_3_1.png
+deleted file mode 100644
+index 4891a05..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_3_2.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_3_2.png
+deleted file mode 100644
+index aa0b268..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_3_3.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_3_3.png
+deleted file mode 100644
+index cfe459a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_3_4.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_circuit/track_3_4.png
+deleted file mode 100644
+index 57df8e1..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_maze/game.toml b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_maze/game.toml
+deleted file mode 100644
+index 7ba98df..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_maze/main.lua b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_maze/main.lua
+deleted file mode 100644
+index a32f98a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/f1_blue.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/f1_blue.png
+deleted file mode 100644
+index 016fe76..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/f1_green.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/f1_green.png
+deleted file mode 100644
+index 3b5ed54..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/f1_purple.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/f1_purple.png
+deleted file mode 100644
+index c18dc95..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/f1_red.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/f1_red.png
+deleted file mode 100644
+index 30dab6b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/f1_violet.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/f1_violet.png
+deleted file mode 100644
+index 5f8dcee..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/f1_yellow.png b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/f1_yellow.png
+deleted file mode 100644
+index db382b0..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/game.toml b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/game.toml
+deleted file mode 100644
+index e0fa962..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/main.lua b/sable-src/apps/r8/android/games/src/console/assets/console/tilt_racer/main.lua
+deleted file mode 100644
+index 9185050..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/luaj/vm2/lib/MeteredPatterns.java b/sable-src/apps/r8/android/games/src/console/java/org/luaj/vm2/lib/MeteredPatterns.java
+deleted file mode 100644
+index 29675d3..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleActivity.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleActivity.kt
+deleted file mode 100644
+index 3f46477..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleApp.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleApp.kt
+deleted file mode 100644
+index b3ed6da..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleChrome.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleChrome.kt
+deleted file mode 100644
+index 9f37724..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleKeys.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleKeys.kt
+deleted file mode 100644
+index ad3f267..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleLibrary.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleLibrary.kt
+deleted file mode 100644
+index 7303b8b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleManifest.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleManifest.kt
+deleted file mode 100644
+index 3e35112..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleMore.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleMore.kt
+deleted file mode 100644
+index 02a43fc..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsolePictures.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsolePictures.kt
+deleted file mode 100644
+index 054762a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsolePlay.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsolePlay.kt
+deleted file mode 100644
+index a10dbf9..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleScreens.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleScreens.kt
+deleted file mode 100644
+index 9b74a85..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleTilt.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/ConsoleTilt.kt
+deleted file mode 100644
+index 9abed73..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/LuaGame.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/LuaGame.kt
+deleted file mode 100644
+index 9dc36df..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/TiltFilter.kt b/sable-src/apps/r8/android/games/src/console/java/org/sableos/games/console/TiltFilter.kt
+deleted file mode 100644
+index df20159..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/console/res/drawable/ic_sable_game.xml
+deleted file mode 100644
+index e501d32..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/res/drawable/ic_sable_game_background.xml b/sable-src/apps/r8/android/games/src/console/res/drawable/ic_sable_game_background.xml
+deleted file mode 100644
+index b3f6733..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/console/res/drawable/ic_sable_game_foreground.xml
+deleted file mode 100644
+index ba7db78..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/res/drawable/ic_sable_game_monochrome.xml b/sable-src/apps/r8/android/games/src/console/res/drawable/ic_sable_game_monochrome.xml
+deleted file mode 100644
+index a2fd9a4..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/res/mipmap-anydpi-v26/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/console/res/mipmap-anydpi-v26/ic_sable_game.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/console/res/mipmap-anydpi-v26/ic_sable_game_round.xml b/sable-src/apps/r8/android/games/src/console/res/mipmap-anydpi-v26/ic_sable_game_round.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/game2048/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/game2048/res/drawable/ic_sable_game.xml
+deleted file mode 100644
+index 1ccea60..0000000
+diff --git a/sable-src/apps/r8/android/games/src/game2048/res/drawable/ic_sable_game_background.xml b/sable-src/apps/r8/android/games/src/game2048/res/drawable/ic_sable_game_background.xml
+deleted file mode 100644
+index b3f6733..0000000
+diff --git a/sable-src/apps/r8/android/games/src/game2048/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/game2048/res/drawable/ic_sable_game_foreground.xml
+deleted file mode 100644
+index 5fbc230..0000000
+diff --git a/sable-src/apps/r8/android/games/src/game2048/res/drawable/ic_sable_game_monochrome.xml b/sable-src/apps/r8/android/games/src/game2048/res/drawable/ic_sable_game_monochrome.xml
+deleted file mode 100644
+index e425b7a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/game2048/res/mipmap-anydpi-v26/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/game2048/res/mipmap-anydpi-v26/ic_sable_game.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/game2048/res/mipmap-anydpi-v26/ic_sable_game_round.xml b/sable-src/apps/r8/android/games/src/game2048/res/mipmap-anydpi-v26/ic_sable_game_round.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/indiangames/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/indiangames/res/drawable/ic_sable_game.xml
+deleted file mode 100644
+index 7ffdd07..0000000
+diff --git a/sable-src/apps/r8/android/games/src/indiangames/res/drawable/ic_sable_game_background.xml b/sable-src/apps/r8/android/games/src/indiangames/res/drawable/ic_sable_game_background.xml
+deleted file mode 100644
+index b3f6733..0000000
+diff --git a/sable-src/apps/r8/android/games/src/indiangames/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/indiangames/res/drawable/ic_sable_game_foreground.xml
+deleted file mode 100644
+index 338b37a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/indiangames/res/drawable/ic_sable_game_monochrome.xml b/sable-src/apps/r8/android/games/src/indiangames/res/drawable/ic_sable_game_monochrome.xml
+deleted file mode 100644
+index 7695afa..0000000
+diff --git a/sable-src/apps/r8/android/games/src/indiangames/res/mipmap-anydpi-v26/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/indiangames/res/mipmap-anydpi-v26/ic_sable_game.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/indiangames/res/mipmap-anydpi-v26/ic_sable_game_round.xml b/sable-src/apps/r8/android/games/src/indiangames/res/mipmap-anydpi-v26/ic_sable_game_round.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/mahjong/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/mahjong/res/drawable/ic_sable_game.xml
+deleted file mode 100644
+index 35ca2c8..0000000
+diff --git a/sable-src/apps/r8/android/games/src/mahjong/res/drawable/ic_sable_game_background.xml b/sable-src/apps/r8/android/games/src/mahjong/res/drawable/ic_sable_game_background.xml
+deleted file mode 100644
+index b3f6733..0000000
+diff --git a/sable-src/apps/r8/android/games/src/mahjong/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/mahjong/res/drawable/ic_sable_game_foreground.xml
+deleted file mode 100644
+index 032d457..0000000
+diff --git a/sable-src/apps/r8/android/games/src/mahjong/res/drawable/ic_sable_game_monochrome.xml b/sable-src/apps/r8/android/games/src/mahjong/res/drawable/ic_sable_game_monochrome.xml
+deleted file mode 100644
+index 691e45b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/mahjong/res/mipmap-anydpi-v26/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/mahjong/res/mipmap-anydpi-v26/ic_sable_game.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/mahjong/res/mipmap-anydpi-v26/ic_sable_game_round.xml b/sable-src/apps/r8/android/games/src/mahjong/res/mipmap-anydpi-v26/ic_sable_game_round.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/AndroidManifest.xml b/sable-src/apps/r8/android/games/src/main/AndroidManifest.xml
+deleted file mode 100644
+index af2fc98..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/ArcadeScreens.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/ArcadeScreens.kt
+deleted file mode 100644
+index 20ba3ea..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BlocksGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BlocksGame.kt
+deleted file mode 100644
+index ca69a62..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BluffGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BluffGame.kt
+deleted file mode 100644
+index e97e414..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardGames.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardGames.kt
+deleted file mode 100644
+index 9388f2b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardScreens.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BoardScreens.kt
+deleted file mode 100644
+index d39aec8..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BricksGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/BricksGame.kt
+deleted file mode 100644
+index f178c8f..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/DonkeyGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/DonkeyGame.kt
+deleted file mode 100644
+index 5de9e3f..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/Game2048Screen.kt
+deleted file mode 100644
+index 29fc754..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameFrame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameFrame.kt
+deleted file mode 100644
+index 7fdb1ab..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameKeyHandler.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameKeyHandler.kt
+deleted file mode 100644
+index f3a50ae..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameKeymap.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameKeymap.kt
+deleted file mode 100644
+index 5b5af1f..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameProtocol.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GameProtocol.kt
+deleted file mode 100644
+index 51ac14f..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesApplication.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesApplication.kt
+deleted file mode 100644
+index 830b304..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesCore.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesCore.kt
+deleted file mode 100644
+index 90d203b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesText.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GamesText.kt
+deleted file mode 100644
+index 6ccd02b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GulamChoorGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/GulamChoorGame.kt
+deleted file mode 100644
+index ade7ba8..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/IndianBoardScreens.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/IndianBoardScreens.kt
+deleted file mode 100644
+index 0f5a37b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/IndianCardScreens.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/IndianCardScreens.kt
+deleted file mode 100644
+index 5fd3c6d..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/IndianCards.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/IndianCards.kt
+deleted file mode 100644
+index 5fe5540..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/IndianUi.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/IndianUi.kt
+deleted file mode 100644
+index 28d488c..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MahjongGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MahjongGame.kt
+deleted file mode 100644
+index 9194065..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MainActivity.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MainActivity.kt
+deleted file mode 100644
+index 308b85a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/MinesweeperScreen.kt
+deleted file mode 100644
+index b7d462c..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/ReversiGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/ReversiGame.kt
+deleted file mode 100644
+index 2a9d63d..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/RummyGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/RummyGame.kt
+deleted file mode 100644
+index 524f3c9..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SnakeGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SnakeGame.kt
+deleted file mode 100644
+index 07efeba..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SolitaireGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SolitaireGame.kt
+deleted file mode 100644
+index 16daac9..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/SudokuScreen.kt
+deleted file mode 100644
+index c2d7845..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/TeenPattiGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/TeenPattiGame.kt
+deleted file mode 100644
+index 82966b8..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/TrickGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/TrickGame.kt
+deleted file mode 100644
+index 353445c..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/WordsGame.kt b/sable-src/apps/r8/android/games/src/main/java/org/sableos/games/WordsGame.kt
+deleted file mode 100644
+index c9cd774..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/raw/sable_strings_keep.xml b/sable-src/apps/r8/android/games/src/main/res/raw/sable_strings_keep.xml
+deleted file mode 100644
+index 4f4b368..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-ar/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-ar/strings.xml
+deleted file mode 100644
+index 86f03bc..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-de/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-de/strings.xml
+deleted file mode 100644
+index 0fc4da7..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-el/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-el/strings.xml
+deleted file mode 100644
+index a0fbc79..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-es/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-es/strings.xml
+deleted file mode 100644
+index a6459e2..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-fr/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-fr/strings.xml
+deleted file mode 100644
+index 248f36a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-hi/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-hi/strings.xml
+deleted file mode 100644
+index 996d858..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-it/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-it/strings.xml
+deleted file mode 100644
+index 5d75e6d..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-iw/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-iw/strings.xml
+deleted file mode 100644
+index 0c35d7e..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-ja/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-ja/strings.xml
+deleted file mode 100644
+index 8904b5c..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-ko/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-ko/strings.xml
+deleted file mode 100644
+index 2d10421..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-nl/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-nl/strings.xml
+deleted file mode 100644
+index 5e4c8c1..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-pl/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-pl/strings.xml
+deleted file mode 100644
+index 8d57703..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-pt/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-pt/strings.xml
+deleted file mode 100644
+index f1fb24b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-ru/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-ru/strings.xml
+deleted file mode 100644
+index 91d1fd5..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-sv/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-sv/strings.xml
+deleted file mode 100644
+index 13b4049..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-tr/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-tr/strings.xml
+deleted file mode 100644
+index bd220b8..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-ur/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-ur/strings.xml
+deleted file mode 100644
+index d71ed76..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values-zh-rCN/strings.xml
+deleted file mode 100644
+index e0a42e6..0000000
+diff --git a/sable-src/apps/r8/android/games/src/main/res/values/strings.xml b/sable-src/apps/r8/android/games/src/main/res/values/strings.xml
+deleted file mode 100644
+index 4d19f4e..0000000
+diff --git a/sable-src/apps/r8/android/games/src/minesweeper/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/minesweeper/res/drawable/ic_sable_game.xml
+deleted file mode 100644
+index 713f06d..0000000
+diff --git a/sable-src/apps/r8/android/games/src/minesweeper/res/drawable/ic_sable_game_background.xml b/sable-src/apps/r8/android/games/src/minesweeper/res/drawable/ic_sable_game_background.xml
+deleted file mode 100644
+index b3f6733..0000000
+diff --git a/sable-src/apps/r8/android/games/src/minesweeper/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/minesweeper/res/drawable/ic_sable_game_foreground.xml
+deleted file mode 100644
+index f4bc9c3..0000000
+diff --git a/sable-src/apps/r8/android/games/src/minesweeper/res/drawable/ic_sable_game_monochrome.xml b/sable-src/apps/r8/android/games/src/minesweeper/res/drawable/ic_sable_game_monochrome.xml
+deleted file mode 100644
+index a93b91f..0000000
+diff --git a/sable-src/apps/r8/android/games/src/minesweeper/res/mipmap-anydpi-v26/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/minesweeper/res/mipmap-anydpi-v26/ic_sable_game.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/minesweeper/res/mipmap-anydpi-v26/ic_sable_game_round.xml b/sable-src/apps/r8/android/games/src/minesweeper/res/mipmap-anydpi-v26/ic_sable_game_round.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/reversi/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/reversi/res/drawable/ic_sable_game.xml
+deleted file mode 100644
+index 217a6c5..0000000
+diff --git a/sable-src/apps/r8/android/games/src/reversi/res/drawable/ic_sable_game_background.xml b/sable-src/apps/r8/android/games/src/reversi/res/drawable/ic_sable_game_background.xml
+deleted file mode 100644
+index b3f6733..0000000
+diff --git a/sable-src/apps/r8/android/games/src/reversi/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/reversi/res/drawable/ic_sable_game_foreground.xml
+deleted file mode 100644
+index ee051b9..0000000
+diff --git a/sable-src/apps/r8/android/games/src/reversi/res/drawable/ic_sable_game_monochrome.xml b/sable-src/apps/r8/android/games/src/reversi/res/drawable/ic_sable_game_monochrome.xml
+deleted file mode 100644
+index f50cc50..0000000
+diff --git a/sable-src/apps/r8/android/games/src/reversi/res/mipmap-anydpi-v26/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/reversi/res/mipmap-anydpi-v26/ic_sable_game.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/reversi/res/mipmap-anydpi-v26/ic_sable_game_round.xml b/sable-src/apps/r8/android/games/src/reversi/res/mipmap-anydpi-v26/ic_sable_game_round.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/snake/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/snake/res/drawable/ic_sable_game.xml
+deleted file mode 100644
+index 98d63eb..0000000
+diff --git a/sable-src/apps/r8/android/games/src/snake/res/drawable/ic_sable_game_background.xml b/sable-src/apps/r8/android/games/src/snake/res/drawable/ic_sable_game_background.xml
+deleted file mode 100644
+index b3f6733..0000000
+diff --git a/sable-src/apps/r8/android/games/src/snake/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/snake/res/drawable/ic_sable_game_foreground.xml
+deleted file mode 100644
+index 31d01b4..0000000
+diff --git a/sable-src/apps/r8/android/games/src/snake/res/drawable/ic_sable_game_monochrome.xml b/sable-src/apps/r8/android/games/src/snake/res/drawable/ic_sable_game_monochrome.xml
+deleted file mode 100644
+index f82f09c..0000000
+diff --git a/sable-src/apps/r8/android/games/src/snake/res/mipmap-anydpi-v26/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/snake/res/mipmap-anydpi-v26/ic_sable_game.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/snake/res/mipmap-anydpi-v26/ic_sable_game_round.xml b/sable-src/apps/r8/android/games/src/snake/res/mipmap-anydpi-v26/ic_sable_game_round.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/solitaire/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/solitaire/res/drawable/ic_sable_game.xml
+deleted file mode 100644
+index 7ffdd07..0000000
+diff --git a/sable-src/apps/r8/android/games/src/solitaire/res/drawable/ic_sable_game_background.xml b/sable-src/apps/r8/android/games/src/solitaire/res/drawable/ic_sable_game_background.xml
+deleted file mode 100644
+index b3f6733..0000000
+diff --git a/sable-src/apps/r8/android/games/src/solitaire/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/solitaire/res/drawable/ic_sable_game_foreground.xml
+deleted file mode 100644
+index 338b37a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/solitaire/res/drawable/ic_sable_game_monochrome.xml b/sable-src/apps/r8/android/games/src/solitaire/res/drawable/ic_sable_game_monochrome.xml
+deleted file mode 100644
+index 7695afa..0000000
+diff --git a/sable-src/apps/r8/android/games/src/solitaire/res/mipmap-anydpi-v26/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/solitaire/res/mipmap-anydpi-v26/ic_sable_game.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/solitaire/res/mipmap-anydpi-v26/ic_sable_game_round.xml b/sable-src/apps/r8/android/games/src/solitaire/res/mipmap-anydpi-v26/ic_sable_game_round.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game.xml
+deleted file mode 100644
+index c498c12..0000000
+diff --git a/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game_background.xml b/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game_background.xml
+deleted file mode 100644
+index b3f6733..0000000
+diff --git a/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game_foreground.xml
+deleted file mode 100644
+index 3951f3a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game_monochrome.xml b/sable-src/apps/r8/android/games/src/sudoku/res/drawable/ic_sable_game_monochrome.xml
+deleted file mode 100644
+index 2b7b8d9..0000000
+diff --git a/sable-src/apps/r8/android/games/src/sudoku/res/mipmap-anydpi-v26/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/sudoku/res/mipmap-anydpi-v26/ic_sable_game.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/sudoku/res/mipmap-anydpi-v26/ic_sable_game_round.xml b/sable-src/apps/r8/android/games/src/sudoku/res/mipmap-anydpi-v26/ic_sable_game_round.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/ArcadeGamesTest.kt b/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/ArcadeGamesTest.kt
+deleted file mode 100644
+index b5434a3..0000000
+diff --git a/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GameKeymapTest.kt b/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GameKeymapTest.kt
+deleted file mode 100644
+index aa4242e..0000000
+diff --git a/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GameLayoutTest.kt b/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GameLayoutTest.kt
+deleted file mode 100644
+index 80c8065..0000000
+diff --git a/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GamesCoreTest.kt b/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GamesCoreTest.kt
+deleted file mode 100644
+index d2ddcf1..0000000
+diff --git a/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GamesTextTest.kt b/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/GamesTextTest.kt
+deleted file mode 100644
+index c4c0d51..0000000
+diff --git a/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/IndianGamesTest.kt b/sable-src/apps/r8/android/games/src/test/java/org/sableos/games/IndianGamesTest.kt
+deleted file mode 100644
+index 9e30db4..0000000
+diff --git a/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/BundledGamesTest.kt b/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/BundledGamesTest.kt
+deleted file mode 100644
+index b8ee78c..0000000
+diff --git a/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/ConsoleKeysTest.kt b/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/ConsoleKeysTest.kt
+deleted file mode 100644
+index b132e4d..0000000
+diff --git a/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/ConsoleTabTest.kt b/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/ConsoleTabTest.kt
+deleted file mode 100644
+index c023f60..0000000
+diff --git a/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/GameManifestTest.kt b/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/GameManifestTest.kt
+deleted file mode 100644
+index df4087b..0000000
+diff --git a/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/LuaGameTest.kt b/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/LuaGameTest.kt
+deleted file mode 100644
+index 39aa244..0000000
+diff --git a/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/LuaSandboxAttackTest.kt b/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/LuaSandboxAttackTest.kt
+deleted file mode 100644
+index ae36a83..0000000
+diff --git a/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/TiltFilterTest.kt b/sable-src/apps/r8/android/games/src/testConsole/java/org/sableos/games/console/TiltFilterTest.kt
+deleted file mode 100644
+index 9414a88..0000000
+diff --git a/sable-src/apps/r8/android/games/src/words/res/drawable/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/words/res/drawable/ic_sable_game.xml
+deleted file mode 100644
+index 9987c6a..0000000
+diff --git a/sable-src/apps/r8/android/games/src/words/res/drawable/ic_sable_game_background.xml b/sable-src/apps/r8/android/games/src/words/res/drawable/ic_sable_game_background.xml
+deleted file mode 100644
+index b3f6733..0000000
+diff --git a/sable-src/apps/r8/android/games/src/words/res/drawable/ic_sable_game_foreground.xml b/sable-src/apps/r8/android/games/src/words/res/drawable/ic_sable_game_foreground.xml
+deleted file mode 100644
+index e919fcb..0000000
+diff --git a/sable-src/apps/r8/android/games/src/words/res/drawable/ic_sable_game_monochrome.xml b/sable-src/apps/r8/android/games/src/words/res/drawable/ic_sable_game_monochrome.xml
+deleted file mode 100644
+index bcf04e3..0000000
+diff --git a/sable-src/apps/r8/android/games/src/words/res/mipmap-anydpi-v26/ic_sable_game.xml b/sable-src/apps/r8/android/games/src/words/res/mipmap-anydpi-v26/ic_sable_game.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/games/src/words/res/mipmap-anydpi-v26/ic_sable_game_round.xml b/sable-src/apps/r8/android/games/src/words/res/mipmap-anydpi-v26/ic_sable_game_round.xml
+deleted file mode 100644
+index 94c0163..0000000
+diff --git a/sable-src/apps/r8/android/gradle/libs.versions.toml b/sable-src/apps/r8/android/gradle/libs.versions.toml
+index 9106e08..c7037f0 100644
+--- a/sable-src/apps/r8/android/gradle/libs.versions.toml
++++ b/sable-src/apps/r8/android/gradle/libs.versions.toml
+@@ -9,8 +9,6 @@ androidx-lifecycle = "2.9.4"
+ compose-bom = "2026.02.01"
+ junit = "4.13.2"
+ kotlinx-coroutines = "1.9.0"
+-# Lua for Sable Games Console's add-on games (MIT; pure Java, no native code).
+-luaj = "3.0.1"
+ media3 = "1.9.2"
+ # On-device speech recognition for Cosgrove's hold-to-talk (Apache-2.0; pulls JNA as an aar).
+ vosk = "0.3.75"
+@@ -34,5 +32,4 @@ androidx-lifecycle-runtime-ktx-android = { module = "androidx.lifecycle:lifecycl
+ androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
+ androidx-media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
+ junit = { module = "junit:junit", version.ref = "junit" }
+-luaj-jse = { module = "org.luaj:luaj-jse", version.ref = "luaj" }
+ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+diff --git a/sable-src/apps/r8/android/gradle/verification-metadata.xml b/sable-src/apps/r8/android/gradle/verification-metadata.xml
+index 3544310..c8c244c 100644
+--- a/sable-src/apps/r8/android/gradle/verification-metadata.xml
++++ b/sable-src/apps/r8/android/gradle/verification-metadata.xml
+@@ -4147,14 +4147,6 @@
+             <sha256 value="8fc84f36ce6da6ce8c893b6538199a7f69a69a0706d9b17a3ee6a3a09452eed6" origin="Generated by Gradle"/>
+          </artifact>
+       </component>
+-      <component group="org.luaj" name="luaj-jse" version="3.0.1">
+-         <artifact name="luaj-jse-3.0.1.jar">
+-            <sha256 value="9b1f0a3e8f68427c6d74c2bf00ae0e6dbfce35994d3001fed4cef6ecda50be55" origin="Generated by Gradle"/>
+-         </artifact>
+-         <artifact name="luaj-jse-3.0.1.pom">
+-            <sha256 value="b87e75ed289e48f78e03ed47cb6b719f04c56e03e1ba3addc978e200c58cd359" origin="Generated by Gradle"/>
+-         </artifact>
+-      </component>
+       <component group="org.ow2" name="ow2" version="1.5.1">
+          <artifact name="ow2-1.5.1.pom">
+             <sha256 value="321ddbb7ee6fe4f53dea6b4cd6db74154d6bfa42391c1f763b361b9f485acf05" origin="Generated by Gradle"/>
+diff --git a/sable-src/apps/r8/android/settings.gradle.kts b/sable-src/apps/r8/android/settings.gradle.kts
+index eff0f0c..364f0da 100644
+--- a/sable-src/apps/r8/android/settings.gradle.kts
++++ b/sable-src/apps/r8/android/settings.gradle.kts
+@@ -18,7 +18,6 @@ rootProject.name = "sable-r8-apps"
+ include(":design")
+ include(":calculator")
+ include(":convert")
+-include(":games")
+ include(":media")
+ include(":hub")
+ include(":messages")
+diff --git a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+index 1c164bc..a97d096 100644
+--- a/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
++++ b/sable-src/third_party/phosphor-icons/ICON_MANIFEST.tsv
+@@ -6,9 +6,6 @@ camera	ic_sable_camera	camera	e1fb071d5326bc4de193746b38457a6f73c89df90d65d33eaa
+ displaycompat	ic_sable_displaycompat	frame-corners	76491dff75b5b3df3ffd90225e53f6f904be11d50e16fab490e69f82a1b13c78	#34C8E8	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/displaycompat/src/main/res	none
+ tools	ic_sable_tools	wrench	690d657aa4a9c99d620583cf6247cfefa5372c10e2bc60e9255a3ce19e3e9c47	#E5534B	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/tools/src/main/res	none
+ calculator	ic_sable_calculator	calculator	83c7343dba80b2359cfe617ffdc89b80f7555a53cb2d6ff13b48ce16a062f644	#2E9BD6	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_calculator	apps/r8/android/calculator/src/main/res	none
+-sudoku	ic_sable_game	grid-nine	681e079d321141f657f9461428fe54bc864d2452837b4122827e344d065d6e8a	#2E9BD6	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_game	apps/r8/android/games/src/sudoku/res	none
+-minesweeper	ic_sable_game	bomb	b63bde971c113ac1eca3f879487d1c442c8bcd48e5153dc67755e37405117b0d	#F28C45	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_game	apps/r8/android/games/src/minesweeper/res	none
+-game2048	ic_sable_game	grid-four	9e48ec8047eb0f26a0a59ffa2dbd6cb33d972390d52197ddc37e3a56859e879c	#64748B	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_game	apps/r8/android/games/src/game2048/res	none
+ media	ic_sable_media	music-notes	b991d76e24e781b864f9ad8b7aa14e516d4fd851871a979928917e20d492eca0	#7A42E8	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_media	apps/r8/android/media/src/main/res	none
+ hub	ic_sable_messages	chat-circle-dots	2af44e36757c90c999e070065ae61c495c66c8e88f43c5f07964dc3367cad60d	#35C66B	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_messages	apps/r8/android/hub/src/main/res	none
+ weather	ic_sable_weather	cloud-sun	568d1629b9cff658ebcf9405bb6dc9af46b8fbc676ee4924690d96842e8bb324	#2E9BD6	R9_PANTHER_GLYPH_PHOSPHOR_REGULAR	ic_sable_weather	apps/r8/android/weather/src/main/res	none
+@@ -19,14 +16,6 @@ mail	ic_sable_mail	envelope-simple	f114441afbd3c3da8aee24ba4cddea1576cf55aa304eb
+ textreader	ic_sable_text_reader	text-align-left	4d166977720d3beb386288a8607fbb36134fef06fdd99496ab09cf2d2da211b5	#2E9BD6	R9_ART_REPLACED_BY_PHOSPHOR_REGULAR	ic_sable_text_reader	apps/r8/textreader/res	none
+ vault	ic_sable_vault	vault	f4cedeb0419725587ff38c725cd2e0f05e888aa4b3d526d652bc61123d98e136	#8B5CF6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/vault/src/main/res	none
+ profiles	ic_sable_profiles	speaker-high	caca5fc1ee8489ac19232301d2c96f6d4048802491d75d761bbb89d5c98e459d	#F28C45	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/titan2/platform/profiles/src/main/res	none
+-bricks	ic_sable_game	wall	ff673d6e917fa094771079158a97e56075d6c5602636b529a4f9fc77850b143b	#E34D59	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/bricks/res	none
+-snake	ic_sable_game	path	76f5e16efb2333fb42f40d5685c2d3b0bb037597fa8253ee1974dfece3514f44	#35C66B	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/snake/res	none
+-blocks	ic_sable_game	squares-four	f70d6b20e08e028ab5b1714077681910a2431092cf7a23b82366ddaec554ab87	#9A63E8	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/blocks/res	none
+-reversi	ic_sable_game	circle-half	4e5376acc240190bf951be566c4649b69936c928f679eba6793412295bb90736	#94A3B8	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/reversi/res	none
+-solitaire	ic_sable_game	cards	de7215a56d6131de7ebded00390671efb03233830b77c41f7736a28baf2eb4da	#D32F45	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/solitaire/res	none
+-mahjong	ic_sable_game	stack	ee9eaaeb345e8a28c9662cf8a59147cb86080bd922e41f143444189e0116ea7e	#2E8B57	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/mahjong/res	none
+-indiangames	ic_sable_game	cards	de7215a56d6131de7ebded00390671efb03233830b77c41f7736a28baf2eb4da	#E08A00	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/indiangames/res	none
+-words	ic_sable_game	text-aa	e964560ce335191f6bfc660ee8be894d6459561516152f9fceaddb0b8d00b0d2	#D9A441	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/words/res	none
+ notes	ic_sable_notes	notepad	65f069445f9cbf08b9dbbcab5069512095d25c4b0a17113cf98ca9fdc380cf82	#F5C542	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/notes/src/main/res	none
+ terminal	ic_sable_terminal	terminal-window	5ee2be45ae5f7ff95d51e142baad1103cd8b473f89e69f983f3f5b40c884327d	#3FA37A	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/connectbot/res	none
+ tasks	ic_sable_tasks	check-square	69fc9a39cab4af71874d4cc56eaa6d8943962f2619f5c9a7e2e38d01e232c928	#2BB5A0	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/tasks/src/main/res	none
+@@ -39,5 +28,4 @@ phone	ic_sable_phone	phone-call	35e0113708f69bc0f6a9b33f5dc3b1a5da0700f373852be9
+ home	ic_sable_home	squares-four	f70d6b20e08e028ab5b1714077681910a2431092cf7a23b82366ddaec554ab87	#2E9BD6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/tenseven/res	none
+ davx5	ic_sable_davx5	arrows-clockwise	2e80fbc9c5c37553934c9ebbd6324bf7fabe9a4b4d7c2445d99edfce55cc22df	#2E9BD6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/davx5/res	none
+ icsx5	ic_sable_icsx5	link-simple	7a97dad4b2f16c3a386ea69ba78d29bf3a71c311f2e34100d79143559ba13151	#2E9BD6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/icsx5/res	none
+-console	ic_sable_game	game-controller	e4d7cff86ba6774845d3ef92628fd8ae95d817cc5cc0277306a057f493d6dca3	#E8B931	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/android/games/src/console/res	none
+ keymapper	ic_sable_keymapper	keyboard	96646775c552eb7944a88071ec3d7b93f28fd0e19ae995cfb52957403e38422e	#2E9BD6	NEW_TITAN_GLYPH_PHOSPHOR_REGULAR	NONE	apps/r8/keymapper/res	none
+diff --git a/sable-src/third_party/phosphor-icons/PROVENANCE.md b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+index bd29f09..1fdf2d2 100644
+--- a/sable-src/third_party/phosphor-icons/PROVENANCE.md
++++ b/sable-src/third_party/phosphor-icons/PROVENANCE.md
+@@ -36,6 +36,8 @@ puzzle-piece, shopping-bag, video-camera.
+ 
+ Added for the seven new Sable games (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): wall (Bricks), path (Snake),
+ squares-four (Blocks), circle-half (Reversi), cards (Solitaire, Indian Games), stack (Mahjong), text-aa (Words).
++The games moved to aimindseye/sablegames (2026-11-14, sable-src 0221), so their icon rows are gone; the glyphs
++stay because Sable Start draws them as the games' app glyphs.
+ 
+ Added for Sable Notes (`origin=NEW_TITAN_GLYPH_PHOSPHOR_REGULAR`): notepad.
+ 

@@ -30,7 +30,7 @@ the app build needs, keeping the sableos layout so Gradle's relative paths work:
 
 ```text
 sable-src/apps/titan2/platform     Keyboard, Camera, DisplayCompat, Setup, Tools, RadioDiag
-sable-src/apps/r8/android          Calculator, Games, Media, Hub, Weather, Calendar, Messages, Notes, Tasks (all Kotlin)
+sable-src/apps/r8/android          Calculator, Media, Hub, Weather, Calendar, Messages, Notes, Tasks (all Kotlin)
 sable-src/apps/common/reader       Sable Reader v2 (EPUB, PDF, comics, audiobooks; Books/Comics/Audio tabs) [titan2-temp]
 sable-src/reference                Start type-to-find, Setup flow, Weather cities logic [titan2-temp]
 sable-src/src/android/...          Sable design tokens, Sable Start
@@ -44,8 +44,9 @@ anything looks like web-page account data. Review the diff before committing.
 ## Which apps go into the image
 
 `product/q25/apps.tsv` lists them. Enabled: the five keyboard-first platform
-apps (Keyboard, Camera, DisplayCompat, Setup, Sable Tools) and the common set (Calculator, the ten games, Sable Indian Games,
+apps (Keyboard, Camera, DisplayCompat, Setup, Sable Tools) and the common set (Calculator,
 Media, Hub, Weather, Calendar, Messages, Notes, Reader v2, Mail, Text Reader, Terminal).
+The games moved to their own repo, aimindseye/sablegames (owner, 2026-11-14), and SableOS no longer ships them.
 Mail, Text Reader and Terminal are `flavor:` rows: the build fetches the pinned upstream
 (Thunderbird, Vaachak Text Reader, ConnectBot) once into `SABLE_UPSTREAM_CACHE`, which needs
 `NETWORK_FETCH_AUTHORIZED=YES`, then applies the Sable flavor scripts from
