@@ -2,14 +2,14 @@ package io.github.aimindseye.tenseven.platform
 
 import io.github.aimindseye.tenseven.platform.SableExtraDim.Action
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SableExtraDimTest {
     @Test
-    fun itIsOffUntilSwitchedOnNowThatTheBacklightGoesDark() {
-        assertFalse(SableExtraDim.DEFAULT_ENABLED)
+    fun itIsOnByDefaultWithTheStepBacklight() {
+        assertTrue(SableExtraDim.DEFAULT_ENABLED)
     }
 
     @Test
