@@ -37,6 +37,7 @@ Lines marked `translatable="false"` are left out.
 | Sable Weather | `sable-src/apps/r8/android/weather/src/main/res/values/strings.xml` |
 | Sable Calculator | `sable-src/apps/r8/android/calculator/src/main/res/values/strings.xml` |
 | Calculator's unit converter | `sable-src/apps/r8/android/convert/src/main/res/values/strings.xml` |
+| Sable Indian Games | English only for now: its lines are in `IndianUi.kt` and the `Indian*Screens.kt` files, not in `strings.xml` (only the app name is a resource) |
 | Sable Games and Sable Games Console | `sable-src/apps/r8/android/games/src/main/res/values/strings.xml` (the console's lines start with `console_`) |
 | Lines shared by the Compose apps | `sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml` (Sable Start keeps a copy at the end of its own file) |
 | Sable Keyboard | `sable-src/apps/titan2/platform/keyboard/src/main/res/values/strings.xml` |

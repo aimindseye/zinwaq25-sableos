@@ -59,7 +59,7 @@ Status words: **Done in code** (built and unit-tested, not yet seen on a device)
 | Type | Every Material text role uses Source Sans 3 at a Sable size; Q25 titles are 24 sp, Weather's reading 56 sp (sable-src 0204). |
 | Browser | Pages follow the Sable theme (sable-src 0205). |
 | Media | Design A, "Hub list": a 40 dp title bar, one tab strip, the list, a now-playing line and an action bar; cover art, podcast covers, station logos and FM names (sable-src 0206). |
-| Games | Sable Games Console: Lua games in the Hub style, with tilt levelling and a lettered pause menu (sable-src 0207, [GAMES_CONSOLE.md](GAMES_CONSOLE.md)). |
+| Games | Sable Indian Games: one app with a game menu (Card games and Board games tabs); each game is a `GameFrame` screen with the board on the left and a rail of actions on the right, playable from the keyboard and trackpad (sable-src 0219, [USER_GUIDE.md](USER_GUIDE.md#sable-indian-games)). Sable Games Console: Lua games in the Hub style, with tilt levelling and a lettered pause menu (sable-src 0207, [GAMES_CONSOLE.md](GAMES_CONSOLE.md)). |
 
 ## Sable Notes, not yet on a device
 

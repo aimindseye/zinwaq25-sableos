@@ -895,6 +895,19 @@ if [[ -f "${kq[0]}" ]]; then
 else pw_missing="$pw_missing file:kernel/0202"; fi
 if [[ -z "$pw_missing" ]]; then pass "battery drain guards: no Doze location prefetch, MediaTek and keyboard debug logging off"; else fail "battery drain guards:$pw_missing"; fi
 
+# Sable Indian Games (sable-src 0219): ten card games and two board games in one app, play money only.
+ig=sable-src/apps/r8/android/games/src/main/java/org/sableos/games
+ig_bad=""
+grep -qP '^SableIndianGames\tcommon\tapps/r8/android\t:games:assembleIndiangamesRelease\t' product/q25/apps.tsv || ig_bad="$ig_bad apps.tsv"
+for f in TeenPattiGame RummyGame TrickGame BluffGame DonkeyGame GulamChoorGame BoardGames IndianUi IndianCardScreens IndianBoardScreens; do
+    [[ -f "$ig/$f.kt" ]] || ig_bad="$ig_bad file:$f"
+done
+[[ -f sable-src/apps/r8/android/games/src/test/java/org/sableos/games/IndianGamesTest.kt ]] || ig_bad="$ig_bad test"
+grep -q 'Practice chips only' "$ig/IndianCardScreens.kt" || ig_bad="$ig_bad practice-chips-banner"
+grep -qi 'purchase\|billing\|payment' "$ig/TeenPattiGame.kt" "$ig/IndianCardScreens.kt" && ig_bad="$ig_bad real-money"
+grep -q '^| Q4-INDIAN-GAMES-MENU |' docs/QUALIFICATION.md || ig_bad="$ig_bad qualification"
+if [[ -z "$ig_bad" ]]; then pass "Sable Indian Games: twelve games, play money only, tests present"; else fail "indian games:$ig_bad"; fi
+
 # Sable Games Console (sable-src 0207): Lua games in a sandbox, four motion games, no permissions.
 gc=sable-src/apps/r8/android/games/src/console
 gc_bad=""
