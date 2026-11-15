@@ -7,6 +7,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Binder
 import android.os.Process
+import org.sableos.design.SableWatchCaller
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -66,7 +67,15 @@ class CalendarSnapshotProvider : ContentProvider() {
                 .filter { it.endMillis > now }
                 .take(MAX_NEXT)
                 .forEach { event ->
-                    addRow(arrayOf<Any?>(event.title, event.startMillis, if (event.allDay) 1 else 0, event.calendarName))
+                    addRow(
+                        arrayOf<Any?>(
+                            event.title,
+                            event.startMillis,
+                            if (event.allDay) 1 else 0,
+                            event.calendarName,
+                            event.endMillis,
+                        ),
+                    )
                 }
         }
 
@@ -93,7 +102,7 @@ class CalendarSnapshotProvider : ContentProvider() {
     /**
      * Sable Start reads everything; SystemUI reads only the next event, for the lock screen
      * (frameworks/base 0317), which names it "Event" while the lock screen hides content; Hub reads
-     * the next events for its strip at the top.
+     * the next events for its strip at the top; Sable Watch reads them for the watch face's Agenda Peek.
      */
     private fun enforceCaller(
         context: android.content.Context,
@@ -106,7 +115,7 @@ class CalendarSnapshotProvider : ContentProvider() {
                 .getPackagesForUid(callingUid)
                 ?.toSet()
                 .orEmpty()
-        val nextReader = SYSTEM_UI in packages || HUB in packages
+        val nextReader = SYSTEM_UI in packages || HUB in packages || SableWatchCaller.isCaller(context, callingUid)
         if ("org.sableos.launcher" !in packages && !(nextOnly && nextReader)) {
             throw SecurityException(
                 "Sable live snapshot is restricted to SableLauncher.",
@@ -122,7 +131,8 @@ class CalendarSnapshotProvider : ContentProvider() {
         const val PATH_MONTH = "month"
         const val PATH_NEXT = "next"
         private val MONTH_COLUMNS = arrayOf("date", "busy_minutes", "all_day", "count")
-        private val NEXT_COLUMNS = arrayOf("title", "begin", "all_day", "calendar")
+        // "end" is last, so readers that go by position keep working.
+        private val NEXT_COLUMNS = arrayOf("title", "begin", "all_day", "calendar", "end")
         private const val NEXT_DAYS = 7L
         private const val MAX_NEXT = 3
         private const val SYSTEM_UI = "com.android.systemui"

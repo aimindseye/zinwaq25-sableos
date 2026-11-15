@@ -7,6 +7,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Binder
 import android.os.Bundle
+import org.sableos.design.SableWatchCaller
 import org.sableos.weather.WeatherText.t
 
 class WeatherSnapshotProvider : ContentProvider() {
@@ -19,7 +20,8 @@ class WeatherSnapshotProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?,
     ): Cursor? {
-        if (!isAllowedCaller(WeatherSetupContract.SNAPSHOT_CALLERS)) {
+        // Sable Start, and Sable Watch (signed with its own pinned key) for the watch face's weather.
+        if (!isAllowedCaller(WeatherSetupContract.SNAPSHOT_CALLERS) && !isSableWatch()) {
             return null
         }
 
@@ -120,6 +122,11 @@ class WeatherSnapshotProvider : ContentProvider() {
                 isAllowedCaller(WeatherSetupContract.SETUP_CALLERS)
             }
         return appContext?.let { SetupCityHandOff.handle(it, method, arg) }
+    }
+
+    private fun isSableWatch(): Boolean {
+        val appContext = context?.applicationContext ?: return false
+        return SableWatchCaller.isCaller(appContext, Binder.getCallingUid())
     }
 
     private fun isAllowedCaller(allowed: Set<String>): Boolean {
