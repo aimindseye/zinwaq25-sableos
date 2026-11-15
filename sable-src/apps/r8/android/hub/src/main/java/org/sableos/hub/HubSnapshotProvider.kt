@@ -13,6 +13,7 @@ import android.os.Binder
 import android.os.Process
 import android.os.UserManager
 import android.provider.Telephony
+import org.sableos.design.SableWatchCaller
 import org.sableos.hub.HubText.t
 import org.sableos.hub.notifications.ActiveNotificationCountRegistry
 import org.sableos.hub.notifications.ConnectedNotificationActivityRegistry
@@ -45,7 +46,7 @@ class HubSnapshotProvider : ContentProvider() {
         sortOrder: String?,
     ): Cursor {
         val appContext = checkNotNull(context)
-        enforceLauncherCaller(appContext)
+        enforceLauncherCaller(appContext, countsOnly = uri.pathSegments.firstOrNull() == PATH_APPS)
         return when (uri.pathSegments.firstOrNull()) {
             PATH_APPS -> appCounts(appContext)
             PATH_MESSAGES -> homeRows(appContext)
@@ -210,9 +211,14 @@ class HubSnapshotProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
     ): Int = throw UnsupportedOperationException("Read-only provider")
 
-    private fun enforceLauncherCaller(context: android.content.Context) {
+    /** Sable Start reads everything; Sable Watch (signed with its own pinned key) reads only the per-app counts. */
+    private fun enforceLauncherCaller(
+        context: android.content.Context,
+        countsOnly: Boolean,
+    ) {
         val callingUid = Binder.getCallingUid()
         if (callingUid == Process.myUid()) return
+        if (countsOnly && SableWatchCaller.isCaller(context, callingUid)) return
         val packages =
             context
                 .packageManager

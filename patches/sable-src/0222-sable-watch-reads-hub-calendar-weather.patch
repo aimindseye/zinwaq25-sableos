@@ -1,0 +1,229 @@
+diff --git a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt
+index ed98f988..3f74166a 100644
+--- a/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt
+@@ -7,6 +7,7 @@ import android.database.MatrixCursor
+ import android.net.Uri
+ import android.os.Binder
+ import android.os.Process
++import org.sableos.design.SableWatchCaller
+ import java.time.LocalDate
+ import java.time.YearMonth
+ 
+@@ -66,7 +67,15 @@ class CalendarSnapshotProvider : ContentProvider() {
+                 .filter { it.endMillis > now }
+                 .take(MAX_NEXT)
+                 .forEach { event ->
+-                    addRow(arrayOf<Any?>(event.title, event.startMillis, if (event.allDay) 1 else 0, event.calendarName))
++                    addRow(
++                        arrayOf<Any?>(
++                            event.title,
++                            event.startMillis,
++                            if (event.allDay) 1 else 0,
++                            event.calendarName,
++                            event.endMillis,
++                        ),
++                    )
+                 }
+         }
+ 
+@@ -93,7 +102,7 @@ class CalendarSnapshotProvider : ContentProvider() {
+     /**
+      * Sable Start reads everything; SystemUI reads only the next event, for the lock screen
+      * (frameworks/base 0317), which names it "Event" while the lock screen hides content; Hub reads
+-     * the next events for its strip at the top.
++     * the next events for its strip at the top; Sable Watch reads them for the watch face's Agenda Peek.
+      */
+     private fun enforceCaller(
+         context: android.content.Context,
+@@ -106,7 +115,7 @@ class CalendarSnapshotProvider : ContentProvider() {
+                 .getPackagesForUid(callingUid)
+                 ?.toSet()
+                 .orEmpty()
+-        val nextReader = SYSTEM_UI in packages || HUB in packages
++        val nextReader = SYSTEM_UI in packages || HUB in packages || SableWatchCaller.isCaller(context, callingUid)
+         if ("org.sableos.launcher" !in packages && !(nextOnly && nextReader)) {
+             throw SecurityException(
+                 "Sable live snapshot is restricted to SableLauncher.",
+@@ -122,7 +131,8 @@ class CalendarSnapshotProvider : ContentProvider() {
+         const val PATH_MONTH = "month"
+         const val PATH_NEXT = "next"
+         private val MONTH_COLUMNS = arrayOf("date", "busy_minutes", "all_day", "count")
+-        private val NEXT_COLUMNS = arrayOf("title", "begin", "all_day", "calendar")
++        // "end" is last, so readers that go by position keep working.
++        private val NEXT_COLUMNS = arrayOf("title", "begin", "all_day", "calendar", "end")
+         private const val NEXT_DAYS = 7L
+         private const val MAX_NEXT = 3
+         private const val SYSTEM_UI = "com.android.systemui"
+diff --git a/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableWatchCallerTest.kt b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableWatchCallerTest.kt
+new file mode 100644
+index 00000000..ff0c7e7a
+--- /dev/null
++++ b/sable-src/apps/r8/android/design/src/test/java/org/sableos/design/SableWatchCallerTest.kt
+@@ -0,0 +1,49 @@
++package org.sableos.design
++
++import org.junit.Assert.assertArrayEquals
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class SableWatchCallerTest {
++    private val pinned = SableWatchCaller.certificate()
++
++    @Test
++    fun certificateIsTheSha256Bytes() {
++        assertEquals(32, pinned.size)
++        assertEquals(0x9b.toByte(), pinned.first())
++        assertEquals(0x92.toByte(), pinned.last())
++    }
++
++    @Test
++    fun sableWatchWithItsKeyIsAllowed() {
++        assertTrue(SableWatchCaller.matches(listOf(SableWatchCaller.PACKAGE)) { _, cert -> cert.contentEquals(pinned) })
++    }
++
++    @Test
++    fun theSamePackageWithAnotherKeyIsRefused() {
++        assertFalse(SableWatchCaller.matches(listOf(SableWatchCaller.PACKAGE)) { _, _ -> false })
++    }
++
++    @Test
++    fun otherPackagesAreRefusedWithoutAskingForTheirKey() {
++        var asked = false
++        assertFalse(
++            SableWatchCaller.matches(listOf("com.example.watch")) { _, _ ->
++                asked = true
++                true
++            },
++        )
++        assertFalse(asked)
++    }
++
++    @Test
++    fun theCheckAsksAboutSableWatchsOwnPackage() {
++        SableWatchCaller.matches(listOf("other", SableWatchCaller.PACKAGE)) { pkg, cert ->
++            assertEquals(SableWatchCaller.PACKAGE, pkg)
++            assertArrayEquals(pinned, cert)
++            true
++        }
++    }
++}
+diff --git a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt
+index b4afcb3f..2eefc02a 100644
+--- a/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt
+@@ -13,6 +13,7 @@ import android.os.Binder
+ import android.os.Process
+ import android.os.UserManager
+ import android.provider.Telephony
++import org.sableos.design.SableWatchCaller
+ import org.sableos.hub.HubText.t
+ import org.sableos.hub.notifications.ActiveNotificationCountRegistry
+ import org.sableos.hub.notifications.ConnectedNotificationActivityRegistry
+@@ -45,7 +46,7 @@ class HubSnapshotProvider : ContentProvider() {
+         sortOrder: String?,
+     ): Cursor {
+         val appContext = checkNotNull(context)
+-        enforceLauncherCaller(appContext)
++        enforceLauncherCaller(appContext, countsOnly = uri.pathSegments.firstOrNull() == PATH_APPS)
+         return when (uri.pathSegments.firstOrNull()) {
+             PATH_APPS -> appCounts(appContext)
+             PATH_MESSAGES -> homeRows(appContext)
+@@ -210,9 +211,14 @@ class HubSnapshotProvider : ContentProvider() {
+         selectionArgs: Array<out String>?,
+     ): Int = throw UnsupportedOperationException("Read-only provider")
+ 
+-    private fun enforceLauncherCaller(context: android.content.Context) {
++    /** Sable Start reads everything; Sable Watch (signed with its own pinned key) reads only the per-app counts. */
++    private fun enforceLauncherCaller(
++        context: android.content.Context,
++        countsOnly: Boolean,
++    ) {
+         val callingUid = Binder.getCallingUid()
+         if (callingUid == Process.myUid()) return
++        if (countsOnly && SableWatchCaller.isCaller(context, callingUid)) return
+         val packages =
+             context
+                 .packageManager
+diff --git a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt
+index d8d68fbd..070da645 100644
+--- a/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt
++++ b/sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt
+@@ -7,6 +7,7 @@ import android.database.MatrixCursor
+ import android.net.Uri
+ import android.os.Binder
+ import android.os.Bundle
++import org.sableos.design.SableWatchCaller
+ import org.sableos.weather.WeatherText.t
+ 
+ class WeatherSnapshotProvider : ContentProvider() {
+@@ -19,7 +20,8 @@ class WeatherSnapshotProvider : ContentProvider() {
+         selectionArgs: Array<out String>?,
+         sortOrder: String?,
+     ): Cursor? {
+-        if (!isAllowedCaller(WeatherSetupContract.SNAPSHOT_CALLERS)) {
++        // Sable Start, and Sable Watch (signed with its own pinned key) for the watch face's weather.
++        if (!isAllowedCaller(WeatherSetupContract.SNAPSHOT_CALLERS) && !isSableWatch()) {
+             return null
+         }
+ 
+@@ -122,6 +124,11 @@ class WeatherSnapshotProvider : ContentProvider() {
+         return appContext?.let { SetupCityHandOff.handle(it, method, arg) }
+     }
+ 
++    private fun isSableWatch(): Boolean {
++        val appContext = context?.applicationContext ?: return false
++        return SableWatchCaller.isCaller(appContext, Binder.getCallingUid())
++    }
++
+     private fun isAllowedCaller(allowed: Set<String>): Boolean {
+         val appContext = context?.applicationContext ?: return false
+         val callingUid = Binder.getCallingUid()
+diff --git a/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableWatchCaller.kt b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableWatchCaller.kt
+new file mode 100644
+index 00000000..c0a0be42
+--- /dev/null
++++ b/sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableWatchCaller.kt
+@@ -0,0 +1,40 @@
++package org.sableos.design
++
++import android.content.Context
++import android.content.pm.PackageManager
++
++/**
++ * Sable Watch (aimindseye/sable-watch), the companion that sends the watch face its counts. Hub, Calendar and
++ * Weather let it read the same counts-only rows Sable Start reads: Hub's per-app counts, Calendar's next events
++ * and Weather's current line. It is not a SableOS app and is signed with its owner's key, so the package name is
++ * not enough: the caller must also be signed with [CERT_SHA256].
++ */
++object SableWatchCaller {
++    const val PACKAGE = "io.github.aimindseye.sablewatch"
++
++    /** SHA-256 of Sable Watch's signing certificate (the owner's TenSeven Launcher key). */
++    const val CERT_SHA256 = "9b2047390e5aa77537b8e8875cdfd3c2c72d0a0715e172a7f77457fc4300f292"
++
++    private const val HEX_RADIX = 16
++
++    /** True when Sable Watch, signed with its own key, is one of [callingUid]'s packages. */
++    fun isCaller(
++        context: Context,
++        callingUid: Int,
++    ): Boolean {
++        val packageManager = context.packageManager
++        return matches(packageManager.getPackagesForUid(callingUid)?.toList().orEmpty()) { pkg, cert ->
++            runCatching {
++                packageManager.hasSigningCertificate(pkg, cert, PackageManager.CERT_INPUT_SHA256)
++            }.getOrDefault(false)
++        }
++    }
++
++    /** [isCaller]'s rule without Android: the package is there and [hasCertificate] confirms its key. */
++    fun matches(
++        packages: List<String>,
++        hasCertificate: (String, ByteArray) -> Boolean,
++    ): Boolean = PACKAGE in packages && hasCertificate(PACKAGE, certificate())
++
++    fun certificate(): ByteArray = CERT_SHA256.chunked(2).map { it.toInt(HEX_RADIX).toByte() }.toByteArray()
++}

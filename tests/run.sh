@@ -904,6 +904,21 @@ grep -q 'org.sableos.sudoku' patches/framework/packages/apps/SetupWizard/0416-*.
 [[ -f patches/sable-src/0221-games-moved-to-sablegames.patch ]] || games_bad="$games_bad patch"
 if [[ -z "$games_bad" ]]; then pass "Sable games moved to sablegames: not built or shipped by SableOS"; else fail "games removal:$games_bad"; fi
 
+# Sable Watch (sable-src 0222): counts-only reads, pinned to its signing certificate, never by package name alone.
+watch_bad=""
+watch_src=sable-src/apps/r8/android
+grep -q 'hasSigningCertificate(pkg, cert, PackageManager.CERT_INPUT_SHA256)' \
+    sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableWatchCaller.kt || watch_bad="$watch_bad no-cert-pin"
+grep -q 'countsOnly && SableWatchCaller.isCaller' "$watch_src/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt" ||
+    watch_bad="$watch_bad hub-not-counts-only"
+grep -q 'SableWatchCaller.isCaller(context, callingUid)' "$watch_src/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt" ||
+    watch_bad="$watch_bad calendar"
+grep -q 'isSableWatch()' "$watch_src/weather/src/main/java/org/sableos/weather/WeatherSnapshotProvider.kt" || watch_bad="$watch_bad weather"
+grep -q '"calendar", "end")' "$watch_src/calendar/src/main/java/org/sableos/calendar/CalendarSnapshotProvider.kt" ||
+    watch_bad="$watch_bad next-end-not-last"
+[[ -s patches/sable-src/0222-sable-watch-reads-hub-calendar-weather.patch ]] || watch_bad="$watch_bad patch"
+if [[ -z "$watch_bad" ]]; then pass "Sable Watch reads Hub counts, next events and weather, pinned to its key"; else fail "sable watch:$watch_bad"; fi
+
 # Q25 keyboard (kernel 0905): the driver's hidden Alt + Right Shift num lock is gone, so W..C stay letters.
 nl=(patches/framework/kernel/xelex/mt6789/0905-*.patch)
 nl_missing=""
