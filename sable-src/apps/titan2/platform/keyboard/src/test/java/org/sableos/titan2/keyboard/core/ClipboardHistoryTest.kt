@@ -124,3 +124,37 @@ class ClipboardHistoryTest {
         assertEquals(StripMode.Hidden, CompactStrip.build(i.copy(field = InputClass.None)).mode)
     }
 }
+
+class ClipboardPinTest {
+    @Test fun pinnedEntriesSortFirstAndSurviveEviction() {
+        val h = ClipboardHistory(maxEntries = 3)
+        listOf("a", "b", "c").forEach { h.add(it, false) }
+        assertEquals(listOf("c", "b", "a"), h.entries)
+        assertEquals(0, h.togglePin(2))
+        assertEquals(listOf("a", "c", "b"), h.entries)
+        h.add("d", false)
+        h.add("e", false)
+        assertEquals(listOf("a", "e", "d"), h.entries)
+        assertEquals(setOf("a"), h.pinned)
+    }
+
+    @Test fun unpinAndRemoveAndClear() {
+        val h = ClipboardHistory()
+        h.add("x", false)
+        h.add("y", false)
+        h.togglePin(1)
+        assertEquals(listOf("x", "y"), h.entries)
+        h.togglePin(0)
+        assertEquals(emptySet<String>(), h.pinned)
+        h.togglePin(1)
+        h.remove(0)
+        assertEquals(listOf("y"), h.entries)
+        h.clear()
+        assertEquals(emptySet<String>(), h.pinned)
+    }
+
+    @Test fun tabPinsAndChipsShowThePin() {
+        assertEquals(ClipAction.TogglePin, ClipPicker.action(ClipPicker.KEYCODE_TAB, false))
+        assertEquals(listOf("1/1", "\uD83D\uDCCC a"), ClipPicker.chips(listOf("a"), 0, setOf("a")))
+    }
+}

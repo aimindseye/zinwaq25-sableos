@@ -39,6 +39,8 @@ class SoftKeyboardView(
     sealed interface Event {
         data class Text(val s: String) : Event
         data object Backspace : Event
+        data object DeleteWord : Event
+        data class MoveCursor(val steps: Int) : Event
         data object Enter : Event
         data object Hide : Event
         data object NextLanguage : Event
@@ -64,6 +66,7 @@ class SoftKeyboardView(
         const val KEY_MARGIN_V_DP = 3
         const val REPEAT_INTERVAL_MS = 50L
         const val REPEAT_DELAY_MS = 400L
+        const val SWIPE_DP = 56f
     }
 
     private var numeric = false
@@ -220,8 +223,16 @@ class SoftKeyboardView(
         }
     }
 
-    private fun backspaceKey(): View =
-        key("⌫", WIDE_KEY_WEIGHT, fn, KeyOpts(repeat = true)) { onEvent(Event.Backspace) }
+    private fun backspaceKey(): View = key(
+        "⌫",
+        WIDE_KEY_WEIGHT,
+        fn,
+        KeyOpts(repeat = true, onSwipeLeft = {
+            onEvent(Event.DeleteWord)
+        })
+    ) {
+        onEvent(Event.Backspace)
+    }
 
     private fun bottomRow(): LinearLayout {
         val bottom = newRow()
@@ -242,15 +253,16 @@ class SoftKeyboardView(
         )
         bottom.addView(punctKey(","))
         bottom.addView(
-            key(
-                spaceLabel(),
-                SPACE_WEIGHT,
-                keyBg,
-                KeyOpts(onLong = {
-                    onEvent(Event.NextLanguage)
-                })
-            ) {
-                typed(Event.Text(" "))
+            key(spaceLabel(), SPACE_WEIGHT, keyBg) {}.apply {
+                setOnTouchListener(
+                    SpaceBarTouch(
+                        dp,
+                        { typed(Event.Text(" ")) },
+                        { onEvent(Event.NextLanguage) },
+                        { onEvent(Event.NextLanguage) },
+                        { steps -> onEvent(Event.MoveCursor(steps)) }
+                    )
+                )
             }
         )
         bottom.addView(punctKey("."))
@@ -415,7 +427,8 @@ class SoftKeyboardView(
         val hint: String? = null,
         val repeat: Boolean = false,
         val sp: Float? = null,
-        val onLong: (() -> Unit)? = null
+        val onLong: (() -> Unit)? = null,
+        val onSwipeLeft: (() -> Unit)? = null
     )
 
     private fun key(
@@ -453,7 +466,7 @@ class SoftKeyboardView(
                 }
             contentDescription = if (hintText != null) t("alternate", label, hintText) else label
             if (opts.repeat) {
-                installRepeat(this, click)
+                installRepeat(this, click, opts.onSwipeLeft)
             } else {
                 setOnClickListener { click() }
                 if (onLong != null) {
@@ -467,24 +480,43 @@ class SoftKeyboardView(
         }
     }
 
-    /** Press-and-hold repeats (backspace): first fire on touch-down, then 400 ms delay, then every 50 ms. */
-    private fun installRepeat(target: View, click: () -> Unit) {
+    /**
+     * Backspace: a tap deletes on release, holding repeats, and a swipe to the left runs [onSwipeLeft] (delete the
+     * last word) instead of a character.
+     */
+    private fun installRepeat(target: View, click: () -> Unit, onSwipeLeft: (() -> Unit)?) {
+        var downX = 0f
+        var spent = false
         lateinit var tick: Runnable
         tick = Runnable {
             click()
             handler.postDelayed(tick, REPEAT_INTERVAL_MS)
         }
+        val start = Runnable {
+            spent = true
+            tick.run()
+        }
         target.setOnTouchListener { v, e ->
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     v.isPressed = true
-                    click()
-                    handler.postDelayed(tick, REPEAT_DELAY_MS)
+                    downX = e.x
+                    spent = false
+                    handler.postDelayed(start, REPEAT_DELAY_MS)
                 }
+
+                MotionEvent.ACTION_MOVE ->
+                    if (!spent && onSwipeLeft != null && e.x - downX <= -SWIPE_DP * dp) {
+                        spent = true
+                        handler.removeCallbacks(start)
+                        onSwipeLeft()
+                    }
 
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     v.isPressed = false
+                    handler.removeCallbacks(start)
                     handler.removeCallbacks(tick)
+                    if (!spent && e.actionMasked == MotionEvent.ACTION_UP) click()
                 }
             }
             true

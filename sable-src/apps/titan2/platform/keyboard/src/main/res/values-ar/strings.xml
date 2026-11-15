@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">تصحيح تلقائي عند المسافة (يتراجع عنه مفتاح الحذف)</string>
     <string name="forget_learned_words">نسيان الكلمات المتعلَّمة</string>
     <string name="learned_words_forgotten">تم نسيان الكلمات المتعلَّمة</string>
+    <string name="incognito_mode_no_learning_or">وضع التصفح الخفي: بلا تعلّم كلمات ولا سجل حافظة (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">التصفح الخفي مفعّل</string>
+    <string name="incognito_mode_off">التصفح الخفي متوقف</string>
 </resources>

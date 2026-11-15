@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">Autokorrigering vid blanksteg (Backsteg ångrar)</string>
     <string name="forget_learned_words">Glöm inlärda ord</string>
     <string name="learned_words_forgotten">Inlärda ord glömda</string>
+    <string name="incognito_mode_no_learning_or">Inkognitoläge: ingen ordinlärning eller urklippshistorik (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">Inkognito på</string>
+    <string name="incognito_mode_off">Inkognito av</string>
 </resources>

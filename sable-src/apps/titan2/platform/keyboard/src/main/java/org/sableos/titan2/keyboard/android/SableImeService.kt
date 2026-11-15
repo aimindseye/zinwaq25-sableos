@@ -12,8 +12,6 @@ import android.widget.Toast
 import org.sableos.titan2.keyboard.R
 import org.sableos.titan2.keyboard.core.AutoText
 import org.sableos.titan2.keyboard.core.Cand
-import org.sableos.titan2.keyboard.core.ClipAction
-import org.sableos.titan2.keyboard.core.ClipPicker
 import org.sableos.titan2.keyboard.core.CompactStrip
 import org.sableos.titan2.keyboard.core.Composer
 import org.sableos.titan2.keyboard.core.Composers
@@ -34,6 +32,7 @@ import org.sableos.titan2.keyboard.core.StripInputs
 import org.sableos.titan2.keyboard.core.StripMode
 import org.sableos.titan2.keyboard.core.SymGrid
 import org.sableos.titan2.keyboard.core.SymGridSession
+import org.sableos.titan2.keyboard.core.WordEdit
 
 /**
  * Physical-keyboard-first IME. Hardware keys are resolved by the pure-Kotlin [Resolver]; the on-screen view is only a
@@ -68,7 +67,7 @@ class SableImeService : InputMethodService() {
                 cfg = prefs.load()
             )
         resolver.autoTextVar = autoTextVar(this)
-        ClipboardWatcher.start(this) { prefs.getBool(CLIP_HISTORY, false) }
+        ClipboardWatcher.start(this) { clipboardOn() }
     }
 
     override fun onDestroy() {
@@ -80,7 +79,7 @@ class SableImeService : InputMethodService() {
         super.onStartInput(attribute, restarting)
         resolver.cfg = prefs.load()
         resolver.autoText = AutoText(prefs.autoTextEntries)
-        if (!prefs.getBool(CLIP_HISTORY, false)) ClipboardWatcher.history.clear()
+        if (!clipboardOn()) ClipboardWatcher.history.clear()
         if (!restarting) {
             resolver.mods.reset()
             handledDown.clear()
@@ -151,7 +150,7 @@ class SableImeService : InputMethodService() {
             commitOut(s)
             refreshStrip()
         },
-        { chip -> clipSelected?.let { ClipPicker.entryForChip(chip, it) }?.let(::pasteClip) },
+        { chip -> clips.chipTapped(chip) },
         { chip -> sym.page?.let { SymGrid.symbolForChip(chip, it) }?.let(::pickSymbol) }
     ).also {
         strip = it
@@ -227,7 +226,7 @@ class SableImeService : InputMethodService() {
         variation = resolver.variation(),
         layout = resolver.layout,
         nowMs = android.os.SystemClock.uptimeMillis(),
-        clips = clipSelected?.let { ClipPicker.chips(ClipboardWatcher.history.entries, it) },
+        clips = clips.chips(),
         symGrid = sym.page?.let { SymGrid.chips(it) }
     )
 
@@ -266,7 +265,7 @@ class SableImeService : InputMethodService() {
 
     override fun onFinishInput() {
         super.onFinishInput()
-        clipSelected = null
+        clips.close()
         sym.close()
         fieldClass = InputClass.None
         resolver.clearVariation()
@@ -306,6 +305,9 @@ class SableImeService : InputMethodService() {
                     ?: ""
             )
 
+    private fun doubleSpaceOn() =
+        fieldClass == InputClass.Text && prefs.getBool("doubleSpace", true)
+
     private fun softAutoCorrect(typed: String) {
         if (typed == " ") autoCorrectOnSpace() else corrector.clear()
     }
@@ -316,6 +318,8 @@ class SableImeService : InputMethodService() {
         text: String
     ) {
         when {
+            text == " " && doubleSpaceOn() && edits.doubleSpacePeriod() -> Unit
+
             comp == null -> ic.commitText(text, 1)
 
             text == " " -> {
@@ -328,6 +332,18 @@ class SableImeService : InputMethodService() {
         }
     }
 
+    private fun softBackspace(comp: Composer?) = when {
+        comp != null && comp.backspace() -> applyComposition("")
+        undoAutoCorrect() -> Unit
+        else -> sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+    }
+
+    /** Commits what is being composed, then runs an on-screen text edit. */
+    private fun softEdit(comp: Composer?, edit: () -> Unit) {
+        comp?.let { applyComposition(it.flush()) }
+        edit()
+    }
+
     private fun softKey(e: SoftKeyboardView.Event) {
         val ic = currentInputConnection ?: return
         // Secret fields (passwords, PINs) never go through composition: no candidates, no IME-held text.
@@ -338,11 +354,7 @@ class SableImeService : InputMethodService() {
                 softText(ic, comp, e.s)
             }
 
-            SoftKeyboardView.Event.Backspace -> when {
-                comp != null && comp.backspace() -> applyComposition("")
-                undoAutoCorrect() -> Unit
-                else -> sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
-            }
+            SoftKeyboardView.Event.Backspace -> softBackspace(comp)
 
             SoftKeyboardView.Event.Enter -> {
                 if (comp !=
@@ -352,6 +364,10 @@ class SableImeService : InputMethodService() {
                 }
                 sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
             }
+
+            SoftKeyboardView.Event.DeleteWord -> softEdit(comp) { edits.deleteWord() }
+
+            is SoftKeyboardView.Event.MoveCursor -> softEdit(comp) { edits.moveCursor(e.steps) }
 
             SoftKeyboardView.Event.NextLanguage -> switchToNextInputMethod(true)
 
@@ -378,12 +394,51 @@ class SableImeService : InputMethodService() {
     /** History picker keys, candidate picks (Ctrl+1/2/3, Ctrl+W/E/R), Enter-to-send, Alt+Shift+V. */
     private fun handleShortcut(keyCode: Int, event: KeyEvent): Boolean =
         symGridKey(keyCode, event) ||
+            editChord(keyCode, event) ||
             toggleSoftKeyboard(keyCode, event) ||
-            clipKey(keyCode, event) ||
+            clips.key(keyCode, event) ||
             pickCandidate(keyCode, event) ||
             acceptWithTab(keyCode, event) ||
             sendWithEnter(keyCode, event) ||
-            openClips(keyCode, event)
+            clips.open(keyCode, event)
+
+    // ---- Alt+Backspace deletes a word; Alt+Shift+I toggles incognito mode
+    private val edits = TextEdits { currentInputConnection }
+
+    private fun incognito() = prefs.getBool(INCOGNITO, false)
+
+    private fun clipboardOn() = prefs.getBool(CLIP_HISTORY, false) && !incognito()
+
+    private fun editChord(keyCode: Int, event: KeyEvent): Boolean {
+        val alt = event.isAltPressed
+        val ctrl = event.isCtrlPressed || event.isMetaPressed
+        val hit = when {
+            WordEdit.deletesWord(keyCode, alt, event.isShiftPressed, ctrl) -> {
+                composer?.let { applyComposition(it.flush()) }
+                edits.deleteWord()
+                true
+            }
+
+            event.repeatCount == 0 &&
+                WordEdit.togglesIncognito(keyCode, alt, event.isShiftPressed, ctrl) -> {
+                setIncognito(!incognito())
+                true
+            }
+
+            else -> false
+        }
+        if (hit) resolver.mods.markChordUse()
+        return hit
+    }
+
+    private fun setIncognito(on: Boolean) {
+        prefs.setBool(INCOGNITO, on)
+        if (on) {
+            ClipboardWatcher.history.clear()
+            suggester.reset()
+        }
+        toast(t(if (on) "incognito_mode_on" else "incognito_mode_off"))
+    }
 
     // ---- Sym grid (letter-labelled symbol chart opened by a Sym tap)
     private val sym = SymGridSession()
@@ -422,66 +477,18 @@ class SableImeService : InputMethodService() {
         return hit
     }
 
-    // ---- clipboard history picker: null while closed, else the selected entry
-    private var clipSelected: Int? = null
-
-    private fun openClips(keyCode: Int, event: KeyEvent): Boolean {
-        val opens = event.repeatCount == 0 && ClipPicker.opens(
-            keyCode,
-            event.isAltPressed,
-            event.isShiftPressed,
-            event.isCtrlPressed || event.isMetaPressed
-        )
-        if (!opens) return false
-        // The held Alt and Shift were a chord: their release must not leave a one-shot.
-        resolver.mods.markChordUse()
-        when {
-            !prefs.getBool(CLIP_HISTORY, false) ->
-                toast(t("turn_on_clipboard_history_in"))
-
-            getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true ->
-                toast(t("unlock_to_use_clipboard_history"))
-
-            else -> clipSelected = 0
-        }
-        return true
-    }
-
-    /** A key while the picker is open; false when the picker is closed or the key should type as usual. */
-    private fun clipKey(keyCode: Int, event: KeyEvent): Boolean {
-        val selected = clipSelected ?: return false
-        val history = ClipboardWatcher.history
-        val count = history.entries.size
-        val action = ClipPicker.action(keyCode, event.isShiftPressed)
-        when (action) {
-            ClipAction.Next -> clipSelected = ClipPicker.move(selected, 1, count)
-
-            ClipAction.Previous -> clipSelected = ClipPicker.move(selected, -1, count)
-
-            ClipAction.Paste -> pasteClip(selected)
-
-            ClipAction.Remove -> {
-                history.remove(selected)
-                clipSelected = selected.coerceAtMost((count - 2).coerceAtLeast(0))
-            }
-
-            ClipAction.Close, ClipAction.CloseAndPass -> clipSelected = null
-
-            ClipAction.Ignore -> Unit
-        }
-        if (action == ClipAction.CloseAndPass) refreshStrip()
-        return action != ClipAction.Ignore && action != ClipAction.CloseAndPass
-    }
-
-    private fun pasteClip(index: Int) {
-        val text = ClipboardWatcher.history.entries.getOrNull(index)
-        clipSelected = null
-        if (text != null) {
+    // ---- clipboard history picker
+    private val clips = ClipPickerController(
+        this,
+        { clipboardOn() },
+        { text ->
             composer?.let { applyComposition(it.flush()) }
             currentInputConnection?.commitText(text, 1)
-        }
-        refreshStrip()
-    }
+        },
+        { refreshStrip() },
+        { resolver.mods.markChordUse() },
+        { toast(it) }
+    )
 
     private fun pickCandidate(keyCode: Int, event: KeyEvent): Boolean {
         val pick = KeyShortcuts.candidateIndex(
@@ -522,7 +529,7 @@ class SableImeService : InputMethodService() {
         return SuggestionField(
             allowed,
             language.tag,
-            allowed && !optOut && prefs.getBool(LEARN_WORDS, true)
+            allowed && !optOut && prefs.getBool(LEARN_WORDS, true) && !incognito()
         )
     }
 

@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">Boşlukta otomatik düzeltme (Backspace geri alır)</string>
     <string name="forget_learned_words">Öğrenilen kelimeleri unut</string>
     <string name="learned_words_forgotten">Öğrenilen kelimeler unutuldu</string>
+    <string name="incognito_mode_no_learning_or">Gizli mod: kelime öğrenme ve pano geçmişi yok (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">Gizli mod açık</string>
+    <string name="incognito_mode_off">Gizli mod kapalı</string>
 </resources>

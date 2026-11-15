@@ -1280,7 +1280,7 @@ clip_bad=""
 grep -q 'prefs.getBool(CLIP_HISTORY, false)' "$kb/android/SableImeService.kt" || clip_bad="$clip_bad default-off"
 grep -q 'isChecked = prefs.getBool(CLIP_HISTORY, false)' "$kb/android/KeyboardSettingsActivity.kt" || clip_bad="$clip_bad settings-default"
 grep -q 'EXTRA_IS_SENSITIVE' "$kb/android/ClipboardWatcher.kt" || clip_bad="$clip_bad sensitive"
-grep -q 'isKeyguardLocked' "$kb/android/SableImeService.kt" || clip_bad="$clip_bad keyguard"
+grep -q 'isKeyguardLocked' "$kb/android/ClipPickerController.kt" || clip_bad="$clip_bad keyguard"
 grep -qi 'SharedPreferences\|openFileOutput\|filesDir' "$kb/core/ClipboardHistory.kt" "$kb/android/ClipboardWatcher.kt" && clip_bad="$clip_bad persisted"
 grep -q 'uses-permission' sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml && clip_bad="$clip_bad permission"
 if [[ -z "$clip_bad" ]]; then pass "Sable Keyboard clipboard history: opt-in, memory only, skips sensitive copies, not on the lock screen"; else fail "clipboard history:$clip_bad"; fi

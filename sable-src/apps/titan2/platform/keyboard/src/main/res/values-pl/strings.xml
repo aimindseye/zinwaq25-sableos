@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">Autokorekta po spacji (Backspace ją cofa)</string>
     <string name="forget_learned_words">Zapomnij nauczone słowa</string>
     <string name="learned_words_forgotten">Nauczone słowa zapomniane</string>
+    <string name="incognito_mode_no_learning_or">Tryb incognito: bez uczenia słów i historii schowka (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">Incognito włączony</string>
+    <string name="incognito_mode_off">Incognito wyłączony</string>
 </resources>

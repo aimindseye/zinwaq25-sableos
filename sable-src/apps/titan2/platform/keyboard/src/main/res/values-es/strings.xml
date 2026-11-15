@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">Autocorrección al pulsar Espacio (Retroceso la deshace)</string>
     <string name="forget_learned_words">Olvidar las palabras aprendidas</string>
     <string name="learned_words_forgotten">Palabras aprendidas olvidadas</string>
+    <string name="incognito_mode_no_learning_or">Modo incógnito: sin aprender palabras ni historial del portapapeles (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">Incógnito activado</string>
+    <string name="incognito_mode_off">Incógnito desactivado</string>
 </resources>

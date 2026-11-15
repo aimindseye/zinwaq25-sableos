@@ -61,6 +61,10 @@ object KeyboardText {
             "space" to "space · %1\$s%2\$s",
             "alternate" to "%1\$s, alternate %2\$s",
             "clipboard_empty" to "Clipboard empty",
+            "incognito_mode_no_learning_or" to
+                "Incognito mode: no word learning or clipboard history (Alt+Shift+I)",
+            "incognito_mode_on" to "Incognito on",
+            "incognito_mode_off" to "Incognito off",
             "input_method_settings" to "Input method settings",
             "keyboard_picker" to "Keyboard picker",
             "sable_keyboard_is_the_selected" to "Sable Keyboard is the selected keyboard.",

@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">Автоисправление по пробелу (Backspace отменяет)</string>
     <string name="forget_learned_words">Забыть выученные слова</string>
     <string name="learned_words_forgotten">Выученные слова забыты</string>
+    <string name="incognito_mode_no_learning_or">Режим инкогнито: без запоминания слов и истории буфера обмена (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">Инкогнито включён</string>
+    <string name="incognito_mode_off">Инкогнито выключен</string>
 </resources>

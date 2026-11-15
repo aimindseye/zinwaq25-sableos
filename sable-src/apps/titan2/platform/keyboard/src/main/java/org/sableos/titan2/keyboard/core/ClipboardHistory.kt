@@ -10,9 +10,13 @@ import org.sableos.titan2.keyboard.core.KeyboardText.t
  */
 class ClipboardHistory(private val maxEntries: Int = MAX_ENTRIES) {
     private val items = ArrayList<String>()
+    private val pins = HashSet<String>()
 
-    /** Newest first. */
-    val entries: List<String> get() = items.toList()
+    /** Pinned entries first, then the rest, each newest first. */
+    val entries: List<String> get() = items.sortedBy { it !in pins }
+
+    /** The entries that are pinned (kept above the rest and never dropped to make room). */
+    val pinned: Set<String> get() = pins.toSet()
 
     /**
      * Records a copy. Blank text, sensitive clips and text over [MAX_CHARS] are skipped; copying
@@ -25,16 +29,33 @@ class ClipboardHistory(private val maxEntries: Int = MAX_ENTRIES) {
         if (wanted) {
             items.remove(s)
             items.add(0, s)
-            while (items.size > maxEntries) items.removeAt(items.lastIndex)
+            while (items.size > maxEntries) {
+                val last = items.lastOrNull { it !in pins } ?: break
+                items.remove(last)
+            }
         }
         return wanted
     }
 
+    /** Removes the entry at [index] of [entries]. */
     fun remove(index: Int) {
-        if (index in items.indices) items.removeAt(index)
+        entries.getOrNull(index)?.let {
+            items.remove(it)
+            pins.remove(it)
+        }
     }
 
-    fun clear() = items.clear()
+    /** Pins or unpins the entry at [index] of [entries]; returns where that entry sits afterwards. */
+    fun togglePin(index: Int): Int {
+        val s = entries.getOrNull(index) ?: return index
+        if (!pins.remove(s)) pins.add(s)
+        return entries.indexOf(s)
+    }
+
+    fun clear() {
+        items.clear()
+        pins.clear()
+    }
 
     companion object {
         const val MAX_ENTRIES = 20
@@ -55,7 +76,7 @@ class ClipboardHistory(private val maxEntries: Int = MAX_ENTRIES) {
 }
 
 /** What a key does while the history picker is open. */
-enum class ClipAction { Next, Previous, Paste, Remove, Close, Ignore, CloseAndPass }
+enum class ClipAction { Next, Previous, Paste, Remove, TogglePin, Close, Ignore, CloseAndPass }
 
 /**
  * The history picker shown in the keyboard strip. Hold Alt+Shift and press V to open it (held keys
@@ -72,6 +93,8 @@ object ClipPicker {
     const val KEYCODE_V = 50
     const val KEYCODE_SPACE = 62
     const val KEYCODE_ENTER = 66
+    const val KEYCODE_TAB = 61
+    private const val PIN = "\uD83D\uDCCC "
     const val KEYCODE_DEL = 67
     const val KEYCODE_ESCAPE = 111
     const val KEYCODE_NUMPAD_ENTER = 160
@@ -84,8 +107,8 @@ object ClipPicker {
         keyCode == KEYCODE_V && altHeld && shiftHeld && !ctrlOrMeta
 
     /**
-     * Space and the trackpad move, Enter or a trackpad click pastes, Backspace removes the entry,
-     * Back closes. Any other key closes the picker and types as usual.
+     * Space and the trackpad move, Enter or a trackpad click pastes, Tab pins or unpins the entry,
+     * Backspace removes it, Back closes. Any other key closes the picker and types as usual.
      */
     fun action(keyCode: Int, shift: Boolean): ClipAction = when (keyCode) {
         KEYCODE_SPACE -> if (shift) ClipAction.Previous else ClipAction.Next
@@ -93,6 +116,7 @@ object ClipPicker {
         KEYCODE_DPAD_LEFT, KEYCODE_DPAD_UP -> ClipAction.Previous
         KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER, KEYCODE_DPAD_CENTER -> ClipAction.Paste
         KEYCODE_DEL -> ClipAction.Remove
+        KEYCODE_TAB -> ClipAction.TogglePin
         KEYCODE_BACK, KEYCODE_ESCAPE -> ClipAction.Close
         in MODIFIERS -> ClipAction.Ignore
         else -> ClipAction.CloseAndPass
@@ -106,10 +130,16 @@ object ClipPicker {
      * Chips for the strip: "2/7", then the selected entry and the ones after it. Index 0 of the
      * result is the position chip; chip i > 0 is entry [selected] + i - 1.
      */
-    fun chips(entries: List<String>, selected: Int): List<String> {
+    fun chips(
+        entries: List<String>,
+        selected: Int,
+        pinned: Set<String> = emptySet()
+    ): List<String> {
         if (entries.isEmpty()) return listOf(t("clipboard_empty"))
         val from = selected.coerceIn(0, entries.lastIndex)
-        val shown = entries.drop(from).take(VISIBLE).map { ClipboardHistory.preview(it) }
+        val shown = entries.drop(from).take(VISIBLE).map {
+            (if (it in pinned) PIN else "") + ClipboardHistory.preview(it)
+        }
         return listOf("${from + 1}/${entries.size}") + shown
     }
 
