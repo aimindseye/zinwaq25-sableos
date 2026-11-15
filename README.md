@@ -13,6 +13,16 @@ repository holds everything needed to build SableOS for the **Zinwa Q25** (the
 BlackBerry Classic restomod, codename `Q25`), without needing the Pixel 7,
 Titan 2 or Q27 SableOS lanes.
 
+> **Android or Native?** This repository is the **Android edition** of SableOS
+> for the Q25 (LineageOS, Android apps, flashed with fastboot and recovery).
+> [SableOS Native](https://github.com/sableos-project/sableos-native) is a
+> separate **Linux edition** for the same phone: a BB10-style Qt/QML shell and
+> Rust services on Marathon OS, with no Android underneath (Android apps run in a
+> container). It is in early development with no image yet. The two share
+> design contracts in
+> [platform_sable](https://github.com/sableos-project/platform_sable/blob/main/docs/SABLEOS_EDITIONS_2026-11-15.md)
+> but no code, and installing one replaces the other.
+
 New here? The [User guide](docs/USER_GUIDE.md) covers setup, the keys, the
 apps and the privacy defaults. To install, follow
 [Flash a release](docs/FLASHING_RELEASE.md) for a downloaded release, or
