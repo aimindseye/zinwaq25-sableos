@@ -53,7 +53,12 @@ prepare_flavor() {
     cache="$SABLE_UPSTREAM_CACHE/$name"
     if ! git -C "$cache" cat-file -e "$commit^{commit}" 2>/dev/null; then
         [[ "${NETWORK_FETCH_AUTHORIZED:-NO}" == YES ]] || sable_fail "$name upstream $commit not cached; set NETWORK_FETCH_AUTHORIZED=YES to fetch $url"
-        [[ -d "$cache/.git" ]] || git clone --no-checkout "$url" "$cache"
+        # No background maintenance in the cache: a detached auto-gc or commit-graph write racing the
+        # local clone below makes it fail with "failed to copy file ... commit-graphs/tmp_graph_*".
+        [[ -d "$cache/.git" ]] || git -c maintenance.auto=false -c gc.auto=0 clone --no-checkout "$url" "$cache"
+        git -C "$cache" config maintenance.auto false
+        git -C "$cache" config gc.auto 0
+        git -C "$cache" config fetch.writeCommitGraph false
         git -C "$cache" fetch origin "$commit"
     fi
     work="$SABLE_FLAVOR_WORK/$name"
