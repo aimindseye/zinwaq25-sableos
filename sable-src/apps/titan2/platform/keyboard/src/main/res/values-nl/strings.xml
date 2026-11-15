@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">Autocorrectie bij spatie (Backspace maakt het ongedaan)</string>
     <string name="forget_learned_words">Geleerde woorden vergeten</string>
     <string name="learned_words_forgotten">Geleerde woorden vergeten</string>
+    <string name="incognito_mode_no_learning_or">Incognitomodus: geen woorden leren, geen klembordgeschiedenis (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">Incognito aan</string>
+    <string name="incognito_mode_off">Incognito uit</string>
 </resources>

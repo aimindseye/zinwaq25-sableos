@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">按空格自动更正(退格可撤销)</string>
     <string name="forget_learned_words">清除已学习的词语</string>
     <string name="learned_words_forgotten">已清除学习的词语</string>
+    <string name="incognito_mode_no_learning_or">无痕模式：不学习词语，不保存剪贴板历史 (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">无痕模式已开启</string>
+    <string name="incognito_mode_off">无痕模式已关闭</string>
 </resources>

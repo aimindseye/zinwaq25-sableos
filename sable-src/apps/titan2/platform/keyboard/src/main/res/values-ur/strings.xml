@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">اسپیس پر خودکار درستی (بیک اسپیس واپس کرتا ہے)</string>
     <string name="forget_learned_words">سیکھے ہوئے الفاظ بھولیں</string>
     <string name="learned_words_forgotten">سیکھے ہوئے الفاظ بھلا دیے گئے</string>
+    <string name="incognito_mode_no_learning_or">انکاگنیٹو موڈ: نہ الفاظ سیکھنا نہ کلپ بورڈ ہسٹری (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">انکاگنیٹو آن</string>
+    <string name="incognito_mode_off">انکاگنیٹو آف</string>
 </resources>

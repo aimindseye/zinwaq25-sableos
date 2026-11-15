@@ -19,6 +19,7 @@ internal const val WORD_SUGGEST = "wordSuggest"
 
 /** Learn the user's own words and phrases (core UserWords), kept on the device; on by default. */
 internal const val LEARN_WORDS = "learnWords"
+internal const val INCOGNITO = "incognito"
 
 /** Auto-correct the word before Space when sure, Backspace undoes it (core AutoCorrect); off by default. */
 internal const val AUTO_CORRECT = "autoCorrect"

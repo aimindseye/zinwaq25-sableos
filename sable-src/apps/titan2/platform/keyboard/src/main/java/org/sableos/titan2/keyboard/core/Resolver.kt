@@ -260,15 +260,12 @@ class Resolver(
 
     private fun plainSpace(ctx: FieldCtx): List<Out> =
         if (cfg.doubleSpacePeriod && ctx.inputClass == InputClass.Text &&
-            endsWordSpace(ctx.before)
+            WordEdit.endsWordSpace(ctx.before)
         ) {
             listOf(Out.DeleteBefore(1), Out.Commit(". "))
         } else {
             typeBoundary(" ", ctx)
         }
-
-    private fun endsWordSpace(b: String): Boolean =
-        b.length >= 2 && b.last() == ' ' && b[b.length - 2].isLetterOrDigit()
 
     companion object {
         private const val SENTENCE_WINDOW = 3

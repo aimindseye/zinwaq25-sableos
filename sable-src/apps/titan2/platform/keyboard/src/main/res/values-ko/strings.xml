@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">스페이스 시 자동 수정(Backspace로 되돌리기)</string>
     <string name="forget_learned_words">학습한 단어 삭제</string>
     <string name="learned_words_forgotten">학습한 단어를 삭제했습니다</string>
+    <string name="incognito_mode_no_learning_or">시크릿 모드: 단어 학습 및 클립보드 기록 안 함 (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">시크릿 모드 켜짐</string>
+    <string name="incognito_mode_off">시크릿 모드 꺼짐</string>
 </resources>

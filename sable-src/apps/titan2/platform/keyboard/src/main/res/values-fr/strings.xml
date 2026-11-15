@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">Correction auto à l\'espace (Retour arrière l\'annule)</string>
     <string name="forget_learned_words">Oublier les mots appris</string>
     <string name="learned_words_forgotten">Mots appris oubliés</string>
+    <string name="incognito_mode_no_learning_or">Mode privé : pas d’apprentissage de mots ni d’historique du presse-papiers (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">Mode privé activé</string>
+    <string name="incognito_mode_off">Mode privé désactivé</string>
 </resources>

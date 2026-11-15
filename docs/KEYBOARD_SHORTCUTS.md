@@ -32,6 +32,8 @@ This is the full key list for every Sable app, taken from each app's key code. T
 | Alt + a letter | The key's printed symbol or digit. W E R = 1 2 3, S D F = 4 5 6, Z X C = 7 8 9 |
 | Shift or Alt once / twice | Sticky for the next key / locked. A third press releases it |
 | Hold a letter | Types its Alt character |
+| On-screen: hold the space bar then drag | Moves the cursor. A quick swipe left or right on the space bar switches language |
+| On-screen: swipe left on Backspace | Deletes the last word |
 | Backspace right after an AutoText change | Undoes the change |
 | Ctrl+1/2/3 or Ctrl+W/E/R | Picks a word, spelling fix or emoji from the suggestion strip (keyboards with Ctrl) |
 | Tab | Takes the first word, spelling fix, emoji or next-word suggestion while the strip shows one (otherwise Tab as usual) |
@@ -40,7 +42,10 @@ This is the full key list for every Sable app, taken from each app's key code. T
 | Sym (tap once) | Opens a symbol chart, each symbol labelled with the letter key that types it (page 1 has `[ ] { } ( ) < > \ | / ~ ` ^`). Press the letter to type it and close the chart. Sym again shows the next page; Back closes it |
 | Sym (held) + a letter | The accent or symbol for that letter, as before. Sym+Space switches language |
 | Alt+Shift+K (held) | Shows or hides the on-screen keyboard |
-| Alt+Shift+V (held) | Clipboard history: Space or the trackpad moves, Enter pastes, Backspace removes, Back closes |
+| Alt+Backspace (held Alt) | Deletes the last word (Ctrl+Backspace on a keyboard with Ctrl) |
+| Alt+Shift+I (held) | Incognito mode on or off: no word learning and no clipboard history while it is on |
+| Space twice | A full stop and a space after a word (when "Double space inserts period" is on), on both keyboards |
+| Alt+Shift+V (held) | Clipboard history: Space or the trackpad moves, Enter pastes, Tab pins or unpins (pinned entries stay on top), Backspace removes, Back closes |
 
 ## Sable Start and Hub
 

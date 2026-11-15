@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">Autokorrektur bei Leertaste (Rücktaste macht sie rückgängig)</string>
     <string name="forget_learned_words">Gelernte Wörter vergessen</string>
     <string name="learned_words_forgotten">Gelernte Wörter vergessen</string>
+    <string name="incognito_mode_no_learning_or">Inkognito-Modus: keine Wörter lernen, kein Zwischenablageverlauf (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">Inkognito an</string>
+    <string name="incognito_mode_off">Inkognito aus</string>
 </resources>

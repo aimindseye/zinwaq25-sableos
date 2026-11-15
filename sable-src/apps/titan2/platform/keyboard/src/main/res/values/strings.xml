@@ -49,4 +49,7 @@
     <string name="auto_correct_on_space_backspace_undoes">Auto-correct on Space (Backspace undoes it)</string>
     <string name="forget_learned_words">Forget learned words</string>
     <string name="learned_words_forgotten">Learned words forgotten</string>
+    <string name="incognito_mode_no_learning_or">Incognito mode: no word learning or clipboard history (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">Incognito on</string>
+    <string name="incognito_mode_off">Incognito off</string>
 </resources>

@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">Αυτόματη διόρθωση στο Space (το Backspace την αναιρεί)</string>
     <string name="forget_learned_words">Διαγραφή των μαθημένων λέξεων</string>
     <string name="learned_words_forgotten">Οι μαθημένες λέξεις διαγράφηκαν</string>
+    <string name="incognito_mode_no_learning_or">Ανώνυμη λειτουργία: χωρίς εκμάθηση λέξεων ή ιστορικό προχείρου (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">Ανώνυμη λειτουργία ενεργή</string>
+    <string name="incognito_mode_off">Ανώνυμη λειτουργία ανενεργή</string>
 </resources>

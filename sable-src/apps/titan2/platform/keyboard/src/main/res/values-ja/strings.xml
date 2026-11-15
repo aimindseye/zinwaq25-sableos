@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">スペースで自動修正(Backspaceで元に戻す)</string>
     <string name="forget_learned_words">学習した単語を消去</string>
     <string name="learned_words_forgotten">学習した単語を消去しました</string>
+    <string name="incognito_mode_no_learning_or">シークレットモード: 単語の学習とクリップボード履歴をしない (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">シークレットモード オン</string>
+    <string name="incognito_mode_off">シークレットモード オフ</string>
 </resources>

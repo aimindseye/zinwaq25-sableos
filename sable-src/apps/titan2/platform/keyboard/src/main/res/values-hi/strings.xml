@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">स्पेस पर स्वतः सुधार (बैकस्पेस से वापस होता है)</string>
     <string name="forget_learned_words">सीखे हुए शब्द भूल जाएँ</string>
     <string name="learned_words_forgotten">सीखे हुए शब्द भुला दिए गए</string>
+    <string name="incognito_mode_no_learning_or">गुप्त मोड: शब्द सीखना और क्लिपबोर्ड इतिहास बंद (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">गुप्त मोड चालू</string>
+    <string name="incognito_mode_off">गुप्त मोड बंद</string>
 </resources>

@@ -47,4 +47,7 @@
     <string name="auto_correct_on_space_backspace_undoes">Correzione automatica con Spazio (Backspace la annulla)</string>
     <string name="forget_learned_words">Dimentica le parole apprese</string>
     <string name="learned_words_forgotten">Parole apprese dimenticate</string>
+    <string name="incognito_mode_no_learning_or">Modalità incognito: niente apprendimento parole né cronologia appunti (Alt+Shift+I)</string>
+    <string name="incognito_mode_on">Incognito attivo</string>
+    <string name="incognito_mode_off">Incognito disattivato</string>
 </resources>
