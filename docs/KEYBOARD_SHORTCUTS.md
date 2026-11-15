@@ -37,6 +37,9 @@ This is the full key list for every Sable app, taken from each app's key code. T
 | Tab | Takes the first word, spelling fix, emoji or next-word suggestion while the strip shows one (otherwise Tab as usual) |
 | Backspace right after an auto-correction | Puts back what you typed (when Auto-correct on Space is on) |
 | Enter | Sends, where the app has a Send button and "Enter sends" is on in Keyboard settings (off by default) |
+| Sym (tap once) | Opens a symbol chart, each symbol labelled with the letter key that types it (page 1 has `[ ] { } ( ) < > \ | / ~ ` ^`). Press the letter to type it and close the chart. Sym again shows the next page; Back closes it |
+| Sym (held) + a letter | The accent or symbol for that letter, as before. Sym+Space switches language |
+| Alt+Shift+K (held) | Shows or hides the on-screen keyboard |
 | Alt+Shift+V (held) | Clipboard history: Space or the trackpad moves, Enter pastes, Backspace removes, Back closes |
 
 ## Sable Start and Hub

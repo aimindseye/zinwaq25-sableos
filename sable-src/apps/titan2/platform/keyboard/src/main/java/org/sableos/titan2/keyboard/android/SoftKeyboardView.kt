@@ -187,6 +187,7 @@ class SoftKeyboardView(
         row(listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"), false)
         row(listOf("@", "#", "$", "%", "&", "*", "-", "+", "=", "/"), false)
         row(listOf("(", ")", "!", "?", ":", ";", "\"", "'", ",", "."), false)
+        row(listOf("[", "]", "{", "}", "<", ">", "\\", "|", "~", "`", "^"), false)
     }
 
     private fun buildLetterRows() {

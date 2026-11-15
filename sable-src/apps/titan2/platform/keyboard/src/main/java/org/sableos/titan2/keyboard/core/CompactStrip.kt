@@ -120,6 +120,8 @@ data class StripInputs(
     val nowMs: Long,
     /** Chips of the open clipboard history picker ([ClipPicker.chips]), or null when it is closed. */
     val clips: List<String>? = null,
+    /** Chips of the open Sym symbol grid ([SymGrid.chips]), or null when it is closed. */
+    val symGrid: List<String>? = null,
     /** Word suggestions went away a moment ago: keep the (empty) strip up so the app does not resize per word. */
     val holdOpen: Boolean = false
 )
@@ -133,6 +135,9 @@ sealed interface StripContent {
 
     /** The clipboard history picker: chip 0 is the position, chip 1 the selected entry. */
     data class Clips(val chips: List<String>) : StripContent
+
+    /** The Sym symbol grid: chip 0 is the page, the rest are "letter symbol" chips. */
+    data class SymGridChips(val chips: List<String>) : StripContent
 }
 
 data class StripModel(
@@ -162,7 +167,7 @@ object CompactStrip {
         i.field == InputClass.None -> StripMode.Hidden
 
         // The picker shows even where the strip is off (the Q25 default), as candidates do.
-        i.clips != null -> StripMode.CandidatesOnly
+        i.clips != null || i.symGrid != null -> StripMode.CandidatesOnly
 
         i.softKeyboardShown || !i.enabled ->
             if (i.candidates.isEmpty() &&
@@ -181,6 +186,7 @@ object CompactStrip {
         if (mode == StripMode.Hidden) return HIDDEN
         val content = when {
             i.clips != null -> StripContent.Clips(i.clips)
+            i.symGrid != null -> StripContent.SymGridChips(i.symGrid)
             mode == StripMode.Compact -> compactContent(i)
             else -> candidatesOf(i)
         }
