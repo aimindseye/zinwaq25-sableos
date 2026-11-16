@@ -83,6 +83,10 @@ def main() -> None:
         # No "Select a notification icon" on the lock layer without notifications (patch_quiet_lock).
         "quiet_lock": "if (content.entries.isNotEmpty()) {"
         in (root / JAVA / "ui/LockNotificationScreen.kt").read_text(encoding="utf-8"),
+        # The tray's Recent panel after Favorites, saved with the usage counts (patch_recent_tab).
+        "recent_tab": 'Recent("recent", fixedTitle = "Recent")' in (root / JAVA / "model/Bb7Home.kt").read_text(encoding="utf-8")
+        and "SableRecents.keys.mapNotNull" in (root / JAVA / "model/Bb7Home.kt").read_text(encoding="utf-8")
+        and (root / JAVA / "model/SableRecents.kt").is_file(),
     }
     bad = [name for name, ok in checks.items() if not ok]
     if bad:
