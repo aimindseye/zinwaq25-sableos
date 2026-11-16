@@ -41,9 +41,12 @@ import org.sableos.start.model.AppEntry
 import org.sableos.start.model.Bb7Detour
 import org.sableos.start.model.Bb7Folders
 import org.sableos.start.model.Bb7Layout
+import org.sableos.start.model.Bb7Recents
 import org.sableos.start.model.GridFolder
 import org.sableos.start.model.HomeStyle
 import org.sableos.start.model.TrackpadTouchGuard
+import org.sableos.start.model.inLauncherUser
+import org.sableos.start.model.stableKey
 import org.sableos.start.platform.LauncherAppsRepository
 import org.sableos.start.platform.LetterShortcutRepository
 import org.sableos.start.platform.LiveSurfaceRepository
@@ -126,6 +129,8 @@ class SableStartActivity : ComponentActivity() {
     private val bb7Folders = mutableStateOf<List<GridFolder>>(emptyList())
     private val bb7GridOrder = mutableStateOf<List<String>?>(null)
     private val bb7Shortcuts = mutableStateOf<List<String>>(emptyList())
+    /** The BlackBerry 7 Recent panel: apps opened last, newest first. In memory only (see Bb7Recents). */
+    private val bb7Recents = mutableStateOf<List<String>>(emptyList())
     private var opaqueWindowBackground: Drawable? = null
 
     private var callbackRegistered = false
@@ -296,13 +301,18 @@ class SableStartActivity : ComponentActivity() {
                 Bb7HomeScreen(
                     apps = appsState.value,
                     favoriteKeys = bb7Favorites.value,
+                    recentKeys = bb7Recents.value,
                     homeRows = bb7HomeRows.value,
                     layout = bb7Layout.value,
                     liveSurfaceRepository = liveSurfaceRepository,
                     appearance = appearance,
                     refreshGeneration = liveRefreshGeneration.value,
                     homeGeneration = homeGeneration.value,
-                    onLaunchApp = { entry -> launcherAppsRepository.launch(entry) },
+                    onLaunchApp = { entry ->
+                        val launched = launcherAppsRepository.launch(entry)
+                        if (launched) bb7Recents.value = Bb7Recents.record(bb7Recents.value, entry.stableKey())
+                        launched
+                    },
                     onOpenAppInfo = { entry -> launcherAppsRepository.openAppDetails(entry) },
                     onUninstallApp = { entry -> launcherAppsRepository.requestUninstall(entry) },
                     onOpenHub = {
@@ -628,6 +638,15 @@ class SableStartActivity : ComponentActivity() {
                     if (!isDestroyed) {
                         framesState.value = frames
                         framesGeneration.value += 1
+                        // Active Frames know what was open before Start restarted: they fill an empty Recent panel.
+                        if (bb7Recents.value.isEmpty()) {
+                            val byPackage = appsState.value.filter { it.inLauncherUser }.groupBy { it.component.packageName }
+                            bb7Recents.value =
+                                Bb7Recents.seed(
+                                    bb7Recents.value,
+                                    frames.mapNotNull { byPackage[it.packageName]?.firstOrNull()?.stableKey() },
+                                )
+                        }
                     }
                 }
             }

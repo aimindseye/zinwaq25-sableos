@@ -92,7 +92,7 @@ import org.sableos.start.platform.SpeedDialRepository
  * (status dials, date, weather and unread count; the time is the status bar's, so it is not shown
  * twice) on the wallpaper, and a tray along the bottom with one row of Favorites that opens into
  * the whole panel. Keys as on BlackBerry 7: arrows move, Enter opens, Up opens the tray and
- * Escape closes it, Space switches panels (Favorites, All, Downloads, then your folders), typing
+ * Escape closes it, Space switches panels (Favorites, Recent, All, Downloads, then your folders), typing
  * opens Command as on the BlackBerry 10 home (and as BlackBerry 7's typing opened Universal Search),
  * Menu opens the home options, Alt+Space opens Command. Folders are the BlackBerry 10 grid's, so a
  * group of apps is the same on both homes; shortcuts can sit on the wallpaper between the banner
@@ -107,6 +107,8 @@ import org.sableos.start.platform.SpeedDialRepository
 fun Bb7HomeScreen(
     apps: List<AppEntry>,
     favoriteKeys: List<String>?,
+    /** The Recent panel: stable keys of the apps opened last, newest first ([Bb7Recents]). */
+    recentKeys: List<String> = emptyList(),
     homeRows: Int,
     liveSurfaceRepository: LiveSurfaceRepository,
     /** The tray's view, grid columns and icon size, set from the home menu. */
@@ -122,7 +124,7 @@ fun Bb7HomeScreen(
     onFavoritesChanged: (List<String>) -> Unit,
     onHomeRowsChanged: (Int) -> Unit,
     onLayoutChanged: (Bb7Layout) -> Unit = {},
-    /** The BB10 grid's folders, tray places after Favorites, All and Downloads ([Bb7Folders]). */
+    /** The BB10 grid's folders, tray places after Favorites, Recent, All and Downloads ([Bb7Folders]). */
     folders: List<GridFolder> = emptyList(),
     /** The BB10 grid's saved order (null: never arranged), which folder changes keep in step. */
     gridOrder: List<String>? = null,
@@ -210,7 +212,7 @@ fun Bb7HomeScreen(
     val shown =
         when {
             searching -> Bb7Home.search(apps, query)
-            panel != null -> Bb7Home.panelApps(panel, apps, favoriteKeys)
+            panel != null -> Bb7Home.panelApps(panel, apps, favoriteKeys, recentKeys)
             folder != null -> Bb7Folders.apps(folder, apps)
             else -> emptyList()
         }

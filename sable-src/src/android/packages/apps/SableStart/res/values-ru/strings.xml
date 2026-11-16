@@ -15,6 +15,7 @@
     <string name="blackberry_7_style">Стиль BlackBerry 7</string>
     <string name="clock_and_status_on_the">Часы и статус на обоях, лоток приложений, который открывается во все приложения</string>
     <string name="favorites">Избранное</string>
+    <string name="recent">Недавние</string>
     <string name="all">Все</string>
     <string name="downloads">Загрузки</string>
     <string name="bluetooth">Bluetooth</string>

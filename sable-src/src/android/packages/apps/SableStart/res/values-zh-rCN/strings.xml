@@ -15,6 +15,7 @@
     <string name="blackberry_7_style">BlackBerry 7 样式</string>
     <string name="clock_and_status_on_the">壁纸上显示时钟和状态，一个可展开为全部应用的应用托盘</string>
     <string name="favorites">收藏</string>
+    <string name="recent">最近</string>
     <string name="all">全部</string>
     <string name="downloads">下载</string>
     <string name="bluetooth">蓝牙</string>

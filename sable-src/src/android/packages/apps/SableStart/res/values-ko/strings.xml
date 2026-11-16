@@ -15,6 +15,7 @@
     <string name="blackberry_7_style">BlackBerry 7 스타일</string>
     <string name="clock_and_status_on_the">배경화면에 시계와 상태, 모든 앱으로 열리는 앱 트레이</string>
     <string name="favorites">즐겨찾기</string>
+    <string name="recent">최근</string>
     <string name="all">전체</string>
     <string name="downloads">다운로드</string>
     <string name="bluetooth">Bluetooth</string>

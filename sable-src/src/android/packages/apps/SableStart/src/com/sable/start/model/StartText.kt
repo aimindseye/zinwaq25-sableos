@@ -27,6 +27,7 @@ object StartText {
             "clock_and_status_on_the" to
                 "Clock and status on the wallpaper, a tray of apps that opens into all apps",
             "favorites" to "Favorites",
+            "recent" to "Recent",
             "all" to "All",
             "downloads" to "Downloads",
             "bluetooth" to "Bluetooth",

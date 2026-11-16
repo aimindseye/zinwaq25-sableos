@@ -21,7 +21,8 @@ class Bb7HomeTest {
 
     @Test
     fun panelsWrapBothWays() {
-        assertEquals(Bb7Panel.All, Bb7Home.step(Bb7Panel.Favorites, 1))
+        assertEquals(Bb7Panel.Recent, Bb7Home.step(Bb7Panel.Favorites, 1))
+        assertEquals(Bb7Panel.All, Bb7Home.step(Bb7Panel.Recent, 1))
         assertEquals(Bb7Panel.Downloads, Bb7Home.step(Bb7Panel.Favorites, -1))
         assertEquals(Bb7Panel.Favorites, Bb7Home.step(Bb7Panel.Downloads, 1))
     }
@@ -118,13 +119,25 @@ class Bb7HomeTest {
 
     @Test
     fun trayPlacesRunThroughThePanelsThenTheUsersTabs() {
-        assertEquals(5, Bb7Home.trayPlaces(2))
-        assertEquals(Bb7Panel.All, Bb7Home.panelAt(1))
-        assertEquals(null, Bb7Home.panelAt(3))
-        assertEquals(3, Bb7Home.stepPlace(2, 1, tabs = 2))
-        assertEquals(0, Bb7Home.stepPlace(4, 1, tabs = 2))
-        assertEquals(4, Bb7Home.stepPlace(0, -1, tabs = 2))
-        assertEquals(0, Bb7Home.stepPlace(2, 1, tabs = 0))
+        assertEquals(6, Bb7Home.trayPlaces(2))
+        assertEquals(Bb7Panel.Recent, Bb7Home.panelAt(1))
+        assertEquals(Bb7Panel.All, Bb7Home.panelAt(2))
+        assertEquals(null, Bb7Home.panelAt(4))
+        assertEquals(4, Bb7Home.stepPlace(3, 1, tabs = 2))
+        assertEquals(0, Bb7Home.stepPlace(5, 1, tabs = 2))
+        assertEquals(5, Bb7Home.stepPlace(0, -1, tabs = 2))
+        assertEquals(0, Bb7Home.stepPlace(3, 1, tabs = 0))
+    }
+
+    @Test
+    fun recentsKeepTheLastOpenedFirstAndSeedOnlyBehindThem() {
+        val opened = Bb7Recents.record(Bb7Recents.record(emptyList(), "a"), "b")
+        assertEquals(listOf("b", "a"), opened)
+        assertEquals(listOf("a", "b"), Bb7Recents.record(opened, "a"))
+        val many = (1..20).fold(emptyList<String>()) { acc, i -> Bb7Recents.record(acc, "k$i") }
+        assertEquals(Bb7Recents.MAX, many.size)
+        assertEquals("k20", many.first())
+        assertEquals(listOf("b", "a", "c"), Bb7Recents.seed(opened, listOf("a", "c")))
     }
 
     @Test
