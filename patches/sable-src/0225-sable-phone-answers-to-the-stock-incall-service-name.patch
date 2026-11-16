@@ -1,0 +1,136 @@
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
+index d0c65d5..c620430 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
+@@ -90,6 +90,7 @@
+         <activity
+             android:name=".android.InCallActivity"
+             android:exported="false"
++            android:directBootAware="true"
+             android:launchMode="singleTask"
+             android:excludeFromRecents="true"
+             android:taskAffinity="org.sableos.phone.incall"
+@@ -123,10 +124,27 @@
+             android:readPermission="org.sableos.permission.SPEED_DIAL"
+             android:writePermission="org.sableos.permission.SPEED_DIAL_WRITE" />
+ 
+-        <!-- The call screen: Telecom binds it for the default Phone app (only Telecom holds BIND_INCALL_SERVICE). -->
++        <!-- The call screen: Telecom binds it for the default Phone app (only Telecom holds BIND_INCALL_SERVICE).
++             Direct boot aware, so a call can ring and be answered before the first unlock after a reboot. -->
+         <service
+             android:name=".android.PhoneInCallService"
+             android:exported="true"
++            android:directBootAware="true"
++            android:permission="android.permission.BIND_INCALL_SERVICE">
++            <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
++            <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="false" />
++            <intent-filter>
++                <action android:name="android.telecom.InCallService" />
++            </intent-filter>
++        </service>
++
++        <!-- Telecom's system dialer is named by incall_default_class (SableTelecomOverlay). Where that overlay does
++             not apply, Telecom still names its stock class com.android.incallui.InCallServiceImpl, so Sable Phone
++             answers to that name too: the same call screen. Only the first of the two to start does the work. -->
++        <service
++            android:name="com.android.incallui.InCallServiceImpl"
++            android:exported="true"
++            android:directBootAware="true"
+             android:permission="android.permission.BIND_INCALL_SERVICE">
+             <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
+             <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="false" />
+@@ -137,7 +155,8 @@
+ 
+         <receiver
+             android:name=".android.CallActionReceiver"
+-            android:exported="false" />
++            android:exported="false"
++            android:directBootAware="true" />
+ 
+         <!-- Only Telecom (MODIFY_PHONE_STATE) can hand over the missed call notification. -->
+         <receiver
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/com/android/incallui/InCallServiceImpl.kt b/sable-src/apps/titan2/platform/phone/src/main/java/com/android/incallui/InCallServiceImpl.kt
+new file mode 100644
+index 0000000..3c88ec4
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/com/android/incallui/InCallServiceImpl.kt
+@@ -0,0 +1,10 @@
++package com.android.incallui
++
++import org.sableos.phone.android.PhoneInCallService
++
++/**
++ * The name Telecom gives the system dialer's call screen when SableTelecomOverlay does not apply
++ * (incall_default_class stays com.android.incallui.InCallServiceImpl): Sable Phone's own call screen under that
++ * name, so Telecom can bind it either way.
++ */
++class InCallServiceImpl : PhoneInCallService()
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
+index 3f809e2..87be0ec 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
+@@ -12,30 +12,38 @@ import android.util.Log
+  * It keeps [CallBook], shows the incoming call as a heads-up (full screen when the phone is locked or asleep),
+  * opens the call screen for outgoing calls, and turns the screen off near the ear with the proximity sensor.
+  */
+-class PhoneInCallService :
++open class PhoneInCallService :
+     InCallService(),
+     CallBook.Listener {
+     private var proximity: PowerManager.WakeLock? = null
+ 
++    /** False for a second service of Sable Phone's started alongside the first: it ignores everything. */
++    private var owner = false
++
+     override fun onCreate() {
+         super.onCreate()
+         proximity = getSystemService(PowerManager::class.java)
+             ?.takeIf { it.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK) }
+             ?.newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "SablePhone:proximity")
+             ?.apply { setReferenceCounted(false) }
++        owner = CallBook.service == null
++        if (!owner) return
+         CallBook.attach(this)
+         CallBook.listen(this)
+     }
+ 
+     override fun onDestroy() {
+-        CallBook.unlisten(this)
+-        CallBook.attach(null)
+-        proximity?.release()
+-        CallNotifications.cancelCall(this)
++        if (owner) {
++            CallBook.unlisten(this)
++            CallBook.attach(null)
++            proximity?.release()
++            CallNotifications.cancelCall(this)
++        }
+         super.onDestroy()
+     }
+ 
+     override fun onCallAdded(call: Call) {
++        if (!owner) return
+         CallBook.add(call)
+         // Every call opens the call screen, a ringing one too (it also has the full-screen notification for a
+         // locked or sleeping phone); the notification alone left an unlocked phone showing no call screen.
+@@ -43,15 +51,19 @@ class PhoneInCallService :
+     }
+ 
+     override fun onCallRemoved(call: Call) {
++        if (!owner) return
+         CallBook.remove(call)
+     }
+ 
+     @Deprecated("Deprecated in Java")
+     override fun onCallAudioStateChanged(audioState: CallAudioState?) {
++        if (!owner) return
+         CallBook.setAudio(audioState)
+     }
+ 
+-    override fun onBringToForeground(showDialpad: Boolean) = openCallScreen(showDialpad)
++    override fun onBringToForeground(showDialpad: Boolean) {
++        if (owner) openCallScreen(showDialpad)
++    }
+ 
+     // A notification or proximity failure must never take the service down: Telecom would unbind it and the
+     // call would have no screen at all.

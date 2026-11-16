@@ -90,6 +90,7 @@
         <activity
             android:name=".android.InCallActivity"
             android:exported="false"
+            android:directBootAware="true"
             android:launchMode="singleTask"
             android:excludeFromRecents="true"
             android:taskAffinity="org.sableos.phone.incall"
@@ -123,10 +124,27 @@
             android:readPermission="org.sableos.permission.SPEED_DIAL"
             android:writePermission="org.sableos.permission.SPEED_DIAL_WRITE" />
 
-        <!-- The call screen: Telecom binds it for the default Phone app (only Telecom holds BIND_INCALL_SERVICE). -->
+        <!-- The call screen: Telecom binds it for the default Phone app (only Telecom holds BIND_INCALL_SERVICE).
+             Direct boot aware, so a call can ring and be answered before the first unlock after a reboot. -->
         <service
             android:name=".android.PhoneInCallService"
             android:exported="true"
+            android:directBootAware="true"
+            android:permission="android.permission.BIND_INCALL_SERVICE">
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="false" />
+            <intent-filter>
+                <action android:name="android.telecom.InCallService" />
+            </intent-filter>
+        </service>
+
+        <!-- Telecom's system dialer is named by incall_default_class (SableTelecomOverlay). Where that overlay does
+             not apply, Telecom still names its stock class com.android.incallui.InCallServiceImpl, so Sable Phone
+             answers to that name too: the same call screen. Only the first of the two to start does the work. -->
+        <service
+            android:name="com.android.incallui.InCallServiceImpl"
+            android:exported="true"
+            android:directBootAware="true"
             android:permission="android.permission.BIND_INCALL_SERVICE">
             <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
             <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="false" />
@@ -137,7 +155,8 @@
 
         <receiver
             android:name=".android.CallActionReceiver"
-            android:exported="false" />
+            android:exported="false"
+            android:directBootAware="true" />
 
         <!-- Only Telecom (MODIFY_PHONE_STATE) can hand over the missed call notification. -->
         <receiver

@@ -279,7 +279,7 @@ report(
         "SableSettingsProviderOverlay": ("com.android.providers.settings", "true"),
         "SableSetupWizardOverlay": ("org.lineageos.setupwizard", "true"),
         "SableSystemUIOverlay": ("com.android.systemui", "true"),
-        "SableTelecomOverlay": ("com.android.server.telecom", "true"),
+        "SableTelecomOverlay": ("com.android.server.telecom.resources", "true"),
         "SableLineagePlatformOverlay": ("lineageos.platform", "true"),
     },
     "overlay manifests target framework, SettingsProvider, SystemUI, SetupWizard, Telecom and the daily-driver apps as static overlays",
