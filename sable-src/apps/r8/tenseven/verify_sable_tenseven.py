@@ -87,6 +87,9 @@ def main() -> None:
         "recent_tab": 'Recent("recent", fixedTitle = "Recent")' in (root / JAVA / "model/Bb7Home.kt").read_text(encoding="utf-8")
         and "SableRecents.keys.mapNotNull" in (root / JAVA / "model/Bb7Home.kt").read_text(encoding="utf-8")
         and (root / JAVA / "model/SableRecents.kt").is_file(),
+        # The sound profile shortcut on both homes (patch_profiles_shortcut).
+        "profiles_shortcut": "SoundProfileButton()" in (root / JAVA / "ui/Bb7HomeScreen.kt").read_text(encoding="utf-8")
+        and "SoundProfileButton()" in (root / JAVA / "ui/Bb10HomeChrome.kt").read_text(encoding="utf-8"),
     }
     bad = [name for name, ok in checks.items() if not ok]
     if bad:
