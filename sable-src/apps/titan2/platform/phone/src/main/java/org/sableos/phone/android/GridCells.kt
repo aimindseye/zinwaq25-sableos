@@ -12,7 +12,7 @@ fun gridCell(ui: Ui, gap: Int): GridLayout.LayoutParams = GridLayout.LayoutParam
     setMargins(half, half, half, half)
 }
 
-/** Like [gridCell] but the row shares the grid's height too, so a grid with a height of 0 and weight 1 fits any screen. */
+/** Like [gridCell], and the row shares the grid's height too, so a weighted grid fits any screen. */
 fun fittedGridCell(ui: Ui, gap: Int): GridLayout.LayoutParams = gridCell(ui, gap).apply {
     rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
     height = 0

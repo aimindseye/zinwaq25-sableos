@@ -2,10 +2,10 @@ package org.sableos.phone.android
 
 import android.content.Intent
 import android.os.PowerManager
-import android.util.Log
 import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.InCallService
+import android.util.Log
 
 /**
  * Sable Phone's InCallService: Telecom binds it while there is a call because Sable Phone holds the Phone role.

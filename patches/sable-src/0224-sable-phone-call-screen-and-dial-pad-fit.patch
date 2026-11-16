@@ -33,7 +33,7 @@ index 7502988..12ee373 100644
          const val KEY_SP = 20f
          const val LETTERS_SP = 9f
 diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/GridCells.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/GridCells.kt
-index ac8e630..b7fa426 100644
+index ac8e630..c9acd06 100644
 --- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/GridCells.kt
 +++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/GridCells.kt
 @@ -11,3 +11,9 @@ fun gridCell(ui: Ui, gap: Int): GridLayout.LayoutParams = GridLayout.LayoutParam
@@ -41,23 +41,23 @@ index ac8e630..b7fa426 100644
      setMargins(half, half, half, half)
  }
 +
-+/** Like [gridCell] but the row shares the grid's height too, so a grid with a height of 0 and weight 1 fits any screen. */
++/** Like [gridCell], and the row shares the grid's height too, so a weighted grid fits any screen. */
 +fun fittedGridCell(ui: Ui, gap: Int): GridLayout.LayoutParams = gridCell(ui, gap).apply {
 +    rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
 +    height = 0
 +}
 diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
-index e8b08ad..5716604 100644
+index e8b08ad..3f809e2 100644
 --- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
 +++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
-@@ -2,6 +2,7 @@ package org.sableos.phone.android
- 
- import android.content.Intent
- import android.os.PowerManager
-+import android.util.Log
+@@ -5,6 +5,7 @@ import android.os.PowerManager
  import android.telecom.Call
  import android.telecom.CallAudioState
  import android.telecom.InCallService
++import android.util.Log
+ 
+ /**
+  * Sable Phone's InCallService: Telecom binds it while there is a call because Sable Phone holds the Phone role.
 @@ -36,7 +37,9 @@ class PhoneInCallService :
  
      override fun onCallAdded(call: Call) {
