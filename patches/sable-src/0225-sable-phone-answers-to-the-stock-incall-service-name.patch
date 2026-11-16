@@ -47,6 +47,22 @@ index d0c65d5..7bfa401 100644
              android:exported="false" />
  
          <!-- Only Telecom (MODIFY_PHONE_STATE) can hand over the missed call notification. -->
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/com/android/incallui/InCallServiceImpl.kt b/sable-src/apps/titan2/platform/phone/src/main/java/com/android/incallui/InCallServiceImpl.kt
+new file mode 100644
+index 0000000..3c88ec4
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/com/android/incallui/InCallServiceImpl.kt
+@@ -0,0 +1,10 @@
++package com.android.incallui
++
++import org.sableos.phone.android.PhoneInCallService
++
++/**
++ * The name Telecom gives the system dialer's call screen when SableTelecomOverlay does not apply
++ * (incall_default_class stays com.android.incallui.InCallServiceImpl): Sable Phone's own call screen under that
++ * name, so Telecom can bind it either way.
++ */
++class InCallServiceImpl : PhoneInCallService()
 diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
 index 3f809e2..87be0ec 100644
 --- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
