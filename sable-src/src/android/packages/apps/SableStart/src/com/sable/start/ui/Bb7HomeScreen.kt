@@ -124,7 +124,7 @@ fun Bb7HomeScreen(
     onFavoritesChanged: (List<String>) -> Unit,
     onHomeRowsChanged: (Int) -> Unit,
     onLayoutChanged: (Bb7Layout) -> Unit = {},
-    /** The BB10 grid's folders, tray places after Favorites, All and Downloads ([Bb7Folders]). */
+    /** The BB10 grid's folders, tray places after Favorites, Recent, All and Downloads ([Bb7Folders]). */
     folders: List<GridFolder> = emptyList(),
     /** The BB10 grid's saved order (null: never arranged), which folder changes keep in step. */
     gridOrder: List<String>? = null,

@@ -110,7 +110,7 @@ data class Bb7Tab(
 )
 
 /**
- * The user's tray tabs, shown after Favorites, All and Downloads. Saved as one line per tab, the name, a tab, then the
+ * The user's tray tabs, shown after Favorites, Recent, All and Downloads. Saved as one line per tab, the name, a tab, then the
  * apps' stable keys separated by commas; a damaged line is dropped, never thrown.
  */
 object Bb7Tabs {
@@ -408,7 +408,7 @@ data class Bb7Detour(
  * Folders on the BlackBerry 7 home are the BlackBerry 10 app grid's folders ([GridFolders]), so a
  * group of apps behaves the same on both homes (owner request 2026-11-06): made, renamed, filled
  * and ungrouped the same way, and seen on both. On BlackBerry 7 each folder that still holds an
- * installed app is a tray place after Favorites, All and Downloads.
+ * installed app is a tray place after Favorites, Recent, All and Downloads.
  */
 object Bb7Folders {
     /** The folders to show: those with at least one installed app, in saved order. */

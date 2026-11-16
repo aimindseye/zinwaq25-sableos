@@ -15,6 +15,7 @@
     <string name="blackberry_7_style">Style BlackBerry 7</string>
     <string name="clock_and_status_on_the">Horloge et état sur le fond d’écran, un plateau d’applis qui s’ouvre sur toutes les applis</string>
     <string name="favorites">Favoris</string>
+    <string name="recent">Récentes</string>
     <string name="all">Toutes</string>
     <string name="downloads">Téléchargements</string>
     <string name="bluetooth">Bluetooth</string>
