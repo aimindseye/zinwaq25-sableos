@@ -2,6 +2,7 @@ package org.sableos.phone.android
 
 import android.content.Intent
 import android.os.PowerManager
+import android.util.Log
 import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.InCallService
@@ -36,7 +37,9 @@ class PhoneInCallService :
 
     override fun onCallAdded(call: Call) {
         CallBook.add(call)
-        if (call.details.state != Call.STATE_RINGING) openCallScreen(false)
+        // Every call opens the call screen, a ringing one too (it also has the full-screen notification for a
+        // locked or sleeping phone); the notification alone left an unlocked phone showing no call screen.
+        openCallScreen(false)
     }
 
     override fun onCallRemoved(call: Call) {
@@ -50,17 +53,33 @@ class PhoneInCallService :
 
     override fun onBringToForeground(showDialpad: Boolean) = openCallScreen(showDialpad)
 
+    // A notification or proximity failure must never take the service down: Telecom would unbind it and the
+    // call would have no screen at all.
+    @Suppress("TooGenericExceptionCaught")
     override fun onCallsChanged() {
-        CallNotifications.update(this)
-        updateProximity()
+        try {
+            CallNotifications.update(this)
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Call notification failed", e)
+        }
+        try {
+            updateProximity()
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Proximity lock failed", e)
+        }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun openCallScreen(keypad: Boolean) {
-        startActivity(
-            Intent(this, InCallActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra(InCallActivity.EXTRA_KEYPAD, keypad)
-        )
+        try {
+            startActivity(
+                Intent(this, InCallActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra(InCallActivity.EXTRA_KEYPAD, keypad)
+            )
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Cannot open the call screen", e)
+        }
     }
 
     /** The screen goes dark at the ear only on the earpiece or a wired headset, never on speaker or Bluetooth. */
@@ -78,6 +97,7 @@ class PhoneInCallService :
     }
 
     private companion object {
+        const val TAG = "SablePhoneInCall"
         val AT_EAR_STATES = setOf(Call.STATE_DIALING, Call.STATE_CONNECTING, Call.STATE_ACTIVE)
     }
 }
