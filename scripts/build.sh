@@ -42,6 +42,12 @@ if [[ "${SABLE_KEEP_GRADLE_DAEMONS:-0}" != 1 ]] \
     sable_log "stopped the Gradle and Kotlin daemons to free memory for the image build"
 fi
 sable_log "building with $SABLE_JOBS jobs (set SABLE_JOBS to change)"
+mem_gib="$(awk '/MemAvailable/ {print int($2/1048576)}' /proc/meminfo 2>/dev/null || echo 0)"
+swap_gib="$(awk '/SwapTotal/ {print int($2/1048576)}' /proc/meminfo 2>/dev/null || echo 0)"
+sable_log "memory free: ${mem_gib} GiB, swap: ${swap_gib} GiB"
+if (( swap_gib < 8 )); then
+    sable_log "WARNING: under 8 GiB of swap. The SystemUI Kotlin step can briefly need more memory than the jobs share; add swap or zram (docs/BUILD.md, Troubleshooting) if the build is killed (exit 137)."
+fi
 
 export USE_CCACHE="${USE_CCACHE:-1}"
 export CCACHE_DIR="$SABLE_CCACHE_DIR"
@@ -64,11 +70,16 @@ set +eu
 # shellcheck source=/dev/null
 source build/envsetup.sh
 lunch "$target" || sable_fail "lunch $target failed"
-m -j"$SABLE_JOBS" bacon 2>&1 | tee "$log"
+# Record the memory settings in the build log too, so a killed step can be traced.
+echo "sable: jobs=$SABLE_JOBS mem_available_gib=$mem_gib swap_gib=$swap_gib" | tee "$log"
+m -j"$SABLE_JOBS" bacon 2>&1 | tee -a "$log"
 status="${PIPESTATUS[0]}"
 set -eu
 if [[ "$status" != 0 ]]; then
     write_marker FAIL
+    if grep -q 'signal:killed' "$log" 2>/dev/null; then
+        sable_log "a step was killed (exit 137), almost always out of memory. Run again with fewer jobs, e.g. SABLE_JOBS=$(( SABLE_JOBS > 2 ? SABLE_JOBS / 2 : 1 )), or add swap; finished steps are kept."
+    fi
     sable_fail "build failed (exit $status); see $log"
 fi
 # Sable lock screen: fail the build when SystemUI's scene container is on
