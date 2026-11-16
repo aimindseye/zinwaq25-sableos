@@ -1,10 +1,16 @@
 package org.sableos.phone.android
 
+import android.annotation.SuppressLint
+import android.content.ContentValues
+import android.content.Context
+import android.provider.BlockedNumberContract
 import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.InCallService
 import android.telecom.PhoneAccountHandle
+import android.telecom.TelecomManager
 import android.telecom.VideoProfile
+import android.util.Log
 
 /**
  * The calls Telecom has given Sable Phone, kept by [PhoneInCallService] while Telecom has it bound, and read by
@@ -108,10 +114,6 @@ object CallControl {
 
     fun hangUp(call: Call) = call.disconnect()
 
-    fun toggleHold(call: Call) {
-        if (call.details.state == Call.STATE_HOLDING) call.unhold() else call.hold()
-    }
-
     fun chooseAccount(call: Call, account: PhoneAccountHandle) =
         call.phoneAccountSelected(account, false)
 
@@ -138,3 +140,43 @@ object CallControl {
     fun hasBluetooth(): Boolean =
         (CallBook.audio?.supportedRouteMask ?: 0) and CallAudioState.ROUTE_BLUETOOTH != 0
 }
+
+/** What the ringing call screen does besides answering and declining. */
+object CallScreening {
+    /** Stops the ringer and vibration; the call keeps ringing silently. The default Phone app may do this. */
+    @SuppressLint("MissingPermission")
+    fun silence(context: Context) {
+        try {
+            context.getSystemService(TelecomManager::class.java).silenceRinger()
+        } catch (e: SecurityException) {
+            Log.w(TAG, "silenceRinger refused", e)
+        }
+    }
+
+    /** Declines the call and texts [text] to the caller. */
+    fun declineWithText(call: Call, text: String) = call.reject(true, text)
+
+    /** Adds the caller to the phone's blocked numbers (Phone's Blocked numbers lists it); false when private. */
+    fun block(context: Context, call: Call): Boolean {
+        val number = CallInfo.number(call)
+        if (number.isEmpty()) return false
+        return try {
+            context.contentResolver.insert(
+                BlockedNumberContract.BlockedNumbers.CONTENT_URI,
+                ContentValues().apply {
+                    put(BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER, number)
+                }
+            )
+            true
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Cannot block the number", e)
+            false
+        }
+    }
+
+    fun toggleHold(call: Call) {
+        if (call.details.state == Call.STATE_HOLDING) call.unhold() else call.hold()
+    }
+}
+
+private const val TAG = "SablePhoneCall"

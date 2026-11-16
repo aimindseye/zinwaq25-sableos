@@ -100,17 +100,85 @@ class InCallActivity :
 
     private fun TextView.centered(): TextView = apply { gravity = Gravity.CENTER_HORIZONTAL }
 
-    private fun ringingView(): View = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        val decline = ui.button(t("decline"), Ui.RED, Ui.ON_COLOR) {
-            CallBook.ringing()?.let(CallControl::decline)
+    private fun ringingView(): View {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val extras = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        listOf(
+            t("silence") to { CallScreening.silence(this) },
+            t("reply_text") to { replyWithText() },
+            t("more") to { moreOptions() }
+        ).forEach { (label, action) ->
+            extras.addView(toggle(label, action), weighted().apply { bottomMargin = ui.dp(GAP) })
         }
-        addView(decline, weighted())
+        box.addView(extras)
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val decline =
+            ui.button(t("decline"), Ui.RED, Ui.ON_COLOR) {
+                CallBook.ringing()?.let(CallControl::decline)
+            }
+        row.addView(decline, weighted())
         answer =
             ui.button(t("answer"), Ui.GREEN, Ui.ON_COLOR) {
                 CallBook.ringing()?.let(CallControl::answer)
             }
-        addView(answer, weighted())
+        row.addView(answer, weighted())
+        box.addView(row)
+        return box
+    }
+
+    /** Can't talk now, I'll call you back, In a meeting, or a message typed here; declines the call with it. */
+    private fun replyWithText() {
+        val call = CallBook.ringing() ?: return
+        val quick = listOf(t("reply_cant_talk"), t("reply_call_back"), t("reply_meeting"))
+        android.app.AlertDialog.Builder(this)
+            .setTitle(t("reply_text"))
+            .setItems((quick + t("reply_custom")).toTypedArray()) { _, i ->
+                if (i < quick.size) sendReply(call, quick[i]) else customReply(call)
+            }
+            .show()
+    }
+
+    private fun customReply(call: Call) {
+        val input = android.widget.EditText(this).apply { setSingleLine(false) }
+        android.app.AlertDialog.Builder(this)
+            .setTitle(t("reply_custom_title"))
+            .setView(input)
+            .setPositiveButton(t("send")) { _, _ ->
+                input.text.toString().trim().takeIf { it.isNotEmpty() }?.let { sendReply(call, it) }
+            }
+            .setNegativeButton(t("cancel"), null)
+            .show()
+    }
+
+    private fun sendReply(call: Call, text: String) {
+        CallScreening.declineWithText(call, text)
+        toast(t("reply_sent"))
+    }
+
+    /** Reply with text, Decline (the carrier sends it to voicemail where it can), Block and decline, Report as spam. */
+    private fun moreOptions() {
+        val call = CallBook.ringing() ?: return
+        val options = listOf<Pair<String, () -> Unit>>(
+            t("reply_text") to { replyWithText() },
+            t("decline_voicemail") to { CallControl.decline(call) },
+            t("block_decline") to { blockAndDecline(call, t("number_blocked")) },
+            t("report_spam") to { blockAndDecline(call, t("spam_reported")) },
+            t("cancel") to {}
+        )
+        android.app.AlertDialog.Builder(this)
+            .setTitle(t("more"))
+            .setItems(options.map { it.first }.toTypedArray()) { _, i -> options[i].second() }
+            .show()
+    }
+
+    private fun toast(text: String) =
+        android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_SHORT).show()
+
+    private fun blockAndDecline(call: Call, done: String) {
+        if (CallScreening.block(this, call)) {
+            toast(done)
+        }
+        CallControl.decline(call)
     }
 
     private fun controlsView(): View {
