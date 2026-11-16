@@ -1396,13 +1396,12 @@ def patch_recent_tab(root: pathlib.Path) -> None:
     )
     replace_once(
         home,
-        "            Bb7Panel.All -> byName\n            Bb7Panel.Frequent ->\n",
-        "            Bb7Panel.All -> byName\n"
+        "        return when (panel) {\n",
+        "        return when (panel) {\n"
         "            Bb7Panel.Recent -> {\n"
         "                val byKey = apps.associateBy { it.stableKey() }\n"
         "                SableRecents.keys.mapNotNull { byKey[it] }\n"
-        "            }\n"
-        "            Bb7Panel.Frequent ->\n",
+        "            }\n\n",
         "SABLE_RECENT_APPS",
     )
     usage = root / JAVA / "platform/AppUsageRepository.kt"
