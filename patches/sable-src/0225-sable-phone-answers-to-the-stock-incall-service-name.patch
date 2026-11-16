@@ -1,5 +1,5 @@
 diff --git a/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
-index d0c65d5..7bfa401 100644
+index d0c65d5..c620430 100644
 --- a/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
 +++ b/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
 @@ -90,6 +90,7 @@
@@ -39,14 +39,16 @@ index d0c65d5..7bfa401 100644
              android:permission="android.permission.BIND_INCALL_SERVICE">
              <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
              <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="false" />
-@@ -137,6 +155,7 @@
+@@ -137,7 +155,8 @@
  
          <receiver
              android:name=".android.CallActionReceiver"
-+            android:directBootAware="true"
-             android:exported="false" />
+-            android:exported="false" />
++            android:exported="false"
++            android:directBootAware="true" />
  
          <!-- Only Telecom (MODIFY_PHONE_STATE) can hand over the missed call notification. -->
+         <receiver
 diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/com/android/incallui/InCallServiceImpl.kt b/sable-src/apps/titan2/platform/phone/src/main/java/com/android/incallui/InCallServiceImpl.kt
 new file mode 100644
 index 0000000..3c88ec4
