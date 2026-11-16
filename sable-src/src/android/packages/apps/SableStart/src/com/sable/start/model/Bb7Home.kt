@@ -40,6 +40,7 @@ enum class Bb7Panel(
     private val titleKey: String,
 ) {
     Favorites("favorites"),
+    Recent("recent"),
     All("all"),
     Downloads("downloads"),
     ;
@@ -253,15 +254,18 @@ object Bb7Home {
     /**
      * The apps of one panel, in order. Favorites: the user's Home apps ([favoriteKeys], stable
      * keys) or, without any, [DEFAULT_FAVORITE_PACKAGES] that are installed; All: every app by
-     * name; Downloads: apps the user installed (removable ones).
+     * name; Recent: the apps used most recently, newest first ([Bb7Recents]); Downloads: apps the
+     * user installed (removable ones).
      */
     fun panelApps(
         panel: Bb7Panel,
         apps: List<AppEntry>,
         favoriteKeys: List<String>?,
+        recentKeys: List<String> = emptyList(),
     ): List<AppEntry> {
         val byName = apps.sortedBy { it.label.lowercase() }
         return when (panel) {
+            Bb7Panel.Recent -> Bb7Recents.apps(recentKeys, apps)
             Bb7Panel.All -> byName
             Bb7Panel.Downloads -> byName.filter { it.canUninstall }
             Bb7Panel.Favorites -> {
@@ -276,7 +280,7 @@ object Bb7Home {
         }
     }
 
-    /** Tray places: the three panels in order, then the user's [tabs]. */
+    /** Tray places: the four panels in order, then the user's [tabs]. */
     fun trayPlaces(tabs: Int): Int = Bb7Panel.entries.size + tabs
 
     /** The panel at tray place [place], or null for a user tab. */
@@ -472,5 +476,35 @@ object Bb7Shortcuts {
     ): List<AppEntry> {
         val byKey = apps.associateBy { it.stableKey() }
         return shortcuts.distinct().mapNotNull { byKey[it] }
+    }
+}
+
+/**
+ * The Recent panel's apps: the last apps opened from the tray or Start, newest first, [MAX] at most.
+ * Kept in memory only, never saved, so Sable Start builds no app-usage history; Active Frames
+ * ([org.sableos.start.model.ActiveFrame]) seed it after a restart of Start.
+ */
+object Bb7Recents {
+    const val MAX = 12
+
+    /** [recent] with [key] moved (or added) at the front. */
+    fun record(
+        recent: List<String>,
+        key: String,
+    ): List<String> = (listOf(key) + recent.filter { it != key }).take(MAX)
+
+    /** Adds [seedKeys] (newest first) behind what is already [recent]; used when Start restarts with none. */
+    fun seed(
+        recent: List<String>,
+        seedKeys: List<String>,
+    ): List<String> = (recent + seedKeys.filter { it !in recent }).distinct().take(MAX)
+
+    /** The recent apps still installed, in order. */
+    fun apps(
+        recent: List<String>,
+        apps: List<AppEntry>,
+    ): List<AppEntry> {
+        val byKey = apps.associateBy { it.stableKey() }
+        return recent.mapNotNull { byKey[it] }
     }
 }
