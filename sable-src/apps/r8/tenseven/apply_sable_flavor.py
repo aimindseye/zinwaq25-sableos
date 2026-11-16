@@ -1374,6 +1374,94 @@ def patch_quiet_lock(root: pathlib.Path) -> None:
     )
 
 
+def patch_recent_tab(root: pathlib.Path) -> None:
+    """The BlackBerry 7 tray gets a Recent panel after Favorites (owner, 2026-11-16): the apps opened last,
+    newest first, saved beside the usage counts the Frequent panel already keeps. It is on by default;
+    Menu can hide it like any panel."""
+    shutil.copyfile(HERE / "src/SableRecents.kt", root / JAVA / "model/SableRecents.kt")
+    shutil.copyfile(HERE / "src/SableRecentsTest.kt", root / TEST / "model/SableRecentsTest.kt")
+    home = root / JAVA / "model/Bb7Home.kt"
+    replace_once(
+        home,
+        '    Favorites("favorites"),\n    All("all"),\n',
+        '    Favorites("favorites"),\n\n    /** SableOS: the apps opened last, newest first (SableRecents). */\n'
+        '    Recent("recent", fixedTitle = "Recent"),\n    All("all"),\n',
+        "SABLE_RECENT_ENUM",
+    )
+    replace_once(
+        home,
+        "listOf(Bb7Panel.Favorites, Bb7Panel.All, Bb7Panel.Downloads)",
+        "listOf(Bb7Panel.Favorites, Bb7Panel.Recent, Bb7Panel.All, Bb7Panel.Downloads)",
+        "SABLE_RECENT_DEFAULT",
+    )
+    replace_once(
+        home,
+        "            Bb7Panel.All -> byName\n            Bb7Panel.Frequent ->\n",
+        "            Bb7Panel.All -> byName\n"
+        "            Bb7Panel.Recent -> {\n"
+        "                val byKey = apps.associateBy { it.stableKey() }\n"
+        "                SableRecents.keys.mapNotNull { byKey[it] }\n"
+        "            }\n"
+        "            Bb7Panel.Frequent ->\n",
+        "SABLE_RECENT_APPS",
+    )
+    usage = root / JAVA / "platform/AppUsageRepository.kt"
+    replace_once(
+        usage,
+        "    fun load(): AppUsage = AppUsage.decode(preferences.getString(KEY_COUNTS, null))\n",
+        "    fun load(): AppUsage {\n"
+        "        // SableOS: the Recent panel reads what was saved, so it survives the home restarting.\n"
+        "        io.github.aimindseye.tenseven.model.SableRecents.keys =\n"
+        "            io.github.aimindseye.tenseven.model.SableRecents.decode(preferences.getString(KEY_RECENT, null))\n"
+        "        return AppUsage.decode(preferences.getString(KEY_COUNTS, null))\n"
+        "    }\n",
+        "SABLE_RECENT_LOAD",
+    )
+    replace_once(
+        usage,
+        "        preferences.edit().putString(KEY_COUNTS, load().record(key).encode()).apply()\n",
+        "        val recent =\n"
+        "            io.github.aimindseye.tenseven.model.SableRecents.record(\n"
+        "                io.github.aimindseye.tenseven.model.SableRecents.decode(preferences.getString(KEY_RECENT, null)),\n"
+        "                key,\n"
+        "            )\n"
+        "        val counts = load().record(key).encode()\n"
+        "        io.github.aimindseye.tenseven.model.SableRecents.keys = recent\n"
+        "        preferences\n"
+        "            .edit()\n"
+        "            .putString(KEY_COUNTS, counts)\n"
+        "            .putString(KEY_RECENT, io.github.aimindseye.tenseven.model.SableRecents.encode(recent))\n"
+        "            .apply()\n",
+        "SABLE_RECENT_RECORD",
+    )
+    replace_once(
+        usage,
+        "        preferences.edit().remove(KEY_COUNTS).apply()\n",
+        "        io.github.aimindseye.tenseven.model.SableRecents.keys = emptyList()\n"
+        "        preferences.edit().remove(KEY_COUNTS).remove(KEY_RECENT).apply()\n",
+        "SABLE_RECENT_CLEAR",
+    )
+    replace_once(
+        usage,
+        '        const val KEY_COUNTS = "counts"\n',
+        '        const val KEY_COUNTS = "counts"\n        const val KEY_RECENT = "recent"\n',
+        "SABLE_RECENT_KEY",
+    )
+    tests = root / TEST / "model/Bb7HomeTest.kt"
+    replace_once(
+        tests,
+        "        assertEquals(Bb7Panel.All, Bb7Home.step(Bb7Panel.Favorites, 1))\n",
+        "        assertEquals(Bb7Panel.Recent, Bb7Home.step(Bb7Panel.Favorites, 1))\n",
+        "SABLE_RECENT_TEST_STEP",
+    )
+    replace_once(
+        tests,
+        "listOf(Bb7Panel.Favorites, Bb7Panel.All, Bb7Panel.Downloads, Bb7Panel.Frequent), withFrequent)",
+        "listOf(Bb7Panel.Favorites, Bb7Panel.Recent, Bb7Panel.All, Bb7Panel.Downloads, Bb7Panel.Frequent), withFrequent)",
+        "SABLE_RECENT_TEST_FREQUENT",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -1397,6 +1485,7 @@ def main() -> None:
     patch_home_access(root)
     patch_q25_fit(root)
     patch_quiet_lock(root)
+    patch_recent_tab(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 
