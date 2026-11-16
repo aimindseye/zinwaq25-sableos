@@ -1,5 +1,5 @@
 diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallBook.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallBook.kt
-index 45c3c53..d1bf951 100644
+index 45c3c53..5aaa263 100644
 --- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallBook.kt
 +++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallBook.kt
 @@ -1,10 +1,16 @@
@@ -19,18 +19,7 @@ index 45c3c53..d1bf951 100644
  
  /**
   * The calls Telecom has given Sable Phone, kept by [PhoneInCallService] while Telecom has it bound, and read by
-@@ -108,10 +114,6 @@ object CallControl {
- 
-     fun hangUp(call: Call) = call.disconnect()
- 
--    fun toggleHold(call: Call) {
--        if (call.details.state == Call.STATE_HOLDING) call.unhold() else call.hold()
--    }
--
-     fun chooseAccount(call: Call, account: PhoneAccountHandle) =
-         call.phoneAccountSelected(account, false)
- 
-@@ -138,3 +140,43 @@ object CallControl {
+@@ -138,3 +144,39 @@ object CallControl {
      fun hasBluetooth(): Boolean =
          (CallBook.audio?.supportedRouteMask ?: 0) and CallAudioState.ROUTE_BLUETOOTH != 0
  }
@@ -66,10 +55,6 @@ index 45c3c53..d1bf951 100644
 +            Log.w(TAG, "Cannot block the number", e)
 +            false
 +        }
-+    }
-+
-+    fun toggleHold(call: Call) {
-+        if (call.details.state == Call.STATE_HOLDING) call.unhold() else call.hold()
 +    }
 +}
 +

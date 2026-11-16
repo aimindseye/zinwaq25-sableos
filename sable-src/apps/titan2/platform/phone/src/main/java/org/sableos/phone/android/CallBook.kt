@@ -114,6 +114,10 @@ object CallControl {
 
     fun hangUp(call: Call) = call.disconnect()
 
+    fun toggleHold(call: Call) {
+        if (call.details.state == Call.STATE_HOLDING) call.unhold() else call.hold()
+    }
+
     fun chooseAccount(call: Call, account: PhoneAccountHandle) =
         call.phoneAccountSelected(account, false)
 
@@ -172,10 +176,6 @@ object CallScreening {
             Log.w(TAG, "Cannot block the number", e)
             false
         }
-    }
-
-    fun toggleHold(call: Call) {
-        if (call.details.state == Call.STATE_HOLDING) call.unhold() else call.hold()
     }
 }
 
