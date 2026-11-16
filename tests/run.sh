@@ -554,7 +554,7 @@ ph_bad=""
 grep -qP '^SablePhone\tplatform\tapps/titan2/platform\t:phone:assembleRelease\tphone/build/outputs/apk/release/\*\.apk\torg\.sableos\.phone\tprivileged\t-\tyes$' product/q25/apps.tsv || ph_bad="$ph_bad apps.tsv"
 grep -q '<string name="config_defaultDialer"[^>]*>org.sableos.phone<' product/common/overlay/SableFrameworkOverlay/res/values/sable_phone.xml || ph_bad="$ph_bad default-dialer"
 tov=product/common/overlay/SableTelecomOverlay
-grep -q 'android:targetPackage="com.android.server.telecom"' "$tov/AndroidManifest.xml" || ph_bad="$ph_bad telecom-target"
+grep -q 'android:targetPackage="com.android.server.telecom.resources"' "$tov/AndroidManifest.xml" || ph_bad="$ph_bad telecom-target"
 grep -q '<string name="incall_default_class"[^>]*>org.sableos.phone.android.PhoneInCallService<' "$tov/res/values/config.xml" || ph_bad="$ph_bad incall-class"
 grep -q '<string name="dialer_default_class"[^>]*>org.sableos.phone.android.PhoneActivity<' "$tov/res/values/config.xml" || ph_bad="$ph_bad dialer-class"
 # shellcheck disable=SC2016  # a literal $ in the pattern

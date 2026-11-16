@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Telecom's system dialer components (packages/services/Telecomm res/values/config.xml): the
+<!-- Telecom's system dialer components (packages/services/Telecomm res/values/config.xml, which on lineage-24.0
+     lives in TelecomServiceResources, package com.android.server.telecom.resources, in the telephonycore APEX;
+     the overlay targeted com.android.server.telecom before and showed STATE_NO_IDMAP): the
      in-call UI service and the main activity of the system dialer, whose package is the framework's
      config_defaultDialer (SableFrameworkOverlay sable_phone.xml). Sable Phone replaces the
      LineageOS Dialer, so Telecom binds Sable Phone's call screen, also for emergency calls. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.sableos.overlay.telecom">
     <overlay
-        android:targetPackage="com.android.server.telecom"
+        android:targetPackage="com.android.server.telecom.resources"
         android:isStatic="true"
         android:priority="20" />
     <application
