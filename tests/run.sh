@@ -567,7 +567,7 @@ phm=sable-src/apps/titan2/platform/phone/src/main
 pha=$phm/java/org/sableos/phone/android
 [[ -f "$pha/PhoneInCallService.kt" && -f "$pha/PhoneActivity.kt" ]] || ph_bad="$ph_bad classes"
 for s in android.intent.action.DIAL 'android:scheme="tel"' android.telecom.InCallService android.permission.BIND_INCALL_SERVICE android.telecom.IN_CALL_SERVICE_UI \
-    android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION android.intent.action.CALL_BUTTON com.android.incallui.InCallServiceImpl 'android:permission="android.permission.MODIFY_PHONE_STATE"' 'android:allowBackup="false"' \
+    android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION android.intent.action.CALL_BUTTON com.android.incallui.InCallServiceImpl 'IN_CALL_SERVICE_RINGING" android:value="true"' 'android:permission="android.permission.MODIFY_PHONE_STATE"' 'android:allowBackup="false"' \
     'android:authorities="org.sableos.dialer.speeddial"' 'android:readPermission="org.sableos.permission.SPEED_DIAL"' org.sableos.dialer.action.SPEED_DIAL; do
     grep -q "$s" "$phm/AndroidManifest.xml" || ph_bad="$ph_bad manifest:$s"
 done

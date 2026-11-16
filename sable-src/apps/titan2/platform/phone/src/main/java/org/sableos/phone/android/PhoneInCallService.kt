@@ -16,6 +16,7 @@ open class PhoneInCallService :
     InCallService(),
     CallBook.Listener {
     private var proximity: PowerManager.WakeLock? = null
+    private val ringer by lazy { Ringer(this) }
 
     /** False for a second service of Sable Phone's started alongside the first: it ignores everything. */
     private var owner = false
@@ -37,6 +38,7 @@ open class PhoneInCallService :
             CallBook.unlisten(this)
             CallBook.attach(null)
             proximity?.release()
+            ringer.release()
             CallNotifications.cancelCall(this)
         }
         super.onDestroy()
@@ -61,6 +63,11 @@ open class PhoneInCallService :
         CallBook.setAudio(audioState)
     }
 
+    /** The Silence button (or the volume key): stop ringing, the call keeps ringing silently. */
+    override fun onSilenceRinger() {
+        if (owner) ringer.silence()
+    }
+
     override fun onBringToForeground(showDialpad: Boolean) {
         if (owner) openCallScreen(showDialpad)
     }
@@ -69,6 +76,7 @@ open class PhoneInCallService :
     // call would have no screen at all.
     @Suppress("TooGenericExceptionCaught")
     override fun onCallsChanged() {
+        if (CallBook.ringing() != null) ringer.start() else ringer.reset()
         try {
             CallNotifications.update(this)
         } catch (e: RuntimeException) {

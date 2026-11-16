@@ -1,0 +1,198 @@
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
+index c620430..9089f27 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/phone/src/main/AndroidManifest.xml
+@@ -28,6 +28,7 @@
+     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+     <uses-permission android:name="android.permission.WAKE_LOCK" />
++    <uses-permission android:name="android.permission.VIBRATE" />
+     <!-- *#06# shows the IMEI (privileged; product/q25/permissions/privapp-permissions-sable-q25.xml). -->
+     <uses-permission
+         android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
+@@ -132,7 +133,7 @@
+             android:directBootAware="true"
+             android:permission="android.permission.BIND_INCALL_SERVICE">
+             <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
+-            <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="false" />
++            <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="true" />
+             <intent-filter>
+                 <action android:name="android.telecom.InCallService" />
+             </intent-filter>
+@@ -147,7 +148,7 @@
+             android:directBootAware="true"
+             android:permission="android.permission.BIND_INCALL_SERVICE">
+             <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
+-            <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="false" />
++            <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="true" />
+             <intent-filter>
+                 <action android:name="android.telecom.InCallService" />
+             </intent-filter>
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
+index 87be0ec..709b4c6 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
+@@ -16,6 +16,7 @@ open class PhoneInCallService :
+     InCallService(),
+     CallBook.Listener {
+     private var proximity: PowerManager.WakeLock? = null
++    private val ringer by lazy { Ringer(this) }
+ 
+     /** False for a second service of Sable Phone's started alongside the first: it ignores everything. */
+     private var owner = false
+@@ -37,6 +38,7 @@ open class PhoneInCallService :
+             CallBook.unlisten(this)
+             CallBook.attach(null)
+             proximity?.release()
++            ringer.release()
+             CallNotifications.cancelCall(this)
+         }
+         super.onDestroy()
+@@ -61,6 +63,11 @@ open class PhoneInCallService :
+         CallBook.setAudio(audioState)
+     }
+ 
++    /** The Silence button (or the volume key): stop ringing, the call keeps ringing silently. */
++    override fun onSilenceRinger() {
++        if (owner) ringer.silence()
++    }
++
+     override fun onBringToForeground(showDialpad: Boolean) {
+         if (owner) openCallScreen(showDialpad)
+     }
+@@ -69,6 +76,7 @@ open class PhoneInCallService :
+     // call would have no screen at all.
+     @Suppress("TooGenericExceptionCaught")
+     override fun onCallsChanged() {
++        if (CallBook.ringing() != null) ringer.start() else ringer.reset()
+         try {
+             CallNotifications.update(this)
+         } catch (e: RuntimeException) {
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ringer.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ringer.kt
+new file mode 100644
+index 0000000..e6c0329
+--- /dev/null
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/Ringer.kt
+@@ -0,0 +1,122 @@
++package org.sableos.phone.android
++
++import android.app.NotificationManager
++import android.content.Context
++import android.media.AudioAttributes
++import android.media.AudioManager
++import android.media.Ringtone
++import android.media.RingtoneManager
++import android.os.PowerManager
++import android.os.VibrationEffect
++import android.os.Vibrator
++import android.provider.Settings
++import android.util.Log
++
++/**
++ * Rings for an incoming call: the phone's ringtone looped on the ring stream, and the vibration pattern, as the
++ * ringer mode and Do Not Disturb allow. Sable Phone declares that it rings (IN_CALL_SERVICE_RINGING), so Telecom
++ * leaves this to the Phone app; without it nothing rang on the Q25. Also lights the screen for the call.
++ */
++class Ringer(private val context: Context) {
++    private var ringtone: Ringtone? = null
++    private var vibrator: Vibrator? = null
++    private var wake: PowerManager.WakeLock? = null
++    private var silenced = false
++
++    val ringing: Boolean get() = ringtone != null || vibrator != null
++
++    @Suppress("TooGenericExceptionCaught")
++    fun start() {
++        if (ringing || silenced) return
++        try {
++            lightScreen()
++            val audio = context.getSystemService(AudioManager::class.java)
++            val mode = audio?.ringerMode ?: AudioManager.RINGER_MODE_NORMAL
++            val quiet = dndSilencesCalls()
++            if (mode == AudioManager.RINGER_MODE_NORMAL && !quiet) playRingtone()
++            if (mode != AudioManager.RINGER_MODE_SILENT && !quiet) vibrate()
++        } catch (e: RuntimeException) {
++            Log.e(TAG, "Cannot ring", e)
++        }
++    }
++
++    /** The user silenced this call: it keeps ringing on screen but makes no more sound. */
++    fun silence() {
++        silenced = true
++        stop()
++    }
++
++    /** No call is ringing any more: the next one may ring again. */
++    fun reset() {
++        silenced = false
++        stop()
++    }
++
++    private fun stop() {
++        ringtone?.stop()
++        ringtone = null
++        vibrator?.cancel()
++        vibrator = null
++    }
++
++    fun release() {
++        reset()
++        wake?.takeIf { it.isHeld }?.release()
++        wake = null
++    }
++
++    private fun playRingtone() {
++        val uri =
++            RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE)
++                ?: Settings.System.DEFAULT_RINGTONE_URI
++        val tone = RingtoneManager.getRingtone(context, uri) ?: return
++        tone.audioAttributes = AudioAttributes.Builder()
++            .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
++            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
++            .build()
++        tone.isLooping = true
++        tone.play()
++        ringtone = tone
++    }
++
++    @Suppress("DEPRECATION")
++    private fun vibrate() {
++        val v =
++            context.getSystemService(Vibrator::class.java)?.takeIf { it.hasVibrator() } ?: return
++        v.vibrate(
++            VibrationEffect.createWaveform(PATTERN, 0),
++            AudioAttributes.Builder()
++                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
++                .build()
++        )
++        vibrator = v
++    }
++
++    /** Do Not Disturb that lets no calls through (Total silence or Alarms only). */
++    private fun dndSilencesCalls(): Boolean {
++        val filter = context.getSystemService(
++            NotificationManager::class.java
++        )?.currentInterruptionFilter
++        return filter == NotificationManager.INTERRUPTION_FILTER_NONE ||
++            filter == NotificationManager.INTERRUPTION_FILTER_ALARMS
++    }
++
++    // Wakes a sleeping screen for the call; the call screen shows over the lock screen.
++    @Suppress("DEPRECATION")
++    private fun lightScreen() {
++        val power = context.getSystemService(PowerManager::class.java) ?: return
++        if (power.isInteractive) return
++        val lock = power.newWakeLock(
++            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
++            "SablePhone:ring"
++        )
++        lock.acquire(WAKE_MS)
++        wake = lock
++    }
++
++    private companion object {
++        const val TAG = "SablePhoneRinger"
++        const val WAKE_MS = 15_000L
++        val PATTERN = longArrayOf(0, 800, 800)
++    }
++}
