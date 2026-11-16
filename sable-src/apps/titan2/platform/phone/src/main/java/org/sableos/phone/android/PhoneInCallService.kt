@@ -12,10 +12,13 @@ import android.util.Log
  * It keeps [CallBook], shows the incoming call as a heads-up (full screen when the phone is locked or asleep),
  * opens the call screen for outgoing calls, and turns the screen off near the ear with the proximity sensor.
  */
-class PhoneInCallService :
+open class PhoneInCallService :
     InCallService(),
     CallBook.Listener {
     private var proximity: PowerManager.WakeLock? = null
+
+    /** False for a second service of Sable Phone's started alongside the first: it ignores everything. */
+    private var owner = false
 
     override fun onCreate() {
         super.onCreate()
@@ -23,19 +26,24 @@ class PhoneInCallService :
             ?.takeIf { it.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK) }
             ?.newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "SablePhone:proximity")
             ?.apply { setReferenceCounted(false) }
+        owner = CallBook.service == null
+        if (!owner) return
         CallBook.attach(this)
         CallBook.listen(this)
     }
 
     override fun onDestroy() {
-        CallBook.unlisten(this)
-        CallBook.attach(null)
-        proximity?.release()
-        CallNotifications.cancelCall(this)
+        if (owner) {
+            CallBook.unlisten(this)
+            CallBook.attach(null)
+            proximity?.release()
+            CallNotifications.cancelCall(this)
+        }
         super.onDestroy()
     }
 
     override fun onCallAdded(call: Call) {
+        if (!owner) return
         CallBook.add(call)
         // Every call opens the call screen, a ringing one too (it also has the full-screen notification for a
         // locked or sleeping phone); the notification alone left an unlocked phone showing no call screen.
@@ -43,15 +51,19 @@ class PhoneInCallService :
     }
 
     override fun onCallRemoved(call: Call) {
+        if (!owner) return
         CallBook.remove(call)
     }
 
     @Deprecated("Deprecated in Java")
     override fun onCallAudioStateChanged(audioState: CallAudioState?) {
+        if (!owner) return
         CallBook.setAudio(audioState)
     }
 
-    override fun onBringToForeground(showDialpad: Boolean) = openCallScreen(showDialpad)
+    override fun onBringToForeground(showDialpad: Boolean) {
+        if (owner) openCallScreen(showDialpad)
+    }
 
     // A notification or proximity failure must never take the service down: Telecom would unbind it and the
     // call would have no screen at all.

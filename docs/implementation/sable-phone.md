@@ -78,7 +78,7 @@ rings and vibrates; the channels are silent.
 | The app | `product/q25/apps.tsv` row `SablePhone`, signing `privileged` (privileged from Q4) |
 | Replaces the Dialer | `scripts/stage-product.sh` adds `overrides: ["Dialer"]` at Q4, as it adds LatinIME for the keyboard |
 | Default Phone app | `product/common/overlay/SableFrameworkOverlay/res/values/sable_phone.xml` (`config_defaultDialer`) |
-| System dialer for Telecom | `product/common/overlay/SableTelecomOverlay` (`incall_default_class`, `dialer_default_class`); Telecom builds its system dialer component from `config_defaultDialer` and `incall_default_class` (DefaultDialerCache) and binds it for emergency calls |
+| System dialer for Telecom (on the 2026-11 image `cmd overlay` shows SableTelecomOverlay as STATE_NO_IDMAP, so it does not apply and Telecom keeps naming `org.sableos.phone/com.android.incallui.InCallServiceImpl`; Sable Phone therefore declares a service of that name too, sable-src 0225) | `product/common/overlay/SableTelecomOverlay` (`incall_default_class`, `dialer_default_class`); Telecom builds its system dialer component from `config_defaultDialer` and `incall_default_class` (DefaultDialerCache) and binds it for emergency calls |
 | Privileged permission | `product/q25/permissions/privapp-permissions-sable-q25.xml` |
 | First-boot grants | `product/q25/permissions/default-permissions-sable-q25.xml` |
 | Sable Start | `CoreAppIdentity` maps `org.sableos.phone` to the Phone role (glyph, tile, quick slot, BB7 favourites); speed dial asks Sable Phone first, then the Dialer; the Hub bar opens Calls for its missed call notifications |
