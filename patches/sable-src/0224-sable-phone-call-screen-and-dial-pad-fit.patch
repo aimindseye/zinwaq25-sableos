@@ -1,0 +1,329 @@
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallBook.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallBook.kt
+index 45c3c53..5aaa263 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallBook.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/CallBook.kt
+@@ -1,10 +1,16 @@
+ package org.sableos.phone.android
+ 
++import android.annotation.SuppressLint
++import android.content.ContentValues
++import android.content.Context
++import android.provider.BlockedNumberContract
+ import android.telecom.Call
+ import android.telecom.CallAudioState
+ import android.telecom.InCallService
+ import android.telecom.PhoneAccountHandle
++import android.telecom.TelecomManager
+ import android.telecom.VideoProfile
++import android.util.Log
+ 
+ /**
+  * The calls Telecom has given Sable Phone, kept by [PhoneInCallService] while Telecom has it bound, and read by
+@@ -138,3 +144,39 @@ object CallControl {
+     fun hasBluetooth(): Boolean =
+         (CallBook.audio?.supportedRouteMask ?: 0) and CallAudioState.ROUTE_BLUETOOTH != 0
+ }
++
++/** What the ringing call screen does besides answering and declining. */
++object CallScreening {
++    /** Stops the ringer and vibration; the call keeps ringing silently. The default Phone app may do this. */
++    @SuppressLint("MissingPermission")
++    fun silence(context: Context) {
++        try {
++            context.getSystemService(TelecomManager::class.java).silenceRinger()
++        } catch (e: SecurityException) {
++            Log.w(TAG, "silenceRinger refused", e)
++        }
++    }
++
++    /** Declines the call and texts [text] to the caller. */
++    fun declineWithText(call: Call, text: String) = call.reject(true, text)
++
++    /** Adds the caller to the phone's blocked numbers (Phone's Blocked numbers lists it); false when private. */
++    fun block(context: Context, call: Call): Boolean {
++        val number = CallInfo.number(call)
++        if (number.isEmpty()) return false
++        return try {
++            context.contentResolver.insert(
++                BlockedNumberContract.BlockedNumbers.CONTENT_URI,
++                ContentValues().apply {
++                    put(BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER, number)
++                }
++            )
++            true
++        } catch (e: SecurityException) {
++            Log.w(TAG, "Cannot block the number", e)
++            false
++        }
++    }
++}
++
++private const val TAG = "SablePhoneCall"
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/DialPadView.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/DialPadView.kt
+index 7502988..12ee373 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/DialPadView.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/DialPadView.kt
+@@ -45,8 +45,9 @@ class DialPadView(context: Context, private val ui: Ui, private val listener: Li
+         suggestions = LinearLayout(context).apply { orientation = VERTICAL }
+         addView(suggestions)
+         val grid = GridLayout(context).apply { columnCount = COLUMNS }
+-        "123456789*0#".forEach { c -> grid.addView(key(c), cell()) }
+-        addView(grid)
++        "123456789*0#".forEach { c -> grid.addView(key(c), fittedGridCell(ui, GAP)) }
++        // The keys share what height is left, so the whole pad and the Call button fit the 720x720 screen.
++        addView(grid, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
+         val bottom = LinearLayout(context).apply { orientation = HORIZONTAL }
+         bottom.addView(
+             ui.button(t("delete"), ui.palette.surface, ui.palette.text) { backspace() }.apply {
+@@ -94,8 +95,6 @@ class DialPadView(context: Context, private val ui: Ui, private val listener: Li
+         }
+     }
+ 
+-    private fun cell() = gridCell(ui, GAP)
+-
+     fun type(c: Char) = setNumber(number + c)
+ 
+     fun backspace() = setNumber(number.dropLast(1))
+@@ -132,7 +131,7 @@ class DialPadView(context: Context, private val ui: Ui, private val listener: Li
+     private companion object {
+         const val COLUMNS = 3
+         const val GAP = 6
+-        const val KEY_HEIGHT = 44
++        const val KEY_HEIGHT = 30
+         const val NUMBER_SP = 26f
+         const val KEY_SP = 20f
+         const val LETTERS_SP = 9f
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/GridCells.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/GridCells.kt
+index ac8e630..c9acd06 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/GridCells.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/GridCells.kt
+@@ -11,3 +11,9 @@ fun gridCell(ui: Ui, gap: Int): GridLayout.LayoutParams = GridLayout.LayoutParam
+     val half = ui.dp(gap) / 2
+     setMargins(half, half, half, half)
+ }
++
++/** Like [gridCell], and the row shares the grid's height too, so a weighted grid fits any screen. */
++fun fittedGridCell(ui: Ui, gap: Int): GridLayout.LayoutParams = gridCell(ui, gap).apply {
++    rowSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
++    height = 0
++}
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
+index 100ba36..b04b32c 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/InCallActivity.kt
+@@ -100,17 +100,85 @@ class InCallActivity :
+ 
+     private fun TextView.centered(): TextView = apply { gravity = Gravity.CENTER_HORIZONTAL }
+ 
+-    private fun ringingView(): View = LinearLayout(this).apply {
+-        orientation = LinearLayout.HORIZONTAL
+-        val decline = ui.button(t("decline"), Ui.RED, Ui.ON_COLOR) {
+-            CallBook.ringing()?.let(CallControl::decline)
++    private fun ringingView(): View {
++        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
++        val extras = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
++        listOf(
++            t("silence") to { CallScreening.silence(this) },
++            t("reply_text") to { replyWithText() },
++            t("more") to { moreOptions() }
++        ).forEach { (label, action) ->
++            extras.addView(toggle(label, action), weighted().apply { bottomMargin = ui.dp(GAP) })
+         }
+-        addView(decline, weighted())
++        box.addView(extras)
++        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
++        val decline =
++            ui.button(t("decline"), Ui.RED, Ui.ON_COLOR) {
++                CallBook.ringing()?.let(CallControl::decline)
++            }
++        row.addView(decline, weighted())
+         answer =
+             ui.button(t("answer"), Ui.GREEN, Ui.ON_COLOR) {
+                 CallBook.ringing()?.let(CallControl::answer)
+             }
+-        addView(answer, weighted())
++        row.addView(answer, weighted())
++        box.addView(row)
++        return box
++    }
++
++    /** Can't talk now, I'll call you back, In a meeting, or a message typed here; declines the call with it. */
++    private fun replyWithText() {
++        val call = CallBook.ringing() ?: return
++        val quick = listOf(t("reply_cant_talk"), t("reply_call_back"), t("reply_meeting"))
++        android.app.AlertDialog.Builder(this)
++            .setTitle(t("reply_text"))
++            .setItems((quick + t("reply_custom")).toTypedArray()) { _, i ->
++                if (i < quick.size) sendReply(call, quick[i]) else customReply(call)
++            }
++            .show()
++    }
++
++    private fun customReply(call: Call) {
++        val input = android.widget.EditText(this).apply { setSingleLine(false) }
++        android.app.AlertDialog.Builder(this)
++            .setTitle(t("reply_custom_title"))
++            .setView(input)
++            .setPositiveButton(t("send")) { _, _ ->
++                input.text.toString().trim().takeIf { it.isNotEmpty() }?.let { sendReply(call, it) }
++            }
++            .setNegativeButton(t("cancel"), null)
++            .show()
++    }
++
++    private fun sendReply(call: Call, text: String) {
++        CallScreening.declineWithText(call, text)
++        toast(t("reply_sent"))
++    }
++
++    /** Reply with text, Decline (the carrier sends it to voicemail where it can), Block and decline, Report as spam. */
++    private fun moreOptions() {
++        val call = CallBook.ringing() ?: return
++        val options = listOf<Pair<String, () -> Unit>>(
++            t("reply_text") to { replyWithText() },
++            t("decline_voicemail") to { CallControl.decline(call) },
++            t("block_decline") to { blockAndDecline(call, t("number_blocked")) },
++            t("report_spam") to { blockAndDecline(call, t("spam_reported")) },
++            t("cancel") to {}
++        )
++        android.app.AlertDialog.Builder(this)
++            .setTitle(t("more"))
++            .setItems(options.map { it.first }.toTypedArray()) { _, i -> options[i].second() }
++            .show()
++    }
++
++    private fun toast(text: String) =
++        android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_SHORT).show()
++
++    private fun blockAndDecline(call: Call, done: String) {
++        if (CallScreening.block(this, call)) {
++            toast(done)
++        }
++        CallControl.decline(call)
+     }
+ 
+     private fun controlsView(): View {
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
+index e8b08ad..3f809e2 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/android/PhoneInCallService.kt
+@@ -5,6 +5,7 @@ import android.os.PowerManager
+ import android.telecom.Call
+ import android.telecom.CallAudioState
+ import android.telecom.InCallService
++import android.util.Log
+ 
+ /**
+  * Sable Phone's InCallService: Telecom binds it while there is a call because Sable Phone holds the Phone role.
+@@ -36,7 +37,9 @@ class PhoneInCallService :
+ 
+     override fun onCallAdded(call: Call) {
+         CallBook.add(call)
+-        if (call.details.state != Call.STATE_RINGING) openCallScreen(false)
++        // Every call opens the call screen, a ringing one too (it also has the full-screen notification for a
++        // locked or sleeping phone); the notification alone left an unlocked phone showing no call screen.
++        openCallScreen(false)
+     }
+ 
+     override fun onCallRemoved(call: Call) {
+@@ -50,17 +53,33 @@ class PhoneInCallService :
+ 
+     override fun onBringToForeground(showDialpad: Boolean) = openCallScreen(showDialpad)
+ 
++    // A notification or proximity failure must never take the service down: Telecom would unbind it and the
++    // call would have no screen at all.
++    @Suppress("TooGenericExceptionCaught")
+     override fun onCallsChanged() {
+-        CallNotifications.update(this)
+-        updateProximity()
++        try {
++            CallNotifications.update(this)
++        } catch (e: RuntimeException) {
++            Log.e(TAG, "Call notification failed", e)
++        }
++        try {
++            updateProximity()
++        } catch (e: RuntimeException) {
++            Log.e(TAG, "Proximity lock failed", e)
++        }
+     }
+ 
++    @Suppress("TooGenericExceptionCaught")
+     private fun openCallScreen(keypad: Boolean) {
+-        startActivity(
+-            Intent(this, InCallActivity::class.java)
+-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+-                .putExtra(InCallActivity.EXTRA_KEYPAD, keypad)
+-        )
++        try {
++            startActivity(
++                Intent(this, InCallActivity::class.java)
++                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
++                    .putExtra(InCallActivity.EXTRA_KEYPAD, keypad)
++            )
++        } catch (e: RuntimeException) {
++            Log.e(TAG, "Cannot open the call screen", e)
++        }
+     }
+ 
+     /** The screen goes dark at the ear only on the earpiece or a wired headset, never on speaker or Bluetooth. */
+@@ -78,6 +97,7 @@ class PhoneInCallService :
+     }
+ 
+     private companion object {
++        const val TAG = "SablePhoneInCall"
+         val AT_EAR_STATES = setOf(Call.STATE_DIALING, Call.STATE_CONNECTING, Call.STATE_ACTIVE)
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt
+index fa71541..74f7ccc 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt
++++ b/sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneText.kt
+@@ -77,6 +77,21 @@ object PhoneText {
+             "other_call" to "%1\$s · %2\$s",
+             "answer" to "Answer",
+             "decline" to "Decline",
++            "silence" to "Silence",
++            "reply_text" to "Reply with text",
++            "more" to "More",
++            "reply_cant_talk" to "Can't talk now",
++            "reply_call_back" to "I'll call you back",
++            "reply_meeting" to "In a meeting",
++            "reply_custom" to "Custom reply",
++            "reply_custom_title" to "Reply with text",
++            "send" to "Send",
++            "decline_voicemail" to "Decline (carrier voicemail if available)",
++            "block_decline" to "Block number & decline",
++            "report_spam" to "Report as spam (local blocklist)",
++            "spam_reported" to "Reported as spam and blocked on this phone",
++            "number_blocked" to "Number blocked",
++            "reply_sent" to "Declined with a text",
+             "end_call" to "End call",
+             "hang_up" to "Hang up",
+             "mute" to "Mute",
+diff --git a/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml
+index c7491ae..913e42f 100644
+--- a/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/phone/src/main/res/values/strings.xml
+@@ -66,6 +66,21 @@
+     <string name="other_call">%1$s · %2$s</string>
+     <string name="answer">Answer</string>
+     <string name="decline">Decline</string>
++    <string name="silence">Silence</string>
++    <string name="reply_text">Reply with text</string>
++    <string name="more">More</string>
++    <string name="reply_cant_talk">Can\'t talk now</string>
++    <string name="reply_call_back">I\'ll call you back</string>
++    <string name="reply_meeting">In a meeting</string>
++    <string name="reply_custom">Custom reply</string>
++    <string name="reply_custom_title">Reply with text</string>
++    <string name="send">Send</string>
++    <string name="decline_voicemail">Decline (carrier voicemail if available)</string>
++    <string name="block_decline">Block number &amp; decline</string>
++    <string name="report_spam">Report as spam (local blocklist)</string>
++    <string name="spam_reported">Reported as spam and blocked on this phone</string>
++    <string name="number_blocked">Number blocked</string>
++    <string name="reply_sent">Declined with a text</string>
+     <string name="end_call">End call</string>
+     <string name="hang_up">Hang up</string>
+     <string name="mute">Mute</string>

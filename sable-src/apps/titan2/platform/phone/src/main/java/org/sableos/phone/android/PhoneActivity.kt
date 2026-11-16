@@ -211,6 +211,9 @@ class PhoneActivity : Activity() {
                 dialPad.setNumber(number.orEmpty())
             }
 
+            // The Call key on Home: open Calls, where the Call key then calls the focused row.
+            Intent.ACTION_CALL_BUTTON -> showTab(TAB_CALLS)
+
             else -> showTab(if (fresh) savedTab() else tab)
         }
     }

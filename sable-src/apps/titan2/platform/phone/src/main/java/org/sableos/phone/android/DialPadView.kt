@@ -45,8 +45,9 @@ class DialPadView(context: Context, private val ui: Ui, private val listener: Li
         suggestions = LinearLayout(context).apply { orientation = VERTICAL }
         addView(suggestions)
         val grid = GridLayout(context).apply { columnCount = COLUMNS }
-        "123456789*0#".forEach { c -> grid.addView(key(c), cell()) }
-        addView(grid)
+        "123456789*0#".forEach { c -> grid.addView(key(c), fittedGridCell(ui, GAP)) }
+        // The keys share what height is left, so the whole pad and the Call button fit the 720x720 screen.
+        addView(grid, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
         val bottom = LinearLayout(context).apply { orientation = HORIZONTAL }
         bottom.addView(
             ui.button(t("delete"), ui.palette.surface, ui.palette.text) { backspace() }.apply {
@@ -94,8 +95,6 @@ class DialPadView(context: Context, private val ui: Ui, private val listener: Li
         }
     }
 
-    private fun cell() = gridCell(ui, GAP)
-
     fun type(c: Char) = setNumber(number + c)
 
     fun backspace() = setNumber(number.dropLast(1))
@@ -132,7 +131,7 @@ class DialPadView(context: Context, private val ui: Ui, private val listener: Li
     private companion object {
         const val COLUMNS = 3
         const val GAP = 6
-        const val KEY_HEIGHT = 44
+        const val KEY_HEIGHT = 30
         const val NUMBER_SP = 26f
         const val KEY_SP = 20f
         const val LETTERS_SP = 9f
