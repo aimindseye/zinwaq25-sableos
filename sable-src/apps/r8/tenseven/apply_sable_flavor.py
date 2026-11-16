@@ -1461,6 +1461,43 @@ def patch_recent_tab(root: pathlib.Path) -> None:
     )
 
 
+def patch_profiles_shortcut(root: pathlib.Path) -> None:
+    """The sound profile shortcut is on both homes (owner, 2026-11-16): the speaker icon in the BB7 banner
+    and in the BB10 date header. A tap opens Sable Profiles (patch_leftovers), a long press cycles the
+    ringer. The pinned TenSeven defines SoundProfileButton but places it on neither home (later TenSeven
+    does), so a phone stuck on silent had no way back from the home screen."""
+    replace_once(
+        root / JAVA / "ui/Bb7HomeScreen.kt",
+        "                if (!compact) HomeWeatherLine(header, modifier = Modifier.fillMaxWidth())\n"
+        "            }\n"
+        "            Spacer(Modifier.width(6.dp))\n",
+        "                if (!compact) HomeWeatherLine(header, modifier = Modifier.fillMaxWidth())\n"
+        "            }\n"
+        "            SoundProfileButton()\n"
+        "            Spacer(Modifier.width(6.dp))\n",
+        "SABLE_PROFILES_SHORTCUT_BB7",
+    )
+    replace_once(
+        root / JAVA / "ui/Bb10HomeChrome.kt",
+        "                textAlign = TextAlign.Center,\n"
+        "            )\n"
+        "        }\n"
+        "    }\n"
+        "}\n"
+        "\n"
+        "/** [Bb10Theme] with the Hub peek layered over the Start strip. */\n",
+        "                textAlign = TextAlign.Center,\n"
+        "            )\n"
+        "        }\n"
+        "        SoundProfileButton()\n"
+        "    }\n"
+        "}\n"
+        "\n"
+        "/** [Bb10Theme] with the Hub peek layered over the Start strip. */\n",
+        "SABLE_PROFILES_SHORTCUT_BB10",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -1485,6 +1522,7 @@ def main() -> None:
     patch_q25_fit(root)
     patch_quiet_lock(root)
     patch_recent_tab(root)
+    patch_profiles_shortcut(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 
