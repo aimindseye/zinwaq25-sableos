@@ -98,7 +98,7 @@ SableICSx5	common	flavor:icsx5	:app:assembleStandardRelease	app/build/outputs/ap
 # source at the commit F-Droid builds, pinned (sable-src/apps/r8/keymapper; GPL-3.0), unsigned for the
 # platform build. It needs Rust and NDK 27.3.13750724 to build (its evdev module).
 SableKeyMapper	common	flavor:keymapper	:app:assembleRelease	app/build/outputs/apk/release/*.apk	io.github.sds100.keymapper	unsigned	-	yes
-# SableHome is the SableOS 2.0 home and Hub (owner decision 2026-11-12): TenSeven Launcher, pinned
-# and composed by sable-src/apps/r8/tenseven as package org.sableos.launcher, so it replaces Sable
+# SableHome is the SableOS 2.0 home and Hub (owner decision 2026-11-12): Sable Launcher, pinned
+# and composed by sable-src/apps/r8/launcher as package org.sableos.launcher, so it replaces Sable
 # Start (SableLauncher) and keeps every framework patch, Setup and Settings link that names it.
-SableHome	platform	flavor:tenseven	:app:assembleRelease	app/build/outputs/apk/release/*-unsigned.apk	org.sableos.launcher	platformapp	-	yes
+SableHome	platform	flavor:launcher	:app:assembleRelease	app/build/outputs/apk/release/*-unsigned.apk	org.sableos.launcher	platformapp	-	yes

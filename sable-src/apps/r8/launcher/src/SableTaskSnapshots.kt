@@ -15,7 +15,7 @@ import android.util.Log
  * (getTaskSnapshot(taskId, resolution); RESOLUTION_HIGH 1, RESOLUTION_LOW 2, RESOLUTION_ANY 3); TenSeven's own bridge
  * still tries the older IActivityTaskManager call after this one. Each failure is logged once under
  * the tag SableFrames, so `adb logcat -s SableFrames` says why a frame has no picture. Added by the
- * SableOS flavor (sable-src/apps/r8/tenseven).
+ * SableOS flavor (sable-src/apps/r8/launcher).
  */
 internal object SableTaskSnapshots {
     private const val TAG = "SableFrames"

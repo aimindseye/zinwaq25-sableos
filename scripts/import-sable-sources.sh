@@ -149,6 +149,13 @@ rm -rf "$DEST/src/android/packages/apps/SableStart" \
     "$DEST/apps/r8/android/sablestart-presentation-check" "$DEST/apps/r8/android/sablestart-visual-review"
 sed -i '/include(":sablestart-/d' "$DEST/apps/r8/android/settings.gradle.kts"
 
+# The home flavor is Sable Launcher; the older patches still address it as apps/r8/tenseven.
+if [[ -d "$DEST/apps/r8/tenseven" && ! -e "$DEST/apps/r8/launcher" ]]; then
+    mv "$DEST/apps/r8/tenseven" "$DEST/apps/r8/launcher"
+    mv "$DEST/apps/r8/launcher/verify_sable_tenseven.py" "$DEST/apps/r8/launcher/verify_sable_launcher.py" 2>/dev/null || true
+    sed -i 's/^TENSEVEN_\(REPOSITORY\|COMMIT\)=/LAUNCHER_\1=/' "$DEST/apps/r8/launcher/upstream.env"
+fi
+
 echo "IMPORT=PASS"
 echo "SABLEOS_COMMIT=$COMMIT"
 [[ -z "$TITAN" ]] || echo "TITAN2_TEMP_COMMIT=$TITAN_COMMIT"

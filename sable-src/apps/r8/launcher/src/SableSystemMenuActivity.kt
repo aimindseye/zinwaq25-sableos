@@ -17,7 +17,7 @@ import io.github.aimindseye.tenseven.platform.RecentTasksRepository
  * (frameworks/base 0324; owner decision 2026-11-12). Its rows: Hub over the app, the app's own menu, Close the app,
  * Switch application (Active Frames), Notifications and Quick Settings. The trackpad moves
  * through them and Enter or a click chooses; Back closes it. On the home the app rows are left
- * out. Added by the SableOS flavor (sable-src/apps/r8/tenseven).
+ * out. Added by the SableOS flavor (sable-src/apps/r8/launcher).
  */
 class SableSystemMenuActivity : Activity() {
     private enum class Row { Hub, AppMenu, Close, Switch, Notifications, QuickSettings }

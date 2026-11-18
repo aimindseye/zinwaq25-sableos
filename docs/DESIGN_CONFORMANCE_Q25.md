@@ -1,8 +1,8 @@
 # Q25 design conformance review
 
 > **Historical (2026-10-23).** This review was written before SableOS 1.0. For
-> SableOS 2.0 the home was rebuilt on TenSeven Launcher, following the approved
-> BB10 design review ([`../sable-src/apps/r8/tenseven/README.md`](../sable-src/apps/r8/tenseven/README.md)),
+> SableOS 2.0 the home was rebuilt as Sable Launcher, following the approved
+> BB10 design review ([`../sable-src/apps/r8/launcher/README.md`](../sable-src/apps/r8/launcher/README.md)),
 > and the look became black and white with one blue accent. What is open today
 > is in [`SABLEOS_GAP_REVIEW.md`](SABLEOS_GAP_REVIEW.md).
 

@@ -11,7 +11,7 @@ opens a BlackBerry 7 style system menu:
 * PhoneWindowManager.interceptSystemKeysAndShortcuts takes Alt+HOME
   (either Alt; no other modifier) from a physical keyboard, off the
   keyguard and after setup, and starts the SableOS home's
-  SableSystemMenuActivity (sable-src/apps/r8/tenseven) on the key's
+  SableSystemMenuActivity (sable-src/apps/r8/launcher) on the key's
   display: the app's own menu, Close the app, Switch Application,
   Notifications and Quick Settings, moved through with the trackpad.
   When the home has no such menu (Sable Start), the app in front gets
@@ -98,7 +98,7 @@ index 407e4a5..74364af 100644
      public static final int KEYCODE_SPACE = 62;
      /** Sable Start's Command search (SableStartActivity.ACTION_COMMAND). */
      public static final String ACTION_COMMAND = "org.sableos.start.action.COMMAND";
-+    /** The SableOS home's BlackBerry 7 style system menu (sable-src/apps/r8/tenseven). */
++    /** The SableOS home's BlackBerry 7 style system menu (sable-src/apps/r8/launcher). */
 +    public static final String SYSTEM_MENU_ACTIVITY =
 +            "io.github.aimindseye.tenseven.SableSystemMenuActivity";
      /** Sable Start (the BB10 and BB7 home). */

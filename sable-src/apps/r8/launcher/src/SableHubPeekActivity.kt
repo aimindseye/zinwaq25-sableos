@@ -13,7 +13,7 @@ import io.github.aimindseye.tenseven.conversations.SableHubPeek
  * Alt+BlackBerry key menu opens this panel over the app in front: the newest conversations, unread first.
  * The trackpad moves, Enter opens one in its app, Open Hub shows the full Hub, and Back closes the panel
  * back to the app. It reads only the Hub's in-memory list; the system never opens it on the lock screen.
- * Added by the SableOS flavor (sable-src/apps/r8/tenseven).
+ * Added by the SableOS flavor (sable-src/apps/r8/launcher).
  */
 class SableHubPeekActivity : Activity() {
     private var dialog: AlertDialog? = null

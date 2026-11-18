@@ -134,7 +134,7 @@ with no apps is possible with `stage --allow-no-apps`.
 `Q4` stages the same layer plus the framework integration: it copies Sable
 Start and the Sable design sources into `vendor/sable/q25/src` and builds them
 as `SableLauncher` (platform-signed). From 2.0 the `SableHome` row of
-`apps.tsv` (the TenSeven-based home, package `org.sableos.launcher`) overrides
+`apps.tsv` (Sable Launcher, the only home app, package `org.sableos.launcher`) overrides
 `SableLauncher`, so that is the HOME the image ships. Q4 also makes Sable Keyboard override
 LatinIME, and applies `patches/framework` to the LineageOS projects (see
 [`../patches/README.md`](../patches/README.md)). Staging Q1 or Q2 again reverts

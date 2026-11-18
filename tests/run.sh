@@ -484,7 +484,7 @@ PY
 rm -f "$ba_zip"
 if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, keyboard strip, wallpaper, boot animation)"; else fail "Q4 review fixes:$q4_bad"; fi
 
-# 6b0. The SableOS home (TenSeven, apps.tsv "platformapp"): platform certificate, not privileged,
+# 6b0. Sable Launcher (the SableOS home, apps.tsv "platformapp"): platform certificate, not privileged,
 #      replaces Sable Start, Q4 only; and the flavor composes the pinned upstream's entry points.
 ha="$tmp/apps/home"
 mkdir -p "$ha/prebuilt"
@@ -502,10 +502,10 @@ if stagerun Q4 --apps-dir "$ha" >/dev/null &&
 else
     fail "stage SableOS home: $(cat "$tmp/err")"
 fi
-grep -q $'^SableHome\tplatform\tflavor:tenseven\t' product/q25/apps.tsv &&
-    grep -q '^TENSEVEN_COMMIT=[0-9a-f]\{40\}$' sable-src/apps/r8/tenseven/upstream.env &&
-    python3 -I -m py_compile sable-src/apps/r8/tenseven/apply_sable_flavor.py sable-src/apps/r8/tenseven/verify_sable_tenseven.py &&
-    pass "SableOS home flavor (TenSeven pinned, org.sableos.launcher)" || fail "SableOS home flavor"
+grep -q $'^SableHome\tplatform\tflavor:launcher\t' product/q25/apps.tsv &&
+    grep -q '^LAUNCHER_COMMIT=[0-9a-f]\{40\}$' sable-src/apps/r8/launcher/upstream.env &&
+    python3 -I -m py_compile sable-src/apps/r8/launcher/apply_sable_flavor.py sable-src/apps/r8/launcher/verify_sable_launcher.py &&
+    pass "SableOS home flavor (Sable Launcher pinned, org.sableos.launcher)" || fail "SableOS home flavor"
 
 # 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
 # extras and screen capture, and the verify step fails the build if they come back.
@@ -513,12 +513,12 @@ home_bad=""
 for c in TenSevenInCallService TenSevenCallScreeningService TenSevenPhoneActivity TenSevenCalendarActivity \
     D5PhoneRoleRequestActivity ScreenCaptureService extras.games. extras.notes.MainActivity \
     extras.calculator.MainActivity extras.profiles.MainActivity tasks.TasksLauncherActivity; do
-    grep -q "$c" sable-src/apps/r8/tenseven/apply_sable_flavor.py || home_bad="$home_bad flavor:$c"
+    grep -q "$c" sable-src/apps/r8/launcher/apply_sable_flavor.py || home_bad="$home_bad flavor:$c"
 done
 for k in no_phone no_extras no_screen_capture no_first_run_setup; do
-    grep -q "\"$k\"" sable-src/apps/r8/tenseven/verify_sable_tenseven.py || home_bad="$home_bad verify:$k"
+    grep -q "\"$k\"" sable-src/apps/r8/launcher/verify_sable_launcher.py || home_bad="$home_bad verify:$k"
 done
-grep -q 'patch_leftovers(root)' sable-src/apps/r8/tenseven/apply_sable_flavor.py || home_bad="$home_bad not-applied"
+grep -q 'patch_leftovers(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || home_bad="$home_bad not-applied"
 if [[ -z "$home_bad" ]]; then pass "SableOS home: no leftover TenSeven Phone, Calendar, extras or screen capture"; else fail "SableOS home leftovers:$home_bad"; fi
 
 # 6b1a. One Hub: Start's Hub page has the Contacts tab and the unread bar; Sable Hub has no launcher entry.
@@ -1374,7 +1374,7 @@ grep -q '>org.sableos.assistant<' product/common/overlay/SableFrameworkOverlay/r
 grep -q 'config_longPressOnHomeBehavior">3<' product/common/overlay/SableLineagePlatformOverlay/res/values/config.xml || cg_bad="$cg_bad hold-bb"
 grep -q 'isMenuChord' patches/framework/frameworks/base/0324-SableOS-Alt-BlackBerry-key-opens-the-system-menu.patch || cg_bad="$cg_bad alt-bb-menu"
 grep -q 'SYSTEM_MENU_ACTIVITY' patches/framework/frameworks/base/0324-SableOS-Alt-BlackBerry-key-opens-the-system-menu.patch || cg_bad="$cg_bad system-menu-start"
-grep -q 'patch_system_menu(root)' sable-src/apps/r8/tenseven/apply_sable_flavor.py || cg_bad="$cg_bad system-menu-flavor"
+grep -q 'patch_system_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || cg_bad="$cg_bad system-menu-flavor"
 grep -A3 'package="org.sableos.assistant"' product/q25/permissions/default-permissions-sable-q25.xml | grep -q 'SEND_SMS' || cg_bad="$cg_bad sms-grant"
 # The only sendSms call is behind the confirm card's Send.
 [[ "$(grep -c 'phone.sendSms(' "$cgm/java/org/sableos/assistant/MainActivity.kt")" == 1 ]] || cg_bad="$cg_bad one-send"
@@ -1429,10 +1429,10 @@ if awk -F'\t' '$1 == "SableMail" && $9 == "yes"' product/q25/apps.tsv | grep -q 
     grep -q 'HUB_CALLERS = setOf("org.sableos.launcher", "org.sableos.hub")' \
         sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
     ! grep -qiE '"(password|token|body)"' sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
-    grep -q 'patch_hub_mail(root)' sable-src/apps/r8/tenseven/apply_sable_flavor.py &&
+    grep -q 'patch_hub_mail(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py &&
     grep -q 'Flag.SEEN, true' sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
-    grep -q 'SableMailFeed.markRead(context, n)' sable-src/apps/r8/tenseven/apply_sable_flavor.py &&
-    grep -q '"hub_mail"' sable-src/apps/r8/tenseven/verify_sable_tenseven.py; then
+    grep -q 'SableMailFeed.markRead(context, n)' sable-src/apps/r8/launcher/apply_sable_flavor.py &&
+    grep -q '"hub_mail"' sable-src/apps/r8/launcher/verify_sable_launcher.py; then
     pass "Hub email: Sable Mail ships, its inbox feed answers only the home and Hub, Hub reads it"
 else
     fail "Hub email: Sable Mail row, feed provider, caller check or Hub patch"
