@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- No permissions (and no location permission: the Weather city is typed, not detected). Reads the default dialer/SMS/home/keyboard through public APIs and opens system settings screens.
+    <!-- No permissions (and no location permission: the Weather city is typed, not detected). Reads the default dialer/SMS/home/keyboard and the Sable apps choice through public APIs and opens system settings screens.
          The settings actions below are declared only so the helper can check that each screen resolves before offering it. -->
     <queries>
         <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.HOME" /></intent>
@@ -11,6 +11,10 @@
         <intent><action android:name="org.sableos.start.action.CHOOSE_HOME_STYLE" /></intent>
         <intent><action android:name="android.settings.MANAGE_DEFAULT_APPS_SETTINGS" /></intent>
         <intent><action android:name="android.settings.WIRELESS_SETTINGS" /></intent>
+        <!-- Theme: Settings, Display (Dark or Light, accent, text size). -->
+        <intent><action android:name="android.settings.DISPLAY_SETTINGS" /></intent>
+        <!-- Sable apps: first-boot setup's Sable apps step, opened again. -->
+        <intent><action android:name="org.sableos.setupwizard.SABLE_APPS" /></intent>
         <!-- Telephony.Sms.getDefaultSmsPackage() checks the holder's SMS-role components through
              PackageManager, so without these the default SMS app is invisible and reads as none. -->
         <intent><action android:name="android.provider.Telephony.SMS_DELIVER" /></intent>

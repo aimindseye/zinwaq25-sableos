@@ -58,7 +58,13 @@ enum class Action(private val labelKey: String) {
     HubRowMenu("action_hub_row_menu"),
 
     /** Sable Spaces, where the user can make a Work space (BB10 Balance) with Android's own setup. */
-    WorkSpace("action_work_space");
+    WorkSpace("action_work_space"),
+
+    /** Settings, Display: Dark or Light, the Sable accent and the text size (the Theme). */
+    DisplaySettings("action_display_settings"),
+
+    /** The Sable apps step from first-boot setup, opened again: Full Sable, Essentials or Stock. */
+    SableApps("action_sable_apps");
 
     /** What the button opens, for a launch failure line; empty for [None]. */
     val label: String get() = if (labelKey.isEmpty()) "" else SetupText.t(labelKey)

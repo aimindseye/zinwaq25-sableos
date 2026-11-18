@@ -2,7 +2,7 @@
 <!-- Hebrew. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
 <resources>
     <string name="setup_title">Sable Setup</string>
-    <string name="setup_self_description">בחרו את מסך הבית, המקלדת ואפליקציות ברירת המחדל, ובדקו מה הטלפון הזה מדווח. זה לא אשף ההגדרה של Android.</string>
+    <string name="setup_self_description">בחר פרופיל, ערכת נושא, אפליקציות Sable, מקלדת ואפליקציות ברירת מחדל, ובדוק מה הטלפון הזה מדווח. זה לא אשף ההגדרה של Android.</string>
     <string name="setup_footnote">Setup לא משנה דבר מעצמו: כל בחירה נעשית במסך שהוא פותח.</string>
     <string name="setup_no_action_required">%1$s · אין צורך בפעולה</string>
     <string name="summary_confirmed">%1$d מתוך %2$d אושרו</string>
@@ -12,8 +12,8 @@
     <string name="summary_separator">%1$s · %2$s</string>
     <string name="profile_unknown">פרופיל לא ידוע (הגרסה הזו לא מדווחת עליו)</string>
     <string name="profile_unrecognized">מזהה פרופיל לא מוכר: %1$s</string>
-    <string name="row_style_title">סגנון מסך הבית</string>
-    <string name="row_style_detail">Sable Start בסגנון BlackBerry 10 או BlackBerry 7</string>
+    <string name="row_style_title">פרופיל</string>
+    <string name="row_style_detail">BlackBerry 10 או BlackBerry 7: המראה וההתנהגות של Sable Start</string>
     <string name="row_home_title">אפליקציית מסך הבית</string>
     <string name="row_home_in_use">בשימוש: %1$s · בחרו Sable Start או משגר אחר</string>
     <string name="row_home_none">לא זוהתה אפליקציית מסך בית</string>
@@ -80,4 +80,14 @@
     <string name="row_work_space_title">מרחב העבודה</string>
     <string name="row_work_space_detail">אופציונלי: הפרד את אפליקציות העבודה, עם מתג אישי · עבודה ב-Start</string>
     <string name="action_work_space">Sable Spaces</string>
+    <string name="row_theme_title">ערכת נושא</string>
+    <string name="row_theme_detail">כהה או בהיר, צבע הדגשה וגודל טקסט, בהגדרות</string>
+    <string name="row_apps_title">אפליקציות Sable</string>
+    <string name="row_apps_in_use">בשימוש: %1$s · בחר אילו אפליקציות Sable יישארו פעילות</string>
+    <string name="row_apps_failed">לא ניתן לקרוא את בחירת אפליקציות Sable</string>
+    <string name="apps_set_full">Sable מלא</string>
+    <string name="apps_set_essentials">יסודי</string>
+    <string name="apps_set_stock">Android רגיל</string>
+    <string name="action_display_settings">הגדרות תצוגה</string>
+    <string name="action_sable_apps">אפליקציות Sable</string>
 </resources>

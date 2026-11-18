@@ -2,7 +2,7 @@
 <!-- Arabic. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
 <resources>
     <string name="setup_title">Sable Setup</string>
-    <string name="setup_self_description">اختر الشاشة الرئيسية ولوحة المفاتيح والتطبيقات الافتراضية، وتحقق مما يبلغ عنه هذا الهاتف. هذا ليس معالج إعداد Android.</string>
+    <string name="setup_self_description">اختر الملف الشخصي والمظهر وتطبيقات Sable ولوحة المفاتيح والتطبيقات الافتراضية، وتحقق مما يبلغ عنه هذا الهاتف. هذا ليس معالج إعداد Android.</string>
     <string name="setup_footnote">لا يغيّر Setup شيئاً بمفرده: كل اختيار يتم على الشاشة التي يفتحها.</string>
     <string name="setup_no_action_required">%1$s · لا يلزم أي إجراء</string>
     <string name="summary_confirmed">تم تأكيد %1$d من %2$d</string>
@@ -12,8 +12,8 @@
     <string name="summary_separator">%1$s · %2$s</string>
     <string name="profile_unknown">الملف الشخصي غير معروف (لا يبلغ عنه هذا الإصدار)</string>
     <string name="profile_unrecognized">معرّف ملف شخصي غير معروف: %1$s</string>
-    <string name="row_style_title">نمط الشاشة الرئيسية</string>
-    <string name="row_style_detail">Sable Start بنمط BlackBerry 10 أو BlackBerry 7</string>
+    <string name="row_style_title">الملف الشخصي</string>
+    <string name="row_style_detail">BlackBerry 10 أو BlackBerry 7: مظهر Sable Start وسلوكه</string>
     <string name="row_home_title">تطبيق الشاشة الرئيسية</string>
     <string name="row_home_in_use">قيد الاستخدام: %1$s · اختر Sable Start أو مشغّلاً آخر</string>
     <string name="row_home_none">لم يتم تحديد تطبيق للشاشة الرئيسية</string>
@@ -80,4 +80,14 @@
     <string name="row_work_space_title">مساحة العمل</string>
     <string name="row_work_space_detail">اختياري: افصل تطبيقات العمل، مع مبدّل شخصي · عمل في Start</string>
     <string name="action_work_space">Sable Spaces</string>
+    <string name="row_theme_title">المظهر</string>
+    <string name="row_theme_detail">داكن أو فاتح ولون التمييز وحجم النص، في الإعدادات</string>
+    <string name="row_apps_title">تطبيقات Sable</string>
+    <string name="row_apps_in_use">قيد الاستخدام: %1$s · اختر تطبيقات Sable التي تبقى قيد التشغيل</string>
+    <string name="row_apps_failed">تعذّرت قراءة اختيار تطبيقات Sable</string>
+    <string name="apps_set_full">Sable كامل</string>
+    <string name="apps_set_essentials">الأساسيات</string>
+    <string name="apps_set_stock">Android القياسي</string>
+    <string name="action_display_settings">إعدادات العرض</string>
+    <string name="action_sable_apps">تطبيقات Sable</string>
 </resources>

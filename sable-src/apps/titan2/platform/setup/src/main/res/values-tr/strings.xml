@@ -2,7 +2,7 @@
 <!-- Turkish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
 <resources>
     <string name="setup_title">Sable Setup</string>
-    <string name="setup_self_description">Ana ekranını, klavyeni ve varsayılan uygulamalarını seç; bu telefonun bildirdiklerini kontrol et. Android Kurulum Sihirbazı değildir.</string>
+    <string name="setup_self_description">Profilini, temanı, Sable uygulamalarını, klavyeni ve varsayılan uygulamaları seç ve bu telefonun bildirdiklerini kontrol et. Android Kurulum Sihirbazı değildir.</string>
     <string name="setup_footnote">Setup kendi başına hiçbir şeyi değiştirmez: her seçim açtığı ekranda yapılır.</string>
     <string name="setup_no_action_required">%1$s · işlem gerekmiyor</string>
     <string name="summary_confirmed">%1$d / %2$d onaylandı</string>
@@ -12,8 +12,8 @@
     <string name="summary_separator">%1$s · %2$s</string>
     <string name="profile_unknown">Profil bilinmiyor (bu sürüm bildirmiyor)</string>
     <string name="profile_unrecognized">Tanınmayan profil kimliği: %1$s</string>
-    <string name="row_style_title">Ana ekran stili</string>
-    <string name="row_style_detail">BlackBerry 10 veya BlackBerry 7 tarzında Sable Start</string>
+    <string name="row_style_title">Profil</string>
+    <string name="row_style_detail">BlackBerry 10 veya BlackBerry 7: Sable Start\'ın görünümü ve davranışı</string>
     <string name="row_home_title">Ana ekran uygulaması</string>
     <string name="row_home_in_use">Kullanımda: %1$s · Sable Start\'ı veya başka bir başlatıcıyı seç</string>
     <string name="row_home_none">Ana ekran uygulaması bulunamadı</string>
@@ -80,4 +80,14 @@
     <string name="row_work_space_title">İş alanı</string>
     <string name="row_work_space_detail">İsteğe bağlı: iş uygulamalarını ayrı tutun, Start\'ta Kişisel · İş anahtarıyla</string>
     <string name="action_work_space">Sable Spaces</string>
+    <string name="row_theme_title">Tema</string>
+    <string name="row_theme_detail">Koyu veya açık, vurgu rengi ve metin boyutu, Ayarlar\'da</string>
+    <string name="row_apps_title">Sable uygulamaları</string>
+    <string name="row_apps_in_use">Kullanımda: %1$s · hangi Sable uygulamalarının açık kalacağını seç</string>
+    <string name="row_apps_failed">Sable uygulamaları seçimi okunamadı</string>
+    <string name="apps_set_full">Tam Sable</string>
+    <string name="apps_set_essentials">Temel</string>
+    <string name="apps_set_stock">Saf Android</string>
+    <string name="action_display_settings">Ekran ayarları</string>
+    <string name="action_sable_apps">Sable uygulamaları</string>
 </resources>

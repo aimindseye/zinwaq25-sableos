@@ -2,7 +2,7 @@
 <!-- Simplified Chinese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
 <resources>
     <string name="setup_title">Sable Setup</string>
-    <string name="setup_self_description">选择主屏幕、键盘和默认应用，并查看这部手机的报告内容。这不是 Android 设置向导。</string>
+    <string name="setup_self_description">选择配置文件、主题、Sable 应用、键盘和默认应用,并查看此手机报告的内容。这不是 Android 设置向导。</string>
     <string name="setup_footnote">Setup 自身不会更改任何内容：每项选择都在它打开的界面中完成。</string>
     <string name="setup_no_action_required">%1$s · 无需操作</string>
     <string name="summary_confirmed">已确认 %1$d/%2$d</string>
@@ -12,8 +12,8 @@
     <string name="summary_separator">%1$s · %2$s</string>
     <string name="profile_unknown">配置文件未知（此版本未报告）</string>
     <string name="profile_unrecognized">无法识别的配置文件 ID：%1$s</string>
-    <string name="row_style_title">主屏幕样式</string>
-    <string name="row_style_detail">BlackBerry 10 或 BlackBerry 7 风格的 Sable Start</string>
+    <string name="row_style_title">配置文件</string>
+    <string name="row_style_detail">BlackBerry 10 或 BlackBerry 7:Sable Start 的外观和行为</string>
     <string name="row_home_title">主屏幕应用</string>
     <string name="row_home_in_use">使用中：%1$s · 请选择 Sable Start 或其他启动器</string>
     <string name="row_home_none">未找到主屏幕应用</string>
@@ -80,4 +80,14 @@
     <string name="row_work_space_title">工作空间</string>
     <string name="row_work_space_detail">可选：将工作应用分开，并在 Start 上使用个人 · 工作切换</string>
     <string name="action_work_space">Sable Spaces</string>
+    <string name="row_theme_title">主题</string>
+    <string name="row_theme_detail">深色或浅色、强调色和文字大小(在“设置”中)</string>
+    <string name="row_apps_title">Sable 应用</string>
+    <string name="row_apps_in_use">使用中:%1$s · 选择保持开启的 Sable 应用</string>
+    <string name="row_apps_failed">无法读取 Sable 应用的选择</string>
+    <string name="apps_set_full">完整 Sable</string>
+    <string name="apps_set_essentials">精简版</string>
+    <string name="apps_set_stock">原生 Android</string>
+    <string name="action_display_settings">显示设置</string>
+    <string name="action_sable_apps">Sable 应用</string>
 </resources>

@@ -128,10 +128,15 @@ class SetupHardeningTest {
         assertEquals("In use: org.sableos.titan2.keyboardx", row("ime", lookalike).detail)
     }
 
-    @Test fun launcherKeyboardAndDefaultAppsAreChoicesInThatOrder() {
+    @Test fun profileThemeAndSableAppsComeFirstThenLauncherKeyboardAndDefaultApps() {
         val ids = rows().map { it.id }
-        assertEquals(listOf("style", "home", "ime", "ime_add", "defaults"), ids.take(5))
+        assertEquals(
+            listOf("style", "theme", "apps", "home", "ime", "ime_add", "defaults"),
+            ids.take(7)
+        )
         assertEquals(Action.HomeStyle, row("style", rows()).action)
+        assertEquals(Action.DisplaySettings, row("theme", rows()).action)
+        assertEquals(Action.SableApps, row("apps", rows()).action)
         assertEquals(Action.KeyboardSettings, row("ime_add", rows()).action)
         assertEquals(Action.DefaultApps, row("defaults", rows()).action)
         assertTrue(
@@ -212,6 +217,18 @@ class SetupHardeningTest {
         assertEquals(Action.None, dialer.action)
         assertNull(SetupRows.buttonLabel(dialer))
         assertTrue(dialer.detail.contains("could not verify"))
+    }
+
+    @Test fun sableAppsRowShowsTheChoiceMadeInSetup() {
+        fun detail(appSet: Observed) = row("apps", rows(snap().copy(appSet = appSet))).detail
+        assertTrue(detail(Observed.Value("essentials")).contains("Essentials"))
+        assertTrue(detail(Observed.Value("stock")).contains("Stock Android"))
+        assertTrue(detail(Observed.Value("full")).contains("Full Sable"))
+        // No choice recorded leaves every Sable app on, which is Full Sable.
+        assertTrue(detail(Observed.Absent).contains("Full Sable"))
+        val failed = row("apps", rows(snap().copy(appSet = Observed.Failed)))
+        assertEquals(Readiness.Unknown, failed.state)
+        assertEquals(Readiness.Informational, row("apps", rows()).state)
     }
 
     @Test fun everyDestinationIsCoveredByARow() {

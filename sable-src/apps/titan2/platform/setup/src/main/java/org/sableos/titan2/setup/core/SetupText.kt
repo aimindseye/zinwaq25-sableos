@@ -10,7 +10,7 @@ object SetupText {
     val EN: Map<String, String> = mapOf(
         "setup_title" to "Sable Setup",
         "setup_self_description" to
-            "Choose your home screen, keyboard and default apps, " +
+            "Choose your profile, theme, Sable apps, keyboard and default apps, " +
             "and check what this phone reports. Not the Android Setup Wizard.",
         "setup_footnote" to
             "Setup changes nothing by itself: every choice is made on the screen it opens.",
@@ -22,8 +22,8 @@ object SetupText {
         "summary_separator" to "%1\$s · %2\$s",
         "profile_unknown" to "Profile unknown (not reported by this build)",
         "profile_unrecognized" to "Unrecognized profile id: %1\$s",
-        "row_style_title" to "Home screen style",
-        "row_style_detail" to "Sable Start in the BlackBerry 10 or BlackBerry 7 style",
+        "row_style_title" to "Profile",
+        "row_style_detail" to "BlackBerry 10 or BlackBerry 7: how Sable Start looks and behaves",
         "row_home_title" to "Home app",
         "row_home_in_use" to "In use: %1\$s · choose Sable Start or another launcher",
         "row_home_none" to "No home app resolved",
@@ -98,7 +98,17 @@ object SetupText {
         "row_work_space_detail" to
             "Optional: keep work apps apart, with a Personal · Work switch on Start",
         "action_work_space" to "Sable Spaces",
-        "action_hub_row_menu" to "Hub settings"
+        "action_hub_row_menu" to "Hub settings",
+        "row_theme_title" to "Theme",
+        "row_theme_detail" to "Dark or Light, the accent colour and the text size, in Settings",
+        "row_apps_title" to "Sable apps",
+        "row_apps_in_use" to "In use: %1\$s · choose which Sable apps stay on",
+        "row_apps_failed" to "Could not read the Sable apps choice",
+        "apps_set_full" to "Full Sable",
+        "apps_set_essentials" to "Essentials",
+        "apps_set_stock" to "Stock Android",
+        "action_display_settings" to "Display settings",
+        "action_sable_apps" to "Sable apps"
     )
 
     val t = SableTexts(EN)
