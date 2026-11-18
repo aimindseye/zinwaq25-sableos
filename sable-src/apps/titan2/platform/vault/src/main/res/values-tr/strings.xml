@@ -39,7 +39,7 @@
     <string name="could_not_import">" İçe aktarma başarısız: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · Fotoğraflar · Belgeler · Kayıtlar · içe/dışa aktarma yalnızca açıkça</string>
-    <string name="secure_vault_works_only_inside">Secure Vault yalnızca Private Space içinde çalışır. Private Space\'in kilidini Sable Start\'ta (Tüm uygulamalar) aç ve Secure Vault\'u orada başlat. Dışarıda hiçbir şey saklanmaz.</string>
+    <string name="secure_vault_works_only_inside">Secure Vault yalnızca Private Space içinde çalışır. Private Space\'in kilidini Sable Launcher\'ta (Tüm uygulamalar) aç ve Secure Vault\'u orada başlat. Dışarıda hiçbir şey saklanmaz.</string>
     <string name="nothing_here_yet_press_i">Henüz burada bir şey yok. Bir dosyanın kopyasını içe aktarmak için I\'ya bas.</string>
-    <string name="could_not_lock_private_space">Private Space buradan kilitleme başarısız; Sable Start\'tan kilitle. Kasa kapandı.</string>
+    <string name="could_not_lock_private_space">Private Space buradan kilitleme başarısız; Sable Launcher\'tan kilitle. Kasa kapandı.</string>
 </resources>

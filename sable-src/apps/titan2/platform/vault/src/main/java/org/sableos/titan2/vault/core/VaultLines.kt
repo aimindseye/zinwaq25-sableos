@@ -66,7 +66,7 @@ object VaultLines {
                 "Start (All apps) and open Secure Vault there. Nothing is stored outside it.",
             "nothing_here_yet_press_i" to "Nothing here yet. Press I to import a copy of a file.",
             "could_not_lock_private_space" to
-                "Could not lock Private Space from here; lock it from Sable Start. The vault " +
+                "Could not lock Private Space from here; lock it from Sable Launcher. The vault " +
                 "closed."
         )
 

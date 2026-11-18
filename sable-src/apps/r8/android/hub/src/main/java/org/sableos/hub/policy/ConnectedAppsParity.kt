@@ -26,7 +26,7 @@ enum class ConnectedAppStatus {
  * NotificationListenerService, so when that access is off:
  *
  * - no app is reported as connected;
- * - Sable Start must not hide any app because of Hub (`content://org.sableos.hub.connected_apps/hidden`
+ * - Sable Launcher must not hide any app because of Hub (`content://org.sableos.hub.connected_apps/hidden`
  *   returns nothing), otherwise an app would vanish from Start while Hub cannot show it either;
  * - Hub policy itself is kept, so restoring access restores the user's choices.
  */
@@ -44,7 +44,7 @@ object ConnectedAppsParity {
         }
 
     /**
-     * Keys Sable Start may hide. [liveKeys] is the set of launchable package/profile pairs that
+     * Keys Sable Launcher may hide. [liveKeys] is the set of launchable package/profile pairs that
      * still exist; null when unknown (then no installed-app filtering happens).
      */
     fun effectiveHiddenKeys(

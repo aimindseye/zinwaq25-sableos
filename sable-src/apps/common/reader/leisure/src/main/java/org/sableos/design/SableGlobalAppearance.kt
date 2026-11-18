@@ -111,7 +111,7 @@ fun writeGlobalSableAppearance(
 /**
  * Stores the Sable app corner style. Only Settings and App display compatibility may write
  * it; any other caller gets false. [writeGlobalSableAppearance] never writes this column, so
- * an appearance reset from Sable Start leaves the user's corner style alone.
+ * an appearance reset from Sable Launcher leaves the user's corner style alone.
  */
 fun writeGlobalSableCornerStyle(
     context: Context,

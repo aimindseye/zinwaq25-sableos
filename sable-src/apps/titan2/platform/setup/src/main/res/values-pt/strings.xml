@@ -13,9 +13,9 @@
     <string name="profile_unknown">Perfil desconhecido (não informado por esta versão)</string>
     <string name="profile_unrecognized">ID de perfil não reconhecido: %1$s</string>
     <string name="row_style_title">Perfil</string>
-    <string name="row_style_detail">BlackBerry 10 ou BlackBerry 7: aparência e comportamento do Sable Start</string>
+    <string name="row_style_detail">BlackBerry 10 ou BlackBerry 7: aparência e comportamento do Sable Launcher</string>
     <string name="row_home_title">App da tela inicial</string>
-    <string name="row_home_in_use">Em uso: %1$s · escolha o Sable Start ou outro launcher</string>
+    <string name="row_home_in_use">Em uso: %1$s · escolha o Sable Launcher ou outro launcher</string>
     <string name="row_home_none">Nenhum app da tela inicial identificado</string>
     <string name="row_home_failed">Não foi possível ler o app da tela inicial</string>
     <string name="row_keyboard_title">Teclado</string>

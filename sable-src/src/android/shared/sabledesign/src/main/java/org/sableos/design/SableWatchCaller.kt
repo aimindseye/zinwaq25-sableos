@@ -5,7 +5,7 @@ import android.content.pm.PackageManager
 
 /**
  * Sable Watch (aimindseye/sable-watch), the companion that sends the watch face its counts. Hub, Calendar and
- * Weather let it read the same counts-only rows Sable Start reads: Hub's per-app counts, Calendar's next events
+ * Weather let it read the same counts-only rows Sable Launcher reads: Hub's per-app counts, Calendar's next events
  * and Weather's current line. It is not a SableOS app and is signed with its owner's key, so the package name is
  * not enough: the caller must also be signed with [CERT_SHA256].
  */

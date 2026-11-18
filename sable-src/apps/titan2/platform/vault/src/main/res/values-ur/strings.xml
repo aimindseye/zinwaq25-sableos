@@ -39,7 +39,7 @@
     <string name="could_not_import">" درآمد ناکام: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · تصاویر · دستاویزات · ریکارڈنگز · درآمد/برآمد صرف واضح طور پر</string>
-    <string name="secure_vault_works_only_inside">Secure Vault صرف Private Space کے اندر کام کرتا ہے۔ Sable Start (تمام ایپس) میں Private Space کھولیں اور وہاں Secure Vault کھولیں۔ اس کے باہر کچھ محفوظ نہیں ہوتا۔</string>
+    <string name="secure_vault_works_only_inside">Secure Vault صرف Private Space کے اندر کام کرتا ہے۔ Sable Launcher (تمام ایپس) میں Private Space کھولیں اور وہاں Secure Vault کھولیں۔ اس کے باہر کچھ محفوظ نہیں ہوتا۔</string>
     <string name="nothing_here_yet_press_i">ابھی یہاں کچھ نہیں۔ کسی فائل کی کاپی درآمد کرنے کے لیے I دبائیں۔</string>
-    <string name="could_not_lock_private_space">یہاں سے Private Space لاک کرنا ناکام رہا؛ اسے Sable Start سے لاک کریں۔ والٹ بند ہو گیا۔</string>
+    <string name="could_not_lock_private_space">یہاں سے Private Space لاک کرنا ناکام رہا؛ اسے Sable Launcher سے لاک کریں۔ والٹ بند ہو گیا۔</string>
 </resources>

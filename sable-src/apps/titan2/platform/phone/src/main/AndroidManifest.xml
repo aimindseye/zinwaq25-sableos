@@ -8,7 +8,7 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
-    <!-- Sable speed dial: Sable Start reads which letters are assigned and asks Phone to call. Any app on the
+    <!-- Sable speed dial: Sable Launcher reads which letters are assigned and asks Phone to call. Any app on the
          system image may hold it (Start is platform-signed, Sable Phone is not). -->
     <permission
         android:name="org.sableos.permission.SPEED_DIAL"

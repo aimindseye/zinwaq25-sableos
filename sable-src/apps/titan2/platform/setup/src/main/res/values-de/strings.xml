@@ -13,9 +13,9 @@
     <string name="profile_unknown">Profil unbekannt (von diesem Build nicht gemeldet)</string>
     <string name="profile_unrecognized">Unbekannte Profil-ID: %1$s</string>
     <string name="row_style_title">Profil</string>
-    <string name="row_style_detail">BlackBerry 10 oder BlackBerry 7: Aussehen und Verhalten von Sable Start</string>
+    <string name="row_style_detail">BlackBerry 10 oder BlackBerry 7: Aussehen und Verhalten von Sable Launcher</string>
     <string name="row_home_title">Start-App</string>
-    <string name="row_home_in_use">In Verwendung: %1$s · Sable Start oder einen anderen Launcher auswählen</string>
+    <string name="row_home_in_use">In Verwendung: %1$s · Sable Launcher oder einen anderen Launcher auswählen</string>
     <string name="row_home_none">Keine Start-App ermittelt</string>
     <string name="row_home_failed">Start-App konnte nicht gelesen werden</string>
     <string name="row_keyboard_title">Tastatur</string>

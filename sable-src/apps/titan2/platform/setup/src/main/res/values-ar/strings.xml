@@ -13,9 +13,9 @@
     <string name="profile_unknown">الملف الشخصي غير معروف (لا يبلغ عنه هذا الإصدار)</string>
     <string name="profile_unrecognized">معرّف ملف شخصي غير معروف: %1$s</string>
     <string name="row_style_title">الملف الشخصي</string>
-    <string name="row_style_detail">BlackBerry 10 أو BlackBerry 7: مظهر Sable Start وسلوكه</string>
+    <string name="row_style_detail">BlackBerry 10 أو BlackBerry 7: مظهر Sable Launcher وسلوكه</string>
     <string name="row_home_title">تطبيق الشاشة الرئيسية</string>
-    <string name="row_home_in_use">قيد الاستخدام: %1$s · اختر Sable Start أو مشغّلاً آخر</string>
+    <string name="row_home_in_use">قيد الاستخدام: %1$s · اختر Sable Launcher أو مشغّلاً آخر</string>
     <string name="row_home_none">لم يتم تحديد تطبيق للشاشة الرئيسية</string>
     <string name="row_home_failed">تعذّرت قراءة تطبيق الشاشة الرئيسية</string>
     <string name="row_keyboard_title">لوحة المفاتيح</string>

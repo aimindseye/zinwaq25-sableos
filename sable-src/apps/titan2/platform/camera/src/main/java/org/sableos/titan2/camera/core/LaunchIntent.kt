@@ -4,7 +4,7 @@ import org.sableos.titan2.camera.core.CameraText.t
 
 /** How the camera was started. */
 enum class LaunchKind {
-    /** Launcher, Sable Start or an explicit start: the full camera. */
+    /** Launcher, Sable Launcher or an explicit start: the full camera. */
     Normal,
 
     /** `STILL_IMAGE_CAMERA` (camera gesture, "open the camera"): the full camera in Photo. */

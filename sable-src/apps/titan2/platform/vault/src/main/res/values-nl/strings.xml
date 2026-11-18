@@ -39,7 +39,7 @@
     <string name="could_not_import">" Importeren mislukt: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · Foto’s · Documenten · Opnamen · importeren/exporteren alleen expliciet</string>
-    <string name="secure_vault_works_only_inside">Secure Vault werkt alleen binnen Private Space. Ontgrendel Private Space in Sable Start (Alle apps) en open daar Secure Vault. Buiten Private Space wordt niets opgeslagen.</string>
+    <string name="secure_vault_works_only_inside">Secure Vault werkt alleen binnen Private Space. Ontgrendel Private Space in Sable Launcher (Alle apps) en open daar Secure Vault. Buiten Private Space wordt niets opgeslagen.</string>
     <string name="nothing_here_yet_press_i">Nog niets hier. Druk op I om een kopie van een bestand te importeren.</string>
-    <string name="could_not_lock_private_space">Vergrendelen van Private Space vanaf hier mislukt; vergrendel het vanuit Sable Start. De kluis is gesloten.</string>
+    <string name="could_not_lock_private_space">Vergrendelen van Private Space vanaf hier mislukt; vergrendel het vanuit Sable Launcher. De kluis is gesloten.</string>
 </resources>

@@ -39,7 +39,7 @@
     <string name="could_not_import">" Не удалось импортировать: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · Фото · Документы · Записи · импорт и экспорт только по явной команде</string>
-    <string name="secure_vault_works_only_inside">Secure Vault работает только внутри Private Space. Разблокируйте Private Space в Sable Start (Все приложения) и откройте там Secure Vault. Вне него ничего не хранится.</string>
+    <string name="secure_vault_works_only_inside">Secure Vault работает только внутри Private Space. Разблокируйте Private Space в Sable Launcher (Все приложения) и откройте там Secure Vault. Вне него ничего не хранится.</string>
     <string name="nothing_here_yet_press_i">Пока здесь ничего нет. Нажмите I, чтобы импортировать копию файла.</string>
-    <string name="could_not_lock_private_space">Не удалось заблокировать Private Space отсюда; заблокируйте его в Sable Start. Хранилище закрыто.</string>
+    <string name="could_not_lock_private_space">Не удалось заблокировать Private Space отсюда; заблокируйте его в Sable Launcher. Хранилище закрыто.</string>
 </resources>

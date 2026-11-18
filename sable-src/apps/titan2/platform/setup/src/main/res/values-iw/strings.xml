@@ -13,9 +13,9 @@
     <string name="profile_unknown">פרופיל לא ידוע (הגרסה הזו לא מדווחת עליו)</string>
     <string name="profile_unrecognized">מזהה פרופיל לא מוכר: %1$s</string>
     <string name="row_style_title">פרופיל</string>
-    <string name="row_style_detail">BlackBerry 10 או BlackBerry 7: המראה וההתנהגות של Sable Start</string>
+    <string name="row_style_detail">BlackBerry 10 או BlackBerry 7: המראה וההתנהגות של Sable Launcher</string>
     <string name="row_home_title">אפליקציית מסך הבית</string>
-    <string name="row_home_in_use">בשימוש: %1$s · בחרו Sable Start או משגר אחר</string>
+    <string name="row_home_in_use">בשימוש: %1$s · בחרו Sable Launcher או משגר אחר</string>
     <string name="row_home_none">לא זוהתה אפליקציית מסך בית</string>
     <string name="row_home_failed">לא ניתן לקרוא את אפליקציית מסך הבית</string>
     <string name="row_keyboard_title">מקלדת</string>

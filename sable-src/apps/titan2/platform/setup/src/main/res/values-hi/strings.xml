@@ -13,9 +13,9 @@
     <string name="profile_unknown">प्रोफ़ाइल अज्ञात (इस बिल्ड ने रिपोर्ट नहीं किया)</string>
     <string name="profile_unrecognized">अपहचानी प्रोफ़ाइल आईडी: %1$s</string>
     <string name="row_style_title">प्रोफ़ाइल</string>
-    <string name="row_style_detail">BlackBerry 10 या BlackBerry 7: Sable Start का रूप और व्यवहार</string>
+    <string name="row_style_detail">BlackBerry 10 या BlackBerry 7: Sable Launcher का रूप और व्यवहार</string>
     <string name="row_home_title">होम ऐप</string>
-    <string name="row_home_in_use">उपयोग में: %1$s · Sable Start या कोई अन्य लॉन्चर चुनें</string>
+    <string name="row_home_in_use">उपयोग में: %1$s · Sable Launcher या कोई अन्य लॉन्चर चुनें</string>
     <string name="row_home_none">कोई होम ऐप नहीं मिला</string>
     <string name="row_home_failed">होम ऐप पढ़ा नहीं जा सका</string>
     <string name="row_keyboard_title">कीबोर्ड</string>

@@ -39,7 +39,7 @@
     <string name="could_not_import">" Fehler beim Import: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · Fotos · Dokumente · Aufnahmen · Import/Export nur ausdrücklich</string>
-    <string name="secure_vault_works_only_inside">Secure Vault funktioniert nur innerhalb von Private Space. Entsperre Private Space in Sable Start (Alle Apps) und öffne dort Secure Vault. Außerhalb wird nichts gespeichert.</string>
+    <string name="secure_vault_works_only_inside">Secure Vault funktioniert nur innerhalb von Private Space. Entsperre Private Space in Sable Launcher (Alle Apps) und öffne dort Secure Vault. Außerhalb wird nichts gespeichert.</string>
     <string name="nothing_here_yet_press_i">Noch nichts vorhanden. Drücke I, um eine Kopie einer Datei zu importieren.</string>
-    <string name="could_not_lock_private_space">Fehler: Private Space konnte von hier nicht gesperrt werden; sperre es in Sable Start. Der Tresor wurde geschlossen.</string>
+    <string name="could_not_lock_private_space">Fehler: Private Space konnte von hier nicht gesperrt werden; sperre es in Sable Launcher. Der Tresor wurde geschlossen.</string>
 </resources>

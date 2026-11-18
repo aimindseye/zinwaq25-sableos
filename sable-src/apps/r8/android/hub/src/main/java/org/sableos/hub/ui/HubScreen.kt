@@ -302,7 +302,7 @@ private class HubUiState {
 }
 
 /**
- * Sable Start's Hub page, Menu on a message row: the inbox on All with that row's menu open.
+ * Sable Launcher's Hub page, Menu on a message row: the inbox on All with that row's menu open.
  * False until the snapshot is loaded; a thread Hub no longer lists just opens the inbox.
  */
 private fun HubUiState.openRowMenu(

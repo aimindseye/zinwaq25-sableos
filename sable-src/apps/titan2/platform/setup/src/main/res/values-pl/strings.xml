@@ -13,9 +13,9 @@
     <string name="profile_unknown">Profil nieznany (ta wersja go nie zgłasza)</string>
     <string name="profile_unrecognized">Nierozpoznany identyfikator profilu: %1$s</string>
     <string name="row_style_title">Profil</string>
-    <string name="row_style_detail">BlackBerry 10 lub BlackBerry 7: wygląd i działanie Sable Start</string>
+    <string name="row_style_detail">BlackBerry 10 lub BlackBerry 7: wygląd i działanie Sable Launcher</string>
     <string name="row_home_title">Aplikacja ekranu głównego</string>
-    <string name="row_home_in_use">W użyciu: %1$s · wybierz Sable Start lub inny launcher</string>
+    <string name="row_home_in_use">W użyciu: %1$s · wybierz Sable Launcher lub inny launcher</string>
     <string name="row_home_none">Nie ustalono aplikacji ekranu głównego</string>
     <string name="row_home_failed">Nie udało się odczytać aplikacji ekranu głównego</string>
     <string name="row_keyboard_title">Klawiatura</string>

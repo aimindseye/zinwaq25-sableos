@@ -13,9 +13,9 @@
     <string name="profile_unknown">プロファイル不明（このビルドでは報告されません）</string>
     <string name="profile_unrecognized">認識できないプロファイル ID: %1$s</string>
     <string name="row_style_title">プロファイル</string>
-    <string name="row_style_detail">BlackBerry 10 または BlackBerry 7: Sable Start の見た目と動作</string>
+    <string name="row_style_detail">BlackBerry 10 または BlackBerry 7: Sable Launcher の見た目と動作</string>
     <string name="row_home_title">ホームアプリ</string>
-    <string name="row_home_in_use">使用中: %1$s · Sable Start または別のランチャーを選択</string>
+    <string name="row_home_in_use">使用中: %1$s · Sable Launcher または別のランチャーを選択</string>
     <string name="row_home_none">ホームアプリを特定できません</string>
     <string name="row_home_failed">ホームアプリを読み取れませんでした</string>
     <string name="row_keyboard_title">キーボード</string>

@@ -8,7 +8,7 @@ import android.net.Uri
 import org.sableos.phone.core.SpeedDial
 
 /**
- * Which letters have a speed dial, for Sable Start (letters only: never a name or number). Read access needs
+ * Which letters have a speed dial, for Sable Launcher (letters only: never a name or number). Read access needs
  * org.sableos.permission.SPEED_DIAL. Read-only.
  */
 class SpeedDialProvider : ContentProvider() {

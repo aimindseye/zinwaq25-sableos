@@ -39,7 +39,7 @@
     <string name="could_not_import">" No se pudo importar: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · Fotos · Documentos · Grabaciones · importar y exportar solo de forma explícita</string>
-    <string name="secure_vault_works_only_inside">Secure Vault solo funciona dentro de Private Space. Desbloquea Private Space en Sable Start (Todas las apps) y abre allí Secure Vault. No se guarda nada fuera.</string>
+    <string name="secure_vault_works_only_inside">Secure Vault solo funciona dentro de Private Space. Desbloquea Private Space en Sable Launcher (Todas las apps) y abre allí Secure Vault. No se guarda nada fuera.</string>
     <string name="nothing_here_yet_press_i">Aún no hay nada. Pulsa I para importar una copia de un archivo.</string>
-    <string name="could_not_lock_private_space">No se pudo bloquear Private Space desde aquí; bloquéalo desde Sable Start. La bóveda se cerró.</string>
+    <string name="could_not_lock_private_space">No se pudo bloquear Private Space desde aquí; bloquéalo desde Sable Launcher. La bóveda se cerró.</string>
 </resources>

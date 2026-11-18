@@ -25,7 +25,7 @@ import org.sableos.hub.policy.HubHomeRows
 import org.sableos.hub.policy.HubPrivacyState
 
 /**
- * Sable Start's live Hub data, readable by Start only:
+ * Sable Launcher's live Hub data, readable by Start only:
  * - `current`: one row, the Messages card's "N active" line.
  * - `apps`: Start's unread bar, one row per app (`package`, `count`), most unread first; no
  *   notification text. Hidden apps are left out, and while the device is locked or Sable private
@@ -211,7 +211,7 @@ class HubSnapshotProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
     ): Int = throw UnsupportedOperationException("Read-only provider")
 
-    /** Sable Start reads everything; Sable Watch (signed with its own pinned key) reads only the per-app counts. */
+    /** Sable Launcher reads everything; Sable Watch (signed with its own pinned key) reads only the per-app counts. */
     private fun enforceLauncherCaller(
         context: android.content.Context,
         countsOnly: Boolean,

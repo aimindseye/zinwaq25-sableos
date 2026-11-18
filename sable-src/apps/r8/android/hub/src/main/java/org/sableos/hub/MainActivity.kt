@@ -354,7 +354,7 @@ class MainActivity : ComponentActivity() {
         applyOpenThread(intent)
     }
 
-    /** Sable Start's Hub page: open a message's thread, or its row menu in the inbox. */
+    /** Sable Launcher's Hub page: open a message's thread, or its row menu in the inbox. */
     private fun applyOpenThread(intent: Intent?) {
         val open = intent?.takeIf { it.action == HubIntents.ACTION_OPEN_THREAD } ?: return
         val threadId =

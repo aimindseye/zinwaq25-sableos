@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.sableos.hub.ConnectedAppKey
 
-/** Sable Start's unread bar: what counts, per app, and what privacy leaves of it. */
+/** Sable Launcher's unread bar: what counts, per app, and what privacy leaves of it. */
 class HubAppCountsTest {
     private val chat =
         ActiveNotificationFacts(

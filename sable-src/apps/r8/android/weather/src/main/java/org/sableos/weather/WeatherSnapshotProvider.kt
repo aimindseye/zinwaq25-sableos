@@ -20,7 +20,7 @@ class WeatherSnapshotProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?,
     ): Cursor? {
-        // Sable Start, and Sable Watch (signed with its own pinned key) for the watch face's weather.
+        // Sable Launcher, and Sable Watch (signed with its own pinned key) for the watch face's weather.
         if (!isAllowedCaller(WeatherSetupContract.SNAPSHOT_CALLERS) && !isSableWatch()) {
             return null
         }

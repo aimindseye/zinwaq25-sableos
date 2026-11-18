@@ -39,7 +39,7 @@
     <string name="could_not_import">" Αποτυχία εισαγωγής: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · Φωτογραφίες · Έγγραφα · Ηχογραφήσεις · εισαγωγή/εξαγωγή μόνο ρητά</string>
-    <string name="secure_vault_works_only_inside">Το Secure Vault λειτουργεί μόνο μέσα στο Private Space. Ξεκλειδώστε το Private Space στο Sable Start (Όλες οι εφαρμογές) και ανοίξτε εκεί το Secure Vault. Τίποτα δεν αποθηκεύεται εκτός.</string>
+    <string name="secure_vault_works_only_inside">Το Secure Vault λειτουργεί μόνο μέσα στο Private Space. Ξεκλειδώστε το Private Space στο Sable Launcher (Όλες οι εφαρμογές) και ανοίξτε εκεί το Secure Vault. Τίποτα δεν αποθηκεύεται εκτός.</string>
     <string name="nothing_here_yet_press_i">Δεν υπάρχει τίποτα ακόμη. Πατήστε I για να εισαγάγετε αντίγραφο ενός αρχείου.</string>
-    <string name="could_not_lock_private_space">Αποτυχία κλειδώματος του Private Space από εδώ· κλειδώστε το από το Sable Start. Το θησαυροφυλάκιο έκλεισε.</string>
+    <string name="could_not_lock_private_space">Αποτυχία κλειδώματος του Private Space από εδώ· κλειδώστε το από το Sable Launcher. Το θησαυροφυλάκιο έκλεισε.</string>
 </resources>

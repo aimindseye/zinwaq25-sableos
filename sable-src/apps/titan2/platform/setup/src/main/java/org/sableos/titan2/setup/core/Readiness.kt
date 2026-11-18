@@ -39,7 +39,7 @@ sealed interface Observed {
 enum class Action(private val labelKey: String) {
     None(""),
 
-    /** Sable Start's own chooser: BlackBerry 10 or BlackBerry 7 style. */
+    /** Sable Launcher's own chooser: BlackBerry 10 or BlackBerry 7 style. */
     HomeStyle("action_home_style"),
     HomeSettings("action_home_settings"),
     DefaultApps("action_default_apps"),
