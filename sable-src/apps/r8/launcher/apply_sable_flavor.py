@@ -1705,6 +1705,89 @@ def patch_hub_default_action(root: pathlib.Path) -> None:
     )
 
 
+def patch_hub_reply_selector(root: pathlib.Path) -> None:
+    """A merged Hub conversation (one person across SMS, chat and email, which the pinned upstream already
+    groups by contact) replies through the source app the user picks: the message menu lists one Reply row
+    per source app that can reply, and the newest one is used until a choice is made (conformance matrix,
+    owner decision 2026-11-18: merged conversation with a reply selector)."""
+    shutil.copyfile(HERE / "src/SableReplyChoice.kt", root / JAVA / "conversations/SableReplyChoice.kt")
+    (root / TEST / "conversations").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(HERE / "src/SableReplyChoiceTest.kt", root / TEST / "conversations/SableReplyChoiceTest.kt")
+    replace_once(
+        root / JAVA / "conversations/ConversationModels.kt",
+        "    val replyTarget: HubNotification?\n"
+        "        get() = notifications.filter(HubNotification::canReply).maxByOrNull(HubNotification::postedAt)\n",
+        "    /** The newest replyable notification of each source app, newest first: the reply selector's choices. */\n"
+        "    val replyTargets: List<HubNotification>\n"
+        "        get() =\n"
+        "            notifications\n"
+        "                .filter(HubNotification::canReply)\n"
+        "                .groupBy(HubNotification::packageName)\n"
+        "                .values\n"
+        "                .map { it.maxBy(HubNotification::postedAt) }\n"
+        "                .sortedByDescending(HubNotification::postedAt)\n"
+        "    val replyTarget: HubNotification?\n"
+        "        get() = SableReplyChoice.pick(replyTargets, SableReplyChoice.packageFor(id), HubNotification::packageName)\n",
+        "SABLE_REPLY_TARGETS",
+    )
+    panels = root / JAVA / "ui/HubPanels.kt"
+    replace_once(
+        panels,
+        "    var failed by remember(source) { mutableStateOf(false) }\n"
+        "    if (ui.deviceLocked) return\n"
+        "    val primaryLabel =\n"
+        "        source.replyAction\n",
+        "    var failed by remember(source) { mutableStateOf(false) }\n"
+        "    var choiceTick by remember(conversation.id) { mutableStateOf(0) }\n"
+        "    if (ui.deviceLocked) return\n"
+        "    val replySource = remember(conversation, choiceTick) { conversation.replyTarget ?: source }\n"
+        "    val primaryLabel =\n"
+        "        replySource.replyAction\n",
+        "SABLE_REPLY_SOURCE",
+    )
+    replace_once(
+        panels,
+        "    if (source.canReply) {\n"
+        "        PanelAction(primaryLabel, iconName = \"message-dots\") {\n"
+        "            primary = !primary\n"
+        "            selected = null\n"
+        "        }\n"
+        "    }\n",
+        "    val replyChoices = conversation.replyTargets\n"
+        "    if (replyChoices.size > 1) {\n"
+        "        replyChoices.forEach { choice ->\n"
+        "            val label =\n"
+        "                choice.replyAction\n"
+        "                    ?.title\n"
+        "                    ?.toString()\n"
+        "                    ?.takeIf(String::isNotBlank) ?: \"Reply\"\n"
+        "            PanelAction(\n"
+        "                (if (choice === replySource) \"\\u2713 \" else \"\") + label + \" \\u00b7 \" + choice.appName,\n"
+        "                iconName = \"message-dots\",\n"
+        "            ) {\n"
+        "                io.github.aimindseye.tenseven.conversations.SableReplyChoice\n"
+        "                    .choose(conversation.id, choice.packageName)\n"
+        "                choiceTick++\n"
+        "                primary = true\n"
+        "                selected = null\n"
+        "            }\n"
+        "        }\n"
+        "    } else if (replySource.canReply) {\n"
+        "        PanelAction(primaryLabel, iconName = \"message-dots\") {\n"
+        "            primary = !primary\n"
+        "            selected = null\n"
+        "        }\n"
+        "    }\n",
+        "SABLE_REPLY_CHOICES",
+    )
+    replace_once(
+        panels,
+        "        androidx.compose.runtime.key(source.key, primaryLabel) {\n",
+        "        androidx.compose.runtime.key(replySource.key, primaryLabel) {\n",
+        "SABLE_REPLY_KEY",
+    )
+
+
 def patch_visible_names(root: pathlib.Path) -> None:
     """Sable Launcher is the only name the user sees. The upstream project name stays in package ids,
     class names, file formats and comments (identifiers, not text on screen), so only the text of string
@@ -1759,6 +1842,7 @@ def main() -> None:
     patch_profiles_shortcut(root)
     patch_profile_setting(root)
     patch_hub_default_action(root)
+    patch_hub_reply_selector(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 

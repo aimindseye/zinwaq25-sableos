@@ -44,6 +44,9 @@ def main() -> None:
         "profile_setting": state.count('"sable_profile"') == 2,
         "hub_enter_opens": "onClick = { ui.onOpen(conversation) }" in hub_ui and "KEYCODE_MENU" in hub_ui,
         "hub_no_open_item": "openLabel(" not in hub_panels and "menuFromBottom" in hub_panels,
+        "hub_reply_selector": (root / JAVA / "conversations/SableReplyChoice.kt").is_file()
+        and "replyTargets" in (root / JAVA / "conversations/ConversationModels.kt").read_text(encoding="utf-8")
+        and "SableReplyChoice" in hub_panels,
         "no_extras": "extras." not in manifest and not (root / JAVA / "extras").exists(),
         "no_screen_capture": "mediaProjection" not in manifest
         and "MEDIA_PROJECTION" not in manifest
