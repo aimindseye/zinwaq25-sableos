@@ -63,7 +63,7 @@ object VaultLines {
                 "Private Space · Photos · Documents · Recordings · import/export explicit",
             "secure_vault_works_only_inside" to
                 "Secure Vault works only inside Private Space. Unlock Private Space in Sable " +
-                "Start (All apps) and open Secure Vault there. Nothing is stored outside it.",
+                "Launcher (All apps) and open Secure Vault there. Nothing is stored outside it.",
             "nothing_here_yet_press_i" to "Nothing here yet. Press I to import a copy of a file.",
             "could_not_lock_private_space" to
                 "Could not lock Private Space from here; lock it from Sable Launcher. The vault " +
