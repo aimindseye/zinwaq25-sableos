@@ -532,6 +532,12 @@ grep -q '"hub_reply_selector"' sable-src/apps/r8/launcher/verify_sable_launcher.
 [[ -f sable-src/apps/r8/launcher/src/SableReplyChoice.kt && -f sable-src/apps/r8/launcher/src/SableReplyChoiceTest.kt ]] || hubr_bad="$hubr_bad sources"
 if [[ -z "$hubr_bad" ]]; then pass "Hub: a merged conversation has a reply selector (Reply per source app)"; else fail "hub reply selector:$hubr_bad"; fi
 
+# 6b0e. BlackBerry 7 marks focus with a filled highlight; BlackBerry 10 keeps the outline.
+bb7h_bad=""
+grep -q 'patch_bb7_highlight(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || bb7h_bad="$bb7h_bad not-applied"
+grep -q '"bb7_highlight"' sable-src/apps/r8/launcher/verify_sable_launcher.py || bb7h_bad="$bb7h_bad verify"
+if [[ -z "$bb7h_bad" ]]; then pass "BB7: filled focus highlight, BB10 keeps the outline"; else fail "bb7 highlight:$bb7h_bad"; fi
+
 # 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
 # extras and screen capture, and the verify step fails the build if they come back.
 home_bad=""

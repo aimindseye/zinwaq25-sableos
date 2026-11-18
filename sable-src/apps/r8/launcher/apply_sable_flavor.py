@@ -1788,6 +1788,42 @@ def patch_hub_reply_selector(root: pathlib.Path) -> None:
     )
 
 
+def patch_bb7_highlight(root: pathlib.Path) -> None:
+    """BlackBerry 7 marks the focused item with a filled highlight, BlackBerry 10 with an outline
+    (conformance matrix, owner decision 2026-11-18). The shared focus modifier reads the profile
+    (Settings.Secure sable_profile) and fills the focused item with the accent in the BlackBerry 7
+    profile; every other profile keeps the 2 dp outline."""
+    replace_once(
+        root / DESIGN / "SableResponsiveComponents.kt",
+        "        var focused by remember { mutableStateOf(false) }\n"
+        "        val color = MaterialTheme.colorScheme.primary\n"
+        "        this\n"
+        "            .onFocusChanged { focused = it.hasFocus }\n"
+        "            .then(\n"
+        "                if (focused) {\n"
+        "                    Modifier.border(BorderStroke(2.dp, color), MaterialTheme.shapes.small)\n"
+        "                } else {\n",
+        "        var focused by remember { mutableStateOf(false) }\n"
+        "        val color = MaterialTheme.colorScheme.primary\n"
+        "        val profileContext = androidx.compose.ui.platform.LocalContext.current\n"
+        "        val filled =\n"
+        "            remember(profileContext) {\n"
+        "                runCatching {\n"
+        "                    android.provider.Settings.Secure.getString(profileContext.contentResolver, \"sable_profile\")\n"
+        "                }.getOrNull() == \"bb7\"\n"
+        "            }\n"
+        "        this\n"
+        "            .onFocusChanged { focused = it.hasFocus }\n"
+        "            .then(\n"
+        "                if (focused && filled) {\n"
+        "                    Modifier.background(color.copy(alpha = 0.4f), MaterialTheme.shapes.small)\n"
+        "                } else if (focused) {\n"
+        "                    Modifier.border(BorderStroke(2.dp, color), MaterialTheme.shapes.small)\n"
+        "                } else {\n",
+        "SABLE_BB7_FILLED_HIGHLIGHT",
+    )
+
+
 def patch_visible_names(root: pathlib.Path) -> None:
     """Sable Launcher is the only name the user sees. The upstream project name stays in package ids,
     class names, file formats and comments (identifiers, not text on screen), so only the text of string
@@ -1843,6 +1879,7 @@ def main() -> None:
     patch_profile_setting(root)
     patch_hub_default_action(root)
     patch_hub_reply_selector(root)
+    patch_bb7_highlight(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
