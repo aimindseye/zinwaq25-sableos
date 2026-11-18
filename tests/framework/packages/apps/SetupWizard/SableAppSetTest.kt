@@ -91,4 +91,33 @@ class SableAppSetTest {
             assertTrue(SableAppSet.plan(choice, image + phone).keys.none { it in phone })
         }
     }
+
+    @Test
+    fun onlyRecommendedAndOptionalAppsAreCustomizable() {
+        val list = SableAppSet.customizable(image)
+        assertEquals((SableAppSet.RECOMMENDED + SableAppSet.OPTIONAL).toSet(), list.toSet())
+        assertTrue(list.none { it in SableAppSet.CORE })
+    }
+
+    @Test
+    fun theCheckBoxesOverrideTheSetButNeverCoreApps() {
+        val wanted = mapOf(
+            "org.sableos.notes" to false, "org.sableos.assistant" to true,
+            "org.sableos.hub" to false, "org.sableos.browser" to false,
+        )
+        val plan = SableAppSet.plan(SableAppSet.ESSENTIALS, image, wanted)
+        assertEquals(false, plan["org.sableos.notes"])
+        assertEquals(true, plan["org.sableos.assistant"])
+        // Core is not customizable: Hub stays on.
+        assertEquals(true, plan["org.sableos.hub"])
+        // An unticked Browser turns its LineageOS counterpart on.
+        assertEquals(true, plan["org.lineageos.jelly"])
+    }
+
+    @Test
+    fun noCheckBoxesMeansThePlainSet() {
+        listOf(SableAppSet.FULL, SableAppSet.ESSENTIALS, SableAppSet.STOCK).forEach {
+            assertEquals(SableAppSet.plan(it, image), SableAppSet.plan(it, image, emptyMap()))
+        }
+    }
 }

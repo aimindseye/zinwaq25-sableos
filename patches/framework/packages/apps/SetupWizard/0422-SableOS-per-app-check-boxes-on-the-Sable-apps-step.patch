@@ -1,0 +1,214 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 18 Nov 2026 15:30:00 +0000
+Subject: [PATCH] SableOS: per-app check boxes on the Sable apps step
+
+Under Full Sable, Essentials and Stock Android the step lists the
+Recommended and Optional Sable apps the phone has, one check box each
+(Core apps are not listed). First time, the boxes show the chosen set's
+defaults; revisited, they show what is on now; picking another set puts
+that set's defaults back. Next applies the set, then the boxes: a ticked
+app is turned on, an unticked one off, and an unticked app turns on its
+installed LineageOS counterpart. Nothing is uninstalled.
+
+The Essentials text now names the Core apps and Camera.
+
+Pure policy: SableAppSet.customizable() and plan(choice, installed,
+wanted).
+---
+ .../setupwizard/SableAppsActivity.java        | 64 +++++++++++++++++--
+ .../setupwizard/sable/SableAppSet.java        | 32 ++++++++++
+ app/src/main/res/layout/sable_apps_page.xml   | 11 ++++
+ app/src/main/res/values/sable_strings.xml     |  3 +-
+ 4 files changed, 104 insertions(+), 6 deletions(-)
+
+diff --git a/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java b/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java
+index 3ebadf5..595506d 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java
++++ b/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java
+@@ -10,12 +10,15 @@ import android.content.pm.PackageManager;
+ import android.os.Bundle;
+ import android.provider.Settings;
+ import android.util.Log;
++import android.widget.CheckBox;
++import android.widget.LinearLayout;
+ import android.widget.RadioGroup;
+ 
+ import org.lineageos.setupwizard.base.BaseSetupWizardActivity;
+ import org.lineageos.setupwizard.sable.SableAppSet;
+ 
+ import java.util.HashSet;
++import java.util.LinkedHashMap;
+ import java.util.Map;
+ import java.util.Set;
+ 
+@@ -32,25 +35,77 @@ public class SableAppsActivity extends BaseSetupWizardActivity {
+     };
+ 
+     private RadioGroup group;
++    private Set<String> installed;
++    /** One check box per app the step lets the user switch (Recommended and Optional). */
++    private final Map<String, CheckBox> boxes = new LinkedHashMap<>();
+ 
+     @Override
+     protected void onCreate(@Nullable Bundle savedInstanceState) {
+         super.onCreate(savedInstanceState);
+         getGlifLayout().setDescriptionText(getString(R.string.sable_apps_summary));
+         group = findViewById(R.id.sable_apps_group);
+-        final int stored = SableAppSet.choiceOf(
+-                Settings.Secure.getString(getContentResolver(), SableAppSet.SETTING));
++        final String remembered =
++                Settings.Secure.getString(getContentResolver(), SableAppSet.SETTING);
++        final int stored = SableAppSet.choiceOf(remembered);
+         group.check(IDS[stored]);
++        final PackageManager pm = getPackageManager();
++        installed = installed(pm);
++        final LinearLayout list = findViewById(R.id.sable_apps_list);
++        for (String app : SableAppSet.customizable(installed)) {
++            final CheckBox box = new CheckBox(this);
++            box.setText(labelOf(pm, app));
++            box.setMinHeight((int) (48 * getResources().getDisplayMetrics().density));
++            boxes.put(app, box);
++            list.addView(box);
++        }
++        // Revisited: show what is on now. First time: the chosen set's defaults.
++        final Map<String, Boolean> shown = SableAppSet.plan(stored, installed);
++        for (Map.Entry<String, CheckBox> entry : boxes.entrySet()) {
++            final String app = entry.getKey();
++            entry.getValue().setChecked(remembered != null ? isOn(pm, app) : shown.get(app));
++        }
++        // Picking another set puts its defaults back in the list.
++        group.setOnCheckedChangeListener((g, id) -> {
++            final Map<String, Boolean> defaults = SableAppSet.plan(choiceChecked(), installed);
++            for (Map.Entry<String, CheckBox> entry : boxes.entrySet()) {
++                final Boolean on = defaults.get(entry.getKey());
++                entry.getValue().setChecked(on == null || on);
++            }
++        });
+         setNextAllowed(true);
+     }
+ 
++    private static boolean isOn(PackageManager pm, String app) {
++        try {
++            final int state = pm.getApplicationEnabledSetting(app);
++            return state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
++                    || state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
++        } catch (IllegalArgumentException e) {
++            return true;
++        }
++    }
++
++    private static CharSequence labelOf(PackageManager pm, String app) {
++        try {
++            return pm.getApplicationLabel(
++                    pm.getApplicationInfo(app, PackageManager.MATCH_DISABLED_COMPONENTS));
++        } catch (PackageManager.NameNotFoundException e) {
++            return app;
++        }
++    }
++
+     @Override
+     protected void onNextPressed() {
+         final int choice = choiceChecked();
+         Settings.Secure.putString(getContentResolver(), SableAppSet.SETTING,
+                 SableAppSet.storedValueOf(choice));
+         final PackageManager pm = getPackageManager();
+-        new Thread(() -> apply(pm, choice), "SableApps").start();
++        final Map<String, Boolean> wanted = new LinkedHashMap<>();
++        for (Map.Entry<String, CheckBox> entry : boxes.entrySet()) {
++            wanted.put(entry.getKey(), entry.getValue().isChecked());
++        }
++        final Map<String, Boolean> plan = SableAppSet.plan(choice, installed, wanted);
++        new Thread(() -> apply(pm, plan), "SableApps").start();
+         super.onNextPressed();
+     }
+ 
+@@ -63,8 +118,7 @@ public class SableAppsActivity extends BaseSetupWizardActivity {
+     }
+ 
+     /** Disables or re-enables each installed app for this user; never uninstalls anything. */
+-    private static void apply(PackageManager pm, int choice) {
+-        final Map<String, Boolean> plan = SableAppSet.plan(choice, installed(pm));
++    private static void apply(PackageManager pm, Map<String, Boolean> plan) {
+         for (Map.Entry<String, Boolean> entry : plan.entrySet()) {
+             final int state = entry.getValue()
+                     ? PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java
+index c7aca37..af908c7 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java
+@@ -143,6 +143,38 @@ public final class SableAppSet {
+         return plan;
+     }
+ 
++    /**
++     * The apps the step lets the user switch one by one: the Recommended and Optional Sable apps
++     * the phone has, in tier order. Core apps are not listed, so they cannot be switched off.
++     */
++    public static List<String> customizable(Set<String> installed) {
++        final List<String> apps = new java.util.ArrayList<>();
++        for (String app : RECOMMENDED) if (installed.contains(app)) apps.add(app);
++        for (String app : OPTIONAL) if (installed.contains(app)) apps.add(app);
++        return apps;
++    }
++
++    /**
++     * Like {@link #plan(int, Set)}, then each customizable app in {@code wanted} is set on (true)
++     * or off (false); a turned-off app turns its installed stock counterpart on. An entry for a
++     * Core or an uninstalled app is ignored.
++     */
++    public static Map<String, Boolean> plan(
++            int choice, Set<String> installed, Map<String, Boolean> wanted) {
++        final Map<String, Boolean> plan = plan(choice, installed);
++        for (String app : customizable(installed)) {
++            final Boolean want = wanted.get(app);
++            if (want == null) continue;
++            plan.put(app, want);
++            if (!want) {
++                for (String twin : twinsOf(app)) {
++                    if (installed.contains(twin)) plan.put(twin, true);
++                }
++            }
++        }
++        return plan;
++    }
++
+     /** A remembered choice, or Full Sable for a missing or unknown value. */
+     public static int choiceOf(String stored) {
+         if ("essentials".equals(stored)) return ESSENTIALS;
+diff --git a/app/src/main/res/layout/sable_apps_page.xml b/app/src/main/res/layout/sable_apps_page.xml
+index d7aee0f..7571c4f 100644
+--- a/app/src/main/res/layout/sable_apps_page.xml
++++ b/app/src/main/res/layout/sable_apps_page.xml
+@@ -60,6 +60,17 @@
+ 
+                 </RadioGroup>
+ 
++                <!-- The apps the set leaves on, one check box each (Core apps are not listed). -->
++                <TextView
++                    style="@style/SableSetupCard"
++                    android:text="@string/sable_apps_customize" />
++
++                <LinearLayout
++                    android:id="@+id/sable_apps_list"
++                    android:orientation="vertical"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content" />
++
+                 <TextView
+                     style="@style/SableSetupCard"
+                     android:text="@string/sable_apps_note" />
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
+index 5b62178..a05fa66 100644
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
+@@ -98,7 +98,8 @@
+     <string name="setup_sable_apps">Sable apps</string>
+     <string name="sable_apps_summary">Choose which apps to keep on. You can change this later.</string>
+     <string name="sable_apps_full"><b>Full Sable</b>\nEvery Sable app: Hub, Messages, Calendar, Notes, Tasks, Weather, Mail, Browser, Media, Compass, Print To Go, games and the rest.</string>
+-    <string name="sable_apps_essentials"><b>Essentials</b>\nStart, Keyboard, Hub, Messages, Camera, Tools, Vault and Setup. The other Sable apps are turned off.</string>
++    <string name="sable_apps_essentials"><b>Essentials</b>\nThe core apps (Start, Keyboard, Hub, Messages, Phone, Contacts, Sound Profiles, Tools, Vault, Setup and App Compatibility) and Camera. The other Sable apps are turned off.</string>
++    <string name="sable_apps_customize">Tick the apps to keep. Start, Keyboard, Hub, Messages, Phone, Contacts and the other core apps always stay on.</string>
+     <string name="sable_apps_stock"><b>Stock Android</b>\nThe standard Android app wherever the phone has one, such as its Camera, Browser or Calendar. Sable apps are turned off except Start, Keyboard and any app the phone has no other choice for.</string>
+     <string name="sable_apps_note">Nothing is uninstalled. To bring an app back, open Settings, Apps, See all apps, choose the app and select Enable. Running setup again and choosing Full Sable turns every Sable app back on.</string>
+ 
