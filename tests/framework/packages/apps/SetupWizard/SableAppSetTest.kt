@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SableAppSetTest {
-    private val sable = SableAppSet.ESSENTIAL + SableAppSet.ALWAYS + SableAppSet.OPTIONAL
+    private val sable = SableAppSet.ESSENTIAL + SableAppSet.ALWAYS + SableAppSet.RECOMMENDED + SableAppSet.OPTIONAL
     private val stock = setOf("org.lineageos.aperture", "org.lineageos.jelly", "org.lineageos.glimpse")
     private val image = sable + stock
 
@@ -19,12 +19,13 @@ class SableAppSetTest {
     }
 
     @Test
-    fun essentialsKeepsTheOwnersEightAndTurnsTheRestOff() {
+    fun essentialsKeepsCoreAndCameraAndTurnsTheRestOff() {
         val plan = SableAppSet.plan(SableAppSet.ESSENTIALS, image)
         listOf(
             "org.sableos.launcher", "org.sableos.titan2.keyboard", "org.sableos.titan2.setup",
-            "org.sableos.tools", "org.sableos.hub", "org.sableos.messages",
-            "org.sableos.titan2.camera", "org.sableos.titan2.vault",
+            "org.sableos.titan2.displaycompat", "org.sableos.tools", "org.sableos.hub",
+            "org.sableos.messages", "org.sableos.titan2.vault", "org.sableos.titan2.profiles",
+            "org.sableos.titan2.camera",
         ).forEach { assertEquals(it, true, plan[it]) }
         listOf("org.sableos.calendar", "org.sableos.notes", "org.sableos.titan2.compass", "org.sableos.weather")
             .forEach { assertEquals(it, false, plan[it]) }
@@ -73,5 +74,21 @@ class SableAppSetTest {
         }
         assertEquals(SableAppSet.FULL, SableAppSet.choiceOf(null))
         assertEquals(SableAppSet.FULL, SableAppSet.choiceOf("everything"))
+    }
+
+    @Test
+    fun theTiersDoNotOverlapAndEssentialsIsCorePlusCamera() {
+        val tiers = listOf(SableAppSet.CORE.toList(), SableAppSet.RECOMMENDED, SableAppSet.OPTIONAL)
+        assertEquals(tiers.sumOf { it.size }, tiers.flatten().toSet().size)
+        assertEquals(SableAppSet.CORE + "org.sableos.titan2.camera", SableAppSet.ESSENTIAL)
+        assertTrue(SableAppSet.ALWAYS.all { it in SableAppSet.CORE })
+    }
+
+    @Test
+    fun phoneAndContactsAreNeverTouched() {
+        val phone = setOf("org.sableos.phone", "com.android.contacts", "com.android.contactspicker")
+        listOf(SableAppSet.FULL, SableAppSet.ESSENTIALS, SableAppSet.STOCK).forEach { choice ->
+            assertTrue(SableAppSet.plan(choice, image + phone).keys.none { it in phone })
+        }
     }
 }
