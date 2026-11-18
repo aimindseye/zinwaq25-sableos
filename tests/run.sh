@@ -525,6 +525,13 @@ grep -q '"hub_enter_opens"' sable-src/apps/r8/launcher/verify_sable_launcher.py 
 grep -q '"hub_no_open_item"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hubm_bad="$hubm_bad verify-open"
 if [[ -z "$hubm_bad" ]]; then pass "Hub: Enter opens, Menu shows the menu without Open, per-profile menu edge"; else fail "hub default action:$hubm_bad"; fi
 
+# 6b0d. A merged Hub conversation replies through the source app the user picks (one Reply row per app).
+hubr_bad=""
+grep -q 'patch_hub_reply_selector(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || hubr_bad="$hubr_bad not-applied"
+grep -q '"hub_reply_selector"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hubr_bad="$hubr_bad verify"
+[[ -f sable-src/apps/r8/launcher/src/SableReplyChoice.kt && -f sable-src/apps/r8/launcher/src/SableReplyChoiceTest.kt ]] || hubr_bad="$hubr_bad sources"
+if [[ -z "$hubr_bad" ]]; then pass "Hub: a merged conversation has a reply selector (Reply per source app)"; else fail "hub reply selector:$hubr_bad"; fi
+
 # 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
 # extras and screen capture, and the verify step fails the build if they come back.
 home_bad=""
