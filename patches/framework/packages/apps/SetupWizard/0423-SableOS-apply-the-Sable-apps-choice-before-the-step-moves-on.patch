@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 18 Nov 2026 16:50:00 +0000
+Subject: [PATCH] SableOS: apply the Sable apps choice before the step moves on
+
+The step applied the choice on a background thread and then went on at
+once. If the process ended first (for example when the step was started
+by hand and Next had nowhere to go), only some apps were changed. The
+choice is now applied before the step moves on, and an error on one app
+is logged and skipped instead of stopping the rest.
+---
+ .../java/org/lineageos/setupwizard/SableAppsActivity.java  | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java b/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java
+index 595506d..681c877 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java
++++ b/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java
+@@ -105,7 +105,9 @@ public class SableAppsActivity extends BaseSetupWizardActivity {
+             wanted.put(entry.getKey(), entry.getValue().isChecked());
+         }
+         final Map<String, Boolean> plan = SableAppSet.plan(choice, installed, wanted);
+-        new Thread(() -> apply(pm, plan), "SableApps").start();
++        // Applied before the step moves on, not on a thread that can be cut off if the process
++        // ends first; each change is a quick call to the package manager.
++        apply(pm, plan);
+         super.onNextPressed();
+     }
+ 
+@@ -127,7 +129,8 @@ public class SableAppsActivity extends BaseSetupWizardActivity {
+                 if (pm.getApplicationEnabledSetting(entry.getKey()) != state) {
+                     pm.setApplicationEnabledSetting(entry.getKey(), state, 0);
+                 }
+-            } catch (IllegalArgumentException | SecurityException e) {
++            } catch (RuntimeException e) {
++                // One app that will not change must not stop the rest.
+                 Log.w(TAG, "could not change " + entry.getKey(), e);
+             }
+         }
