@@ -39,7 +39,7 @@
     <string name="could_not_import">" تعذّر الاستيراد: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · الصور · المستندات · التسجيلات · الاستيراد والتصدير بطلب صريح فقط</string>
-    <string name="secure_vault_works_only_inside">يعمل Secure Vault داخل Private Space فقط. افتح قفل Private Space من Sable Start (كل التطبيقات) ثم افتح Secure Vault من هناك. لا يُخزَّن أي شيء خارجه.</string>
+    <string name="secure_vault_works_only_inside">يعمل Secure Vault داخل Private Space فقط. افتح قفل Private Space من Sable Launcher (كل التطبيقات) ثم افتح Secure Vault من هناك. لا يُخزَّن أي شيء خارجه.</string>
     <string name="nothing_here_yet_press_i">لا يوجد شيء هنا بعد. اضغط I لاستيراد نسخة من ملف.</string>
-    <string name="could_not_lock_private_space">تعذّر قفل Private Space من هنا؛ اقفله من Sable Start. أُغلقت الخزنة.</string>
+    <string name="could_not_lock_private_space">تعذّر قفل Private Space من هنا؛ اقفله من Sable Launcher. أُغلقت الخزنة.</string>
 </resources>

@@ -3,7 +3,7 @@ package org.sableos.hub.policy
 import org.sableos.hub.ConnectedAppKey
 
 /**
- * What Hub's listener knows of one posted notification when counting it for Sable Start's
+ * What Hub's listener knows of one posted notification when counting it for Sable Launcher's
  * unread bar (the Ripe/BB7 row of app icons with counts on Start's Hub page). Flags and the
  * source only: never a title or text.
  */
@@ -34,7 +34,7 @@ data class HubAppCount(
 )
 
 /**
- * Per-app unread counts for Sable Start's Hub bar. Pure policy, unit tested.
+ * Per-app unread counts for Sable Launcher's Hub bar. Pure policy, unit tested.
  *
  * - Unread: a posted notification the user can clear that is not ongoing, a foreground service,
  *   a group summary (its children count instead) or a status/progress/media kind of category.

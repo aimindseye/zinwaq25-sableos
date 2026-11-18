@@ -13,9 +13,9 @@
     <string name="profile_unknown">Profil okänd (rapporteras inte av den här versionen)</string>
     <string name="profile_unrecognized">Okänt profil-id: %1$s</string>
     <string name="row_style_title">Profil</string>
-    <string name="row_style_detail">BlackBerry 10 eller BlackBerry 7: hur Sable Start ser ut och fungerar</string>
+    <string name="row_style_detail">BlackBerry 10 eller BlackBerry 7: hur Sable Launcher ser ut och fungerar</string>
     <string name="row_home_title">Startapp</string>
-    <string name="row_home_in_use">Används: %1$s · välj Sable Start eller en annan launcher</string>
+    <string name="row_home_in_use">Används: %1$s · välj Sable Launcher eller en annan launcher</string>
     <string name="row_home_none">Ingen startapp hittades</string>
     <string name="row_home_failed">Kunde inte läsa startappen</string>
     <string name="row_keyboard_title">Tangentbord</string>

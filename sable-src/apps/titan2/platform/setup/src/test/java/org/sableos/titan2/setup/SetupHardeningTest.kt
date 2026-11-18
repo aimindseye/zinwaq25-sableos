@@ -143,7 +143,7 @@ class SetupHardeningTest {
             row(
                 "home",
                 rows(snap(home = Observed.Value("org.sableos.launcher")))
-            ).detail.contains("Sable Start")
+            ).detail.contains("Sable Launcher")
         )
     }
 

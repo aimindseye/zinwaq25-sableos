@@ -5,7 +5,7 @@ import android.os.Bundle
 import org.sableos.phone.core.SpeedDial
 
 /**
- * Sable Start's speed dial: calls the number on the letter in EXTRA_LETTER, or opens the speed dial list when the
+ * Sable Launcher's speed dial: calls the number on the letter in EXTRA_LETTER, or opens the speed dial list when the
  * letter has none. Callers need org.sableos.permission.SPEED_DIAL, so Start needs no call permission itself.
  */
 class SpeedDialCallActivity : Activity() {

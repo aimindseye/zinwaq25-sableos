@@ -13,9 +13,9 @@
     <string name="profile_unknown">Άγνωστο προφίλ (δεν αναφέρεται από αυτή την έκδοση)</string>
     <string name="profile_unrecognized">Μη αναγνωρισμένο αναγνωριστικό προφίλ: %1$s</string>
     <string name="row_style_title">Προφίλ</string>
-    <string name="row_style_detail">BlackBerry 10 ή BlackBerry 7: εμφάνιση και συμπεριφορά του Sable Start</string>
+    <string name="row_style_detail">BlackBerry 10 ή BlackBerry 7: εμφάνιση και συμπεριφορά του Sable Launcher</string>
     <string name="row_home_title">Εφαρμογή αρχικής οθόνης</string>
-    <string name="row_home_in_use">Σε χρήση: %1$s · επιλέξτε Sable Start ή άλλο launcher</string>
+    <string name="row_home_in_use">Σε χρήση: %1$s · επιλέξτε Sable Launcher ή άλλο launcher</string>
     <string name="row_home_none">Δεν βρέθηκε εφαρμογή αρχικής οθόνης</string>
     <string name="row_home_failed">Δεν ήταν δυνατή η ανάγνωση της εφαρμογής αρχικής οθόνης</string>
     <string name="row_keyboard_title">Πληκτρολόγιο</string>

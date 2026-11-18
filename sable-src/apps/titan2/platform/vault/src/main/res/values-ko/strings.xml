@@ -39,7 +39,7 @@
     <string name="could_not_import">" 가져올 수 없습니다: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · 사진 · 문서 · 녹음 · 가져오기/내보내기는 명시적으로만</string>
-    <string name="secure_vault_works_only_inside">Secure Vault는 Private Space 안에서만 작동합니다. Sable Start(모든 앱)에서 Private Space 잠금을 해제하고 그곳에서 Secure Vault를 여세요. 밖에는 아무것도 저장되지 않습니다.</string>
+    <string name="secure_vault_works_only_inside">Secure Vault는 Private Space 안에서만 작동합니다. Sable Launcher(모든 앱)에서 Private Space 잠금을 해제하고 그곳에서 Secure Vault를 여세요. 밖에는 아무것도 저장되지 않습니다.</string>
     <string name="nothing_here_yet_press_i">아직 아무것도 없습니다. I를 눌러 파일 사본을 가져오세요.</string>
-    <string name="could_not_lock_private_space">여기서 Private Space를 잠글 수 없습니다. Sable Start에서 잠그세요. 보관함이 닫혔습니다.</string>
+    <string name="could_not_lock_private_space">여기서 Private Space를 잠글 수 없습니다. Sable Launcher에서 잠그세요. 보관함이 닫혔습니다.</string>
 </resources>

@@ -104,7 +104,7 @@ class SableNotificationListenerService : NotificationListenerService() {
         onNotificationPostedForHub(sbn, ranking)
     }
 
-    /** Sable Start's unread bar: the app and a weight, never the notification's text. */
+    /** Sable Launcher's unread bar: the app and a weight, never the notification's text. */
     private fun countedFor(sbn: StatusBarNotification) =
         userManager
             .getSerialNumberForUser(sbn.user)
@@ -539,7 +539,7 @@ class SableNotificationListenerService : NotificationListenerService() {
         )
     }
 
-    /** Notification access changed: Sable Start re-reads which apps Hub may hide. */
+    /** Notification access changed: Sable Launcher re-reads which apps Hub may hide. */
     private fun notifyHiddenAppsChanged() {
         applicationContext.contentResolver.notifyChange(
             ConnectedAppsRepository.HIDDEN_URI,

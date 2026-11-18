@@ -180,7 +180,7 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Pinnable shortcuts (e.g. into Sable Start) for proven, frequently used tools only. */
+    /** Pinnable shortcuts (e.g. into Sable Launcher) for proven, frequently used tools only. */
     private fun publishShortcuts() {
         val sm = getSystemService(ShortcutManager::class.java) ?: return
         val candidates = listOf(Tool.IR_REMOTE, Tool.FLASHLIGHT, Tool.COMPASS, Tool.KEY_VIEWER)

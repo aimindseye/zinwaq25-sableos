@@ -39,7 +39,7 @@
     <string name="could_not_import">" לא ניתן לייבא: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · תמונות · מסמכים · הקלטות · ייבוא/ייצוא רק במפורש</string>
-    <string name="secure_vault_works_only_inside">Secure Vault פועל רק בתוך Private Space. בטלו את הנעילה של Private Space ב-Sable Start (כל האפליקציות) ופתחו שם את Secure Vault. שום דבר לא נשמר מחוץ לו.</string>
+    <string name="secure_vault_works_only_inside">Secure Vault פועל רק בתוך Private Space. בטלו את הנעילה של Private Space ב-Sable Launcher (כל האפליקציות) ופתחו שם את Secure Vault. שום דבר לא נשמר מחוץ לו.</string>
     <string name="nothing_here_yet_press_i">עדיין אין כאן כלום. לחצו I כדי לייבא עותק של קובץ.</string>
-    <string name="could_not_lock_private_space">לא ניתן לנעול את Private Space מכאן; נעלו אותו מ-Sable Start. הכספת נסגרה.</string>
+    <string name="could_not_lock_private_space">לא ניתן לנעול את Private Space מכאן; נעלו אותו מ-Sable Launcher. הכספת נסגרה.</string>
 </resources>

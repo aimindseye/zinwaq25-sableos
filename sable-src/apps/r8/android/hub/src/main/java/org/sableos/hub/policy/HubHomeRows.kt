@@ -3,7 +3,7 @@ package org.sableos.hub.policy
 import org.sableos.hub.HubConversation
 import org.sableos.hub.HubConversationSource
 
-/** One message row on Sable Start's Hub page: what the Hub inbox row shows, already redacted. */
+/** One message row on Sable Launcher's Hub page: what the Hub inbox row shows, already redacted. */
 data class HubHomeRow(
     val threadId: Long,
     val title: String,
@@ -15,7 +15,7 @@ data class HubHomeRow(
 )
 
 /**
- * The newest Hub rows for Sable Start's Hub page (owner decision 2026-11-04: the home Hub page
+ * The newest Hub rows for Sable Launcher's Hub page (owner decision 2026-11-04: the home Hub page
  * lists each message, as BB10 and TenSeven do). Rows are the inbox's own conversations after
  * HubRedaction, so a source whose content Hub hides stays hidden here. Nothing while the device
  * is locked or Sable private mode is on, and nothing from a work or private profile: the home

@@ -13,9 +13,9 @@
     <string name="profile_unknown">Profil bilinmiyor (bu sürüm bildirmiyor)</string>
     <string name="profile_unrecognized">Tanınmayan profil kimliği: %1$s</string>
     <string name="row_style_title">Profil</string>
-    <string name="row_style_detail">BlackBerry 10 veya BlackBerry 7: Sable Start\'ın görünümü ve davranışı</string>
+    <string name="row_style_detail">BlackBerry 10 veya BlackBerry 7: Sable Launcher\'ın görünümü ve davranışı</string>
     <string name="row_home_title">Ana ekran uygulaması</string>
-    <string name="row_home_in_use">Kullanımda: %1$s · Sable Start\'ı veya başka bir başlatıcıyı seç</string>
+    <string name="row_home_in_use">Kullanımda: %1$s · Sable Launcher\'ı veya başka bir başlatıcıyı seç</string>
     <string name="row_home_none">Ana ekran uygulaması bulunamadı</string>
     <string name="row_home_failed">Ana ekran uygulaması okunamadı</string>
     <string name="row_keyboard_title">Klavye</string>

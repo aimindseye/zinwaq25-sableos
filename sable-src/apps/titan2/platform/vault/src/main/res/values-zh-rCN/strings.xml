@@ -39,7 +39,7 @@
     <string name="could_not_import">" 无法导入："</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · 照片 · 文档 · 录音 · 仅在明确操作时导入/导出</string>
-    <string name="secure_vault_works_only_inside">Secure Vault 只能在 Private Space 内使用。请在 Sable Start（全部应用）中解锁 Private Space，并在那里打开 Secure Vault。不会在其外存储任何内容。</string>
+    <string name="secure_vault_works_only_inside">Secure Vault 只能在 Private Space 内使用。请在 Sable Launcher（全部应用）中解锁 Private Space，并在那里打开 Secure Vault。不会在其外存储任何内容。</string>
     <string name="nothing_here_yet_press_i">这里还没有内容。按 I 导入文件的副本。</string>
-    <string name="could_not_lock_private_space">无法从此处锁定 Private Space；请在 Sable Start 中锁定。保险库已关闭。</string>
+    <string name="could_not_lock_private_space">无法从此处锁定 Private Space；请在 Sable Launcher 中锁定。保险库已关闭。</string>
 </resources>

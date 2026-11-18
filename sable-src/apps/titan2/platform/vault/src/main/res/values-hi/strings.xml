@@ -39,7 +39,7 @@
     <string name="could_not_import">" आयात विफल: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · फ़ोटो · दस्तावेज़ · रिकॉर्डिंग · आयात/निर्यात केवल स्पष्ट रूप से</string>
-    <string name="secure_vault_works_only_inside">Secure Vault केवल Private Space के अंदर काम करता है। Sable Start (सभी ऐप) में Private Space अनलॉक करें और वहीं Secure Vault खोलें। बाहर कुछ भी संग्रहीत नहीं होता।</string>
+    <string name="secure_vault_works_only_inside">Secure Vault केवल Private Space के अंदर काम करता है। Sable Launcher (सभी ऐप) में Private Space अनलॉक करें और वहीं Secure Vault खोलें। बाहर कुछ भी संग्रहीत नहीं होता।</string>
     <string name="nothing_here_yet_press_i">यहाँ अभी कुछ नहीं है। किसी फ़ाइल की प्रति आयात करने के लिए I दबाएँ।</string>
-    <string name="could_not_lock_private_space">यहाँ से Private Space लॉक करना विफल रहा; इसे Sable Start से लॉक करें। वॉल्ट बंद हो गया।</string>
+    <string name="could_not_lock_private_space">यहाँ से Private Space लॉक करना विफल रहा; इसे Sable Launcher से लॉक करें। वॉल्ट बंद हो गया।</string>
 </resources>

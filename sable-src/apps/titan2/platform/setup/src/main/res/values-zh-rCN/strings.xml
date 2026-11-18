@@ -13,9 +13,9 @@
     <string name="profile_unknown">配置文件未知（此版本未报告）</string>
     <string name="profile_unrecognized">无法识别的配置文件 ID：%1$s</string>
     <string name="row_style_title">配置文件</string>
-    <string name="row_style_detail">BlackBerry 10 或 BlackBerry 7:Sable Start 的外观和行为</string>
+    <string name="row_style_detail">BlackBerry 10 或 BlackBerry 7:Sable Launcher 的外观和行为</string>
     <string name="row_home_title">主屏幕应用</string>
-    <string name="row_home_in_use">使用中：%1$s · 请选择 Sable Start 或其他启动器</string>
+    <string name="row_home_in_use">使用中：%1$s · 请选择 Sable Launcher 或其他启动器</string>
     <string name="row_home_none">未找到主屏幕应用</string>
     <string name="row_home_failed">无法读取主屏幕应用</string>
     <string name="row_keyboard_title">键盘</string>

@@ -39,7 +39,7 @@
     <string name="could_not_import">" インポートできませんでした: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · 写真 · ドキュメント · 録音 · インポート／エクスポートは明示的な操作のみ</string>
-    <string name="secure_vault_works_only_inside">Secure Vault は Private Space の中でのみ動作します。Sable Start（すべてのアプリ）で Private Space のロックを解除し、そこで Secure Vault を開いてください。外部には何も保存されません。</string>
+    <string name="secure_vault_works_only_inside">Secure Vault は Private Space の中でのみ動作します。Sable Launcher（すべてのアプリ）で Private Space のロックを解除し、そこで Secure Vault を開いてください。外部には何も保存されません。</string>
     <string name="nothing_here_yet_press_i">まだ何もありません。I を押すとファイルのコピーをインポートできます。</string>
-    <string name="could_not_lock_private_space">ここから Private Space をロックできませんでした。Sable Start からロックしてください。金庫を閉じました。</string>
+    <string name="could_not_lock_private_space">ここから Private Space をロックできませんでした。Sable Launcher からロックしてください。金庫を閉じました。</string>
 </resources>

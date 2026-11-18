@@ -10,7 +10,7 @@ import org.sableos.hub.HubText.t
 /**
  * Hub inbox filters (SABLE_HUB_KEYBOARD_FIRST_UX "Filters"): one list, narrowed by source or by
  * what needs attention. Each filter has a single-letter key that works while focus is on a filter
- * chip or a row (never while typing in a text field, where letters stay text). Sable Start opens
+ * chip or a row (never while typing in a text field, where letters stay text). Sable Launcher opens
  * Hub on one of them with [HubIntents.EXTRA_FILTER].
  */
 enum class HubInboxFilter(

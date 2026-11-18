@@ -91,7 +91,7 @@ enum class HubPreviewPolicy(
  *   (owner decision 2026-11-06): Hub shows every app Android lets notify; Connected apps turns one off.
  * - [favorite]: "Hub priority"; ordering/aggregation only, never a DND exception.
  * - [allowQuickReply]: whether Hub may offer a source-provided RemoteInput reply.
- * - [hideFromLauncher]: Sable Start hides the app while Hub represents it (Panther V1).
+ * - [hideFromLauncher]: Sable Launcher hides the app while Hub represents it (Panther V1).
  * - [retention]: bounded local derived history.
  * - [previewPolicy]: privacy-safe preview preference.
  */

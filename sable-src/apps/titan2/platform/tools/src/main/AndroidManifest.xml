@@ -85,7 +85,7 @@
         </activity>
 
         <!--
-          One tool. Other Sable surfaces (Settings > Diagnostics, Sable Command, Sable Start pins) open a tool with
+          One tool. Other Sable surfaces (Settings > Diagnostics, Sable Command, Sable Launcher pins) open a tool with
           org.sableos.tools.action.OPEN_TOOL + extra org.sableos.tools.extra.TOOL (a core Tool name), or resolve a
           query (friendly name or dialer code) with org.sableos.tools.action.SEARCH + extra
           org.sableos.tools.extra.QUERY. Everything it opens is read-only; gating is re-checked on arrival.

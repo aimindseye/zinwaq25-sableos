@@ -7,7 +7,7 @@ import android.telecom.TelecomManager
 
 /**
  * Telecom hands the missed call notification to the default Phone app (ACTION_SHOW_MISSED_CALLS_NOTIFICATION),
- * so it comes from Sable Phone and Sable Start's Hub bar opens the Calls tab for it. Only Telecom can send it:
+ * so it comes from Sable Phone and Sable Launcher's Hub bar opens the Calls tab for it. Only Telecom can send it:
  * the receiver requires MODIFY_PHONE_STATE.
  */
 class MissedCallReceiver : BroadcastReceiver() {

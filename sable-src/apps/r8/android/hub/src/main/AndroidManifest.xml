@@ -92,7 +92,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop">
-            <!-- No launcher entry: Sable Start's Hub page is the one Hub (All · Messages · Calls ·
+            <!-- No launcher entry: Sable Launcher's Hub page is the one Hub (All · Messages · Calls ·
                  Contacts, with the unread bar). Hub stays installed for its providers, its
                  notification listener and the screens below. -->
             <!-- Shade "H" (patches/framework/frameworks/base 0301): open a notification in Hub. -->
@@ -105,7 +105,7 @@
                 <action android:name="org.sableos.hub.action.OPEN_CONVERSATION" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-            <!-- Sable Start's Hub page: a message row opens its thread, Menu its row menu. -->
+            <!-- Sable Launcher's Hub page: a message row opens its thread, Menu its row menu. -->
             <intent-filter>
                 <action android:name="org.sableos.hub.action.OPEN_THREAD" />
                 <category android:name="android.intent.category.DEFAULT" />

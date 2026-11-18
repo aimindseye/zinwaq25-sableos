@@ -7,7 +7,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 
 /**
- * Cosgrove's name for Sable Start's Command (/cosgrove follows a rename): one row, the name and
+ * Cosgrove's name for Sable Launcher's Command (/cosgrove follows a rename): one row, the name and
  * its command word. Nothing else is readable; no key, address or conversation.
  */
 class PersonaProvider : ContentProvider() {

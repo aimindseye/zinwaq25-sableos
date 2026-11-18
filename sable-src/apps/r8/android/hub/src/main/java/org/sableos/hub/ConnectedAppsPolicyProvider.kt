@@ -29,7 +29,7 @@ class ConnectedAppsPolicyProvider : ContentProvider() {
         }
 
         // HUB_CONNECTED_APPS_PARITY: without Android notification access Hub cannot show these
-        // apps, so Sable Start must not hide them either.
+        // apps, so Sable Launcher must not hide them either.
         val hidden =
             ConnectedAppsParity.effectiveHiddenKeys(
                 policies = ConnectedAppsRepository(appContext).loadPolicies(),

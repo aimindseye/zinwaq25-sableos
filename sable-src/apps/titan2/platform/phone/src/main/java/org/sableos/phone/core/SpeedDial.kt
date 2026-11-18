@@ -1,7 +1,7 @@
 package org.sableos.phone.core
 
 /**
- * BlackBerry speed dial on letter keys: holding a letter calls the number put on it. The contract Sable Start
+ * BlackBerry speed dial on letter keys: holding a letter calls the number put on it. The contract Sable Launcher
  * reads (authority, permission, action, extra, column) is the one the Sable Lineage Dialer patch 0710 defined, so
  * Start keeps working when Sable Phone replaces that Dialer.
  */

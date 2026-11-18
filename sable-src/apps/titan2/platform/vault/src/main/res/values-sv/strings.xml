@@ -39,7 +39,7 @@
     <string name="could_not_import">" Kunde inte importera: "</string>
     <string name="secure_vault">Secure Vault</string>
     <string name="private_space_photos_documents_recordings">Private Space · Foton · Dokument · Inspelningar · import/export bara uttryckligen</string>
-    <string name="secure_vault_works_only_inside">Secure Vault fungerar bara inne i Private Space. Lås upp Private Space i Sable Start (Alla appar) och öppna Secure Vault där. Inget lagras utanför.</string>
+    <string name="secure_vault_works_only_inside">Secure Vault fungerar bara inne i Private Space. Lås upp Private Space i Sable Launcher (Alla appar) och öppna Secure Vault där. Inget lagras utanför.</string>
     <string name="nothing_here_yet_press_i">Inget här än. Tryck på I för att importera en kopia av en fil.</string>
-    <string name="could_not_lock_private_space">Kunde inte låsa Private Space härifrån; lås det från Sable Start. Valvet stängdes.</string>
+    <string name="could_not_lock_private_space">Kunde inte låsa Private Space härifrån; lås det från Sable Launcher. Valvet stängdes.</string>
 </resources>

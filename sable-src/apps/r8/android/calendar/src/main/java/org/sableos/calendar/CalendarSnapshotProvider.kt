@@ -100,7 +100,7 @@ class CalendarSnapshotProvider : ContentProvider() {
     ): Int = throw UnsupportedOperationException("Read-only provider")
 
     /**
-     * Sable Start reads everything; SystemUI reads only the next event, for the lock screen
+     * Sable Launcher reads everything; SystemUI reads only the next event, for the lock screen
      * (frameworks/base 0317), which names it "Event" while the lock screen hides content; Hub reads
      * the next events for its strip at the top; Sable Watch reads them for the watch face's Agenda Peek.
      */

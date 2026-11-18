@@ -21,7 +21,7 @@ object SetupRows {
     /** Names for the packages this list commonly shows; anything else is shown as its package. */
     private val KNOWN_NAMES =
         mapOf(
-            SABLE_START_PACKAGE to "Sable Start",
+            SABLE_START_PACKAGE to "Sable Launcher",
             "com.android.launcher3" to "Launcher3",
             SABLE_KEYBOARD_PACKAGE to "Sable keyboard",
             "com.google.android.inputmethod.latin" to "Gboard",

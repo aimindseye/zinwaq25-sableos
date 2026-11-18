@@ -30,13 +30,13 @@ object HubIntents {
     const val EXTRA_NOTIFICATION_KEY = "org.sableos.hub.extra.NOTIFICATION_KEY"
 
     /**
-     * Optional search text. Sable Start's Command sends it with ACTION_MAIN + CATEGORY_LAUNCHER to
+     * Optional search text. Sable Launcher's Command sends it with ACTION_MAIN + CATEGORY_LAUNCHER to
      * open Hub with its search pre-filled; empty or missing means a normal launch.
      */
     const val EXTRA_QUERY = "org.sableos.hub.extra.QUERY"
 
     /**
-     * Optional inbox filter, sent with ACTION_MAIN + CATEGORY_LAUNCHER (Sable Start's Hub page and
+     * Optional inbox filter, sent with ACTION_MAIN + CATEGORY_LAUNCHER (Sable Launcher's Hub page and
      * its base-bar Hub slot): one of [HubInboxFilter] by name in any case ("priority", "messages",
      * "missed", "calls", "mail", "notifications", "people", "all") or an alias in [FILTER_ALIASES].
      * Unknown values are ignored (a normal launch). Combines with [EXTRA_QUERY].
@@ -54,7 +54,7 @@ object HubIntents {
     const val EXTRA_ADDRESS = "org.sableos.hub.extra.ADDRESS"
 
     /**
-     * Sable Start's Hub page: open the Hub thread [EXTRA_THREAD_ID] (a `thread_id` from the
+     * Sable Launcher's Hub page: open the Hub thread [EXTRA_THREAD_ID] (a `thread_id` from the
      * snapshot provider's `messages`), or with [EXTRA_ROW_MENU] show that row's menu in the inbox.
      * It only navigates; an unknown thread opens the inbox.
      */

@@ -4,7 +4,7 @@ import org.sableos.hub.policy.CountedNotification
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * The posted notifications that count for Sable Start's unread bar, by notification key
+ * The posted notifications that count for Sable Launcher's unread bar, by notification key
  * ([org.sableos.hub.policy.HubAppCounts]). In memory only: the listener seeds it from Android's
  * active notifications whenever it connects and clears it when it disconnects. Holds the source
  * package, its profile serial and a weight; never notification text.
