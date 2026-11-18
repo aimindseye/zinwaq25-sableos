@@ -11,7 +11,12 @@ import java.net.URI
 object ServerAddress {
     const val OLLAMA_PORT = 11434
 
-    /** "scheme://host[:port][/path]" without a trailing slash or /v1, or null when it is not an address. */
+    private const val V1 = "/v1"
+
+    /**
+     * "scheme://host[:port][/path]" without a trailing slash, or null when it is not an address.
+     * The path is kept as typed: a Custom server's API base may be /v1, /api/v1 or /openai/v1.
+     */
     fun normalize(
         input: String,
         defaultPort: Int? = null,
@@ -23,17 +28,16 @@ object ServerAddress {
         val host = uri?.host
         if (uri == null || scheme !in WEB_SCHEMES || host.isNullOrEmpty()) return null
         val port = if (uri.port > 0) uri.port else defaultPort
-        val path =
-            uri.rawPath
-                .orEmpty()
-                .trimEnd('/')
-                .removeSuffix("/v1")
+        val path = uri.rawPath.orEmpty().trimEnd('/')
         return buildString {
             append(scheme).append("://").append(host)
             if (port != null) append(':').append(port)
             append(path)
         }
     }
+
+    /** The Ollama API base for a [normalized] address: exactly one /v1, whether or not it was typed. */
+    fun withSingleV1(normalized: String): String = normalized.removeSuffix(V1) + V1
 
     /** Whether Cosgrove may talk to [normalized]: https anywhere, plain http only on the owner's network. */
     fun allowed(normalized: String): Boolean {

@@ -11,9 +11,11 @@ class CoreTest {
     @Test
     fun addressesAreNormalizedTheWayPeopleTypeThem() {
         assertEquals("http://192.168.1.20:11434", ServerAddress.normalize("192.168.1.20", ServerAddress.OLLAMA_PORT))
-        assertEquals("http://192.168.1.20:11434", ServerAddress.normalize(" http://192.168.1.20:11434/v1/ ", 1))
+        assertEquals("http://192.168.1.20:11434/v1", ServerAddress.normalize(" http://192.168.1.20:11434/v1/ ", 1))
         assertEquals("http://pc.local:1234", ServerAddress.normalize("pc.local:1234"))
-        assertEquals("https://llm.example.org/api", ServerAddress.normalize("https://llm.example.org/api/v1"))
+        assertEquals("https://llm.example.org/api/v1", ServerAddress.normalize("https://llm.example.org/api/v1"))
+        assertEquals("https://llm.example.org/api/v1", ServerAddress.normalize("https://llm.example.org/api/v1/"))
+        assertEquals("https://box.ts.net:8443/v1", ServerAddress.normalize("https://box.ts.net:8443/v1"))
         assertNull(ServerAddress.normalize(""))
         assertNull(ServerAddress.normalize("ftp://x"))
         assertNull(ServerAddress.normalize("192.168 .1.2"))
@@ -40,6 +42,36 @@ class CoreTest {
         assertTrue(groq.missingKey())
         assertFalse(groq.copy(apiKey = "k").missingKey())
         assertFalse(ollama.missingKey())
+    }
+
+    @Test
+    fun ollamaGetsExactlyOneV1() {
+        val ollama = AssistantSettings(provider = AssistantProvider.Ollama)
+        val expected = ApiBase.Ready("http://192.168.1.20:11434/v1")
+        listOf("192.168.1.20", "192.168.1.20:11434", "http://192.168.1.20:11434/", "192.168.1.20:11434/v1", "http://192.168.1.20:11434/v1/")
+            .forEach { assertEquals(it, expected, ollama.copy(address = it).base()) }
+        assertEquals(
+            ApiBase.Ready("https://box.ts.net:8443/v1"),
+            ollama.copy(address = "https://box.ts.net:8443/v1").base(),
+        )
+    }
+
+    @Test
+    fun customKeepsItsFullApiBasePath() {
+        val custom = AssistantSettings(provider = AssistantProvider.Custom)
+        listOf(
+            "https://box.ts.net:8443/v1" to "https://box.ts.net:8443/v1",
+            "https://box.ts.net:8443/v1/" to "https://box.ts.net:8443/v1",
+            "https://llm.example.org/api/v1" to "https://llm.example.org/api/v1",
+            "https://llm.example.org/openai/v1/" to "https://llm.example.org/openai/v1",
+            "https://box.ts.net:8443" to "https://box.ts.net:8443",
+            "http://pc.local:1234/v1" to "http://pc.local:1234/v1",
+        ).forEach { (typed, base) -> assertEquals(typed, ApiBase.Ready(base), custom.copy(address = typed).base()) }
+        // The requests the client builds from that base: GET <base>/models and POST <base>/chat/completions.
+        val ready = custom.copy(address = "https://box.ts.net:8443/v1").base() as ApiBase.Ready
+        assertEquals("https://box.ts.net:8443/v1/models", "${ready.url}/models")
+        assertEquals("https://box.ts.net:8443/v1/chat/completions", "${ready.url}/chat/completions")
+        assertEquals(ApiBase.Problem(SetupProblem.PlainHttpOutside), custom.copy(address = "http://8.8.8.8/v1").base())
     }
 
     @Test

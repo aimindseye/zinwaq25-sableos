@@ -35,7 +35,10 @@ data class AssistantSettings(
     val apiKey: String = "",
     val model: String = "",
 ) {
-    /** The API base the requests go to, or why there is none yet. */
+    /**
+     * The API base the requests go to, or why there is none yet. Ollama gets exactly one /v1; a
+     * Custom server keeps the full API base path as entered (/v1, /api/v1, /openai/v1).
+     */
     fun base(): ApiBase {
         val chosen = provider
         val port = if (chosen == AssistantProvider.Ollama) ServerAddress.OLLAMA_PORT else null
@@ -45,7 +48,7 @@ data class AssistantSettings(
             chosen.hostedBase != null -> ApiBase.Ready(chosen.hostedBase)
             normalized == null -> ApiBase.Problem(SetupProblem.NoAddress)
             !ServerAddress.allowed(normalized) -> ApiBase.Problem(SetupProblem.PlainHttpOutside)
-            chosen == AssistantProvider.Ollama -> ApiBase.Ready("$normalized/v1")
+            chosen == AssistantProvider.Ollama -> ApiBase.Ready(ServerAddress.withSingleV1(normalized))
             else -> ApiBase.Ready(normalized)
         }
     }
