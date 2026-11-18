@@ -507,6 +507,16 @@ grep -q $'^SableHome\tplatform\tflavor:launcher\t' product/q25/apps.tsv &&
     python3 -I -m py_compile sable-src/apps/r8/launcher/apply_sable_flavor.py sable-src/apps/r8/launcher/verify_sable_launcher.py &&
     pass "SableOS home flavor (Sable Launcher pinned, org.sableos.launcher)" || fail "SableOS home flavor"
 
+# 6b0b. The profile (BlackBerry 10 or 7) is one whole-OS setting: Settings.Secure "sable_profile", read by
+#       org.sableos.design.SableProfile and written by the launcher (which reads it first).
+prof_bad=""
+sd=sable-src/src/android/shared/sabledesign/src
+grep -q 'const val SETTING_KEY = "sable_profile"' $sd/main/java/org/sableos/design/SableProfile.kt || prof_bad="$prof_bad key"
+[[ -f $sd/test/java/org/sableos/design/SableProfileTest.kt ]] || prof_bad="$prof_bad test"
+grep -q 'patch_profile_setting(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || prof_bad="$prof_bad not-applied"
+grep -q '"profile_setting"' sable-src/apps/r8/launcher/verify_sable_launcher.py || prof_bad="$prof_bad verify"
+if [[ -z "$prof_bad" ]]; then pass "profile: one whole-OS setting (sable_profile), written by the launcher, read by SableProfile"; else fail "profile setting:$prof_bad"; fi
+
 # 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
 # extras and screen capture, and the verify step fails the build if they come back.
 home_bad=""
