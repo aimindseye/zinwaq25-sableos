@@ -44,10 +44,8 @@
     <string name="work">العمل</string>
     <string name="weather_and_date">الطقس والتاريخ</string>
     <string name="search_or_command_row">صف البحث أو الأوامر</string>
-    <string name="status_dials">سطر الحالة</string>
     <string name="temperature_condition_and_place_with">الحرارة والحالة والمكان، والتاريخ تحتها</string>
     <string name="a_command_row_under_the">صف أوامر تحت الطقس؛ الكتابة تعمل بدونه</string>
-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi والجوال وCPU وRAM ووقت البطارية المتبقي والخلية والإعدادات</string>
     <string name="weather">الطقس</string>
     <string name="calendar">التقويم</string>
     <string name="media">الوسائط</string>
@@ -233,9 +231,7 @@
     <string name="shortcuts_and_notification_content_stay">تبقى الاختصارات ومحتوى الإشعارات مخفية حتى تُربط بوابات القدرات والخصوصية في Android.</string>
     <string name="follow_system">اتباع النظام</string>
     <string name="reset_follow_system_sable_blue">إعادة الضبط · اتباع النظام + أزرق Sable</string>
-    <string name="mobile">الجوال</string>
     <string name="bat">⚡ بطارية</string>
-    <string name="cell">الخلية</string>
     <string name="action_open">فتح</string>
     <string name="action_uninstall">إلغاء التثبيت</string>
     <string name="action_disable">تعطيل</string>

@@ -44,10 +44,8 @@
     <string name="work">עבודה</string>
     <string name="weather_and_date">מזג אוויר ותאריך</string>
     <string name="search_or_command_row">שורת חיפוש או פקודות</string>
-    <string name="status_dials">שורת מצב</string>
     <string name="temperature_condition_and_place_with">טמפרטורה, תנאים ומקום, עם התאריך מתחת</string>
     <string name="a_command_row_under_the">שורת פקודות מתחת למזג האוויר; ההקלדה עובדת גם בלעדיה</string>
-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, סלולרי, CPU, RAM, זמן סוללה שנותר, תא ו-הגדרות</string>
     <string name="weather">מזג אוויר</string>
     <string name="calendar">יומן</string>
     <string name="media">מדיה</string>
@@ -233,9 +231,7 @@
     <string name="shortcuts_and_notification_content_stay">קיצורי דרך ותוכן התראות נשארים מוסתרים עד שמחברים את שערי היכולות והפרטיות של Android.</string>
     <string name="follow_system">לפי המערכת</string>
     <string name="reset_follow_system_sable_blue">איפוס · לפי המערכת + כחול Sable</string>
-    <string name="mobile">סלולרי</string>
     <string name="bat">⚡ סוללה</string>
-    <string name="cell">תא</string>
     <string name="action_open">פתיחה</string>
     <string name="action_uninstall">הסרת התקנה</string>
     <string name="action_disable">השבתה</string>

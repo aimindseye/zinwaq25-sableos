@@ -1312,7 +1312,7 @@ private fun pageDescription(page: Int): String =
     }
 
 /**
- * Active Frames (BB10 Home). On top, the status dials and Settings gear, then
+ * Active Frames (BB10 Home). On top, the Settings gear, then
  * the location's weather with the date under it (no clock: the status bar
  * keeps the only one; no greeting). Below, up to eight recent apps as live
  * cards, two by two, scrolling down for more. Each card shows the app's
@@ -1364,9 +1364,7 @@ private fun ActiveFramesPage(
     fun shown(section: String) = HomeLayout.isShown(hiddenSections, section)
 
     Column(modifier = Modifier.fillMaxSize()) {
-        if (shown(HomeLayout.STATUS_RINGS)) {
-            StatusDialsRow(onOpenSettings = onOpenSettings)
-        }
+        SettingsGearRow(onOpenSettings = onOpenSettings)
         if (shown(HomeLayout.WEATHER)) {
             WeatherDateHeader(
                 datum = snapshot.weather,
@@ -1404,14 +1402,14 @@ private fun ActiveFramesPage(
     }
 }
 
-/** The status line (Wi-Fi, Mobile, CPU, RAM, battery, Cell as stat labels) and the Settings gear. */
+/** The Settings gear at the right edge; the status dials and status line are gone in 2.0. */
 @Composable
-private fun StatusDialsRow(onOpenSettings: () -> Unit) {
+private fun SettingsGearRow(onOpenSettings: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = FRAME_PADDING, end = 2.dp, top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SableStatusLabels(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(1f))
         Text(
             text = "⚙",
             fontSize = 22.sp,
@@ -4082,7 +4080,7 @@ private fun HomeEdit.moved(
 /**
  * Edit Home: one mode that orders the app grid, the bottom bar and the Glance
  * widgets shown as frames while no app runs, and shows or hides the Active
- * Frames header (status dials, weather and date, search row). Drag, or with
+ * Frames header (weather and date, search row). Drag, or with
  * the keyboard: Enter picks an item up and drops it, arrows move it while
  * picked up (all four on the grid, Left/Right on the bar, Up/Down in the
  * list), Alt+arrows (Fn+arrows) move the focused item at once, Menu or Space
@@ -6930,7 +6928,7 @@ private val FRAME_LABEL_HEIGHT = 28.dp
 private val FRAME_CORNER = 6.dp
 private const val FRAME_STRIP_ICON_DP = 18
 
-/** Two rows of frames always fit under the dials and the weather on a 411dp square. */
+/** Two rows of frames always fit under the Settings gear and the weather on a 411dp square. */
 private val FRAME_MIN_HEIGHT = 72.dp
 private const val FRAME_ICON_DP = 40
 private val FRAME_SCRIM = Color(0xCC0F1114)

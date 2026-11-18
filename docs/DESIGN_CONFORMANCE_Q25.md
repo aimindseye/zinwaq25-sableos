@@ -40,7 +40,7 @@ Status words: **Done in code** (built and unit-tested, not yet seen on a device)
 
 | Area | What changed |
 |---|---|
-| Sable Start | BlackBerry 10 layout: Hub on the left, Active Frames (real recent apps, Private Space excluded) as home, app grid pages on the right, and a page dots (no bar by default since sable-src 0113; Hub · Camera slots optional) (owner decision 2026-11-04; the call key opens Phone, typing or Alt+Space opens Search). Status dials stay at the top; weather and date replace the clock. |
+| Sable Start | BlackBerry 10 layout: Hub on the left, Active Frames (real recent apps, Private Space excluded) as home, app grid pages on the right, and a page dots (no bar by default since sable-src 0113; Hub · Camera slots optional) (owner decision 2026-11-04; the call key opens Phone, typing or Alt+Space opens Search). The status dials and status line are removed (2.0); the Settings gear stays at the top; weather and date replace the clock. |
 | Lock screen | The clock follows the doze tick, time zone and 12/24h (the "wrong time" report). Count row, Locked label, private card, Alt+Space emergency shortcut. |
 | Notification LED | Amber blinks while charging; solid green only at 100 %. (Replaced in PR #32: the Q25 LED can't show amber.) |
 | Battery health | The kernel reports the fuel gauge's learned cycle count and capacity; Settings shows voltage. |

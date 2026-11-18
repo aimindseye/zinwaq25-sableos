@@ -17,11 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -29,7 +25,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -38,77 +33,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.repeatOnLifecycle
-import com.sable.start.model.StartText.t
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import org.sableos.start.platform.DeviceStats
-import org.sableos.start.platform.DeviceStatsFormat
-import org.sableos.start.platform.DeviceStatsSampler
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
-
-// SableOS 2.0 is black and white (UI direction, 2026-11-04): every arc is white, and only a value
-// past its limit turns red (the error colour).
-private const val SAMPLE_INTERVAL_MS = 3_000L
-
-/** Samples the device every three seconds while HOME is started; null until the first sample. */
-@Composable
-private fun rememberDeviceStats(): DeviceStats? {
-    val context = LocalContext.current.applicationContext
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val sampler = remember { DeviceStatsSampler() }
-    var stats by remember { mutableStateOf<DeviceStats?>(null) }
-    LaunchedEffect(lifecycle, sampler) {
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) {
-                stats = withContext(Dispatchers.IO) { sampler.sample(context) }
-                delay(SAMPLE_INTERVAL_MS)
-            }
-        }
-    }
-    return stats
-}
-
-/**
- * The Start header's status as one line of stat labels (Sable 2.0, UI direction 2026-11-04: no
- * dials on home): Wi-Fi and mobile download rate, CPU, RAM, battery and cell bars, in grey. The
- * Device Monitor frame keeps its dials.
- */
-@Composable
-fun SableStatusLabels(modifier: Modifier = Modifier) {
-    val st = rememberDeviceStats() ?: return
-    val line = statusLabelLine(st, mobile = t("mobile"), cell = t("cell"))
-    val low = st.battery <= LOW_BATTERY && !st.charging
-    Text(
-        text = line,
-        style = MaterialTheme.typography.labelMedium,
-        color = if (low) MaterialTheme.colorScheme.error else Color(0xFFA6A6A6),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = modifier.semantics { contentDescription = line },
-    )
-}
-
-/** "Wi-Fi ↓1.2K · CPU 23% · RAM 61% · BAT 82%+ · Cell 3/4"; a part with no reading is left out. */
-internal fun statusLabelLine(st: DeviceStats, mobile: String, cell: String): String =
-    listOfNotNull(
-        st.wifiDown?.let { "Wi-Fi ↓" + DeviceStatsFormat.rate(it) },
-        st.mobileDown?.let { "$mobile ↓" + DeviceStatsFormat.rate(it) },
-        st.cpu?.let { "CPU ${percent(it)}" },
-        "RAM ${percent(st.ram)}",
-        "BAT ${percent(st.battery)}" + if (st.charging) "+" else "",
-        st.signal?.let { "$cell ${(it * CELL_BARS).roundToInt()}/$CELL_BARS" },
-    ).joinToString(" · ")
-
-private fun percent(fraction: Float): String = "${(fraction.coerceIn(0f, 1f) * 100).roundToInt()}%"
-
-private const val LOW_BATTERY = 0.2f
-private const val CELL_BARS = 4
 
 /**
  * A 270° gauge: a dim track, an arc that eases to each new sample, a bright

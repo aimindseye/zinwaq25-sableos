@@ -44,10 +44,8 @@
     <string name="work">İş</string>
     <string name="weather_and_date">Hava durumu ve tarih</string>
     <string name="search_or_command_row">Arama veya komut satırı</string>
-    <string name="status_dials">Durum satırı</string>
     <string name="temperature_condition_and_place_with">Sıcaklık, durum ve yer; altında tarih</string>
     <string name="a_command_row_under_the">Hava durumunun altında bir komut satırı; o olmadan da yazılabilir</string>
-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, mobil, CPU, RAM, kalan pil süresi, hücre ve Ayarlar</string>
     <string name="weather">Hava durumu</string>
     <string name="calendar">Takvim</string>
     <string name="media">Medya</string>
@@ -233,9 +231,7 @@
     <string name="shortcuts_and_notification_content_stay">Kısayollar ve bildirim içeriği, Android yetenek ve gizlilik kapıları bağlanana kadar gizli kalır.</string>
     <string name="follow_system">sistemi izle</string>
     <string name="reset_follow_system_sable_blue">sıfırla · sistemi izle + Sable Mavisi</string>
-    <string name="mobile">Mobil</string>
     <string name="bat">⚡ PİL</string>
-    <string name="cell">Hücre</string>
     <string name="action_open">aç</string>
     <string name="action_uninstall">kaldır</string>
     <string name="action_disable">devre dışı bırak</string>

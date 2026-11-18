@@ -89,7 +89,7 @@ import org.sableos.start.platform.SpeedDialRepository
 
 /**
  * Sable Start in the BlackBerry 7 style ([org.sableos.start.model.HomeStyle.Bb7]): the banner
- * (status dials, date, weather and unread count; the time is the status bar's, so it is not shown
+ * (date, weather and unread count; the time is the status bar's, so it is not shown
  * twice) on the wallpaper, and a tray along the bottom with one row of Favorites that opens into
  * the whole panel. Keys as on BlackBerry 7: arrows move, Enter opens, Up opens the tray and
  * Escape closes it, Space switches panels (Favorites, Recent, All, Downloads, then your folders), typing
@@ -591,7 +591,7 @@ fun Bb7HomeScreen(
 }
 
 /**
- * The BlackBerry 7 banner: the status dials (as on the BlackBerry 10 home), the date, weather and
+ * The BlackBerry 7 banner: the date, weather and
  * the Hub unread count, on a scrim so they read over any wallpaper. The status bar shows the time.
  */
 @Composable
@@ -609,9 +609,8 @@ private fun Bb7Banner(
                 .background(BANNER_SCRIM)
                 .padding(horizontal = 12.dp, vertical = if (compact) 4.dp else 8.dp),
     ) {
-        if (!compact) SableStatusLabels(modifier = Modifier.fillMaxWidth())
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f).padding(top = if (compact) 0.dp else 6.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = dateText,
                     color = Color.White,

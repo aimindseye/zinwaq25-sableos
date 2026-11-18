@@ -44,10 +44,8 @@
     <string name="work">Werk</string>
     <string name="weather_and_date">Weer en datum</string>
     <string name="search_or_command_row">Zoek- of opdrachtregel</string>
-    <string name="status_dials">Statusregel</string>
     <string name="temperature_condition_and_place_with">Temperatuur, weertype en plaats, met de datum eronder</string>
     <string name="a_command_row_under_the">Een opdrachtregel onder het weer; typen werkt ook zonder</string>
-    <string name="wi_fi_mobile_cpu_ram">Wifi, mobiel, CPU, RAM, resterende batterijtijd, cel en Instellingen</string>
     <string name="weather">Weer</string>
     <string name="calendar">Agenda</string>
     <string name="media">Media</string>
@@ -233,9 +231,7 @@
     <string name="shortcuts_and_notification_content_stay">Snelkoppelingen en meldingsinhoud blijven verborgen totdat de Android-controles voor mogelijkheden en privacy zijn aangesloten.</string>
     <string name="follow_system">systeem volgen</string>
     <string name="reset_follow_system_sable_blue">terugzetten · systeem volgen + Sable-blauw</string>
-    <string name="mobile">Mobiel</string>
     <string name="bat">⚡ ACCU</string>
-    <string name="cell">Cel</string>
     <string name="action_open">openen</string>
     <string name="action_uninstall">verwijderen</string>
     <string name="action_disable">uitschakelen</string>

@@ -44,10 +44,8 @@
     <string name="work">Pro</string>
     <string name="weather_and_date">Météo et date</string>
     <string name="search_or_command_row">Ligne de recherche ou de commande</string>
-    <string name="status_dials">Ligne d’état</string>
     <string name="temperature_condition_and_place_with">Température, conditions et lieu, avec la date en dessous</string>
     <string name="a_command_row_under_the">Une ligne de commande sous la météo ; la saisie fonctionne sans elle</string>
-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, mobile, CPU, RAM, autonomie restante, cellule et Réglages</string>
     <string name="weather">Météo</string>
     <string name="calendar">Agenda</string>
     <string name="media">Médias</string>
@@ -233,9 +231,7 @@
     <string name="shortcuts_and_notification_content_stay">Les raccourcis et le contenu des notifications restent masqués tant que les garde-fous de capacité et de confidentialité d’Android ne sont pas branchés.</string>
     <string name="follow_system">suivre le système</string>
     <string name="reset_follow_system_sable_blue">réinitialiser · suivre le système + Bleu Sable</string>
-    <string name="mobile">Mobile</string>
     <string name="bat">⚡ BAT</string>
-    <string name="cell">Cellule</string>
     <string name="action_open">ouvrir</string>
     <string name="action_uninstall">désinstaller</string>
     <string name="action_disable">désactiver</string>

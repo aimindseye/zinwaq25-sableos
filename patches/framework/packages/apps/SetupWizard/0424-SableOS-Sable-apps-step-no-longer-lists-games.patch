@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 18 Nov 2026 17:00:00 +0000
+Subject: [PATCH] SableOS: Sable apps step no longer lists games
+
+The Full Sable text named games, which moved to their own repo and are
+not part of the image. The text now lists the apps that are, and points
+to the check boxes.
+---
+ app/src/main/res/values/sable_strings.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
+index a05fa66..eda0f91 100644
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
+@@ -97,7 +97,7 @@
+          uninstalled. -->
+     <string name="setup_sable_apps">Sable apps</string>
+     <string name="sable_apps_summary">Choose which apps to keep on. You can change this later.</string>
+-    <string name="sable_apps_full"><b>Full Sable</b>\nEvery Sable app: Hub, Messages, Calendar, Notes, Tasks, Weather, Mail, Browser, Media, Compass, Print To Go, games and the rest.</string>
++    <string name="sable_apps_full"><b>Full Sable</b>\nEvery Sable app on the phone: Hub, Messages, Calendar, Notes, Tasks, Weather, Mail, Browser, Media, Compass, Print To Go and the rest. Untick any you do not want below.</string>
+     <string name="sable_apps_essentials"><b>Essentials</b>\nThe core apps (Start, Keyboard, Hub, Messages, Phone, Contacts, Sound Profiles, Tools, Vault, Setup and App Compatibility) and Camera. The other Sable apps are turned off.</string>
+     <string name="sable_apps_customize">Tick the apps to keep. Start, Keyboard, Hub, Messages, Phone, Contacts and the other core apps always stay on.</string>
+     <string name="sable_apps_stock"><b>Stock Android</b>\nThe standard Android app wherever the phone has one, such as its Camera, Browser or Calendar. Sable apps are turned off except Start, Keyboard and any app the phone has no other choice for.</string>
