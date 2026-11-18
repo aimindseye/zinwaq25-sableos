@@ -48,8 +48,13 @@ class CoreTest {
     fun ollamaGetsExactlyOneV1() {
         val ollama = AssistantSettings(provider = AssistantProvider.Ollama)
         val expected = ApiBase.Ready("http://192.168.1.20:11434/v1")
-        listOf("192.168.1.20", "192.168.1.20:11434", "http://192.168.1.20:11434/", "192.168.1.20:11434/v1", "http://192.168.1.20:11434/v1/")
-            .forEach { assertEquals(it, expected, ollama.copy(address = it).base()) }
+        listOf(
+            "192.168.1.20",
+            "192.168.1.20:11434",
+            "http://192.168.1.20:11434/",
+            "192.168.1.20:11434/v1",
+            "http://192.168.1.20:11434/v1/",
+        ).forEach { assertEquals(it, expected, ollama.copy(address = it).base()) }
         assertEquals(
             ApiBase.Ready("https://box.ts.net:8443/v1"),
             ollama.copy(address = "https://box.ts.net:8443/v1").base(),
