@@ -59,9 +59,12 @@ Calendar accounts, Connected apps). The row menu adds Mark unread, Add to Priori
 for the app, and Delete. Hub settings add Keep messages, Every message on its own and System
 notifications, and links to Sable Mail (email accounts) and DAVx⁵ (calendar accounts).
 
-Home status (owner, 2026-11-12): `patch_status_icons` renames TenSeven's "Text" status choice to
-Icons, so Launcher settings > Home status reads Dials, Icons, Hidden everywhere. The saved value stays
-`text`, so a phone keeps its choice.
+No status dials (owner, 2026-11-18, replacing the 2026-11-12 Dials, Icons, Hidden choice):
+`patch_no_status_dials` makes Home status always Hidden, so neither home shows the status dials or the
+status line and an earlier saved Dials or Text choice is ignored. The BB10 home keeps the Settings
+gear; the BB7 banner keeps its date, weather and unread count. Edit Home loses its "rings" module and
+Launcher settings loses its Home status choices. The Device Monitor frame keeps its dials. The status
+composables and their strings stay in the source, unreachable.
 
 Extra dim (owner, 2026-11-12): the Q25 backlight has about 25 hardware steps and its lowest is still
 bright, which only the kernel can change. `patch_extra_dim` adds `SableExtraDim` (unit-tested): with manual

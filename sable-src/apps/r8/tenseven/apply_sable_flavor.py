@@ -844,44 +844,126 @@ def patch_frame_covers(root: pathlib.Path) -> None:
     )
 
 
-def patch_status_icons(root: pathlib.Path) -> None:
-    """Home status choices read Dials, Icons, Hidden everywhere (owner, 2026-11-12). TenSeven named the
-    icons choice "Text"; the saved value stays "text", so a phone keeps its choice."""
-    model = root / JAVA / "model/HomeStatusMode.kt"
-    replace_once(model, '    Text("text"),\n', '    Icons("text"),\n', "SABLE_HOME_STATUS_ICONS_ENUM")
-    replace_once(root / JAVA / "ui/BbHomeStatus.kt", "HomeStatusMode.Text ->", "HomeStatusMode.Icons ->", "SABLE_HOME_STATUS_ICONS_DRAW")
+def patch_no_status_dials(root: pathlib.Path) -> None:
+    """No status dials and no status line on either home (owner, 2026-11-18). The BB10 home keeps only the
+    Settings gear; the BB7 banner keeps its date, weather and unread count. Home status is always Hidden,
+    so a saved Dials or Text choice from an earlier build is ignored; the Edit Home "rings" module and the
+    Launcher settings Home status choices are gone. The Device Monitor frame keeps its dials. The status
+    composables and strings stay in the source, unreachable (a later clean-up removes them)."""
+    state = root / JAVA / "platform/StartStateRepository.kt"
     replace_once(
-        root / JAVA / "SettingsSections.kt",
-        'HomeStatusMode.Text to "Text",',
-        'HomeStatusMode.Icons to "Icons",',
-        "SABLE_HOME_STATUS_ICONS_LABEL",
+        state,
+        "    /** One Home status mode, shared across BB7/BB10. The old selected-style choice is retained. */\n"
+        "    fun loadHomeStatusMode(): io.github.aimindseye.tenseven.model.HomeStatusMode =\n"
+        "        io.github.aimindseye.tenseven.model.HomeStatusMode.decode(\n"
+        '            preferences.getString("home_status_mode_shared", null)\n'
+        "                ?: preferences.getString(\n"
+        "                    io.github.aimindseye.tenseven.model.HomeStatusMode\n"
+        "                        .preference(loadHomeStyle()),\n"
+        "                    null,\n"
+        "                ),\n"
+        "            loadHomeDials().size,\n"
+        "        )\n",
+        "    /** SableOS: the status dials and the status line are removed, so Home status is always Hidden. */\n"
+        "    fun loadHomeStatusMode(): io.github.aimindseye.tenseven.model.HomeStatusMode =\n"
+        "        io.github.aimindseye.tenseven.model.HomeStatusMode.Hidden\n",
+        "SABLE_NO_STATUS_DIALS_MODE",
+    )
+    replace_once(
+        root / JAVA / "ui/ActiveFramesPage.kt",
+        "        if (shown(HomeLayout.STATUS_RINGS) && dials.isNotEmpty()) StatusDialsRow(onOpenSettings, dials)\n",
+        "        StatusDialsRow(onOpenSettings, dials)\n",
+        "SABLE_NO_STATUS_DIALS_GEAR",
+    )
+    layout = root / JAVA / "model/HomeLayout.kt"
+    replace_once(layout, '    const val STATUS_RINGS = "rings"\n', "", "SABLE_NO_STATUS_DIALS_CONST")
+    replace_once(
+        layout,
+        "listOf(STATUS_RINGS, WEATHER, SEARCH_ROW)",
+        "listOf(WEATHER, SEARCH_ROW)",
+        "SABLE_NO_STATUS_DIALS_SECTIONS",
+    )
+    replace_once(layout, '            STATUS_RINGS -> t("status_dials")\n', "", "SABLE_NO_STATUS_DIALS_LABEL")
+    replace_once(layout, '            STATUS_RINGS -> t("wi_fi_mobile_cpu_ram")\n', "", "SABLE_NO_STATUS_DIALS_DESCRIPTION")
+    replace_once(
+        layout,
+        " * Top to bottom: the status dials (Wi-Fi, Mobile, CPU, RAM, battery time\n"
+        " * left, Cell, and the Settings gear; on by default, owner request), the\n"
+        " * location's weather",
+        " * Top to bottom: the Settings gear (the status dials are removed), the\n"
+        " * location's weather",
+        "SABLE_NO_STATUS_DIALS_DOC",
+    )
+    replace_once(
+        layout,
+        "    /** Never customised: status dials and weather shown; the search row hidden. */\n",
+        "    /** Never customised: weather shown; the search row hidden. */\n",
+        "SABLE_NO_STATUS_DIALS_DEFAULT_DOC",
+    )
+    layout_test = root / TEST / "model/HomeLayoutTest.kt"
+    replace_once(
+        layout_test,
+        "    fun neverCustomisedShowsStatusDialsAndWeather() {\n"
+        "        val hidden = HomeLayout.normalizeHidden(null)\n"
+        "        assertTrue(HomeLayout.isShown(hidden, HomeLayout.STATUS_RINGS))\n",
+        "    fun neverCustomisedShowsWeather() {\n"
+        "        val hidden = HomeLayout.normalizeHidden(null)\n",
+        "SABLE_NO_STATUS_DIALS_TEST_DEFAULT",
+    )
+    replace_once(
+        layout_test,
+        '        // Dials first, then weather and date: no clock, no greeting.\n'
+        '        assertEquals(listOf("rings", "weather", "search"), HomeLayout.SECTIONS)\n',
+        '        // Weather and date: no clock, no greeting, no status dials.\n'
+        '        assertEquals(listOf("weather", "search"), HomeLayout.SECTIONS)\n',
+        "SABLE_NO_STATUS_DIALS_TEST_SECTIONS",
+    )
+    replace_once(
+        layout_test,
+        '        assertEquals(setOf("rings"), HomeLayout.normalizeHidden(setOf("rings", "bogus")))\n',
+        '        assertEquals(setOf("search"), HomeLayout.normalizeHidden(setOf("rings", "search", "bogus")))\n',
+        "SABLE_NO_STATUS_DIALS_TEST_HIDDEN",
+    )
+    replace_once(
+        root / "app/src/androidTest/java/io/github/aimindseye/tenseven/ui/ActiveFramesUiTest.kt",
+        "                        io.github.aimindseye.tenseven.model.HomeLayout.STATUS_RINGS,\n",
+        "",
+        "SABLE_NO_STATUS_DIALS_UI_TEST",
     )
     settings = root / JAVA / "LauncherSettingsActivity.kt"
     replace_once(
         settings,
-        '        state.loadHomeStatusMode().name.let {\n            if (it ==\n                "Text"\n            ) {\n'
-        '                "Icons"\n            } else {\n                it\n            }\n        },\n',
-        "        state.loadHomeStatusMode().name,\n",
-        "SABLE_HOME_STATUS_ICONS_CARD",
+        '    Section("Home status")\n    Settings2UnifiedHomeStatus(state)\n',
+        "",
+        "SABLE_NO_STATUS_DIALS_SETTINGS_PAGE",
     )
     replace_once(
         settings,
-        'StyleCard(if (choice.name == "Text") "Icons" else choice.name, "",',
-        'StyleCard(choice.name, "",',
-        "SABLE_HOME_STATUS_ICONS_CHOICE",
+        "    Card(\n"
+        '        "Home status",\n'
+        "        state.loadHomeStatusMode().name.let {\n"
+        "            if (it ==\n"
+        '                "Text"\n'
+        "            ) {\n"
+        '                "Icons"\n'
+        "            } else {\n"
+        "                it\n"
+        "            }\n"
+        "        },\n"
+        "        false,\n"
+        '    ) { select("appearance_home") }\n',
+        "",
+        "SABLE_NO_STATUS_DIALS_SETTINGS_CARD",
     )
-    replace_once(
-        settings,
-        'if (mode.name == "Text") "icons" else mode.name.lowercase()',
-        "mode.name.lowercase()",
-        "SABLE_HOME_STATUS_ICONS_ITEMS",
-    )
-    replace_once(
-        root / TEST / "model/HomeStatusModeTest.kt",
-        "HomeStatusMode.Text,",
-        "HomeStatusMode.Icons,",
-        "SABLE_HOME_STATUS_ICONS_TEST",
-    )
+    text = settings.read_text(encoding="utf-8")
+    head = '@Suppress("FunctionNaming")\n@Composable\nprivate fun Settings2UnifiedHomeStatus('
+    tail = "/** Weather is off until a city is provided."
+    if text.count(head) != 1 or text.count(tail) != 1:
+        fail(f"SABLE_NO_STATUS_DIALS_SETTINGS_FUNCTION=FAIL path={settings}")
+    start, end = text.index(head), text.index(tail)
+    if start > end:
+        fail(f"SABLE_NO_STATUS_DIALS_SETTINGS_FUNCTION=FAIL_ORDER path={settings}")
+    settings.write_text(text[:start] + text[end:], encoding="utf-8")
 
 
 def patch_extra_dim(root: pathlib.Path) -> None:
@@ -1516,7 +1598,7 @@ def main() -> None:
     patch_hub_peek(root)
     patch_frame_covers(root)
     patch_hub_keep(root)
-    patch_status_icons(root)
+    patch_no_status_dials(root)
     patch_extra_dim(root)
     patch_home_access(root)
     patch_q25_fit(root)
