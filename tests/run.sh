@@ -663,6 +663,13 @@ else
     fail "daily-driver check: $(grep '^FAIL' "$tmp/daily" | head -5)"
 fi
 
+# 6d2b. Setup tiers cover every enabled app in apps.tsv (static).
+if python3 -I scripts/check-app-tiers.py >"$tmp/tiers" 2>&1; then
+    pass "app setup tiers ($(head -1 "$tmp/tiers" | cut -c7-))"
+else
+    fail "app tiers check: $(grep '^FAIL' "$tmp/tiers" | head -5)"
+fi
+
 # 6d3. Phone/Contacts Sable look patches (Dialer 0707-0709, Contacts 0755-0756), static.
 if python3 -I tests/check-phone-contacts-style.py >"$tmp/phonestyle" 2>&1; then
     pass "Phone/Contacts Sable look ($(grep -c '^PASS' "$tmp/phonestyle") checks)"
