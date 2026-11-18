@@ -517,6 +517,14 @@ grep -q 'patch_profile_setting(root)' sable-src/apps/r8/launcher/apply_sable_fla
 grep -q '"profile_setting"' sable-src/apps/r8/launcher/verify_sable_launcher.py || prof_bad="$prof_bad verify"
 if [[ -z "$prof_bad" ]]; then pass "profile: one whole-OS setting (sable_profile), written by the launcher, read by SableProfile"; else fail "profile setting:$prof_bad"; fi
 
+# 6b0c. Hub follows the BlackBerry rule: Enter runs the default action (opens the message), Menu shows the
+#       rest, and the menu has no Open item; it is a right-edge panel on BB10 and from the bottom on BB7.
+hubm_bad=""
+grep -q 'patch_hub_default_action(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || hubm_bad="$hubm_bad not-applied"
+grep -q '"hub_enter_opens"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hubm_bad="$hubm_bad verify-enter"
+grep -q '"hub_no_open_item"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hubm_bad="$hubm_bad verify-open"
+if [[ -z "$hubm_bad" ]]; then pass "Hub: Enter opens, Menu shows the menu without Open, per-profile menu edge"; else fail "hub default action:$hubm_bad"; fi
+
 # 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
 # extras and screen capture, and the verify step fails the build if they come back.
 home_bad=""

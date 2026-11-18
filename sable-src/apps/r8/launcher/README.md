@@ -21,6 +21,9 @@ in `upstream.env` (upstream PR 127), after `apply_sable_flavor.py` has changed:
 - the profile (BlackBerry 10 or 7) to one whole-OS setting, `Settings.Secure` `sable_profile` (`bb10` or
   `bb7`, `patch_profile_setting`): Sable Setup's Profile step and the launcher's style choice write it, the
   launcher reads it first, and Hub and the Sable apps read it through `org.sableos.design.SableProfile`;
+- Hub rows to the BlackBerry rule (`patch_hub_default_action`): Enter or a tap opens the message in its
+  app, Menu or a long press opens the row's menu, which has no Open item and sits on the right edge in the
+  BlackBerry 10 profile and at the bottom edge in BlackBerry 7;
 - the colours, to the approved tokens: blue `#2E9BD6`, black, raised `#141414`, dividers `#262626`.
 - the widget picker's list, from a fixed 360 dp to at most 360 dp, so the dialog fits the Q25's
   411 dp square screen (about 383 dp under the status bar).

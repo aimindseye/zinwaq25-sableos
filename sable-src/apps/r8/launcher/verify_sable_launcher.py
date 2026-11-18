@@ -16,6 +16,8 @@ def main() -> None:
     manifest = (root / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
     activity = (root / JAVA / "SableStartActivity.kt").read_text(encoding="utf-8")
     state = (root / JAVA / "platform/StartStateRepository.kt").read_text(encoding="utf-8")
+    hub_ui = (root / JAVA / "ui/HubConversationsUi.kt").read_text(encoding="utf-8")
+    hub_panels = (root / JAVA / "ui/HubPanels.kt").read_text(encoding="utf-8")
     hub = (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
     checks = {
         "package": 'applicationId = "org.sableos.launcher"' in build,
@@ -40,6 +42,8 @@ def main() -> None:
         and "CallScreeningService" not in manifest
         and not (root / JAVA / "features").exists(),
         "profile_setting": state.count('"sable_profile"') == 2,
+        "hub_enter_opens": "onClick = { ui.onOpen(conversation) }" in hub_ui and "KEYCODE_MENU" in hub_ui,
+        "hub_no_open_item": "openLabel(" not in hub_panels and "menuFromBottom" in hub_panels,
         "no_extras": "extras." not in manifest and not (root / JAVA / "extras").exists(),
         "no_screen_capture": "mediaProjection" not in manifest
         and "MEDIA_PROJECTION" not in manifest
