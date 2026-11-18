@@ -5,7 +5,7 @@ Subject: [PATCH] SableOS: hold the Recents key for the Hub over any app
 
 2.0 plan, Hub over apps (BB10's peek): with no LineageOS long-press
 action set for the Recents key (the default), holding it opens the SableOS
-home's Hub panel (SableHubPeekActivity, sable-src/apps/r8/tenseven) over the
+home's Hub panel (SableHubPeekActivity, sable-src/apps/r8/launcher) over the
 app in front; Back closes it back to that app. A tap still opens Active
 Frames. Never on the keyguard or before setup, and only when the home has
 the panel. Pure policy: SableCommandKeys.isHubPeekAllowed.
@@ -54,7 +54,7 @@ index 27cd443..86a53aa 100644
          mContext.sendBroadcastAsUser(intent, UserHandle.CURRENT);
      }
  
-+    /** Sable: whether the SableOS home has its Hub peek (sable-src/apps/r8/tenseven). */
++    /** Sable: whether the SableOS home has its Hub peek (sable-src/apps/r8/launcher). */
 +    private boolean isSableHubPeekAvailable() {
 +        final Intent intent = new Intent().setClassName(SableCommandKeys.START_PACKAGE,
 +                SableCommandKeys.HUB_PEEK_ACTIVITY);
@@ -69,7 +69,7 @@ index 74364af..f48be6f 100644
 --- a/services/core/java/com/android/server/policy/sable/SableCommandKeys.java
 +++ b/services/core/java/com/android/server/policy/sable/SableCommandKeys.java
 @@ -37,6 +37,9 @@ public final class SableCommandKeys {
-     /** The SableOS home's BlackBerry 7 style system menu (sable-src/apps/r8/tenseven). */
+     /** The SableOS home's BlackBerry 7 style system menu (sable-src/apps/r8/launcher). */
      public static final String SYSTEM_MENU_ACTIVITY =
              "io.github.aimindseye.tenseven.SableSystemMenuActivity";
 +    /** The SableOS home's Hub over any app, opened by holding the Recents key. */

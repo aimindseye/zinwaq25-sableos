@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Compose the SableOS home (Sable Start 2.0) from the pinned TenSeven Launcher (Apache 2.0).
+"""Compose the SableOS home (Sable Launcher) from the pinned upstream launcher (Apache 2.0).
 
-Owner decision 2026-11-12: TenSeven Launcher is SableOS 2.0's home and Hub. It was cut from
+Owner decision 2026-11-12, 2026-11-18: Sable Launcher is SableOS 2.0's only home and Hub. It was cut from
 Sable Start, keeps Sable Start's intent contract (SHOW_HUB, SHOW_ACTIVE_FRAMES, EDIT_HOME,
 EDIT_QUICK_BAR, CHOOSE_HOME_STYLE) and reads the Sable apps' providers, and it follows the approved
 BB10 design review. The upstream checkout is ephemeral build input. This flavor changes only what

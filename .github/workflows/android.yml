@@ -81,8 +81,8 @@ jobs:
             root: flavor:connectbot
             java: '21'
             extra: ":app:testOssDebugUnitTest --tests org.connectbot.sable.* :app:lintOssRelease"
-          - name: home (TenSeven)
-            root: flavor:tenseven
+          - name: home (Sable Launcher)
+            root: flavor:launcher
             java: '17'
             extra: ''
           - name: calendar sync (DAVx5)

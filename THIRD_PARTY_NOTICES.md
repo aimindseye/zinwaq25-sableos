@@ -6,6 +6,7 @@ are kept next to it.
 
 | Component | Path | Licence | Source |
 |---|---|---|---|
+| Sable Launcher: Home screen and Hub composed from a pinned upstream (flavor, no upstream code is committed here) | `sable-src/apps/r8/launcher` | Apache-2.0 | https://github.com/aimindseye/tenseven-launcher @ `fbdd2171` (see `upstream.env`) |
 | Phosphor Icons glyphs (48 verbatim regular-weight SVGs, listed with sha256 in `ICON_MANIFEST.tsv`), and the launcher icons generated from them under `sable-src/apps/**/res/{drawable,mipmap*}/ic_sable_*` and `sable-src/apps/r8/{mail,textreader}/res/` | `sable-src/third_party/phosphor-icons/` | MIT (`LICENSE` in that folder) | https://github.com/phosphor-icons/core @ `2b75f3ad` |
 | Source Sans 3 fonts (Regular, Italic, Medium, Semibold, Bold, Bold Italic; static TTFs, unmodified) | `product/common/fonts/` | SIL OFL 1.1 (`LICENSE.md` in that folder); Reserved Font Name "Source" | https://github.com/adobe-fonts/source-sans release `3.052R` |
 | Unihan database (dictionary input) | `sable-src/third_party/pinyin_zh/inputs/Unihan.zip` | Unicode License v3 (`licenses/LICENSE.Unicode-3.0.txt`) | https://www.unicode.org/ |

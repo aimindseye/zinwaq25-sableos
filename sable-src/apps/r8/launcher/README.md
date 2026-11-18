@@ -1,11 +1,14 @@
-# SableOS home: TenSeven Launcher flavor
+# Sable Launcher (the SableOS home)
 
-Owner decision 2026-11-12: TenSeven Launcher is the SableOS 2.0 home and Hub, replacing Sable Start.
-TenSeven was cut from Sable Start, keeps its intent contract and reads the Sable apps' providers, and
-follows the approved BB10 design review (TenSeven PR 124, `docs/design/bb10-device-review`).
+Sable Launcher is the only home app SableOS supports, with the BlackBerry 10 and BlackBerry 7
+profiles (owner decision 2026-11-18). It is composed here from a pinned upstream (the
+`aimindseye/tenseven-launcher` project, Apache-2.0, credited in `THIRD_PARTY_NOTICES.md`) and replaces
+Sable Start, which is removed. It keeps Sable Start's intent contract and reads the Sable apps'
+providers, and follows the approved BB10 design review (upstream PR 124,
+`docs/design/bb10-device-review`).
 
 `scripts/build-apps.sh` builds the `SableHome` row of `product/q25/apps.tsv` from the pinned commit
-in `upstream.env` (TenSeven PR 127), after `apply_sable_flavor.py` has changed:
+in `upstream.env` (upstream PR 127), after `apply_sable_flavor.py` has changed:
 
 - the package id to `org.sableos.launcher`, so the Soong import overrides `SableLauncher` and every
   framework patch, Setup step, Settings link and permission file that names Sable Start still works;
@@ -16,7 +19,7 @@ in `upstream.env` (TenSeven PR 127), after `apply_sable_flavor.py` has changed:
   411 dp square screen (about 383 dp under the status bar).
 
 The flavor also removes the TenSeven code that SableOS does not ship (`patch_leftovers`), and
-`verify_sable_tenseven.py` fails the build if any of it comes back:
+`verify_sable_launcher.py` fails the build if any of it comes back:
 
 - TenSeven Phone, its in-call screen, call screening and dialer-role prompt. Sable Phone is the Phone
   app; with an InCallService and DIAL activities in the home APK, Android counted the home as a Phone app.
@@ -117,5 +120,5 @@ launcher entry, or no snapshot from the system).
 Sable Start, the older SableOS-written home, has been removed: this flavor is the only home app
 the image builds or stages.
 
-To move to a newer TenSeven, change `TENSEVEN_COMMIT` and `EXPECTED_COMMIT` together. Each edit
+To move to a newer TenSeven, change `LAUNCHER_COMMIT` and `EXPECTED_COMMIT` together. Each edit
 in `apply_sable_flavor.py` checks that its anchor occurs once, so the build stops if upstream moved it.

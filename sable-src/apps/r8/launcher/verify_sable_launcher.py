@@ -101,5 +101,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        raise SystemExit("usage: verify_sable_tenseven.py <composed-checkout>")
+        raise SystemExit("usage: verify_sable_launcher.py <composed-checkout>")
     main()
