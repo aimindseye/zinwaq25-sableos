@@ -1616,6 +1616,95 @@ VISIBLE_UPSTREAM_NAME = re.compile(r"Ten[Ss]even(?: Launcher)?(?![A-Za-z0-9])")
 KOTLIN_STRING = re.compile(r'"(?:[^"\\\n]|\\.)*"')
 
 
+def patch_hub_default_action(root: pathlib.Path) -> None:
+    """Hub rows follow the BlackBerry rule that Enter runs the default action and Menu shows the rest
+    (conformance matrix, owner decisions 2026-11-18). Enter or a tap on a row opens the message in its
+    source app; the Menu key or a long press opens the row's menu, which no longer starts with an Open
+    item. The menu is the right-edge panel on BlackBerry 10 and a Menu-key list from the bottom edge on
+    BlackBerry 7 (the profile is Settings.Secure sable_profile, read through the launcher's style)."""
+    rows = root / JAVA / "ui/HubConversationsUi.kt"
+    replace_once(
+        rows,
+        "import androidx.compose.foundation.clickable\n",
+        "import androidx.compose.foundation.clickable\nimport androidx.compose.foundation.combinedClickable\n",
+        "SABLE_HUB_ENTER_IMPORT",
+    )
+    replace_once(
+        rows,
+        "                        .clickable { selectRow(conversation.id, rowFocus) }\n",
+        "                        .combinedClickable(\n"
+        "                            onClick = { ui.onOpen(conversation) },\n"
+        "                            onLongClick = { selectRow(conversation.id, rowFocus) },\n"
+        "                        )\n",
+        "SABLE_HUB_ENTER_OPENS",
+    )
+    replace_once(
+        rows,
+        "                                event.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_S -> {\n",
+        "                                event.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_MENU -> {\n"
+        "                                    selectRow(conversation.id, rowFocus)\n"
+        "                                    true\n"
+        "                                }\n"
+        "\n"
+        "                                event.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_S -> {\n",
+        "SABLE_HUB_MENU_KEY",
+    )
+    panels = root / JAVA / "ui/HubPanels.kt"
+    replace_once(
+        panels,
+        "    HubSelectedMessageContext(conversation, ui)\n"
+        "    PanelAction(\n"
+        "        io.github.aimindseye.tenseven.model.HubActionPolicy\n"
+        "            .openLabel(conversation.latestNotification.kind),\n"
+        "        iconName = \"mail\",\n"
+        "    ) {\n"
+        "        ui.onOpen(conversation)\n"
+        "        onClose()\n"
+        "    }\n",
+        "    HubSelectedMessageContext(conversation, ui)\n",
+        "SABLE_HUB_NO_OPEN_ITEM",
+    )
+    replace_once(
+        panels,
+        "    if (settings || conversation != null) {\n"
+        "        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)).clickable { onClose() })\n"
+        "        Column(\n"
+        "            Modifier\n"
+        "                .align(if (settings) Alignment.CenterStart else Alignment.CenterEnd)\n"
+        "                .widthIn(max = 340.dp)\n"
+        "                .fillMaxWidth(HUB_PANEL_FRACTION)\n"
+        "                .fillMaxHeight()\n",
+        "    val panelContext = LocalContext.current\n"
+        "    val bb7Profile =\n"
+        "        remember(panelContext, conversation) {\n"
+        "            io.github.aimindseye.tenseven.platform\n"
+        "                .StartStateRepository(panelContext)\n"
+        "                .loadHomeStyle() == io.github.aimindseye.tenseven.model.HomeStyle.Bb7\n"
+        "        }\n"
+        "    val menuFromBottom = !settings && bb7Profile\n"
+        "    if (settings || conversation != null) {\n"
+        "        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)).clickable { onClose() })\n"
+        "        Column(\n"
+        "            Modifier\n"
+        "                .align(\n"
+        "                    if (menuFromBottom) {\n"
+        "                        Alignment.BottomCenter\n"
+        "                    } else if (settings) {\n"
+        "                        Alignment.CenterStart\n"
+        "                    } else {\n"
+        "                        Alignment.CenterEnd\n"
+        "                    },\n"
+        "                ).then(\n"
+        "                    if (menuFromBottom) {\n"
+        "                        Modifier.fillMaxWidth().heightIn(max = 420.dp)\n"
+        "                    } else {\n"
+        "                        Modifier.widthIn(max = 340.dp).fillMaxWidth(HUB_PANEL_FRACTION).fillMaxHeight()\n"
+        "                    },\n"
+        "                )\n",
+        "SABLE_HUB_MENU_PER_PROFILE",
+    )
+
+
 def patch_visible_names(root: pathlib.Path) -> None:
     """Sable Launcher is the only name the user sees. The upstream project name stays in package ids,
     class names, file formats and comments (identifiers, not text on screen), so only the text of string
@@ -1669,6 +1758,7 @@ def main() -> None:
     patch_recent_tab(root)
     patch_profiles_shortcut(root)
     patch_profile_setting(root)
+    patch_hub_default_action(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
