@@ -220,8 +220,7 @@ class SetupHardeningTest {
     }
 
     @Test fun sableAppsRowShowsTheChoiceMadeInSetup() {
-        fun detail(appSet: Observed) =
-            row("apps", rows(snap().copy(appSet = appSet))).detail
+        fun detail(appSet: Observed) = row("apps", rows(snap().copy(appSet = appSet))).detail
         assertTrue(detail(Observed.Value("essentials")).contains("Essentials"))
         assertTrue(detail(Observed.Value("stock")).contains("Stock Android"))
         assertTrue(detail(Observed.Value("full")).contains("Full Sable"))
