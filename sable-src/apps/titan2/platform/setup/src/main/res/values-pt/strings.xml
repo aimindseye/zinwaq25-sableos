@@ -2,7 +2,7 @@
 <!-- Portuguese (Brazil). Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
 <resources>
     <string name="setup_title">Sable Setup</string>
-    <string name="setup_self_description">Escolha a tela inicial, o teclado e os apps padrão, e veja o que este telefone informa. Não é o Assistente de configuração do Android.</string>
+    <string name="setup_self_description">Escolha o perfil, o tema, os apps Sable, o teclado e os apps padrão, e veja o que este telefone informa. Não é o assistente de configuração do Android.</string>
     <string name="setup_footnote">O Setup não altera nada por conta própria: cada escolha é feita na tela que ele abre.</string>
     <string name="setup_no_action_required">%1$s · nenhuma ação necessária</string>
     <string name="summary_confirmed">%1$d de %2$d confirmados</string>
@@ -12,8 +12,8 @@
     <string name="summary_separator">%1$s · %2$s</string>
     <string name="profile_unknown">Perfil desconhecido (não informado por esta versão)</string>
     <string name="profile_unrecognized">ID de perfil não reconhecido: %1$s</string>
-    <string name="row_style_title">Estilo da tela inicial</string>
-    <string name="row_style_detail">Sable Start no estilo BlackBerry 10 ou BlackBerry 7</string>
+    <string name="row_style_title">Perfil</string>
+    <string name="row_style_detail">BlackBerry 10 ou BlackBerry 7: aparência e comportamento do Sable Start</string>
     <string name="row_home_title">App da tela inicial</string>
     <string name="row_home_in_use">Em uso: %1$s · escolha o Sable Start ou outro launcher</string>
     <string name="row_home_none">Nenhum app da tela inicial identificado</string>
@@ -80,4 +80,14 @@
     <string name="row_work_space_title">Espaço de trabalho</string>
     <string name="row_work_space_detail">Opcional: mantenha as apps de trabalho à parte, com um seletor Pessoal · Trabalho no Start</string>
     <string name="action_work_space">Sable Spaces</string>
+    <string name="row_theme_title">Tema</string>
+    <string name="row_theme_detail">Escuro ou claro, cor de destaque e tamanho do texto, em Configurações</string>
+    <string name="row_apps_title">Apps Sable</string>
+    <string name="row_apps_in_use">Em uso: %1$s · escolha quais apps Sable continuam ativos</string>
+    <string name="row_apps_failed">Não foi possível ler a escolha dos apps Sable</string>
+    <string name="apps_set_full">Sable completo</string>
+    <string name="apps_set_essentials">Essenciais</string>
+    <string name="apps_set_stock">Android padrão</string>
+    <string name="action_display_settings">Configurações de tela</string>
+    <string name="action_sable_apps">Apps Sable</string>
 </resources>

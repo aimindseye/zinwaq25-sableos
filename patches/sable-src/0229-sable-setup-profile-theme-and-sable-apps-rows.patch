@@ -1,0 +1,1020 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 18 Nov 2026 18:00:00 +0000
+Subject: [PATCH] sable: Sable Setup leads with Profile, Theme and Sable apps rows
+
+The first rows of Sable Setup are now Profile (BlackBerry 10 or BlackBerry 7;
+the old "Home screen style" row), Theme (opens Settings > Display) and Sable
+apps (shows the Full Sable, Essentials or Stock Android choice and opens the
+first-boot Sable apps step again, framework 0425). The description line names
+them. 13 strings added or reworded in all 19 languages (translations are drafts
+for review).
+---
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
+index bf51ceb..232c8d8 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ 
+-    <!-- No permissions (and no location permission: the Weather city is typed, not detected). Reads the default dialer/SMS/home/keyboard through public APIs and opens system settings screens.
++    <!-- No permissions (and no location permission: the Weather city is typed, not detected). Reads the default dialer/SMS/home/keyboard and the Sable apps choice through public APIs and opens system settings screens.
+          The settings actions below are declared only so the helper can check that each screen resolves before offering it. -->
+     <queries>
+         <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.HOME" /></intent>
+@@ -11,6 +11,10 @@
+         <intent><action android:name="org.sableos.start.action.CHOOSE_HOME_STYLE" /></intent>
+         <intent><action android:name="android.settings.MANAGE_DEFAULT_APPS_SETTINGS" /></intent>
+         <intent><action android:name="android.settings.WIRELESS_SETTINGS" /></intent>
++        <!-- Theme: Settings, Display (Dark or Light, accent, text size). -->
++        <intent><action android:name="android.settings.DISPLAY_SETTINGS" /></intent>
++        <!-- Sable apps: first-boot setup's Sable apps step, opened again. -->
++        <intent><action android:name="org.sableos.setupwizard.SABLE_APPS" /></intent>
+         <!-- Telephony.Sms.getDefaultSmsPackage() checks the holder's SMS-role components through
+              PackageManager, so without these the default SMS app is invisible and reads as none. -->
+         <intent><action android:name="android.provider.Telephony.SMS_DELIVER" /></intent>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
+index 768c817..f049670 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
+@@ -38,6 +38,11 @@ class Launcher(private val activity: Activity) {
+         Action.HubRowMenu -> Intent(HUB_SETTINGS_ACTION).setPackage(HUB_PACKAGE)
+ 
+         Action.WorkSpace -> Intent(WORK_SPACE_ACTION).setPackage(SPACES_PACKAGE)
++
++        Action.DisplaySettings -> Intent(Settings.ACTION_DISPLAY_SETTINGS)
++
++        Action.SableApps ->
++            Intent(SABLE_APPS_ACTION).setPackage(WIZARD_PACKAGE).putExtra(EXTRA_STANDALONE, true)
+     }
+ 
+     /**
+@@ -96,5 +101,10 @@ class Launcher(private val activity: Activity) {
+         const val HUB_PACKAGE = "org.sableos.hub"
+         const val WORK_SPACE_ACTION = "org.sableos.spaces.action.WORK_SPACE"
+         const val SPACES_PACKAGE = "org.sableos.titan2.spaces"
++
++        // First-boot setup's Sable apps step, opened on its own (SetupWizard patch 0425).
++        const val SABLE_APPS_ACTION = "org.sableos.setupwizard.SABLE_APPS"
++        const val WIZARD_PACKAGE = "org.lineageos.setupwizard"
++        const val EXTRA_STANDALONE = "org.sableos.setupwizard.extra.STANDALONE"
+     }
+ }
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupReader.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupReader.kt
+index 1b3c169..2cb9f89 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupReader.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupReader.kt
+@@ -11,7 +11,14 @@ import org.sableos.titan2.setup.core.Snapshot
+ /** Reads the current defaults through public APIs only. A failed read is [Observed.Failed], never "none". */
+ class SetupReader(private val context: Context) {
+     fun snapshot(): Snapshot =
+-        Snapshot(home(), keyboard(), dialer(), sms(), WeatherCityClient(context).current())
++        Snapshot(
++            home(),
++            keyboard(),
++            dialer(),
++            sms(),
++            WeatherCityClient(context).current(),
++            appSet()
++        )
+ 
+     private fun home(): Observed = observe {
+         context.packageManager.resolveActivity(
+@@ -24,6 +31,10 @@ class SetupReader(private val context: Context) {
+         Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+     }
+ 
++    private fun appSet(): Observed = observe {
++        Settings.Secure.getString(context.contentResolver, "sable_app_set")
++    }
++
+     private fun dialer(): Observed {
+         val telecom = context.getSystemService(TelecomManager::class.java) ?: return Observed.Failed
+         return observe { telecom.defaultDialerPackage }
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
+index 8f9bd16..3d4d5bf 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/Readiness.kt
+@@ -58,7 +58,13 @@ enum class Action(private val labelKey: String) {
+     HubRowMenu("action_hub_row_menu"),
+ 
+     /** Sable Spaces, where the user can make a Work space (BB10 Balance) with Android's own setup. */
+-    WorkSpace("action_work_space");
++    WorkSpace("action_work_space"),
++
++    /** Settings, Display: Dark or Light, the Sable accent and the text size (the Theme). */
++    DisplaySettings("action_display_settings"),
++
++    /** The Sable apps step from first-boot setup, opened again: Full Sable, Essentials or Stock. */
++    SableApps("action_sable_apps");
+ 
+     /** What the button opens, for a launch failure line; empty for [None]. */
+     val label: String get() = if (labelKey.isEmpty()) "" else SetupText.t(labelKey)
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
+index 4c1bfac..f19a996 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupRows.kt
+@@ -9,7 +9,9 @@ data class Snapshot(
+     val dialer: Observed,
+     val sms: Observed,
+     /** Sable Weather's active city, read through its setup hand-off. */
+-    val weatherCity: Observed = Observed.Absent
++    val weatherCity: Observed = Observed.Absent,
++    /** The Sable apps choice (`sable_app_set`): full, essentials or stock; absent until one is made. */
++    val appSet: Observed = Observed.Absent
+ )
+ 
+ object SetupRows {
+@@ -38,6 +40,14 @@ object SetupRows {
+             Readiness.Informational,
+             Action.HomeStyle
+         ),
++        Item(
++            "theme",
++            t("row_theme_title"),
++            t("row_theme_detail"),
++            Readiness.Informational,
++            Action.DisplaySettings
++        ),
++        sableApps(snapshot.appSet),
+         home(snapshot.home),
+         keyboard(snapshot.keyboard),
+         Item(
+@@ -80,6 +90,40 @@ object SetupRows {
+         WeatherCityStep.row(snapshot.weatherCity)
+     ).plus(optionalRows()).map { applyTarget(it, targets(it.action)) }
+ 
++    /**
++     * The Sable apps choice made in first-boot setup. Absent means none was recorded, which leaves every Sable
++     * app on (Full Sable). Informational: any of the three is a valid choice.
++     */
++    private fun sableApps(o: Observed): Item {
++        val title = t("row_apps_title")
++        return when (o) {
++            Observed.Failed ->
++                Item(
++                    "apps",
++                    title,
++                    t("row_apps_failed"),
++                    Readiness.Unknown,
++                    Action.SableApps
++                )
++
++            else -> {
++                val set =
++                    when ((o as? Observed.Value)?.text) {
++                        "essentials" -> t("apps_set_essentials")
++                        "stock" -> t("apps_set_stock")
++                        else -> t("apps_set_full")
++                    }
++                Item(
++                    "apps",
++                    title,
++                    t("row_apps_in_use", set),
++                    Readiness.Informational,
++                    Action.SableApps
++                )
++            }
++        }
++    }
++
+     /** Choices a fresh phone leaves off: Hub's extra row menu entries and a Work space. */
+     private fun optionalRows(): List<Item> = listOf(
+         Item(
+@@ -222,7 +266,8 @@ object SetupRows {
+             )
+     }
+ 
+-    private val CHOICES = setOf(Action.HomeStyle, Action.HomeSettings, Action.KeyboardPicker)
++    private val CHOICES =
++        setOf(Action.HomeStyle, Action.HomeSettings, Action.KeyboardPicker, Action.SableApps)
+ 
+     /** Button text, or null when the row offers no action. */
+     fun buttonLabel(item: Item): String? = when {
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt
+index e324432..5601872 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt
+@@ -10,7 +10,7 @@ object SetupText {
+     val EN: Map<String, String> = mapOf(
+         "setup_title" to "Sable Setup",
+         "setup_self_description" to
+-            "Choose your home screen, keyboard and default apps, " +
++            "Choose your profile, theme, Sable apps, keyboard and default apps, " +
+             "and check what this phone reports. Not the Android Setup Wizard.",
+         "setup_footnote" to
+             "Setup changes nothing by itself: every choice is made on the screen it opens.",
+@@ -22,8 +22,8 @@ object SetupText {
+         "summary_separator" to "%1\$s · %2\$s",
+         "profile_unknown" to "Profile unknown (not reported by this build)",
+         "profile_unrecognized" to "Unrecognized profile id: %1\$s",
+-        "row_style_title" to "Home screen style",
+-        "row_style_detail" to "Sable Start in the BlackBerry 10 or BlackBerry 7 style",
++        "row_style_title" to "Profile",
++        "row_style_detail" to "BlackBerry 10 or BlackBerry 7: how Sable Start looks and behaves",
+         "row_home_title" to "Home app",
+         "row_home_in_use" to "In use: %1\$s · choose Sable Start or another launcher",
+         "row_home_none" to "No home app resolved",
+@@ -98,7 +98,17 @@ object SetupText {
+         "row_work_space_detail" to
+             "Optional: keep work apps apart, with a Personal · Work switch on Start",
+         "action_work_space" to "Sable Spaces",
+-        "action_hub_row_menu" to "Hub settings"
++        "action_hub_row_menu" to "Hub settings",
++        "row_theme_title" to "Theme",
++        "row_theme_detail" to "Dark or Light, the accent colour and the text size, in Settings",
++        "row_apps_title" to "Sable apps",
++        "row_apps_in_use" to "In use: %1\$s · choose which Sable apps stay on",
++        "row_apps_failed" to "Could not read the Sable apps choice",
++        "apps_set_full" to "Full Sable",
++        "apps_set_essentials" to "Essentials",
++        "apps_set_stock" to "Stock Android",
++        "action_display_settings" to "Display settings",
++        "action_sable_apps" to "Sable apps"
+     )
+ 
+     val t = SableTexts(EN)
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-ar/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-ar/strings.xml
+index fc29f40..51b0d44 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-ar/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-ar/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Arabic. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">اختر الشاشة الرئيسية ولوحة المفاتيح والتطبيقات الافتراضية، وتحقق مما يبلغ عنه هذا الهاتف. هذا ليس معالج إعداد Android.</string>
++    <string name="setup_self_description">اختر الملف الشخصي والمظهر وتطبيقات Sable ولوحة المفاتيح والتطبيقات الافتراضية، وتحقق مما يبلغ عنه هذا الهاتف. هذا ليس معالج إعداد Android.</string>
+     <string name="setup_footnote">لا يغيّر Setup شيئاً بمفرده: كل اختيار يتم على الشاشة التي يفتحها.</string>
+     <string name="setup_no_action_required">%1$s · لا يلزم أي إجراء</string>
+     <string name="summary_confirmed">تم تأكيد %1$d من %2$d</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">الملف الشخصي غير معروف (لا يبلغ عنه هذا الإصدار)</string>
+     <string name="profile_unrecognized">معرّف ملف شخصي غير معروف: %1$s</string>
+-    <string name="row_style_title">نمط الشاشة الرئيسية</string>
+-    <string name="row_style_detail">Sable Start بنمط BlackBerry 10 أو BlackBerry 7</string>
++    <string name="row_style_title">الملف الشخصي</string>
++    <string name="row_style_detail">BlackBerry 10 أو BlackBerry 7: مظهر Sable Start وسلوكه</string>
+     <string name="row_home_title">تطبيق الشاشة الرئيسية</string>
+     <string name="row_home_in_use">قيد الاستخدام: %1$s · اختر Sable Start أو مشغّلاً آخر</string>
+     <string name="row_home_none">لم يتم تحديد تطبيق للشاشة الرئيسية</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">مساحة العمل</string>
+     <string name="row_work_space_detail">اختياري: افصل تطبيقات العمل، مع مبدّل شخصي · عمل في Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">المظهر</string>
++    <string name="row_theme_detail">داكن أو فاتح ولون التمييز وحجم النص، في الإعدادات</string>
++    <string name="row_apps_title">تطبيقات Sable</string>
++    <string name="row_apps_in_use">قيد الاستخدام: %1$s · اختر تطبيقات Sable التي تبقى قيد التشغيل</string>
++    <string name="row_apps_failed">تعذّرت قراءة اختيار تطبيقات Sable</string>
++    <string name="apps_set_full">Sable كامل</string>
++    <string name="apps_set_essentials">الأساسيات</string>
++    <string name="apps_set_stock">Android القياسي</string>
++    <string name="action_display_settings">إعدادات العرض</string>
++    <string name="action_sable_apps">تطبيقات Sable</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-de/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-de/strings.xml
+index 5388f46..eb732a8 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-de/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-de/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- German. Draft from the project owner (2026-10-29), not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Wähle Startbildschirm, Tastatur und Standard-Apps aus und prüfe die Angaben dieses Telefons. Dies ist nicht der Android-Einrichtungsassistent.</string>
++    <string name="setup_self_description">Wähle Profil, Design, Sable-Apps, Tastatur und Standard-Apps aus und prüfe die Angaben dieses Telefons. Dies ist nicht der Android-Einrichtungsassistent.</string>
+     <string name="setup_footnote">Die Einrichtung ändert selbst nichts: Jede Auswahl wird auf dem geöffneten Bildschirm getroffen.</string>
+     <string name="setup_no_action_required">%1$s · nichts zu tun</string>
+     <string name="summary_confirmed">%1$d von %2$d bestätigt</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">Profil unbekannt (von diesem Build nicht gemeldet)</string>
+     <string name="profile_unrecognized">Unbekannte Profil-ID: %1$s</string>
+-    <string name="row_style_title">Startbildschirmstil</string>
+-    <string name="row_style_detail">Sable Start im Stil von BlackBerry 10 oder BlackBerry 7</string>
++    <string name="row_style_title">Profil</string>
++    <string name="row_style_detail">BlackBerry 10 oder BlackBerry 7: Aussehen und Verhalten von Sable Start</string>
+     <string name="row_home_title">Start-App</string>
+     <string name="row_home_in_use">In Verwendung: %1$s · Sable Start oder einen anderen Launcher auswählen</string>
+     <string name="row_home_none">Keine Start-App ermittelt</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">Arbeitsbereich</string>
+     <string name="row_work_space_detail">Optional: Arbeits-Apps getrennt halten, mit einem Schalter Privat · Arbeit in Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">Design</string>
++    <string name="row_theme_detail">Dunkel oder Hell, Akzentfarbe und Textgröße, in den Einstellungen</string>
++    <string name="row_apps_title">Sable-Apps</string>
++    <string name="row_apps_in_use">In Verwendung: %1$s · wähle, welche Sable-Apps aktiv bleiben</string>
++    <string name="row_apps_failed">Die Auswahl der Sable-Apps konnte nicht gelesen werden</string>
++    <string name="apps_set_full">Volles Sable</string>
++    <string name="apps_set_essentials">Grundausstattung</string>
++    <string name="apps_set_stock">Standard-Android</string>
++    <string name="action_display_settings">Anzeigeeinstellungen</string>
++    <string name="action_sable_apps">Sable-Apps</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-el/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-el/strings.xml
+index 70ab707..df1416e 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-el/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-el/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Greek. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Επιλέξτε την αρχική οθόνη, το πληκτρολόγιο και τις προεπιλεγμένες εφαρμογές και δείτε τι αναφέρει αυτό το τηλέφωνο. Δεν είναι ο Οδηγός εγκατάστασης του Android.</string>
++    <string name="setup_self_description">Επίλεξε προφίλ, θέμα, εφαρμογές Sable, πληκτρολόγιο και προεπιλεγμένες εφαρμογές και έλεγξε τι αναφέρει αυτό το τηλέφωνο. Δεν είναι ο οδηγός ρύθμισης του Android.</string>
+     <string name="setup_footnote">Το Setup δεν αλλάζει τίποτα μόνο του: κάθε επιλογή γίνεται στην οθόνη που ανοίγει.</string>
+     <string name="setup_no_action_required">%1$s · δεν απαιτείται ενέργεια</string>
+     <string name="summary_confirmed">%1$d από %2$d επιβεβαιωμένα</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">Άγνωστο προφίλ (δεν αναφέρεται από αυτή την έκδοση)</string>
+     <string name="profile_unrecognized">Μη αναγνωρισμένο αναγνωριστικό προφίλ: %1$s</string>
+-    <string name="row_style_title">Στιλ αρχικής οθόνης</string>
+-    <string name="row_style_detail">Το Sable Start σε στιλ BlackBerry 10 ή BlackBerry 7</string>
++    <string name="row_style_title">Προφίλ</string>
++    <string name="row_style_detail">BlackBerry 10 ή BlackBerry 7: εμφάνιση και συμπεριφορά του Sable Start</string>
+     <string name="row_home_title">Εφαρμογή αρχικής οθόνης</string>
+     <string name="row_home_in_use">Σε χρήση: %1$s · επιλέξτε Sable Start ή άλλο launcher</string>
+     <string name="row_home_none">Δεν βρέθηκε εφαρμογή αρχικής οθόνης</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">Χώρος εργασίας</string>
+     <string name="row_work_space_detail">Προαιρετικό: κρατήστε χωριστά τις εφαρμογές εργασίας, με διακόπτη Προσωπικά · Εργασία στο Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">Θέμα</string>
++    <string name="row_theme_detail">Σκούρο ή ανοιχτό, χρώμα έμφασης και μέγεθος κειμένου, στις Ρυθμίσεις</string>
++    <string name="row_apps_title">Εφαρμογές Sable</string>
++    <string name="row_apps_in_use">Σε χρήση: %1$s · επίλεξε ποιες εφαρμογές Sable μένουν ενεργές</string>
++    <string name="row_apps_failed">Δεν ήταν δυνατή η ανάγνωση της επιλογής εφαρμογών Sable</string>
++    <string name="apps_set_full">Πλήρες Sable</string>
++    <string name="apps_set_essentials">Βασικά</string>
++    <string name="apps_set_stock">Καθαρό Android</string>
++    <string name="action_display_settings">Ρυθμίσεις οθόνης</string>
++    <string name="action_sable_apps">Εφαρμογές Sable</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml
+index a2483fa..9f6e811 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-es/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Spanish. Draft from the project owner (2026-10-29), not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Elige la pantalla de inicio, el teclado y las aplicaciones predeterminadas, y consulta la información que muestra este teléfono. No es el asistente de configuración de Android.</string>
++    <string name="setup_self_description">Elige tu perfil, tema, apps de Sable, teclado y apps predeterminadas, y comprueba lo que informa este teléfono. No es el asistente de configuración de Android.</string>
+     <string name="setup_footnote">La configuración no cambia nada por sí sola: cada opción se aplica en la pantalla que abre.</string>
+     <string name="setup_no_action_required">%1$s · no hace falta hacer nada</string>
+     <string name="summary_confirmed">%1$d de %2$d confirmados</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">Perfil desconocido (esta versión no lo informa)</string>
+     <string name="profile_unrecognized">ID de perfil no reconocido: %1$s</string>
+-    <string name="row_style_title">Estilo de pantalla de inicio</string>
+-    <string name="row_style_detail">Sable Start con el estilo de BlackBerry 10 o BlackBerry 7</string>
++    <string name="row_style_title">Perfil</string>
++    <string name="row_style_detail">BlackBerry 10 o BlackBerry 7: aspecto y comportamiento de Sable Start</string>
+     <string name="row_home_title">Aplicación de inicio</string>
+     <string name="row_home_in_use">En uso: %1$s · elige Sable Start u otro lanzador</string>
+     <string name="row_home_none">No se pudo identificar ninguna aplicación de inicio</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">Espacio de trabajo</string>
+     <string name="row_work_space_detail">Opcional: mantén aparte las apps de trabajo, con un selector Personal · Trabajo en Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">Tema</string>
++    <string name="row_theme_detail">Oscuro o claro, color de acento y tamaño del texto, en Ajustes</string>
++    <string name="row_apps_title">Apps de Sable</string>
++    <string name="row_apps_in_use">En uso: %1$s · elige qué apps de Sable siguen activas</string>
++    <string name="row_apps_failed">No se pudo leer la elección de apps de Sable</string>
++    <string name="apps_set_full">Sable completo</string>
++    <string name="apps_set_essentials">Esenciales</string>
++    <string name="apps_set_stock">Android estándar</string>
++    <string name="action_display_settings">Ajustes de pantalla</string>
++    <string name="action_sable_apps">Apps de Sable</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-fr/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-fr/strings.xml
+index c23a5f5..8b9813c 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-fr/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-fr/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- French. Draft from the project owner (2026-10-29), not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Choisissez votre écran d’accueil, votre clavier et vos applications par défaut, et consultez les informations fournies par ce téléphone. Ce n’est pas l’assistant de configuration Android.</string>
++    <string name="setup_self_description">Choisissez votre profil, thème, applis Sable, clavier et applis par défaut, et vérifiez ce que signale ce téléphone. Ce n\'est pas l\'assistant de configuration d\'Android.</string>
+     <string name="setup_footnote">La configuration ne modifie rien par elle-même : chaque choix s’effectue sur l’écran qu’elle ouvre.</string>
+     <string name="setup_no_action_required">%1$s · aucune action requise</string>
+     <string name="summary_confirmed">%1$d sur %2$d confirmés</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">Profil inconnu (non signalé par cette version)</string>
+     <string name="profile_unrecognized">ID de profil non reconnu : %1$s</string>
+-    <string name="row_style_title">Style de l’écran d’accueil</string>
+-    <string name="row_style_detail">Sable Start dans le style BlackBerry 10 ou BlackBerry 7</string>
++    <string name="row_style_title">Profil</string>
++    <string name="row_style_detail">BlackBerry 10 ou BlackBerry 7 : apparence et comportement de Sable Start</string>
+     <string name="row_home_title">Application d’accueil</string>
+     <string name="row_home_in_use">Utilisée : %1$s · choisissez Sable Start ou un autre lanceur</string>
+     <string name="row_home_none">Aucune application d’accueil identifiée</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">Espace professionnel</string>
+     <string name="row_work_space_detail">Facultatif : gardez les applis professionnelles à part, avec un sélecteur Personnel · Travail dans Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">Thème</string>
++    <string name="row_theme_detail">Sombre ou clair, couleur d\'accent et taille du texte, dans Réglages</string>
++    <string name="row_apps_title">Applis Sable</string>
++    <string name="row_apps_in_use">En cours : %1$s · choisissez les applis Sable à garder</string>
++    <string name="row_apps_failed">Impossible de lire le choix des applis Sable</string>
++    <string name="apps_set_full">Sable complet</string>
++    <string name="apps_set_essentials">Essentiel</string>
++    <string name="apps_set_stock">Android standard</string>
++    <string name="action_display_settings">Réglages d\'affichage</string>
++    <string name="action_sable_apps">Applis Sable</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-hi/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-hi/strings.xml
+index 3953fe8..7e07df1 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-hi/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-hi/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Hindi. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">अपनी होम स्क्रीन, कीबोर्ड और डिफ़ॉल्ट ऐप्स चुनें, और देखें कि यह फ़ोन क्या रिपोर्ट करता है। यह Android सेटअप विज़ार्ड नहीं है।</string>
++    <string name="setup_self_description">अपनी प्रोफ़ाइल, थीम, Sable ऐप, कीबोर्ड और डिफ़ॉल्ट ऐप चुनें, और देखें कि यह फ़ोन क्या रिपोर्ट करता है। यह Android का सेटअप विज़ार्ड नहीं है।</string>
+     <string name="setup_footnote">Setup अपने आप कुछ नहीं बदलता: हर विकल्प उसी स्क्रीन पर चुना जाता है जो वह खोलता है।</string>
+     <string name="setup_no_action_required">%1$s · किसी कार्रवाई की ज़रूरत नहीं</string>
+     <string name="summary_confirmed">%2$d में से %1$d की पुष्टि हुई</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">प्रोफ़ाइल अज्ञात (इस बिल्ड ने रिपोर्ट नहीं किया)</string>
+     <string name="profile_unrecognized">अपहचानी प्रोफ़ाइल आईडी: %1$s</string>
+-    <string name="row_style_title">होम स्क्रीन की शैली</string>
+-    <string name="row_style_detail">BlackBerry 10 या BlackBerry 7 शैली में Sable Start</string>
++    <string name="row_style_title">प्रोफ़ाइल</string>
++    <string name="row_style_detail">BlackBerry 10 या BlackBerry 7: Sable Start का रूप और व्यवहार</string>
+     <string name="row_home_title">होम ऐप</string>
+     <string name="row_home_in_use">उपयोग में: %1$s · Sable Start या कोई अन्य लॉन्चर चुनें</string>
+     <string name="row_home_none">कोई होम ऐप नहीं मिला</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">कार्य स्थान</string>
+     <string name="row_work_space_detail">वैकल्पिक: कार्य ऐप्स अलग रखें, Start में व्यक्तिगत · कार्य स्विच के साथ</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">थीम</string>
++    <string name="row_theme_detail">गहरा या हल्का, एक्सेंट रंग और टेक्स्ट आकार, सेटिंग में</string>
++    <string name="row_apps_title">Sable ऐप</string>
++    <string name="row_apps_in_use">उपयोग में: %1$s · चुनें कि कौन से Sable ऐप चालू रहें</string>
++    <string name="row_apps_failed">Sable ऐप का चुनाव पढ़ा नहीं जा सका</string>
++    <string name="apps_set_full">पूरा Sable</string>
++    <string name="apps_set_essentials">ज़रूरी ऐप</string>
++    <string name="apps_set_stock">स्टॉक Android</string>
++    <string name="action_display_settings">डिस्प्ले सेटिंग</string>
++    <string name="action_sable_apps">Sable ऐप</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-it/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-it/strings.xml
+index 6e4296f..dc8fa9e 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-it/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-it/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Italian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Scegli la schermata Home, la tastiera e le app predefinite, e controlla cosa segnala questo telefono. Non è la configurazione guidata di Android.</string>
++    <string name="setup_self_description">Scegli profilo, tema, app Sable, tastiera e app predefinite e controlla ciò che segnala questo telefono. Non è la configurazione guidata di Android.</string>
+     <string name="setup_footnote">Setup non cambia nulla da solo: ogni scelta si fa nella schermata che apre.</string>
+     <string name="setup_no_action_required">%1$s · nessuna azione necessaria</string>
+     <string name="summary_confirmed">%1$d di %2$d confermati</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">Profilo sconosciuto (non segnalato da questa versione)</string>
+     <string name="profile_unrecognized">ID profilo non riconosciuto: %1$s</string>
+-    <string name="row_style_title">Stile della schermata Home</string>
+-    <string name="row_style_detail">Sable Start nello stile BlackBerry 10 o BlackBerry 7</string>
++    <string name="row_style_title">Profilo</string>
++    <string name="row_style_detail">BlackBerry 10 o BlackBerry 7: aspetto e comportamento di Sable Start</string>
+     <string name="row_home_title">App Home</string>
+     <string name="row_home_in_use">In uso: %1$s · scegli Sable Start o un altro launcher</string>
+     <string name="row_home_none">Nessuna app Home individuata</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">Spazio di lavoro</string>
+     <string name="row_work_space_detail">Facoltativo: tieni separate le app di lavoro, con un selettore Personale · Lavoro in Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">Tema</string>
++    <string name="row_theme_detail">Scuro o chiaro, colore di accento e dimensione del testo, in Impostazioni</string>
++    <string name="row_apps_title">App Sable</string>
++    <string name="row_apps_in_use">In uso: %1$s · scegli quali app Sable restano attive</string>
++    <string name="row_apps_failed">Impossibile leggere la scelta delle app Sable</string>
++    <string name="apps_set_full">Sable completo</string>
++    <string name="apps_set_essentials">Essenziali</string>
++    <string name="apps_set_stock">Android standard</string>
++    <string name="action_display_settings">Impostazioni schermo</string>
++    <string name="action_sable_apps">App Sable</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-iw/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-iw/strings.xml
+index a3e22b5..abfb67f 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-iw/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-iw/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Hebrew. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">בחרו את מסך הבית, המקלדת ואפליקציות ברירת המחדל, ובדקו מה הטלפון הזה מדווח. זה לא אשף ההגדרה של Android.</string>
++    <string name="setup_self_description">בחר פרופיל, ערכת נושא, אפליקציות Sable, מקלדת ואפליקציות ברירת מחדל, ובדוק מה הטלפון הזה מדווח. זה לא אשף ההגדרה של Android.</string>
+     <string name="setup_footnote">Setup לא משנה דבר מעצמו: כל בחירה נעשית במסך שהוא פותח.</string>
+     <string name="setup_no_action_required">%1$s · אין צורך בפעולה</string>
+     <string name="summary_confirmed">%1$d מתוך %2$d אושרו</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">פרופיל לא ידוע (הגרסה הזו לא מדווחת עליו)</string>
+     <string name="profile_unrecognized">מזהה פרופיל לא מוכר: %1$s</string>
+-    <string name="row_style_title">סגנון מסך הבית</string>
+-    <string name="row_style_detail">Sable Start בסגנון BlackBerry 10 או BlackBerry 7</string>
++    <string name="row_style_title">פרופיל</string>
++    <string name="row_style_detail">BlackBerry 10 או BlackBerry 7: המראה וההתנהגות של Sable Start</string>
+     <string name="row_home_title">אפליקציית מסך הבית</string>
+     <string name="row_home_in_use">בשימוש: %1$s · בחרו Sable Start או משגר אחר</string>
+     <string name="row_home_none">לא זוהתה אפליקציית מסך בית</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">מרחב העבודה</string>
+     <string name="row_work_space_detail">אופציונלי: הפרד את אפליקציות העבודה, עם מתג אישי · עבודה ב-Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">ערכת נושא</string>
++    <string name="row_theme_detail">כהה או בהיר, צבע הדגשה וגודל טקסט, בהגדרות</string>
++    <string name="row_apps_title">אפליקציות Sable</string>
++    <string name="row_apps_in_use">בשימוש: %1$s · בחר אילו אפליקציות Sable יישארו פעילות</string>
++    <string name="row_apps_failed">לא ניתן לקרוא את בחירת אפליקציות Sable</string>
++    <string name="apps_set_full">Sable מלא</string>
++    <string name="apps_set_essentials">יסודי</string>
++    <string name="apps_set_stock">Android רגיל</string>
++    <string name="action_display_settings">הגדרות תצוגה</string>
++    <string name="action_sable_apps">אפליקציות Sable</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-ja/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-ja/strings.xml
+index ee7361c..8557fbe 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-ja/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-ja/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Japanese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">ホーム画面、キーボード、既定のアプリを選び、この端末が報告する内容を確認します。Android のセットアップ ウィザードではありません。</string>
++    <string name="setup_self_description">プロファイル、テーマ、Sable アプリ、キーボード、既定のアプリを選び、この端末が報告する内容を確認します。Android のセットアップ ウィザードではありません。</string>
+     <string name="setup_footnote">Setup 自体は何も変更しません。選択はすべて、開いた画面で行います。</string>
+     <string name="setup_no_action_required">%1$s · 操作は不要</string>
+     <string name="summary_confirmed">%2$d 件中 %1$d 件を確認済み</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">プロファイル不明（このビルドでは報告されません）</string>
+     <string name="profile_unrecognized">認識できないプロファイル ID: %1$s</string>
+-    <string name="row_style_title">ホーム画面のスタイル</string>
+-    <string name="row_style_detail">BlackBerry 10 または BlackBerry 7 スタイルの Sable Start</string>
++    <string name="row_style_title">プロファイル</string>
++    <string name="row_style_detail">BlackBerry 10 または BlackBerry 7: Sable Start の見た目と動作</string>
+     <string name="row_home_title">ホームアプリ</string>
+     <string name="row_home_in_use">使用中: %1$s · Sable Start または別のランチャーを選択</string>
+     <string name="row_home_none">ホームアプリを特定できません</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">仕事用スペース</string>
+     <string name="row_work_space_detail">任意: 仕事用アプリを分けて、Start で個人用 · 仕事を切り替え</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">テーマ</string>
++    <string name="row_theme_detail">ダークまたはライト、アクセントカラー、文字サイズ(設定)</string>
++    <string name="row_apps_title">Sable アプリ</string>
++    <string name="row_apps_in_use">使用中: %1$s · オンのままにする Sable アプリを選択</string>
++    <string name="row_apps_failed">Sable アプリの選択を読み取れませんでした</string>
++    <string name="apps_set_full">フル Sable</string>
++    <string name="apps_set_essentials">必須のみ</string>
++    <string name="apps_set_stock">標準の Android</string>
++    <string name="action_display_settings">ディスプレイ設定</string>
++    <string name="action_sable_apps">Sable アプリ</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-ko/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-ko/strings.xml
+index 94c4b54..e50ad55 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-ko/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-ko/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Korean. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">홈 화면, 키보드, 기본 앱을 고르고 이 휴대전화가 보고하는 내용을 확인하세요. Android 설정 마법사가 아닙니다.</string>
++    <string name="setup_self_description">프로필, 테마, Sable 앱, 키보드, 기본 앱을 선택하고 이 휴대전화가 보고하는 내용을 확인하세요. Android 설정 마법사가 아닙니다.</string>
+     <string name="setup_footnote">Setup은 스스로 아무것도 바꾸지 않습니다. 모든 선택은 열리는 화면에서 이루어집니다.</string>
+     <string name="setup_no_action_required">%1$s · 필요한 조치 없음</string>
+     <string name="summary_confirmed">%2$d개 중 %1$d개 확인됨</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">프로필 알 수 없음(이 빌드에서는 보고되지 않음)</string>
+     <string name="profile_unrecognized">인식할 수 없는 프로필 ID: %1$s</string>
+-    <string name="row_style_title">홈 화면 스타일</string>
+-    <string name="row_style_detail">BlackBerry 10 또는 BlackBerry 7 스타일의 Sable Start</string>
++    <string name="row_style_title">프로필</string>
++    <string name="row_style_detail">BlackBerry 10 또는 BlackBerry 7: Sable Start의 모양과 동작</string>
+     <string name="row_home_title">홈 앱</string>
+     <string name="row_home_in_use">사용 중: %1$s · Sable Start 또는 다른 런처를 선택하세요</string>
+     <string name="row_home_none">홈 앱을 확인할 수 없음</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">업무 공간</string>
+     <string name="row_work_space_detail">선택 사항: 업무 앱을 분리하고 Start에서 개인 · 업무 전환</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">테마</string>
++    <string name="row_theme_detail">어둡게 또는 밝게, 강조 색상, 글자 크기 (설정)</string>
++    <string name="row_apps_title">Sable 앱</string>
++    <string name="row_apps_in_use">사용 중: %1$s · 켜 둘 Sable 앱 선택</string>
++    <string name="row_apps_failed">Sable 앱 선택을 읽을 수 없습니다</string>
++    <string name="apps_set_full">전체 Sable</string>
++    <string name="apps_set_essentials">필수만</string>
++    <string name="apps_set_stock">기본 Android</string>
++    <string name="action_display_settings">디스플레이 설정</string>
++    <string name="action_sable_apps">Sable 앱</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-nl/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-nl/strings.xml
+index ec249ac..1939747 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-nl/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-nl/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Dutch. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Kies je startscherm, toetsenbord en standaard-apps en bekijk wat deze telefoon meldt. Niet de Android-installatiewizard.</string>
++    <string name="setup_self_description">Kies je profiel, thema, Sable-apps, toetsenbord en standaardapps en controleer wat deze telefoon meldt. Niet de Android-installatiewizard.</string>
+     <string name="setup_footnote">Setup wijzigt zelf niets: elke keuze maak je op het scherm dat het opent.</string>
+     <string name="setup_no_action_required">%1$s · geen actie nodig</string>
+     <string name="summary_confirmed">%1$d van %2$d bevestigd</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">Profiel onbekend (niet gemeld door deze build)</string>
+     <string name="profile_unrecognized">Onbekende profiel-id: %1$s</string>
+-    <string name="row_style_title">Stijl van startscherm</string>
+-    <string name="row_style_detail">Sable Start in de stijl van BlackBerry 10 of BlackBerry 7</string>
++    <string name="row_style_title">Profiel</string>
++    <string name="row_style_detail">BlackBerry 10 of BlackBerry 7: uiterlijk en gedrag van Sable Start</string>
+     <string name="row_home_title">Startapp</string>
+     <string name="row_home_in_use">In gebruik: %1$s · kies Sable Start of een andere launcher</string>
+     <string name="row_home_none">Geen startapp gevonden</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">Werkruimte</string>
+     <string name="row_work_space_detail">Optioneel: houd werk-apps apart, met een schakelaar Persoonlijk · Werk in Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">Thema</string>
++    <string name="row_theme_detail">Donker of licht, accentkleur en tekstgrootte, in Instellingen</string>
++    <string name="row_apps_title">Sable-apps</string>
++    <string name="row_apps_in_use">In gebruik: %1$s · kies welke Sable-apps aan blijven</string>
++    <string name="row_apps_failed">De keuze voor Sable-apps kon niet worden gelezen</string>
++    <string name="apps_set_full">Volledig Sable</string>
++    <string name="apps_set_essentials">Essentieel</string>
++    <string name="apps_set_stock">Standaard Android</string>
++    <string name="action_display_settings">Weergave-instellingen</string>
++    <string name="action_sable_apps">Sable-apps</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-pl/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-pl/strings.xml
+index 8a21496..107ab9c 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-pl/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-pl/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Polish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Wybierz ekran główny, klawiaturę i aplikacje domyślne oraz sprawdź, co zgłasza ten telefon. To nie jest kreator konfiguracji Androida.</string>
++    <string name="setup_self_description">Wybierz profil, motyw, aplikacje Sable, klawiaturę i aplikacje domyślne oraz sprawdź, co zgłasza ten telefon. To nie jest kreator konfiguracji Androida.</string>
+     <string name="setup_footnote">Setup sam niczego nie zmienia: każdy wybór wykonujesz na ekranie, który otwiera.</string>
+     <string name="setup_no_action_required">%1$s · brak wymaganych działań</string>
+     <string name="summary_confirmed">Potwierdzono %1$d z %2$d</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">Profil nieznany (ta wersja go nie zgłasza)</string>
+     <string name="profile_unrecognized">Nierozpoznany identyfikator profilu: %1$s</string>
+-    <string name="row_style_title">Styl ekranu głównego</string>
+-    <string name="row_style_detail">Sable Start w stylu BlackBerry 10 lub BlackBerry 7</string>
++    <string name="row_style_title">Profil</string>
++    <string name="row_style_detail">BlackBerry 10 lub BlackBerry 7: wygląd i działanie Sable Start</string>
+     <string name="row_home_title">Aplikacja ekranu głównego</string>
+     <string name="row_home_in_use">W użyciu: %1$s · wybierz Sable Start lub inny launcher</string>
+     <string name="row_home_none">Nie ustalono aplikacji ekranu głównego</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">Przestrzeń służbowa</string>
+     <string name="row_work_space_detail">Opcjonalnie: trzymaj aplikacje służbowe osobno, z przełącznikiem Osobiste · Praca w Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">Motyw</string>
++    <string name="row_theme_detail">Ciemny lub jasny, kolor akcentu i rozmiar tekstu, w Ustawieniach</string>
++    <string name="row_apps_title">Aplikacje Sable</string>
++    <string name="row_apps_in_use">W użyciu: %1$s · wybierz, które aplikacje Sable zostają włączone</string>
++    <string name="row_apps_failed">Nie udało się odczytać wyboru aplikacji Sable</string>
++    <string name="apps_set_full">Pełny Sable</string>
++    <string name="apps_set_essentials">Podstawowe</string>
++    <string name="apps_set_stock">Czysty Android</string>
++    <string name="action_display_settings">Ustawienia ekranu</string>
++    <string name="action_sable_apps">Aplikacje Sable</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-pt/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-pt/strings.xml
+index d149ed8..33b2471 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-pt/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-pt/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Portuguese (Brazil). Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Escolha a tela inicial, o teclado e os apps padrão, e veja o que este telefone informa. Não é o Assistente de configuração do Android.</string>
++    <string name="setup_self_description">Escolha o perfil, o tema, os apps Sable, o teclado e os apps padrão, e veja o que este telefone informa. Não é o assistente de configuração do Android.</string>
+     <string name="setup_footnote">O Setup não altera nada por conta própria: cada escolha é feita na tela que ele abre.</string>
+     <string name="setup_no_action_required">%1$s · nenhuma ação necessária</string>
+     <string name="summary_confirmed">%1$d de %2$d confirmados</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">Perfil desconhecido (não informado por esta versão)</string>
+     <string name="profile_unrecognized">ID de perfil não reconhecido: %1$s</string>
+-    <string name="row_style_title">Estilo da tela inicial</string>
+-    <string name="row_style_detail">Sable Start no estilo BlackBerry 10 ou BlackBerry 7</string>
++    <string name="row_style_title">Perfil</string>
++    <string name="row_style_detail">BlackBerry 10 ou BlackBerry 7: aparência e comportamento do Sable Start</string>
+     <string name="row_home_title">App da tela inicial</string>
+     <string name="row_home_in_use">Em uso: %1$s · escolha o Sable Start ou outro launcher</string>
+     <string name="row_home_none">Nenhum app da tela inicial identificado</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">Espaço de trabalho</string>
+     <string name="row_work_space_detail">Opcional: mantenha as apps de trabalho à parte, com um seletor Pessoal · Trabalho no Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">Tema</string>
++    <string name="row_theme_detail">Escuro ou claro, cor de destaque e tamanho do texto, em Configurações</string>
++    <string name="row_apps_title">Apps Sable</string>
++    <string name="row_apps_in_use">Em uso: %1$s · escolha quais apps Sable continuam ativos</string>
++    <string name="row_apps_failed">Não foi possível ler a escolha dos apps Sable</string>
++    <string name="apps_set_full">Sable completo</string>
++    <string name="apps_set_essentials">Essenciais</string>
++    <string name="apps_set_stock">Android padrão</string>
++    <string name="action_display_settings">Configurações de tela</string>
++    <string name="action_sable_apps">Apps Sable</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-ru/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-ru/strings.xml
+index 6b398ef..3b18490 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-ru/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-ru/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Russian. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Выберите главный экран, клавиатуру и приложения по умолчанию и посмотрите, что сообщает этот телефон. Это не мастер настройки Android.</string>
++    <string name="setup_self_description">Выберите профиль, тему, приложения Sable, клавиатуру и приложения по умолчанию и проверьте, что сообщает этот телефон. Это не мастер настройки Android.</string>
+     <string name="setup_footnote">Setup сам ничего не меняет: каждый выбор делается на открываемом им экране.</string>
+     <string name="setup_no_action_required">%1$s · действий не требуется</string>
+     <string name="summary_confirmed">Подтверждено: %1$d из %2$d</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">Профиль неизвестен (эта сборка его не сообщает)</string>
+     <string name="profile_unrecognized">Нераспознанный идентификатор профиля: %1$s</string>
+-    <string name="row_style_title">Стиль главного экрана</string>
+-    <string name="row_style_detail">Sable Start в стиле BlackBerry 10 или BlackBerry 7</string>
++    <string name="row_style_title">Профиль</string>
++    <string name="row_style_detail">BlackBerry 10 или BlackBerry 7: внешний вид и поведение Sable Start</string>
+     <string name="row_home_title">Приложение главного экрана</string>
+     <string name="row_home_in_use">Используется: %1$s · выберите Sable Start или другой лаунчер</string>
+     <string name="row_home_none">Приложение главного экрана не определено</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">Рабочее пространство</string>
+     <string name="row_work_space_detail">Необязательно: держите рабочие приложения отдельно, с переключателем «Личное · Работа» в Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">Тема</string>
++    <string name="row_theme_detail">Тёмная или светлая, акцентный цвет и размер текста, в настройках</string>
++    <string name="row_apps_title">Приложения Sable</string>
++    <string name="row_apps_in_use">Используется: %1$s · выберите, какие приложения Sable оставить</string>
++    <string name="row_apps_failed">Не удалось прочитать выбор приложений Sable</string>
++    <string name="apps_set_full">Полный Sable</string>
++    <string name="apps_set_essentials">Основное</string>
++    <string name="apps_set_stock">Чистый Android</string>
++    <string name="action_display_settings">Настройки экрана</string>
++    <string name="action_sable_apps">Приложения Sable</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-sv/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-sv/strings.xml
+index 59a2d2b..b413f43 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-sv/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-sv/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Välj startskärm, tangentbord och standardappar, och se vad den här telefonen rapporterar. Inte Androids installationsguide.</string>
++    <string name="setup_self_description">Välj profil, tema, Sable-appar, tangentbord och standardappar och kontrollera vad telefonen rapporterar. Inte Androids installationsguide.</string>
+     <string name="setup_footnote">Setup ändrar ingenting själv: varje val görs på skärmen som den öppnar.</string>
+     <string name="setup_no_action_required">%1$s · ingen åtgärd krävs</string>
+     <string name="summary_confirmed">%1$d av %2$d bekräftade</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">Profil okänd (rapporteras inte av den här versionen)</string>
+     <string name="profile_unrecognized">Okänt profil-id: %1$s</string>
+-    <string name="row_style_title">Startskärmens stil</string>
+-    <string name="row_style_detail">Sable Start i stil med BlackBerry 10 eller BlackBerry 7</string>
++    <string name="row_style_title">Profil</string>
++    <string name="row_style_detail">BlackBerry 10 eller BlackBerry 7: hur Sable Start ser ut och fungerar</string>
+     <string name="row_home_title">Startapp</string>
+     <string name="row_home_in_use">Används: %1$s · välj Sable Start eller en annan launcher</string>
+     <string name="row_home_none">Ingen startapp hittades</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">Arbetsyta</string>
+     <string name="row_work_space_detail">Valfritt: håll jobbappar åtskilda, med ett reglage Privat · Arbete i Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">Tema</string>
++    <string name="row_theme_detail">Mörkt eller ljust, accentfärg och textstorlek, i Inställningar</string>
++    <string name="row_apps_title">Sable-appar</string>
++    <string name="row_apps_in_use">Används: %1$s · välj vilka Sable-appar som ska vara på</string>
++    <string name="row_apps_failed">Det gick inte att läsa valet av Sable-appar</string>
++    <string name="apps_set_full">Hela Sable</string>
++    <string name="apps_set_essentials">Grundläggande</string>
++    <string name="apps_set_stock">Standard-Android</string>
++    <string name="action_display_settings">Skärminställningar</string>
++    <string name="action_sable_apps">Sable-appar</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-tr/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-tr/strings.xml
+index 0743714..6e34787 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-tr/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-tr/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Turkish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Ana ekranını, klavyeni ve varsayılan uygulamalarını seç; bu telefonun bildirdiklerini kontrol et. Android Kurulum Sihirbazı değildir.</string>
++    <string name="setup_self_description">Profilini, temanı, Sable uygulamalarını, klavyeni ve varsayılan uygulamaları seç ve bu telefonun bildirdiklerini kontrol et. Android Kurulum Sihirbazı değildir.</string>
+     <string name="setup_footnote">Setup kendi başına hiçbir şeyi değiştirmez: her seçim açtığı ekranda yapılır.</string>
+     <string name="setup_no_action_required">%1$s · işlem gerekmiyor</string>
+     <string name="summary_confirmed">%1$d / %2$d onaylandı</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">Profil bilinmiyor (bu sürüm bildirmiyor)</string>
+     <string name="profile_unrecognized">Tanınmayan profil kimliği: %1$s</string>
+-    <string name="row_style_title">Ana ekran stili</string>
+-    <string name="row_style_detail">BlackBerry 10 veya BlackBerry 7 tarzında Sable Start</string>
++    <string name="row_style_title">Profil</string>
++    <string name="row_style_detail">BlackBerry 10 veya BlackBerry 7: Sable Start\'ın görünümü ve davranışı</string>
+     <string name="row_home_title">Ana ekran uygulaması</string>
+     <string name="row_home_in_use">Kullanımda: %1$s · Sable Start\'ı veya başka bir başlatıcıyı seç</string>
+     <string name="row_home_none">Ana ekran uygulaması bulunamadı</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">İş alanı</string>
+     <string name="row_work_space_detail">İsteğe bağlı: iş uygulamalarını ayrı tutun, Start\'ta Kişisel · İş anahtarıyla</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">Tema</string>
++    <string name="row_theme_detail">Koyu veya açık, vurgu rengi ve metin boyutu, Ayarlar\'da</string>
++    <string name="row_apps_title">Sable uygulamaları</string>
++    <string name="row_apps_in_use">Kullanımda: %1$s · hangi Sable uygulamalarının açık kalacağını seç</string>
++    <string name="row_apps_failed">Sable uygulamaları seçimi okunamadı</string>
++    <string name="apps_set_full">Tam Sable</string>
++    <string name="apps_set_essentials">Temel</string>
++    <string name="apps_set_stock">Saf Android</string>
++    <string name="action_display_settings">Ekran ayarları</string>
++    <string name="action_sable_apps">Sable uygulamaları</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-ur/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-ur/strings.xml
+index 45b0d88..32138b3 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-ur/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-ur/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">اپنی ہوم اسکرین، کی بورڈ اور ڈیفالٹ ایپس منتخب کریں، اور دیکھیں کہ یہ فون کیا رپورٹ کرتا ہے۔ یہ اینڈرائیڈ سیٹ اپ وزرڈ نہیں ہے۔</string>
++    <string name="setup_self_description">اپنا پروفائل، تھیم، Sable ایپس، کی بورڈ اور ڈیفالٹ ایپس منتخب کریں، اور دیکھیں کہ یہ فون کیا رپورٹ کرتا ہے۔ یہ Android کا سیٹ اپ وزرڈ نہیں ہے۔</string>
+     <string name="setup_footnote">Setup خود کچھ نہیں بدلتا: ہر انتخاب اسی اسکرین پر کیا جاتا ہے جو یہ کھولتا ہے۔</string>
+     <string name="setup_no_action_required">%1$s · کوئی کارروائی درکار نہیں</string>
+     <string name="summary_confirmed">%2$d میں سے %1$d کی تصدیق ہوئی</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">پروفائل نامعلوم (اس بلڈ نے رپورٹ نہیں کیا)</string>
+     <string name="profile_unrecognized">نامعلوم پروفائل آئی ڈی: %1$s</string>
+-    <string name="row_style_title">ہوم اسکرین کا انداز</string>
+-    <string name="row_style_detail">BlackBerry 10 یا BlackBerry 7 کے انداز میں Sable Start</string>
++    <string name="row_style_title">پروفائل</string>
++    <string name="row_style_detail">BlackBerry 10 یا BlackBerry 7: Sable Start کی شکل اور طرزِ عمل</string>
+     <string name="row_home_title">ہوم ایپ</string>
+     <string name="row_home_in_use">استعمال میں: %1$s · Sable Start یا کوئی اور لانچر چنیں</string>
+     <string name="row_home_none">کوئی ہوم ایپ نہیں ملی</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">کام کی جگہ</string>
+     <string name="row_work_space_detail">اختیاری: کام کی ایپس الگ رکھیں، Start میں ذاتی · کام سوئچ کے ساتھ</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">تھیم</string>
++    <string name="row_theme_detail">گہرا یا ہلکا، ایکسنٹ رنگ اور متن کا سائز، سیٹنگز میں</string>
++    <string name="row_apps_title">Sable ایپس</string>
++    <string name="row_apps_in_use">زیرِ استعمال: %1$s · منتخب کریں کہ کون سی Sable ایپس آن رہیں</string>
++    <string name="row_apps_failed">Sable ایپس کا انتخاب پڑھا نہیں جا سکا</string>
++    <string name="apps_set_full">مکمل Sable</string>
++    <string name="apps_set_essentials">ضروری ایپس</string>
++    <string name="apps_set_stock">اسٹاک Android</string>
++    <string name="action_display_settings">ڈسپلے سیٹنگز</string>
++    <string name="action_sable_apps">Sable ایپس</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values-zh-rCN/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values-zh-rCN/strings.xml
+index f6c7a80..34c6c4f 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values-zh-rCN/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values-zh-rCN/strings.xml
+@@ -2,7 +2,7 @@
+ <!-- Simplified Chinese. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
+ <resources>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">选择主屏幕、键盘和默认应用，并查看这部手机的报告内容。这不是 Android 设置向导。</string>
++    <string name="setup_self_description">选择配置文件、主题、Sable 应用、键盘和默认应用,并查看此手机报告的内容。这不是 Android 设置向导。</string>
+     <string name="setup_footnote">Setup 自身不会更改任何内容：每项选择都在它打开的界面中完成。</string>
+     <string name="setup_no_action_required">%1$s · 无需操作</string>
+     <string name="summary_confirmed">已确认 %1$d/%2$d</string>
+@@ -12,8 +12,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">配置文件未知（此版本未报告）</string>
+     <string name="profile_unrecognized">无法识别的配置文件 ID：%1$s</string>
+-    <string name="row_style_title">主屏幕样式</string>
+-    <string name="row_style_detail">BlackBerry 10 或 BlackBerry 7 风格的 Sable Start</string>
++    <string name="row_style_title">配置文件</string>
++    <string name="row_style_detail">BlackBerry 10 或 BlackBerry 7:Sable Start 的外观和行为</string>
+     <string name="row_home_title">主屏幕应用</string>
+     <string name="row_home_in_use">使用中：%1$s · 请选择 Sable Start 或其他启动器</string>
+     <string name="row_home_none">未找到主屏幕应用</string>
+@@ -80,4 +80,14 @@
+     <string name="row_work_space_title">工作空间</string>
+     <string name="row_work_space_detail">可选：将工作应用分开，并在 Start 上使用个人 · 工作切换</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">主题</string>
++    <string name="row_theme_detail">深色或浅色、强调色和文字大小(在“设置”中)</string>
++    <string name="row_apps_title">Sable 应用</string>
++    <string name="row_apps_in_use">使用中:%1$s · 选择保持开启的 Sable 应用</string>
++    <string name="row_apps_failed">无法读取 Sable 应用的选择</string>
++    <string name="apps_set_full">完整 Sable</string>
++    <string name="apps_set_essentials">精简版</string>
++    <string name="apps_set_stock">原生 Android</string>
++    <string name="action_display_settings">显示设置</string>
++    <string name="action_sable_apps">Sable 应用</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml b/sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml
+index 55bade4..b544861 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml
+@@ -3,7 +3,7 @@
+ <resources>
+     <string name="app_name" translatable="false">Sable Setup</string>
+     <string name="setup_title">Sable Setup</string>
+-    <string name="setup_self_description">Choose your home screen, keyboard and default apps, and check what this phone reports. Not the Android Setup Wizard.</string>
++    <string name="setup_self_description">Choose your profile, theme, Sable apps, keyboard and default apps, and check what this phone reports. Not the Android Setup Wizard.</string>
+     <string name="setup_footnote">Setup changes nothing by itself: every choice is made on the screen it opens.</string>
+     <string name="setup_no_action_required">%1$s · no action required</string>
+     <string name="summary_confirmed">%1$d of %2$d confirmed</string>
+@@ -13,8 +13,8 @@
+     <string name="summary_separator">%1$s · %2$s</string>
+     <string name="profile_unknown">Profile unknown (not reported by this build)</string>
+     <string name="profile_unrecognized">Unrecognized profile id: %1$s</string>
+-    <string name="row_style_title">Home screen style</string>
+-    <string name="row_style_detail">Sable Start in the BlackBerry 10 or BlackBerry 7 style</string>
++    <string name="row_style_title">Profile</string>
++    <string name="row_style_detail">BlackBerry 10 or BlackBerry 7: how Sable Start looks and behaves</string>
+     <string name="row_home_title">Home app</string>
+     <string name="row_home_in_use">In use: %1$s · choose Sable Start or another launcher</string>
+     <string name="row_home_none">No home app resolved</string>
+@@ -81,4 +81,14 @@
+     <string name="row_work_space_title">Work space</string>
+     <string name="row_work_space_detail">Optional: keep work apps apart, with a Personal · Work switch on Start</string>
+     <string name="action_work_space">Sable Spaces</string>
++    <string name="row_theme_title">Theme</string>
++    <string name="row_theme_detail">Dark or Light, the accent colour and the text size, in Settings</string>
++    <string name="row_apps_title">Sable apps</string>
++    <string name="row_apps_in_use">In use: %1$s · choose which Sable apps stay on</string>
++    <string name="row_apps_failed">Could not read the Sable apps choice</string>
++    <string name="apps_set_full">Full Sable</string>
++    <string name="apps_set_essentials">Essentials</string>
++    <string name="apps_set_stock">Stock Android</string>
++    <string name="action_display_settings">Display settings</string>
++    <string name="action_sable_apps">Sable apps</string>
+ </resources>
+diff --git a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupHardeningTest.kt b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupHardeningTest.kt
+index db9f397..50d2aff 100644
+--- a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupHardeningTest.kt
++++ b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupHardeningTest.kt
+@@ -128,10 +128,15 @@ class SetupHardeningTest {
+         assertEquals("In use: org.sableos.titan2.keyboardx", row("ime", lookalike).detail)
+     }
+ 
+-    @Test fun launcherKeyboardAndDefaultAppsAreChoicesInThatOrder() {
++    @Test fun profileThemeAndSableAppsComeFirstThenLauncherKeyboardAndDefaultApps() {
+         val ids = rows().map { it.id }
+-        assertEquals(listOf("style", "home", "ime", "ime_add", "defaults"), ids.take(5))
++        assertEquals(
++            listOf("style", "theme", "apps", "home", "ime", "ime_add", "defaults"),
++            ids.take(7)
++        )
+         assertEquals(Action.HomeStyle, row("style", rows()).action)
++        assertEquals(Action.DisplaySettings, row("theme", rows()).action)
++        assertEquals(Action.SableApps, row("apps", rows()).action)
+         assertEquals(Action.KeyboardSettings, row("ime_add", rows()).action)
+         assertEquals(Action.DefaultApps, row("defaults", rows()).action)
+         assertTrue(
+@@ -214,6 +219,19 @@ class SetupHardeningTest {
+         assertTrue(dialer.detail.contains("could not verify"))
+     }
+ 
++    @Test fun sableAppsRowShowsTheChoiceMadeInSetup() {
++        fun detail(appSet: Observed) =
++            row("apps", rows(snap().copy(appSet = appSet))).detail
++        assertTrue(detail(Observed.Value("essentials")).contains("Essentials"))
++        assertTrue(detail(Observed.Value("stock")).contains("Stock Android"))
++        assertTrue(detail(Observed.Value("full")).contains("Full Sable"))
++        // No choice recorded leaves every Sable app on, which is Full Sable.
++        assertTrue(detail(Observed.Absent).contains("Full Sable"))
++        val failed = row("apps", rows(snap().copy(appSet = Observed.Failed)))
++        assertEquals(Readiness.Unknown, failed.state)
++        assertEquals(Readiness.Informational, row("apps", rows()).state)
++    }
++
+     @Test fun everyDestinationIsCoveredByARow() {
+         val used = rows().map { it.action }.toSet()
+         assertEquals(Action.values().toSet() - Action.None, used)

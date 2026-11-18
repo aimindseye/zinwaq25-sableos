@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 18 Nov 2026 18:00:00 +0000
+Subject: [PATCH] SableOS: reopen the Sable apps step from Sable Setup
+
+The Sable apps step could only be reached during first-boot setup. Sable
+Setup now opens it again at any time, so the choice (Full Sable,
+Essentials, Stock Android, and the per-app check boxes) can be changed
+after setup:
+
+* the activity is exported, with its existing action
+  org.sableos.setupwizard.SABLE_APPS, so Sable Setup can start it. It
+  only shows the choice; nothing changes until the user presses Next;
+* when the caller passes the extra
+  org.sableos.setupwizard.extra.STANDALONE, Next applies the choice and
+  closes the step instead of moving to a next setup step that does not
+  exist (the crash seen when the step was started by hand).
+
+First-boot setup is unchanged: without the extra, Next moves on as before.
+---
+ app/src/main/AndroidManifest.xml                                | 2 +-
+ .../main/java/org/lineageos/setupwizard/SableAppsActivity.java  | 12 +++++++++++-
+ 2 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -200,7 +200,7 @@
+             android:label="@string/activity_label_empty"
+             android:configChanges="mcc|mnc|keyboard|keyboardHidden"
+             android:immersive="true"
+-            android:exported="false"
++            android:exported="true"
+             android:windowSoftInputMode="stateAlwaysHidden">
+             <intent-filter>
+                 <action android:name="org.sableos.setupwizard.SABLE_APPS" />
+diff --git a/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java b/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java
+index 681c877..60b4eb3 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java
++++ b/app/src/main/java/org/lineageos/setupwizard/SableAppsActivity.java
+@@ -27,8 +27,14 @@ import java.util.Set;
+  * ({@link SableAppSet}). Apps left out are disabled for this user, never uninstalled, and come
+  * back from Settings, Apps. Next applies the choice; the step shows the last choice when
+  * revisited, and choosing Full Sable again turns every Sable app back on.
++ *
++ * Sable Setup opens this step again at any time with {@link #EXTRA_STANDALONE}; Next then applies
++ * the choice and closes the step instead of moving on to a next setup step.
+  */
+ public class SableAppsActivity extends BaseSetupWizardActivity {
++    /** Boolean extra from Sable Setup: the step was opened on its own, after setup. */
++    public static final String EXTRA_STANDALONE = "org.sableos.setupwizard.extra.STANDALONE";
++
+     private static final String TAG = "SableApps";
+     private static final int[] IDS = {
+         R.id.sable_apps_full, R.id.sable_apps_essentials, R.id.sable_apps_stock,
+@@ -108,7 +114,11 @@ public class SableAppsActivity extends BaseSetupWizardActivity {
+         // Applied before the step moves on, not on a thread that can be cut off if the process
+         // ends first; each change is a quick call to the package manager.
+         apply(pm, plan);
+-        super.onNextPressed();
++        if (getIntent().getBooleanExtra(EXTRA_STANDALONE, false)) {
++            finish();
++        } else {
++            super.onNextPressed();
++        }
+     }
+ 
+     private int choiceChecked() {
+-- 
+2.43.0

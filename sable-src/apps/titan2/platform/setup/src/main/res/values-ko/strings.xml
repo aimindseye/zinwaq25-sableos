@@ -2,7 +2,7 @@
 <!-- Korean. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
 <resources>
     <string name="setup_title">Sable Setup</string>
-    <string name="setup_self_description">홈 화면, 키보드, 기본 앱을 고르고 이 휴대전화가 보고하는 내용을 확인하세요. Android 설정 마법사가 아닙니다.</string>
+    <string name="setup_self_description">프로필, 테마, Sable 앱, 키보드, 기본 앱을 선택하고 이 휴대전화가 보고하는 내용을 확인하세요. Android 설정 마법사가 아닙니다.</string>
     <string name="setup_footnote">Setup은 스스로 아무것도 바꾸지 않습니다. 모든 선택은 열리는 화면에서 이루어집니다.</string>
     <string name="setup_no_action_required">%1$s · 필요한 조치 없음</string>
     <string name="summary_confirmed">%2$d개 중 %1$d개 확인됨</string>
@@ -12,8 +12,8 @@
     <string name="summary_separator">%1$s · %2$s</string>
     <string name="profile_unknown">프로필 알 수 없음(이 빌드에서는 보고되지 않음)</string>
     <string name="profile_unrecognized">인식할 수 없는 프로필 ID: %1$s</string>
-    <string name="row_style_title">홈 화면 스타일</string>
-    <string name="row_style_detail">BlackBerry 10 또는 BlackBerry 7 스타일의 Sable Start</string>
+    <string name="row_style_title">프로필</string>
+    <string name="row_style_detail">BlackBerry 10 또는 BlackBerry 7: Sable Start의 모양과 동작</string>
     <string name="row_home_title">홈 앱</string>
     <string name="row_home_in_use">사용 중: %1$s · Sable Start 또는 다른 런처를 선택하세요</string>
     <string name="row_home_none">홈 앱을 확인할 수 없음</string>
@@ -80,4 +80,14 @@
     <string name="row_work_space_title">업무 공간</string>
     <string name="row_work_space_detail">선택 사항: 업무 앱을 분리하고 Start에서 개인 · 업무 전환</string>
     <string name="action_work_space">Sable Spaces</string>
+    <string name="row_theme_title">테마</string>
+    <string name="row_theme_detail">어둡게 또는 밝게, 강조 색상, 글자 크기 (설정)</string>
+    <string name="row_apps_title">Sable 앱</string>
+    <string name="row_apps_in_use">사용 중: %1$s · 켜 둘 Sable 앱 선택</string>
+    <string name="row_apps_failed">Sable 앱 선택을 읽을 수 없습니다</string>
+    <string name="apps_set_full">전체 Sable</string>
+    <string name="apps_set_essentials">필수만</string>
+    <string name="apps_set_stock">기본 Android</string>
+    <string name="action_display_settings">디스플레이 설정</string>
+    <string name="action_sable_apps">Sable 앱</string>
 </resources>

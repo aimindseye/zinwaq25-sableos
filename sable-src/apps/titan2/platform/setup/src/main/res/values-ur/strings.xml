@@ -2,7 +2,7 @@
 <!-- Urdu. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
 <resources>
     <string name="setup_title">Sable Setup</string>
-    <string name="setup_self_description">اپنی ہوم اسکرین، کی بورڈ اور ڈیفالٹ ایپس منتخب کریں، اور دیکھیں کہ یہ فون کیا رپورٹ کرتا ہے۔ یہ اینڈرائیڈ سیٹ اپ وزرڈ نہیں ہے۔</string>
+    <string name="setup_self_description">اپنا پروفائل، تھیم، Sable ایپس، کی بورڈ اور ڈیفالٹ ایپس منتخب کریں، اور دیکھیں کہ یہ فون کیا رپورٹ کرتا ہے۔ یہ Android کا سیٹ اپ وزرڈ نہیں ہے۔</string>
     <string name="setup_footnote">Setup خود کچھ نہیں بدلتا: ہر انتخاب اسی اسکرین پر کیا جاتا ہے جو یہ کھولتا ہے۔</string>
     <string name="setup_no_action_required">%1$s · کوئی کارروائی درکار نہیں</string>
     <string name="summary_confirmed">%2$d میں سے %1$d کی تصدیق ہوئی</string>
@@ -12,8 +12,8 @@
     <string name="summary_separator">%1$s · %2$s</string>
     <string name="profile_unknown">پروفائل نامعلوم (اس بلڈ نے رپورٹ نہیں کیا)</string>
     <string name="profile_unrecognized">نامعلوم پروفائل آئی ڈی: %1$s</string>
-    <string name="row_style_title">ہوم اسکرین کا انداز</string>
-    <string name="row_style_detail">BlackBerry 10 یا BlackBerry 7 کے انداز میں Sable Start</string>
+    <string name="row_style_title">پروفائل</string>
+    <string name="row_style_detail">BlackBerry 10 یا BlackBerry 7: Sable Start کی شکل اور طرزِ عمل</string>
     <string name="row_home_title">ہوم ایپ</string>
     <string name="row_home_in_use">استعمال میں: %1$s · Sable Start یا کوئی اور لانچر چنیں</string>
     <string name="row_home_none">کوئی ہوم ایپ نہیں ملی</string>
@@ -80,4 +80,14 @@
     <string name="row_work_space_title">کام کی جگہ</string>
     <string name="row_work_space_detail">اختیاری: کام کی ایپس الگ رکھیں، Start میں ذاتی · کام سوئچ کے ساتھ</string>
     <string name="action_work_space">Sable Spaces</string>
+    <string name="row_theme_title">تھیم</string>
+    <string name="row_theme_detail">گہرا یا ہلکا، ایکسنٹ رنگ اور متن کا سائز، سیٹنگز میں</string>
+    <string name="row_apps_title">Sable ایپس</string>
+    <string name="row_apps_in_use">زیرِ استعمال: %1$s · منتخب کریں کہ کون سی Sable ایپس آن رہیں</string>
+    <string name="row_apps_failed">Sable ایپس کا انتخاب پڑھا نہیں جا سکا</string>
+    <string name="apps_set_full">مکمل Sable</string>
+    <string name="apps_set_essentials">ضروری ایپس</string>
+    <string name="apps_set_stock">اسٹاک Android</string>
+    <string name="action_display_settings">ڈسپلے سیٹنگز</string>
+    <string name="action_sable_apps">Sable ایپس</string>
 </resources>

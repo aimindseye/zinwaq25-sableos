@@ -38,6 +38,11 @@ class Launcher(private val activity: Activity) {
         Action.HubRowMenu -> Intent(HUB_SETTINGS_ACTION).setPackage(HUB_PACKAGE)
 
         Action.WorkSpace -> Intent(WORK_SPACE_ACTION).setPackage(SPACES_PACKAGE)
+
+        Action.DisplaySettings -> Intent(Settings.ACTION_DISPLAY_SETTINGS)
+
+        Action.SableApps ->
+            Intent(SABLE_APPS_ACTION).setPackage(WIZARD_PACKAGE).putExtra(EXTRA_STANDALONE, true)
     }
 
     /**
@@ -96,5 +101,10 @@ class Launcher(private val activity: Activity) {
         const val HUB_PACKAGE = "org.sableos.hub"
         const val WORK_SPACE_ACTION = "org.sableos.spaces.action.WORK_SPACE"
         const val SPACES_PACKAGE = "org.sableos.titan2.spaces"
+
+        // First-boot setup's Sable apps step, opened on its own (SetupWizard patch 0425).
+        const val SABLE_APPS_ACTION = "org.sableos.setupwizard.SABLE_APPS"
+        const val WIZARD_PACKAGE = "org.lineageos.setupwizard"
+        const val EXTRA_STANDALONE = "org.sableos.setupwizard.extra.STANDALONE"
     }
 }

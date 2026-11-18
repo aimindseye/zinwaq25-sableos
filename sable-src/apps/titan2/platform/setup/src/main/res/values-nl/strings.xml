@@ -2,7 +2,7 @@
 <!-- Dutch. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
 <resources>
     <string name="setup_title">Sable Setup</string>
-    <string name="setup_self_description">Kies je startscherm, toetsenbord en standaard-apps en bekijk wat deze telefoon meldt. Niet de Android-installatiewizard.</string>
+    <string name="setup_self_description">Kies je profiel, thema, Sable-apps, toetsenbord en standaardapps en controleer wat deze telefoon meldt. Niet de Android-installatiewizard.</string>
     <string name="setup_footnote">Setup wijzigt zelf niets: elke keuze maak je op het scherm dat het opent.</string>
     <string name="setup_no_action_required">%1$s · geen actie nodig</string>
     <string name="summary_confirmed">%1$d van %2$d bevestigd</string>
@@ -12,8 +12,8 @@
     <string name="summary_separator">%1$s · %2$s</string>
     <string name="profile_unknown">Profiel onbekend (niet gemeld door deze build)</string>
     <string name="profile_unrecognized">Onbekende profiel-id: %1$s</string>
-    <string name="row_style_title">Stijl van startscherm</string>
-    <string name="row_style_detail">Sable Start in de stijl van BlackBerry 10 of BlackBerry 7</string>
+    <string name="row_style_title">Profiel</string>
+    <string name="row_style_detail">BlackBerry 10 of BlackBerry 7: uiterlijk en gedrag van Sable Start</string>
     <string name="row_home_title">Startapp</string>
     <string name="row_home_in_use">In gebruik: %1$s · kies Sable Start of een andere launcher</string>
     <string name="row_home_none">Geen startapp gevonden</string>
@@ -80,4 +80,14 @@
     <string name="row_work_space_title">Werkruimte</string>
     <string name="row_work_space_detail">Optioneel: houd werk-apps apart, met een schakelaar Persoonlijk · Werk in Start</string>
     <string name="action_work_space">Sable Spaces</string>
+    <string name="row_theme_title">Thema</string>
+    <string name="row_theme_detail">Donker of licht, accentkleur en tekstgrootte, in Instellingen</string>
+    <string name="row_apps_title">Sable-apps</string>
+    <string name="row_apps_in_use">In gebruik: %1$s · kies welke Sable-apps aan blijven</string>
+    <string name="row_apps_failed">De keuze voor Sable-apps kon niet worden gelezen</string>
+    <string name="apps_set_full">Volledig Sable</string>
+    <string name="apps_set_essentials">Essentieel</string>
+    <string name="apps_set_stock">Standaard Android</string>
+    <string name="action_display_settings">Weergave-instellingen</string>
+    <string name="action_sable_apps">Sable-apps</string>
 </resources>

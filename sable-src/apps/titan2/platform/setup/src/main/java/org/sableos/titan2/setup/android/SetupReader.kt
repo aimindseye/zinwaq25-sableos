@@ -11,7 +11,14 @@ import org.sableos.titan2.setup.core.Snapshot
 /** Reads the current defaults through public APIs only. A failed read is [Observed.Failed], never "none". */
 class SetupReader(private val context: Context) {
     fun snapshot(): Snapshot =
-        Snapshot(home(), keyboard(), dialer(), sms(), WeatherCityClient(context).current())
+        Snapshot(
+            home(),
+            keyboard(),
+            dialer(),
+            sms(),
+            WeatherCityClient(context).current(),
+            appSet()
+        )
 
     private fun home(): Observed = observe {
         context.packageManager.resolveActivity(
@@ -22,6 +29,10 @@ class SetupReader(private val context: Context) {
 
     private fun keyboard(): Observed = observe {
         Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+    }
+
+    private fun appSet(): Observed = observe {
+        Settings.Secure.getString(context.contentResolver, "sable_app_set")
     }
 
     private fun dialer(): Observed {

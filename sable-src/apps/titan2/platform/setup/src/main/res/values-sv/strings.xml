@@ -2,7 +2,7 @@
 <!-- Swedish. Draft from the project owner (2026-10-29), checked against the English, not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
 <resources>
     <string name="setup_title">Sable Setup</string>
-    <string name="setup_self_description">Välj startskärm, tangentbord och standardappar, och se vad den här telefonen rapporterar. Inte Androids installationsguide.</string>
+    <string name="setup_self_description">Välj profil, tema, Sable-appar, tangentbord och standardappar och kontrollera vad telefonen rapporterar. Inte Androids installationsguide.</string>
     <string name="setup_footnote">Setup ändrar ingenting själv: varje val görs på skärmen som den öppnar.</string>
     <string name="setup_no_action_required">%1$s · ingen åtgärd krävs</string>
     <string name="summary_confirmed">%1$d av %2$d bekräftade</string>
@@ -12,8 +12,8 @@
     <string name="summary_separator">%1$s · %2$s</string>
     <string name="profile_unknown">Profil okänd (rapporteras inte av den här versionen)</string>
     <string name="profile_unrecognized">Okänt profil-id: %1$s</string>
-    <string name="row_style_title">Startskärmens stil</string>
-    <string name="row_style_detail">Sable Start i stil med BlackBerry 10 eller BlackBerry 7</string>
+    <string name="row_style_title">Profil</string>
+    <string name="row_style_detail">BlackBerry 10 eller BlackBerry 7: hur Sable Start ser ut och fungerar</string>
     <string name="row_home_title">Startapp</string>
     <string name="row_home_in_use">Används: %1$s · välj Sable Start eller en annan launcher</string>
     <string name="row_home_none">Ingen startapp hittades</string>
@@ -80,4 +80,14 @@
     <string name="row_work_space_title">Arbetsyta</string>
     <string name="row_work_space_detail">Valfritt: håll jobbappar åtskilda, med ett reglage Privat · Arbete i Start</string>
     <string name="action_work_space">Sable Spaces</string>
+    <string name="row_theme_title">Tema</string>
+    <string name="row_theme_detail">Mörkt eller ljust, accentfärg och textstorlek, i Inställningar</string>
+    <string name="row_apps_title">Sable-appar</string>
+    <string name="row_apps_in_use">Används: %1$s · välj vilka Sable-appar som ska vara på</string>
+    <string name="row_apps_failed">Det gick inte att läsa valet av Sable-appar</string>
+    <string name="apps_set_full">Hela Sable</string>
+    <string name="apps_set_essentials">Grundläggande</string>
+    <string name="apps_set_stock">Standard-Android</string>
+    <string name="action_display_settings">Skärminställningar</string>
+    <string name="action_sable_apps">Sable-appar</string>
 </resources>

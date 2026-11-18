@@ -2,7 +2,7 @@
 <!-- French. Draft from the project owner (2026-10-29), not yet reviewed by a fluent speaker. Keys and placeholders must match values/strings.xml (SetupTextTest checks). -->
 <resources>
     <string name="setup_title">Sable Setup</string>
-    <string name="setup_self_description">Choisissez votre écran d’accueil, votre clavier et vos applications par défaut, et consultez les informations fournies par ce téléphone. Ce n’est pas l’assistant de configuration Android.</string>
+    <string name="setup_self_description">Choisissez votre profil, thème, applis Sable, clavier et applis par défaut, et vérifiez ce que signale ce téléphone. Ce n\'est pas l\'assistant de configuration d\'Android.</string>
     <string name="setup_footnote">La configuration ne modifie rien par elle-même : chaque choix s’effectue sur l’écran qu’elle ouvre.</string>
     <string name="setup_no_action_required">%1$s · aucune action requise</string>
     <string name="summary_confirmed">%1$d sur %2$d confirmés</string>
@@ -12,8 +12,8 @@
     <string name="summary_separator">%1$s · %2$s</string>
     <string name="profile_unknown">Profil inconnu (non signalé par cette version)</string>
     <string name="profile_unrecognized">ID de profil non reconnu : %1$s</string>
-    <string name="row_style_title">Style de l’écran d’accueil</string>
-    <string name="row_style_detail">Sable Start dans le style BlackBerry 10 ou BlackBerry 7</string>
+    <string name="row_style_title">Profil</string>
+    <string name="row_style_detail">BlackBerry 10 ou BlackBerry 7 : apparence et comportement de Sable Start</string>
     <string name="row_home_title">Application d’accueil</string>
     <string name="row_home_in_use">Utilisée : %1$s · choisissez Sable Start ou un autre lanceur</string>
     <string name="row_home_none">Aucune application d’accueil identifiée</string>
@@ -80,4 +80,14 @@
     <string name="row_work_space_title">Espace professionnel</string>
     <string name="row_work_space_detail">Facultatif : gardez les applis professionnelles à part, avec un sélecteur Personnel · Travail dans Start</string>
     <string name="action_work_space">Sable Spaces</string>
+    <string name="row_theme_title">Thème</string>
+    <string name="row_theme_detail">Sombre ou clair, couleur d\'accent et taille du texte, dans Réglages</string>
+    <string name="row_apps_title">Applis Sable</string>
+    <string name="row_apps_in_use">En cours : %1$s · choisissez les applis Sable à garder</string>
+    <string name="row_apps_failed">Impossible de lire le choix des applis Sable</string>
+    <string name="apps_set_full">Sable complet</string>
+    <string name="apps_set_essentials">Essentiel</string>
+    <string name="apps_set_stock">Android standard</string>
+    <string name="action_display_settings">Réglages d\'affichage</string>
+    <string name="action_sable_apps">Applis Sable</string>
 </resources>

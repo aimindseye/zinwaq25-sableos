@@ -9,7 +9,9 @@ data class Snapshot(
     val dialer: Observed,
     val sms: Observed,
     /** Sable Weather's active city, read through its setup hand-off. */
-    val weatherCity: Observed = Observed.Absent
+    val weatherCity: Observed = Observed.Absent,
+    /** The Sable apps choice (`sable_app_set`): full, essentials or stock; absent until one is made. */
+    val appSet: Observed = Observed.Absent
 )
 
 object SetupRows {
@@ -38,6 +40,14 @@ object SetupRows {
             Readiness.Informational,
             Action.HomeStyle
         ),
+        Item(
+            "theme",
+            t("row_theme_title"),
+            t("row_theme_detail"),
+            Readiness.Informational,
+            Action.DisplaySettings
+        ),
+        sableApps(snapshot.appSet),
         home(snapshot.home),
         keyboard(snapshot.keyboard),
         Item(
@@ -79,6 +89,40 @@ object SetupRows {
         ),
         WeatherCityStep.row(snapshot.weatherCity)
     ).plus(optionalRows()).map { applyTarget(it, targets(it.action)) }
+
+    /**
+     * The Sable apps choice made in first-boot setup. Absent means none was recorded, which leaves every Sable
+     * app on (Full Sable). Informational: any of the three is a valid choice.
+     */
+    private fun sableApps(o: Observed): Item {
+        val title = t("row_apps_title")
+        return when (o) {
+            Observed.Failed ->
+                Item(
+                    "apps",
+                    title,
+                    t("row_apps_failed"),
+                    Readiness.Unknown,
+                    Action.SableApps
+                )
+
+            else -> {
+                val set =
+                    when ((o as? Observed.Value)?.text) {
+                        "essentials" -> t("apps_set_essentials")
+                        "stock" -> t("apps_set_stock")
+                        else -> t("apps_set_full")
+                    }
+                Item(
+                    "apps",
+                    title,
+                    t("row_apps_in_use", set),
+                    Readiness.Informational,
+                    Action.SableApps
+                )
+            }
+        }
+    }
 
     /** Choices a fresh phone leaves off: Hub's extra row menu entries and a Work space. */
     private fun optionalRows(): List<Item> = listOf(
@@ -222,7 +266,8 @@ object SetupRows {
             )
     }
 
-    private val CHOICES = setOf(Action.HomeStyle, Action.HomeSettings, Action.KeyboardPicker)
+    private val CHOICES =
+        setOf(Action.HomeStyle, Action.HomeSettings, Action.KeyboardPicker, Action.SableApps)
 
     /** Button text, or null when the row offers no action. */
     fun buttonLabel(item: Item): String? = when {

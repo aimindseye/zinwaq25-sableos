@@ -27,7 +27,9 @@ The first-boot setup walks through language, Wi-Fi, look, theme, Sable apps and 
 
 | Setup row | Default | What it does |
 | --- | --- | --- |
-| Home screen style | BlackBerry 10 | BlackBerry 10 (Hub, Active Frames, app pages) or BlackBerry 7 (banner and tray of icons) |
+| Profile | BlackBerry 10 | BlackBerry 10 (Hub, Active Frames, app pages) or BlackBerry 7 (banner and tray of icons). Today the profile changes how Sable Start looks and behaves |
+| Theme | Dark, Sable accent | Opens Settings > Display: Dark or Light, the accent colour and the text size |
+| Sable apps | Full Sable | Shows the choice made in first-boot setup (Full Sable, Essentials or Stock Android) and opens the same step again, with its check boxes, so you can turn Sable apps on or off at any time |
 | Home app | Sable Start | Pick another launcher if you prefer. On the BlackBerry 10 home, open an app's menu and choose Hold-key shortcut, then press a letter: holding that letter on Home opens the app (it replaces a speed dial on the same letter; Backspace removes it) |
 | Keyboard | Sable Keyboard | Any keyboard works; Gboard shows as "In use: Gboard" |
 | Add a keyboard | none | Install Gboard or another keyboard |
@@ -338,7 +340,7 @@ Settings keeps Android's layout, with SableOS additions. It is keyboard-first: w
 | Notifications > Sable Attention | Hub's hardware-attention settings. Each app's notification page also has a Sable Hub and Attention row |
 | Keyboard & input | Physical keyboard first, then the on-screen keyboard. **Key remapping** turns the $ key, right Shift or the Recents key into Ctrl, Alt, Tab, Esc, Menu or Search in every app (Default gives it back). **Keyboard light** explains the keys (Sym+0 toggles the light; with PaBaLF firmware Sym+Shift+1 to 9 sets the level). **Keyboard firmware** (also `*#*#1122#*#*` in the dialer) turns the keyboard off, puts it in download mode and brings it back. **Typing test** and **Diagnostics** open Tools |
 | Connected devices | Cards for USB / OTG, Bluetooth, NFC and Cast, moved with the arrows and opened with Enter. A card for hardware the phone lacks says "Not on this phone". **Sable Audio**, below the device lists, chooses the codec (LDAC, AAC, SBC and others the headphones offer), sample rate, bit depth and LDAC quality for the Bluetooth headphones playing now, turns HD audio on or off for them, and can turn hardware offload off if audio stutters |
-| Sable Setup | Home screen style, keyboard and default apps ([above](#first-boot-setup-and-sable-setup)) |
+| Sable Setup | Profile, theme, Sable apps, keyboard and default apps ([above](#first-boot-setup-and-sable-setup)) |
 
 <p>
 <img src="images/q25/about-phone.png" alt="About phone" width="200">
@@ -423,7 +425,7 @@ Do these once after setup. The first group protects you; the second makes the Q2
 
 ### Using the Q25 efficiently
 
-- [ ] Pick a home style in Sable Setup (BlackBerry 10 or 7) and add your apps: Edit Home on BB10, Menu > Add to Favorites on BB7.
+- [ ] Pick a profile in Sable Setup (BlackBerry 10 or 7) and add your apps: Edit Home on BB10, Menu > Add to Favorites on BB7.
 - [ ] Keep the Dark theme: from PR #38 a fresh install has Pure black on (Settings > Display > Dark theme), and Start's pages, Hub and All Apps are pure black too, which suits the Q25.
 - [ ] Pick a text size in Settings > Display > Text size if Medium is too small or too large for you.
 - [ ] Set your Weather city in Sable Setup, so Start's header shows it.
