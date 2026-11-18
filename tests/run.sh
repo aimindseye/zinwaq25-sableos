@@ -165,7 +165,7 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     v="$tmp/android/vendor/sable/q25"
     ok=yes
     grep -q '^FRAMEWORK_LAYER=YES' <<<"$out" || ok=no
-    grep -q 'SableLauncher' "$v/sable-q25-framework.mk" || ok=no
+    ! grep -q 'SableLauncher' "$v/sable-q25-framework.mk" || ok=no
     grep -q 'etc/sable/battery/zinwa-q25.conf' "$v/sable-q25-framework.mk" || ok=no
     [[ -f "$v/etc/battery/zinwa-q25.conf" ]] || ok=no
     [[ -f "$v/etc/init/sable-keyboard-backlight.rc" ]] || ok=no
@@ -173,7 +173,7 @@ if out="$(stagerun Q4 --apps-dir "$tmp/apps/run")"; then
     [[ -f "$v/etc/init/sable-power.rc" ]] || ok=no
     grep -q "etc/init/sable-power.rc:[$](TARGET_COPY_OUT_PRODUCT)/etc/init/sable-power.rc" "$v/sable-q25-framework.mk" || ok=no
     grep -q 'ro.sable.keyboard_backlight=true' "$v/sable-q25-framework.mk" || ok=no
-    grep -q 'name: "SableLauncher"' "$v/src/SableStart/Android.bp" || ok=no
+    [[ ! -e "$v/src/SableStart" ]] || ok=no
     grep -q 'name: "sable_design_shared_srcs"' "$v/src/sabledesign/Android.bp" || ok=no
     grep -q 'overrides: \["LatinIME"\]' "$v/Android.bp" || ok=no
     grep -q 'home=sable' "$proj/config.txt" || ok=no
@@ -495,13 +495,13 @@ printf 'fake' > "$ha/prebuilt/SableHome.apk"
 (cd "$ha/prebuilt" && sha256sum ./*.apk > ../SHA256SUMS.txt)
 {
     printf 'module\tgroup\tpackage\tsigning\toverrides\tfilename\tsha256\n'
-    printf 'SableHome\tplatform\torg.sableos.launcher\tplatformapp\tSableLauncher\tSableHome.apk\tx\n'
+    printf 'SableHome\tplatform\torg.sableos.launcher\tplatformapp\t-\tSableHome.apk\tx\n'
 } > "$ha/manifest.tsv"
 if stagerun Q4 --apps-dir "$ha" >/dev/null &&
     grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'certificate: "platform"' &&
     grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'privileged: false' &&
-    grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'overrides: \["SableLauncher"\]'; then
-    pass "stage SableOS home (platform cert, unprivileged, replaces Sable Start)"
+    ! grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'SableLauncher'; then
+    pass "stage SableOS home (platform cert, unprivileged, the only home app staged)"
 else
     fail "stage SableOS home: $(cat "$tmp/err")"
 fi
