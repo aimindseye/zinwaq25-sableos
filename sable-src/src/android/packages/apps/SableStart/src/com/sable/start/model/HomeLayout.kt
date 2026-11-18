@@ -8,9 +8,8 @@ import org.sableos.start.live.LiveAvailability
  * Pure policy, unit tested in
  * apps/r8/android/sablestart-presentation-check/src/test.
  *
- * Top to bottom: the status dials (Wi-Fi, Mobile, CPU, RAM, battery time
- * left, Cell, and the Settings gear; on by default, owner request), the
- * location's weather (temperature, condition, place) with the date under it
+ * Top to bottom: the Settings gear (the status dials and status line were
+ * removed in 2.0), the location's weather (temperature, condition, place) with the date under it
  * in place of a clock (the status bar keeps the only clock, so the two never
  * disagree), an optional Search or command row (off by default), then the
  * frames. No greeting.
@@ -18,12 +17,11 @@ import org.sableos.start.live.LiveAvailability
 object HomeLayout {
     const val WEATHER = "weather"
     const val SEARCH_ROW = "search"
-    const val STATUS_RINGS = "rings"
 
     /** Home modules the user can show or hide, in screen order. */
-    val SECTIONS: List<String> = listOf(STATUS_RINGS, WEATHER, SEARCH_ROW)
+    val SECTIONS: List<String> = listOf(WEATHER, SEARCH_ROW)
 
-    /** Never customised: status dials and weather shown; the search row hidden. */
+    /** Never customised: weather shown; the search row hidden. */
     val DEFAULT_HIDDEN: Set<String> = setOf(SEARCH_ROW)
 
     /** Keyboard-first list mode (default) or the optional touch tile mode. */
@@ -55,7 +53,6 @@ object HomeLayout {
         when (section) {
             WEATHER -> t("weather_and_date")
             SEARCH_ROW -> t("search_or_command_row")
-            STATUS_RINGS -> t("status_dials")
             else -> section
         }
 
@@ -63,7 +60,6 @@ object HomeLayout {
         when (section) {
             WEATHER -> t("temperature_condition_and_place_with")
             SEARCH_ROW -> t("a_command_row_under_the")
-            STATUS_RINGS -> t("wi_fi_mobile_cpu_ram")
             else -> ""
         }
 }

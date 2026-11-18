@@ -44,10 +44,8 @@
     <string name="work">工作</string>
     <string name="weather_and_date">天气和日期</string>
     <string name="search_or_command_row">搜索或命令行</string>
-    <string name="status_dials">状态行</string>
     <string name="temperature_condition_and_place_with">温度、天气状况和地点，下方是日期</string>
     <string name="a_command_row_under_the">天气下方的命令行；没有它也可以输入</string>
-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi、移动网络、CPU、RAM、电池剩余时间、蜂窝和设置</string>
     <string name="weather">天气</string>
     <string name="calendar">日历</string>
     <string name="media">媒体</string>
@@ -233,9 +231,7 @@
     <string name="shortcuts_and_notification_content_stay">在 Android 的能力与隐私闸门接通前，快捷方式和通知内容保持隐藏。</string>
     <string name="follow_system">跟随系统</string>
     <string name="reset_follow_system_sable_blue">重置 · 跟随系统 + Sable 蓝</string>
-    <string name="mobile">移动网络</string>
     <string name="bat">⚡ 电量</string>
-    <string name="cell">蜂窝</string>
     <string name="action_open">打开</string>
     <string name="action_uninstall">卸载</string>
     <string name="action_disable">停用</string>

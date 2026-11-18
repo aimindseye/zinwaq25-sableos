@@ -44,10 +44,8 @@
     <string name="work">Εργασία</string>
     <string name="weather_and_date">Καιρός και ημερομηνία</string>
     <string name="search_or_command_row">Γραμμή αναζήτησης ή εντολών</string>
-    <string name="status_dials">Γραμμή κατάστασης</string>
     <string name="temperature_condition_and_place_with">Θερμοκρασία, συνθήκες και τοποθεσία, με την ημερομηνία από κάτω</string>
     <string name="a_command_row_under_the">Μια γραμμή εντολών κάτω από τον καιρό· η πληκτρολόγηση λειτουργεί και χωρίς αυτήν</string>
-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, κινητό, CPU, RAM, υπολειπόμενος χρόνος μπαταρίας, κυψέλη και Ρυθμίσεις</string>
     <string name="weather">Καιρός</string>
     <string name="calendar">Ημερολόγιο</string>
     <string name="media">Πολυμέσα</string>
@@ -233,9 +231,7 @@
     <string name="shortcuts_and_notification_content_stay">Οι συντομεύσεις και το περιεχόμενο ειδοποιήσεων μένουν κρυφά μέχρι να συνδεθούν οι πύλες δυνατοτήτων και απορρήτου του Android.</string>
     <string name="follow_system">ακολούθηση συστήματος</string>
     <string name="reset_follow_system_sable_blue">επαναφορά · ακολούθηση συστήματος + Μπλε Sable</string>
-    <string name="mobile">Κινητό</string>
     <string name="bat">⚡ ΜΠΑΤ</string>
-    <string name="cell">Κυψέλη</string>
     <string name="action_open">άνοιγμα</string>
     <string name="action_uninstall">απεγκατάσταση</string>
     <string name="action_disable">απενεργοποίηση</string>

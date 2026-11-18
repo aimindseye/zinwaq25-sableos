@@ -1,0 +1,844 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 18 Nov 2026 17:00:00 +0000
+Subject: [PATCH] sable: remove the home status dials and status line, point Setup at Tools
+
+Sable Start no longer shows the status dials or the Wi-Fi/CPU/RAM status line
+on either home (the Settings gear stays on the BlackBerry 10 home), and the
+unused strings, layout section, label code and test are gone. A saved "rings"
+Home choice is dropped. Sable Setup's Radio diagnostics row opens Sable Tools,
+where the diagnostics moved, instead of the app that is no longer built.
+The Device Monitor frame keeps its dials.
+---
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
+index 90abf2b..e1ccef7 100644
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
++++ b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/HomeLayoutTest.kt
+@@ -9,13 +9,12 @@ import org.sableos.start.live.LiveAvailability
+ /** The Active Frames header (BB10 Home) and the Glance widgets shown as frames. */
+ class HomeLayoutTest {
+     @Test
+-    fun neverCustomisedShowsStatusDialsAndWeather() {
++    fun neverCustomisedShowsWeatherAndNoStatusDials() {
+         val hidden = HomeLayout.normalizeHidden(null)
+-        assertTrue(HomeLayout.isShown(hidden, HomeLayout.STATUS_RINGS))
+         assertTrue(HomeLayout.isShown(hidden, HomeLayout.WEATHER))
+         assertFalse(HomeLayout.isShown(hidden, HomeLayout.SEARCH_ROW))
+-        // Dials first, then weather and date: no clock, no greeting.
+-        assertEquals(listOf("rings", "weather", "search"), HomeLayout.SECTIONS)
++        // Weather and date: no dials, no clock, no greeting.
++        assertEquals(listOf("weather", "search"), HomeLayout.SECTIONS)
+     }
+ 
+     @Test
+@@ -36,7 +35,8 @@ class HomeLayoutTest {
+ 
+     @Test
+     fun hiddenModulesToggleAndUnknownNamesDrop() {
+-        assertEquals(setOf("rings"), HomeLayout.normalizeHidden(setOf("rings", "bogus")))
++        // A "rings" choice saved before the status dials were removed is dropped with the unknown names.
++        assertEquals(setOf("search"), HomeLayout.normalizeHidden(setOf("rings", "search", "bogus")))
+         val noWeather = HomeLayout.toggle(emptySet(), HomeLayout.WEATHER)
+         assertFalse(HomeLayout.isShown(noWeather, HomeLayout.WEATHER))
+         assertEquals(emptySet<String>(), HomeLayout.toggle(noWeather, HomeLayout.WEATHER))
+diff --git a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StatusLabelLineTest.kt b/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StatusLabelLineTest.kt
+deleted file mode 100644
+index ca54372..0000000
+--- a/sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/ui/StatusLabelLineTest.kt
++++ /dev/null
+@@ -1,20 +0,0 @@
+-package org.sableos.start.ui
+-
+-import org.junit.Assert.assertEquals
+-import org.junit.Test
+-import org.sableos.start.platform.DeviceStats
+-
+-class StatusLabelLineTest {
+-    @Test fun statLabelsInOrderWithNoReadingLeftOut() {
+-        val st = DeviceStats(cpu = 0.234f, ram = 0.61f, battery = 0.82f, charging = true, signal = 0.75f)
+-        assertEquals(
+-            "CPU 23% · RAM 61% · BAT 82%+ · Cell 3/4",
+-            statusLabelLine(st, mobile = "Mobile", cell = "Cell"),
+-        )
+-    }
+-
+-    @Test fun noCpuAndNoSimLeaveThoseOut() {
+-        val st = DeviceStats(cpu = null, ram = 0.5f, battery = 0.15f)
+-        assertEquals("RAM 50% · BAT 15%", statusLabelLine(st, mobile = "Mobile", cell = "Cell"))
+-    }
+-}
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml b/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
+index 499d0e3..bf51ceb 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
++++ b/sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml
+@@ -31,7 +31,7 @@
+         <!-- Sable Spaces: make a Work space (BB10 Balance). -->
+         <intent><action android:name="org.sableos.spaces.action.WORK_SPACE" /></intent>
+         <package android:name="org.sableos.titan2.displaycompat" />
+-        <package android:name="org.sableos.titan2.radiodiag" />
++        <package android:name="org.sableos.tools" />
+         <!-- Sable Weather's city hand-off (ContentResolver.call); Weather allows only this package. -->
+         <provider android:authorities="org.sableos.weather.snapshot" />
+         <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->
+diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
+index c7aea87..d32233c 100644
+--- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
++++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/Launcher.kt
+@@ -91,7 +91,8 @@ class Launcher(private val activity: Activity) {
+     private companion object {
+         const val HOME_STYLE_ACTION = "org.sableos.start.action.CHOOSE_HOME_STYLE"
+         const val DISPLAY_PACKAGE = "org.sableos.titan2.displaycompat"
+-        const val RADIO_PACKAGE = "org.sableos.titan2.radiodiag"
++        // Radio diagnostics were folded into Sable Tools (product/q25/apps.tsv); the old app is not built.
++        const val RADIO_PACKAGE = "org.sableos.tools"
+         const val HUB_SETTINGS_ACTION = "org.sableos.hub.action.CONNECTED_APPS"
+         const val HUB_PACKAGE = "org.sableos.hub"
+         const val WORK_SPACE_ACTION = "org.sableos.spaces.action.WORK_SPACE"
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+index 7ab21dc..ce5e8e0 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ar/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">العمل</string>
+     <string name="weather_and_date">الطقس والتاريخ</string>
+     <string name="search_or_command_row">صف البحث أو الأوامر</string>
+-    <string name="status_dials">سطر الحالة</string>
+     <string name="temperature_condition_and_place_with">الحرارة والحالة والمكان، والتاريخ تحتها</string>
+     <string name="a_command_row_under_the">صف أوامر تحت الطقس؛ الكتابة تعمل بدونه</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi والجوال وCPU وRAM ووقت البطارية المتبقي والخلية والإعدادات</string>
+     <string name="weather">الطقس</string>
+     <string name="calendar">التقويم</string>
+     <string name="media">الوسائط</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">تبقى الاختصارات ومحتوى الإشعارات مخفية حتى تُربط بوابات القدرات والخصوصية في Android.</string>
+     <string name="follow_system">اتباع النظام</string>
+     <string name="reset_follow_system_sable_blue">إعادة الضبط · اتباع النظام + أزرق Sable</string>
+-    <string name="mobile">الجوال</string>
+     <string name="bat">⚡ بطارية</string>
+-    <string name="cell">الخلية</string>
+     <string name="action_open">فتح</string>
+     <string name="action_uninstall">إلغاء التثبيت</string>
+     <string name="action_disable">تعطيل</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+index fe9702a..2084e7a 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-de/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">Arbeit</string>
+     <string name="weather_and_date">Wetter und Datum</string>
+     <string name="search_or_command_row">Such- oder Befehlszeile</string>
+-    <string name="status_dials">Statuszeile</string>
+     <string name="temperature_condition_and_place_with">Temperatur, Wetterlage und Ort, darunter das Datum</string>
+     <string name="a_command_row_under_the">Eine Befehlszeile unter dem Wetter; Tippen funktioniert auch ohne sie</string>
+-    <string name="wi_fi_mobile_cpu_ram">WLAN, Mobilfunk, CPU, RAM, Akkurestzeit, Zelle und Einstellungen</string>
+     <string name="weather">Wetter</string>
+     <string name="calendar">Kalender</string>
+     <string name="media">Medien</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Verknüpfungen und Benachrichtigungsinhalte bleiben ausgeblendet, bis die Android-Funktions- und Datenschutzprüfungen eingebunden sind.</string>
+     <string name="follow_system">System folgen</string>
+     <string name="reset_follow_system_sable_blue">zurücksetzen · System folgen + Sable-Blau</string>
+-    <string name="mobile">Mobil</string>
+     <string name="bat">⚡ AKKU</string>
+-    <string name="cell">Zelle</string>
+     <string name="action_open">öffnen</string>
+     <string name="action_uninstall">deinstallieren</string>
+     <string name="action_disable">deaktivieren</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+index e631d15..c4e72a1 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-el/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">Εργασία</string>
+     <string name="weather_and_date">Καιρός και ημερομηνία</string>
+     <string name="search_or_command_row">Γραμμή αναζήτησης ή εντολών</string>
+-    <string name="status_dials">Γραμμή κατάστασης</string>
+     <string name="temperature_condition_and_place_with">Θερμοκρασία, συνθήκες και τοποθεσία, με την ημερομηνία από κάτω</string>
+     <string name="a_command_row_under_the">Μια γραμμή εντολών κάτω από τον καιρό· η πληκτρολόγηση λειτουργεί και χωρίς αυτήν</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, κινητό, CPU, RAM, υπολειπόμενος χρόνος μπαταρίας, κυψέλη και Ρυθμίσεις</string>
+     <string name="weather">Καιρός</string>
+     <string name="calendar">Ημερολόγιο</string>
+     <string name="media">Πολυμέσα</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Οι συντομεύσεις και το περιεχόμενο ειδοποιήσεων μένουν κρυφά μέχρι να συνδεθούν οι πύλες δυνατοτήτων και απορρήτου του Android.</string>
+     <string name="follow_system">ακολούθηση συστήματος</string>
+     <string name="reset_follow_system_sable_blue">επαναφορά · ακολούθηση συστήματος + Μπλε Sable</string>
+-    <string name="mobile">Κινητό</string>
+     <string name="bat">⚡ ΜΠΑΤ</string>
+-    <string name="cell">Κυψέλη</string>
+     <string name="action_open">άνοιγμα</string>
+     <string name="action_uninstall">απεγκατάσταση</string>
+     <string name="action_disable">απενεργοποίηση</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+index 8e540d1..a557857 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-es/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">Trabajo</string>
+     <string name="weather_and_date">Tiempo y fecha</string>
+     <string name="search_or_command_row">Fila de búsqueda o comandos</string>
+-    <string name="status_dials">Línea de estado</string>
+     <string name="temperature_condition_and_place_with">Temperatura, estado del cielo y lugar, con la fecha debajo</string>
+     <string name="a_command_row_under_the">Una fila de comandos bajo el tiempo; escribir funciona sin ella</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, móvil, CPU, RAM, batería restante, celda y Ajustes</string>
+     <string name="weather">Tiempo</string>
+     <string name="calendar">Calendario</string>
+     <string name="media">Multimedia</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Los accesos directos y el contenido de las notificaciones siguen ocultos hasta que se conecten las barreras de capacidad y privacidad de Android.</string>
+     <string name="follow_system">seguir el sistema</string>
+     <string name="reset_follow_system_sable_blue">restablecer · seguir el sistema + Azul Sable</string>
+-    <string name="mobile">Móvil</string>
+     <string name="bat">⚡ BAT</string>
+-    <string name="cell">Celda</string>
+     <string name="action_open">abrir</string>
+     <string name="action_uninstall">desinstalar</string>
+     <string name="action_disable">desactivar</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+index c65ada2..d6a22c7 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-fr/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">Pro</string>
+     <string name="weather_and_date">Météo et date</string>
+     <string name="search_or_command_row">Ligne de recherche ou de commande</string>
+-    <string name="status_dials">Ligne d’état</string>
+     <string name="temperature_condition_and_place_with">Température, conditions et lieu, avec la date en dessous</string>
+     <string name="a_command_row_under_the">Une ligne de commande sous la météo ; la saisie fonctionne sans elle</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, mobile, CPU, RAM, autonomie restante, cellule et Réglages</string>
+     <string name="weather">Météo</string>
+     <string name="calendar">Agenda</string>
+     <string name="media">Médias</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Les raccourcis et le contenu des notifications restent masqués tant que les garde-fous de capacité et de confidentialité d’Android ne sont pas branchés.</string>
+     <string name="follow_system">suivre le système</string>
+     <string name="reset_follow_system_sable_blue">réinitialiser · suivre le système + Bleu Sable</string>
+-    <string name="mobile">Mobile</string>
+     <string name="bat">⚡ BAT</string>
+-    <string name="cell">Cellule</string>
+     <string name="action_open">ouvrir</string>
+     <string name="action_uninstall">désinstaller</string>
+     <string name="action_disable">désactiver</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+index 93801d9..76df7cb 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-hi/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">कार्य</string>
+     <string name="weather_and_date">मौसम और तारीख़</string>
+     <string name="search_or_command_row">खोज या कमांड पंक्ति</string>
+-    <string name="status_dials">स्थिति पंक्ति</string>
+     <string name="temperature_condition_and_place_with">तापमान, स्थिति और जगह, नीचे तारीख़ के साथ</string>
+     <string name="a_command_row_under_the">मौसम के नीचे कमांड पंक्ति; इसके बिना भी टाइप करना चलता है</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, मोबाइल, CPU, RAM, बैटरी का बचा समय, सेल और सेटिंग</string>
+     <string name="weather">मौसम</string>
+     <string name="calendar">कैलेंडर</string>
+     <string name="media">मीडिया</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">शॉर्टकट और सूचना की सामग्री तब तक छिपी रहती है जब तक Android की क्षमता और गोपनीयता के गेट नहीं जुड़ जाते।</string>
+     <string name="follow_system">सिस्टम का अनुसरण करें</string>
+     <string name="reset_follow_system_sable_blue">रीसेट · सिस्टम का अनुसरण + Sable नीला</string>
+-    <string name="mobile">मोबाइल</string>
+     <string name="bat">⚡ बैटरी</string>
+-    <string name="cell">सेल</string>
+     <string name="action_open">खोलें</string>
+     <string name="action_uninstall">अनइंस्टॉल करें</string>
+     <string name="action_disable">अक्षम करें</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+index f6e753d..1d94d8c 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-it/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">Lavoro</string>
+     <string name="weather_and_date">Meteo e data</string>
+     <string name="search_or_command_row">Riga di ricerca o comando</string>
+-    <string name="status_dials">Riga di stato</string>
+     <string name="temperature_condition_and_place_with">Temperatura, condizioni e luogo, con la data sotto</string>
+     <string name="a_command_row_under_the">Una riga di comando sotto il meteo; si può scrivere anche senza</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, rete mobile, CPU, RAM, autonomia residua, cella e Impostazioni</string>
+     <string name="weather">Meteo</string>
+     <string name="calendar">Calendario</string>
+     <string name="media">Media</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Scorciatoie e contenuto delle notifiche restano nascosti finché i controlli di capacità e privacy di Android non sono collegati.</string>
+     <string name="follow_system">segui il sistema</string>
+     <string name="reset_follow_system_sable_blue">ripristina · segui il sistema + Blu Sable</string>
+-    <string name="mobile">Rete mobile</string>
+     <string name="bat">⚡ BATT</string>
+-    <string name="cell">Cella</string>
+     <string name="action_open">apri</string>
+     <string name="action_uninstall">disinstalla</string>
+     <string name="action_disable">disattiva</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+index 93c5a5c..6cea9e9 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-iw/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">עבודה</string>
+     <string name="weather_and_date">מזג אוויר ותאריך</string>
+     <string name="search_or_command_row">שורת חיפוש או פקודות</string>
+-    <string name="status_dials">שורת מצב</string>
+     <string name="temperature_condition_and_place_with">טמפרטורה, תנאים ומקום, עם התאריך מתחת</string>
+     <string name="a_command_row_under_the">שורת פקודות מתחת למזג האוויר; ההקלדה עובדת גם בלעדיה</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, סלולרי, CPU, RAM, זמן סוללה שנותר, תא ו-הגדרות</string>
+     <string name="weather">מזג אוויר</string>
+     <string name="calendar">יומן</string>
+     <string name="media">מדיה</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">קיצורי דרך ותוכן התראות נשארים מוסתרים עד שמחברים את שערי היכולות והפרטיות של Android.</string>
+     <string name="follow_system">לפי המערכת</string>
+     <string name="reset_follow_system_sable_blue">איפוס · לפי המערכת + כחול Sable</string>
+-    <string name="mobile">סלולרי</string>
+     <string name="bat">⚡ סוללה</string>
+-    <string name="cell">תא</string>
+     <string name="action_open">פתיחה</string>
+     <string name="action_uninstall">הסרת התקנה</string>
+     <string name="action_disable">השבתה</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+index 888b1b1..af17157 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ja/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">仕事</string>
+     <string name="weather_and_date">天気と日付</string>
+     <string name="search_or_command_row">検索またはコマンド行</string>
+-    <string name="status_dials">ステータス行</string>
+     <string name="temperature_condition_and_place_with">気温、天候、場所。その下に日付</string>
+     <string name="a_command_row_under_the">天気の下にコマンド行。なくても入力できます</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi、モバイル、CPU、RAM、バッテリー残り時間、セル、設定</string>
+     <string name="weather">天気</string>
+     <string name="calendar">カレンダー</string>
+     <string name="media">メディア</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Android の機能とプライバシーのゲートが接続されるまで、ショートカットと通知の内容は非表示のままです。</string>
+     <string name="follow_system">システムに従う</string>
+     <string name="reset_follow_system_sable_blue">リセット · システムに従う + Sable ブルー</string>
+-    <string name="mobile">モバイル</string>
+     <string name="bat">⚡ 電池</string>
+-    <string name="cell">セル</string>
+     <string name="action_open">開く</string>
+     <string name="action_uninstall">アンインストール</string>
+     <string name="action_disable">無効にする</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+index 7f50bdc..4bab91b 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ko/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">업무</string>
+     <string name="weather_and_date">날씨와 날짜</string>
+     <string name="search_or_command_row">검색 또는 명령 줄</string>
+-    <string name="status_dials">상태 줄</string>
+     <string name="temperature_condition_and_place_with">기온, 날씨, 장소와 그 아래 날짜</string>
+     <string name="a_command_row_under_the">날씨 아래의 명령 줄. 없어도 입력할 수 있습니다</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, 모바일, CPU, RAM, 배터리 남은 시간, 셀, 설정</string>
+     <string name="weather">날씨</string>
+     <string name="calendar">캘린더</string>
+     <string name="media">미디어</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Android의 기능 및 개인정보 게이트가 연결될 때까지 바로가기와 알림 내용은 숨겨진 상태로 유지됩니다.</string>
+     <string name="follow_system">시스템 따르기</string>
+     <string name="reset_follow_system_sable_blue">초기화 · 시스템 따르기 + Sable 블루</string>
+-    <string name="mobile">모바일</string>
+     <string name="bat">⚡ 배터리</string>
+-    <string name="cell">셀</string>
+     <string name="action_open">열기</string>
+     <string name="action_uninstall">제거</string>
+     <string name="action_disable">사용 안 함</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+index 29fb9de..ca4f628 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-nl/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">Werk</string>
+     <string name="weather_and_date">Weer en datum</string>
+     <string name="search_or_command_row">Zoek- of opdrachtregel</string>
+-    <string name="status_dials">Statusregel</string>
+     <string name="temperature_condition_and_place_with">Temperatuur, weertype en plaats, met de datum eronder</string>
+     <string name="a_command_row_under_the">Een opdrachtregel onder het weer; typen werkt ook zonder</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wifi, mobiel, CPU, RAM, resterende batterijtijd, cel en Instellingen</string>
+     <string name="weather">Weer</string>
+     <string name="calendar">Agenda</string>
+     <string name="media">Media</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Snelkoppelingen en meldingsinhoud blijven verborgen totdat de Android-controles voor mogelijkheden en privacy zijn aangesloten.</string>
+     <string name="follow_system">systeem volgen</string>
+     <string name="reset_follow_system_sable_blue">terugzetten · systeem volgen + Sable-blauw</string>
+-    <string name="mobile">Mobiel</string>
+     <string name="bat">⚡ ACCU</string>
+-    <string name="cell">Cel</string>
+     <string name="action_open">openen</string>
+     <string name="action_uninstall">verwijderen</string>
+     <string name="action_disable">uitschakelen</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+index c8ddd11..7a624b9 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pl/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">Praca</string>
+     <string name="weather_and_date">Pogoda i data</string>
+     <string name="search_or_command_row">Wiersz wyszukiwania lub poleceń</string>
+-    <string name="status_dials">Wiersz stanu</string>
+     <string name="temperature_condition_and_place_with">Temperatura, warunki i miejsce, a pod nimi data</string>
+     <string name="a_command_row_under_the">Wiersz poleceń pod pogodą; pisanie działa także bez niego</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, sieć komórkowa, CPU, RAM, pozostały czas baterii, komórka i Ustawienia</string>
+     <string name="weather">Pogoda</string>
+     <string name="calendar">Kalendarz</string>
+     <string name="media">Multimedia</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Skróty i treść powiadomień pozostają ukryte do czasu podłączenia bramek możliwości i prywatności Androida.</string>
+     <string name="follow_system">zgodnie z systemem</string>
+     <string name="reset_follow_system_sable_blue">zresetuj · zgodnie z systemem + niebieski Sable</string>
+-    <string name="mobile">Komórkowa</string>
+     <string name="bat">⚡ BAT</string>
+-    <string name="cell">Komórka</string>
+     <string name="action_open">otwórz</string>
+     <string name="action_uninstall">odinstaluj</string>
+     <string name="action_disable">wyłącz</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+index a9a322a..b359607 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-pt/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">Trabalho</string>
+     <string name="weather_and_date">Clima e data</string>
+     <string name="search_or_command_row">Linha de busca ou comando</string>
+-    <string name="status_dials">Linha de status</string>
+     <string name="temperature_condition_and_place_with">Temperatura, condição e local, com a data abaixo</string>
+     <string name="a_command_row_under_the">Uma linha de comando sob o clima; digitar funciona sem ela</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, rede móvel, CPU, RAM, tempo restante da bateria, célula e Configurações</string>
+     <string name="weather">Clima</string>
+     <string name="calendar">Calendário</string>
+     <string name="media">Mídia</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Atalhos e conteúdo de notificações continuam ocultos até que as barreiras de capacidade e privacidade do Android estejam conectadas.</string>
+     <string name="follow_system">seguir o sistema</string>
+     <string name="reset_follow_system_sable_blue">redefinir · seguir o sistema + Azul Sable</string>
+-    <string name="mobile">Móvel</string>
+     <string name="bat">⚡ BAT</string>
+-    <string name="cell">Célula</string>
+     <string name="action_open">abrir</string>
+     <string name="action_uninstall">desinstalar</string>
+     <string name="action_disable">desativar</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+index 91cbc7a..0602273 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ru/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">Работа</string>
+     <string name="weather_and_date">Погода и дата</string>
+     <string name="search_or_command_row">Строка поиска или команд</string>
+-    <string name="status_dials">Строка состояния</string>
+     <string name="temperature_condition_and_place_with">Температура, погода и место, под ними дата</string>
+     <string name="a_command_row_under_the">Строка команд под погодой; печатать можно и без неё</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, мобильная сеть, ЦП, ОЗУ, оставшееся время батареи, сота и «Настройки»</string>
+     <string name="weather">Погода</string>
+     <string name="calendar">Календарь</string>
+     <string name="media">Медиа</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Ярлыки и содержимое уведомлений остаются скрытыми, пока не подключены проверки возможностей и конфиденциальности Android.</string>
+     <string name="follow_system">как в системе</string>
+     <string name="reset_follow_system_sable_blue">сбросить · как в системе + синий Sable</string>
+-    <string name="mobile">Мобильная</string>
+     <string name="bat">⚡ БАТ</string>
+-    <string name="cell">Сота</string>
+     <string name="action_open">открыть</string>
+     <string name="action_uninstall">удалить</string>
+     <string name="action_disable">отключить</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+index 728cd1e..b763e54 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-sv/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">Jobb</string>
+     <string name="weather_and_date">Väder och datum</string>
+     <string name="search_or_command_row">Sök- eller kommandorad</string>
+-    <string name="status_dials">Statusrad</string>
+     <string name="temperature_condition_and_place_with">Temperatur, väderlek och plats, med datumet under</string>
+     <string name="a_command_row_under_the">En kommandorad under vädret; det går att skriva utan den</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, mobil, CPU, RAM, återstående batteritid, cell och Inställningar</string>
+     <string name="weather">Väder</string>
+     <string name="calendar">Kalender</string>
+     <string name="media">Media</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Genvägar och aviseringsinnehåll förblir dolda tills Androids spärrar för funktioner och integritet är anslutna.</string>
+     <string name="follow_system">följ systemet</string>
+     <string name="reset_follow_system_sable_blue">återställ · följ systemet + Sable-blå</string>
+-    <string name="mobile">Mobil</string>
+     <string name="bat">⚡ BATT</string>
+-    <string name="cell">Cell</string>
+     <string name="action_open">öppna</string>
+     <string name="action_uninstall">avinstallera</string>
+     <string name="action_disable">inaktivera</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+index 6d1756f..0e181be 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-tr/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">İş</string>
+     <string name="weather_and_date">Hava durumu ve tarih</string>
+     <string name="search_or_command_row">Arama veya komut satırı</string>
+-    <string name="status_dials">Durum satırı</string>
+     <string name="temperature_condition_and_place_with">Sıcaklık, durum ve yer; altında tarih</string>
+     <string name="a_command_row_under_the">Hava durumunun altında bir komut satırı; o olmadan da yazılabilir</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, mobil, CPU, RAM, kalan pil süresi, hücre ve Ayarlar</string>
+     <string name="weather">Hava durumu</string>
+     <string name="calendar">Takvim</string>
+     <string name="media">Medya</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">Kısayollar ve bildirim içeriği, Android yetenek ve gizlilik kapıları bağlanana kadar gizli kalır.</string>
+     <string name="follow_system">sistemi izle</string>
+     <string name="reset_follow_system_sable_blue">sıfırla · sistemi izle + Sable Mavisi</string>
+-    <string name="mobile">Mobil</string>
+     <string name="bat">⚡ PİL</string>
+-    <string name="cell">Hücre</string>
+     <string name="action_open">aç</string>
+     <string name="action_uninstall">kaldır</string>
+     <string name="action_disable">devre dışı bırak</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+index 65feac8..d4bbfdf 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-ur/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">کام</string>
+     <string name="weather_and_date">موسم اور تاریخ</string>
+     <string name="search_or_command_row">تلاش یا کمانڈ کی قطار</string>
+-    <string name="status_dials">حالت کی سطر</string>
+     <string name="temperature_condition_and_place_with">درجہ حرارت، حالت اور مقام، نیچے تاریخ کے ساتھ</string>
+     <string name="a_command_row_under_the">موسم کے نیچے کمانڈ کی قطار؛ اس کے بغیر بھی ٹائپنگ چلتی ہے</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi، موبائل، CPU، RAM، بیٹری کا باقی وقت، سیل اور ترتیبات</string>
+     <string name="weather">موسم</string>
+     <string name="calendar">کیلنڈر</string>
+     <string name="media">میڈیا</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">شارٹ کٹس اور اطلاعات کا مواد اس وقت تک چھپا رہتا ہے جب تک اینڈرائیڈ کی صلاحیت اور رازداری کے گیٹ جڑ نہیں جاتے۔</string>
+     <string name="follow_system">سسٹم کی پیروی کریں</string>
+     <string name="reset_follow_system_sable_blue">ری سیٹ · سسٹم کی پیروی + Sable نیلا</string>
+-    <string name="mobile">موبائل</string>
+     <string name="bat">⚡ بیٹری</string>
+-    <string name="cell">سیل</string>
+     <string name="action_open">کھولیں</string>
+     <string name="action_uninstall">ان انسٹال کریں</string>
+     <string name="action_disable">غیر فعال کریں</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+index 71d170b..81b94d3 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values-zh-rCN/strings.xml
+@@ -44,10 +44,8 @@
+     <string name="work">工作</string>
+     <string name="weather_and_date">天气和日期</string>
+     <string name="search_or_command_row">搜索或命令行</string>
+-    <string name="status_dials">状态行</string>
+     <string name="temperature_condition_and_place_with">温度、天气状况和地点，下方是日期</string>
+     <string name="a_command_row_under_the">天气下方的命令行；没有它也可以输入</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi、移动网络、CPU、RAM、电池剩余时间、蜂窝和设置</string>
+     <string name="weather">天气</string>
+     <string name="calendar">日历</string>
+     <string name="media">媒体</string>
+@@ -233,9 +231,7 @@
+     <string name="shortcuts_and_notification_content_stay">在 Android 的能力与隐私闸门接通前，快捷方式和通知内容保持隐藏。</string>
+     <string name="follow_system">跟随系统</string>
+     <string name="reset_follow_system_sable_blue">重置 · 跟随系统 + Sable 蓝</string>
+-    <string name="mobile">移动网络</string>
+     <string name="bat">⚡ 电量</string>
+-    <string name="cell">蜂窝</string>
+     <string name="action_open">打开</string>
+     <string name="action_uninstall">卸载</string>
+     <string name="action_disable">停用</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+index 7b7b8c3..5d6f371 100644
+--- a/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
++++ b/sable-src/src/android/packages/apps/SableStart/res/values/strings.xml
+@@ -46,10 +46,8 @@
+     <string name="work">Work</string>
+     <string name="weather_and_date">Weather and date</string>
+     <string name="search_or_command_row">Search or command row</string>
+-    <string name="status_dials">Status line</string>
+     <string name="temperature_condition_and_place_with">Temperature, condition and place, with the date under it</string>
+     <string name="a_command_row_under_the">A Command row under the weather; typing works without it</string>
+-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, Mobile, CPU, RAM, battery time left, Cell and Settings</string>
+     <string name="weather">Weather</string>
+     <string name="calendar">Calendar</string>
+     <string name="media">Media</string>
+@@ -235,9 +233,7 @@
+     <string name="shortcuts_and_notification_content_stay">Shortcuts and notification content stay hidden until Android capability and privacy gates are wired.</string>
+     <string name="follow_system">follow system</string>
+     <string name="reset_follow_system_sable_blue">reset · follow system + Sable Blue</string>
+-    <string name="mobile">Mobile</string>
+     <string name="bat">⚡ BAT</string>
+-    <string name="cell">Cell</string>
+     <string name="action_open">open</string>
+     <string name="action_uninstall">uninstall</string>
+     <string name="action_disable">disable</string>
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
+index 4dbe005..dbb07c2 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HomeLayout.kt
+@@ -8,9 +8,8 @@ import org.sableos.start.live.LiveAvailability
+  * Pure policy, unit tested in
+  * apps/r8/android/sablestart-presentation-check/src/test.
+  *
+- * Top to bottom: the status dials (Wi-Fi, Mobile, CPU, RAM, battery time
+- * left, Cell, and the Settings gear; on by default, owner request), the
+- * location's weather (temperature, condition, place) with the date under it
++ * Top to bottom: the Settings gear (the status dials and status line were
++ * removed in 2.0), the location's weather (temperature, condition, place) with the date under it
+  * in place of a clock (the status bar keeps the only clock, so the two never
+  * disagree), an optional Search or command row (off by default), then the
+  * frames. No greeting.
+@@ -18,12 +17,11 @@ import org.sableos.start.live.LiveAvailability
+ object HomeLayout {
+     const val WEATHER = "weather"
+     const val SEARCH_ROW = "search"
+-    const val STATUS_RINGS = "rings"
+ 
+     /** Home modules the user can show or hide, in screen order. */
+-    val SECTIONS: List<String> = listOf(STATUS_RINGS, WEATHER, SEARCH_ROW)
++    val SECTIONS: List<String> = listOf(WEATHER, SEARCH_ROW)
+ 
+-    /** Never customised: status dials and weather shown; the search row hidden. */
++    /** Never customised: weather shown; the search row hidden. */
+     val DEFAULT_HIDDEN: Set<String> = setOf(SEARCH_ROW)
+ 
+     /** Keyboard-first list mode (default) or the optional touch tile mode. */
+@@ -55,7 +53,6 @@ object HomeLayout {
+         when (section) {
+             WEATHER -> t("weather_and_date")
+             SEARCH_ROW -> t("search_or_command_row")
+-            STATUS_RINGS -> t("status_dials")
+             else -> section
+         }
+ 
+@@ -63,7 +60,6 @@ object HomeLayout {
+         when (section) {
+             WEATHER -> t("temperature_condition_and_place_with")
+             SEARCH_ROW -> t("a_command_row_under_the")
+-            STATUS_RINGS -> t("wi_fi_mobile_cpu_ram")
+             else -> ""
+         }
+ }
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+index 30f1820..e35ac15 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt
+@@ -56,12 +56,9 @@ object StartText {
+             "work" to "Work",
+             "weather_and_date" to "Weather and date",
+             "search_or_command_row" to "Search or command row",
+-            "status_dials" to "Status line",
+             "temperature_condition_and_place_with" to
+                 "Temperature, condition and place, with the date under it",
+             "a_command_row_under_the" to "A Command row under the weather; typing works without it",
+-            "wi_fi_mobile_cpu_ram" to
+-                "Wi-Fi, Mobile, CPU, RAM, battery time left, Cell and Settings",
+             "weather" to "Weather",
+             "calendar" to "Calendar",
+             "month" to "Month",
+@@ -288,9 +285,7 @@ object StartText {
+                 "privacy gates are wired.",
+             "follow_system" to "follow system",
+             "reset_follow_system_sable_blue" to "reset · follow system + Sable Blue",
+-            "mobile" to "Mobile",
+             "bat" to "⚡ BAT",
+-            "cell" to "Cell",
+             "action_open" to "open",
+             "action_uninstall" to "uninstall",
+             "action_disable" to "disable",
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+index ccab8c2..26fd23f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/Bb7HomeScreen.kt
+@@ -89,7 +89,7 @@ import org.sableos.start.platform.SpeedDialRepository
+ 
+ /**
+  * Sable Start in the BlackBerry 7 style ([org.sableos.start.model.HomeStyle.Bb7]): the banner
+- * (status dials, date, weather and unread count; the time is the status bar's, so it is not shown
++ * (date, weather and unread count; the time is the status bar's, so it is not shown
+  * twice) on the wallpaper, and a tray along the bottom with one row of Favorites that opens into
+  * the whole panel. Keys as on BlackBerry 7: arrows move, Enter opens, Up opens the tray and
+  * Escape closes it, Space switches panels (Favorites, Recent, All, Downloads, then your folders), typing
+@@ -591,7 +591,7 @@ fun Bb7HomeScreen(
+ }
+ 
+ /**
+- * The BlackBerry 7 banner: the status dials (as on the BlackBerry 10 home), the date, weather and
++ * The BlackBerry 7 banner: the date, weather and
+  * the Hub unread count, on a scrim so they read over any wallpaper. The status bar shows the time.
+  */
+ @Composable
+@@ -609,9 +609,8 @@ private fun Bb7Banner(
+                 .background(BANNER_SCRIM)
+                 .padding(horizontal = 12.dp, vertical = if (compact) 4.dp else 8.dp),
+     ) {
+-        if (!compact) SableStatusLabels(modifier = Modifier.fillMaxWidth())
+         Row(verticalAlignment = Alignment.CenterVertically) {
+-            Column(modifier = Modifier.weight(1f).padding(top = if (compact) 0.dp else 6.dp)) {
++            Column(modifier = Modifier.weight(1f)) {
+                 Text(
+                     text = dateText,
+                     color = Color.White,
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+index 5cede1e..82383ea 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStartScreen.kt
+@@ -1312,7 +1312,7 @@ private fun pageDescription(page: Int): String =
+     }
+ 
+ /**
+- * Active Frames (BB10 Home). On top, the status dials and Settings gear, then
++ * Active Frames (BB10 Home). On top, the Settings gear, then
+  * the location's weather with the date under it (no clock: the status bar
+  * keeps the only one; no greeting). Below, up to eight recent apps as live
+  * cards, two by two, scrolling down for more. Each card shows the app's
+@@ -1364,9 +1364,7 @@ private fun ActiveFramesPage(
+     fun shown(section: String) = HomeLayout.isShown(hiddenSections, section)
+ 
+     Column(modifier = Modifier.fillMaxSize()) {
+-        if (shown(HomeLayout.STATUS_RINGS)) {
+-            StatusDialsRow(onOpenSettings = onOpenSettings)
+-        }
++        SettingsGearRow(onOpenSettings = onOpenSettings)
+         if (shown(HomeLayout.WEATHER)) {
+             WeatherDateHeader(
+                 datum = snapshot.weather,
+@@ -1404,14 +1402,14 @@ private fun ActiveFramesPage(
+     }
+ }
+ 
+-/** The status line (Wi-Fi, Mobile, CPU, RAM, battery, Cell as stat labels) and the Settings gear. */
++/** The Settings gear at the right edge; the status dials and status line are gone in 2.0. */
+ @Composable
+-private fun StatusDialsRow(onOpenSettings: () -> Unit) {
++private fun SettingsGearRow(onOpenSettings: () -> Unit) {
+     Row(
+         modifier = Modifier.fillMaxWidth().padding(start = FRAME_PADDING, end = 2.dp, top = 4.dp),
+         verticalAlignment = Alignment.CenterVertically,
+     ) {
+-        SableStatusLabels(modifier = Modifier.weight(1f))
++        Spacer(modifier = Modifier.weight(1f))
+         Text(
+             text = "⚙",
+             fontSize = 22.sp,
+@@ -4082,7 +4080,7 @@ private fun HomeEdit.moved(
+ /**
+  * Edit Home: one mode that orders the app grid, the bottom bar and the Glance
+  * widgets shown as frames while no app runs, and shows or hides the Active
+- * Frames header (status dials, weather and date, search row). Drag, or with
++ * Frames header (weather and date, search row). Drag, or with
+  * the keyboard: Enter picks an item up and drops it, arrows move it while
+  * picked up (all four on the grid, Left/Right on the bar, Up/Down in the
+  * list), Alt+arrows (Fn+arrows) move the focused item at once, Menu or Space
+@@ -6930,7 +6928,7 @@ private val FRAME_LABEL_HEIGHT = 28.dp
+ private val FRAME_CORNER = 6.dp
+ private const val FRAME_STRIP_ICON_DP = 18
+ 
+-/** Two rows of frames always fit under the dials and the weather on a 411dp square. */
++/** Two rows of frames always fit under the Settings gear and the weather on a 411dp square. */
+ private val FRAME_MIN_HEIGHT = 72.dp
+ private const val FRAME_ICON_DP = 40
+ private val FRAME_SCRIM = Color(0xCC0F1114)
+diff --git a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt
+index e760fe6..3ae7d4f 100644
+--- a/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt
++++ b/sable-src/src/android/packages/apps/SableStart/src/com/sable/start/ui/SableStatusRings.kt
+@@ -17,11 +17,7 @@ import androidx.compose.foundation.layout.size
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+-import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.getValue
+-import androidx.compose.runtime.mutableStateOf
+-import androidx.compose.runtime.remember
+-import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.geometry.Offset
+@@ -29,7 +25,6 @@ import androidx.compose.ui.geometry.Size
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.StrokeCap
+ import androidx.compose.ui.graphics.drawscope.Stroke
+-import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.semantics.contentDescription
+ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.text.font.FontWeight
+@@ -38,78 +33,10 @@ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+-import androidx.lifecycle.Lifecycle
+-import androidx.lifecycle.compose.LocalLifecycleOwner
+-import androidx.lifecycle.repeatOnLifecycle
+-import com.sable.start.model.StartText.t
+-import kotlinx.coroutines.Dispatchers
+-import kotlinx.coroutines.delay
+-import kotlinx.coroutines.withContext
+-import org.sableos.start.platform.DeviceStats
+-import org.sableos.start.platform.DeviceStatsFormat
+-import org.sableos.start.platform.DeviceStatsSampler
+ import kotlin.math.cos
+ import kotlin.math.roundToInt
+ import kotlin.math.sin
+ 
+-// SableOS 2.0 is black and white (UI direction, 2026-11-04): every arc is white, and only a value
+-// past its limit turns red (the error colour).
+-private const val SAMPLE_INTERVAL_MS = 3_000L
+-
+-/** Samples the device every three seconds while HOME is started; null until the first sample. */
+-@Composable
+-private fun rememberDeviceStats(): DeviceStats? {
+-    val context = LocalContext.current.applicationContext
+-    val lifecycle = LocalLifecycleOwner.current.lifecycle
+-    val sampler = remember { DeviceStatsSampler() }
+-    var stats by remember { mutableStateOf<DeviceStats?>(null) }
+-    LaunchedEffect(lifecycle, sampler) {
+-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+-            while (true) {
+-                stats = withContext(Dispatchers.IO) { sampler.sample(context) }
+-                delay(SAMPLE_INTERVAL_MS)
+-            }
+-        }
+-    }
+-    return stats
+-}
+-
+-/**
+- * The Start header's status as one line of stat labels (Sable 2.0, UI direction 2026-11-04: no
+- * dials on home): Wi-Fi and mobile download rate, CPU, RAM, battery and cell bars, in grey. The
+- * Device Monitor frame keeps its dials.
+- */
+-@Composable
+-fun SableStatusLabels(modifier: Modifier = Modifier) {
+-    val st = rememberDeviceStats() ?: return
+-    val line = statusLabelLine(st, mobile = t("mobile"), cell = t("cell"))
+-    val low = st.battery <= LOW_BATTERY && !st.charging
+-    Text(
+-        text = line,
+-        style = MaterialTheme.typography.labelMedium,
+-        color = if (low) MaterialTheme.colorScheme.error else Color(0xFFA6A6A6),
+-        maxLines = 1,
+-        overflow = TextOverflow.Ellipsis,
+-        modifier = modifier.semantics { contentDescription = line },
+-    )
+-}
+-
+-/** "Wi-Fi ↓1.2K · CPU 23% · RAM 61% · BAT 82%+ · Cell 3/4"; a part with no reading is left out. */
+-internal fun statusLabelLine(st: DeviceStats, mobile: String, cell: String): String =
+-    listOfNotNull(
+-        st.wifiDown?.let { "Wi-Fi ↓" + DeviceStatsFormat.rate(it) },
+-        st.mobileDown?.let { "$mobile ↓" + DeviceStatsFormat.rate(it) },
+-        st.cpu?.let { "CPU ${percent(it)}" },
+-        "RAM ${percent(st.ram)}",
+-        "BAT ${percent(st.battery)}" + if (st.charging) "+" else "",
+-        st.signal?.let { "$cell ${(it * CELL_BARS).roundToInt()}/$CELL_BARS" },
+-    ).joinToString(" · ")
+-
+-private fun percent(fraction: Float): String = "${(fraction.coerceIn(0f, 1f) * 100).roundToInt()}%"
+-
+-private const val LOW_BATTERY = 0.2f
+-private const val CELL_BARS = 4
+-
+ /**
+  * A 270° gauge: a dim track, an arc that eases to each new sample, a bright
+  * cap at its tip and the value in the middle. A null fraction shows a dash.
+-- 
+2.43.0
+

@@ -44,10 +44,8 @@
     <string name="work">کام</string>
     <string name="weather_and_date">موسم اور تاریخ</string>
     <string name="search_or_command_row">تلاش یا کمانڈ کی قطار</string>
-    <string name="status_dials">حالت کی سطر</string>
     <string name="temperature_condition_and_place_with">درجہ حرارت، حالت اور مقام، نیچے تاریخ کے ساتھ</string>
     <string name="a_command_row_under_the">موسم کے نیچے کمانڈ کی قطار؛ اس کے بغیر بھی ٹائپنگ چلتی ہے</string>
-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi، موبائل، CPU، RAM، بیٹری کا باقی وقت، سیل اور ترتیبات</string>
     <string name="weather">موسم</string>
     <string name="calendar">کیلنڈر</string>
     <string name="media">میڈیا</string>
@@ -233,9 +231,7 @@
     <string name="shortcuts_and_notification_content_stay">شارٹ کٹس اور اطلاعات کا مواد اس وقت تک چھپا رہتا ہے جب تک اینڈرائیڈ کی صلاحیت اور رازداری کے گیٹ جڑ نہیں جاتے۔</string>
     <string name="follow_system">سسٹم کی پیروی کریں</string>
     <string name="reset_follow_system_sable_blue">ری سیٹ · سسٹم کی پیروی + Sable نیلا</string>
-    <string name="mobile">موبائل</string>
     <string name="bat">⚡ بیٹری</string>
-    <string name="cell">سیل</string>
     <string name="action_open">کھولیں</string>
     <string name="action_uninstall">ان انسٹال کریں</string>
     <string name="action_disable">غیر فعال کریں</string>

@@ -44,10 +44,8 @@
     <string name="work">कार्य</string>
     <string name="weather_and_date">मौसम और तारीख़</string>
     <string name="search_or_command_row">खोज या कमांड पंक्ति</string>
-    <string name="status_dials">स्थिति पंक्ति</string>
     <string name="temperature_condition_and_place_with">तापमान, स्थिति और जगह, नीचे तारीख़ के साथ</string>
     <string name="a_command_row_under_the">मौसम के नीचे कमांड पंक्ति; इसके बिना भी टाइप करना चलता है</string>
-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi, मोबाइल, CPU, RAM, बैटरी का बचा समय, सेल और सेटिंग</string>
     <string name="weather">मौसम</string>
     <string name="calendar">कैलेंडर</string>
     <string name="media">मीडिया</string>
@@ -233,9 +231,7 @@
     <string name="shortcuts_and_notification_content_stay">शॉर्टकट और सूचना की सामग्री तब तक छिपी रहती है जब तक Android की क्षमता और गोपनीयता के गेट नहीं जुड़ जाते।</string>
     <string name="follow_system">सिस्टम का अनुसरण करें</string>
     <string name="reset_follow_system_sable_blue">रीसेट · सिस्टम का अनुसरण + Sable नीला</string>
-    <string name="mobile">मोबाइल</string>
     <string name="bat">⚡ बैटरी</string>
-    <string name="cell">सेल</string>
     <string name="action_open">खोलें</string>
     <string name="action_uninstall">अनइंस्टॉल करें</string>
     <string name="action_disable">अक्षम करें</string>

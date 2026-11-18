@@ -23,7 +23,7 @@ Installing erases the phone. Back up first, and keep the stock firmware package.
 
 ### First-boot setup and Sable Setup
 
-The first-boot setup walks through language, Wi-Fi, look, theme, Sable apps and Weather city. The Look step offers BlackBerry 10 style (Hub, Active Frames and app pages, with status dials) or BlackBerry 7 style (banner and icon tray); both turn pure black on, and each can be changed later. The Sable apps step offers Full Sable (every Sable app), Essentials (Start, Keyboard, Hub, Messages, Camera, Tools, Vault and Setup) or Stock Android (the standard Android app wherever the phone has one, such as its Camera and Browser). Apps left out are turned off, not uninstalled: Settings > Apps > See all apps > the app > Enable brings one back. Every step fits the square screen with Next on screen. Sable Setup opens next, and later from Settings > Sable Setup. Its first rows are the choices most people change:
+The first-boot setup walks through language, Wi-Fi, look, theme, Sable apps and Weather city. The Look step offers BlackBerry 10 style (Hub, Active Frames and app pages) or BlackBerry 7 style (banner and icon tray); both turn pure black on, and each can be changed later. The Sable apps step offers Full Sable (every Sable app), Essentials (the core apps and Camera: Start, Keyboard, Hub, Messages, Phone, Contacts, Sound Profiles, Tools, Vault, Setup and Display Compat) or Stock Android (the standard Android app wherever the phone has one, such as its Camera and Browser). Under the choice, a check box for each other Sable app lets you keep the ones you want. Apps left out are turned off, not uninstalled: Settings > Apps > See all apps > the app > Enable brings one back. Every step fits the square screen with Next on screen. Sable Setup opens next, and later from Settings > Sable Setup. Its first rows are the choices most people change:
 
 | Setup row | Default | What it does |
 | --- | --- | --- |
@@ -81,7 +81,7 @@ An open folder is a panel over the dimmed grid. Back, Esc or a tap outside it cl
 
 **Grid size, frames and hidden apps.** Edit Home sets the app grid's columns (4, 5 or 6), its rows (Fit, which uses as many as the screen holds, or 3, 4 or 5) and whether app names show under the icons. Under the Active Frames header it sets the maximum number of frames (2, 4, 6 or 8) and Live frames: off, each frame shows only its app's icon and name. Menu on an app also has Hide app. A hidden app leaves the app grid, its folder, All Apps and search; search for "private" or "hidden" to list your hidden apps, then use Menu and Show app to bring one back. Hiding is not a lock: the app still runs and still sends notifications. For apps nobody else should open, use Private Space.
 
-Alt+Left and Alt+Right move between pages. Alt+Space opens Command, from any app as well as from Start (Back returns to the app you were in; on the lock screen Alt+Space is still Emergency), and any letter starts a search of apps, contacts and commands. Menu opens Edit Home, where you choose Home apps, the quick bar and widgets. The status dials at the top show Wi-Fi, Mobile, CPU, RAM, battery and Cell.
+Alt+Left and Alt+Right move between pages. Alt+Space opens Command, from any app as well as from Start (Back returns to the app you were in; on the lock screen Alt+Space is still Emergency), and any letter starts a search of apps, contacts and commands. Menu opens Edit Home, where you choose Home apps, the quick bar and widgets. The Settings gear is at the top right; there are no status dials.
 
 Command understands these prefixes and words, typed first:
 
@@ -106,7 +106,7 @@ Nothing is sent or saved from Command: each app opens with the text filled in, a
 <img src="images/q25/home-bb7.png" alt="Start home: BlackBerry 7 style" width="220">
 </p>
 
-- The banner shows the status dials, the date, the weather and the Hub unread count. The status bar shows the time.
+- The banner shows the date, the weather and the Hub unread count. The status bar shows the time.
 - Swipe right or press Alt+Left to open Hub. Swipe left or press Alt+Right to open All apps.
 - On Sable Start, a quick sideways flick on the trackpad turns one page; slow strokes move between tiles. A light touch at the bottom of the screen right after a trackpad stroke is ignored, so brushing the glass does not open an app.
 - Settings > System > Keyboard > Trackpad switches the trackpad between Keys (moves between items, the default) and Pointer (moves a cursor; a click taps where it points).

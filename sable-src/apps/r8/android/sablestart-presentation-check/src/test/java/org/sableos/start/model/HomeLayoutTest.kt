@@ -9,13 +9,12 @@ import org.sableos.start.live.LiveAvailability
 /** The Active Frames header (BB10 Home) and the Glance widgets shown as frames. */
 class HomeLayoutTest {
     @Test
-    fun neverCustomisedShowsStatusDialsAndWeather() {
+    fun neverCustomisedShowsWeatherAndNoStatusDials() {
         val hidden = HomeLayout.normalizeHidden(null)
-        assertTrue(HomeLayout.isShown(hidden, HomeLayout.STATUS_RINGS))
         assertTrue(HomeLayout.isShown(hidden, HomeLayout.WEATHER))
         assertFalse(HomeLayout.isShown(hidden, HomeLayout.SEARCH_ROW))
-        // Dials first, then weather and date: no clock, no greeting.
-        assertEquals(listOf("rings", "weather", "search"), HomeLayout.SECTIONS)
+        // Weather and date: no dials, no clock, no greeting.
+        assertEquals(listOf("weather", "search"), HomeLayout.SECTIONS)
     }
 
     @Test
@@ -36,7 +35,8 @@ class HomeLayoutTest {
 
     @Test
     fun hiddenModulesToggleAndUnknownNamesDrop() {
-        assertEquals(setOf("rings"), HomeLayout.normalizeHidden(setOf("rings", "bogus")))
+        // A "rings" choice saved before the status dials were removed is dropped with the unknown names.
+        assertEquals(setOf("search"), HomeLayout.normalizeHidden(setOf("rings", "search", "bogus")))
         val noWeather = HomeLayout.toggle(emptySet(), HomeLayout.WEATHER)
         assertFalse(HomeLayout.isShown(noWeather, HomeLayout.WEATHER))
         assertEquals(emptySet<String>(), HomeLayout.toggle(noWeather, HomeLayout.WEATHER))

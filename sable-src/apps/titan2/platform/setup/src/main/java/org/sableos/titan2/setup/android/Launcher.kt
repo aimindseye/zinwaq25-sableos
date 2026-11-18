@@ -91,7 +91,8 @@ class Launcher(private val activity: Activity) {
     private companion object {
         const val HOME_STYLE_ACTION = "org.sableos.start.action.CHOOSE_HOME_STYLE"
         const val DISPLAY_PACKAGE = "org.sableos.titan2.displaycompat"
-        const val RADIO_PACKAGE = "org.sableos.titan2.radiodiag"
+        // Radio diagnostics were folded into Sable Tools (product/q25/apps.tsv); the old app is not built.
+        const val RADIO_PACKAGE = "org.sableos.tools"
         const val HUB_SETTINGS_ACTION = "org.sableos.hub.action.CONNECTED_APPS"
         const val HUB_PACKAGE = "org.sableos.hub"
         const val WORK_SPACE_ACTION = "org.sableos.spaces.action.WORK_SPACE"

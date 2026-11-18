@@ -31,7 +31,7 @@
         <!-- Sable Spaces: make a Work space (BB10 Balance). -->
         <intent><action android:name="org.sableos.spaces.action.WORK_SPACE" /></intent>
         <package android:name="org.sableos.titan2.displaycompat" />
-        <package android:name="org.sableos.titan2.radiodiag" />
+        <package android:name="org.sableos.tools" />
         <!-- Sable Weather's city hand-off (ContentResolver.call); Weather allows only this package. -->
         <provider android:authorities="org.sableos.weather.snapshot" />
         <!-- The Sable appearance authority (Settings): the accent colour every Sable app uses. -->

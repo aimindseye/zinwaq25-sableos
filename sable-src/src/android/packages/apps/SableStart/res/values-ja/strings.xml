@@ -44,10 +44,8 @@
     <string name="work">仕事</string>
     <string name="weather_and_date">天気と日付</string>
     <string name="search_or_command_row">検索またはコマンド行</string>
-    <string name="status_dials">ステータス行</string>
     <string name="temperature_condition_and_place_with">気温、天候、場所。その下に日付</string>
     <string name="a_command_row_under_the">天気の下にコマンド行。なくても入力できます</string>
-    <string name="wi_fi_mobile_cpu_ram">Wi-Fi、モバイル、CPU、RAM、バッテリー残り時間、セル、設定</string>
     <string name="weather">天気</string>
     <string name="calendar">カレンダー</string>
     <string name="media">メディア</string>
@@ -233,9 +231,7 @@
     <string name="shortcuts_and_notification_content_stay">Android の機能とプライバシーのゲートが接続されるまで、ショートカットと通知の内容は非表示のままです。</string>
     <string name="follow_system">システムに従う</string>
     <string name="reset_follow_system_sable_blue">リセット · システムに従う + Sable ブルー</string>
-    <string name="mobile">モバイル</string>
     <string name="bat">⚡ 電池</string>
-    <string name="cell">セル</string>
     <string name="action_open">開く</string>
     <string name="action_uninstall">アンインストール</string>
     <string name="action_disable">無効にする</string>
