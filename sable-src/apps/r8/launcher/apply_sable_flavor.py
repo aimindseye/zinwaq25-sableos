@@ -1580,6 +1580,37 @@ def patch_profiles_shortcut(root: pathlib.Path) -> None:
     )
 
 
+VISIBLE_UPSTREAM_NAME = re.compile(r"Ten[Ss]even(?: Launcher)?(?![A-Za-z0-9])")
+KOTLIN_STRING = re.compile(r'"(?:[^"\\\n]|\\.)*"')
+
+
+def patch_visible_names(root: pathlib.Path) -> None:
+    """Sable Launcher is the only name the user sees. The upstream project name stays in package ids,
+    class names, file formats and comments (identifiers, not text on screen), so only the text of string
+    resources and Kotlin string literals changes."""
+    app = root / "app/src/main"
+    for path in sorted((app / "res").glob("values*/*.xml")):
+        text = path.read_text(encoding="utf-8")
+        new = re.sub(
+            r">([^<]*)<",
+            lambda m: ">" + VISIBLE_UPSTREAM_NAME.sub("Sable Launcher", m.group(1)) + "<",
+            text,
+        )
+        if new != text:
+            path.write_text(new, encoding="utf-8")
+    changed = 0
+    for path in sorted((app / "java").rglob("*.kt")):
+        text = path.read_text(encoding="utf-8")
+        if '"""' in text:
+            continue
+        new = KOTLIN_STRING.sub(lambda m: VISIBLE_UPSTREAM_NAME.sub("Sable Launcher", m.group(0)), text)
+        if new != text:
+            path.write_text(new, encoding="utf-8")
+            changed += 1
+    if not changed:
+        fail("SABLE_HOME_VISIBLE_NAMES=FAIL nothing changed")
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -1605,6 +1636,7 @@ def main() -> None:
     patch_quiet_lock(root)
     patch_recent_tab(root)
     patch_profiles_shortcut(root)
+    patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import sys
 
 JAVA = "app/src/main/java/io/github/aimindseye/tenseven"
@@ -93,6 +94,22 @@ def main() -> None:
         "profiles_shortcut": "SoundProfileButton()" in (root / JAVA / "ui/Bb7HomeScreen.kt").read_text(encoding="utf-8")
         and "SoundProfileButton()" in (root / JAVA / "ui/Bb10HomeChrome.kt").read_text(encoding="utf-8"),
     }
+    # The only name on screen is Sable Launcher: no string resource or Kotlin string literal says TenSeven.
+    named = re.compile(r"Ten[Ss]even(?![A-Za-z0-9])")
+    literal = re.compile(r'"(?:[^"\\\n]|\\.)*"')
+    left = [
+        str(p.relative_to(root))
+        for p in (root / "app/src/main/res").glob("values*/*.xml")
+        if any(named.search(m) for m in re.findall(r">([^<]*)<", p.read_text(encoding="utf-8")))
+    ] + [
+        str(p.relative_to(root))
+        for p in (root / "app/src/main/java").rglob("*.kt")
+        if '"""' not in p.read_text(encoding="utf-8")
+        and any(named.search(m.group(0)) for m in literal.finditer(p.read_text(encoding="utf-8")))
+    ]
+    checks["visible_names"] = not left
+    if left:
+        print("SABLE_HOME_VISIBLE_NAMES_LEFT=" + ",".join(left[:10]), file=sys.stderr)
     bad = [name for name, ok in checks.items() if not ok]
     if bad:
         raise SystemExit("SABLE_HOME_VERIFY=FAIL " + ",".join(bad))

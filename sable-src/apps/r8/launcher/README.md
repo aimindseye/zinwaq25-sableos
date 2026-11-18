@@ -14,6 +14,10 @@ in `upstream.env` (upstream PR 127), after `apply_sable_flavor.py` has changed:
   framework patch, Setup step, Settings link and permission file that names Sable Start still works;
 - the entry points TenSeven lacked: `org.sableos.start.action.COMMAND` (Alt+Space from any app,
   frameworks/base 0319) and `org.sableos.start.action.SET_LOOK` (SetupWizard 0417);
+- every word on screen, to "Sable Launcher" (`patch_visible_names`: string resources and Kotlin string
+  literals; the upstream name stays only in package ids, class names, file formats and comments), so
+  the launcher's settings, setup and All Apps entry never say TenSeven. Sable Setup opens the
+  launcher's home options (`CHOOSE_HOME_STYLE`), and Settings > Sable opens the same screens;
 - the colours, to the approved tokens: blue `#2E9BD6`, black, raised `#141414`, dividers `#262626`.
 - the widget picker's list, from a fixed 360 dp to at most 360 dp, so the dialog fits the Q25's
   411 dp square screen (about 383 dp under the status bar).
