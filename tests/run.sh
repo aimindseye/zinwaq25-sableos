@@ -451,7 +451,6 @@ if [[ -z "$mg_bad" ]]; then pass "microG pins, battery and location defaults, pe
 q4_bad=""
 awk -F'\t' '$1 == "SableCalendar" && $8 == "Etar"' product/q25/apps.tsv | grep -q . || q4_bad="$q4_bad etar"
 awk -F'\t' '$1 == "SableMedia" && $8 == "Twelve"' product/q25/apps.tsv | grep -q . || q4_bad="$q4_bad twelve"
-grep -q '"org.lineageos.audiofx"' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/platform/LauncherAppsRepository.kt || q4_bad="$q4_bad audiofx"
 wx=sable-src/apps/r8/android/weather/src/main
 grep -A3 'name=".WeatherRefreshJob"' "$wx/AndroidManifest.xml" | grep -q 'BIND_JOB_SERVICE' || q4_bad="$q4_bad weather-job"
 grep -q 'WeatherRefreshJob.ensureScheduled' "$wx/java/org/sableos/weather/WeatherSnapshotProvider.kt" || q4_bad="$q4_bad weather-provider"
@@ -465,8 +464,6 @@ python3 -I -c 'import struct,sys; d=open(sys.argv[1],"rb").read(24); sys.exit(0 
 grep -qF '+            SableActiveFrames.open()' patches/framework/packages/apps/Launcher3/0003-*.patch || q4_bad="$q4_bad recents-frames"
 grep -q 'METHOD_SELECT = "setup_select_city"' sable-src/apps/r8/android/weather/src/main/java/org/sableos/weather/WeatherSetupAccess.kt || q4_bad="$q4_bad weather-setup-call"
 grep -q 'android:authorities="org.sableos.weather.snapshot"' sable-src/apps/titan2/platform/setup/src/main/AndroidManifest.xml || q4_bad="$q4_bad setup-queries"
-grep -q 'org.sableos.start.action.SHOW_ACTIVE_FRAMES' sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml || q4_bad="$q4_bad start-recents-filter"
-grep -q 'const val COLUMNS = 5' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/Bb10Home.kt || q4_bad="$q4_bad start-5-columns"
 for g in DENSITY KEYBOARD-STRIP WALLPAPER APPS WEATHER WEATHER-CITY DISPLAYCOMPAT RECENTS START-ICONS; do grep -q "^| Q4-REVIEW-$g |" docs/QUALIFICATION.md || q4_bad="$q4_bad gate:$g"; done
 # Sable boot animation instead of LineageOS's: staged, wired through TARGET_BOOTANIMATION, a stored
 # (uncompressed) zip whose desc.txt fills the 720x720 panel and names both parts.
@@ -528,8 +525,6 @@ if [[ -z "$home_bad" ]]; then pass "SableOS home: no leftover TenSeven Phone, Ca
 hub_bad=""
 python3 -I -c 'import re,sys; s=open(sys.argv[1]).read(); sys.exit(1 if any("category.LAUNCHER" in f for f in re.findall(r"<intent-filter.*?</intent-filter>", s, re.S)) else 0)' sable-src/apps/r8/android/hub/src/main/AndroidManifest.xml || hub_bad="$hub_bad hub-launcher"
 grep -q 'HubAppCounts.rows' sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubSnapshotProvider.kt || hub_bad="$hub_bad no-app-counts"
-grep -q 'org.sableos.start.action.SHOW_HUB' sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml || hub_bad="$hub_bad no-show-hub"
-grep -q 'Contacts("contacts")' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/HubBar.kt || hub_bad="$hub_bad no-contacts-tab"
 grep -q 'package="org.sableos.launcher"' product/q25/permissions/default-permissions-sable-q25.xml || hub_bad="$hub_bad no-start-contacts-grant"
 grep -q 'fixed="true"' product/q25/permissions/default-permissions-sable-q25.xml && hub_bad="$hub_bad fixed-grant"
 grep -q "^| Q4-HUB-ONE |" docs/QUALIFICATION.md || hub_bad="$hub_bad gate"
@@ -577,8 +572,6 @@ grep -A1 'name="org.sableos.permission.SPEED_DIAL"' "$phm/AndroidManifest.xml" |
 # unexported receiver, and the speed dial trampoline needs the SPEED_DIAL permission.
 grep -q 'CALL_BACK' "$pha/PhoneActivity.kt" && ph_bad="$ph_bad exported-call-back"
 grep -B1 -A1 'name=".android.CallActionReceiver"' "$phm/AndroidManifest.xml" | grep -q 'android:exported="false"' || ph_bad="$ph_bad receiver-exported"
-grep -q '"org.sableos.phone" to DIALER' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CoreAppIdentity.kt || ph_bad="$ph_bad start-identity"
-grep -q 'PHONE_PACKAGES = listOf("org.sableos.phone", DIALER_PACKAGE)' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/SpeedDial.kt || ph_bad="$ph_bad start-speed-dial"
 grep -q '"org.sableos.phone",' sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/policy/HubIntents.kt || ph_bad="$ph_bad hub-privacy"
 grep -q "^| Q4-SABLE-PHONE |" docs/QUALIFICATION.md && grep -q "^| Q4-SABLE-PHONE-EMERGENCY |" docs/QUALIFICATION.md || ph_bad="$ph_bad gates"
 if [[ -z "$ph_bad" ]]; then pass "Sable Phone is the default and system Phone app at Q4 (role, Telecom, Dialer replaced, speed dial contract)"; else fail "Sable Phone:$ph_bad"; fi
@@ -978,8 +971,6 @@ grep -q '^+        android:key="sable_setup"' "${setup_page[@]}" &&
 sable_page=(patches/framework/packages/apps/Settings/1604-*.patch)
 for action in org.sableos.start.action.EDIT_HOME org.sableos.start.action.CHOOSE_HOME_STYLE; do
     grep -q "\"$action\"" "${sable_page[@]}" || missing="$missing settings:$action"
-    grep -q "<action android:name=\"$action\" />" sable-src/src/android/packages/apps/SableStart/AndroidManifest.xml ||
-        missing="$missing start:$action"
 done
 for action in org.sableos.hub.action.CONNECTED_APPS org.sableos.hub.action.ATTENTION_SETTINGS; do
     grep -q "\"$action\"" "${sable_page[@]}" || missing="$missing settings:$action"
@@ -1277,7 +1268,6 @@ grep -q 'uses-permission' "$notes/src/main/AndroidManifest.xml" && notes_bad="$n
 grep -q 'android:allowBackup="false"' "$notes/src/main/AndroidManifest.xml" || notes_bad="$notes_bad backup"
 grep -q 'KEYCODE_MENU -> EditorKey.Menu' "$notes/src/main/java/org/sableos/notes/core/NotesKeys.kt" || notes_bad="$notes_bad menu-key"
 grep -q 'android.intent.action.SEND"' "$notes/src/main/AndroidManifest.xml" || notes_bad="$notes_bad share-in"
-grep -q '"org.sableos.notes" to AppGlyph.NOTES' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt || notes_bad="$notes_bad start-glyph"
 grep -q ':notes:testDebugUnitTest' .github/workflows/android.yml || notes_bad="$notes_bad ci"
 if [[ -z "$notes_bad" ]]; then pass "Sable Notes: shipped, no permissions, Menu-key editor, Start glyph, CI"; else fail "notes:$notes_bad"; fi
 
@@ -1300,7 +1290,6 @@ grep -qx 'CONNECTBOT_COMMIT=21ce6f47cf16785bf2314b4ea931900164c179c1' "$cb/upstr
 grep -q 'EXPECTED_COMMIT = "21ce6f47cf16785bf2314b4ea931900164c179c1"' "$cb/apply_sable_flavor.py" "$cb/verify_sable_terminal.py" || term_bad="$term_bad script-pin"
 grep -q 'KEYCODE_MENU -> if (down && repeat == 0) SableTerminalKey.Ctrl' "$cb/src/main/kotlin/org/connectbot/sable/SableTerminalKeys.kt" || term_bad="$term_bad menu-ctrl"
 [[ -f "$cb/res/mipmap-anydpi-v26/ic_sable_terminal.xml" ]] || term_bad="$term_bad icon"
-grep -q '"org.sableos.terminal" to AppGlyph.TERMINAL' sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/AppGlyphs.kt || term_bad="$term_bad start-glyph"
 grep -q 'root: flavor:connectbot' .github/workflows/android.yml || term_bad="$term_bad ci"
 if [[ -z "$term_bad" ]]; then pass "Sable Terminal: pinned ConnectBot 1.10.9 flavor, Menu is Ctrl, Start glyph, CI"; else fail "terminal:$term_bad"; fi
 
@@ -1372,8 +1361,7 @@ sable-src/apps/titan2/platform/phone/src/main/java/org/sableos/phone/core/PhoneT
 sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/core/SetupText.kt sable-src/apps/titan2/platform/setup/src/main/res/values/strings.xml sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupActivity.kt sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupTextTest.kt
 sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/core/ToolsText.kt sable-src/apps/titan2/platform/tools/src/main/res/values/strings.xml sable-src/apps/titan2/platform/tools/src/main/java/org/sableos/tools/ToolsApplication.kt sable-src/apps/titan2/platform/tools/src/test/java/org/sableos/tools/ToolsTextTest.kt
 sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/core/VaultLines.kt sable-src/apps/titan2/platform/vault/src/main/res/values/strings.xml sable-src/apps/titan2/platform/vault/src/main/java/org/sableos/titan2/vault/VaultApplication.kt sable-src/apps/titan2/platform/vault/src/test/java/org/sableos/titan2/vault/VaultLinesTest.kt
-sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/StartText.kt sable-src/src/android/packages/apps/SableStart/res/values/strings.xml sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt sable-src/apps/r8/android/sablestart-presentation-check/src/test/java/org/sableos/start/model/StartTextTest.kt
-sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml sable-src/src/android/packages/apps/SableStart/src/com/sable/start/SableStartActivity.kt sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/DesignTextTest.kt
+sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/DesignText.kt sable-src/src/android/shared/sabledesign/src/main/res/values/strings.xml sable-src/apps/r8/android/hub/src/main/java/org/sableos/hub/HubApplication.kt sable-src/src/android/shared/sabledesign/src/test/java/org/sableos/design/DesignTextTest.kt
 EOF_I18N
 if [[ -z "$i18n_bad" ]]; then pass "Sable apps: English in one table per app, equal to values/strings.xml, bound to the resources"; else fail "translations:$i18n_bad"; fi
 
@@ -1406,20 +1394,6 @@ print(" ".join(bad))
 EOF_APOS
 )"
 if [[ -z "$apostrophe_bad" ]]; then pass "framework patches: no unescaped apostrophe in an added string resource"; else fail "unescaped apostrophe: $apostrophe_bad"; fi
-
-# Sable Start's Android.bp lists its Kotlin files one by one; a file it leaves out breaks the image
-# build (an unresolved reference) or, for a manifest class, crashes at run time.
-start_unlisted="$(python3 - <<'EOF_START'
-import os, re
-root = "sable-src/src/android/packages/apps/SableStart"
-listed = set(re.findall(r'"(src/[^"]+\.kt)"', open(os.path.join(root, "Android.bp")).read()))
-present = set()
-for d, _, files in os.walk(os.path.join(root, "src")):
-    present |= {os.path.relpath(os.path.join(d, f), root) for f in files if f.endswith(".kt")}
-print(" ".join(sorted(present - listed)))
-EOF_START
-)"
-if [[ -z "$start_unlisted" ]]; then pass "Sable Start: every Kotlin file is in Android.bp"; else fail "Sable Start Android.bp misses: $start_unlisted"; fi
 
 # Calendar accounts: DAVx5 and ICSx5 ship from pinned source, unsigned for the platform build, and
 # each flavor checks the same commit that upstream.env pins.

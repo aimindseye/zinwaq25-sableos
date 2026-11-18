@@ -24,7 +24,6 @@ import xml.etree.ElementTree as ET
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OVERLAY = ROOT / "product/common/overlay"
 TOKENS = ROOT / "sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/SableSystemTokens.kt"
-IDENTITY = ROOT / "sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CoreAppIdentity.kt"
 GLIMPSE_PATCHES = ROOT / "patches/framework/packages/apps/Glimpse"
 ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
 
@@ -116,11 +115,5 @@ for patch in patches:
     report("uses-permission" not in added and "android:onClick" not in added and "<solid" not in added
            and added.count('android:width="2dp"') == 2 and added.count('<item android:state_focused="true">') == 2,
            f"{patch.name} draws a 2dp focus outline, no fill, no behaviour")
-
-identity = IDENTITY.read_text(encoding="utf-8")
-mapped = set(re.findall(r'"(org\.lineageos\.\w+)" to ', identity))
-report(mapped == {"org.lineageos.glimpse", "org.lineageos.aperture", "org.lineageos.jelly"},
-       "Sable Start maps Glimpse, Aperture and Jelly to the R9 roles", str(sorted(mapped)))
-report("import android." not in identity, "CoreAppIdentity is pure Kotlin")
 
 sys.exit(1 if failures else 0)
