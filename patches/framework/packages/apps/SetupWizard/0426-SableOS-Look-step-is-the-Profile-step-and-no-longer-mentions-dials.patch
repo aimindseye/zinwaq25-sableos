@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 18 Nov 2026 19:00:00 +0000
+Subject: [PATCH] SableOS: Look step is the Profile step and no longer mentions dials
+
+First-boot setup is Profile, Theme, Sable apps, in that order (the order
+the script already had). The step before Theme was still called Look and
+its text still described the status dials that were removed from both
+homes. It is now the Profile step: BlackBerry 10 or BlackBerry 7, with
+text that matches what the homes show. Strings only; the activity, the
+action and the sable_look setting keep their names.
+---
+ app/src/main/res/values/sable_strings.xml | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
+index eda0f91..a232cf7 100644
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
+@@ -85,13 +85,13 @@
+         <item>Slate</item>
+     </string-array>
+ 
+-    <!-- SableOS Look step (plan phase C), before Theme. "Style" because SableOS is not
+-         BlackBerry: it only follows the look. -->
+-    <string name="setup_sable_look">Look</string>
+-    <string name="sable_look_summary">Choose how the home screen looks. You can change it later.</string>
+-    <string name="sable_look_bb10"><b>BlackBerry 10 style</b>\nHub on the left, your open apps as Active Frames, the app grid on the right, status dials on top and pure black.</string>
+-    <string name="sable_look_bb7"><b>BlackBerry 7 style</b>\nA banner with the clock and status over a tray of app icons, with pure black.</string>
+-    <string name="sable_look_note">Change the home later from Sable Setup or the home screen’s menu, the dials in Edit Home. The look is black and white with one blue for focus.</string>
++    <!-- SableOS Profile step (the Look step of plan phase C), before Theme: BlackBerry 10 or
++         BlackBerry 7. SableOS is not BlackBerry: it follows the profile's look and behaviour. -->
++    <string name="setup_sable_look">Profile</string>
++    <string name="sable_look_summary">Choose your profile: BlackBerry 10 or BlackBerry 7. Theme and Sable apps come next, and all three can be changed later in Sable Setup.</string>
++    <string name="sable_look_bb10"><b>BlackBerry 10</b>\nHub on the left, your open apps as Active Frames and the app grid on the right, with pure black.</string>
++    <string name="sable_look_bb7"><b>BlackBerry 7</b>\nA banner with the date, weather and unread count over a tray of app icons, with pure black.</string>
++    <string name="sable_look_note">Change the profile later from Sable Setup or the home screen’s menu. The look is black and white with one blue for focus.</string>
+ 
+     <!-- SableOS Sable apps step (plan phase C), after Theme. Apps left out are disabled, never
+          uninstalled. -->
+-- 
+2.43.0
