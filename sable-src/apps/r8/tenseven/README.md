@@ -114,8 +114,8 @@ focused frame. `adb logcat -s SableFrames` logs once the snapshot permissions th
 TaskSnapshotManager was found, and for each app why its frame has no picture (no running task, no
 launcher entry, or no snapshot from the system).
 
-Sable Start's source stays in `sable-src/src/android/packages/apps/SableStart` until the home is
-qualified on a Q25. To go back to it, set the `SableHome` row's `enabled` column to `no`.
+Sable Start, the older SableOS-written home, has been removed: this flavor is the only home app
+the image builds or stages.
 
 To move to a newer TenSeven, change `TENSEVEN_COMMIT` and `EXPECTED_COMMIT` together. Each edit
 in `apply_sable_flavor.py` checks that its anchor occurs once, so the build stops if upstream moved it.

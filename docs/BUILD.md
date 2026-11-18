@@ -243,10 +243,8 @@ first four workflows were green for PR #9, the change that added them;
   --root ...` for each Gradle project (platform apps, r8 apps, Reader, Mail, Text
   Reader), with unit tests, Android Lint, detekt, ktlint, Kover, and the Mail
   runtime-dependency check. Gradle verifies dependencies against the
-  committed dependency-verification metadata. The r8 job also compiles Sable Start's
-  presentation sources (`sablestart-presentation-check`); the `SableLauncher`
-  module itself is a Soong module and only builds in the LineageOS tree. The
-  APKs are uploaded as artifacts for inspection only. Image builds still use
+  committed dependency-verification metadata. Sable Launcher (the `SableHome`
+  flavor) is built by its own `home` job. The APKs are uploaded as artifacts for inspection only. Image builds still use
   APKs built on the build host. Runs when `sable-src/`, `apps.tsv`,
   `build-apps.sh` or the workflow change.
 * `Security` (`security.yml`): Gitleaks over the history and a MobSF source

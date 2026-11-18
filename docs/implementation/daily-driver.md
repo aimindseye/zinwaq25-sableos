@@ -61,6 +61,9 @@ The Live "Photos" row also found no app to open. This is fixed in Sable Start
 
 ### 1. Sable Start core-app roles (sable-src)
 
+> Historical. Sable Start and its source are removed; Sable Launcher is the only home app. The
+> role mapping below describes what that source did and is no longer checked.
+
 `sable-src/src/android/packages/apps/SableStart/src/com/sable/start/model/CoreAppIdentity.kt`
 is pure Kotlin. It maps a base's package for a core role to the canonical R9
 key: `org.lineageos.glimpse` to Photos, `org.lineageos.aperture` to Camera

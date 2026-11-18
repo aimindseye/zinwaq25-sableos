@@ -143,6 +143,12 @@ for patch_file in "$SABLE_REPO_ROOT"/patches/sable-src/*.patch; do
 done
 shopt -u nullglob
 
+# Sable Start is gone: Sable Launcher is the only home app. The older patches above still carry
+# its history, so the import drops what they leave behind.
+rm -rf "$DEST/src/android/packages/apps/SableStart" \
+    "$DEST/apps/r8/android/sablestart-presentation-check" "$DEST/apps/r8/android/sablestart-visual-review"
+sed -i '/include(":sablestart-/d' "$DEST/apps/r8/android/settings.gradle.kts"
+
 echo "IMPORT=PASS"
 echo "SABLEOS_COMMIT=$COMMIT"
 [[ -z "$TITAN" ]] || echo "TITAN2_TEMP_COMMIT=$TITAN_COMMIT"
