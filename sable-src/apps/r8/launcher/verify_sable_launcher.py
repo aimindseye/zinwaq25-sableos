@@ -15,6 +15,7 @@ def main() -> None:
     build = (root / "app/build.gradle.kts").read_text(encoding="utf-8")
     manifest = (root / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
     activity = (root / JAVA / "SableStartActivity.kt").read_text(encoding="utf-8")
+    state = (root / JAVA / "platform/StartStateRepository.kt").read_text(encoding="utf-8")
     hub = (root / JAVA / "conversations/ConversationHub.kt").read_text(encoding="utf-8")
     checks = {
         "package": 'applicationId = "org.sableos.launcher"' in build,
@@ -38,6 +39,7 @@ def main() -> None:
         and "android.intent.action.DIAL" not in manifest
         and "CallScreeningService" not in manifest
         and not (root / JAVA / "features").exists(),
+        "profile_setting": state.count('"sable_profile"') == 2,
         "no_extras": "extras." not in manifest and not (root / JAVA / "extras").exists(),
         "no_screen_capture": "mediaProjection" not in manifest
         and "MEDIA_PROJECTION" not in manifest

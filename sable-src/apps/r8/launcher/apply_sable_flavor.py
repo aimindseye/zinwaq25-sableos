@@ -1580,6 +1580,38 @@ def patch_profiles_shortcut(root: pathlib.Path) -> None:
     )
 
 
+def patch_profile_setting(root: pathlib.Path) -> None:
+    """The profile (BlackBerry 10 or 7) is a whole-OS setting, not the launcher's own preference: Sable
+    Setup's Profile step and the launcher's style choice write Settings.Secure "sable_profile" (the key
+    org.sableos.design.SableProfile reads), and the launcher reads it first so Hub, Settings and the
+    Sable apps all follow one value. The launcher's own preference is the fallback until it is set."""
+    repo = root / JAVA / "platform/StartStateRepository.kt"
+    replace_once(
+        repo,
+        "    private val hubSources = HubSourceRepository(context)\n",
+        "    private val hubSources = HubSourceRepository(context)\n"
+        "    private val profileResolver = context.applicationContext.contentResolver\n",
+        "SABLE_PROFILE_RESOLVER",
+    )
+    replace_once(
+        repo,
+        "    fun loadHomeStyle(): HomeStyle = HomeStyle.fromStableValue(preferences.getString(KEY_HOME_STYLE, null))\n",
+        "    fun loadHomeStyle(): HomeStyle =\n"
+        "        HomeStyle.fromStableValue(\n"
+        "            runCatching { android.provider.Settings.Secure.getString(profileResolver, \"sable_profile\") }.getOrNull()\n"
+        "                ?: preferences.getString(KEY_HOME_STYLE, null),\n"
+        "        )\n",
+        "SABLE_PROFILE_LOAD",
+    )
+    replace_once(
+        repo,
+        "        preferences.edit().putString(KEY_HOME_STYLE, style.stableValue).apply()\n",
+        "        preferences.edit().putString(KEY_HOME_STYLE, style.stableValue).apply()\n"
+        "        runCatching { android.provider.Settings.Secure.putString(profileResolver, \"sable_profile\", style.stableValue) }\n",
+        "SABLE_PROFILE_SAVE",
+    )
+
+
 VISIBLE_UPSTREAM_NAME = re.compile(r"Ten[Ss]even(?: Launcher)?(?![A-Za-z0-9])")
 KOTLIN_STRING = re.compile(r'"(?:[^"\\\n]|\\.)*"')
 
@@ -1636,6 +1668,7 @@ def main() -> None:
     patch_quiet_lock(root)
     patch_recent_tab(root)
     patch_profiles_shortcut(root)
+    patch_profile_setting(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
