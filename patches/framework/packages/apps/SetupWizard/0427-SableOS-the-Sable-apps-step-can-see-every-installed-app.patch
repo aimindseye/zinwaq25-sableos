@@ -1,0 +1,33 @@
+From b452f5e6d60c9155e34d3e57e318830fe2328bbd Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 18 Nov 2026 20:54:13 +0000
+Subject: [PATCH] SableOS: the Sable apps step can see every installed app
+
+On Android 11 and later an app only sees the packages it declares in
+<queries>. The Sable apps step builds its list with
+getInstalledApplications, so it saw almost none of the Sable apps and its
+plan was empty: choosing Essentials changed nothing. Declare
+QUERY_ALL_PACKAGES (granted to a system app; it only lets the step list
+apps, and a disable or enable still needs CHANGE_COMPONENT_ENABLED_STATE,
+which the app already holds).
+---
+ app/src/main/AndroidManifest.xml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 79f47ed..b11635a 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -26,6 +26,9 @@
+     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+     <uses-permission android:name="android.permission.MANAGE_USERS" />
+     <uses-permission android:name="android.permission.CHANGE_COMPONENT_ENABLED_STATE" />
++    <!-- SableOS: the Sable apps step lists every installed app to turn Sable apps on or off;
++         without this, Android hides the other packages and the step finds nothing to change. -->
++    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+     <uses-permission android:name="lineageos.permission.HARDWARE_ABSTRACTION_ACCESS" />
+     <uses-permission android:name="android.permission.BACKUP" />
+-- 
+2.43.0
+
