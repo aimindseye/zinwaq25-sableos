@@ -1,0 +1,114 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 18 Nov 2026 15:00:00 +0000
+Subject: [PATCH] SableOS: Sable apps step follows the setup tiers
+
+Core, Recommended and Optional tiers (product/q25/app_tiers.tsv) in
+sable/SableAppSet.java. Essentials is now the Core tier plus Camera:
+Keyboard, Start, Setup, Display Compat, Hub, Messages, Vault, Tools,
+Sound Profiles, the speech engine and the screen reader, and Camera.
+Sound Profiles was off in Essentials before; the rest are as they were.
+Full Sable and Stock Android behave as before. Phone, Contacts and the
+Contacts picker are Core but this step still never touches them. DAVx5
+and ICSx5 are Optional.
+
+Per-app toggles on the Sable apps step are not part of this patch.
+---
+ .../setupwizard/sable/SableAppSet.java        | 57 +++++++++++++------
+ 1 file changed, 39 insertions(+), 18 deletions(-)
+
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java
+index 1a36586..c7aca37 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java
+@@ -22,8 +22,7 @@ import java.util.Set;
+  *
+  * <ul>
+  *   <li><b>Full Sable</b>: every Sable app on.
+- *   <li><b>Essentials</b>: Keyboard, Start, Setup, Tools, Hub, Messages, Camera and Vault; the
+- *       other Sable apps off.
++ *   <li><b>Essentials</b>: the Core tier plus Camera; the Recommended and Optional apps off.
+  *   <li><b>Stock Android</b>: the LineageOS app where the phone has one; a Sable app is turned
+  *       off when it has no stock counterpart or its counterpart is installed, so Messages stays
+  *       on when the image has no other SMS app.
+@@ -49,35 +48,56 @@ public final class SableAppSet {
+             "org.sableos.speech",
+             "org.sableos.textreader");
+ 
+-    /** The Essentials set (owner decision): Keyboard, Start, Setup, Tools, Hub, Messages, Camera, Vault. */
+-    public static final Set<String> ESSENTIAL = set(
++    /**
++     * Core tier of the setup tiers spec, as far as this step manages it: Full Sable and
++     * Essentials keep these on; only Stock Android may turn one off. Phone, Contacts and the
++     * Contacts picker are Core too (product/q25/app_tiers.tsv) but this step never touches them.
++     */
++    public static final Set<String> CORE = set(
+             "org.sableos.launcher",
+             "org.sableos.titan2.keyboard",
+             "org.sableos.titan2.setup",
+-            "org.sableos.tools",
++            "org.sableos.titan2.displaycompat",
+             "org.sableos.hub",
+             "org.sableos.messages",
+-            "org.sableos.titan2.camera",
+-            "org.sableos.titan2.vault");
++            "org.sableos.titan2.profiles",
++            "org.sableos.titan2.vault",
++            "org.sableos.tools",
++            "org.sableos.speech",
++            "org.sableos.textreader");
++
++    /** The Essentials set: Core plus Camera (product/q25/app_tiers.tsv). */
++    public static final Set<String> ESSENTIAL;
++
++    static {
++        final java.util.LinkedHashSet<String> essential = new java.util.LinkedHashSet<>(CORE);
++        essential.add("org.sableos.titan2.camera");
++        ESSENTIAL = Collections.unmodifiableSet(essential);
++    }
++
++    /** Recommended tier: on in Full Sable, off in Essentials and Stock Android. */
++    public static final List<String> RECOMMENDED = Collections.unmodifiableList(Arrays.asList(
++            "org.sableos.browser",
++            "org.sableos.mail",
++            "org.sableos.calendar",
++            "org.sableos.tasks",
++            "org.sableos.notes",
++            "org.sableos.calculator",
++            "org.sableos.weather",
++            "org.sableos.media",
++            "io.github.sds100.keymapper"));
+ 
+-    /** Every other Sable app the image may hold. */
++    /** Optional tier: every other Sable app the image may hold. */
+     public static final List<String> OPTIONAL = Collections.unmodifiableList(Arrays.asList(
+-            "org.sableos.titan2.profiles",
+             "org.sableos.titan2.spaces",
+             "org.sableos.titan2.printtogo",
+             "org.sableos.titan2.compass",
+             "org.sableos.titan2.radiodiag",
+-            "org.sableos.calculator",
+-            "org.sableos.media",
+-            "org.sableos.weather",
+-            "org.sableos.calendar",
+-            "org.sableos.notes",
+-            "org.sableos.tasks",
+-            "org.sableos.browser",
+             "org.sableos.assistant",
+             "org.sableos.reader",
+-            "org.sableos.mail",
+-            "org.sableos.terminal"));
++            "org.sableos.terminal",
++            "at.bitfire.davdroid",
++            "at.bitfire.icsdroid"));
+ 
+     /** The LineageOS apps a Sable app stands in for. */
+     private static final Map<String, List<String>> STOCK_TWINS;
+@@ -152,6 +172,7 @@ public final class SableAppSet {
+     private static List<String> sableApps() {
+         final List<String> all = new java.util.ArrayList<>(ESSENTIAL);
+         for (String app : ALWAYS) if (!all.contains(app)) all.add(app);
++        all.addAll(RECOMMENDED);
+         all.addAll(OPTIONAL);
+         return all;
+     }
