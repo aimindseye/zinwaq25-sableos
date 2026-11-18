@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 18 Nov 2026 23:00:00 +0000
+Subject: [PATCH] SableOS: the Private Space note says Sable Launcher
+
+Sable Start is gone: Sable Launcher is the only home app, and it lists Private
+Space at the end of All apps.
+---
+ res/values/strings_sable_mobile_manager.xml | 2 +-
+ 1 file changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/res/values/strings_sable_mobile_manager.xml b/res/values/strings_sable_mobile_manager.xml
+index 37b7186..af1f7a7 100644
+--- a/res/values/strings_sable_mobile_manager.xml
++++ b/res/values/strings_sable_mobile_manager.xml
+@@ -126,7 +126,7 @@
+     <!-- Private Space: unlocked. -->
+     <string name="sable_spaces_private_unlocked">Set up · unlocked</string>
+     <!-- Private Space note: where it is used. -->
+-    <string name="sable_spaces_private_note">Sable Start lists Private Space at the end of All apps, where you lock and unlock it.</string>
++    <string name="sable_spaces_private_note">Sable Launcher lists Private Space at the end of All apps, where you lock and unlock it.</string>
+     <!-- Dual Apps row title. -->
+     <string name="sable_spaces_dual_title">Dual Apps</string>
+     <!-- Dual Apps: unavailable. -->

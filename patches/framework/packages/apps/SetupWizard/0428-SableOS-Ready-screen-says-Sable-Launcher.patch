@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Wed, 18 Nov 2026 23:00:00 +0000
+Subject: [PATCH] SableOS: the Ready screen says Sable Launcher
+
+Sable Start is gone: Sable Launcher is the only home app. The Ready screen's
+title and Home card named Sable Start.
+---
+ app/src/main/res/values/sable_strings.xml | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/app/src/main/res/values/sable_strings.xml b/app/src/main/res/values/sable_strings.xml
+index a232cf7..9c333ca 100644
+--- a/app/src/main/res/values/sable_strings.xml
++++ b/app/src/main/res/values/sable_strings.xml
+@@ -109,7 +109,7 @@
+     <string name="sable_ready_done">Setup complete</string>
+     <!-- Final screen hint: Enter or the trackpad press finishes setup. -->
+     <string name="sable_finish_hint">Press Enter to start</string>
+-    <string name="sable_ready_title">Ready for Sable Start</string>
+-    <string name="sable_ready_home">Home is Sable Start: Active Frames shows your open apps, with Hub to the left and your app grid to the right (Alt+Left / Alt+Right).</string>
++    <string name="sable_ready_title">Ready for Sable Launcher</string>
++    <string name="sable_ready_home">Home is Sable Launcher: Active Frames shows your open apps, with Hub to the left and your app grid to the right (Alt+Left / Alt+Right).</string>
+     <string name="sable_ready_bar">The bottom row shows the page dots. Start typing on the home screen to search, or press Alt+Space in any app.</string>
+ </resources>
