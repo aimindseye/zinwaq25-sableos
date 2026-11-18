@@ -62,26 +62,27 @@ index 768c817..f049670 100644
      }
  }
 diff --git a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupReader.kt b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupReader.kt
-index 1b3c169..2cb9f89 100644
+index 1b3c169..da8abb3 100644
 --- a/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupReader.kt
 +++ b/sable-src/apps/titan2/platform/setup/src/main/java/org/sableos/titan2/setup/android/SetupReader.kt
-@@ -11,7 +11,14 @@ import org.sableos.titan2.setup.core.Snapshot
+@@ -10,8 +10,14 @@ import org.sableos.titan2.setup.core.Snapshot
+ 
  /** Reads the current defaults through public APIs only. A failed read is [Observed.Failed], never "none". */
  class SetupReader(private val context: Context) {
-     fun snapshot(): Snapshot =
+-    fun snapshot(): Snapshot =
 -        Snapshot(home(), keyboard(), dialer(), sms(), WeatherCityClient(context).current())
-+        Snapshot(
-+            home(),
-+            keyboard(),
-+            dialer(),
-+            sms(),
-+            WeatherCityClient(context).current(),
-+            appSet()
-+        )
++    fun snapshot(): Snapshot = Snapshot(
++        home(),
++        keyboard(),
++        dialer(),
++        sms(),
++        WeatherCityClient(context).current(),
++        appSet()
++    )
  
      private fun home(): Observed = observe {
          context.packageManager.resolveActivity(
-@@ -24,6 +31,10 @@ class SetupReader(private val context: Context) {
+@@ -24,6 +30,10 @@ class SetupReader(private val context: Context) {
          Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
      }
  
@@ -977,7 +978,7 @@ index 55bade4..b544861 100644
 +    <string name="action_sable_apps">Sable apps</string>
  </resources>
 diff --git a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupHardeningTest.kt b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupHardeningTest.kt
-index db9f397..50d2aff 100644
+index db9f397..f3b040e 100644
 --- a/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupHardeningTest.kt
 +++ b/sable-src/apps/titan2/platform/setup/src/test/java/org/sableos/titan2/setup/SetupHardeningTest.kt
 @@ -128,10 +128,15 @@ class SetupHardeningTest {
@@ -998,13 +999,12 @@ index db9f397..50d2aff 100644
          assertEquals(Action.KeyboardSettings, row("ime_add", rows()).action)
          assertEquals(Action.DefaultApps, row("defaults", rows()).action)
          assertTrue(
-@@ -214,6 +219,19 @@ class SetupHardeningTest {
+@@ -214,6 +219,18 @@ class SetupHardeningTest {
          assertTrue(dialer.detail.contains("could not verify"))
      }
  
 +    @Test fun sableAppsRowShowsTheChoiceMadeInSetup() {
-+        fun detail(appSet: Observed) =
-+            row("apps", rows(snap().copy(appSet = appSet))).detail
++        fun detail(appSet: Observed) = row("apps", rows(snap().copy(appSet = appSet))).detail
 +        assertTrue(detail(Observed.Value("essentials")).contains("Essentials"))
 +        assertTrue(detail(Observed.Value("stock")).contains("Stock Android"))
 +        assertTrue(detail(Observed.Value("full")).contains("Full Sable"))
