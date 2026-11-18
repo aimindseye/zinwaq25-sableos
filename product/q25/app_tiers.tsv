@@ -1,0 +1,44 @@
+# Setup tier of every Sable application (Sable OS 2.0 setup tiers spec).
+#
+# Columns (tab-separated):
+#   package   application id; must match a row of apps.tsv, or be one of the LineageOS apps below
+#   tier      core        always on, not removable in setup
+#             recommended on by default, can be switched off in setup
+#             optional    off by default, switched on in setup or in Settings
+#   requires  comma-separated packages that must stay enabled while this one is on, or -
+#
+# The apps are all in the image; setup enables or disables them for the user (SableAppSet).
+# apps.tsv stays the build list. A row there with enabled=no has no row here.
+package	tier	requires
+org.sableos.launcher	core	-
+org.sableos.titan2.keyboard	core	-
+org.sableos.hub	core	-
+org.sableos.titan2.setup	core	-
+org.sableos.phone	core	-
+com.android.contacts	core	-
+com.android.contactspicker	core	-
+org.sableos.messages	core	-
+org.sableos.titan2.profiles	core	-
+org.sableos.titan2.displaycompat	core	-
+org.sableos.titan2.vault	core	-
+org.sableos.tools	core	-
+org.sableos.titan2.camera	recommended	-
+org.sableos.browser	recommended	org.sableos.titan2.vault
+org.sableos.mail	recommended	org.sableos.titan2.vault
+org.sableos.calendar	recommended	-
+org.sableos.tasks	recommended	-
+org.sableos.notes	recommended	-
+org.sableos.calculator	recommended	-
+org.sableos.weather	recommended	-
+org.sableos.media	recommended	-
+io.github.sds100.keymapper	recommended	-
+org.sableos.assistant	optional	org.sableos.titan2.vault
+org.sableos.terminal	optional	-
+org.sableos.reader	optional	-
+org.sableos.titan2.compass	optional	-
+org.sableos.titan2.printtogo	optional	-
+org.sableos.titan2.spaces	optional	-
+org.sableos.textreader	optional	org.sableos.speech
+org.sableos.speech	optional	-
+at.bitfire.davdroid	optional	-
+at.bitfire.icsdroid	optional	org.sableos.calendar
