@@ -57,8 +57,10 @@ def main() -> None:
         "hub_keep": "SableHubHistory.record(items)" in hub
         and (root / JAVA / "conversations/SableHubKeep.kt").is_file()
         and "SableHubMoreControl()" in (root / JAVA / "ui/HubCompactBar.kt").read_text(encoding="utf-8"),
-        # Home status reads Dials, Icons, Hidden (patch_status_icons).
-        "status_icons": 'Icons("text")' in (root / JAVA / "model/HomeStatusMode.kt").read_text(encoding="utf-8"),
+        # No status dials or status line on either home (patch_no_status_dials).
+        "no_status_dials": "HomeStatusMode.Hidden\n" in (root / JAVA / "platform/StartStateRepository.kt").read_text(encoding="utf-8")
+        and "STATUS_RINGS" not in (root / JAVA / "model/HomeLayout.kt").read_text(encoding="utf-8")
+        and "Settings2UnifiedHomeStatus" not in (root / JAVA / "LauncherSettingsActivity.kt").read_text(encoding="utf-8"),
         # Extra dim at the bottom of the brightness slider (patch_extra_dim).
         "extra_dim": "android.permission.WRITE_SECURE_SETTINGS" in manifest and "SableExtraDim.start(this)" in activity,
         # The home grants itself its permissions, and has no Active Frames settings page (patch_home_access).
