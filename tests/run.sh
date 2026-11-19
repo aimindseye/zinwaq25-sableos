@@ -586,6 +586,13 @@ grep -q 'patch_home_size(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py
 grep -q '"home_size"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hs_bad="$hs_bad verify"
 if [[ -z "$hs_bad" ]]; then pass "Home size: Large icons by default and larger names"; else fail "home size:$hs_bad"; fi
 
+# 6b0t. End goes home and Call opens Phone (framework 0506).
+ec_bad=""
+ec_p=(patches/framework/frameworks/base/0506-*.patch)
+[[ -f "${ec_p[0]}" ]] || ec_bad="$ec_bad missing"
+[[ -z "$ec_bad" ]] && { grep -q 'Intent.ACTION_DIAL' "${ec_p[0]}" || ec_bad="$ec_bad dial"; grep -q 'isUserSetupComplete()' "${ec_p[0]}" || ec_bad="$ec_bad setup-guard"; }
+if [[ -z "$ec_bad" ]]; then pass "End goes home and Call opens Phone (framework 0506)"; else fail "end/call keys:$ec_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
