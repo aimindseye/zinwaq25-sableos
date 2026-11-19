@@ -97,6 +97,11 @@ class CompactStripView(
     }
 
     fun render(m: StripModel) {
+        // Diagnostic (SableSuggest): what the strip was told to show. No typed text.
+        android.util.Log.d(
+            "SableSuggest",
+            "render mode=${m.mode} visible=${m.visible} content=${m.content::class.simpleName}"
+        )
         visibility = if (m.visible) View.VISIBLE else View.GONE
         if (!m.visible) return
         status.removeAllViews()
