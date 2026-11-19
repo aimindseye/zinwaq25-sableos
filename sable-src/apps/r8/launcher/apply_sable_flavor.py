@@ -1906,6 +1906,7 @@ def patch_home_splat(root: pathlib.Path) -> None:
         "private fun GridCellImage(\n    app: AppEntry,\n    iconDp: Int,\n) {\n    Box {\n        AppMark(app = app, size = iconDp)\n",
         "private fun GridCellImage(\n    app: AppEntry,\n    iconDp: Int,\n    splat: Boolean = false,\n) {\n    Box {\n        AppMark(app = app, size = iconDp)\n"
         "        if (splat) {\n"
+        "            val splatColor = Bb10Blue\n"
         "            androidx.compose.foundation.Canvas(modifier = Modifier.align(Alignment.TopEnd).size(14.dp)) {\n"
         "                val outer = size.minDimension / 2f\n"
         "                val star = androidx.compose.ui.graphics.Path()\n"
@@ -1917,7 +1918,7 @@ def patch_home_splat(root: pathlib.Path) -> None:
         "                    if (i == 0) star.moveTo(x, y) else star.lineTo(x, y)\n"
         "                }\n"
         "                star.close()\n"
-        "                drawPath(star, Bb10Blue)\n"
+        "                drawPath(star, splatColor)\n"
         "                drawPath(star, Color.White, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f))\n"
         "            }\n"
         "        }\n",
