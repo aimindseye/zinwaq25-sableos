@@ -671,6 +671,15 @@ pc_d=(patches/framework/packages/apps/Dialer/0711-*.patch)
 [[ -f "$rm_f/RowMotion.kt" ]] && grep -q 'rowMotion(task.id' "$rm_f/TasksApp.kt" || pc_bad="$pc_bad remind"
 if [[ -z "$pc_bad" ]]; then pass "Contacts and Phone focus bar and Remind row motion follow the BlackBerry profile"; else fail "profile in Contacts or Remind:$pc_bad"; fi
 
+# 6b0o. Sable Mail follows the BlackBerry profile: flat filled focus bar on BBOS 7.
+mp_bad=""
+mp_d=sable-src/apps/r8/mail
+[[ -f "$mp_d/src/main/java/com/fsck/k9/activity/SableMailProfile.kt" ]] || mp_bad="$mp_bad source"
+grep -q 'SableMailProfile.kt' "$mp_d/apply_sable_flavor.py" || mp_bad="$mp_bad copy"
+grep -q 'SableMailProfile.applyRowFocus(itemView)' "$mp_d/apply_sable_flavor.py" || mp_bad="$mp_bad hook"
+grep -q 'SABLE_MAIL_PROFILE_FOCUS' "$mp_d/verify_sable_mail.py" || mp_bad="$mp_bad verify"
+if [[ -z "$mp_bad" ]]; then pass "Sable Mail follows the BlackBerry profile (focus bar)"; else fail "mail profile:$mp_bad"; fi
+
 # 6b0p. Mail is a Core app: Essentials keeps it on (SetupWizard 0431, app_tiers.tsv).
 ml_bad=""
 ml_p=(patches/framework/packages/apps/SetupWizard/0431-*.patch)
@@ -684,6 +693,14 @@ as_bad=""
 grep -q 'SableAccountShortcuts.publish' sable-src/apps/r8/mail/apply_sable_flavor.py || as_bad="$as_bad not-applied"
 grep -q 'SABLE_MAIL_ACCOUNT_SHORTCUTS' sable-src/apps/r8/mail/verify_sable_mail.py || as_bad="$as_bad verify"
 if [[ -z "$as_bad" ]]; then pass "Mail: per-account shortcuts on long-press"; else fail "mail account shortcuts:$as_bad"; fi
+
+# 6b0m. Sable Mail account setup is one screen: Display and Sync options fill themselves in.
+os_bad=""
+os_d=sable-src/apps/r8/mail
+[[ -f "$os_d/src/setup/SableQuickOptions.kt" ]] || os_bad="$os_bad source"
+grep -q 'apply_one_screen_setup(root)' "$os_d/apply_sable_flavor.py" || os_bad="$os_bad call"
+grep -q 'SABLE_MAIL_ONE_SCREEN_SETUP' "$os_d/verify_sable_mail.py" || os_bad="$os_bad verify"
+if [[ -z "$os_bad" ]]; then pass "Sable Mail account setup is one screen"; else fail "mail one-screen setup:$os_bad"; fi
 
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""

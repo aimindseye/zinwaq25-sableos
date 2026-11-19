@@ -587,6 +587,26 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
         'android:foreground="@drawable/sable_mail_list_item_foreground"',
         "SABLE_MAIL_FOCUS_RING",
     )
+    setup_navigation = root / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/navigation"
+    require_text(
+        setup_navigation / "AccountSetupNavHost.kt",
+        "SableAutoDisplayOptions(",
+        "SABLE_MAIL_ONE_SCREEN_SETUP",
+    )
+    require_text(
+        setup_navigation / "AccountSetupNavHost.kt",
+        "SableAutoSyncOptions(",
+        "SABLE_MAIL_ONE_SCREEN_SETUP",
+    )
+    if not (setup_navigation / "SableQuickOptions.kt").is_file():
+        fail("SABLE_MAIL_ONE_SCREEN_SETUP", "missing SableQuickOptions.kt")
+    require_text(
+        root / "legacy/ui/legacy/src/main/java/com/fsck/k9/ui/messagelist/item/MessageViewHolder.kt",
+        "com.fsck.k9.activity.SableMailProfile.applyRowFocus(itemView)",
+        "SABLE_MAIL_PROFILE_FOCUS",
+    )
+    if not (root / "legacy/ui/legacy/src/main/res/drawable/sable_mail_list_item_foreground_bb7.xml").is_file():
+        fail("SABLE_MAIL_PROFILE_FOCUS", "missing bb7 focus drawable")
     require_text(
         home_activity,
         "SableAccountShortcuts.publish(",

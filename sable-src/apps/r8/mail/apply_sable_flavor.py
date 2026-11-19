@@ -220,6 +220,9 @@ SABLE_KEYMAP_SOURCES = (
     "test/java/com/fsck/k9/activity/SableMailKeymapTest.kt",
     "main/java/com/fsck/k9/activity/SableAccountShortcuts.kt",
     "test/java/com/fsck/k9/activity/SableAccountShortcutsTest.kt",
+
+    "main/java/com/fsck/k9/activity/SableMailProfile.kt",
+    "test/java/com/fsck/k9/activity/SableMailProfileTest.kt",
 )
 
 
@@ -603,10 +606,108 @@ def apply_keyboard_model(root: Path) -> None:
         'android:foreground="@drawable/sable_mail_list_item_foreground"',
     )
 
+    # PROFILE_FOCUS: on BlackBerry 7 (Settings.Secure sable_profile) the focused message row is a flat filled
+    # bar instead of the ring; BlackBerry 10 keeps the ring.
+    write(
+        res / "drawable/sable_mail_list_item_foreground_bb7.xml",
+        """<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="?attr/selectableItemBackground" />
+    <item>
+        <selector>
+            <item android:state_focused="true">
+                <shape android:shape="rectangle">
+                    <solid android:color="?attr/colorSecondaryContainer" />
+                </shape>
+            </item>
+        </selector>
+    </item>
+</layer-list>
+""",
+    )
+    replace_once(
+        module / "main/java/com/fsck/k9/ui/messagelist/item/MessageViewHolder.kt",
+        "            itemView.setBackgroundColor(selectBackgroundColor(isSelected, isRead, isActive))\n",
+        "            itemView.setBackgroundColor(selectBackgroundColor(isSelected, isRead, isActive))\n"
+        "            com.fsck.k9.activity.SableMailProfile.applyRowFocus(itemView)\n",
+    )
+
     replace_once(
         root / "core/preference/api/src/commonMain/kotlin/net/thunderbird/core/preference/interaction/InteractionSettings.kt",
         "const val INTERACTION_SETTINGS_DEFAULT_CONFIRM_DELETE = false",
         "const val INTERACTION_SETTINGS_DEFAULT_CONFIRM_DELETE = true",
+    )
+
+
+SABLE_SETUP_NAVIGATION = "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/navigation"
+
+
+def apply_one_screen_setup(root: Path) -> None:
+    """Account setup is one screen: after the server checks the Display options and Sync options steps fill
+    themselves in (SableQuickOptions.kt) and move on, so only the address and password are asked for.
+    Special folders and the server screens are unchanged."""
+    source = Path(__file__).resolve().parent / "src/setup/SableQuickOptions.kt"
+    navigation = root / SABLE_SETUP_NAVIGATION
+    write(navigation / "SableQuickOptions.kt", source.read_text(encoding="utf-8"))
+
+    nav_host = navigation / "AccountSetupNavHost.kt"
+    replace_once(
+        nav_host,
+        "import app.k9mail.feature.account.setup.ui.options.display.DisplayOptionsScreen\n",
+        "",
+    )
+    replace_once(
+        nav_host,
+        "import app.k9mail.feature.account.setup.ui.options.sync.SyncOptionsScreen\n",
+        "",
+    )
+    replace_once(
+        nav_host,
+        """        composable(route = NESTED_NAVIGATION_DISPLAY_OPTIONS) {
+            DisplayOptionsScreen(
+                onNext = { navController.navigate(NESTED_NAVIGATION_SYNC_OPTIONS) },
+                onBack = { navController.popBackStack() },
+                viewModel = koinViewModel<DisplayOptionsViewModel>(),
+                brandNameProvider = koinInject(),
+            )
+        }
+""",
+        """        composable(route = NESTED_NAVIGATION_DISPLAY_OPTIONS) {
+            SableAutoDisplayOptions(
+                onNext = {
+                    navController.navigate(NESTED_NAVIGATION_SYNC_OPTIONS) {
+                        popUpTo(NESTED_NAVIGATION_DISPLAY_OPTIONS) { inclusive = true }
+                    }
+                },
+                onBack = { navController.popBackStack() },
+                viewModel = koinViewModel<DisplayOptionsViewModel>(),
+            )
+        }
+""",
+    )
+    replace_once(
+        nav_host,
+        """        composable(route = NESTED_NAVIGATION_SYNC_OPTIONS) {
+            SyncOptionsScreen(
+                onNext = { navController.navigate(NESTED_NAVIGATION_CREATE_ACCOUNT) },
+                onBack = { navController.popBackStack() },
+                viewModel = koinViewModel<SyncOptionsViewModel>(),
+                brandNameProvider = koinInject(),
+            )
+        }
+""",
+        """        composable(route = NESTED_NAVIGATION_SYNC_OPTIONS) {
+            SableAutoSyncOptions(
+                onNext = {
+                    navController.navigate(NESTED_NAVIGATION_CREATE_ACCOUNT) {
+                        popUpTo(NESTED_NAVIGATION_SYNC_OPTIONS) { inclusive = true }
+                    }
+                },
+                onBack = { navController.popBackStack() },
+                viewModel = koinViewModel<SyncOptionsViewModel>(),
+            )
+        }
+""",
     )
 
 
@@ -1739,6 +1840,7 @@ class SableMailSnapshotProvider : ContentProvider() {
         relative = source.relative_to(Path(__file__).resolve().parent / "app")
         write(app / relative, source.read_text(encoding="utf-8"))
     apply_keyboard_model(root)
+    apply_one_screen_setup(root)
     write(
         app / "src/main/res/drawable/ic_sable_mail_notification.xml",
         '''<vector xmlns:android="http://schemas.android.com/apk/res/android"
