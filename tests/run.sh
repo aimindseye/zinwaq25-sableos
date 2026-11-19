@@ -550,6 +550,12 @@ grep -q 'patch_home_splat(root)' sable-src/apps/r8/launcher/apply_sable_flavor.p
 grep -q '"home_splat"' sable-src/apps/r8/launcher/verify_sable_launcher.py || spl_bad="$spl_bad verify"
 if [[ -z "$spl_bad" ]]; then pass "Home: splat indicator on app icons with unread notifications"; else fail "home splat:$spl_bad"; fi
 
+# 6b0h. BlackBerry 10 puts the Hub's tabs at the bottom; BlackBerry 7 keeps them under the title.
+bt_bad=""
+grep -q 'patch_hub_bottom_tabs(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || bt_bad="$bt_bad not-applied"
+grep -q '"hub_bottom_tabs"' sable-src/apps/r8/launcher/verify_sable_launcher.py || bt_bad="$bt_bad verify"
+if [[ -z "$bt_bad" ]]; then pass "Hub: BB10 tabs at the bottom, BB7 tabs under the title"; else fail "hub bottom tabs:$bt_bad"; fi
+
 # 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
 # extras and screen capture, and the verify step fails the build if they come back.
 home_bad=""

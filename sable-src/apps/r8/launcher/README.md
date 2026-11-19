@@ -29,6 +29,8 @@ in `upstream.env` (upstream PR 127), after `apply_sable_flavor.py` has changed:
   chosen app (the newest until chosen) is where the reply goes;
 - the focus mark per profile (`patch_bb7_highlight`): the shared focus modifier fills the focused item in the
   BlackBerry 7 profile and keeps the 2 dp outline in BlackBerry 10;
+- the Hub tabs per profile (`patch_hub_bottom_tabs`): BlackBerry 10 shows the tab strip at the bottom of
+  the Hub, BlackBerry 7 keeps it under the title;
 - the splat (`patch_home_splat`): an app with unread notifications shows a small accent star on its Home grid
   icon, from the launcher's own notification counts;
 - the inline reply (`patch_hub_inline_reply`): a message's menu opens with the reply field ready and focused, and
