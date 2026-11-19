@@ -48,6 +48,7 @@ def main() -> None:
         and "replyTargets" in (root / JAVA / "conversations/ConversationModels.kt").read_text(encoding="utf-8")
         and "SableReplyChoice" in hub_panels,
         "bb7_highlight": '"sable_profile"' in (root / "design/src/main/java/io/github/aimindseye/tenseven/design/SableResponsiveComponents.kt").read_text(encoding="utf-8"),
+        "hub_inline_reply": "focusRequester(focus)" in hub_panels and "ImeAction.Send" in hub_panels,
         "no_extras": "extras." not in manifest and not (root / JAVA / "extras").exists(),
         "no_screen_capture": "mediaProjection" not in manifest
         and "MEDIA_PROJECTION" not in manifest
