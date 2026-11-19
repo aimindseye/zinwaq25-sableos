@@ -4,6 +4,8 @@ package org.sableos.tasks.ui
 
 import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -22,6 +24,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.KeyEventType
@@ -34,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableSize
 import org.sableos.design.SableSpacing
@@ -157,14 +162,16 @@ private fun TaskList(
             modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
         )
         tasks.forEach { task ->
-            TaskRow(
-                task = task,
-                onOpen = { state.openEditor(task, isNew = false) },
-                onKey = { key ->
-                    onRowKey(key, task, state, repository)
-                    onChanged()
-                },
-            )
+            androidx.compose.runtime.key(task.id) {
+                TaskRow(
+                    task = task,
+                    onOpen = { state.openEditor(task, isNew = false) },
+                    onKey = { key ->
+                        onRowKey(key, task, state, repository)
+                        onChanged()
+                    },
+                )
+            }
         }
     }
     Spacer(Modifier.height(SableSpacing.Md))
@@ -218,22 +225,38 @@ private fun TaskRow(
     onKey: (RowKey) -> Unit,
 ) {
     val context = LocalContext.current
+    val bb7 = rememberIsBb7()
+    val visible = remember(task.id) { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    // Done and delete take the row out: it fades first (the profile's row motion), then the change is made.
+    val act: (RowKey) -> Unit = { key ->
+        if (key == RowKey.Tomorrow) {
+            onKey(key)
+        } else {
+            scope.launch {
+                visible.animateTo(0f, tween(RowMotion.millis(bb7)))
+                onKey(key)
+                visible.snapTo(1f)
+            }
+        }
+    }
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = SableSize.TouchTarget)
+                .then(rowMotion(task.id, visible, bb7))
                 .onPreviewKeyEvent { event ->
                     val modified = event.isAltPressed || event.isCtrlPressed || event.isMetaPressed
                     val key = TasksKeys.row(event.nativeKeyEvent.keyCode, modified)
-                    if (key != null && event.type == KeyEventType.KeyUp) onKey(key)
+                    if (key != null && event.type == KeyEventType.KeyUp) act(key)
                     key != null
                 }.sableFocusRing()
                 .clickable(onClick = onOpen)
                 .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = task.completed, onCheckedChange = { onKey(RowKey.Done) })
+        Checkbox(checked = task.completed, onCheckedChange = { act(RowKey.Done) })
         Column(Modifier.weight(1f)) {
             Text(
                 text = task.title,
