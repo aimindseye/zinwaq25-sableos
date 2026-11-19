@@ -580,6 +580,12 @@ grep -q 'patch_home_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py
 grep -q '"home_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hm_bad="$hm_bad verify"
 if [[ -z "$hm_bad" ]]; then pass "Home menu: one menu on BBOS 7, no settings gear on BBOS 10"; else fail "home menu:$hm_bad"; fi
 
+# 6b0q. Larger icons and names on both homes (default icon size Large).
+hs_bad=""
+grep -q 'patch_home_size(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || hs_bad="$hs_bad not-applied"
+grep -q '"home_size"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hs_bad="$hs_bad verify"
+if [[ -z "$hs_bad" ]]; then pass "Home size: Large icons by default and larger names"; else fail "home size:$hs_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
