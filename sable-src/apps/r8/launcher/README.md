@@ -37,6 +37,8 @@ in `upstream.env` (upstream PR 127), after `apply_sable_flavor.py` has changed:
   icon, from the launcher's own notification counts;
 - the inline reply (`patch_hub_inline_reply`): a message's menu opens with the reply field ready and focused, and
   the keyboard Send key sends;
+- the Hub peek's motion (`patch_peek_motion`): BlackBerry 7 fades it in over 150 ms, BlackBerry 10 slides it
+  in over 250 ms, by `sable_profile`;
 - the colours, to the approved tokens: blue `#2E9BD6`, black, raised `#141414`, dividers `#262626`.
 - the widget picker's list, from a fixed 360 dp to at most 360 dp, so the dialog fits the Q25's
   411 dp square screen (about 383 dp under the status bar).

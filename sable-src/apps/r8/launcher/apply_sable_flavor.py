@@ -2071,6 +2071,46 @@ def patch_visible_names(root: pathlib.Path) -> None:
         fail("SABLE_HOME_VISIBLE_NAMES=FAIL nothing changed")
 
 
+def patch_peek_motion(root: pathlib.Path) -> None:
+    """The Hub peek follows the whole-OS profile's motion set (conformance matrix, BlackBerry 7.1
+    and BlackBerry 10 UI guidelines). BlackBerry 7 fades the panel in over 150 ms with no slide;
+    BlackBerry 10 slides it in from the left over 250 ms and decelerates (it was 220 ms)."""
+    peek = root / JAVA / "ui/HubPeek.kt"
+    replace_once(
+        peek,
+        "    LaunchedEffect(Unit) { slide.animateTo(1f, tween(durationMillis = 220, easing = FastOutSlowInEasing)) }\n",
+        "    val sableFade =\n"
+        "        remember(context) {\n"
+        "            runCatching {\n"
+        "                android.provider.Settings.Secure.getString(context.contentResolver, \"sable_profile\")\n"
+        "            }.getOrNull() == \"bb7\"\n"
+        "        }\n"
+        "    LaunchedEffect(Unit) {\n"
+        "        slide.animateTo(\n"
+        "            1f,\n"
+        "            if (sableFade) {\n"
+        "                tween(durationMillis = 150, easing = androidx.compose.animation.core.LinearEasing)\n"
+        "            } else {\n"
+        "                tween(durationMillis = 250, easing = FastOutSlowInEasing)\n"
+        "            },\n"
+        "        )\n"
+        "    }\n",
+        "SABLE_PEEK_MOTION_TWEEN",
+    )
+    replace_once(
+        peek,
+        "                    .graphicsLayer { translationX = (slide.value - 1f) * size.width }\n",
+        "                    .graphicsLayer {\n"
+        "                        if (sableFade) {\n"
+        "                            alpha = slide.value\n"
+        "                        } else {\n"
+        "                            translationX = (slide.value - 1f) * size.width\n"
+        "                        }\n"
+        "                    }\n",
+        "SABLE_PEEK_MOTION_LAYER",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -2104,6 +2144,7 @@ def main() -> None:
     patch_home_splat(root)
     patch_hub_bottom_tabs(root)
     patch_hub_swipe_menu(root)
+    patch_peek_motion(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 

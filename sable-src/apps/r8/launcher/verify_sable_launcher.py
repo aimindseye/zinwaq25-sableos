@@ -52,6 +52,7 @@ def main() -> None:
         "home_splat": "LockLayerState.counts[app.component.packageName]" in (root / JAVA / "ui/HomeAppGrid.kt").read_text(encoding="utf-8"),
         "hub_bottom_tabs": "sableBottomTabs()" in (root / JAVA / "ui/HubPage.kt").read_text(encoding="utf-8"),
         "hub_swipe_menu": "hubMenuSwipeDown" in (root / JAVA / "ui/HubPanels.kt").read_text(encoding="utf-8"),
+        "peek_motion": "sableFade" in (root / JAVA / "ui/HubPeek.kt").read_text(encoding="utf-8"),
         "no_extras": "extras." not in manifest and not (root / JAVA / "extras").exists(),
         "no_screen_capture": "mediaProjection" not in manifest
         and "MEDIA_PROJECTION" not in manifest
