@@ -569,6 +569,13 @@ fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
 [[ -z "$fp_bad" ]] && { grep -q 'private fun pinFooterBar' "${fp_p[0]}" || fp_bad="$fp_bad function"; grep -q '^+            pinFooterBar()' "${fp_p[0]}" || fp_bad="$fp_bad call"; }
 if [[ -z "$fp_bad" ]]; then pass "setup: footer bar pinned under the scroll view in short windows (SetupWizard 0429)"; else fail "setup footer pin:$fp_bad"; fi
 
+# 6b0j. Short toasts stay up for 3 seconds (frameworks/base 0502).
+toast_bad=""
+toast_p=(patches/framework/frameworks/base/0502-*.patch)
+[[ -f "${toast_p[0]}" ]] || toast_bad="$toast_bad missing"
+[[ -z "$toast_bad" ]] && { grep -q '^+    static final int SHORT_DELAY = 3000;' "${toast_p[0]}" || toast_bad="$toast_bad delay"; }
+if [[ -z "$toast_bad" ]]; then pass "toasts: SHORT_DELAY 3000 ms (frameworks/base 0502)"; else fail "toast delay:$toast_bad"; fi
+
 # 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
 # extras and screen capture, and the verify step fails the build if they come back.
 home_bad=""
