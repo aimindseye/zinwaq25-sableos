@@ -544,6 +544,12 @@ grep -q 'patch_hub_inline_reply(root)' sable-src/apps/r8/launcher/apply_sable_fl
 grep -q '"hub_inline_reply"' sable-src/apps/r8/launcher/verify_sable_launcher.py || inl_bad="$inl_bad verify"
 if [[ -z "$inl_bad" ]]; then pass "Hub: inline reply opens with focus, Send key sends"; else fail "hub inline reply:$inl_bad"; fi
 
+# 6b0g. Apps with unread notifications show the splat on their icon in the Home grid.
+spl_bad=""
+grep -q 'patch_home_splat(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || spl_bad="$spl_bad not-applied"
+grep -q '"home_splat"' sable-src/apps/r8/launcher/verify_sable_launcher.py || spl_bad="$spl_bad verify"
+if [[ -z "$spl_bad" ]]; then pass "Home: splat indicator on app icons with unread notifications"; else fail "home splat:$spl_bad"; fi
+
 # 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
 # extras and screen capture, and the verify step fails the build if they come back.
 home_bad=""
