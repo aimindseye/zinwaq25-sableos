@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 01:30:00 +0000
+Subject: [PATCH] SableOS: keep the footer bar on screen in short windows
+
+On the Q25's 411 dp square window a long setup page, such as the keyboard test, had to be
+scrolled a little to reach Next. Patch 0414 assumed the Glif footer bar already sat under the scroll
+view, and it moved only Welcome's own button bar. After the footer is set up, a short window now
+checks whether the footer bar's container is inside the Glif scroll view; if it is, it moves to sit
+under the scroll view (which keeps the remaining height), so Next and Skip never scroll away. A
+footer already outside the scroll view is left alone. The result is logged ("footer bar inside the
+scroll view: ...", tag BaseSetupWizardActivity) so a device check shows which case a build is in.
+---
+ .../setupwizard/base/BaseSetupWizardActivity.kt | 46 +++++++++++++++++++
+ 1 file changed, 46 insertions(+)
+
+diff --git a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt b/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
+index 06ad6e0..2d39f3c 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
++++ b/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
+@@ -67,6 +67,7 @@ abstract class BaseSetupWizardActivity : AppCompatActivity() {
+         fitShortWindow()
+         if (installFooterBar && template.hasFooterBar) {
+             setupFooterBar()
++            pinFooterBar()
+         }
+         onBackPressedDispatcher.addCallback(
+             this,
+@@ -412,6 +413,51 @@ abstract class BaseSetupWizardActivity : AppCompatActivity() {
+         }
+     }
+ 
++    /**
++     * SableOS: on a short window the footer bar (Next, Skip) must stay on screen. If the Glif
++     * layout put it inside the scroll view, so that a long page had to be scrolled to reach Next
++     * (the keyboard test step), it moves out to sit under the scroll view, which keeps the
++     * remaining height. A footer that is already outside the scroll view is left alone. Never
++     * fails the step.
++     */
++    private fun pinFooterBar() {
++        try {
++            if (!SableShortWindow.isShort(resources.configuration.screenHeightDp)) return
++            val layout = findViewById<View>(R.id.setup_wizard_layout) as? GlifLayout ?: return
++            val footer = footerBarMixin?.buttonContainer ?: return
++            val scroll =
++                layout.findViewById<View>(
++                    resources.getIdentifier("sud_scroll_view", "id", packageName)
++                ) as? ScrollView ?: return
++            var inside = false
++            var ancestor = footer.parent
++            while (ancestor is View && ancestor !== layout) {
++                if (ancestor === scroll) {
++                    inside = true
++                    break
++                }
++                ancestor = ancestor.parent
++            }
++            Log.i(TAG, "footer bar inside the scroll view: $inside")
++            if (!inside) return
++            val column = scroll.parent as? LinearLayout ?: return
++            if (column.orientation != LinearLayout.VERTICAL) return
++            (footer.parent as? ViewGroup)?.removeView(footer)
++            scroll.layoutParams =
++                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
++            column.addView(
++                footer,
++                column.indexOfChild(scroll) + 1,
++                LinearLayout.LayoutParams(
++                    ViewGroup.LayoutParams.MATCH_PARENT,
++                    ViewGroup.LayoutParams.WRAP_CONTENT,
++                ),
++            )
++        } catch (e: RuntimeException) {
++            Log.w(TAG, "could not pin the footer bar", e)
++        }
++    }
++
+     private fun hideById(root: View, id: Int) {
+         if (id == 0 || id == View.NO_ID) return
+         root.findViewById<View>(id)?.visibility = View.GONE
+-- 
+2.43.0

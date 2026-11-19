@@ -562,6 +562,13 @@ grep -q 'patch_hub_swipe_menu(root)' sable-src/apps/r8/launcher/apply_sable_flav
 grep -q '"hub_swipe_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || sw_bad="$sw_bad verify"
 if [[ -z "$sw_bad" ]]; then pass "Hub: BB10 swipe down from the top opens the menu"; else fail "hub swipe menu:$sw_bad"; fi
 
+# 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
+fp_bad=""
+fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
+[[ -f "${fp_p[0]}" ]] || fp_bad="$fp_bad missing"
+[[ -z "$fp_bad" ]] && { grep -q 'private fun pinFooterBar' "${fp_p[0]}" || fp_bad="$fp_bad function"; grep -q '^+            pinFooterBar()' "${fp_p[0]}" || fp_bad="$fp_bad call"; }
+if [[ -z "$fp_bad" ]]; then pass "setup: footer bar pinned under the scroll view in short windows (SetupWizard 0429)"; else fail "setup footer pin:$fp_bad"; fi
+
 # 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
 # extras and screen capture, and the verify step fails the build if they come back.
 home_bad=""
