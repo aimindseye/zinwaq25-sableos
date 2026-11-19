@@ -42,6 +42,8 @@
     </exception>
     <exception package="org.sableos.media">
         <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
+        <!-- Lists the FM recordings the FM Radio app saves (Recordings/FM recordings). -->
+        <permission name="android.permission.READ_MEDIA_AUDIO" fixed="false" />
     </exception>
     <exception package="com.android.fmradio">
         <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
