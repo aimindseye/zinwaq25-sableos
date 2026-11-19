@@ -587,6 +587,12 @@ hf_p=(patches/framework/frameworks/base/0505-*.patch)
 [[ -z "$hf_bad" ]] && { grep -q 'org.sableos.start.action.SHOW_ACTIVE_FRAMES' "${hf_p[0]}" || hf_bad="$hf_bad action"; grep -q 'isUserSetupComplete()' "${hf_p[0]}" || hf_bad="$hf_bad setup-guard"; }
 if [[ -z "$hf_bad" ]]; then pass "hold Menu opens Active Frames from any app (framework 0505)"; else fail "hold Menu:$hf_bad"; fi
 
+# 6b0q. Larger icons and names on both homes (default icon size Large).
+hs_bad=""
+grep -q 'patch_home_size(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || hs_bad="$hs_bad not-applied"
+grep -q '"home_size"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hs_bad="$hs_bad verify"
+if [[ -z "$hs_bad" ]]; then pass "Home size: Large icons by default and larger names"; else fail "home size:$hs_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
