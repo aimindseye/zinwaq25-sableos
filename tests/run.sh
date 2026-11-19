@@ -671,6 +671,14 @@ pc_d=(patches/framework/packages/apps/Dialer/0711-*.patch)
 [[ -f "$rm_f/RowMotion.kt" ]] && grep -q 'rowMotion(task.id' "$rm_f/TasksApp.kt" || pc_bad="$pc_bad remind"
 if [[ -z "$pc_bad" ]]; then pass "Contacts and Phone focus bar and Remind row motion follow the BlackBerry profile"; else fail "profile in Contacts or Remind:$pc_bad"; fi
 
+# 6b0p. Mail is a Core app: Essentials keeps it on (SetupWizard 0431, app_tiers.tsv).
+ml_bad=""
+ml_p=(patches/framework/packages/apps/SetupWizard/0431-*.patch)
+[[ -f "${ml_p[0]}" ]] || ml_bad="$ml_bad missing"
+grep -qP '^org\.sableos\.mail\tcore\t' product/q25/app_tiers.tsv || ml_bad="$ml_bad tier"
+[[ -z "$ml_bad" ]] && { grep -q '+            "org.sableos.mail",' "${ml_p[0]}" || ml_bad="$ml_bad patch"; }
+if [[ -z "$ml_bad" ]]; then pass "Mail is a Core app and stays on in Essentials"; else fail "mail tier:$ml_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
