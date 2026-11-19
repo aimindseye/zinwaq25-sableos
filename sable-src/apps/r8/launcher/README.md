@@ -41,6 +41,9 @@ in `upstream.env` (upstream PR 127), after `apply_sable_flavor.py` has changed:
   in over 250 ms, by `sable_profile`;
 - the Hub rows' motion (`patch_hub_row_motion`): a row that leaves the list fades out and the gap closes, and a
   tab switch fades (BlackBerry 7, 150 ms) or slides and fades (BlackBerry 10, 250 ms) the rows in;
+- the Home menu (`patch_home_menu`): the BlackBerry 7 long-press menu is Add shortcut, Home settings, Wallpaper,
+  the Frequent panel switch and Settings (no Customize Home, Command, Launcher Settings or Lighter/Darker
+  panels); the BlackBerry 10 header has no settings gear. The sound profile icon stays on both homes.
 - the colours, to the approved tokens: blue `#2E9BD6`, black, raised `#141414`, dividers `#262626`.
 - the widget picker's list, from a fixed 360 dp to at most 360 dp, so the dialog fits the Q25's
   411 dp square screen (about 383 dp under the status bar).
