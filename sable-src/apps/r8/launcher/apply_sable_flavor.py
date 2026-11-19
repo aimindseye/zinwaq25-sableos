@@ -1926,6 +1926,56 @@ def patch_home_splat(root: pathlib.Path) -> None:
     )
 
 
+def patch_hub_bottom_tabs(root: pathlib.Path) -> None:
+    """BlackBerry 10 puts the Hub's tabs (All, Unread, Messages, ...) in the bottom action area, just
+    above Views, Compose and Search; BlackBerry 7 keeps them under the title (conformance matrix, owner
+    decision 2026-11-18). The profile is Settings.Secure sable_profile, read when the page opens."""
+    page = root / JAVA / "ui/HubPage.kt"
+    nav = (
+        "    HubUnifiedNavigation(\n"
+        "        ui = session.data.conversations,\n"
+        "        navigation =\n"
+        "            HubNavigationState(\n"
+        "                currentTab = session.model.filter,\n"
+        "                firstTab = session.focus.tab,\n"
+        "                messageCount = session.data.sources.messages,\n"
+        "                emailCount = session.data.sources.email,\n"
+        "                searchRequest = chrome.searchRequest,\n"
+        "                closeSearchRequest = chrome.searchCloseRequest,\n"
+        "            ),\n"
+        "        onTabChange = session.events.onFilter,\n"
+        "        onOpenCalendar = { session.events.onStartIntent(hubCalendarIntent()) },\n"
+        "    )\n"
+    )
+    replace_once(page, nav, "    if (!sableBottomTabs()) HubPageNavigation(session, chrome)\n", "SABLE_HUB_TABS_HEADER")
+    replace_once(
+        page,
+        "            HubPageControls(session, chrome)\n            if (chrome.composePrompt)",
+        "            if (sableBottomTabs()) HubPageNavigation(session, chrome)\n"
+        "            HubPageControls(session, chrome)\n            if (chrome.composePrompt)",
+        "SABLE_HUB_TABS_BOTTOM",
+    )
+    replace_once(
+        page,
+        "@Composable\n@Suppress(\"FunctionNaming\")\nprivate fun HubPageControls(",
+        "@Composable\n@Suppress(\"FunctionNaming\")\n"
+        "private fun HubPageNavigation(\n    session: HubPageSession,\n    chrome: HubPageChromeState,\n) {\n"
+        + nav.replace("    HubUnifiedNavigation(", "    HubUnifiedNavigation(", 1)
+        + "}\n\n"
+        "@Composable\n"
+        "private fun sableBottomTabs(): Boolean {\n"
+        "    val context = androidx.compose.ui.platform.LocalContext.current\n"
+        "    return androidx.compose.runtime.remember(context) {\n"
+        "        runCatching {\n"
+        "            android.provider.Settings.Secure.getString(context.contentResolver, \"sable_profile\")\n"
+        "        }.getOrNull() != \"bb7\"\n"
+        "    }\n"
+        "}\n\n"
+        "@Composable\n@Suppress(\"FunctionNaming\")\nprivate fun HubPageControls(",
+        "SABLE_HUB_TABS_FUNCTIONS",
+    )
+
+
 def patch_visible_names(root: pathlib.Path) -> None:
     """Sable Launcher is the only name the user sees. The upstream project name stays in package ids,
     class names, file formats and comments (identifiers, not text on screen), so only the text of string
@@ -1984,6 +2034,7 @@ def main() -> None:
     patch_bb7_highlight(root)
     patch_hub_inline_reply(root)
     patch_home_splat(root)
+    patch_hub_bottom_tabs(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 

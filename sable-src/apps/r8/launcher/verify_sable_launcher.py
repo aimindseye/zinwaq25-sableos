@@ -50,6 +50,7 @@ def main() -> None:
         "bb7_highlight": '"sable_profile"' in (root / "design/src/main/java/io/github/aimindseye/tenseven/design/SableResponsiveComponents.kt").read_text(encoding="utf-8"),
         "hub_inline_reply": "focusRequester(focus)" in hub_panels and "ImeAction.Send" in hub_panels,
         "home_splat": "LockLayerState.counts[app.component.packageName]" in (root / JAVA / "ui/HomeAppGrid.kt").read_text(encoding="utf-8"),
+        "hub_bottom_tabs": "sableBottomTabs()" in (root / JAVA / "ui/HubPage.kt").read_text(encoding="utf-8"),
         "no_extras": "extras." not in manifest and not (root / JAVA / "extras").exists(),
         "no_screen_capture": "mediaProjection" not in manifest
         and "MEDIA_PROJECTION" not in manifest
