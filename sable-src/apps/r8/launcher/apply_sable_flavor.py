@@ -1878,6 +1878,54 @@ def patch_hub_inline_reply(root: pathlib.Path) -> None:
     )
 
 
+def patch_home_splat(root: pathlib.Path) -> None:
+    """Splat indicator on app icons (conformance matrix, owner decision 2026-11-18): an app with
+    unread notifications shows a small accent star, the BlackBerry "splat", on its icon in the grid,
+    and its spoken name says how many are new. The counts are the launcher's own listener counts
+    (LockLayerState), the same ones the Hub bar and the lock layer use, so no new permission."""
+    grid = root / JAVA / "ui/HomeAppGrid.kt"
+    replace_once(
+        grid,
+        "    var focused by remember { mutableStateOf(false) }\n    val shape = RoundedCornerShape(6.dp)\n    Column(\n",
+        "    var focused by remember { mutableStateOf(false) }\n    val shape = RoundedCornerShape(6.dp)\n"
+        "    val unread = io.github.aimindseye.tenseven.platform.LockLayerState.counts[app.component.packageName] ?: 0\n"
+        "    Column(\n",
+        "SABLE_SPLAT_COUNT",
+    )
+    replace_once(
+        grid,
+        "                    contentDescription = app.label + (app.profileLabel?.let { \", ${AppProfiles.badge(it)}\" } ?: \"\")\n",
+        "                    contentDescription =\n"
+        "                        app.label + (app.profileLabel?.let { \", ${AppProfiles.badge(it)}\" } ?: \"\") +\n"
+        "                            (if (unread > 0) \", $unread new\" else \"\")\n",
+        "SABLE_SPLAT_DESCRIPTION",
+    )
+    replace_once(grid, "        GridCellImage(app, iconDp)\n", "        GridCellImage(app, iconDp, unread > 0)\n", "SABLE_SPLAT_CALL")
+    replace_once(
+        grid,
+        "private fun GridCellImage(\n    app: AppEntry,\n    iconDp: Int,\n) {\n    Box {\n        AppMark(app = app, size = iconDp)\n",
+        "private fun GridCellImage(\n    app: AppEntry,\n    iconDp: Int,\n    splat: Boolean = false,\n) {\n    Box {\n        AppMark(app = app, size = iconDp)\n"
+        "        if (splat) {\n"
+        "            val splatColor = Bb10Blue\n"
+        "            androidx.compose.foundation.Canvas(modifier = Modifier.align(Alignment.TopEnd).size(14.dp)) {\n"
+        "                val outer = size.minDimension / 2f\n"
+        "                val star = androidx.compose.ui.graphics.Path()\n"
+        "                for (i in 0 until 16) {\n"
+        "                    val r = if (i % 2 == 0) outer else outer * 0.6f\n"
+        "                    val a = Math.PI * i / 8.0 - Math.PI / 2.0\n"
+        "                    val x = center.x + (r * Math.cos(a)).toFloat()\n"
+        "                    val y = center.y + (r * Math.sin(a)).toFloat()\n"
+        "                    if (i == 0) star.moveTo(x, y) else star.lineTo(x, y)\n"
+        "                }\n"
+        "                star.close()\n"
+        "                drawPath(star, splatColor)\n"
+        "                drawPath(star, Color.White, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f))\n"
+        "            }\n"
+        "        }\n",
+        "SABLE_SPLAT_DRAW",
+    )
+
+
 def patch_visible_names(root: pathlib.Path) -> None:
     """Sable Launcher is the only name the user sees. The upstream project name stays in package ids,
     class names, file formats and comments (identifiers, not text on screen), so only the text of string
@@ -1935,6 +1983,7 @@ def main() -> None:
     patch_hub_reply_selector(root)
     patch_bb7_highlight(root)
     patch_hub_inline_reply(root)
+    patch_home_splat(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
