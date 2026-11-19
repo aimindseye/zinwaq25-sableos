@@ -1,0 +1,321 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 01:40:00 +0000
+Subject: [PATCH] SableOS: screen transitions follow the BlackBerry profile
+
+Conformance matrix, profile motion sets (owner decision 2026-11-19, from the
+BlackBerry 7.1 and BlackBerry 10 UI guidelines). TransitionAnimation
+.loadAnimationRes() swaps the stock activity and task open/close animations
+(450 ms slide of 96 dp) for the set of Settings.Secure sable_profile:
+bb7 fades in 150 ms and zooms 110 percent between levels (zoom in to a child,
+zoom out to a parent, an app opens by zooming in), bb10 slides and fades in
+250 ms with a decelerating curve, two effects per element. No profile value,
+or an app's own animation, keeps the stock one. Eight new animation files,
+no new public resource.
+---
+diff --git a/core/java/com/android/internal/policy/TransitionAnimation.java b/core/java/com/android/internal/policy/TransitionAnimation.java
+index 4dc74d9..6f1e514 100644
+--- a/core/java/com/android/internal/policy/TransitionAnimation.java
++++ b/core/java/com/android/internal/policy/TransitionAnimation.java
+@@ -235,6 +235,7 @@
+     /** Load animation by resource Id from specific package for user. */
+     @Nullable
+     public Animation loadAnimationRes(String packageName, int resId, int userId) {
++        resId = sableMotion(packageName, resId, userId);
+         if (ResourceId.isValid(resId)) {
+             AttributeCache.Entry ent = getCachedAnimations(packageName, resId, userId);
+             if (ent != null) {
+@@ -244,6 +245,50 @@
+         return null;
+     }
+ 
++    /**
++     * SableOS: swap the stock screen transitions for the set of the whole-OS profile
++     * (Settings.Secure sable_profile: "bb7" or "bb10"). BlackBerry 7 fades in 150 ms and zooms
++     * 110 percent between levels; BlackBerry 10 slides and fades in 250 ms. Any other profile
++     * value, a read failure or an app's own animation keeps the animation it asked for.
++     */
++    private int sableMotion(String packageName, int resId, int userId) {
++        if (!DEFAULT_PACKAGE.equals(packageName)) {
++            return resId;
++        }
++        final boolean open = resId == R.anim.activity_open_enter
++                || resId == R.anim.task_open_enter;
++        final boolean openExit = resId == R.anim.activity_open_exit
++                || resId == R.anim.task_open_exit;
++        final boolean closeEnter = resId == R.anim.activity_close_enter
++                || resId == R.anim.task_close_enter;
++        final boolean closeExit = resId == R.anim.activity_close_exit
++                || resId == R.anim.task_close_exit;
++        if (!open && !openExit && !closeEnter && !closeExit) {
++            return resId;
++        }
++        String profile = null;
++        try {
++            profile = android.provider.Settings.Secure.getStringForUser(
++                    mContext.getContentResolver(), "sable_profile", userId);
++        } catch (RuntimeException e) {
++            Slog.w(mTag, "could not read sable_profile", e);
++        }
++        final boolean bb7 = "bb7".equals(profile);
++        if (!bb7 && !"bb10".equals(profile)) {
++            return resId;
++        }
++        if (open) {
++            return bb7 ? R.anim.sable_bb7_open_enter : R.anim.sable_bb10_open_enter;
++        }
++        if (openExit) {
++            return bb7 ? R.anim.sable_bb7_open_exit : R.anim.sable_bb10_open_exit;
++        }
++        if (closeEnter) {
++            return bb7 ? R.anim.sable_bb7_close_enter : R.anim.sable_bb10_close_enter;
++        }
++        return bb7 ? R.anim.sable_bb7_close_exit : R.anim.sable_bb10_close_exit;
++    }
++
+     /** Same as {@code loadAnimationRes} for current user. */
+     @Nullable
+     public Animation loadAnimationRes(String packageName, int resId) {
+diff --git a/core/res/res/anim/sable_bb10_close_enter.xml b/core/res/res/anim/sable_bb10_close_enter.xml
+new file mode 100644
+index 0000000..3dff246
+--- /dev/null
++++ b/core/res/res/anim/sable_bb10_close_enter.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableOS BlackBerry 10: the screen underneath slides back in, 250 ms. Chosen in TransitionAnimation.sableMotion() from Settings.Secure sable_profile. -->
++<set xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shareInterpolator="false">
++    <translate
++        android:fromXDelta="-6%p"
++        android:toXDelta="0"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/fast_out_slow_in"
++        android:duration="250" />
++    <alpha
++        android:fromAlpha="0.6"
++        android:toAlpha="1"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/linear"
++        android:startOffset="0"
++        android:duration="250" />
++</set>
+diff --git a/core/res/res/anim/sable_bb10_close_exit.xml b/core/res/res/anim/sable_bb10_close_exit.xml
+new file mode 100644
+index 0000000..566973a
+--- /dev/null
++++ b/core/res/res/anim/sable_bb10_close_exit.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableOS BlackBerry 10: slide out to the right with a fade, 250 ms. Chosen in TransitionAnimation.sableMotion() from Settings.Secure sable_profile. -->
++<set xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shareInterpolator="false">
++    <translate
++        android:fromXDelta="0"
++        android:toXDelta="12%p"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/fast_out_slow_in"
++        android:duration="250" />
++    <alpha
++        android:fromAlpha="1"
++        android:toAlpha="0"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/linear"
++        android:startOffset="0"
++        android:duration="250" />
++</set>
+diff --git a/core/res/res/anim/sable_bb10_open_enter.xml b/core/res/res/anim/sable_bb10_open_enter.xml
+new file mode 100644
+index 0000000..8df41ad
+--- /dev/null
++++ b/core/res/res/anim/sable_bb10_open_enter.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableOS BlackBerry 10: slide in from the right with a fade, 250 ms. Chosen in TransitionAnimation.sableMotion() from Settings.Secure sable_profile. -->
++<set xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shareInterpolator="false">
++    <translate
++        android:fromXDelta="12%p"
++        android:toXDelta="0"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/fast_out_slow_in"
++        android:duration="250" />
++    <alpha
++        android:fromAlpha="0"
++        android:toAlpha="1"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/linear"
++        android:startOffset="0"
++        android:duration="250" />
++</set>
+diff --git a/core/res/res/anim/sable_bb10_open_exit.xml b/core/res/res/anim/sable_bb10_open_exit.xml
+new file mode 100644
+index 0000000..ffae7e8
+--- /dev/null
++++ b/core/res/res/anim/sable_bb10_open_exit.xml
+@@ -0,0 +1,22 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableOS BlackBerry 10: the screen underneath slides left a little and fades, 250 ms. Chosen in TransitionAnimation.sableMotion() from Settings.Secure sable_profile. -->
++<set xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shareInterpolator="false">
++    <translate
++        android:fromXDelta="0"
++        android:toXDelta="-6%p"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/fast_out_slow_in"
++        android:duration="250" />
++    <alpha
++        android:fromAlpha="1"
++        android:toAlpha="0.6"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/linear"
++        android:startOffset="0"
++        android:duration="250" />
++</set>
+diff --git a/core/res/res/anim/sable_bb7_close_enter.xml b/core/res/res/anim/sable_bb7_close_enter.xml
+new file mode 100644
+index 0000000..d36cf36
+--- /dev/null
++++ b/core/res/res/anim/sable_bb7_close_enter.xml
+@@ -0,0 +1,26 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableOS BlackBerry 7: zoom out to the parent, from 110 percent, with a 150 ms fade. Chosen in TransitionAnimation.sableMotion() from Settings.Secure sable_profile. -->
++<set xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shareInterpolator="false">
++    <scale
++        android:fromXScale="1.1"
++        android:toXScale="1.0"
++        android:fromYScale="1.1"
++        android:toYScale="1.0"
++        android:pivotX="50%"
++        android:pivotY="50%"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/linear_out_slow_in"
++        android:duration="200" />
++    <alpha
++        android:fromAlpha="0"
++        android:toAlpha="1"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/linear"
++        android:startOffset="0"
++        android:duration="150" />
++</set>
+diff --git a/core/res/res/anim/sable_bb7_close_exit.xml b/core/res/res/anim/sable_bb7_close_exit.xml
+new file mode 100644
+index 0000000..1ff3bb6
+--- /dev/null
++++ b/core/res/res/anim/sable_bb7_close_exit.xml
+@@ -0,0 +1,26 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableOS BlackBerry 7: the child shrinks away while it fades in 150 ms. Chosen in TransitionAnimation.sableMotion() from Settings.Secure sable_profile. -->
++<set xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shareInterpolator="false">
++    <scale
++        android:fromXScale="1.0"
++        android:toXScale="0.909"
++        android:fromYScale="1.0"
++        android:toYScale="0.909"
++        android:pivotX="50%"
++        android:pivotY="50%"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/linear_out_slow_in"
++        android:duration="200" />
++    <alpha
++        android:fromAlpha="1"
++        android:toAlpha="0"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/linear"
++        android:startOffset="0"
++        android:duration="150" />
++</set>
+diff --git a/core/res/res/anim/sable_bb7_open_enter.xml b/core/res/res/anim/sable_bb7_open_enter.xml
+new file mode 100644
+index 0000000..f0811aa
+--- /dev/null
++++ b/core/res/res/anim/sable_bb7_open_enter.xml
+@@ -0,0 +1,26 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableOS BlackBerry 7: zoom in to a child, 110 percent, with a 150 ms fade. Chosen in TransitionAnimation.sableMotion() from Settings.Secure sable_profile. -->
++<set xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shareInterpolator="false">
++    <scale
++        android:fromXScale="0.909"
++        android:toXScale="1.0"
++        android:fromYScale="0.909"
++        android:toYScale="1.0"
++        android:pivotX="50%"
++        android:pivotY="50%"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/linear_out_slow_in"
++        android:duration="200" />
++    <alpha
++        android:fromAlpha="0"
++        android:toAlpha="1"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/linear"
++        android:startOffset="0"
++        android:duration="150" />
++</set>
+diff --git a/core/res/res/anim/sable_bb7_open_exit.xml b/core/res/res/anim/sable_bb7_open_exit.xml
+new file mode 100644
+index 0000000..8edb48d
+--- /dev/null
++++ b/core/res/res/anim/sable_bb7_open_exit.xml
+@@ -0,0 +1,26 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableOS BlackBerry 7: the parent zooms out to 110 percent while it fades in 150 ms. Chosen in TransitionAnimation.sableMotion() from Settings.Secure sable_profile. -->
++<set xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shareInterpolator="false">
++    <scale
++        android:fromXScale="1.0"
++        android:toXScale="1.1"
++        android:fromYScale="1.0"
++        android:toYScale="1.1"
++        android:pivotX="50%"
++        android:pivotY="50%"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/linear_out_slow_in"
++        android:duration="200" />
++    <alpha
++        android:fromAlpha="1"
++        android:toAlpha="0"
++        android:fillEnabled="true"
++        android:fillBefore="true"
++        android:fillAfter="true"
++        android:interpolator="@interpolator/linear"
++        android:startOffset="0"
++        android:duration="150" />
++</set>
+-- 
+2.43.0
+

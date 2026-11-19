@@ -576,6 +576,19 @@ toast_p=(patches/framework/frameworks/base/0502-*.patch)
 [[ -z "$toast_bad" ]] && { grep -q '^+    static final int SHORT_DELAY = 3000;' "${toast_p[0]}" || toast_bad="$toast_bad delay"; }
 if [[ -z "$toast_bad" ]]; then pass "toasts: SHORT_DELAY 3000 ms (frameworks/base 0502)"; else fail "toast delay:$toast_bad"; fi
 
+# 6b0m. Screen transitions follow the BlackBerry profile (frameworks/base 0503).
+mo_bad=""
+mo_p=(patches/framework/frameworks/base/0503-*.patch)
+[[ -f "${mo_p[0]}" ]] || mo_bad="$mo_bad missing"
+if [[ -z "$mo_bad" ]]; then
+  grep -q 'private int sableMotion' "${mo_p[0]}" || mo_bad="$mo_bad function"
+  grep -q '"sable_profile"' "${mo_p[0]}" || mo_bad="$mo_bad profile-key"
+  for mo_n in bb7 bb10; do for mo_a in open_enter open_exit close_enter close_exit; do
+    grep -q "^+++ b/core/res/res/anim/sable_${mo_n}_${mo_a}.xml" "${mo_p[0]}" || mo_bad="$mo_bad ${mo_n}_${mo_a}"
+  done; done
+fi
+if [[ -z "$mo_bad" ]]; then pass "motion: BB7 and BB10 transition sets chosen by sable_profile (frameworks/base 0503)"; else fail "profile motion:$mo_bad"; fi
+
 # 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
 # extras and screen capture, and the verify step fails the build if they come back.
 home_bad=""
