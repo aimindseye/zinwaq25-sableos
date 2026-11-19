@@ -55,6 +55,7 @@ def main() -> None:
         "peek_motion": "sableFade" in (root / JAVA / "ui/HubPeek.kt").read_text(encoding="utf-8"),
         "bb7_full_menu": "Switch Application" in (root / JAVA / "ui/Bb7HomeScreen.kt").read_text(encoding="utf-8"),
         "home_menu": "Customize Home" not in (root / JAVA / "ui/Bb7HomeScreen.kt").read_text(encoding="utf-8"),
+        "home_size": "val DEFAULT = Large" in (root / JAVA / "model/LauncherSettings.kt").read_text(encoding="utf-8"),
         "hub_row_motion": "sableRowMotion" in (root / JAVA / "ui/HubConversationsUi.kt").read_text(encoding="utf-8"),
         "no_extras": "extras." not in manifest and not (root / JAVA / "extras").exists(),
         "no_screen_capture": "mediaProjection" not in manifest

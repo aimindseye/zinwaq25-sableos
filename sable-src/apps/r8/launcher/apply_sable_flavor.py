@@ -2290,6 +2290,34 @@ def patch_home_menu(root: pathlib.Path) -> None:
     )
 
 
+def patch_home_size(root: pathlib.Path) -> None:
+    """Larger icons and names on both homes (owner decision 2026-11-19, from the Bold7 and JL10 screens).
+    The default icon size is Large (48 dp icons in 76 dp cells; on BBOS 10 the 1.2 scale) and the BBOS 7
+    icon names use the Material label-medium size. A size the user already chose in Home settings is kept."""
+    replace_once(
+        root / JAVA / "model/LauncherSettings.kt",
+        "        val DEFAULT = Medium\n",
+        "        val DEFAULT = Large\n",
+        "SABLE_HOME_SIZE_DEFAULT",
+    )
+    replace_once(
+        root / JAVA / "ui/Bb7HomeScreen.kt",
+        "                fontSize = MaterialTheme.typography.labelSmall.fontSize,\n"
+        "                // The wallpaper shows behind these icons",
+        "                fontSize = MaterialTheme.typography.labelMedium.fontSize,\n"
+        "                // The wallpaper shows behind these icons",
+        "SABLE_HOME_SIZE_LABEL",
+    )
+    replace_once(
+        root / TEST / "model/LauncherSettingsTest.kt",
+        "        assertEquals(Bb7IconSize.Medium, Bb7IconSize.fromStable(99))\n"
+        "        assertEquals(Bb7IconSize.Medium, Bb7IconSize.fromStable(null))\n",
+        "        assertEquals(Bb7IconSize.Large, Bb7IconSize.fromStable(99))\n"
+        "        assertEquals(Bb7IconSize.Large, Bb7IconSize.fromStable(null))\n",
+        "SABLE_HOME_SIZE_TEST",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -2327,6 +2355,7 @@ def main() -> None:
     patch_hub_row_motion(root)
     patch_bb7_full_menu(root)
     patch_home_menu(root)
+    patch_home_size(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
