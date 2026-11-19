@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 17:30:00 +0000
+Subject: [PATCH] SableOS: Mail is a Core app and stays on in Essentials
+
+Hub email, the Hub's mail rows and Open in Sable Mail need Sable Mail, so
+it moves from the Recommended tier to the Core tier in SableAppSet
+(product/q25/app_tiers.tsv has the same change). Essentials now keeps it
+on and the Sable apps step no longer offers a check box to turn it off.
+Stock Android is unchanged.
+---
+diff --git a/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java b/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java
+index b07a229..6e11750 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java
++++ b/app/src/main/java/org/lineageos/setupwizard/sable/SableAppSet.java
+@@ -52,2 +52,3 @@
+             "org.sableos.titan2.vault",
++            "org.sableos.mail",
+             "org.sableos.tools",
+@@ -84,3 +85,2 @@
+             "org.sableos.browser",
+-            "org.sableos.mail",
+             "org.sableos.calendar",
+-- 
+2.43.0
+

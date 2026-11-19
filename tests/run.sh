@@ -680,6 +680,14 @@ grep -q 'SableMailProfile.applyRowFocus(itemView)' "$mp_d/apply_sable_flavor.py"
 grep -q 'SABLE_MAIL_PROFILE_FOCUS' "$mp_d/verify_sable_mail.py" || mp_bad="$mp_bad verify"
 if [[ -z "$mp_bad" ]]; then pass "Sable Mail follows the BlackBerry profile (focus bar)"; else fail "mail profile:$mp_bad"; fi
 
+# 6b0p. Mail is a Core app: Essentials keeps it on (SetupWizard 0431, app_tiers.tsv).
+ml_bad=""
+ml_p=(patches/framework/packages/apps/SetupWizard/0431-*.patch)
+[[ -f "${ml_p[0]}" ]] || ml_bad="$ml_bad missing"
+grep -qP '^org\.sableos\.mail\tcore\t' product/q25/app_tiers.tsv || ml_bad="$ml_bad tier"
+[[ -z "$ml_bad" ]] && { grep -q '+            "org.sableos.mail",' "${ml_p[0]}" || ml_bad="$ml_bad patch"; }
+if [[ -z "$ml_bad" ]]; then pass "Mail is a Core app and stays on in Essentials"; else fail "mail tier:$ml_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
