@@ -653,6 +653,12 @@ ct_p=(patches/framework/frameworks/base/0509-*.patch)
 [[ -f "${ct_p[0]}" ]] || ct_bad="$ct_bad missing"
 [[ -z "$ct_bad" ]] && { grep -q 'SableShadeCounts.update(entries)' "${ct_p[0]}" || ct_bad="$ct_bad feed"; grep -q 'SableBb7Counters()' "${ct_p[0]}" || ct_bad="$ct_bad row"; grep -q 'if (sableBb7) sableNoTiles else Tiles' "${ct_p[0]}" || ct_bad="$ct_bad tiles"; grep -q 'CATEGORY_MESSAGE' "${ct_p[0]}" || ct_bad="$ct_bad category"; }
 if [[ -z "$ct_bad" ]]; then pass "shade: BBOS 7 counters row and no compact tile row (framework 0509)"; else fail "bb7 counters:$ct_bad"; fi
+# 6b0s. BBOS 7 short menu: a trackpad hold opens a 3 x 3 grid.
+sm_bad=""
+grep -q 'patch_bb7_short_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || sm_bad="$sm_bad not-applied"
+grep -q '"bb7_short_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || sm_bad="$sm_bad verify"
+[[ -f sable-src/apps/r8/launcher/src/SableShortMenuTest.kt ]] || sm_bad="$sm_bad test"
+if [[ -z "$sm_bad" ]]; then pass "BBOS 7 home: trackpad hold opens the 3 x 3 short menu"; else fail "bb7 short menu:$sm_bad"; fi
 
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
