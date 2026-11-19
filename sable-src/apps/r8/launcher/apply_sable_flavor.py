@@ -31,6 +31,7 @@ VERSION_NAME = "2.0-sable"
 HERE = pathlib.Path(__file__).resolve().parent
 JAVA = "app/src/main/java/io/github/aimindseye/tenseven"
 TEST = "app/src/test/java/io/github/aimindseye/tenseven"
+HUB_CONVERSATIONS_UI = "ui/HubConversationsUi.kt"
 DESIGN = "design/src/main/java/io/github/aimindseye/tenseven/design"
 
 
@@ -1351,7 +1352,7 @@ def patch_q25_fit(root: pathlib.Path) -> None:
         f"                style = if ({SHORT}) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleSmall,\n",
         "SABLE_HOME_Q25_CALENDAR_TEXT",
     )
-    rows = root / JAVA / "ui/HubConversationsUi.kt"
+    rows = root / JAVA / HUB_CONVERSATIONS_UI
     replace_once(
         rows,
         "                        .padding(horizontal = 4.dp, vertical = 10.dp),\n",
@@ -1622,7 +1623,7 @@ def patch_hub_default_action(root: pathlib.Path) -> None:
     source app; the Menu key or a long press opens the row's menu, which no longer starts with an Open
     item. The menu is the right-edge panel on BlackBerry 10 and a Menu-key list from the bottom edge on
     BlackBerry 7 (the profile is Settings.Secure sable_profile, read through the launcher's style)."""
-    rows = root / JAVA / "ui/HubConversationsUi.kt"
+    rows = root / JAVA / HUB_CONVERSATIONS_UI
     replace_once(
         rows,
         "import androidx.compose.foundation.clickable\n",
@@ -2117,7 +2118,7 @@ def patch_hub_row_motion(root: pathlib.Path) -> None:
     BlackBerry 7: a 150 ms fade, no slide). Switching Hub tab (All, Unread, Messages, Email, Snoozed)
     fades the rows in, and on BlackBerry 10 slides them in 24 dp from the right. Rows scrolled into
     view later do not animate. Rows of the Contacts and Remind tabs are not animated."""
-    ui = root / JAVA / "ui/HubConversationsUi.kt"
+    ui = root / JAVA / HUB_CONVERSATIONS_UI
     replace_once(
         ui,
         "import androidx.compose.ui.graphics.asImageBitmap\n",
