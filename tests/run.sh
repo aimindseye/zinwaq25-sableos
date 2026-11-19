@@ -620,6 +620,13 @@ sp_p=(patches/framework/packages/apps/SetupWizard/0430-*.patch)
 [[ -z "$sp_bad" ]] && { grep -q 'column.indexOfChild(holder)' "${sp_p[0]}" || sp_bad="$sp_bad holder"; grep -q 'R.id.start' "${sp_p[0]}" || sp_bad="$sp_bad start"; }
 if [[ -z "$sp_bad" ]]; then pass "setup: Start pins under the expressive scroll frame (SetupWizard 0430)"; else fail "setup pin:$sp_bad"; fi
 
+# 6b0w. BBOS 7 home: typing a number of three or more digits offers Dial.
+dl_bad=""
+grep -q 'patch_bb7_dial(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || dl_bad="$dl_bad not-applied"
+grep -q '"bb7_dial"' sable-src/apps/r8/launcher/verify_sable_launcher.py || dl_bad="$dl_bad verify"
+[[ -f sable-src/apps/r8/launcher/src/SableDialTest.kt ]] || dl_bad="$dl_bad test"
+if [[ -z "$dl_bad" ]]; then pass "BBOS 7 home: a typed number of 3+ digits offers Dial"; else fail "bb7 dial:$dl_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
