@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 01:20:00 +0000
+Subject: [PATCH] SableOS: short toasts stay up for 3 seconds
+
+BlackBerry notification levels (conformance matrix, owner decision
+2026-11-18): a toast is up for about 3 seconds. Android keeps a
+Toast.LENGTH_SHORT toast for 2 seconds (NotificationManagerService.SHORT_DELAY)
+and a LENGTH_LONG one for 3.5 seconds (LONG_DELAY). SHORT_DELAY becomes
+3 seconds, still under LONG_DELAY, so short toasts from every app, including
+the Sable apps, last about 3 seconds and long ones are unchanged.
+---
+ .../server/notification/NotificationManagerService.java    | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/notification/NotificationManagerService.java b/services/core/java/com/android/server/notification/NotificationManagerService.java
+--- a/services/core/java/com/android/server/notification/NotificationManagerService.java
++++ b/services/core/java/com/android/server/notification/NotificationManagerService.java
+@@ -512,7 +512,7 @@ public class NotificationManagerService extends SystemService {
+     private static final int MESSAGE_RANKING_SORT = 1001;
+ 
+     static final int LONG_DELAY = TOAST_WINDOW_TIMEOUT - TOAST_WINDOW_ANIM_BUFFER; // 3.5 seconds
+-    static final int SHORT_DELAY = 2000; // 2 seconds
++    static final int SHORT_DELAY = 3000; // 3 seconds (SableOS: was 2 seconds)
+ 
+     // 1 second past the ANR timeout.
+     static final int FINISH_TOKEN_TIMEOUT = 11 * 1000;
+-- 
+2.43.0
