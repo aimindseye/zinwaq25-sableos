@@ -666,8 +666,10 @@ pc_p=(patches/framework/packages/apps/Contacts/0757-*.patch)
 [[ -f "${pc_p[0]}" ]] || pc_bad="$pc_bad missing"
 [[ -z "$pc_bad" ]] && { grep -q 'sable_profile' "${pc_p[0]}" && grep -q 'SableBb7Focus' "${pc_p[0]}" || pc_bad="$pc_bad profile"; }
 rm_f=sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui
+pc_d=(patches/framework/packages/apps/Dialer/0711-*.patch)
+[[ -f "${pc_d[0]}" ]] && grep -q 'SableBb7Focus' "${pc_d[0]}" || pc_bad="$pc_bad dialer"
 [[ -f "$rm_f/RowMotion.kt" ]] && grep -q 'rowMotion(task.id' "$rm_f/TasksApp.kt" || pc_bad="$pc_bad remind"
-if [[ -z "$pc_bad" ]]; then pass "Contacts focus bar and Remind row motion follow the BlackBerry profile"; else fail "profile in Contacts or Remind:$pc_bad"; fi
+if [[ -z "$pc_bad" ]]; then pass "Contacts and Phone focus bar and Remind row motion follow the BlackBerry profile"; else fail "profile in Contacts or Remind:$pc_bad"; fi
 
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
