@@ -24,7 +24,7 @@ org.sableos.titan2.vault	core	-
 org.sableos.tools	core	-
 org.sableos.titan2.camera	recommended	-
 org.sableos.browser	recommended	org.sableos.titan2.vault
-org.sableos.mail	recommended	org.sableos.titan2.vault
+org.sableos.mail	core	org.sableos.titan2.vault
 org.sableos.calendar	recommended	-
 org.sableos.tasks	recommended	-
 org.sableos.notes	recommended	-
