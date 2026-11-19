@@ -13,7 +13,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
-/** The whole-OS profile's row motion (Settings.Secure sable_profile): BlackBerry 7 fades, BlackBerry 10 slides and fades. */
+/** The profile's row motion (Settings.Secure sable_profile): BlackBerry 7 fades, BlackBerry 10 slides and fades. */
 internal object RowMotion {
     const val BB7_MILLIS = 150
     const val BB10_MILLIS = 250

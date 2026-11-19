@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import org.sableos.design.SableActionButton
 import org.sableos.design.SableSize
 import org.sableos.design.SableSpacing
@@ -54,7 +55,6 @@ import org.sableos.tasks.core.TaskRepository
 import org.sableos.tasks.core.TaskSchedule
 import org.sableos.tasks.core.TasksKeys
 import org.sableos.tasks.core.TasksText.t
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Date
