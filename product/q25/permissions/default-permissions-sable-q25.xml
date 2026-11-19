@@ -25,6 +25,8 @@
       is sent only after the owner presses Send on Cosgrove's confirm card.
     Sable Tasks (org.sableos.tasks): reminder notifications, so a reminder set before the app was
       ever opened still alerts (and shows in Hub). Reminders also show in the app without it.
+    Sable Media (org.sableos.media): the playing notification, which is also the lock-screen and shade
+      player. Android 13+ posts none without it, and the owner should not be asked.
     Sable Weather (org.sableos.weather): approximate location only, so Start's weather line is for
       where the phone is ("Use current location", on by default). Revoking it, or choosing a city in
       Sable Weather, shows the chosen city instead. Precise location is never requested.
@@ -35,6 +37,9 @@
         <permission name="android.permission.READ_CALENDAR" fixed="false" />
         <permission name="android.permission.READ_CALL_LOG" fixed="false" />
         <permission name="android.permission.READ_MEDIA_IMAGES" fixed="false" />
+        <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
+    </exception>
+    <exception package="org.sableos.media">
         <permission name="android.permission.POST_NOTIFICATIONS" fixed="false" />
     </exception>
     <exception package="org.sableos.hub">
