@@ -580,6 +580,13 @@ grep -q 'patch_home_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py
 grep -q '"home_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hm_bad="$hm_bad verify"
 if [[ -z "$hm_bad" ]]; then pass "Home menu: one menu on BBOS 7, no settings gear on BBOS 10"; else fail "home menu:$hm_bad"; fi
 
+# 6b0s. Hold Menu opens Active Frames from any app (framework 0505).
+hf_bad=""
+hf_p=(patches/framework/frameworks/base/0505-*.patch)
+[[ -f "${hf_p[0]}" ]] || hf_bad="$hf_bad missing"
+[[ -z "$hf_bad" ]] && { grep -q 'org.sableos.start.action.SHOW_ACTIVE_FRAMES' "${hf_p[0]}" || hf_bad="$hf_bad action"; grep -q 'isUserSetupComplete()' "${hf_p[0]}" || hf_bad="$hf_bad setup-guard"; }
+if [[ -z "$hf_bad" ]]; then pass "hold Menu opens Active Frames from any app (framework 0505)"; else fail "hold Menu:$hf_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)

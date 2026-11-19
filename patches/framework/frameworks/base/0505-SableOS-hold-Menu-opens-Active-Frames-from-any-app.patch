@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 14:00:00 +0000
+Subject: [PATCH] SableOS: hold Menu opens Active Frames from any app
+
+Owner decision 2026-11-19 (BBOS 10 and BBOS 7 profiles): holding the Menu
+key opens Active Frames, which is the home page on BBOS 10 and the Switch
+Application list on BBOS 7. It works from any app. Never on the keyguard or
+before setup, and only when the SableOS home is installed. This replaces
+the LineageOS Menu long-press action (Search by default) on this device.
+---
+ .../com/android/server/policy/PhoneWindowManager.java | 20 +++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+index 5dcfc7b..57db7c6 100644
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -4027,6 +4027,26 @@
+                     if (repeatCount == 0) {
+                         mMenuPressed = true;
+                     } else if (longPress) {
++                        // Sable: holding Menu opens Active Frames, the app switcher of both
++                        // profiles (BBOS 10 home page, BBOS 7 Switch Application). Never on the
++                        // keyguard or before setup, and only when the SableOS home is there.
++                        if (!keyguardOn && isUserSetupComplete()) {
++                            final Intent frames = new Intent()
++                                    .setClassName(SableCommandKeys.START_PACKAGE,
++                                            "io.github.aimindseye.tenseven.SableStartActivity")
++                                    .setAction("org.sableos.start.action.SHOW_ACTIVE_FRAMES")
++                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
++                                            | Intent.FLAG_ACTIVITY_CLEAR_TOP);
++                            if (frames.resolveActivityInfo(mContext.getPackageManager(), 0)
++                                    != null) {
++                                cancelPreloadRecentApps();
++                                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS,
++                                        "Menu - Long Press - Sable Active Frames");
++                                startActivityAsUser(frames, UserHandle.CURRENT);
++                                mMenuPressed = false;
++                                return true;
++                            }
++                        }
+                         if (!keyguardOn && mMenuLongPressAction != Action.NOTHING) {
+                             if (mMenuLongPressAction != Action.APP_SWITCH) {
+                                 cancelPreloadRecentApps();
