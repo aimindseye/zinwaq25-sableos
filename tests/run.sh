@@ -627,6 +627,13 @@ grep -q '"bb7_dial"' sable-src/apps/r8/launcher/verify_sable_launcher.py || dl_b
 [[ -f sable-src/apps/r8/launcher/src/SableDialTest.kt ]] || dl_bad="$dl_bad test"
 if [[ -z "$dl_bad" ]]; then pass "BBOS 7 home: a typed number of 3+ digits offers Dial"; else fail "bb7 dial:$dl_bad"; fi
 
+# 6b0x. Dialogs follow the profile (framework 0507).
+dg_bad=""
+dg_p=(patches/framework/frameworks/base/0507-*.patch)
+[[ -f "${dg_p[0]}" ]] || dg_bad="$dg_bad missing"
+[[ -z "$dg_bad" ]] && { grep -q 'applySableProfile()' "${dg_p[0]}" || dg_bad="$dg_bad hook"; grep -q 'sable_profile' "${dg_p[0]}" || dg_bad="$dg_bad profile"; grep -q 'state_focused' "${dg_p[0]}" || dg_bad="$dg_bad focus"; }
+if [[ -z "$dg_bad" ]]; then pass "dialogs: BBOS 10 flat card, BBOS 7 boxed with blue title bar (framework 0507)"; else fail "dialogs:$dg_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)

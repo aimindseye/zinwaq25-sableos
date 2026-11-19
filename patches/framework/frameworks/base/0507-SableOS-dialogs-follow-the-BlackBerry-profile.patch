@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 15:30:00 +0000
+Subject: [PATCH] SableOS: dialogs follow the BlackBerry profile
+
+Owner decision 2026-11-19. AlertController styles every alert dialog from
+Settings.Secure sable_profile after the panels are set up. BBOS 10: flat black
+card, blue primary button, Cancel at the left. BBOS 7: boxed dialog with a
+grey frame and a blue title bar, the focused button filled blue.
+---
+ .../java/com/android/internal/app/AlertController.java | 56 ++++++++++++++++++++++
+ 1 file changed, 56 insertions(+)
+
+diff --git a/core/java/com/android/internal/app/AlertController.java b/core/java/com/android/internal/app/AlertController.java
+index ccbf6fc..a7949b8 100644
+--- a/core/java/com/android/internal/app/AlertController.java
++++ b/core/java/com/android/internal/app/AlertController.java
+@@ -643,6 +643,62 @@
+         setBackground(a, topPanel, contentPanel, customPanel, buttonPanel,
+                 hasTopPanel, hasCustomPanel, hasButtonPanel);
+         a.recycle();
++
++        applySableProfile();
++    }
++
++    /**
++     * Sable: dialogs follow the chosen BlackBerry profile (Settings.Secure sable_profile).
++     * BBOS 10 is a flat black card with a blue primary button; BBOS 7 is a boxed dialog
++     * with a blue title bar where the focused button is filled blue.
++     */
++    private void applySableProfile() {
++        final boolean bb7 = "bb7".equals(android.provider.Settings.Secure.getString(
++                mContext.getContentResolver(), "sable_profile"));
++        final float d = mContext.getResources().getDisplayMetrics().density;
++        final int blue = 0xFF2E9BD6;
++        final android.graphics.drawable.GradientDrawable card =
++                new android.graphics.drawable.GradientDrawable();
++        card.setColor(0xFF000000);
++        if (bb7) {
++            card.setStroke(Math.round(2 * d), 0xFF8C8C8C);
++        } else {
++            card.setCornerRadius(4 * d);
++        }
++        mWindow.setBackgroundDrawable(card);
++        if (mTitleView != null) {
++            mTitleView.setTextColor(0xFFFFFFFF);
++            if (bb7) {
++                mTitleView.setBackgroundColor(blue);
++            }
++        }
++        if (mMessageView != null) {
++            mMessageView.setTextColor(0xFFFFFFFF);
++        }
++        final Button[] buttons = {mButtonPositive, mButtonNegative, mButtonNeutral};
++        for (Button b : buttons) {
++            if (b == null) {
++                continue;
++            }
++            b.setTextColor(0xFFFFFFFF);
++            if (bb7) {
++                final android.graphics.drawable.StateListDrawable s =
++                        new android.graphics.drawable.StateListDrawable();
++                s.addState(new int[] {android.R.attr.state_focused},
++                        new android.graphics.drawable.ColorDrawable(blue));
++                s.addState(new int[] {},
++                        new android.graphics.drawable.ColorDrawable(0xFF262626));
++                b.setBackground(s);
++            } else if (b == mButtonPositive) {
++                final android.graphics.drawable.GradientDrawable fill =
++                        new android.graphics.drawable.GradientDrawable();
++                fill.setColor(blue);
++                fill.setCornerRadius(2 * d);
++                b.setBackground(fill);
++            } else {
++                b.setBackgroundColor(0x00000000);
++            }
++        }
+     }
+ 
+     private boolean requestFocusForContent(View content) {
