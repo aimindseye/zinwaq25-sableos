@@ -633,6 +633,12 @@ sl_p=(patches/framework/packages/apps/Settings/1619-*.patch)
 [[ -f "${sl_p[0]}" ]] || sl_bad="$sl_bad missing"
 [[ -z "$sl_bad" ]] && { grep -q 'top_level_settings_bb7' "${sl_p[0]}" || sl_bad="$sl_bad xml"; grep -q 'sable_profile' "${sl_p[0]}" || sl_bad="$sl_bad profile"; grep -q 'top_level_battery' "${sl_p[0]}" || sl_bad="$sl_bad rows"; ! grep -q '^+.*SableSettingsGroupFragment"' "${sl_p[0]}" || sl_bad="$sl_bad grouped-row"; }
 if [[ -z "$sl_bad" ]]; then pass "Settings: one flat list on BBOS 7, ten groups on BBOS 10 (Settings 1619)"; else fail "bb7 settings:$sl_bad"; fi
+# 6b0x. Dialogs follow the profile (framework 0507).
+dg_bad=""
+dg_p=(patches/framework/frameworks/base/0507-*.patch)
+[[ -f "${dg_p[0]}" ]] || dg_bad="$dg_bad missing"
+[[ -z "$dg_bad" ]] && { grep -q 'applySableProfile()' "${dg_p[0]}" || dg_bad="$dg_bad hook"; grep -q 'sable_profile' "${dg_p[0]}" || dg_bad="$dg_bad profile"; grep -q 'state_focused' "${dg_p[0]}" || dg_bad="$dg_bad focus"; }
+if [[ -z "$dg_bad" ]]; then pass "dialogs: BBOS 10 flat card, BBOS 7 boxed with blue title bar (framework 0507)"; else fail "dialogs:$dg_bad"; fi
 
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
