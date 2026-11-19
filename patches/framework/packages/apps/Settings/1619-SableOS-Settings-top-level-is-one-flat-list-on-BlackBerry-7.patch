@@ -10,7 +10,7 @@ entries they group (res/xml/top_level_settings_bb7.xml), so every entry keeps
 its key, controller, summary and visibility rules. BBOS 10 keeps the ten rows.
 ---
  res/xml/top_level_settings_bb7.xml                          | 309 ++++++++++++++++++++
- src/com/android/settings/homepage/TopLevelSettings.java     |   8 +-
+ src/com/android/settings/homepage/TopLevelSettings.java     |   8 +++++++-
  2 files changed, 316 insertions(+), 1 deletion(-)
 
 diff --git a/res/xml/top_level_settings_bb7.xml b/res/xml/top_level_settings_bb7.xml
@@ -330,11 +330,11 @@ index 0000000..274a222
 +</PreferenceScreen>
 \ No newline at end of file
 diff --git a/src/com/android/settings/homepage/TopLevelSettings.java b/src/com/android/settings/homepage/TopLevelSettings.java
-index ee9b1e9..4f9f77a 100644
+index 7a0e4c4..fa3d2cf 100644
 --- a/src/com/android/settings/homepage/TopLevelSettings.java
 +++ b/src/com/android/settings/homepage/TopLevelSettings.java
-@@ -91,7 +91,13 @@
- // filler 91
+@@ -94,7 +94,13 @@
+ 
      @Override
      protected int getPreferenceScreenResId() {
 -        return getPreferenceLayoutResId(getContext());
