@@ -2111,6 +2111,96 @@ def patch_peek_motion(root: pathlib.Path) -> None:
     )
 
 
+def patch_hub_row_motion(root: pathlib.Path) -> None:
+    """Hub conversation rows follow the profile's motion set. A row that leaves the list (deleted,
+    archived, snoozed) fades out and the rows below close the gap (BlackBerry 10: 250 ms, decelerating;
+    BlackBerry 7: a 150 ms fade, no slide). Switching Hub tab (All, Unread, Messages, Email, Snoozed)
+    fades the rows in, and on BlackBerry 10 slides them in 24 dp from the right. Rows scrolled into
+    view later do not animate. Rows of the Contacts and Remind tabs are not animated."""
+    ui = root / JAVA / "ui/HubConversationsUi.kt"
+    replace_once(
+        ui,
+        "import androidx.compose.ui.graphics.asImageBitmap\n",
+        "import androidx.compose.ui.graphics.asImageBitmap\n"
+        "import androidx.compose.ui.graphics.graphicsLayer\n",
+        "SABLE_ROW_MOTION_IMPORT",
+    )
+    replace_once(
+        ui,
+        "            conversationItems(section.rows, key = { \"conversation:\" + it.id }) { conversation ->\n",
+        "            conversationItems(\n"
+        "                section.rows,\n"
+        "                listOf(ui.filter, ui.remindersSelected, ui.sourcePackage),\n"
+        "                key = { \"conversation:\" + it.id },\n"
+        "            ) { conversation ->\n",
+        "SABLE_ROW_MOTION_CALL",
+    )
+    replace_once(
+        ui,
+        "private fun LazyListScope.conversationItems(\n"
+        "    list: List<HubConversation>,\n"
+        "    key: (HubConversation) -> Any,\n"
+        "    content: @Composable (HubConversation) -> Unit,\n"
+        ") {\n"
+        "    list.forEach { conversation -> item(key = key(conversation)) { content(conversation) } }\n"
+        "}\n",
+        "private object SableTabMotion {\n"
+        "    var key: Any? = null\n"
+        "    var at = 0L\n"
+        "}\n\n"
+        "/** The profile's row motion: BlackBerry 7 fades (150 ms), BlackBerry 10 slides and fades (250 ms). */\n"
+        "@Composable\n"
+        "private fun androidx.compose.foundation.lazy.LazyItemScope.sableRowMotion(tabKey: Any): Modifier {\n"
+        "    val context = LocalContext.current\n"
+        "    val bb7 =\n"
+        "        remember(context) {\n"
+        "            runCatching {\n"
+        "                android.provider.Settings.Secure.getString(context.contentResolver, \"sable_profile\")\n"
+        "            }.getOrNull() == \"bb7\"\n"
+        "        }\n"
+        "    val millis = if (bb7) 150 else 250\n"
+        "    val easing: androidx.compose.animation.core.Easing =\n"
+        "        if (bb7) androidx.compose.animation.core.LinearEasing else androidx.compose.animation.core.FastOutSlowInEasing\n"
+        "    // Rows composed right after a tab change animate; rows scrolled into view later do not.\n"
+        "    val fresh =\n"
+        "        remember(tabKey) {\n"
+        "            val now = android.os.SystemClock.uptimeMillis()\n"
+        "            if (SableTabMotion.key != tabKey) {\n"
+        "                SableTabMotion.key = tabKey\n"
+        "                SableTabMotion.at = now\n"
+        "            }\n"
+        "            now - SableTabMotion.at < 300L\n"
+        "        }\n"
+        "    val progress = remember(tabKey) { androidx.compose.animation.core.Animatable(if (fresh) 0f else 1f) }\n"
+        "    LaunchedEffect(tabKey) {\n"
+        "        if (fresh) progress.animateTo(1f, androidx.compose.animation.core.tween(millis, easing = easing))\n"
+        "    }\n"
+        "    return Modifier\n"
+        "        .animateItem(\n"
+        "            fadeInSpec = androidx.compose.animation.core.tween(millis, easing = easing),\n"
+        "            placementSpec = if (bb7) null else androidx.compose.animation.core.tween(millis, easing = easing),\n"
+        "            fadeOutSpec = androidx.compose.animation.core.tween(millis, easing = easing),\n"
+        "        ).graphicsLayer {\n"
+        "            alpha = progress.value\n"
+        "            if (!bb7) translationX = (1f - progress.value) * 24.dp.toPx()\n"
+        "        }\n"
+        "}\n\n"
+        "private fun LazyListScope.conversationItems(\n"
+        "    list: List<HubConversation>,\n"
+        "    tabKey: Any,\n"
+        "    key: (HubConversation) -> Any,\n"
+        "    content: @Composable (HubConversation) -> Unit,\n"
+        ") {\n"
+        "    list.forEach { conversation ->\n"
+        "        item(key = key(conversation)) {\n"
+        "            androidx.compose.foundation.layout.Box(sableRowMotion(tabKey)) { content(conversation) }\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        "SABLE_ROW_MOTION_ITEMS",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -2145,6 +2235,7 @@ def main() -> None:
     patch_hub_bottom_tabs(root)
     patch_hub_swipe_menu(root)
     patch_peek_motion(root)
+    patch_hub_row_motion(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 

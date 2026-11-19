@@ -568,6 +568,12 @@ grep -q 'patch_peek_motion(root)' sable-src/apps/r8/launcher/apply_sable_flavor.
 grep -q '"peek_motion"' sable-src/apps/r8/launcher/verify_sable_launcher.py || pm_bad="$pm_bad verify"
 if [[ -z "$pm_bad" ]]; then pass "Hub peek: motion set follows the profile"; else fail "peek motion:$pm_bad"; fi
 
+# 6b0o. Hub rows: delete/leave animation and tab-switch fade follow the profile.
+rm_bad=""
+grep -q 'patch_hub_row_motion(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || rm_bad="$rm_bad not-applied"
+grep -q '"hub_row_motion"' sable-src/apps/r8/launcher/verify_sable_launcher.py || rm_bad="$rm_bad verify"
+if [[ -z "$rm_bad" ]]; then pass "Hub rows: leave animation and tab-switch motion follow the profile"; else fail "hub row motion:$rm_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
