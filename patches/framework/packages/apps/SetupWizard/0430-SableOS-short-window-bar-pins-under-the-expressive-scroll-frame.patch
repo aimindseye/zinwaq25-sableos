@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 16:00:00 +0000
+Subject: [PATCH] SableOS: short-window bar pins under the expressive scroll frame
+
+On the Q25 the Welcome page needed scrolling to reach Start (device photos,
+2026-11-19). fitShortWindow (0414) moves the page's own button bar under the
+scroll view, but it expected the scroll view to be a child of the vertical
+column. The expressive Glif template (sud_glif_expressive_template_content)
+keeps BottomScrollView in a weighted FrameLayout, and that frame is the
+column's child, so the check failed and the code returned without a log line.
+The bar now goes right under whichever of the two is the column's child. In a
+short window the Start and accessibility buttons are also 52 dp instead of
+their full size, so the page keeps more of the 411 x 387 dp window.
+---
+ .../setupwizard/base/BaseSetupWizardActivity.kt | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt b/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
+index 4d03e59..aec58f6 100644
+--- a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
++++ b/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
+@@ -392,22 +392,35 @@
+                 layout.findViewById<View>(
+                     resources.getIdentifier("sud_scroll_view", "id", packageName)
+                 ) as? ScrollView ?: return
+-            val column = scroll.parent as? LinearLayout ?: return
++            // The expressive Glif template keeps the scroll view in a weighted FrameLayout, and
++            // that frame sits in the vertical column; older templates have the scroll view in the
++            // column itself. The bar goes right under whichever of the two is the column's child.
++            val holder = if (scroll.parent is LinearLayout) scroll else scroll.parent as? View
++            val column = holder?.parent as? LinearLayout ?: return
+             val barParent = bar.parent as? ViewGroup ?: return
+             if (column.orientation != LinearLayout.VERTICAL) return
+             barParent.removeView(bar)
+-            scroll.layoutParams =
+-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
++            if (holder === scroll) {
++                scroll.layoutParams =
++                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
++            }
+             val pad = Math.round(8 * resources.displayMetrics.density)
+             bar.setPadding(pad * 2, pad / 2, pad * 2, pad / 2)
+             column.addView(
+                 bar,
+-                column.indexOfChild(scroll) + 1,
++                column.indexOfChild(holder) + 1,
+                 LinearLayout.LayoutParams(
+                     ViewGroup.LayoutParams.MATCH_PARENT,
+                     ViewGroup.LayoutParams.WRAP_CONTENT,
+                 ),
+             )
++            // Smaller Start and accessibility buttons, so the page keeps more of the short window.
++            val small = Math.round(52 * resources.displayMetrics.density)
++            bar.findViewById<View>(R.id.launch_accessibility)?.layoutParams?.let {
++                it.width = small
++                it.height = small
++            }
++            bar.findViewById<android.widget.Button>(R.id.start)?.minHeight = small
+         } catch (e: RuntimeException) {
+             Log.w(TAG, "could not fit setup to the short window", e)
+         }

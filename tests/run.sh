@@ -613,6 +613,13 @@ sc_p=(patches/sable-src/0232-*.patch)
 grep -q 'sable_profile' sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/CandidateBar.kt || sc_bad="$sc_bad tree"
 if [[ -z "$sc_bad" ]]; then pass "keyboard chips: flat with underline on BBOS 10, filled on BBOS 7 (0232)"; else fail "keyboard chips:$sc_bad"; fi
 
+# 6b0v. Setup: the short-window bar pins under the expressive scroll frame (SetupWizard 0430).
+sp_bad=""
+sp_p=(patches/framework/packages/apps/SetupWizard/0430-*.patch)
+[[ -f "${sp_p[0]}" ]] || sp_bad="$sp_bad missing"
+[[ -z "$sp_bad" ]] && { grep -q 'column.indexOfChild(holder)' "${sp_p[0]}" || sp_bad="$sp_bad holder"; grep -q 'R.id.start' "${sp_p[0]}" || sp_bad="$sp_bad start"; }
+if [[ -z "$sp_bad" ]]; then pass "setup: Start pins under the expressive scroll frame (SetupWizard 0430)"; else fail "setup pin:$sp_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
