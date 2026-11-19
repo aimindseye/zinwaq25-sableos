@@ -1976,6 +1976,74 @@ def patch_hub_bottom_tabs(root: pathlib.Path) -> None:
     )
 
 
+def patch_hub_swipe_menu(root: pathlib.Path) -> None:
+    """BlackBerry 10 opens an app's menu with a swipe down from the top (conformance matrix, owner
+    decision 2026-11-18). In the BlackBerry 10 profile a downward drag that starts in the top 56 dp of
+    the Hub page opens the Hub menu, the same panel the Menu key opens; BlackBerry 7 has no such
+    gesture. The drag is claimed only once it is clearly vertical, so the list still scrolls."""
+    panels = root / JAVA / "ui/HubPanels.kt"
+    replace_once(
+        panels,
+        "                onSwipeLeft = {\n"
+        "                    if (settings || selected != null) close() else onSwipeLeft()\n"
+        "                },\n"
+        "            ),\n"
+        "    ) {\n",
+        "                onSwipeLeft = {\n"
+        "                    if (settings || selected != null) close() else onSwipeLeft()\n"
+        "                },\n"
+        "            ).then(\n"
+        "                if (sableSwipeDownMenu()) {\n"
+        "                    Modifier.hubMenuSwipeDown {\n"
+        "                        settings = true\n"
+        "                        selected = null\n"
+        "                    }\n"
+        "                } else {\n"
+        "                    Modifier\n"
+        "                },\n"
+        "            ),\n"
+        "    ) {\n",
+        "SABLE_HUB_SWIPE_HOST",
+    )
+    replace_once(
+        panels,
+        "/** Hub owns horizontal gestures while it is the selected page",
+        "@Composable\n"
+        "private fun sableSwipeDownMenu(): Boolean {\n"
+        "    val context = LocalContext.current\n"
+        "    return remember(context) {\n"
+        "        runCatching {\n"
+        "            android.provider.Settings.Secure.getString(context.contentResolver, \"sable_profile\")\n"
+        "        }.getOrNull() != \"bb7\"\n"
+        "    }\n"
+        "}\n\n"
+        "/** A drag down from the top strip of the page opens the menu (BlackBerry 10). */\n"
+        "private fun Modifier.hubMenuSwipeDown(onOpen: () -> Unit): Modifier =\n"
+        "    pointerInput(onOpen) {\n"
+        "        val topStripPx = 56.dp.toPx()\n"
+        "        awaitEachGesture {\n"
+        "            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)\n"
+        "            if (down.position.y > topStripPx) return@awaitEachGesture\n"
+        "            var claimed = false\n"
+        "            do {\n"
+        "                val event = awaitPointerEvent(PointerEventPass.Initial)\n"
+        "                val change = event.changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture\n"
+        "                val dx = change.position.x - down.position.x\n"
+        "                val dy = change.position.y - down.position.y\n"
+        "                if (!claimed && (dy < 0f || abs(dx) > viewConfiguration.touchSlop * 2f)) return@awaitEachGesture\n"
+        "                if (!claimed && dy > viewConfiguration.touchSlop * 2f) {\n"
+        "                    claimed = true\n"
+        "                    onOpen()\n"
+        "                }\n"
+        "                if (claimed) change.consume()\n"
+        "            } while (change.pressed)\n"
+        "        }\n"
+        "    }\n\n"
+        "/** Hub owns horizontal gestures while it is the selected page",
+        "SABLE_HUB_SWIPE_FUNCTIONS",
+    )
+
+
 def patch_visible_names(root: pathlib.Path) -> None:
     """Sable Launcher is the only name the user sees. The upstream project name stays in package ids,
     class names, file formats and comments (identifiers, not text on screen), so only the text of string
@@ -2035,6 +2103,7 @@ def main() -> None:
     patch_hub_inline_reply(root)
     patch_home_splat(root)
     patch_hub_bottom_tabs(root)
+    patch_hub_swipe_menu(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 

@@ -556,6 +556,12 @@ grep -q 'patch_hub_bottom_tabs(root)' sable-src/apps/r8/launcher/apply_sable_fla
 grep -q '"hub_bottom_tabs"' sable-src/apps/r8/launcher/verify_sable_launcher.py || bt_bad="$bt_bad verify"
 if [[ -z "$bt_bad" ]]; then pass "Hub: BB10 tabs at the bottom, BB7 tabs under the title"; else fail "hub bottom tabs:$bt_bad"; fi
 
+# 6b0i. BlackBerry 10 opens the Hub menu with a swipe down from the top.
+sw_bad=""
+grep -q 'patch_hub_swipe_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || sw_bad="$sw_bad not-applied"
+grep -q '"hub_swipe_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || sw_bad="$sw_bad verify"
+if [[ -z "$sw_bad" ]]; then pass "Hub: BB10 swipe down from the top opens the menu"; else fail "hub swipe menu:$sw_bad"; fi
+
 # 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
 # extras and screen capture, and the verify step fails the build if they come back.
 home_bad=""
