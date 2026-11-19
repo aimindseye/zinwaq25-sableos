@@ -157,6 +157,9 @@ class SableImeService : InputMethodService() {
         refreshStrip()
     }
 
+    override fun onComputeInsets(outInsets: Insets) = super.onComputeInsets(outInsets)
+        .also { StripInsets.raise(outInsets, strip, isInputViewShown) }
+
     private fun applyComposition(commit: String) {
         val ic = currentInputConnection ?: return
         val comp = composer ?: return
