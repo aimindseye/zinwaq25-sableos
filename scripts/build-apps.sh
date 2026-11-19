@@ -95,6 +95,7 @@ prepare_flavor() {
 # one source of truth for the code that ships.
 repo_dir() {
     case "$1" in
+        flavor:espeak) echo "$SABLE_APPS_REPO/apps/espeak/android" ;; # its Gradle project is in android/
         flavor:*) echo "$SABLE_APPS_REPO/apps/${1#flavor:}" ;;
         apps/titan2/platform) echo "$SABLE_APPS_REPO/apps/titan2-platform" ;;
         apps/r8/android) echo "$SABLE_APPS_REPO/apps/android" ;;
