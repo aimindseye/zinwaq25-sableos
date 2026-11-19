@@ -647,6 +647,13 @@ bn_p=(patches/framework/frameworks/base/0508-*.patch)
 [[ -z "$bn_bad" ]] && { grep -q 'SableBb7Banner' "${bn_p[0]}" || bn_bad="$bn_bad banner"; grep -q 'ACTION_WIRELESS_SETTINGS' "${bn_p[0]}" || bn_bad="$bn_bad action"; grep -q '"bb7"' "${bn_p[0]}" || bn_bad="$bn_bad profile"; }
 if [[ -z "$bn_bad" ]]; then pass "shade: BBOS 7 banner opens Manage Connections (framework 0508)"; else fail "bb7 banner:$bn_bad"; fi
 
+# 6b0r. BBOS 7 shade: counters row, no compact tile row (framework 0509).
+ct_bad=""
+ct_p=(patches/framework/frameworks/base/0509-*.patch)
+[[ -f "${ct_p[0]}" ]] || ct_bad="$ct_bad missing"
+[[ -z "$ct_bad" ]] && { grep -q 'SableShadeCounts.update(entries)' "${ct_p[0]}" || ct_bad="$ct_bad feed"; grep -q 'SableBb7Counters()' "${ct_p[0]}" || ct_bad="$ct_bad row"; grep -q 'if (sableBb7) sableNoTiles else Tiles' "${ct_p[0]}" || ct_bad="$ct_bad tiles"; grep -q 'CATEGORY_MESSAGE' "${ct_p[0]}" || ct_bad="$ct_bad category"; }
+if [[ -z "$ct_bad" ]]; then pass "shade: BBOS 7 counters row and no compact tile row (framework 0509)"; else fail "bb7 counters:$ct_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)

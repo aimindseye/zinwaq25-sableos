@@ -1,0 +1,265 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 17:00:00 +0000
+Subject: [PATCH] SableOS: BlackBerry 7 shade counters and no compact tile row
+
+Owner decision 2026-11-19. On the BBOS 7 profile (Settings.Secure sable_profile
+is bb7) the Sable shade shows, under the Manage Connections banner, one blue
+chip per kind of notification that is waiting (Messages, Email, Calls, Other)
+with its count; the notifications themselves are the list below, as before.
+The compact tile row is empty on BBOS 7; the brightness slider and media stay.
+BBOS 10 is unchanged. SableShadeCoordinator feeds the counts (category only,
+ongoing notifications are not counted) to SableShadeCounts.
+---
+ packages/SystemUI/res/values/sable_bb7_strings.xml | 5 +
+ 1 file changed
+
+diff --git a/packages/SystemUI/res/values/sable_bb7_strings.xml b/packages/SystemUI/res/values/sable_bb7_strings.xml
+index 3adbb16..e3a1d62 100644
+--- a/packages/SystemUI/res/values/sable_bb7_strings.xml
++++ b/packages/SystemUI/res/values/sable_bb7_strings.xml
+@@ -17,4 +17,9 @@
+ <resources>
+     <!-- SableOS: the BlackBerry 7 shade banner (Sable 2.0). -->
+     <string name="sable_bb7_manage_connections">Manage Connections</string>
++    <!-- The BlackBerry 7 shade counters: one chip per kind of notification, with its count. -->
++    <string name="sable_bb7_count_messages">Messages %1$d</string>
++    <string name="sable_bb7_count_email">Email %1$d</string>
++    <string name="sable_bb7_count_calls">Calls %1$d</string>
++    <string name="sable_bb7_count_other">Other %1$d</string>
+ </resources>
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
+index 63f8592..3e8836a 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
+@@ -784,11 +784,15 @@
+                                 )
+                                 .padding(horizontal = qsHorizontalMargin())
+                     ) {
++                        // Sable: the BBOS 7 profile has no tile row in the compact shade (its
++                        // banner and counters stand in); BBOS 10 keeps it.
++                        val sableBb7 = com.android.systemui.qs.composefragment.ui.rememberSableBb7()
++                        val sableNoTiles: @Composable () -> Unit = {}
+                         val qqsLayout =
+                             @Composable {
+                                 QuickQuickSettingsLayout(
+                                     brightness = BrightnessSlider,
+-                                    tiles = Tiles,
++                                    tiles = if (sableBb7) sableNoTiles else Tiles,
+                                     media = Media,
+                                     mediaInRow = viewModel.qqsMediaInRow,
+                                 )
+@@ -835,6 +839,7 @@
+                 )
+             }
+         )
++        com.android.systemui.qs.composefragment.ui.SableBb7Counters()
+         SableHubSummaryRow(
+             priorityCount = priorityCount,
+             locked = viewModel.statusBarState != StatusBarState.SHADE,
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableBb7Counters.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableBb7Counters.kt
+new file mode 100644
+index 0000000..b94c30f
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableBb7Counters.kt
+@@ -0,0 +1,82 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.qs.composefragment.ui
++
++import android.provider.Settings
++import androidx.annotation.StringRes
++import androidx.compose.foundation.background
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.collectAsState
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.remember
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.res.stringResource
++import androidx.compose.ui.unit.dp
++import com.android.systemui.res.R
++import com.android.systemui.shade.sable.SableShadeCounts
++
++/** Whether the BlackBerry 7 profile is chosen (Settings.Secure sable_profile is bb7). */
++@Composable
++fun rememberSableBb7(): Boolean {
++    val context = LocalContext.current
++    return remember { Settings.Secure.getString(context.contentResolver, "sable_profile") == "bb7" }
++}
++
++/**
++ * The BlackBerry 7 shade counters (Sable 2.0): one blue chip per kind of notification that is
++ * waiting (Messages, Email, Calls, Other) with its count, under the Manage Connections banner. The
++ * notifications themselves are the list below. Nothing shows on BBOS 10 or when nothing is waiting.
++ */
++@Composable
++fun SableBb7Counters(modifier: Modifier = Modifier) {
++    if (!rememberSableBb7()) return
++    val counts by SableShadeCounts.counts.collectAsState()
++    if (counts.total == 0) return
++    Row(
++        modifier = modifier.fillMaxWidth().padding(top = 6.dp),
++        horizontalArrangement = Arrangement.spacedBy(6.dp),
++    ) {
++        CountChip(R.string.sable_bb7_count_messages, counts.messages)
++        CountChip(R.string.sable_bb7_count_email, counts.email)
++        CountChip(R.string.sable_bb7_count_calls, counts.calls)
++        CountChip(R.string.sable_bb7_count_other, counts.other)
++    }
++}
++
++@Composable
++private fun CountChip(@StringRes label: Int, count: Int) {
++    if (count <= 0) return
++    Text(
++        text = stringResource(label, count),
++        style = MaterialTheme.typography.labelLarge,
++        color = Color.White,
++        modifier =
++            Modifier.clip(RoundedCornerShape(4.dp))
++                .background(Color(0xFF2E9BD6))
++                .padding(horizontal = 10.dp, vertical = 6.dp),
++    )
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeCounts.kt b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeCounts.kt
+new file mode 100644
+index 0000000..d6aca7e
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/shade/sable/SableShadeCounts.kt
+@@ -0,0 +1,98 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.shade.sable
++
++import android.app.Notification
++import com.android.systemui.statusbar.notification.collection.GroupEntry
++import com.android.systemui.statusbar.notification.collection.NotificationEntry
++import com.android.systemui.statusbar.notification.collection.PipelineEntry
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.asStateFlow
++
++/**
++ * How many notifications of each kind the shade holds, for the BlackBerry 7 counters row (Sable 2.0).
++ * Fed by the notification pipeline (SableShadeCoordinator) on the main thread, read by the shade's
++ * Compose header. Counts only: it reads each notification's category and nothing of its content.
++ * Ongoing notifications (music, navigation, the foreground-service lines) are not counted.
++ */
++object SableShadeCounts {
++    /** The counts by kind. */
++    data class Counts(
++        val messages: Int = 0,
++        val email: Int = 0,
++        val calls: Int = 0,
++        val other: Int = 0,
++    ) {
++        val total: Int
++            get() = messages + email + calls + other
++    }
++
++    /** The kinds the counters row tells apart. */
++    enum class Kind {
++        MESSAGES,
++        EMAIL,
++        CALLS,
++        OTHER,
++    }
++
++    /** The kind of a notification, from its category. */
++    fun kindOf(category: String?): Kind =
++        when (category) {
++            Notification.CATEGORY_MESSAGE -> Kind.MESSAGES
++            Notification.CATEGORY_EMAIL -> Kind.EMAIL
++            Notification.CATEGORY_CALL -> Kind.CALLS
++            else -> Kind.OTHER
++        }
++
++    private val _counts = MutableStateFlow(Counts())
++
++    /** The current counts. */
++    val counts: StateFlow<Counts> = _counts.asStateFlow()
++
++    /** Recounts from the list about to be shown (after the final filters). */
++    fun update(entries: List<PipelineEntry>) {
++        var messages = 0
++        var email = 0
++        var calls = 0
++        var other = 0
++        fun add(entry: NotificationEntry) {
++            if (entry.sbn.isOngoing) return
++            when (kindOf(entry.sbn.notification.category)) {
++                Kind.MESSAGES -> messages++
++                Kind.EMAIL -> email++
++                Kind.CALLS -> calls++
++                Kind.OTHER -> other++
++            }
++        }
++        for (entry in entries) {
++            when (entry) {
++                is NotificationEntry -> add(entry)
++                is GroupEntry -> {
++                    val children = entry.children
++                    if (children.isEmpty()) {
++                        entry.summary?.let { add(it) }
++                    } else {
++                        children.forEach { add(it) }
++                    }
++                }
++                else -> {}
++            }
++        }
++        _counts.value = Counts(messages, email, calls, other)
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt b/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt
+index 773aa78..24aa259 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/notification/collection/coordinator/SableShadeCoordinator.kt
+@@ -67,6 +67,7 @@
+             // While a search filters the list, keep the unfiltered count.
+             if (sableShadeState.query.value.isBlank()) {
+                 sableShadeState.setPriorityCount(countPriority(entries))
++                com.android.systemui.shade.sable.SableShadeCounts.update(entries)
+             }
+         }
+     }
+-- 
+2.43.0
