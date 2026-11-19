@@ -2318,6 +2318,55 @@ def patch_home_size(root: pathlib.Path) -> None:
     )
 
 
+def patch_bb7_dial(root: pathlib.Path) -> None:
+    """BBOS 7 profile (owner decision 2026-11-19, from Bold7): typing a number of three or more digits on the
+    home offers Dial. The status line reads "Dial <number>" while no app matches, and Enter opens the dialer
+    with the number filled in. A query with letters, or one an app matches, behaves as before."""
+    shutil.copyfile(HERE / "src/SableDial.kt", root / JAVA / "ui/SableDial.kt")
+    (root / TEST / "ui").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(HERE / "src/SableDialTest.kt", root / TEST / "ui/SableDialTest.kt")
+    bb7 = root / JAVA / "ui/Bb7HomeScreen.kt"
+    replace_once(
+        bb7,
+        "    fun menuFor(\n",
+        "    fun dial(number: String) {\n"
+        "        context.startActivity(\n"
+        "            Intent(Intent.ACTION_DIAL, android.net.Uri.fromParts(\"tel\", number, null))\n"
+        "                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),\n"
+        "        )\n"
+        "    }\n"
+        "\n"
+        "    fun menuFor(\n",
+        "SABLE_BB7_DIAL_ACTION",
+    )
+    replace_once(
+        bb7,
+        "                    shown.getOrNull(selected)?.let { input.launch.onLaunchApp(it) }\n"
+        "                    true\n",
+        "                    if (shown.isEmpty() && SableDial.isNumber(query)) {\n"
+        "                        actions.dial(query)\n"
+        "                    } else {\n"
+        "                        shown.getOrNull(selected)?.let { input.launch.onLaunchApp(it) }\n"
+        "                    }\n"
+        "                    true\n",
+        "SABLE_BB7_DIAL_ENTER",
+    )
+    replace_once(
+        bb7,
+        "            searching -> {\n"
+        "                t(\"search\", session.query)\n"
+        "            }\n",
+        "            searching -> {\n"
+        "                if (lists.shown.isEmpty() && SableDial.isNumber(session.query)) {\n"
+        "                    \"Dial \" + session.query\n"
+        "                } else {\n"
+        "                    t(\"search\", session.query)\n"
+        "                }\n"
+        "            }\n",
+        "SABLE_BB7_DIAL_TITLE",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -2356,6 +2405,7 @@ def main() -> None:
     patch_bb7_full_menu(root)
     patch_home_menu(root)
     patch_home_size(root)
+    patch_bb7_dial(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
