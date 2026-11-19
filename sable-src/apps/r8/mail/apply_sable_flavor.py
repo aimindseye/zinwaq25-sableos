@@ -633,6 +633,13 @@ def apply_keyboard_model(root: Path) -> None:
     )
 
     replace_once(
+        module / "main/java/com/fsck/k9/ui/messagelist/LegacyMessageListFragment.kt",
+        "recyclerView.itemAnimator = MessageListItemAnimator()",
+        "recyclerView.itemAnimator = MessageListItemAnimator().also {\n"
+        "            com.fsck.k9.activity.SableMailProfile.applyRowMotion(it, requireContext())\n"
+        "        }",
+    )
+    replace_once(
         root / "core/preference/api/src/commonMain/kotlin/net/thunderbird/core/preference/interaction/InteractionSettings.kt",
         "const val INTERACTION_SETTINGS_DEFAULT_CONFIRM_DELETE = false",
         "const val INTERACTION_SETTINGS_DEFAULT_CONFIRM_DELETE = true",

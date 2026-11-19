@@ -608,6 +608,11 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
     if not (root / "legacy/ui/legacy/src/main/res/drawable/sable_mail_list_item_foreground_bb7.xml").is_file():
         fail("SABLE_MAIL_PROFILE_FOCUS", "missing bb7 focus drawable")
     require_text(
+        root / "legacy/ui/legacy/src/main/java/com/fsck/k9/ui/messagelist/LegacyMessageListFragment.kt",
+        "SableMailProfile.applyRowMotion(it, requireContext())",
+        "SABLE_MAIL_ROW_MOTION",
+    )
+    require_text(
         home_activity,
         "SableAccountShortcuts.publish(",
         "SABLE_MAIL_ACCOUNT_SHORTCUTS",
