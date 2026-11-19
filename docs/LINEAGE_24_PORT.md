@@ -197,8 +197,9 @@ written against the 24.0 sources without compiling them, so the first 24.0 build
     Theme follow the network steps and the LineageOS features step is gone.
   * The 24.0 Ready screen has no Start button; Enter (or Home) finishes setup, and the Sable
     Ready rows sit between the logo and the go-home hint.
-  * In a short window only Welcome's own button bar needs moving; the footer bar already sits
-    under the scroll view.
+  * In a short window Welcome's own button bar is moved under the scroll view (0414). The footer
+    bar was assumed to sit there already; on a long page (the keyboard test) it did not, so 0429
+    moves it out of the scroll view when it is inside.
   * The Java classes were compile-checked against stubs of the 24.0 base API. The Kotlin was
     not compiled (no Kotlin toolchain here).
   * The Full Sable / Essentials / Stock Android choice is SetupWizard 0416, a step after
