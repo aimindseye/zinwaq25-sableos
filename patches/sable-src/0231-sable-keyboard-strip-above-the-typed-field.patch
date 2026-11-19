@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 12:30:00 +0000
+Subject: [PATCH] sable: the word-suggestion strip sits under the field, not over it
+
+With the physical keyboard only the candidates strip is shown, and the system
+default lets it float over the app, on top of the field being typed in.
+onComputeInsets now sets the content and visible top insets to the strip's top
+(StripInsets), so the app resizes to end above the strip and the field stays in
+view. Soft keyboard behaviour is unchanged.
+---
+diff --git a/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt b/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+index 7cde760..7a30c9a 100644
+--- a/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
++++ b/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+@@ -157,6 +157,9 @@ class SableImeService : InputMethodService() {
+         refreshStrip()
+     }
+ 
++    override fun onComputeInsets(outInsets: Insets) = super.onComputeInsets(outInsets)
++        .also { StripInsets.raise(outInsets, strip, isInputViewShown) }
++
+     private fun applyComposition(commit: String) {
+         val ic = currentInputConnection ?: return
+         val comp = composer ?: return
+diff --git a/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/StripInsets.kt b/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/StripInsets.kt
+new file mode 100644
+index 0000000..fde6a23
+--- /dev/null
++++ b/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/StripInsets.kt
+@@ -0,0 +1,19 @@
++package org.sableos.titan2.keyboard.android
++
++import android.inputmethodservice.InputMethodService
++import android.view.View
++
++/**
++ * With only the candidates strip showing (physical keyboard), the system default lets the strip float
++ * over the app, on top of the field being typed in. This tells the app to end above the strip instead,
++ * so the field stays visible and the suggestions sit directly under it.
++ */
++object StripInsets {
++    fun raise(insets: InputMethodService.Insets, strip: View?, inputViewShown: Boolean) {
++        if (inputViewShown || strip == null || !strip.isShown) return
++        val at = IntArray(2)
++        strip.getLocationInWindow(at)
++        insets.contentTopInsets = at[1]
++        insets.visibleTopInsets = at[1]
++    }
++}
