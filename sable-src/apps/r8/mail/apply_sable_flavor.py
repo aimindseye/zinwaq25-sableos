@@ -218,6 +218,9 @@ def copy_icon_resources(dest_res: Path) -> None:
 SABLE_KEYMAP_SOURCES = (
     "main/java/com/fsck/k9/activity/SableMailKeymap.kt",
     "test/java/com/fsck/k9/activity/SableMailKeymapTest.kt",
+    "main/java/com/fsck/k9/activity/SableAccountShortcuts.kt",
+    "test/java/com/fsck/k9/activity/SableAccountShortcutsTest.kt",
+
     "main/java/com/fsck/k9/activity/SableMailProfile.kt",
     "test/java/com/fsck/k9/activity/SableMailProfileTest.kt",
 )
@@ -238,6 +241,16 @@ def apply_keyboard_model(root: Path) -> None:
         write(module / relative, (source / relative).read_text(encoding="utf-8"))
 
     home = module / "main/java/com/fsck/k9/activity/MessageHomeActivity.kt"
+    # ACCOUNT_SHORTCUTS: one long-press shortcut per account on the Sable Mail icon.
+    replace_once(
+        home,
+        "    public override fun onResume() {\n",
+        "    public override fun onResume() {\n"
+        "        SableAccountShortcuts.publish(\n"
+        "            this,\n"
+        "            accountManager.getAccounts().map { it.uuid to (it.name ?: it.email) },\n"
+        "        )\n",
+    )
     replace_once(
         home,
         "import android.widget.ProgressBar\n",

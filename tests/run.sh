@@ -688,6 +688,12 @@ grep -qP '^org\.sableos\.mail\tcore\t' product/q25/app_tiers.tsv || ml_bad="$ml_
 [[ -z "$ml_bad" ]] && { grep -q '+            "org.sableos.mail",' "${ml_p[0]}" || ml_bad="$ml_bad patch"; }
 if [[ -z "$ml_bad" ]]; then pass "Mail is a Core app and stays on in Essentials"; else fail "mail tier:$ml_bad"; fi
 
+# 6b0q. Sable Mail publishes one launcher shortcut per account (long-press the Mail icon).
+as_bad=""
+grep -q 'SableAccountShortcuts.publish' sable-src/apps/r8/mail/apply_sable_flavor.py || as_bad="$as_bad not-applied"
+grep -q 'SABLE_MAIL_ACCOUNT_SHORTCUTS' sable-src/apps/r8/mail/verify_sable_mail.py || as_bad="$as_bad verify"
+if [[ -z "$as_bad" ]]; then pass "Mail: per-account shortcuts on long-press"; else fail "mail account shortcuts:$as_bad"; fi
+
 # 6b0m. Sable Mail account setup is one screen: Display and Sync options fill themselves in.
 os_bad=""
 os_d=sable-src/apps/r8/mail
