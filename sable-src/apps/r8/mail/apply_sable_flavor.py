@@ -626,6 +626,78 @@ def apply_keyboard_model(root: Path) -> None:
     )
 
 
+SABLE_SETUP_NAVIGATION = "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/navigation"
+
+
+def apply_one_screen_setup(root: Path) -> None:
+    """Account setup is one screen: after the server checks the Display options and Sync options steps fill
+    themselves in (SableQuickOptions.kt) and move on, so only the address and password are asked for.
+    Special folders and the server screens are unchanged."""
+    source = Path(__file__).resolve().parent / "src/setup/SableQuickOptions.kt"
+    navigation = root / SABLE_SETUP_NAVIGATION
+    write(navigation / "SableQuickOptions.kt", source.read_text(encoding="utf-8"))
+
+    nav_host = navigation / "AccountSetupNavHost.kt"
+    replace_once(
+        nav_host,
+        "import app.k9mail.feature.account.setup.ui.options.display.DisplayOptionsScreen\n",
+        "",
+    )
+    replace_once(
+        nav_host,
+        "import app.k9mail.feature.account.setup.ui.options.sync.SyncOptionsScreen\n",
+        "",
+    )
+    replace_once(
+        nav_host,
+        """        composable(route = NESTED_NAVIGATION_DISPLAY_OPTIONS) {
+            DisplayOptionsScreen(
+                onNext = { navController.navigate(NESTED_NAVIGATION_SYNC_OPTIONS) },
+                onBack = { navController.popBackStack() },
+                viewModel = koinViewModel<DisplayOptionsViewModel>(),
+                brandNameProvider = koinInject(),
+            )
+        }
+""",
+        """        composable(route = NESTED_NAVIGATION_DISPLAY_OPTIONS) {
+            SableAutoDisplayOptions(
+                onNext = {
+                    navController.navigate(NESTED_NAVIGATION_SYNC_OPTIONS) {
+                        popUpTo(NESTED_NAVIGATION_DISPLAY_OPTIONS) { inclusive = true }
+                    }
+                },
+                onBack = { navController.popBackStack() },
+                viewModel = koinViewModel<DisplayOptionsViewModel>(),
+            )
+        }
+""",
+    )
+    replace_once(
+        nav_host,
+        """        composable(route = NESTED_NAVIGATION_SYNC_OPTIONS) {
+            SyncOptionsScreen(
+                onNext = { navController.navigate(NESTED_NAVIGATION_CREATE_ACCOUNT) },
+                onBack = { navController.popBackStack() },
+                viewModel = koinViewModel<SyncOptionsViewModel>(),
+                brandNameProvider = koinInject(),
+            )
+        }
+""",
+        """        composable(route = NESTED_NAVIGATION_SYNC_OPTIONS) {
+            SableAutoSyncOptions(
+                onNext = {
+                    navController.navigate(NESTED_NAVIGATION_CREATE_ACCOUNT) {
+                        popUpTo(NESTED_NAVIGATION_SYNC_OPTIONS) { inclusive = true }
+                    }
+                },
+                onBack = { navController.popBackStack() },
+                viewModel = koinViewModel<SyncOptionsViewModel>(),
+            )
+        }
+""",
+    )
+
+
 def git_head(root: Path) -> str:
     return subprocess.check_output(
         ["git", "-C", str(root), "rev-parse", "HEAD"],
@@ -1755,6 +1827,7 @@ class SableMailSnapshotProvider : ContentProvider() {
         relative = source.relative_to(Path(__file__).resolve().parent / "app")
         write(app / relative, source.read_text(encoding="utf-8"))
     apply_keyboard_model(root)
+    apply_one_screen_setup(root)
     write(
         app / "src/main/res/drawable/ic_sable_mail_notification.xml",
         '''<vector xmlns:android="http://schemas.android.com/apk/res/android"

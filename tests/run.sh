@@ -688,6 +688,14 @@ grep -qP '^org\.sableos\.mail\tcore\t' product/q25/app_tiers.tsv || ml_bad="$ml_
 [[ -z "$ml_bad" ]] && { grep -q '+            "org.sableos.mail",' "${ml_p[0]}" || ml_bad="$ml_bad patch"; }
 if [[ -z "$ml_bad" ]]; then pass "Mail is a Core app and stays on in Essentials"; else fail "mail tier:$ml_bad"; fi
 
+# 6b0m. Sable Mail account setup is one screen: Display and Sync options fill themselves in.
+os_bad=""
+os_d=sable-src/apps/r8/mail
+[[ -f "$os_d/src/setup/SableQuickOptions.kt" ]] || os_bad="$os_bad source"
+grep -q 'apply_one_screen_setup(root)' "$os_d/apply_sable_flavor.py" || os_bad="$os_bad call"
+grep -q 'SABLE_MAIL_ONE_SCREEN_SETUP' "$os_d/verify_sable_mail.py" || os_bad="$os_bad verify"
+if [[ -z "$os_bad" ]]; then pass "Sable Mail account setup is one screen"; else fail "mail one-screen setup:$os_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
