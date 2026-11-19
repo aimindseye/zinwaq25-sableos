@@ -2202,6 +2202,29 @@ def patch_hub_row_motion(root: pathlib.Path) -> None:
     )
 
 
+def patch_bb7_full_menu(root: pathlib.Path) -> None:
+    """BBOS 7 Menu key = one full menu (owner decision 2026-11-19, from Bold7): Switch Application first (it
+    opens Active Frames, the app switcher), then the lines of the focused icon, then the Home lines. Before
+    this the menu was either the icon's lines or the Home lines, never both. The short 3 x 3 menu on a
+    trackpad hold comes later."""
+    bb7 = root / JAVA / "ui/Bb7HomeScreen.kt"
+    replace_once(
+        bb7,
+        "    ): List<Pair<String, () -> Unit>> = if (app != null) appMenu(app, fromDesktop) else homeMenu()\n",
+        "    ): List<Pair<String, () -> Unit>> =\n"
+        "        listOf(\n"
+        "            \"Switch Application\" to {\n"
+        "                context.startActivity(\n"
+        "                    Intent(context, io.github.aimindseye.tenseven.SableStartActivity::class.java)\n"
+        "                        .setAction(io.github.aimindseye.tenseven.SableStartActivity.ACTION_SHOW_ACTIVE_FRAMES)\n"
+        "                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),\n"
+        "                )\n"
+        "            },\n"
+        "        ) + (if (app != null) appMenu(app, fromDesktop) else emptyList()) + homeMenu()\n",
+        "SABLE_BB7_FULL_MENU",
+    )
+
+
 def patch_home_menu(root: pathlib.Path) -> None:
     """One Home menu (owner decision 2026-11-19, matrix: BBOS 7 and BBOS 10 homes). The BBOS 7 long-press menu
     keeps Add shortcut, Home settings (the launcher's settings, which also hold the panel darkness),
@@ -2302,6 +2325,7 @@ def main() -> None:
     patch_hub_swipe_menu(root)
     patch_peek_motion(root)
     patch_hub_row_motion(root)
+    patch_bb7_full_menu(root)
     patch_home_menu(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")

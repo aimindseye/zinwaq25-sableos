@@ -580,6 +580,12 @@ grep -q 'patch_home_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py
 grep -q '"home_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hm_bad="$hm_bad verify"
 if [[ -z "$hm_bad" ]]; then pass "Home menu: one menu on BBOS 7, no settings gear on BBOS 10"; else fail "home menu:$hm_bad"; fi
 
+# 6b0r. BBOS 7 Menu key: one full menu (Switch Application, the icon's lines, the Home lines).
+fm_bad=""
+grep -q 'patch_bb7_full_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || fm_bad="$fm_bad not-applied"
+grep -q '"bb7_full_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || fm_bad="$fm_bad verify"
+if [[ -z "$fm_bad" ]]; then pass "BBOS 7 full Menu: Switch Application first, then icon and Home lines"; else fail "bb7 full menu:$fm_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
