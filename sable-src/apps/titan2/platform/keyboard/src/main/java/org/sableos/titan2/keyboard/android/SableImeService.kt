@@ -177,6 +177,11 @@ class SableImeService : InputMethodService() {
         val inputs = stripInputs()
         refreshModifierIcon(inputs)
         val model = runCatching { CompactStrip.build(inputs) }.getOrNull() ?: return
+        android.util.Log.d(
+            "SableSuggest",
+            "strip mode=${model.mode} visible=${model.visible} candidates=${inputs.candidates.size} " +
+                "enabled=${inputs.enabled} soft=${inputs.softKeyboardShown} field=${inputs.field}"
+        )
         strip?.render(model)
         if (model.mode != stripMode) {
             stripMode = model.mode
@@ -533,7 +538,18 @@ class SableImeService : InputMethodService() {
         )
     }
 
-    private fun updateSuggestions() = suggester.update(currentInputConnection, suggestionField())
+    private fun updateSuggestions() {
+        val field = suggestionField()
+        // Diagnostic (SableSuggest): the gates that decide whether suggestions run. No typed text.
+        android.util.Log.d(
+            "SableSuggest",
+            "update allowed=${field.allowed} noSelection=$noSelection " +
+                "pref=${prefs.getBool(WORD_SUGGEST, true)} class=$fieldClass composer=${composer != null} " +
+                "type=0x${Integer.toHexString(currentInputEditorInfo?.inputType ?: -1)} lang=${field.languageTag} " +
+                "ic=${currentInputConnection != null}"
+        )
+        suggester.update(currentInputConnection, field)
+    }
 
     private fun acceptSuggestion(i: Int): Boolean =
         suggester.accept(currentInputConnection, i, suggestionField()).also {

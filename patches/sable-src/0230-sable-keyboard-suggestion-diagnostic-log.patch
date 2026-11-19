@@ -1,0 +1,73 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 02:30:00 +0000
+Subject: [PATCH] sable: log why Sable Keyboard shows or hides word suggestions
+
+Diagnostic for "no candidate strip while typing": tag SableSuggest logs, per
+cursor update, the gates that decide whether suggestions run (switch, field
+class, selection, language), what the word lists gave (loaded or not, count) and
+what the strip decided (mode, candidates). Lengths and flags only, never typed
+text. `adb logcat -s SableSuggest`.
+---
+diff --git a/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt b/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+index 7cde760..2ce23cf 100644
+--- a/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
++++ b/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SableImeService.kt
+@@ -177,6 +177,11 @@ class SableImeService : InputMethodService() {
+         val inputs = stripInputs()
+         refreshModifierIcon(inputs)
+         val model = runCatching { CompactStrip.build(inputs) }.getOrNull() ?: return
++        android.util.Log.d(
++            "SableSuggest",
++            "strip mode=${model.mode} visible=${model.visible} candidates=${inputs.candidates.size} " +
++                "enabled=${inputs.enabled} soft=${inputs.softKeyboardShown} field=${inputs.field}"
++        )
+         strip?.render(model)
+         if (model.mode != stripMode) {
+             stripMode = model.mode
+@@ -533,7 +538,18 @@ class SableImeService : InputMethodService() {
+         )
+     }
+ 
+-    private fun updateSuggestions() = suggester.update(currentInputConnection, suggestionField())
++    private fun updateSuggestions() {
++        val field = suggestionField()
++        // Diagnostic (SableSuggest): the gates that decide whether suggestions run. No typed text.
++        android.util.Log.d(
++            "SableSuggest",
++            "update allowed=${field.allowed} noSelection=$noSelection " +
++                "pref=${prefs.getBool(WORD_SUGGEST, true)} class=$fieldClass composer=${composer != null} " +
++                "type=0x${Integer.toHexString(currentInputEditorInfo?.inputType ?: -1)} lang=${field.languageTag} " +
++                "ic=${currentInputConnection != null}"
++        )
++        suggester.update(currentInputConnection, field)
++    }
+ 
+     private fun acceptSuggestion(i: Int): Boolean =
+         suggester.accept(currentInputConnection, i, suggestionField()).also {
+diff --git a/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SuggestionController.kt b/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SuggestionController.kt
+index 6561504..75af748 100644
+--- a/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SuggestionController.kt
++++ b/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/SuggestionController.kt
+@@ -82,13 +82,20 @@ class SuggestionController(
+         if (field.learn && user != null) learn(user, words, before)
+         lastBefore = before
+         val midWord = ic.getTextAfterCursor(1, 0)?.firstOrNull()?.isLetterOrDigit() == true
+-        return if ((words == null && emoji == null) || midWord) {
++        val result = if ((words == null && emoji == null) || midWord) {
+             emptyList()
+         } else {
+             runCatching {
+                 WordSuggester(words, emoji, user).suggest(before)
+             }.getOrDefault(emptyList())
+         }
++        // Diagnostic (SableSuggest): why a suggestion list is empty. Lengths and flags only, never text.
++        android.util.Log.d(
++            "SableSuggest",
++            "compute lang=$lang words=${words != null} emoji=${emoji != null} user=${user != null} " +
++                "before=${before.length} midWord=$midWord result=${result.size}"
++        )
++        return result
+     }
+ 
+     private fun learn(user: UserWords, words: WordList?, before: String) {

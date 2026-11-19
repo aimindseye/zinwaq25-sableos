@@ -82,13 +82,20 @@ class SuggestionController(
         if (field.learn && user != null) learn(user, words, before)
         lastBefore = before
         val midWord = ic.getTextAfterCursor(1, 0)?.firstOrNull()?.isLetterOrDigit() == true
-        return if ((words == null && emoji == null) || midWord) {
+        val result = if ((words == null && emoji == null) || midWord) {
             emptyList()
         } else {
             runCatching {
                 WordSuggester(words, emoji, user).suggest(before)
             }.getOrDefault(emptyList())
         }
+        // Diagnostic (SableSuggest): why a suggestion list is empty. Lengths and flags only, never text.
+        android.util.Log.d(
+            "SableSuggest",
+            "compute lang=$lang words=${words != null} emoji=${emoji != null} user=${user != null} " +
+                "before=${before.length} midWord=$midWord result=${result.size}"
+        )
+        return result
     }
 
     private fun learn(user: UserWords, words: WordList?, before: String) {
