@@ -671,6 +671,15 @@ pc_d=(patches/framework/packages/apps/Dialer/0711-*.patch)
 [[ -f "$rm_f/RowMotion.kt" ]] && grep -q 'rowMotion(task.id' "$rm_f/TasksApp.kt" || pc_bad="$pc_bad remind"
 if [[ -z "$pc_bad" ]]; then pass "Contacts and Phone focus bar and Remind row motion follow the BlackBerry profile"; else fail "profile in Contacts or Remind:$pc_bad"; fi
 
+# 6b0o. Sable Mail follows the BlackBerry profile: flat filled focus bar on BBOS 7.
+mp_bad=""
+mp_d=sable-src/apps/r8/mail
+[[ -f "$mp_d/src/main/java/com/fsck/k9/activity/SableMailProfile.kt" ]] || mp_bad="$mp_bad source"
+grep -q 'SableMailProfile.kt' "$mp_d/apply_sable_flavor.py" || mp_bad="$mp_bad copy"
+grep -q 'SableMailProfile.applyRowFocus(itemView)' "$mp_d/apply_sable_flavor.py" || mp_bad="$mp_bad hook"
+grep -q 'SABLE_MAIL_PROFILE_FOCUS' "$mp_d/verify_sable_mail.py" || mp_bad="$mp_bad verify"
+if [[ -z "$mp_bad" ]]; then pass "Sable Mail follows the BlackBerry profile (focus bar)"; else fail "mail profile:$mp_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
