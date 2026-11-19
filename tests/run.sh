@@ -627,6 +627,13 @@ grep -q '"bb7_dial"' sable-src/apps/r8/launcher/verify_sable_launcher.py || dl_b
 [[ -f sable-src/apps/r8/launcher/src/SableDialTest.kt ]] || dl_bad="$dl_bad test"
 if [[ -z "$dl_bad" ]]; then pass "BBOS 7 home: a typed number of 3+ digits offers Dial"; else fail "bb7 dial:$dl_bad"; fi
 
+# 6b0y. Settings: one flat list on BBOS 7 (Settings 1619).
+sl_bad=""
+sl_p=(patches/framework/packages/apps/Settings/1619-*.patch)
+[[ -f "${sl_p[0]}" ]] || sl_bad="$sl_bad missing"
+[[ -z "$sl_bad" ]] && { grep -q 'top_level_settings_bb7' "${sl_p[0]}" || sl_bad="$sl_bad xml"; grep -q 'sable_profile' "${sl_p[0]}" || sl_bad="$sl_bad profile"; grep -q 'top_level_battery' "${sl_p[0]}" || sl_bad="$sl_bad rows"; ! grep -q '^+.*SableSettingsGroupFragment"' "${sl_p[0]}" || sl_bad="$sl_bad grouped-row"; }
+if [[ -z "$sl_bad" ]]; then pass "Settings: one flat list on BBOS 7, ten groups on BBOS 10 (Settings 1619)"; else fail "bb7 settings:$sl_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
