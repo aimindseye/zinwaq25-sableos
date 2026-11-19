@@ -614,6 +614,13 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
     )
     require_text(
         home_activity,
+        "SableAccountShortcuts.publish(",
+        "SABLE_MAIL_ACCOUNT_SHORTCUTS",
+    )
+    if not (legacy_activity / "SableAccountShortcuts.kt").is_file():
+        fail("SABLE_MAIL_ACCOUNT_SHORTCUTS", "missing SableAccountShortcuts.kt")
+    require_text(
+        home_activity,
         "if (SableMailLayout.forceSplitView(sableConfig.screenWidthDp, sableConfig.screenHeightDp)) return true",
         "SABLE_MAIL_SPLIT_PANE",
     )
