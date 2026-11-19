@@ -640,6 +640,13 @@ dg_p=(patches/framework/frameworks/base/0507-*.patch)
 [[ -z "$dg_bad" ]] && { grep -q 'applySableProfile()' "${dg_p[0]}" || dg_bad="$dg_bad hook"; grep -q 'sable_profile' "${dg_p[0]}" || dg_bad="$dg_bad profile"; grep -q 'state_focused' "${dg_p[0]}" || dg_bad="$dg_bad focus"; }
 if [[ -z "$dg_bad" ]]; then pass "dialogs: BBOS 10 flat card, BBOS 7 boxed with blue title bar (framework 0507)"; else fail "dialogs:$dg_bad"; fi
 
+# 6b0z. BBOS 7 shade banner opens Manage Connections (framework 0508).
+bn_bad=""
+bn_p=(patches/framework/frameworks/base/0508-*.patch)
+[[ -f "${bn_p[0]}" ]] || bn_bad="$bn_bad missing"
+[[ -z "$bn_bad" ]] && { grep -q 'SableBb7Banner' "${bn_p[0]}" || bn_bad="$bn_bad banner"; grep -q 'ACTION_WIRELESS_SETTINGS' "${bn_p[0]}" || bn_bad="$bn_bad action"; grep -q '"bb7"' "${bn_p[0]}" || bn_bad="$bn_bad profile"; }
+if [[ -z "$bn_bad" ]]; then pass "shade: BBOS 7 banner opens Manage Connections (framework 0508)"; else fail "bb7 banner:$bn_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)

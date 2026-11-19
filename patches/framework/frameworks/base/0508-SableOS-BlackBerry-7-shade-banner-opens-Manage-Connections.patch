@@ -1,0 +1,138 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 16:30:00 +0000
+Subject: [PATCH] SableOS: BlackBerry 7 shade banner opens Manage Connections
+
+Owner decision 2026-11-19. On the BBOS 7 profile (Settings.Secure sable_profile
+is bb7) the Sable shade shows a blue banner under the header; tapping it opens
+the Networks and connections settings (Manage Connections). BBOS 10 does not
+show it and keeps its tiles. The banner is one composable (SableBb7Banner) called
+from SableQqsFooter, so it sits inside the QQS height with the Hub summary row.
+---
+ packages/SystemUI/res/values/sable_bb7_strings.xml                 | 19 +++++
+ .../systemui/qs/composefragment/QSFragmentCompose.kt              | 10 +++
+ .../systemui/qs/composefragment/ui/SableBb7Banner.kt              | 62 +++++++++++++++
+ 3 files changed, 91 insertions(+)
+
+diff --git a/packages/SystemUI/res/values/sable_bb7_strings.xml b/packages/SystemUI/res/values/sable_bb7_strings.xml
+new file mode 100644
+index 0000000..3adbb16
+--- /dev/null
++++ b/packages/SystemUI/res/values/sable_bb7_strings.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- SableOS: the BlackBerry 7 shade banner (Sable 2.0). -->
++    <string name="sable_bb7_manage_connections">Manage Connections</string>
++</resources>
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
+index 01756c9..6bc2419 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
++++ b/packages/SystemUI/src/com/android/systemui/qs/composefragment/QSFragmentCompose.kt
+@@ -844,6 +844,16 @@
+         // Looked up again each time the shade opens, so installing or removing Start is seen.
+         val hubInstalled =
+             remember(shadeOpen) { sableHubIntent(context) != null }
++        // Sable: on the BBOS 7 profile a blue banner opens Manage Connections.
++        com.android.systemui.qs.composefragment.ui.SableBb7Banner(
++            onClick = {
++                activityStarter.postStartActivityDismissingKeyguard(
++                    Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
++                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
++                    0 /* delay */,
++                )
++            }
++        )
+         SableHubSummaryRow(
+             priorityCount = priorityCount,
+             locked = viewModel.statusBarState != StatusBarState.SHADE,
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableBb7Banner.kt b/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableBb7Banner.kt
+new file mode 100644
+index 0000000..0d8957d
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/qs/composefragment/ui/SableBb7Banner.kt
+@@ -0,0 +1,67 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.systemui.qs.composefragment.ui
++
++import android.provider.Settings
++import androidx.compose.foundation.background
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.remember
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.res.stringResource
++import androidx.compose.ui.semantics.Role
++import androidx.compose.ui.unit.dp
++import com.android.systemui.res.R
++
++/** The Sable blue of the BlackBerry 7 banner. */
++private val BannerBlue = Color(0xFF2E9BD6)
++
++/**
++ * The BlackBerry 7 shade banner (Sable 2.0): a blue bar whose tap opens Manage Connections. It
++ * shows only on the BBOS 7 profile (Settings.Secure sable_profile is bb7), read when the shade is
++ * composed; BBOS 10 keeps its tiles alone.
++ */
++@Composable
++fun SableBb7Banner(onClick: () -> Unit, modifier: Modifier = Modifier) {
++    val context = LocalContext.current
++    val bb7 =
++        remember {
++            Settings.Secure.getString(context.contentResolver, "sable_profile") == "bb7"
++        }
++    if (!bb7) return
++    Text(
++        text = stringResource(R.string.sable_bb7_manage_connections),
++        style = MaterialTheme.typography.titleMedium,
++        color = Color.White,
++        modifier =
++            modifier
++                .fillMaxWidth()
++                .padding(top = 8.dp)
++                .clip(RoundedCornerShape(4.dp))
++                .background(BannerBlue)
++                .clickable(role = Role.Button, onClick = onClick)
++                .padding(horizontal = 12.dp, vertical = 10.dp),
++    )
++}
+-- 
+2.43.0
