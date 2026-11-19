@@ -660,6 +660,15 @@ grep -q '"bb7_short_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py |
 [[ -f sable-src/apps/r8/launcher/src/SableShortMenuTest.kt ]] || sm_bad="$sm_bad test"
 if [[ -z "$sm_bad" ]]; then pass "BBOS 7 home: trackpad hold opens the 3 x 3 short menu"; else fail "bb7 short menu:$sm_bad"; fi
 
+# 6b0q. Contacts follows the BlackBerry profile (0757); Remind rows move by profile.
+pc_bad=""
+pc_p=(patches/framework/packages/apps/Contacts/0757-*.patch)
+[[ -f "${pc_p[0]}" ]] || pc_bad="$pc_bad missing"
+[[ -z "$pc_bad" ]] && { grep -q 'sable_profile' "${pc_p[0]}" && grep -q 'SableBb7Focus' "${pc_p[0]}" || pc_bad="$pc_bad profile"; }
+rm_f=sable-src/apps/r8/android/tasks/src/main/java/org/sableos/tasks/ui
+[[ -f "$rm_f/RowMotion.kt" ]] && grep -q 'rowMotion(task.id' "$rm_f/TasksApp.kt" || pc_bad="$pc_bad remind"
+if [[ -z "$pc_bad" ]]; then pass "Contacts focus bar and Remind row motion follow the BlackBerry profile"; else fail "profile in Contacts or Remind:$pc_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)

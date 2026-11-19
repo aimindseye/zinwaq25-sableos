@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 16:30:00 +0000
+Subject: [PATCH] SableOS: Contacts follows the BlackBerry profile (flat filled
+ focus bar on BlackBerry 7)
+
+PeopleActivity reads the whole-OS profile (Settings.Secure sable_profile).
+On BlackBerry 7 it applies the SableBb7Focus style over its theme, which
+replaces the list selector and selectableItemBackground with a flat bar
+the full width of the row, filled with the accent container colour, no
+outline and square corners. BlackBerry 10 (and a missing setting) keeps
+the 0755 rounded outline unchanged.
+---
+diff --git a/res/drawable/sable_selectable_item_bb7.xml b/res/drawable/sable_selectable_item_bb7.xml
+new file mode 100644
+index 0000000..253cee7
+--- /dev/null
++++ b/res/drawable/sable_selectable_item_bb7.xml
+@@ -0,0 +1,28 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- BlackBerry 7 list row / action background: a ripple for touch, and while the row has keyboard or
++     trackpad focus a flat filled bar the full width of the row (no outline, square corners). -->
++<ripple xmlns:android="http://schemas.android.com/apk/res/android"
++    android:color="@color/sable_ripple">
++  <item android:id="@android:id/mask">
++    <shape android:shape="rectangle">
++      <solid android:color="@android:color/white"/>
++    </shape>
++  </item>
++  <item>
++    <selector>
++      <item android:state_focused="true">
++        <color android:color="@color/sable_accent_container"/>
++      </item>
++      <item android:state_activated="true">
++        <color android:color="@color/sable_accent_container"/>
++      </item>
++      <item>
++        <color android:color="@android:color/transparent"/>
++      </item>
++    </selector>
++  </item>
++</ripple>
+diff --git a/res/values/sable_profile.xml b/res/values/sable_profile.xml
+new file mode 100644
+index 0000000..cd43bff
+--- /dev/null
++++ b/res/values/sable_profile.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++  Copyright (C) 2026 The SableOS Project
++  SPDX-License-Identifier: Apache-2.0
++-->
++<!-- Applied on top of the activity theme when the whole-OS profile is BlackBerry 7. -->
++<resources>
++  <style name="SableBb7Focus">
++    <item name="android:selectableItemBackground">@drawable/sable_selectable_item_bb7</item>
++    <item name="android:listSelector">@drawable/sable_selectable_item_bb7</item>
++  </style>
++</resources>
+diff --git a/src/com/android/contacts/activities/PeopleActivity.java b/src/com/android/contacts/activities/PeopleActivity.java
+index 6e60cd7..140b651 100644
+--- a/src/com/android/contacts/activities/PeopleActivity.java
++++ b/src/com/android/contacts/activities/PeopleActivity.java
+@@ -353,2 +353,7 @@
+         setTheme(R.style.PeopleActivityTheme);
++        // Sable: BlackBerry 7 shows the focused row as a flat filled bar (system setting sable_profile).
++        if ("bb7".equals(android.provider.Settings.Secure.getString(
++                getContentResolver(), "sable_profile"))) {
++            getTheme().applyStyle(R.style.SableBb7Focus, true);
++        }
+         super.onCreate(savedState);
+-- 
+2.43.0
+
