@@ -588,6 +588,13 @@ def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
         "SABLE_MAIL_FOCUS_RING",
     )
     require_text(
+        root / "legacy/ui/legacy/src/main/java/com/fsck/k9/ui/messagelist/item/MessageViewHolder.kt",
+        "com.fsck.k9.activity.SableMailProfile.applyRowFocus(itemView)",
+        "SABLE_MAIL_PROFILE_FOCUS",
+    )
+    if not (root / "legacy/ui/legacy/src/main/res/drawable/sable_mail_list_item_foreground_bb7.xml").is_file():
+        fail("SABLE_MAIL_PROFILE_FOCUS", "missing bb7 focus drawable")
+    require_text(
         home_activity,
         "if (SableMailLayout.forceSplitView(sableConfig.screenWidthDp, sableConfig.screenHeightDp)) return true",
         "SABLE_MAIL_SPLIT_PANE",

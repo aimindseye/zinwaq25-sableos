@@ -218,6 +218,8 @@ def copy_icon_resources(dest_res: Path) -> None:
 SABLE_KEYMAP_SOURCES = (
     "main/java/com/fsck/k9/activity/SableMailKeymap.kt",
     "test/java/com/fsck/k9/activity/SableMailKeymapTest.kt",
+    "main/java/com/fsck/k9/activity/SableMailProfile.kt",
+    "test/java/com/fsck/k9/activity/SableMailProfileTest.kt",
 )
 
 
@@ -589,6 +591,32 @@ def apply_keyboard_model(root: Path) -> None:
         res / "layout/message_list_item.xml",
         'android:foreground="?attr/selectableItemBackground"',
         'android:foreground="@drawable/sable_mail_list_item_foreground"',
+    )
+
+    # PROFILE_FOCUS: on BlackBerry 7 (Settings.Secure sable_profile) the focused message row is a flat filled
+    # bar instead of the ring; BlackBerry 10 keeps the ring.
+    write(
+        res / "drawable/sable_mail_list_item_foreground_bb7.xml",
+        """<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="?attr/selectableItemBackground" />
+    <item>
+        <selector>
+            <item android:state_focused="true">
+                <shape android:shape="rectangle">
+                    <solid android:color="?attr/colorSecondaryContainer" />
+                </shape>
+            </item>
+        </selector>
+    </item>
+</layer-list>
+""",
+    )
+    replace_once(
+        module / "main/java/com/fsck/k9/ui/messagelist/item/MessageViewHolder.kt",
+        "            itemView.setBackgroundColor(selectBackgroundColor(isSelected, isRead, isActive))\n",
+        "            itemView.setBackgroundColor(selectBackgroundColor(isSelected, isRead, isActive))\n"
+        "            com.fsck.k9.activity.SableMailProfile.applyRowFocus(itemView)\n",
     )
 
     replace_once(
