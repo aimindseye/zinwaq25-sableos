@@ -574,6 +574,12 @@ grep -q 'patch_hub_row_motion(root)' sable-src/apps/r8/launcher/apply_sable_flav
 grep -q '"hub_row_motion"' sable-src/apps/r8/launcher/verify_sable_launcher.py || rm_bad="$rm_bad verify"
 if [[ -z "$rm_bad" ]]; then pass "Hub rows: leave animation and tab-switch motion follow the profile"; else fail "hub row motion:$rm_bad"; fi
 
+# 6b0p. One Home menu: BBOS 7 long-press menu trimmed, BBOS 10 header gear gone.
+hm_bad=""
+grep -q 'patch_home_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || hm_bad="$hm_bad not-applied"
+grep -q '"home_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hm_bad="$hm_bad verify"
+if [[ -z "$hm_bad" ]]; then pass "Home menu: one menu on BBOS 7, no settings gear on BBOS 10"; else fail "home menu:$hm_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)

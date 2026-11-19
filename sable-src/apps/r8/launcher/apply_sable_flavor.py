@@ -2202,6 +2202,71 @@ def patch_hub_row_motion(root: pathlib.Path) -> None:
     )
 
 
+def patch_home_menu(root: pathlib.Path) -> None:
+    """One Home menu (owner decision 2026-11-19, matrix: BBOS 7 and BBOS 10 homes). The BBOS 7 long-press menu
+    keeps Add shortcut, Home settings (the launcher's settings, which also hold the panel darkness),
+    Wallpaper, the Frequent panel switch and Settings; Customize Home, Command (Alt+Space still opens it),
+    Launcher Settings and Lighter/Darker panels are gone from it. The BBOS 10 header loses its gear: the
+    Settings app is in All apps and the Command bar. The sound profile icon stays on both homes."""
+    bb7 = root / JAVA / "ui/Bb7HomeScreen.kt"
+    replace_once(
+        bb7,
+        "            add(\n"
+        "                \"Customize Home\" to {\n"
+        "                    context.startActivity(\n"
+        "                        Intent(context, io.github.aimindseye.tenseven.LauncherSettingsActivity::class.java)\n"
+        "                            .putExtra(\"tenseven.settings.category\", \"home\"),\n"
+        "                    )\n"
+        "                },\n"
+        "            )\n"
+        "            add(\"Command\" to { input.extra.onOpenCommand() })\n"
+        "            add(\n"
+        "                \"Launcher Settings\" to {\n",
+        "            add(\n"
+        "                \"Home settings\" to {\n",
+        "SABLE_HOME_MENU_ENTRIES",
+    )
+    replace_once(
+        bb7,
+        "            if (input.visual.scrimLevel > Bb7Scrim.MIN) {\n"
+        "                add(\"Lighter panels\" to { input.edits.onScrimChanged(Bb7Scrim.step(input.visual.scrimLevel, -1)) })\n"
+        "            }\n"
+        "            if (input.visual.scrimLevel < Bb7Scrim.MAX) {\n"
+        "                add(\"Darker panels\" to { input.edits.onScrimChanged(Bb7Scrim.step(input.visual.scrimLevel, 1)) })\n"
+        "            }\n",
+        "            add(\n"
+        "                \"Settings\" to {\n"
+        "                    context.startActivity(\n"
+        "                        Intent(android.provider.Settings.ACTION_SETTINGS)\n"
+        "                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),\n"
+        "                    )\n"
+        "                },\n"
+        "            )\n",
+        "SABLE_HOME_MENU_SCRIM",
+    )
+    replace_once(
+        root / JAVA / "ui/Bb10HomeChrome.kt",
+        "        if (onOpenSettings != null) {\n"
+        "            Text(\n"
+        "                text = \"\u2699\",\n"
+        "                color = Bb10Text,\n"
+        "                fontSize = 22.sp,\n"
+        "                modifier =\n"
+        "                    Modifier\n"
+        "                        .heightIn(min = 44.dp)\n"
+        "                        .width(44.dp)\n"
+        "                        .sableFocusRing()\n"
+        "                        .clickable(onClick = onOpenSettings)\n"
+        "                        .semantics { contentDescription = \"Launcher Settings\" },\n"
+        "                textAlign = TextAlign.Center,\n"
+        "            )\n"
+        "        }\n"
+        "        SoundProfileButton()\n",
+        "        SoundProfileButton()\n",
+        "SABLE_HOME_MENU_BB10_GEAR",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -2237,6 +2302,7 @@ def main() -> None:
     patch_hub_swipe_menu(root)
     patch_peek_motion(root)
     patch_hub_row_motion(root)
+    patch_home_menu(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
