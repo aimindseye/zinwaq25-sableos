@@ -696,6 +696,12 @@ grep -q 'apply_one_screen_setup(root)' "$os_d/apply_sable_flavor.py" || os_bad="
 grep -q 'SABLE_MAIL_ONE_SCREEN_SETUP' "$os_d/verify_sable_mail.py" || os_bad="$os_bad verify"
 if [[ -z "$os_bad" ]]; then pass "Sable Mail account setup is one screen"; else fail "mail one-screen setup:$os_bad"; fi
 
+# 6b0r. Mail rows leave and move with the profile's motion (BB7 150 ms, BB10 250 ms).
+rw_bad=""
+grep -q 'SableMailProfile.applyRowMotion' sable-src/apps/r8/mail/apply_sable_flavor.py || rw_bad="$rw_bad not-applied"
+grep -q 'SABLE_MAIL_ROW_MOTION' sable-src/apps/r8/mail/verify_sable_mail.py || rw_bad="$rw_bad verify"
+if [[ -z "$rw_bad" ]]; then pass "Mail rows: delete and archive motion follow the profile"; else fail "mail row motion:$rw_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
