@@ -2225,6 +2225,168 @@ def patch_bb7_full_menu(root: pathlib.Path) -> None:
     )
 
 
+def patch_bb7_short_menu(root: pathlib.Path) -> None:
+    """BBOS 7 short menu (owner decision 2026-11-19, from Bold7): a trackpad hold on the home screen opens a
+    3 x 3 grid of the actions used most (Switch Application, Full Menu, Phone, Settings, Connections, Sound,
+    Display, Bluetooth, Wallpaper); the Menu key keeps the full menu. A trackpad press now acts on release,
+    so a hold can be told apart from a press; holding opens the grid instead of launching."""
+    shutil.copyfile(HERE / "src/SableShortMenu.kt", root / JAVA / "ui/SableShortMenu.kt")
+    shutil.copyfile(HERE / "src/SableShortMenuTest.kt", root / TEST / "ui/SableShortMenuTest.kt")
+    bb7 = root / JAVA / "ui/Bb7HomeScreen.kt"
+    replace_once(
+        bb7,
+        "    fun onKey(event: androidx.compose.ui.input.key.KeyEvent): Boolean {\n"
+        "        if (event.type != KeyEventType.KeyDown) return false\n"
+        "        val key = event.nativeKeyEvent\n",
+        "    fun onKey(event: androidx.compose.ui.input.key.KeyEvent): Boolean {\n"
+        "        val native = event.nativeKeyEvent\n"
+        "        if (native.keyCode == KeyEvent.KEYCODE_DPAD_CENTER && !state.moving) {\n"
+        "            return centerKey(event.type, native)\n"
+        "        }\n"
+        "        if (event.type != KeyEventType.KeyDown) return false\n"
+        "        return handle(native)\n"
+        "    }\n"
+        "\n"
+        "    /** Trackpad press: acts on release; a hold (the second repeat of the down) opens the short menu. */\n"
+        "    private fun centerKey(type: KeyEventType, key: KeyEvent): Boolean {\n"
+        "        when (type) {\n"
+        "            KeyEventType.KeyDown -> {\n"
+        "                if (key.repeatCount == 0) {\n"
+        "                    SableCenterPress.pending = key\n"
+        "                } else if (SableCenterPress.pending != null) {\n"
+        "                    SableCenterPress.pending = null\n"
+        "                    input.launch.onOpenMenu(actions.shortMenu())\n"
+        "                }\n"
+        "                return true\n"
+        "            }\n"
+        "\n"
+        "            KeyEventType.KeyUp -> {\n"
+        "                val pressed = SableCenterPress.pending ?: return false\n"
+        "                SableCenterPress.pending = null\n"
+        "                return handle(pressed)\n"
+        "            }\n"
+        "\n"
+        "            else -> return false\n"
+        "        }\n"
+        "    }\n"
+        "\n"
+        "    private fun handle(key: KeyEvent): Boolean {\n",
+        "SABLE_BB7_SHORT_MENU_KEYS",
+    )
+    replace_once(
+        bb7,
+        "    fun menuFor(\n"
+        "        app: AppEntry?,\n"
+        "        fromDesktop: Boolean,\n",
+        "    fun shortMenu(): List<Pair<String, () -> Unit>> {\n"
+        "        fun open(action: String) {\n"
+        "            context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))\n"
+        "        }\n"
+        "        val cells: Map<String, () -> Unit> =\n"
+        "            mapOf(\n"
+        "                \"Switch Application\" to {\n"
+        "                    context.startActivity(\n"
+        "                        Intent(context, io.github.aimindseye.tenseven.SableStartActivity::class.java)\n"
+        "                            .setAction(io.github.aimindseye.tenseven.SableStartActivity.ACTION_SHOW_ACTIVE_FRAMES)\n"
+        "                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),\n"
+        "                    )\n"
+        "                },\n"
+        "                \"Full Menu\" to { input.launch.onOpenMenu(menuFor(null, false)) },\n"
+        "                \"Phone\" to { open(Intent.ACTION_DIAL) },\n"
+        "                \"Settings\" to { open(android.provider.Settings.ACTION_SETTINGS) },\n"
+        "                \"Connections\" to { open(android.provider.Settings.ACTION_WIRELESS_SETTINGS) },\n"
+        "                \"Sound\" to { open(android.provider.Settings.ACTION_SOUND_SETTINGS) },\n"
+        "                \"Display\" to { open(android.provider.Settings.ACTION_DISPLAY_SETTINGS) },\n"
+        "                \"Bluetooth\" to { open(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS) },\n"
+        "                \"Wallpaper\" to { input.extra.onOpenWallpaper() },\n"
+        "            )\n"
+        "        return SableShortMenu(SableShortMenu.TITLES.mapNotNull { title -> cells[title]?.let { title to it } })\n"
+        "    }\n"
+        "\n"
+        "    fun menuFor(\n"
+        "        app: AppEntry?,\n"
+        "        fromDesktop: Boolean,\n",
+        "SABLE_BB7_SHORT_MENU_ACTIONS",
+    )
+    start = root / JAVA / "SableStartActivity.kt"
+    replace_once(
+        start,
+        "    private fun showBb7Menu(contextual: List<Pair<String, () -> Unit>>) {\n",
+        "    /** The BBOS 7 short menu: nine cells in a 3 x 3 grid, the focused cell filled blue. */\n"
+        "    private fun showBb7ShortMenu(items: List<Pair<String, () -> Unit>>) {\n"
+        "        val density = resources.displayMetrics.density\n"
+        "\n"
+        "        fun dp(value: Int) = (value * density).toInt()\n"
+        "        var dialog: AlertDialog? = null\n"
+        "        val grid =\n"
+        "            android.widget.GridLayout(this).apply {\n"
+        "                columnCount = io.github.aimindseye.tenseven.ui.SableShortMenu.COLUMNS\n"
+        "                setPadding(dp(8), dp(8), dp(8), dp(8))\n"
+        "            }\n"
+        "        items.forEach { (title, action) ->\n"
+        "            val cell =\n"
+        "                android.widget.TextView(this).apply {\n"
+        "                    text = title\n"
+        "                    setTextColor(Color.WHITE)\n"
+        "                    textSize = 13f\n"
+        "                    gravity = android.view.Gravity.CENTER\n"
+        "                    setPadding(dp(4), dp(16), dp(4), dp(16))\n"
+        "                    isFocusable = true\n"
+        "                    isClickable = true\n"
+        "                    background =\n"
+        "                        android.graphics.drawable.StateListDrawable().apply {\n"
+        "                            addState(intArrayOf(android.R.attr.state_focused), ColorDrawable(Color.rgb(0x2E, 0x9B, 0xD6)))\n"
+        "                            addState(intArrayOf(), ColorDrawable(Color.TRANSPARENT))\n"
+        "                        }\n"
+        "                    setOnClickListener {\n"
+        "                        dialog?.dismiss()\n"
+        "                        action()\n"
+        "                    }\n"
+        "                    // The held trackpad key keeps repeating into this dialog: only a fresh press acts.\n"
+        "                    setOnKeyListener { _, keyCode, event ->\n"
+        "                        if (event.action == android.view.KeyEvent.ACTION_DOWN &&\n"
+        "                            event.repeatCount == 0 &&\n"
+        "                            (\n"
+        "                                keyCode == android.view.KeyEvent.KEYCODE_ENTER ||\n"
+        "                                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER\n"
+        "                            )\n"
+        "                        ) {\n"
+        "                            performClick()\n"
+        "                            true\n"
+        "                        } else {\n"
+        "                            false\n"
+        "                        }\n"
+        "                    }\n"
+        "                }\n"
+        "            grid.addView(\n"
+        "                cell,\n"
+        "                android.widget.GridLayout.LayoutParams(\n"
+        "                    android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED),\n"
+        "                    android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f),\n"
+        "                ).apply { width = 0 },\n"
+        "            )\n"
+        "        }\n"
+        "        val shortDialog = AlertDialog.Builder(this).setView(grid).create()\n"
+        "        dialog = shortDialog\n"
+        "        shortDialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))\n"
+        "        shortDialog.show()\n"
+        "        shortDialog.window?.setBackgroundDrawable(ColorDrawable(Color.argb(225, 22, 31, 47)))\n"
+        "        shortDialog.window?.setLayout(\n"
+        "            (resources.displayMetrics.widthPixels * MENU_WIDTH_FRACTION).toInt(),\n"
+        "            WindowManager.LayoutParams.WRAP_CONTENT,\n"
+        "        )\n"
+        "        grid.getChildAt(0)?.requestFocus()\n"
+        "    }\n"
+        "\n"
+        "    private fun showBb7Menu(contextual: List<Pair<String, () -> Unit>>) {\n"
+        "        if (contextual is io.github.aimindseye.tenseven.ui.SableShortMenu) {\n"
+        "            showBb7ShortMenu(contextual)\n"
+        "            return\n"
+        "        }\n",
+        "SABLE_BB7_SHORT_MENU_GRID",
+    )
+
+
 def patch_home_menu(root: pathlib.Path) -> None:
     """One Home menu (owner decision 2026-11-19, matrix: BBOS 7 and BBOS 10 homes). The BBOS 7 long-press menu
     keeps Add shortcut, Home settings (the launcher's settings, which also hold the panel darkness),
@@ -2403,6 +2565,7 @@ def main() -> None:
     patch_peek_motion(root)
     patch_hub_row_motion(root)
     patch_bb7_full_menu(root)
+    patch_bb7_short_menu(root)
     patch_home_menu(root)
     patch_home_size(root)
     patch_bb7_dial(root)

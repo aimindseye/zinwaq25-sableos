@@ -647,6 +647,13 @@ bn_p=(patches/framework/frameworks/base/0508-*.patch)
 [[ -z "$bn_bad" ]] && { grep -q 'SableBb7Banner' "${bn_p[0]}" || bn_bad="$bn_bad banner"; grep -q 'ACTION_WIRELESS_SETTINGS' "${bn_p[0]}" || bn_bad="$bn_bad action"; grep -q '"bb7"' "${bn_p[0]}" || bn_bad="$bn_bad profile"; }
 if [[ -z "$bn_bad" ]]; then pass "shade: BBOS 7 banner opens Manage Connections (framework 0508)"; else fail "bb7 banner:$bn_bad"; fi
 
+# 6b0s. BBOS 7 short menu: a trackpad hold opens a 3 x 3 grid.
+sm_bad=""
+grep -q 'patch_bb7_short_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || sm_bad="$sm_bad not-applied"
+grep -q '"bb7_short_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || sm_bad="$sm_bad verify"
+[[ -f sable-src/apps/r8/launcher/src/SableShortMenuTest.kt ]] || sm_bad="$sm_bad test"
+if [[ -z "$sm_bad" ]]; then pass "BBOS 7 home: trackpad hold opens the 3 x 3 short menu"; else fail "bb7 short menu:$sm_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
