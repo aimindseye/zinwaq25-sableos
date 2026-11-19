@@ -29,6 +29,9 @@ public class SableFmProtocolTest {
     public void commandsAndBand() {
         assertTrue(SableFmProtocol.isKnownCommand(SableFmProtocol.MSG_REGISTER));
         assertTrue(SableFmProtocol.isKnownCommand(SableFmProtocol.MSG_GET_STATE));
+        assertTrue(SableFmProtocol.isKnownCommand(SableFmProtocol.MSG_RECORD_START));
+        assertTrue(SableFmProtocol.isKnownCommand(SableFmProtocol.MSG_RECORD_STOP));
+        assertFalse(SableFmProtocol.isKnownCommand(SableFmProtocol.MSG_RECORD_STOP + 1));
         assertFalse(SableFmProtocol.isKnownCommand(SableFmProtocol.MSG_STATE));
         assertFalse(SableFmProtocol.isKnownCommand(0));
         assertTrue(SableFmProtocol.isValidStation(875));

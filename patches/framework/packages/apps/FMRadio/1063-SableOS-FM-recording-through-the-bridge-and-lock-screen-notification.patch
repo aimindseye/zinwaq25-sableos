@@ -1,0 +1,203 @@
+From 95986100b3bc4ad1f909da3a4d7861f94673e6d8 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 21:53:26 +0000
+Subject: [PATCH 1063/1063] SableOS: FM recording through the bridge, and the playing
+ notification on the lock screen
+
+The bridge gets MSG_RECORD_START and MSG_RECORD_STOP and reports whether a
+recording is running, how long it has run and the last saved name. A
+recording the bridge started is saved as soon as the recorder goes idle,
+under Recordings/FM recordings so Sable Media finds it in MediaStore. The
+playing notification and its channel are public on the lock screen.
+---
+ src/com/android/fmradio/FmRecorder.java       |  6 +--
+ src/com/android/fmradio/FmService.java        |  4 ++
+ .../android/fmradio/SableFmBridgeService.java | 52 +++++++++++++++++++
+ .../fmradio/sable/SableFmProtocol.java        | 12 ++++-
+ 4 files changed, 70 insertions(+), 4 deletions(-)
+
+diff --git a/src/com/android/fmradio/FmRecorder.java b/src/com/android/fmradio/FmRecorder.java
+index 690234b..20131d0 100644
+--- a/src/com/android/fmradio/FmRecorder.java
++++ b/src/com/android/fmradio/FmRecorder.java
+@@ -48,10 +48,10 @@ public class FmRecorder implements AudioRecorder.Callback {
+     // file extension
+     public static final String RECORDING_FILE_EXTENSION = ".3gpp";
+     // recording file folder
+-    public static final String FM_RECORD_FOLDER = "Documents/FM Recording";
++    public static final String FM_RECORD_FOLDER = "Recordings/FM recordings";
+     public static final Uri RECORDINGS_URI = Uri.parse("content://" +
+                                 "com.android.externalstorage.documents/document/" +
+-                                "primary%3ADocuments%2FFM%20Recording");
++                                "primary%3ARecordings%2FFM%20recordings");
+     private static final String RECORDING_FILE_TYPE = "audio/3gpp";
+     private static final String RECORDING_FILE_SOURCE = "FM Recordings";
+     // error type no sdcard
+@@ -128,7 +128,7 @@ public class FmRecorder implements AudioRecorder.Callback {
+             setError(ERROR_SDCARD_WRITE_FAILED);
+             return;
+         } else if (!recordingDir.exists()) { // try to create recording folder
+-            boolean mkdirResult = recordingDir.mkdir();
++            boolean mkdirResult = recordingDir.mkdirs();
+             if (!mkdirResult) { // create recording file failed
+                 setError(ERROR_RECORDER_INTERNAL);
+                 return;
+diff --git a/src/com/android/fmradio/FmService.java b/src/com/android/fmradio/FmService.java
+index 461302d..d4c97df 100644
+--- a/src/com/android/fmradio/FmService.java
++++ b/src/com/android/fmradio/FmService.java
+@@ -1971,6 +1971,8 @@ public class FmService extends Service implements FmRecorder.OnRecorderStateChan
+                     getString(R.string.channel_playback_name), NotificationManager.IMPORTANCE_LOW);
+             channel.setDescription(getString(R.string.channel_playback_description));
+             channel.setBlockable(true);
++            // SableOS: the playing notification is shown in full on the lock screen.
++            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+             notificationManager.createNotificationChannel(channel);
+         }
+ 
+@@ -1979,6 +1981,8 @@ public class FmService extends Service implements FmRecorder.OnRecorderStateChan
+             mNotificationBuilder.setSmallIcon(R.mipmap.ic_launcher);
+             mNotificationBuilder.setShowWhen(false);
+             mNotificationBuilder.setAutoCancel(true);
++            mNotificationBuilder.setVisibility(Notification.VISIBILITY_PUBLIC);
++            mNotificationBuilder.setCategory(Notification.CATEGORY_TRANSPORT);
+ 
+             Intent intent = new Intent(FM_SEEK_PREVIOUS);
+             intent.setClass(mContext, FmService.class);
+diff --git a/src/com/android/fmradio/SableFmBridgeService.java b/src/com/android/fmradio/SableFmBridgeService.java
+index b16dcdd..810f894 100644
+--- a/src/com/android/fmradio/SableFmBridgeService.java
++++ b/src/com/android/fmradio/SableFmBridgeService.java
+@@ -37,7 +37,10 @@ import android.util.Log;
+ import com.android.fmradio.FmStation.Station;
+ import com.android.fmradio.sable.SableFmProtocol;
+ 
++import java.text.SimpleDateFormat;
+ import java.util.ArrayList;
++import java.util.Date;
++import java.util.Locale;
+ 
+ /**
+  * Lets Sable Media drive the FM tuner. The MediaTek FM chip is reached through
+@@ -59,6 +62,18 @@ public class SableFmBridgeService extends Service implements FmListener {
+     private boolean mBound;
+     private int mLastEvent;
+     private boolean mLastOk = true;
++    // SableOS: a recording started through this bridge, saved as soon as the recorder goes idle.
++    private boolean mBridgeRecording;
++    private String mLastRecordFile = "";
++    private final Runnable mRecordTick = new Runnable() {
++        @Override
++        public void run() {
++            broadcastState();
++            if (mBridgeRecording) {
++                mHandler.postDelayed(this, 1000);
++            }
++        }
++    };
+ 
+     private final ServiceConnection mConnection = new ServiceConnection() {
+         @Override
+@@ -207,6 +222,20 @@ public class SableFmBridgeService extends Service implements FmListener {
+             case SableFmProtocol.MSG_SET_MUTE:
+                 service.setMuteAsync(msg.arg1 != 0);
+                 break;
++            case SableFmProtocol.MSG_RECORD_START:
++                if (service.getPowerStatus() == FmService.POWER_UP
++                        && service.getRecorderState() != FmRecorder.STATE_RECORDING) {
++                    mBridgeRecording = true;
++                    service.startRecordingAsync();
++                    mHandler.removeCallbacks(mRecordTick);
++                    mHandler.postDelayed(mRecordTick, 1000);
++                }
++                break;
++            case SableFmProtocol.MSG_RECORD_STOP:
++                if (service.getRecorderState() == FmRecorder.STATE_RECORDING) {
++                    service.stopRecordingAsync();
++                }
++                break;
+             default:
+                 break;
+         }
+@@ -231,13 +260,32 @@ public class SableFmBridgeService extends Service implements FmListener {
+                 ok = true;
+                 break;
+         }
++        final int recorderState = flag == FmListener.LISTEN_RECORDSTATE_CHANGED
++                ? bundle.getInt(FmListener.KEY_RECORDING_STATE) : -1;
+         mHandler.post(() -> {
++            if (recorderState == FmRecorder.STATE_IDLE) {
++                saveBridgeRecording();
++            }
+             mLastEvent = flag;
+             mLastOk = ok;
+             broadcastState();
+         });
+     }
+ 
++    /** The recorder stopped (stop, power off or error): keep what was recorded. */
++    private void saveBridgeRecording() {
++        FmService service = mService;
++        if (!mBridgeRecording || service == null) {
++            return;
++        }
++        mBridgeRecording = false;
++        String name = FmRecorder.RECORDING_FILE_PREFIX + " "
++                + FmUtils.formatStation(service.getFrequency()) + " "
++                + new SimpleDateFormat("yyyy-MM-dd HH.mm.ss", Locale.ROOT).format(new Date());
++        service.saveRecordingAsync(name);
++        mLastRecordFile = name;
++    }
++
+     private Bundle state() {
+         Bundle b = new Bundle();
+         FmService service = mService;
+@@ -246,6 +294,10 @@ public class SableFmBridgeService extends Service implements FmListener {
+         if (service == null) {
+             return b;
+         }
++        b.putBoolean(SableFmProtocol.KEY_RECORDING,
++                service.getRecorderState() == FmRecorder.STATE_RECORDING);
++        b.putLong(SableFmProtocol.KEY_RECORD_MS, service.getRecordTime());
++        b.putString(SableFmProtocol.KEY_RECORD_FILE, mLastRecordFile);
+         b.putBoolean(SableFmProtocol.KEY_POWERED, service.getPowerStatus() == FmService.POWER_UP);
+         b.putInt(SableFmProtocol.KEY_STATION, service.getFrequency());
+         b.putBoolean(SableFmProtocol.KEY_ANTENNA, service.isAntennaAvailable());
+diff --git a/src/com/android/fmradio/sable/SableFmProtocol.java b/src/com/android/fmradio/sable/SableFmProtocol.java
+index e59f155..30e1d9c 100644
+--- a/src/com/android/fmradio/sable/SableFmProtocol.java
++++ b/src/com/android/fmradio/sable/SableFmProtocol.java
+@@ -51,6 +51,10 @@ public final class SableFmProtocol {
+     /** arg1: 1 mute, 0 unmute. */
+     public static final int MSG_SET_MUTE = 10;
+     public static final int MSG_GET_STATE = 11;
++    /** Starts recording what the tuner plays; the radio must be on. */
++    public static final int MSG_RECORD_START = 12;
++    /** Stops the recording and saves it under Recordings/FM recordings. */
++    public static final int MSG_RECORD_STOP = 13;
+ 
+     // Bridge -> client.
+     public static final int MSG_STATE = 100;
+@@ -72,12 +76,18 @@ public final class SableFmProtocol {
+     public static final String KEY_EVENT = "event";
+     /** false when the last tune, seek or power-up failed. */
+     public static final String KEY_OK = "ok";
++    /** true while a recording is running. */
++    public static final String KEY_RECORDING = "recording";
++    /** Milliseconds recorded so far (long). */
++    public static final String KEY_RECORD_MS = "record_ms";
++    /** Name of the last saved recording, or "". */
++    public static final String KEY_RECORD_FILE = "record_file";
+ 
+     public static final int LOWEST_STATION = 875;
+     public static final int HIGHEST_STATION = 1080;
+ 
+     public static boolean isKnownCommand(int what) {
+-        return what >= MSG_REGISTER && what <= MSG_GET_STATE;
++        return what >= MSG_REGISTER && what <= MSG_RECORD_STOP;
+     }
+ 
+     public static boolean isValidStation(int station) {
+-- 
+2.43.0
+
