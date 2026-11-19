@@ -56,6 +56,9 @@ def main() -> None:
         "bb7_full_menu": "Switch Application" in (root / JAVA / "ui/Bb7HomeScreen.kt").read_text(encoding="utf-8"),
         "bb7_dial": (root / JAVA / "ui/SableDial.kt").is_file()
         and "SableDial.isNumber" in (root / JAVA / "ui/Bb7HomeScreen.kt").read_text(encoding="utf-8"),
+        "bb7_short_menu": (root / JAVA / "ui/SableShortMenu.kt").is_file()
+        and "showBb7ShortMenu" in (root / JAVA / "SableStartActivity.kt").read_text(encoding="utf-8")
+        and "SableCenterPress" in (root / JAVA / "ui/Bb7HomeScreen.kt").read_text(encoding="utf-8"),
         "home_menu": "Customize Home" not in (root / JAVA / "ui/Bb7HomeScreen.kt").read_text(encoding="utf-8"),
         "home_size": "val DEFAULT = Large" in (root / JAVA / "model/LauncherSettings.kt").read_text(encoding="utf-8"),
         "hub_row_motion": "sableRowMotion" in (root / JAVA / "ui/HubConversationsUi.kt").read_text(encoding="utf-8"),
