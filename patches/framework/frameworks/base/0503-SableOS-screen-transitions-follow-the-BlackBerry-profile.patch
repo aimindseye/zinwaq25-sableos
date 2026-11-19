@@ -10,8 +10,8 @@ BlackBerry 7.1 and BlackBerry 10 UI guidelines). TransitionAnimation
 bb7 fades in 150 ms and zooms 110 percent between levels (zoom in to a child,
 zoom out to a parent, an app opens by zooming in), bb10 slides and fades in
 250 ms with a decelerating curve, two effects per element. No profile value,
-or an app's own animation, keeps the stock one. Eight new animation files,
-no new public resource.
+or an app's own animation, keeps the stock one. Eight new animation files
+and their private java-symbols, no new public resource.
 ---
 diff --git a/core/java/com/android/internal/policy/TransitionAnimation.java b/core/java/com/android/internal/policy/TransitionAnimation.java
 index 4dc74d9..6f1e514 100644
@@ -25,7 +25,7 @@ index 4dc74d9..6f1e514 100644
          if (ResourceId.isValid(resId)) {
              AttributeCache.Entry ent = getCachedAnimations(packageName, resId, userId);
              if (ent != null) {
-@@ -244,6 +245,50 @@
+@@ -244,6 +245,48 @@
          return null;
      }
  
@@ -43,10 +43,8 @@ index 4dc74d9..6f1e514 100644
 +                || resId == R.anim.task_open_enter;
 +        final boolean openExit = resId == R.anim.activity_open_exit
 +                || resId == R.anim.task_open_exit;
-+        final boolean closeEnter = resId == R.anim.activity_close_enter
-+                || resId == R.anim.task_close_enter;
-+        final boolean closeExit = resId == R.anim.activity_close_exit
-+                || resId == R.anim.task_close_exit;
++        final boolean closeEnter = resId == R.anim.activity_close_enter;
++        final boolean closeExit = resId == R.anim.activity_close_exit;
 +        if (!open && !openExit && !closeEnter && !closeExit) {
 +            return resId;
 +        }
@@ -76,6 +74,24 @@ index 4dc74d9..6f1e514 100644
      /** Same as {@code loadAnimationRes} for current user. */
      @Nullable
      public Animation loadAnimationRes(String packageName, int resId) {
+diff --git a/core/res/res/values/sable_symbols.xml b/core/res/res/values/sable_symbols.xml
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/core/res/res/values/sable_symbols.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SableOS: private symbols so TransitionAnimation can name the profile transition animations. -->
++<resources>
++    <java-symbol type="anim" name="sable_bb7_open_enter" />
++    <java-symbol type="anim" name="sable_bb7_open_exit" />
++    <java-symbol type="anim" name="sable_bb7_close_enter" />
++    <java-symbol type="anim" name="sable_bb7_close_exit" />
++    <java-symbol type="anim" name="sable_bb10_open_enter" />
++    <java-symbol type="anim" name="sable_bb10_open_exit" />
++    <java-symbol type="anim" name="sable_bb10_close_enter" />
++    <java-symbol type="anim" name="sable_bb10_close_exit" />
++</resources>
 diff --git a/core/res/res/anim/sable_bb10_close_enter.xml b/core/res/res/anim/sable_bb10_close_enter.xml
 new file mode 100644
 index 0000000..3dff246
