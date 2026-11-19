@@ -1,0 +1,352 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 16:00:00 +0000
+Subject: [PATCH] SableOS: Settings top level is one flat list on BlackBerry 7
+
+Owner decision 2026-11-19. On the BBOS 7 profile (Settings.Secure sable_profile
+is bb7) the Settings homepage is one flat Options-style list: the same screen
+as the ten BlackBerry 10 rows, with the six grouped rows replaced by the
+entries they group (res/xml/top_level_settings_bb7.xml), so every entry keeps
+its key, controller, summary and visibility rules. BBOS 10 keeps the ten rows.
+---
+ res/xml/top_level_settings_bb7.xml                          | 309 ++++++++++++++++++++
+ src/com/android/settings/homepage/TopLevelSettings.java     |   8 +-
+ 2 files changed, 316 insertions(+), 1 deletion(-)
+
+diff --git a/res/xml/top_level_settings_bb7.xml b/res/xml/top_level_settings_bb7.xml
+new file mode 100644
+index 0000000..274a222
+--- /dev/null
++++ b/res/xml/top_level_settings_bb7.xml
+@@ -0,0 +1,309 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<!-- SableOS: the BlackBerry 7 style Settings top level (Sable 2.0), one flat list like BlackBerry 7's
++     Options. It is top_level_settings.xml with the six grouped rows replaced by the entries they
++     group, so the same entries, controllers and keys show without a second level. Letters find a
++     row. -->
++
++<PreferenceScreen
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:settings="http://schemas.android.com/apk/res-auto"
++    android:key="top_level_settings">
++
++    <PreferenceCategory
++        android:order="-140"
++        android:key="top_level_account_category"
++        android:layout="@layout/settingslib_untitled_preference_category">
++    </PreferenceCategory>
++
++    <!-- SableOS: BlackBerry 10 order (owner pick 2026-11-05, reorder only): Sable first, then
++         Networks, Notifications, Apps, Display, Security and privacy, Accessibility, Device,
++         Storage, Battery and About. Nothing is hidden. -->
++    <PreferenceCategory
++        android:order="-135"
++        android:key="top_level_sable_category"
++        android:layout="@layout/settingslib_expressive_untitled_preference_category">
++        <!-- SableOS: Settings > Sable, one list of the Sable settings (SableSettingsFragment). -->
++        <com.android.settings.widget.HomepagePreference
++            android:fragment="com.android.settings.sable.SableSettingsFragment"
++            android:icon="@drawable/ic_sable_settings_filled"
++            android:key="top_level_sable"
++            android:order="10"
++            android:title="@string/sable_settings_title"
++            android:summary="@string/sable_settings_summary"
++            settings:highlightableMenuKey="@string/menu_key_sable"
++            settings:controller="com.android.settings.sable.TopLevelSablePreferenceController"/>
++    </PreferenceCategory>
++
++    <PreferenceCategory
++        android:order="-130"
++        android:key="top_level_connectivity_category"
++        android:layout="@layout/settingslib_expressive_untitled_preference_category">
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.network.NetworkDashboardFragment"
++        android:icon="@drawable/ic_settings_wireless_filled"
++        android:key="top_level_network"
++        android:order="10"
++        android:title="@string/network_dashboard_title"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.network.TopLevelNetworkEntryPreferenceController"/>
++
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.connecteddevice.ConnectedDeviceDashboardFragment"
++        android:icon="@drawable/ic_devices_other_filled"
++        android:key="top_level_connected_devices"
++        android:order="20"
++        android:title="@string/connected_devices_dashboard_title"
++        android:summary="@string/connected_devices_dashboard_default_summary"
++        settings:controller="com.android.settings.connecteddevice.TopLevelConnectedDevicesPreferenceController"/>
++
++    </PreferenceCategory>
++
++    <PreferenceCategory
++        android:order="-120"
++        android:key="top_level_personalize_category"
++        android:layout="@layout/settingslib_expressive_untitled_preference_category">
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.DisplaySettings"
++        android:icon="@drawable/ic_settings_display_filled"
++        android:key="top_level_display"
++        android:order="10"
++        android:title="@string/display_settings"
++        android:summary="@string/display_dashboard_summary"
++        settings:controller="com.android.settings.display.TopLevelDisplayPreferenceController"/>
++
++    <com.android.settings.widget.RestrictedHomepagePreference
++        android:icon="@drawable/ic_settings_wallpaper_filled"
++        android:key="top_level_wallpaper"
++        android:order="20"
++        android:title="@string/wallpaper_settings_title"
++        android:summary="@string/wallpaper_dashboard_summary"
++        settings:controller="com.android.settings.display.TopLevelWallpaperPreferenceController"/>
++
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.communal.CommunalDashboardFragment"
++        android:icon="@drawable/ia_settings_communal"
++        android:key="top_level_communal"
++        android:order="30"
++        android:title="@string/communal_settings_title"
++        android:summary="@string/communal_settings_summary"
++        settings:controller="com.android.settings.communal.CommunalPreferenceController"/>
++
++
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.notification.ConfigureNotificationSettings"
++        android:icon="@drawable/ic_notifications_filled"
++        android:key="top_level_notifications"
++        android:order="40"
++        android:title="@string/configure_notification_settings"
++        android:summary="@string/notification_dashboard_summary"/>
++
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.notification.SoundSettings"
++        android:icon="@drawable/ic_volume_up_filled"
++        android:key="top_level_sound"
++        android:order="50"
++        android:title="@string/sound_settings"
++        android:summary="@string/sound_dashboard_summary"/>
++
++    <com.android.settings.widget.RestrictedHomepagePreference
++        android:fragment="com.android.settings.notification.modes.ZenModesListFragment"
++        android:icon="@*android:drawable/ic_zen_priority_modes"
++        android:key="top_level_priority_modes"
++        android:order="60"
++        android:title="@string/zen_modes_list_title"
++        settings:useAdminDisabledSummary="true"
++        settings:controller="com.android.settings.notification.modes.ZenModesLinkPreferenceController"/>
++
++
++        <com.android.settings.widget.HomepagePreference
++            android:fragment="com.android.settings.applications.AppDashboardFragment"
++            android:icon="@drawable/ic_apps_filled"
++            android:key="top_level_apps"
++            android:order="70"
++            android:title="@string/apps_dashboard_title"
++            android:summary="@string/app_and_notification_dashboard_summary"
++            settings:highlightableMenuKey="@string/menu_key_apps"
++            settings:controller="com.android.settings.applications.sable.TopLevelAppsPreferenceController"/>
++
++        <!-- SableOS: top-level Keyboard & input (approved Settings design): Android's keyboard
++             page with the Sable typing test and diagnostics links. -->
++        <com.android.settings.widget.HomepagePreference
++            android:fragment="com.android.settings.inputmethod.KeyboardSettings"
++            android:icon="@drawable/ic_settings_keyboards"
++            android:key="top_level_keyboard_input"
++            android:order="80"
++            android:title="@string/sable_keyboard_input_title"
++            android:summary="@string/sable_keyboard_input_summary"
++            settings:highlightableMenuKey="@string/menu_key_sable_keyboard_input"/>
++    </PreferenceCategory>
++
++    <PreferenceCategory
++        android:order="-110"
++        android:key="top_level_system_info_category"
++        android:layout="@layout/settingslib_expressive_untitled_preference_category">
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.system.SystemDashboardFragment"
++        android:icon="@drawable/ic_settings_system_dashboard_filled"
++        android:key="top_level_system"
++        android:order="10"
++        android:title="@string/header_category_system"
++        android:summary="@string/system_dashboard_summary"/>
++
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.accessibility.AccessibilitySettings"
++        android:icon="@drawable/ic_settings_accessibility_filled"
++        android:key="top_level_accessibility"
++        android:order="20"
++        android:title="@string/accessibility_settings"
++        android:summary="@string/accessibility_settings_summary"
++        settings:controller="com.android.settings.accessibility.TopLevelAccessibilityPreferenceController"/>
++
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.deviceinfo.aboutphone.MyDeviceInfoFragment"
++        android:icon="@drawable/ic_settings_about_device_filled"
++        android:key="top_level_about_device"
++        android:order="30"
++        android:title="@string/about_settings"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.deviceinfo.aboutphone.TopLevelAboutDevicePreferenceController"/>
++
++
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.deviceinfo.StorageDashboardFragment"
++        android:icon="@drawable/ic_storage_filled"
++        android:key="top_level_storage"
++        android:order="40"
++        android:title="@string/storage_settings"
++        android:summary="@string/summary_placeholder"
++        settings:controller="com.android.settings.deviceinfo.TopLevelStoragePreferenceController"/>
++
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.backup.AccountsAndBackupDashboardFragment"
++        android:icon="@drawable/ic_settings_accounts_and_backup_filled"
++        android:key="top_level_accounts_and_backup"
++        android:order="50"
++        android:title="@string/accounts_and_backup_title"
++        android:summary="@string/accounts_and_backup_summary"
++        settings:controller="com.android.settings.backup.TopLevelAccountsAndBackupEntryPreferenceController"/>
++
++
++
++        <com.android.settings.widget.HomepagePreference
++            android:fragment="com.android.settings.fuelgauge.batteryusage.PowerUsageSummary"
++            android:icon="@drawable/ic_settings_battery_filled"
++            android:key="top_level_battery"
++            android:order="60"
++            android:title="@string/power_usage_summary_title"
++            android:summary="@string/summary_placeholder"
++            settings:highlightableMenuKey="@string/menu_key_battery"
++            settings:controller="com.android.settings.fuelgauge.TopLevelBatteryPreferenceController"/>
++    </PreferenceCategory>
++
++    <PreferenceCategory
++        android:order="-115"
++        android:key="top_level_security_privacy_category"
++        android:layout="@layout/settingslib_expressive_untitled_preference_category">
++    <com.android.settings.widget.HomepagePreference
++        android:icon="@drawable/ic_settings_safety_center_filled"
++        android:key="top_level_safety_center"
++        android:order="10"
++        android:title="@string/sable_privacy_security_title"
++        android:summary="@string/safety_center_summary"
++        settings:controller="com.android.settings.safetycenter.TopLevelSafetyCenterEntryPreferenceController"/>
++
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.security.SecuritySettings"
++        android:icon="@drawable/ic_settings_security_filled"
++        android:key="top_level_security"
++        android:order="20"
++        android:title="@string/security_settings_title"
++        android:summary="@string/security_dashboard_summary"
++        settings:controller="com.android.settings.security.TopLevelSecurityEntryPreferenceController"/>
++
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.privacy.PrivacyDashboardFragment"
++        android:icon="@drawable/ic_settings_privacy_filled"
++        android:key="top_level_privacy"
++        android:order="30"
++        android:title="@string/privacy_dashboard_title"
++        android:summary="@string/privacy_dashboard_summary"
++        settings:controller="com.android.settings.privacy.TopLevelPrivacyEntryPreferenceController"/>
++
++    <com.android.settings.widget.HomepagePreference
++        android:fragment="com.android.settings.location.LocationSettings"
++        android:icon="@drawable/ic_settings_location_filled"
++        android:key="top_level_location"
++        android:order="40"
++        android:title="@string/location_settings_title"
++        android:summary="@string/location_settings_loading_app_permission_stats"
++        settings:controller="com.android.settings.location.TopLevelLocationPreferenceController"/>
++
++    <com.android.settings.widget.HomepagePreference
++        android:key="top_level_supervision"
++        android:title="@string/supervision_settings_title"
++        android:summary="@string/supervision_settings_summary"
++        android:icon="@drawable/ic_account_child_invert"
++        android:order="50"
++        settings:controller="com.android.settings.supervision.TopLevelSupervisionPreferenceController"/>
++
++    <com.android.settings.widget.HomepagePreference
++        android:key="top_level_emergency"
++        android:title="@string/emergency_settings_preference_title"
++        android:summary="@string/emergency_dashboard_summary"
++        android:icon="@drawable/ic_settings_emergency_filled"
++        android:order="60"
++        android:fragment="com.android.settings.emergency.EmergencyDashboardFragment"
++        settings:isPreferenceVisible="@bool/config_show_emergency_settings"/>
++
++
++
++        <com.android.settings.widget.HomepagePreference
++            android:fragment="com.android.settings.accounts.AccountDashboardFragment"
++            android:icon="@drawable/ic_settings_passwords_filled"
++            android:key="top_level_accounts"
++            android:order="70"
++            android:summary="@string/summary_placeholder"
++            settings:highlightableMenuKey="@string/menu_key_accounts"
++            settings:controller="com.android.settings.accounts.TopLevelAccountEntryPreferenceController"/>
++    </PreferenceCategory>
++
++    <PreferenceCategory
++        android:order="100"
++        android:key="top_level_support_category"
++        android:layout="@layout/settingslib_expressive_untitled_preference_category">
++
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_help_filled"
++            android:key="top_level_support"
++            android:order="10"
++            android:title="@string/page_tab_title_support"
++            android:summary="@string/support_summary"
++            settings:highlightableMenuKey="@string/menu_key_support"
++            settings:controller="com.android.settings.support.SupportPreferenceController"/>
++
++        <!-- SableOS: keyboard hint footer, only with a hardware keyboard. Not a focus target. -->
++        <Preference
++            android:key="sable_homepage_key_hint"
++            android:order="20"
++            android:summary="@string/sable_homepage_key_hint"
++            android:selectable="false"
++            settings:searchable="false"
++            settings:controller="com.android.settings.sable.SableKeyHintPreferenceController"/>
++    </PreferenceCategory>
++
++</PreferenceScreen>
+\ No newline at end of file
+diff --git a/src/com/android/settings/homepage/TopLevelSettings.java b/src/com/android/settings/homepage/TopLevelSettings.java
+index ee9b1e9..4f9f77a 100644
+--- a/src/com/android/settings/homepage/TopLevelSettings.java
++++ b/src/com/android/settings/homepage/TopLevelSettings.java
+@@ -91,7 +91,13 @@
+ // filler 91
+     @Override
+     protected int getPreferenceScreenResId() {
+-        return getPreferenceLayoutResId(getContext());
++        // Sable: BlackBerry 7 shows one flat Options-style list, BlackBerry 10 the ten groups.
++        final Context context = getContext();
++        if (context != null && "bb7".equals(android.provider.Settings.Secure.getString(
++                context.getContentResolver(), "sable_profile"))) {
++            return R.xml.top_level_settings_bb7;
++        }
++        return getPreferenceLayoutResId(context);
+     }
+ 
+     @Override
+-- 
+2.43.0
