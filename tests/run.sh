@@ -538,6 +538,12 @@ grep -q 'patch_bb7_highlight(root)' sable-src/apps/r8/launcher/apply_sable_flavo
 grep -q '"bb7_highlight"' sable-src/apps/r8/launcher/verify_sable_launcher.py || bb7h_bad="$bb7h_bad verify"
 if [[ -z "$bb7h_bad" ]]; then pass "BB7: filled focus highlight, BB10 keeps the outline"; else fail "bb7 highlight:$bb7h_bad"; fi
 
+# 6b0f. The Hub's reply field is inline: open with focus when the menu opens, Send key sends.
+inl_bad=""
+grep -q 'patch_hub_inline_reply(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || inl_bad="$inl_bad not-applied"
+grep -q '"hub_inline_reply"' sable-src/apps/r8/launcher/verify_sable_launcher.py || inl_bad="$inl_bad verify"
+if [[ -z "$inl_bad" ]]; then pass "Hub: inline reply opens with focus, Send key sends"; else fail "hub inline reply:$inl_bad"; fi
+
 # 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
 # extras and screen capture, and the verify step fails the build if they come back.
 home_bad=""

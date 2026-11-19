@@ -29,6 +29,8 @@ in `upstream.env` (upstream PR 127), after `apply_sable_flavor.py` has changed:
   chosen app (the newest until chosen) is where the reply goes;
 - the focus mark per profile (`patch_bb7_highlight`): the shared focus modifier fills the focused item in the
   BlackBerry 7 profile and keeps the 2 dp outline in BlackBerry 10;
+- the inline reply (`patch_hub_inline_reply`): a message's menu opens with the reply field ready and focused, and
+  the keyboard Send key sends;
 - the colours, to the approved tokens: blue `#2E9BD6`, black, raised `#141414`, dividers `#262626`.
 - the widget picker's list, from a fixed 360 dp to at most 360 dp, so the dialog fits the Q25's
   411 dp square screen (about 383 dp under the status bar).

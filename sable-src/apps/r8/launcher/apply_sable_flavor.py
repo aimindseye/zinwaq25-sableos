@@ -1824,6 +1824,60 @@ def patch_bb7_highlight(root: pathlib.Path) -> None:
     )
 
 
+def patch_hub_inline_reply(root: pathlib.Path) -> None:
+    """The Hub's reply field is inline: opening a message's menu shows the reply field at once, with
+    the keyboard focus in it, and the keyboard's Send key sends (conformance matrix, owner decision
+    2026-11-18). A conversation with several reply apps still asks which one first."""
+    panels = root / JAVA / "ui/HubPanels.kt"
+    replace_once(
+        panels,
+        "    var primary by remember(source) { mutableStateOf(false) }\n",
+        "    var primary by remember(source) {\n"
+        "        mutableStateOf(conversation.replyTargets.size <= 1 && (conversation.replyTarget ?: source).canReply)\n"
+        "    }\n",
+        "SABLE_INLINE_REPLY_OPEN",
+    )
+    replace_once(
+        panels,
+        "    var draft by remember { mutableStateOf(\"\") }\n"
+        "    var failed by remember { mutableStateOf(false) }\n"
+        "    OutlinedTextField(\n",
+        "    var draft by remember { mutableStateOf(\"\") }\n"
+        "    var failed by remember { mutableStateOf(false) }\n"
+        "    val focus = remember { androidx.compose.ui.focus.FocusRequester() }\n"
+        "    androidx.compose.runtime.LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }\n"
+        "    val send = {\n"
+        "        if (draft.isNotBlank()) {\n"
+        "            failed = !onSend(draft)\n"
+        "            if (!failed) draft = \"\"\n"
+        "        }\n"
+        "    }\n"
+        "    OutlinedTextField(\n",
+        "SABLE_INLINE_REPLY_FOCUS",
+    )
+    replace_once(
+        panels,
+        "        modifier = Modifier.fillMaxWidth(),\n"
+        "        isError = failed,\n"
+        "    )\n"
+        "    PanelAction(stringResource(R.string.hub_send)) {\n"
+        "        if (draft.isNotBlank()) {\n"
+        "            failed = !onSend(draft)\n"
+        "            if (!failed) draft = \"\"\n"
+        "        }\n"
+        "    }\n",
+        "        modifier = Modifier.fillMaxWidth().focusRequester(focus),\n"
+        "        isError = failed,\n"
+        "        singleLine = true,\n"
+        "        keyboardOptions =\n"
+        "            androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Send),\n"
+        "        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSend = { send() }),\n"
+        "    )\n"
+        "    PanelAction(stringResource(R.string.hub_send)) { send() }\n",
+        "SABLE_INLINE_REPLY_SEND",
+    )
+
+
 def patch_visible_names(root: pathlib.Path) -> None:
     """Sable Launcher is the only name the user sees. The upstream project name stays in package ids,
     class names, file formats and comments (identifiers, not text on screen), so only the text of string
@@ -1880,6 +1934,7 @@ def main() -> None:
     patch_hub_default_action(root)
     patch_hub_reply_selector(root)
     patch_bb7_highlight(root)
+    patch_hub_inline_reply(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 
