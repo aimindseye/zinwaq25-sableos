@@ -2450,6 +2450,29 @@ def patch_home_menu(root: pathlib.Path) -> None:
         "        SoundProfileButton()\n",
         "SABLE_HOME_MENU_BB10_GEAR",
     )
+    # The same gear sits at the end of the status dials row on the BBOS 10 home (Active Frames page).
+    replace_once(
+        root / JAVA / "ui/Bb10HomeChrome.kt",
+        "        Text(\n"
+        "            text = \"\u2699\",\n"
+        "            color = Bb10Text,\n"
+        "            fontSize = 22.sp,\n"
+        "            textAlign = TextAlign.Center,\n"
+        "            modifier =\n"
+        "                Modifier\n"
+        "                    .heightIn(min = 44.dp)\n"
+        "                    .width(44.dp)\n"
+        "                    .sableFocusRing()\n"
+        "                    .clickable(onClick = onOpenSettings)\n"
+        "                    .semantics { contentDescription = \"Launcher Settings\" }\n"
+        "                    .padding(top = 8.dp),\n"
+        "        )\n"
+        "    }\n"
+        "}\n",
+        "    }\n"
+        "}\n",
+        "SABLE_HOME_MENU_BB10_DIALS_GEAR",
+    )
 
 
 def patch_home_size(root: pathlib.Path) -> None:

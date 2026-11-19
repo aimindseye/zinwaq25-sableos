@@ -578,6 +578,7 @@ if [[ -z "$rm_bad" ]]; then pass "Hub rows: leave animation and tab-switch motio
 hm_bad=""
 grep -q 'patch_home_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || hm_bad="$hm_bad not-applied"
 grep -q '"home_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hm_bad="$hm_bad verify"
+grep -q '"home_dials_gear"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hm_bad="$hm_bad dials-gear"
 if [[ -z "$hm_bad" ]]; then pass "Home menu: one menu on BBOS 7, no settings gear on BBOS 10"; else fail "home menu:$hm_bad"; fi
 
 # 6b0s. Hold Menu opens Active Frames from any app (framework 0505).
