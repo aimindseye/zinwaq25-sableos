@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
+import android.provider.Settings
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.WindowInsets
@@ -38,6 +40,7 @@ class CandidateBar(
         const val CAND_CORNER_DP = 8
         const val CAND_MARGIN_DP = 2
         const val CAND_TEXT_SP = 22f
+        const val UNDERLINE_DP = 3
     }
 
     private fun px(v: Int): Int = (v * dp).toInt()
@@ -63,9 +66,33 @@ class CandidateBar(
 
     fun show(cands: List<Cand>) = showItems(cands.map { it.text }, 0, onPick)
 
+    /** BBOS 10 profile: flat chips, a blue underline on the selected one. BBOS 7: filled blue. */
+    private val flat: Boolean
+        get() = runCatching {
+            Settings.Secure.getString(context.contentResolver, "sable_profile")
+        }.getOrNull() != "bb7"
+
+    private fun filled(on: Boolean) = GradientDrawable().apply {
+        cornerRadius = CAND_CORNER_DP * dp
+        setColor(Color.parseColor(if (on) "#2E9BD6" else "#262626"))
+    }
+
+    private fun underline(on: Boolean) = LayerDrawable(
+        arrayOf(
+            GradientDrawable().apply { setColor(Color.TRANSPARENT) },
+            GradientDrawable().apply {
+                setColor(if (on) Color.parseColor("#2E9BD6") else Color.TRANSPARENT)
+            }
+        )
+    ).apply {
+        setLayerGravity(1, Gravity.BOTTOM)
+        setLayerHeight(1, px(UNDERLINE_DP))
+    }
+
     /** Shows [items] as chips; [selected] is highlighted. A null [pick] makes them indicators only. */
     fun showItems(items: List<String>, selected: Int, pick: ((Int) -> Unit)?) {
         row.removeAllViews()
+        val flatChips = flat
         items.forEachIndexed { i, itemText ->
             row.addView(
                 TextView(context).apply {
@@ -77,17 +104,7 @@ class CandidateBar(
                     setPadding(px(CAND_PAD_H_DP), 0, px(CAND_PAD_H_DP), 0)
                     minHeight = px(if (compact) StripGeometry.CHIP_HEIGHT_DP else CAND_MIN_DP)
                     minWidth = px(CAND_MIN_DP)
-                    background =
-                        GradientDrawable().apply {
-                            cornerRadius = CAND_CORNER_DP * dp
-                            setColor(
-                                if (i == selected) {
-                                    Color.parseColor("#2E9BD6")
-                                } else {
-                                    Color.parseColor("#262626")
-                                }
-                            )
-                        }
+                    background = if (flatChips) underline(i == selected) else filled(i == selected)
                     layoutParams =
                         LinearLayout.LayoutParams(
                             LinearLayout.LayoutParams.WRAP_CONTENT,

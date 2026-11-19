@@ -606,6 +606,13 @@ ec_p=(patches/framework/frameworks/base/0506-*.patch)
 [[ -z "$ec_bad" ]] && { grep -q 'Intent.ACTION_DIAL' "${ec_p[0]}" || ec_bad="$ec_bad dial"; grep -q 'isUserSetupComplete()' "${ec_p[0]}" || ec_bad="$ec_bad setup-guard"; }
 if [[ -z "$ec_bad" ]]; then pass "End goes home and Call opens Phone (framework 0506)"; else fail "end/call keys:$ec_bad"; fi
 
+# 6b0u. Keyboard suggestion chips follow the profile (sable-src 0232).
+sc_bad=""
+sc_p=(patches/sable-src/0232-*.patch)
+[[ -f "${sc_p[0]}" ]] || sc_bad="$sc_bad missing"
+grep -q 'sable_profile' sable-src/apps/titan2/platform/keyboard/src/main/java/org/sableos/titan2/keyboard/android/CandidateBar.kt || sc_bad="$sc_bad tree"
+if [[ -z "$sc_bad" ]]; then pass "keyboard chips: flat with underline on BBOS 10, filled on BBOS 7 (0232)"; else fail "keyboard chips:$sc_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
