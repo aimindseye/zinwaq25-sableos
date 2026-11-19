@@ -31,6 +31,7 @@ VERSION_NAME = "2.0-sable"
 HERE = pathlib.Path(__file__).resolve().parent
 JAVA = "app/src/main/java/io/github/aimindseye/tenseven"
 TEST = "app/src/test/java/io/github/aimindseye/tenseven"
+HUB_CONVERSATIONS_UI = "ui/HubConversationsUi.kt"
 DESIGN = "design/src/main/java/io/github/aimindseye/tenseven/design"
 
 
@@ -1351,7 +1352,7 @@ def patch_q25_fit(root: pathlib.Path) -> None:
         f"                style = if ({SHORT}) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleSmall,\n",
         "SABLE_HOME_Q25_CALENDAR_TEXT",
     )
-    rows = root / JAVA / "ui/HubConversationsUi.kt"
+    rows = root / JAVA / HUB_CONVERSATIONS_UI
     replace_once(
         rows,
         "                        .padding(horizontal = 4.dp, vertical = 10.dp),\n",
@@ -1622,7 +1623,7 @@ def patch_hub_default_action(root: pathlib.Path) -> None:
     source app; the Menu key or a long press opens the row's menu, which no longer starts with an Open
     item. The menu is the right-edge panel on BlackBerry 10 and a Menu-key list from the bottom edge on
     BlackBerry 7 (the profile is Settings.Secure sable_profile, read through the launcher's style)."""
-    rows = root / JAVA / "ui/HubConversationsUi.kt"
+    rows = root / JAVA / HUB_CONVERSATIONS_UI
     replace_once(
         rows,
         "import androidx.compose.foundation.clickable\n",
@@ -2071,6 +2072,136 @@ def patch_visible_names(root: pathlib.Path) -> None:
         fail("SABLE_HOME_VISIBLE_NAMES=FAIL nothing changed")
 
 
+def patch_peek_motion(root: pathlib.Path) -> None:
+    """The Hub peek follows the whole-OS profile's motion set (conformance matrix, BlackBerry 7.1
+    and BlackBerry 10 UI guidelines). BlackBerry 7 fades the panel in over 150 ms with no slide;
+    BlackBerry 10 slides it in from the left over 250 ms and decelerates (it was 220 ms)."""
+    peek = root / JAVA / "ui/HubPeek.kt"
+    replace_once(
+        peek,
+        "    LaunchedEffect(Unit) { slide.animateTo(1f, tween(durationMillis = 220, easing = FastOutSlowInEasing)) }\n",
+        "    val sableFade =\n"
+        "        remember(context) {\n"
+        "            runCatching {\n"
+        "                android.provider.Settings.Secure.getString(context.contentResolver, \"sable_profile\")\n"
+        "            }.getOrNull() == \"bb7\"\n"
+        "        }\n"
+        "    LaunchedEffect(Unit) {\n"
+        "        slide.animateTo(\n"
+        "            1f,\n"
+        "            if (sableFade) {\n"
+        "                tween(durationMillis = 150, easing = androidx.compose.animation.core.LinearEasing)\n"
+        "            } else {\n"
+        "                tween(durationMillis = 250, easing = FastOutSlowInEasing)\n"
+        "            },\n"
+        "        )\n"
+        "    }\n",
+        "SABLE_PEEK_MOTION_TWEEN",
+    )
+    replace_once(
+        peek,
+        "                    .graphicsLayer { translationX = (slide.value - 1f) * size.width }\n",
+        "                    .graphicsLayer {\n"
+        "                        if (sableFade) {\n"
+        "                            alpha = slide.value\n"
+        "                        } else {\n"
+        "                            translationX = (slide.value - 1f) * size.width\n"
+        "                        }\n"
+        "                    }\n",
+        "SABLE_PEEK_MOTION_LAYER",
+    )
+
+
+def patch_hub_row_motion(root: pathlib.Path) -> None:
+    """Hub conversation rows follow the profile's motion set. A row that leaves the list (deleted,
+    archived, snoozed) fades out and the rows below close the gap (BlackBerry 10: 250 ms, decelerating;
+    BlackBerry 7: a 150 ms fade, no slide). Switching Hub tab (All, Unread, Messages, Email, Snoozed)
+    fades the rows in, and on BlackBerry 10 slides them in 24 dp from the right. Rows scrolled into
+    view later do not animate. Rows of the Contacts and Remind tabs are not animated."""
+    ui = root / JAVA / HUB_CONVERSATIONS_UI
+    replace_once(
+        ui,
+        "import androidx.compose.ui.graphics.asImageBitmap\n",
+        "import androidx.compose.ui.graphics.asImageBitmap\n"
+        "import androidx.compose.ui.graphics.graphicsLayer\n",
+        "SABLE_ROW_MOTION_IMPORT",
+    )
+    replace_once(
+        ui,
+        "            conversationItems(section.rows, key = { \"conversation:\" + it.id }) { conversation ->\n",
+        "            conversationItems(\n"
+        "                section.rows,\n"
+        "                listOf(ui.filter, ui.remindersSelected, ui.sourcePackage),\n"
+        "                key = { \"conversation:\" + it.id },\n"
+        "            ) { conversation ->\n",
+        "SABLE_ROW_MOTION_CALL",
+    )
+    replace_once(
+        ui,
+        "private fun LazyListScope.conversationItems(\n"
+        "    list: List<HubConversation>,\n"
+        "    key: (HubConversation) -> Any,\n"
+        "    content: @Composable (HubConversation) -> Unit,\n"
+        ") {\n"
+        "    list.forEach { conversation -> item(key = key(conversation)) { content(conversation) } }\n"
+        "}\n",
+        "private object SableTabMotion {\n"
+        "    var key: Any? = null\n"
+        "    var at = 0L\n"
+        "}\n\n"
+        "/** The profile's row motion: BlackBerry 7 fades (150 ms), BlackBerry 10 slides and fades (250 ms). */\n"
+        "@Composable\n"
+        "private fun androidx.compose.foundation.lazy.LazyItemScope.sableRowMotion(tabKey: Any): Modifier {\n"
+        "    val context = LocalContext.current\n"
+        "    val bb7 =\n"
+        "        remember(context) {\n"
+        "            runCatching {\n"
+        "                android.provider.Settings.Secure.getString(context.contentResolver, \"sable_profile\")\n"
+        "            }.getOrNull() == \"bb7\"\n"
+        "        }\n"
+        "    val millis = if (bb7) 150 else 250\n"
+        "    val easing: androidx.compose.animation.core.Easing =\n"
+        "        if (bb7) androidx.compose.animation.core.LinearEasing else androidx.compose.animation.core.FastOutSlowInEasing\n"
+        "    // Rows composed right after a tab change animate; rows scrolled into view later do not.\n"
+        "    val fresh =\n"
+        "        remember(tabKey) {\n"
+        "            val now = android.os.SystemClock.uptimeMillis()\n"
+        "            if (SableTabMotion.key != tabKey) {\n"
+        "                SableTabMotion.key = tabKey\n"
+        "                SableTabMotion.at = now\n"
+        "            }\n"
+        "            now - SableTabMotion.at < 300L\n"
+        "        }\n"
+        "    val progress = remember(tabKey) { androidx.compose.animation.core.Animatable(if (fresh) 0f else 1f) }\n"
+        "    LaunchedEffect(tabKey) {\n"
+        "        if (fresh) progress.animateTo(1f, androidx.compose.animation.core.tween(millis, easing = easing))\n"
+        "    }\n"
+        "    return Modifier\n"
+        "        .animateItem(\n"
+        "            fadeInSpec = androidx.compose.animation.core.tween(millis, easing = easing),\n"
+        "            placementSpec = if (bb7) null else androidx.compose.animation.core.tween(millis, easing = easing),\n"
+        "            fadeOutSpec = androidx.compose.animation.core.tween(millis, easing = easing),\n"
+        "        ).graphicsLayer {\n"
+        "            alpha = progress.value\n"
+        "            if (!bb7) translationX = (1f - progress.value) * 24.dp.toPx()\n"
+        "        }\n"
+        "}\n\n"
+        "private fun LazyListScope.conversationItems(\n"
+        "    list: List<HubConversation>,\n"
+        "    tabKey: Any,\n"
+        "    key: (HubConversation) -> Any,\n"
+        "    content: @Composable (HubConversation) -> Unit,\n"
+        ") {\n"
+        "    list.forEach { conversation ->\n"
+        "        item(key = key(conversation)) {\n"
+        "            androidx.compose.foundation.layout.Box(sableRowMotion(tabKey)) { content(conversation) }\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        "SABLE_ROW_MOTION_ITEMS",
+    )
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         fail("usage: apply_sable_flavor.py <tenseven-checkout>")
@@ -2104,6 +2235,8 @@ def main() -> None:
     patch_home_splat(root)
     patch_hub_bottom_tabs(root)
     patch_hub_swipe_menu(root)
+    patch_peek_motion(root)
+    patch_hub_row_motion(root)
     patch_visible_names(root)
     print("SABLE_HOME_FLAVOR=PASS")
 

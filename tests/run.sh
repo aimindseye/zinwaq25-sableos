@@ -562,6 +562,18 @@ grep -q 'patch_hub_swipe_menu(root)' sable-src/apps/r8/launcher/apply_sable_flav
 grep -q '"hub_swipe_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || sw_bad="$sw_bad verify"
 if [[ -z "$sw_bad" ]]; then pass "Hub: BB10 swipe down from the top opens the menu"; else fail "hub swipe menu:$sw_bad"; fi
 
+# 6b0n. The Hub peek follows the profile's motion set (BB7 150 ms fade, BB10 250 ms slide).
+pm_bad=""
+grep -q 'patch_peek_motion(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || pm_bad="$pm_bad not-applied"
+grep -q '"peek_motion"' sable-src/apps/r8/launcher/verify_sable_launcher.py || pm_bad="$pm_bad verify"
+if [[ -z "$pm_bad" ]]; then pass "Hub peek: motion set follows the profile"; else fail "peek motion:$pm_bad"; fi
+
+# 6b0o. Hub rows: delete/leave animation and tab-switch fade follow the profile.
+rm_bad=""
+grep -q 'patch_hub_row_motion(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || rm_bad="$rm_bad not-applied"
+grep -q '"hub_row_motion"' sable-src/apps/r8/launcher/verify_sable_launcher.py || rm_bad="$rm_bad verify"
+if [[ -z "$rm_bad" ]]; then pass "Hub rows: leave animation and tab-switch motion follow the profile"; else fail "hub row motion:$rm_bad"; fi
+
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
 fp_p=(patches/framework/packages/apps/SetupWizard/0429-*.patch)
