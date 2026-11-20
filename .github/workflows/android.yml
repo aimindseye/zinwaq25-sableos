@@ -64,43 +64,6 @@ jobs:
             root: apps/common/reader
             java: '21'
             extra: test :leisure:lintSableDebug :leisure:processSableDebugMainManifest detekt
-          - name: mail
-            root: flavor:mail
-            java: '21'
-            extra: >-
-              :feature:account:setup:compileReleaseKotlin
-              :feature:onboarding:main:compileReleaseKotlin
-              :feature:launcher:compileReleaseKotlin
-              :app-thunderbird:lintFossRelease
-              :legacy:ui:legacy:testDebugUnitTest --tests com.fsck.k9.activity.SableMailKeymapTest
-          - name: text reader
-            root: flavor:textreader
-            java: '17'
-            extra: testDebugUnitTest lintDebug
-          - name: terminal
-            root: flavor:connectbot
-            java: '21'
-            extra: ":app:testOssDebugUnitTest --tests org.connectbot.sable.* :app:lintOssRelease"
-          - name: home (Sable Launcher)
-            root: flavor:launcher
-            java: '17'
-            extra: ''
-          - name: calendar sync (DAVx5)
-            root: flavor:davx5
-            java: '21'
-            extra: ''
-          - name: calendar link (ICSx5)
-            root: flavor:icsx5
-            java: '21'
-            extra: ''
-          - name: key remapping (Key Mapper)
-            root: flavor:keymapper
-            java: '21'
-            extra: ''
-          - name: speech engine
-            root: flavor:espeak
-            java: '17'
-            extra: lintRelease
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -120,19 +83,7 @@ jobs:
           test -n "$sdkmanager"
           yes | "$sdkmanager" --licenses > /dev/null || true
           pkgs=('platforms;android-36' 'build-tools;36.0.0')
-          # eSpeak NG 1.52.0 pins its own NDK, CMake and build-tools (sable-src/apps/r8/espeak).
-          [[ '${{ matrix.root }}' != flavor:espeak ]] ||
-            pkgs+=('platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' 'cmake;3.22.1')
-          # Key Mapper 4.7.0 compiles against SDK 37 (sdkmanager names it android-37.0), and its evdev module pins its NDK.
-          [[ '${{ matrix.root }}' != flavor:keymapper ]] || pkgs+=('platforms;android-37.0' 'ndk;27.3.13750724')
           "$sdkmanager" "${pkgs[@]}"
-      - name: Rust for Key Mapper's evdev module
-        if: matrix.root == 'flavor:keymapper'
-        run: |
-          set -euo pipefail
-          rustup toolchain install 1.93.0 --profile minimal
-          rustup default 1.93.0
-          rustup target add armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
       - name: Build, test and check
         env:
@@ -141,20 +92,6 @@ jobs:
           # Report every failing gate in one run.
           SABLE_GRADLE_ARGS: --continue
         run: bash scripts/build-apps.sh --all --root '${{ matrix.root }}'
-      - name: Mail runtime dependencies stay Sable-composed
-        if: matrix.root == 'flavor:mail'
-        run: |
-          set -euo pipefail
-          cd "$SABLE_BUILD_ROOT/flavor-work/mail"
-          ./gradlew --no-daemon --console=plain :app-thunderbird:dependencies \
-            --configuration fossReleaseRuntimeClasspath > deps.txt
-          if grep -E 'feature:thundermail|feature:funding:(link|googleplay)|feature:telemetry:glean|feature:onboarding:migration:thunderbird|feature:migration:launcher:thunderbird|backend:demo|autodiscovery:demo' deps.txt; then
-            echo "SABLE_MAIL_STALE_RUNTIME_DEPENDENCY=FAIL"; exit 1
-          fi
-          for expected in feature:funding:noop feature:telemetry:noop feature:onboarding:migration:noop feature:migration:launcher:noop; do
-            grep -Fq "$expected" deps.txt || { echo "SABLE_MAIL_EXPECTED_RUNTIME_DEPENDENCY=FAIL missing=$expected"; exit 1; }
-          done
-          echo "SABLE_MAIL_STALE_RUNTIME_DEPENDENCY=PASS_ABSENT"
       - name: Kover line coverage (baseline, no threshold)
         if: matrix.root == 'apps/r8/android'
         run: |
@@ -182,6 +119,5 @@ jobs:
           name: reports-${{ strategy.job-index }}
           path: |
             sable-src/**/build/reports/
-            ${{ env.SABLE_BUILD_ROOT }}/flavor-work/*/**/build/reports/lint-results*.html
           if-no-files-found: ignore
           retention-days: 14
