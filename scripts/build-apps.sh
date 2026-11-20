@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Build the Sable APKs listed in product/q25/apps.tsv from sable-src/.
+# Build the Sable APKs listed in product/q25/apps.tsv from a sableos-android checkout
+# (SABLE_APPS_REPO, the normal way; see docs/BUILD.md 4a). Without it only the rows that
+# are plain Gradle projects build, from the older sable-src/ copy.
 #
 # Same flow as the SableOS Titan 2 product-app build: Gradle builds each app,
 # the APK's package id is checked, and the APKs are collected with a manifest

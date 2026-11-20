@@ -12,9 +12,16 @@ After installing the packages in section 1, one command does every step in this
 guide (check, download, apps, microG, stage, build, collect):
 
 ```bash
+git clone https://github.com/sableos-project/sableos-android   # the app sources
+export SABLE_APPS_REPO=$PWD/sableos-android
 export ANDROID_HOME=/path/to/android-sdk
 bash build/sable.sh q25 all --yes      # --yes allows the ~200 GB download
 ```
+
+`SABLE_APPS_REPO` is a checkout of `sableos-project/sableos-android`, where all the
+Sable app code lives; without it the `apps` step cannot build the patched third-party
+apps (Mail, Launcher and others). To pick up app changes later, run `git pull` in that
+checkout and build again (add no `--skip-apps`).
 
 If it stops, fix what the message says and run it again; finished steps are
 reused. Add `--release` to also make the GitHub release zip. The rest of this
@@ -100,8 +107,16 @@ bash build/sable.sh q25 Q1 artifacts
 
 ### 4a. Sable application sources
 
-The app sources are already in `sable-src/`, imported from SableOS at a pinned
-commit (see [`../apps/README.md`](../apps/README.md)). Build them:
+The apps are built from a checkout of `sableos-project/sableos-android`, the one source of
+truth for the app code (see [`../apps/README.md`](../apps/README.md) for the folder map).
+That repo's CI compiles and tests every app before merge. Clone it and point the build at it:
+
+```bash
+git clone https://github.com/sableos-project/sableos-android
+export SABLE_APPS_REPO=$PWD/sableos-android     # set this in the same shell before every step
+```
+
+Then build them:
 
 ```bash
 bash build/sable.sh q25 Q2 apps          # every row with enabled=yes in product/q25/apps.tsv (all of them)
@@ -110,8 +125,8 @@ bash build/sable.sh q25 Q2 apps --all    # also rows set to enabled=no
 
 APKs, a manifest and SHA256SUMS land in `~/sable-q25/apps-out/<stamp>/`
 (`latest` points at the newest). `stage` packages whatever `latest` holds and does not
-rebuild it, so run `apps` again after pulling new app sources, or the image ships the
-old APKs. With the tree on another disk, set `SABLE_BUILD_ROOT` (and `ANDROID_HOME`)
+rebuild it, so run `git pull` in the sableos-android checkout and `apps` again after
+app changes, or the image ships the old APKs. With the tree on another disk, set `SABLE_BUILD_ROOT` (and `ANDROID_HOME`)
 in the same shell before every step, for example:
 
 ```bash
@@ -232,6 +247,9 @@ m bacon
 ```
 
 ## 7. GitHub Actions
+
+Note: the Sable apps are now compiled and tested by CI in `sableos-project/sableos-android`.
+The `Sable apps` workflow here covers the older `sable-src/` copy and the build scripts.
 
 GitHub runs the same app build and the SableOS quality gates on pull requests
 and on pushes to `main`. This is the set SableOS ran in GitHub Actions before

@@ -1,14 +1,40 @@
 # Sable application sources
 
-The Sable apps are common SableOS source. The Q25 does not fork them; it builds
-them unchanged (plus `zinwa-q25` profile entries) and imports the APKs into the
-image.
+The Sable apps are built from **`sableos-project/sableos-android`**, the one source of truth
+for the app code (one folder per app under `apps/`). This repository holds no app code that
+ships; it builds the APKs from a checkout of that repo and imports them into the image.
+Fix an app by changing it there, not here. CI in sableos-android is the only place the apps
+are compiled and tested before merge.
 
-They come from the private `aimindseye/sableos` repository. The owner approved
-publishing them here, so they are committed under `sable-src/` at the commit in
-`sable-src/SOURCE_IMPORT.txt`. You don't need sableos access to build.
+| `apps.tsv` gradle_root | Folder in sableos-android |
+|---|---|
+| `apps/titan2/platform` | `apps/titan2-platform` (keyboard, camera, setup, vault, profiles, spaces, compass, phone, tools) |
+| `apps/r8/android` | `apps/android` (Hub, Browser, Calendar, Tasks, Notes, Calculator, Weather, Media, Messages, Assistant) |
+| `apps/common/reader` | `apps/reader` (Sable Reader: books, comics, PDF, audiobooks) |
+| `flavor:launcher` | `apps/launcher` (Sable Launcher, the home app) |
+| `flavor:mail`, `textreader`, `connectbot`, `espeak`, `davx5`, `icsx5`, `keymapper` | `apps/mail`, `apps/textreader`, `apps/connectbot`, `apps/espeak`, `apps/davx5`, `apps/icsx5`, `apps/keymapper` (patched third-party sources) |
 
-## Refreshing `sable-src/` (maintainers)
+Point the build at your checkout with `SABLE_APPS_REPO`:
+
+```bash
+git clone https://github.com/sableos-project/sableos-android
+export SABLE_APPS_REPO=$PWD/sableos-android
+bash build/sable.sh q25 Q2 apps
+```
+
+The built APKs, a manifest with sha256 values and the checkout's commit (`SOURCE_IMPORT.txt`)
+land in `apps-out/<stamp>/`. To ship a newer app version, `git pull` the checkout and run `apps`
+again; `stage` packages the last build and does not rebuild it.
+
+## The old `sable-src/` copy
+
+`sable-src/` is the earlier import of the app sources from `aimindseye/sableos` (commit in
+`sable-src/SOURCE_IMPORT.txt`), kept for the shared design sources that `stage` still copies
+(`sable-src/src/android/shared/sabledesign`) and for the static checks in `tests/`. The
+upstream flavor scripts were removed, so the `flavor:` apps cannot be built from it. It is no longer
+refreshed for app changes. The text below is how it was imported and is kept for reference.
+
+### Refreshing `sable-src/` (historical)
 
 To move to a newer sableos commit, update `SABLE_Q25_SABLEOS_COMMIT` in
 `build/config/q25.env`, then with a local clone of `aimindseye/sableos`:
@@ -47,10 +73,9 @@ anything looks like web-page account data. Review the diff before committing.
 apps (Keyboard, Camera, DisplayCompat, Setup, Sable Tools) and the common set (Calculator,
 Media, Hub, Weather, Calendar, Messages, Notes, Reader v2, Mail, Text Reader, Terminal).
 The games moved to their own repo, aimindseye/sablegames (owner, 2026-11-14), and SableOS no longer ships them.
-Mail, Text Reader and Terminal are `flavor:` rows: the build fetches the pinned upstream
-(Thunderbird, Vaachak Text Reader, ConnectBot) once into `SABLE_UPSTREAM_CACHE`, which needs
-`NETWORK_FETCH_AUTHORIZED=YES`, then applies the Sable flavor scripts from
-`sable-src/apps/r8/{mail,textreader,connectbot}`. `apps --all` also builds
+Mail, Text Reader, Terminal, Speech, DAVx5, ICSx5, Key Mapper and the Launcher are `flavor:` rows.
+They are patched third-party sources that now live in sableos-android, so the build needs no
+upstream download and no flavor script for them. `apps --all` also builds
 rows someone has set to `enabled=no`. Radio Diag is disabled because Sable
 Tools (DESIGN-KF-C) carries it as Diagnostics > Radio, IMS and FM status and
 overrides the old package.
