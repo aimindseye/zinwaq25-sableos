@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 20 Nov 2026 00:30:00 +0000
+Subject: [PATCH 0334/0334] SableOS: no padlock on the lock screen without a
+ fingerprint sensor
+
+The Android lock icon sat on top of the locked glance ("Unlock to read message
+details") on the Q25's short screen. Without an under-display fingerprint
+sensor it has no job (Enter unlocks), so it is kept in the layout at one pixel.
+---
+ .../ui/view/layout/sections/DefaultDeviceEntrySection.kt | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/DefaultDeviceEntrySection.kt b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/DefaultDeviceEntrySection.kt
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/DefaultDeviceEntrySection.kt
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/ui/view/layout/sections/DefaultDeviceEntrySection.kt
+@@ -165,6 +165,10 @@ constructor(
+                 iconRadiusPx * scaleFactor,
+                 constraintSet,
+             )
++            // SableOS: without an under-display fingerprint sensor the padlock has no job, and on a
++            // short screen it sat on top of the locked glance. It stays in the layout at one pixel.
++            constraintSet.constrainWidth(deviceEntryIconViewId, 1)
++            constraintSet.constrainHeight(deviceEntryIconViewId, 1)
+         }
+     }
+ 
+-- 
+2.43.0
+
