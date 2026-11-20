@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Thu, 19 Nov 2026 23:55:00 +0000
+Subject: [PATCH 1064/1064] SableOS: FM keeps its foreground notification
+ without the FM app open
+
+FmService starts out believing the FM Radio activity is on screen and only
+the activity clears that when it stops. With Sable Media driving the radio no
+activity ever runs, so the playing notification was skipped, the service never
+became a foreground service and Android froze the app, which stopped the
+audio. The service now starts out with no activity on screen; the activity
+still sets the flag itself when it resumes.
+---
+ src/com/android/fmradio/FmService.java | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/com/android/fmradio/FmService.java b/src/com/android/fmradio/FmService.java
+--- a/src/com/android/fmradio/FmService.java
++++ b/src/com/android/fmradio/FmService.java
+@@ -257,7 +257,10 @@
+     // distance is over 100 miles(160934.4m)
+     private boolean mIsDistanceExceed = false;
+     // FmMainActivity foreground
+-    private boolean mIsFmMainForeground = true;
++    // SableOS: false until the activity resumes. Sable Media drives the radio with no
++    // activity, and "foreground" here makes showPlayingNotification return early, so the
++    // service never became a foreground service and the app was frozen.
++    private boolean mIsFmMainForeground = false;
+     // FmFavoriteActivity foreground
+     private boolean mIsFmFavoriteForeground = false;
+     // FmRecordActivity foreground
+-- 
+2.43.0
+
