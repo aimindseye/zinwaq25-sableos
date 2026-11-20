@@ -163,6 +163,37 @@ Also:
    scheduling (no power exemption); turn the automatic check off in Aurora's settings if
    you prefer to update by hand.
 
+## Recommended settings for the Q25
+
+A short list to follow after `install-microg-addon.sh` (or on a built-in image). The defaults above
+already keep microG quiet; this says what to turn on and what to leave off. Items marked
+*not yet tested on the Q25* are recommendations from how microG 0.3.x behaves.
+
+**Turn on, in this order** (microG Settings > Self-Check shows each one):
+
+1. **Battery optimisation:** Settings > Apps > microG Services > Battery > Unrestricted. A built-in
+   image already has this through the power allowlist; the add-on does not.
+2. **Google device registration** (microG Settings): only if you want push or Aurora with a Google
+   account. Choose the device profile **Native**, or **Automatic** if Native is not offered. Do
+   not pick a Pixel or Samsung profile (*not yet tested on the Q25*).
+3. **Cloud Messaging:** only if apps need Google push (many messengers). Open each such app once
+   afterwards so it registers.
+4. **Google account** (microG Settings > Google account): only for Aurora's Google sign-in. Use a
+   secondary account.
+
+**Leave off** (the SableOS defaults): Google SafetyNet / Play Integrity (a custom OS with an unlocked
+bootloader cannot pass strong integrity, and it sends device data to Google), Wi-Fi and mobile
+network location, address lookup, location timeline, Exposure Notifications.
+
+**Permissions:** keep location on "while using the app" (GPS is enough on the Q25), and leave
+"Allow all the time" off. Keep notifications allowed for microG Services, or push is silent.
+
+**Aurora Store:** sign in **Anonymous** for free apps; use **Google** only for paid or
+country-restricted apps. Allow Install unknown apps for Aurora (step 3 below).
+
+**If you do not need Play services push or sign-in**, skip steps 2 to 4: apps that only need
+Play services to start work with microG Services and Companion alone.
+
 ## What works and what doesn't
 
 | Works | Notes |

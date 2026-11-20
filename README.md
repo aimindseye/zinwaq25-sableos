@@ -101,7 +101,7 @@ More: [`docs/DEVICE_INFO.md`](docs/DEVICE_INFO.md).
 | [Qualification](docs/QUALIFICATION.md) | Gates each phase must pass |
 | [Crash evidence](docs/CRASH_EVIDENCE.md) | Capture crash logs over adb before anything is cleared |
 | [Implementation notes](docs/implementation/) | What each Sable design package (KF-A..D, Battery, T3, corners, icons, settings-ui5, Phone + Contacts, daily driver, Hub dock, power, Q4 review fixes) changed and what still needs the phone |
-| [Patches](patches/README.md) | Q25 changes to the Sable app sources (`sable-src`) and the LineageOS framework patches |
+| [Patches](patches/README.md) | The LineageOS framework patches (Settings, SystemUI, Dialer, SetupWizard ...) and the older `sable-src` app patches |
 | [Stock basis](docs/STOCK_BASIS.md) | Firmware facts to record before flashing |
 | [Sources](docs/SOURCES.md) | Every upstream with its pin and licence |
 | [Lessons from Titan 2](docs/LESSONS_FROM_TITAN2.md) | Mistakes not to repeat |
@@ -120,10 +120,18 @@ and the Android SDK (platform 36). The package list is in
 
 ```bash
 git clone https://github.com/aimindseye/zinwaq25-sableos
+git clone https://github.com/sableos-project/sableos-android   # the Sable app sources
 cd zinwaq25-sableos
+export SABLE_APPS_REPO=$PWD/../sableos-android
 export ANDROID_HOME=/path/to/android-sdk
 bash build/sable.sh q25 all --yes
 ```
+
+This repository holds the OS side (framework patches, product layer, build scripts).
+The apps (Launcher, Reader, Hub, Mail, Keyboard and the rest) live in
+[`sableos-project/sableos-android`](https://github.com/sableos-project/sableos-android),
+which is where app changes are made and tested. To ship a newer app version, `git pull` that
+checkout and run the build again.
 
 That one command checks your computer and says what is missing, downloads
 LineageOS 24.0 (about 200 GB, first run only), builds the Sable apps, adds the
@@ -139,8 +147,8 @@ Advanced: `bash build/sable.sh q25 <function>` runs one step (`doctor`,
 `bootstrap`, `apps`, `microg`, `stage`, `build`, `artifacts`, `release`). The
 default release `full` is the complete SableOS image. `Q2` (Sable apps on stock
 LineageOS) and `Q1` (plain `lineage_Q25`, the control image) can be put before
-the function, as in `bash build/sable.sh q25 Q1 build`. The Sable app sources are
-in `sable-src/` (see [`apps/README.md`](apps/README.md)). Full guide:
+the function, as in `bash build/sable.sh q25 Q1 build`. The Sable apps are built from
+`SABLE_APPS_REPO` (see [`apps/README.md`](apps/README.md)). Full guide:
 [`docs/BUILD.md`](docs/BUILD.md).
 
 ## Repository layout
@@ -154,9 +162,9 @@ releases/                 hand-written notes for GitHub releases (1.0.md, 2.0.md
 manifests/local_manifests Q25 device/kernel/blob projects at pinned commits
 product/q25/              Sable product layer copied to vendor/sable/q25
 device-profile/           Q25 hardware capability profile and key map
-apps/                     how the Sable application sources are managed
-sable-src/                Sable app sources imported from SableOS (pinned commit)
-patches/sable-src/        Q25 changes re-applied to sable-src/ after every import
+apps/                     how the apps are built from sableos-android (SABLE_APPS_REPO)
+sable-src/                older app-source copy; only the shared design sources and static checks still use it
+patches/sable-src/        Q25 changes to that older copy (historical)
 patches/framework/        Q4 patches to LineageOS 24.0 projects ([port status](docs/LINEAGE_24_PORT.md)) (Settings, SystemUI, Dialer, ...)
 product/common/overlay/   Q4 static overlays (framework, SystemUI, SetupWizard, Glimpse, Gallery2)
 docs/                     guides
@@ -172,7 +180,7 @@ GitHub Actions runs on every pull request and on `main`:
 | Workflow | What it runs |
 |---|---|
 | `checks` | `tests/run.sh`: shellcheck, pins, staging dry runs, framework patch apply/revert, design and policy checks, host unit tests |
-| `Sable apps` | `scripts/build-apps.sh` for each Gradle project (platform apps, r8 apps, Reader, Mail, Text Reader) with unit tests, Android Lint, detekt, ktlint and Kover |
+| `Sable apps` | `scripts/build-apps.sh` for the older `sable-src/` Gradle projects with unit tests, Android Lint, detekt, ktlint and Kover. The shipping apps are built and tested by CI in `sableos-android` |
 | `Security` | Gitleaks history scan and MobSF source scan (also weekly) |
 | `SonarCloud` | SonarCloud scan of the whole repository (Kotlin, Java, C, Python, shell, XML), waiting on the "Sonar way" quality gate |
 
@@ -258,7 +266,16 @@ Other projects this port uses or learned from:
   and the release needs its own signing keys. What is left is in
   [`docs/SABLEOS_GAP_REVIEW.md`](docs/SABLEOS_GAP_REVIEW.md).
 * The image has no Google software and no app store; the
-  [microG add-on](docs/MICROG.md) is optional.
+  [microG add-on](docs/MICROG.md) is optional. Aurora Store signs in anonymously
+  or with your own Google account through microG.
+* The apps are built from [`sableos-android`](https://github.com/sableos-project/sableos-android)
+  (see [Build the image yourself](#build-the-image-yourself)). Two whole-OS profiles
+  are available, BBOS 10 and BBOS 7, with the Hub shared between them.
+* Recent additions: Reader comic zoom and keyboard panning, audiobook resume and a
+  Now playing strip on the launcher homes and Reader library, Reader text in Active Frames,
+  Reader settings split into Global, Book, Comics and Audio tabs, a launcher lock layer
+  (weather, show/hide switches, full screen, audiobook card with rewind and forward),
+  `.cbr` comics, smaller Welcome screen buttons, and FM controls on the lock screen.
 * Sable app translations (18 languages) are machine-assisted drafts that no
   fluent speaker has reviewed yet. English is the reference text, and
   corrections are welcome.

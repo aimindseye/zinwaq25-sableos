@@ -82,6 +82,6 @@ echo "ADDON_INSTALL=PASS ${modules[*]}"
 echo "Next: open microG Settings > Self-Check and tick what it asks (battery optimisation, then"
 echo "Google device registration and Cloud Messaging if you want push). docs/MICROG.md has the steps."
 if [[ "$AURORA" == YES ]]; then
-    echo "Aurora Store: choose Anonymous. Signing in with your own Google account does not work yet"
-    echo "on SableOS 2.0 (docs/MICROG.md)."
+    echo "Aurora Store: choose Anonymous (free apps) or Google. For Google, first add your account in"
+    echo "microG Settings > Google account (microG 0.3.18 or later); docs/MICROG.md has the steps."
 fi
