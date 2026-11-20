@@ -1,0 +1,110 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 20 Nov 2026 00:55:00 +0000
+Subject: [PATCH 1620/1620] SableOS: media player on lock screen switch in
+ Settings > Security
+
+Android's own Lock screen page is not reachable on SableOS, so the switch for the
+lock screen media player had no home. Settings > Security gets "Media player on
+lock screen" next to the Lock screen peek row. It is the Settings.Secure
+media_controls_lock_screen setting (on by default), one switch for Sable Media and
+the FM radio.
+---
+ res/values/strings_sable_lock_media.xml       |  9 ++++
+ res/xml/security_dashboard_settings.xml       |  8 ++++
+ .../SableLockMediaPreferenceController.java   | 38 +++++++++++++++++
+ 3 files changed, 55 insertions(+)
+
+diff --git a/res/values/strings_sable_lock_media.xml b/res/values/strings_sable_lock_media.xml
+new file mode 100644
+--- /dev/null
++++ b/res/values/strings_sable_lock_media.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++     SPDX-License-Identifier: Apache-2.0
++-->
++<resources>
++    <!-- SableOS Settings > Security > Lock screen media player. -->
++    <string name="sable_lock_media_title">Media player on lock screen</string>
++    <string name="sable_lock_media_summary">Show the playing song or FM radio, with its buttons, on the lock screen</string>
++    <string name="sable_lock_media_keywords">lock screen, media, player, music, radio, fm, controls</string>
++</resources>
+diff --git a/res/xml/security_dashboard_settings.xml b/res/xml/security_dashboard_settings.xml
+--- a/res/xml/security_dashboard_settings.xml
++++ b/res/xml/security_dashboard_settings.xml
+@@ -51,6 +51,14 @@
+             settings:keywords="@string/sable_lock_peek_keywords"
+             settings:controller="com.android.settings.sable.SableLockPeekPreferenceController" />
+ 
++        <!-- SableOS: the media player (and the FM radio) on the lock screen. -->
++        <SwitchPreferenceCompat
++            android:key="sable_lock_screen_media"
++            android:title="@string/sable_lock_media_title"
++            android:summary="@string/sable_lock_media_summary"
++            settings:keywords="@string/sable_lock_media_keywords"
++            settings:controller="com.android.settings.sable.SableLockMediaPreferenceController" />
++
+         <!-- SableOS: Picture Password, also on the Sable page (SystemUI, frameworks/base 0320). -->
+         <Preference
+             android:key="sable_picture_password_security"
+diff --git a/src/com/android/settings/sable/SableLockMediaPreferenceController.java b/src/com/android/settings/sable/SableLockMediaPreferenceController.java
+new file mode 100644
+--- /dev/null
++++ b/src/com/android/settings/sable/SableLockMediaPreferenceController.java
+@@ -0,0 +1,51 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.content.Context;
++import android.provider.Settings;
++
++import com.android.settings.core.TogglePreferenceController;
++
++/**
++ * Settings > Security > Media player on lock screen: the switch behind the player card on the
++ * lock screen (Settings.Secure media_controls_lock_screen, on unless the owner turned it off).
++ * It is one switch for the player of Sable Media and the FM radio. Android's own Lock screen
++ * page is not reachable on SableOS, so the choice lives next to the Lock screen peek row.
++ */
++public class SableLockMediaPreferenceController extends TogglePreferenceController {
++    private static final String KEY = "media_controls_lock_screen";
++
++    public SableLockMediaPreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return AVAILABLE;
++    }
++
++    @Override
++    public boolean isChecked() {
++        return Settings.Secure.getInt(mContext.getContentResolver(), KEY, 1) != 0;
++    }
++
++    @Override
++    public boolean setChecked(boolean isChecked) {
++        return Settings.Secure.putInt(mContext.getContentResolver(), KEY, isChecked ? 1 : 0);
++    }
++}
+-- 
+2.43.0
+
