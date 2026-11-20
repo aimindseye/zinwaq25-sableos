@@ -254,7 +254,7 @@ index 0000000..0a69f0f
 +
 +        addLink(R.string.sable_manage_connections_setup_wifi, Settings.ACTION_WIFI_SETTINGS);
 +        addLink(R.string.sable_manage_connections_networks, Settings.ACTION_WIRELESS_SETTINGS);
-+        addLink(R.string.sable_manage_connections_status, Settings.ACTION_WIRELESS_SETTINGS);
++        addLink(R.string.sable_manage_connections_status, Settings.ACTION_DEVICE_INFO_SETTINGS);
 +
 +        int target = focusIndex >= 0 && focusIndex < mRows.getChildCount() ? focusIndex : 0;
 +        View next = mRows.getChildAt(target);
