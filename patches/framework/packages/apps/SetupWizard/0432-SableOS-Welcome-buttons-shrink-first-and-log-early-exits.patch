@@ -1,0 +1,72 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 20 Nov 2026 19:30:00 +0000
+Subject: [PATCH] SableOS: Welcome buttons shrink first and log early exits
+
+On the Q25 (device photo, 2026-11-20) Welcome's Start was still a full-size pill sitting over the
+keyboard check card, and the round accessibility button beside it was full size too. The 52 dp
+shrink of patch 0430 sat after the code that pins the bar under the scroll view, so any early
+return there (no scroll view found, an unexpected parent) left both buttons at full size with no
+trace in the log. The buttons now shrink first, to 48 dp with 18 sp text, before any of that
+work, and each early return logs why (tag BaseSetupWizardActivity).
+---
+ .../setupwizard/base/BaseSetupWizardActivity.kt | 31 ++++++++++++++-
+ 1 file changed, 28 insertions(+), 3 deletions(-)
+
+diff --git a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt b/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
+--- a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
++++ b/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
+@@ -388,13 +388,25 @@ abstract class BaseSetupWizardActivity : AppCompatActivity() {
+             hideById(layout, R.id.brand_logo)
+             layout.headerTextView?.textSize = SableShortWindow.TITLE_SP
+-            val bar = findViewById<View>(R.id.sable_button_bar) ?: return
++            val bar = findViewById<View>(R.id.sable_button_bar)
++            if (bar == null) {
++                Log.i(TAG, "short window: this step has no Welcome button bar")
++                return
++            }
++            // The buttons shrink first, so a later layout problem cannot leave a full-size Start.
++            shrinkWelcomeButtons(bar)
+             val scroll =
+                 layout.findViewById<View>(
+                     resources.getIdentifier("sud_scroll_view", "id", packageName)
+-                ) as? ScrollView ?: return
++                ) as? ScrollView ?: run {
++                    Log.i(TAG, "short window: no scroll view found")
++                    return
++                }
+             // The expressive Glif template keeps the scroll view in a weighted FrameLayout, and
+             // that frame sits in the vertical column; older templates have the scroll view in the
+             // column itself. The bar goes right under whichever of the two is the column's child.
+             val holder = if (scroll.parent is LinearLayout) scroll else scroll.parent as? View
+-            val column = holder?.parent as? LinearLayout ?: return
++            val column = holder?.parent as? LinearLayout ?: run {
++                Log.i(TAG, "short window: scroll view parent is ${scroll.parent?.javaClass?.simpleName}")
++                return
++            }
+             val barParent = bar.parent as? ViewGroup ?: return
+@@ -440,8 +440,21 @@ abstract class BaseSetupWizardActivity : AppCompatActivity() {
+         } catch (e: RuntimeException) {
+             Log.w(TAG, "could not fit setup to the short window", e)
+         }
+     }
+ 
++    /** SableOS: Welcome's Start and accessibility buttons are 48 dp in a short window, whatever else fails. */
++    private fun shrinkWelcomeButtons(bar: View) {
++        val small = Math.round(48 * resources.displayMetrics.density)
++        bar.findViewById<View>(R.id.launch_accessibility)?.layoutParams?.let {
++            it.width = small
++            it.height = small
++        }
++        bar.findViewById<android.widget.Button>(R.id.start)?.apply {
++            minHeight = small
++            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 18f)
++        }
++    }
++
+     private fun hideById(root: View, id: Int) {
+         if (id == 0 || id == View.NO_ID) return
+         root.findViewById<View>(id)?.visibility = View.GONE
+-- 
+2.43.0
+
