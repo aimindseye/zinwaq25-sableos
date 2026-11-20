@@ -1,0 +1,122 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 20 Nov 2026 04:00:00 +0000
+Subject: [PATCH 1624/1624] SableOS: Settings focused row is filled on BlackBerry 7
+
+Owner board 2026-11-20. On the BBOS 7 profile (Settings.Secure sable_profile is bb7)
+the focused Settings row is filled solid accent blue with no ring, in place of the
+BBOS 10 translucent fill and border. The row's own background is put back when focus
+moves, the row is recycled or the list goes away. BBOS 10 is unchanged.
+---
+diff --git a/src/com/android/settings/fuelgauge/sable/SableFocusDecoration.java b/src/com/android/settings/fuelgauge/sable/SableFocusDecoration.java
+index 9ae44e1..2c644b6 100644
+--- a/src/com/android/settings/fuelgauge/sable/SableFocusDecoration.java
++++ b/src/com/android/settings/fuelgauge/sable/SableFocusDecoration.java
+@@ -21,6 +21,9 @@ import android.graphics.Canvas;
+ import android.graphics.Color;
+ import android.graphics.Paint;
+ import android.graphics.RectF;
++import android.graphics.drawable.ColorDrawable;
++import android.graphics.drawable.Drawable;
++import android.provider.Settings;
+ import android.view.View;
+ import android.view.ViewTreeObserver;
+ 
+@@ -50,10 +53,30 @@ public final class SableFocusDecoration extends RecyclerView.ItemDecoration {
+     private final float mRadius;
+     private final RecyclerView mList;
+     private final ViewTreeObserver.OnGlobalFocusChangeListener mFocusListener;
++    /** BlackBerry 7: the focused row is filled solid accent (no ring); BlackBerry 10 keeps the ring. */
++    private final boolean mSolidFill;
++    private final int mAccent;
++    private View mFilledRow;
++    private Drawable mFilledRowBackground;
++    private final RecyclerView.OnChildAttachStateChangeListener mAttachListener =
++            new RecyclerView.OnChildAttachStateChangeListener() {
++                @Override
++                public void onChildViewAttachedToWindow(View view) {}
++
++                @Override
++                public void onChildViewDetachedFromWindow(View view) {
++                    if (view == mFilledRow) {
++                        clearFilledRow();
++                    }
++                }
++            };
+ 
+     SableFocusDecoration(Context context, RecyclerView list) {
+         mList = list;
+         final int accent = SableRangeSelectorView.color(context, android.R.attr.colorAccent);
++        mAccent = accent;
++        mSolidFill = "bb7".equals(
++                Settings.Secure.getString(context.getContentResolver(), "sable_profile"));
+         mStroke.setStyle(Paint.Style.STROKE);
+         mStroke.setStrokeWidth(
+                 context.getResources().getDimension(R.dimen.sable_battery_focus_stroke));
+@@ -63,7 +86,12 @@ public final class SableFocusDecoration extends RecyclerView.ItemDecoration {
+                 Color.blue(accent)));
+         mInset = context.getResources().getDimension(R.dimen.sable_battery_focus_inset);
+         mRadius = context.getResources().getDimension(R.dimen.sable_battery_focus_radius);
+-        mFocusListener = (oldFocus, newFocus) -> mList.invalidate();
++        mFocusListener = (oldFocus, newFocus) -> {
++            if (mSolidFill) {
++                updateFilledRow(newFocus);
++            }
++            mList.invalidate();
++        };
+     }
+ 
+     /**
+@@ -95,6 +123,7 @@ public final class SableFocusDecoration extends RecyclerView.ItemDecoration {
+         mList.setTag(R.id.sable_focus_ring, this);
+         mList.addItemDecoration(this);
+         mList.getViewTreeObserver().addOnGlobalFocusChangeListener(mFocusListener);
++        mList.addOnChildAttachStateChangeListener(mAttachListener);
+     }
+ 
+     void uninstall() {
+@@ -103,13 +132,41 @@ public final class SableFocusDecoration extends RecyclerView.ItemDecoration {
+         }
+         mList.setTag(R.id.sable_focus_ring, null);
+         mList.removeItemDecoration(this);
++        mList.removeOnChildAttachStateChangeListener(mAttachListener);
++        clearFilledRow();
+         if (mList.getViewTreeObserver().isAlive()) {
+             mList.getViewTreeObserver().removeOnGlobalFocusChangeListener(mFocusListener);
+         }
+     }
+ 
++    private void updateFilledRow(View newFocus) {
++        final View row = newFocus == null || mList.isInTouchMode()
++                ? null : mList.findContainingItemView(newFocus);
++        if (row == mFilledRow) {
++            return;
++        }
++        clearFilledRow();
++        // Only a row that is itself the focus target takes the fill; inner widgets keep theirs.
++        if (row != null && row == newFocus) {
++            mFilledRow = row;
++            mFilledRowBackground = row.getBackground();
++            row.setBackground(new ColorDrawable(mAccent));
++        }
++    }
++
++    private void clearFilledRow() {
++        if (mFilledRow != null) {
++            mFilledRow.setBackground(mFilledRowBackground);
++        }
++        mFilledRow = null;
++        mFilledRowBackground = null;
++    }
++
+     @Override
+     public void onDrawOver(Canvas c, RecyclerView parent, RecyclerView.State state) {
++        if (mSolidFill) {
++            return;
++        }
+         final View focused = parent.getFocusedChild();
+         // Rows only: inner widgets (range group, chart, hub cards) draw their own focus state.
+         if (focused == null || !focused.isFocused() || parent.isInTouchMode()) {
+-- 
+2.43.0
+
