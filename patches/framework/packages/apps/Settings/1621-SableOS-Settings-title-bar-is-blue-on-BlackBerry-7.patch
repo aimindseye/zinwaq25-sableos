@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 20 Nov 2026 01:00:00 +0000
+Subject: [PATCH 1621/1621] SableOS: Settings title bar is blue on BlackBerry 7
+
+Owner decision 2026-11-20. On the BBOS 7 profile (Settings.Secure sable_profile
+is bb7) every Settings screen has the accent blue title bar with a white title,
+set in SettingsBaseActivity after the toolbar is built. BBOS 10 keeps the stock bar.
+---
+diff --git a/src/com/android/settings/core/SettingsBaseActivity.java b/src/com/android/settings/core/SettingsBaseActivity.java
+--- a/src/com/android/settings/core/SettingsBaseActivity.java
++++ b/src/com/android/settings/core/SettingsBaseActivity.java
+@@ -169,12 +169,33 @@ public class SettingsBaseActivity extends FragmentActivity implements CategoryHa
+         FloatingToolbarLayout toolbarLayout = findViewById(
+                 com.android.settingslib.collapsingtoolbar.R.id.floating_toolbar);
+         getToolbarDelegate().initFloatingToolbar(getApplicationContext(), toolbarLayout);
++        applySableProfileTitleBar();
+ 
+         if (DEBUG_TIMING) {
+             Log.d(TAG, "onCreate took " + (System.currentTimeMillis() - startTime) + " ms");
+         }
+     }
+ 
++    /**
++     * Sable: on the BlackBerry 7 profile (Settings.Secure sable_profile is bb7) the title bar is the
++     * accent blue with a white title. BlackBerry 10 keeps the stock bar.
++     */
++    private void applySableProfileTitleBar() {
++        if (!"bb7".equals(android.provider.Settings.Secure.getString(
++                getContentResolver(), "sable_profile"))) {
++            return;
++        }
++        final int blue = 0xFF2E9BD6;
++        if (mAppBarLayout != null) {
++            mAppBarLayout.setBackgroundColor(blue);
++        }
++        if (mCollapsingToolbarLayout != null) {
++            mCollapsingToolbarLayout.setContentScrimColor(blue);
++            mCollapsingToolbarLayout.setCollapsedTitleTextColor(0xFFFFFFFF);
++            mCollapsingToolbarLayout.setExpandedTitleColor(0xFFFFFFFF);
++        }
++    }
++
+     @Override
+     public boolean onNavigateUp() {
+         if (!super.onNavigateUp()) {
