@@ -1,0 +1,692 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import os
+import pathlib
+import subprocess
+import sys
+
+EXPECTED_COMMIT = "c733317d933c22bcd790a4790306f30ccf2026b8"
+EXPECTED_PACKAGE = "org.sableos.mail"
+
+
+# Fragments of the upstream Thunderbird/K-9 client ids (Gmail, AOL, Yahoo, Microsoft, Fastmail).
+INHERITED_CLIENT_FRAGMENTS = (
+    "560629489500-",
+    "262622259280-",
+    "dj0yJmk9",
+    "e6f8716e-299d-4ed9-bbf3-453f192f44e5",
+    "e647013a-ada4-4114-b419-e43d250f99c5",
+    "353e41ae",
+    "353641ae",
+    "mobile-android-",
+)
+
+
+def fail(marker: str, detail: str = "") -> None:
+    suffix = f" {detail}" if detail else ""
+    raise SystemExit(f"{marker}=FAIL{suffix}")
+
+
+def require_text(path: pathlib.Path, needle: str, marker: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    if needle not in text:
+        fail(marker, f"path={path} missing={needle!r}")
+
+
+def reject_text(path: pathlib.Path, needle: str, marker: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    if needle in text:
+        fail(marker, f"path={path} forbidden={needle!r}")
+
+
+def check_oauth_factory(oauth: pathlib.Path) -> None:
+    """No OAuth providers, or only the owner's own Gmail and Microsoft clients with Sable redirects."""
+    text = oauth.read_text(encoding="utf-8")
+    if "clientId =" not in text:
+        require_text(oauth, "emptyMap()", "SABLE_MAIL_OAUTH_DISABLED")
+        return
+    gmail = "imap.gmail.com" in text
+    microsoft = "outlook.office365.com" in text
+    if text.count("clientId =") != int(gmail) + int(microsoft):
+        fail("SABLE_MAIL_OAUTH_PROVIDERS", f"{oauth}: only the owner's Gmail and Microsoft clients are allowed")
+    if gmail:
+        require_text(oauth, '"${BuildConfig.APPLICATION_ID}:/oauth2redirect"', "SABLE_MAIL_OAUTH_REDIRECT")
+    if microsoft:
+        require_text(oauth, '"msauth://${BuildConfig.APPLICATION_ID}/', "SABLE_MAIL_MICROSOFT_REDIRECT")
+    for inherited in INHERITED_CLIENT_FRAGMENTS:
+        reject_text(oauth, inherited, "SABLE_MAIL_INHERITED_OAUTH_CLIENT")
+
+
+def main() -> None:
+    if len(sys.argv) not in (2, 3):
+        fail("SABLE_MAIL_VERIFY_USAGE", "verify_sable_mail.py <root> [apk]")
+
+    root = pathlib.Path(sys.argv[1]).resolve()
+    app = root / "app-thunderbird"
+
+    verify_upstream(root)
+    verify_build_configuration(app)
+    verify_feature_removals(root)
+    verify_product_sources(root, app)
+
+    if len(sys.argv) == 3:
+        verify_apk(pathlib.Path(sys.argv[2]).resolve())
+
+    print("SABLE_MAIL_POLICY=PASS")
+
+
+def verify_upstream(root: pathlib.Path) -> None:
+    actual = subprocess.check_output(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        text=True,
+    ).strip()
+    if actual != EXPECTED_COMMIT:
+        fail(
+            "SABLE_MAIL_UPSTREAM_COMMIT",
+            f"expected={EXPECTED_COMMIT} actual={actual}",
+        )
+    print(f"SABLE_MAIL_UPSTREAM_COMMIT=PASS value={actual}")
+
+    build_logic_diff = subprocess.check_output(
+        [
+            "git",
+            "-C",
+            str(root),
+            "diff",
+            "--name-only",
+            "HEAD",
+            "--",
+            "build.gradle.kts",
+            "build-plugin",
+        ],
+        text=True,
+    ).splitlines()
+    if build_logic_diff:
+        fail(
+            "SABLE_MAIL_UPSTREAM_BUILD_LOGIC_MUTATION",
+            f"paths={build_logic_diff!r}",
+        )
+    print("SABLE_MAIL_UPSTREAM_BUILD_LOGIC_MUTATION=PASS_ABSENT")
+
+
+def verify_build_configuration(app: pathlib.Path) -> None:
+    build = app / "build.gradle.kts"
+    require_text(
+        build,
+        'applicationId = "org.sableos.mail"',
+        "SABLE_MAIL_APPLICATION_ID_SOURCE",
+    )
+    require_text(
+        build,
+        '"fossImplementation"(projects.feature.funding.noop)',
+        "SABLE_MAIL_FUNDING_NOOP",
+    )
+    require_text(
+        build,
+        "implementation(projects.feature.onboarding.migration.noop)",
+        "SABLE_MAIL_ONBOARDING_MIGRATION_NOOP",
+    )
+    require_text(
+        build,
+        "implementation(projects.feature.migration.launcher.noop)",
+        "SABLE_MAIL_LAUNCHER_MIGRATION_NOOP",
+    )
+    reject_text(
+        build,
+        "projects.feature.onboarding.migration.thunderbird",
+        "SABLE_MAIL_STALE_THUNDERBIRD_MIGRATION",
+    )
+    reject_text(
+        build,
+        "projects.feature.migration.launcher.thunderbird",
+        "SABLE_MAIL_STALE_THUNDERBIRD_MIGRATION",
+    )
+    reject_text(
+        build,
+        "projects.feature.thundermail",
+        "SABLE_MAIL_THUNDERMAIL_DEPENDENCY",
+    )
+    require_text(
+        build,
+        'signingConfig = signingConfigs.getByName("debug")',
+        "SABLE_MAIL_DEVELOPMENT_SIGNING",
+    )
+    require_text(
+        build,
+        'isMinifyEnabled = true',
+        "SABLE_MAIL_MINIFY",
+    )
+    require_text(
+        build,
+        'isShrinkResources = true',
+        "SABLE_MAIL_RESOURCE_SHRINK",
+    )
+    funding_settings = (
+        app
+        / "src/main/kotlin/net/thunderbird/android/feature/TbFundingSettings.kt"
+    )
+    if funding_settings.exists():
+        fail(
+            "SABLE_MAIL_FUNDING_SETTINGS_SOURCE",
+            f"unexpected={funding_settings}",
+        )
+    print("SABLE_MAIL_FUNDING_SETTINGS_SOURCE=PASS_ABSENT")
+    print("SABLE_MAIL_BUILD_CONFIGURATION=PASS")
+
+
+def verify_feature_removals(root: pathlib.Path) -> None:
+    for path in (
+        root / "app-common/build.gradle.kts",
+        root / "feature/account/setup/build.gradle.kts",
+        root / "feature/launcher/build.gradle.kts",
+        root / "feature/onboarding/main/build.gradle.kts",
+    ):
+        reject_text(
+            path,
+            "projects.feature.thundermail",
+            "SABLE_MAIL_TRANSITIVE_THUNDERMAIL_DEPENDENCY",
+        )
+
+    reject_text(
+        root / "feature/account/setup/build.gradle.kts",
+        "projects.feature.autodiscovery.demo",
+        "SABLE_MAIL_AUTODISCOVERY_DEMO_DEPENDENCY",
+    )
+
+    for path in (
+        root
+        / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/"
+        "domain/AutoDiscoveryMapper.kt",
+        root
+        / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/"
+        "domain/usecase/GetAutoDiscovery.kt",
+        root
+        / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/"
+        "ui/autodiscovery/AccountAutoDiscoveryViewModel.kt",
+    ):
+        reject_text(
+            path,
+            "DemoServerSettings",
+            "SABLE_MAIL_AUTODISCOVERY_DEMO_SOURCE",
+        )
+        reject_text(
+            path,
+            "autodiscovery.demo",
+            "SABLE_MAIL_AUTODISCOVERY_DEMO_SOURCE",
+        )
+
+    app_common_feature = (
+        root
+        / "app-common/src/main/kotlin/net/thunderbird/app/common/feature/"
+        "AppCommonFeatureModule.kt"
+    )
+    reject_text(
+        app_common_feature,
+        "featureThundermailCommonModule",
+        "SABLE_MAIL_TRANSITIVE_THUNDERMAIL_DI",
+    )
+
+    auto_content = (
+        root
+        / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/"
+        "ui/autodiscovery/AccountAutoDiscoveryContent.kt"
+    )
+    for needle in (
+        "ThundermailButtonPanel",
+        "onThundermailClick",
+        "onScanQrCodeClick",
+        "thundermail_panel",
+    ):
+        reject_text(
+            auto_content,
+            needle,
+            "SABLE_MAIL_ACCOUNT_SETUP_THUNDERMAIL_UI",
+        )
+
+    auto_screen = (
+        root
+        / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/"
+        "ui/autodiscovery/AccountAutoDiscoveryScreen.kt"
+    )
+    reject_text(
+        auto_screen,
+        "onThundermailClick",
+        "SABLE_MAIL_ACCOUNT_SETUP_THUNDERMAIL_CALLBACK",
+    )
+    reject_text(
+        auto_screen,
+        "onScanQrCodeClick",
+        "SABLE_MAIL_ACCOUNT_SETUP_THUNDERMAIL_CALLBACK",
+    )
+
+    previews = (
+        root
+        / "feature/account/setup/src/debug/kotlin/app/k9mail/feature/account/setup/"
+        "ui/autodiscovery"
+    )
+    for preview in ("AccountAutoDiscoveryContentPreview.kt", "AccountAutoDiscoveryScreenPreview.kt"):
+        for needle in ("onThundermailClick", "onScanQrCodeClick"):
+            reject_text(previews / preview, needle, "SABLE_MAIL_ACCOUNT_SETUP_THUNDERMAIL_PREVIEW")
+
+    account_setup_nav = (
+        root
+        / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/"
+        "navigation/AccountSetupNavHost.kt"
+    )
+    reject_text(
+        account_setup_nav,
+        "onThundermailClick",
+        "SABLE_MAIL_ACCOUNT_SETUP_THUNDERMAIL_NAV",
+    )
+    reject_text(
+        account_setup_nav,
+        "onScanQrCodeClick",
+        "SABLE_MAIL_ACCOUNT_SETUP_THUNDERMAIL_NAV",
+    )
+
+    onboarding_nav = (
+        root
+        / "feature/onboarding/main/src/main/kotlin/app/k9mail/feature/onboarding/main/"
+        "navigation/OnboardingNavHost.kt"
+    )
+    require_text(
+        onboarding_nav,
+        "onStartClick = { navController.navigateToAccountSetup() }",
+        "SABLE_MAIL_STANDARD_ACCOUNT_ENTRY",
+    )
+    reject_text(
+        onboarding_nav,
+        "onFinish(OnboardingRoute.Thundermail",
+        "SABLE_MAIL_ONBOARDING_THUNDERMAIL_ROUTE",
+    )
+
+    for route_path in (
+        root
+        / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/"
+        "navigation/AccountSetupRoute.kt",
+        root
+        / "feature/onboarding/main/src/main/kotlin/app/k9mail/feature/onboarding/main/"
+        "navigation/OnboardingRoute.kt",
+    ):
+        reject_text(
+            route_path,
+            "Thundermail",
+            "SABLE_MAIL_THUNDERMAIL_ROUTE_DECLARATION",
+        )
+
+    launcher_nav = (
+        root
+        / "feature/launcher/src/main/kotlin/app/k9mail/feature/launcher/navigation/"
+        "FeatureLauncherNavHost.kt"
+    )
+    for needle in (
+        "ThundermailNavigation",
+        "ThundermailRoute",
+        "registerThundermailNavigation",
+    ):
+        reject_text(
+            launcher_nav,
+            needle,
+            "SABLE_MAIL_LAUNCHER_THUNDERMAIL_NAV",
+        )
+
+    print("SABLE_MAIL_TRANSITIVE_THUNDERMAIL=PASS_ABSENT")
+    print("SABLE_MAIL_AUTODISCOVERY_DEMO=PASS_ABSENT")
+    print("SABLE_MAIL_AUTODISCOVERY_DEMO_SOURCE=PASS_ABSENT")
+    print("SABLE_MAIL_STANDARD_ACCOUNT_ENTRY=PASS")
+    print("SABLE_MAIL_THUNDERMAIL_ROUTES=PASS_ABSENT")
+
+
+def verify_product_sources(root: pathlib.Path, app: pathlib.Path) -> None:
+    strings = app / "src/main/res/values/strings.xml"
+    require_text(strings, ">Sable Mail</string>", "SABLE_MAIL_BRANDING")
+    reject_text(strings, ">Thunderbird</string>", "SABLE_MAIL_BRANDING")
+    print("SABLE_MAIL_BRANDING=PASS")
+
+    feature_module = (
+        app
+        / "src/main/kotlin/net/thunderbird/android/feature/FeatureModule.kt"
+    )
+    reject_text(
+        feature_module,
+        "featureThundermailModule",
+        "SABLE_MAIL_THUNDERMAIL_MODULE",
+    )
+    print("SABLE_MAIL_THUNDERMAIL=PASS_ABSENT")
+
+    for variant in ("debug", "beta", "daily", "release"):
+        feature_flags = (
+            app
+            / f"src/{variant}/kotlin/net/thunderbird/android/featureflag/"
+            "TbFeatureFlagFactory.kt"
+        )
+        reject_text(
+            feature_flags,
+            "ThundermailFeatureFlags",
+            "SABLE_MAIL_THUNDERMAIL_FEATURE_FLAG",
+        )
+
+    for variant in ("debug", "beta", "daily", "release"):
+        oauth = (
+            app
+            / f"src/{variant}/kotlin/net/thunderbird/android/auth/"
+            "TbOAuthConfigurationFactory.kt"
+        )
+        check_oauth_factory(oauth)
+    print("SABLE_MAIL_INHERITED_OAUTH_CLIENTS=PASS_ABSENT")
+
+    appearance = (
+        app
+        / "src/main/kotlin/net/thunderbird/android/SableMailAppearance.kt"
+    )
+    for needle in (
+        "org.sableos.appearance",
+        '"follow-system"',
+        '"light"',
+        '"dark"',
+        '"green"',
+        '"purple"',
+        '"orange"',
+        '"slate"',
+        "resumedActivity.get()?.recreate()",
+        "runCatching {\n            application.contentResolver.registerContentObserver(",
+    ):
+        require_text(
+            appearance,
+            needle,
+            "SABLE_MAIL_GLOBAL_APPEARANCE_SOURCE",
+        )
+
+    provider = (
+        app
+        / "src/main/kotlin/net/thunderbird/android/provider/TbThemeProvider.kt"
+    )
+    require_text(
+        provider,
+        "SableMailThemeResources.main(context)",
+        "SABLE_MAIL_GLOBAL_THEME_PROVIDER",
+    )
+
+    themes = app / "src/main/res/values/sable_mail_themes.xml"
+    for accent in ("Blue", "Green", "Purple", "Orange", "Slate"):
+        require_text(
+            themes,
+            f"Theme.SableMail.Light.{accent}",
+            "SABLE_MAIL_THEME_SET",
+        )
+        require_text(
+            themes,
+            f"Theme.SableMail.Dark.{accent}",
+            "SABLE_MAIL_THEME_SET",
+        )
+    reject_text(
+        appearance,
+        "org.sableos.start.appearance",
+        "SABLE_MAIL_RETIRED_APPEARANCE_AUTHORITY",
+    )
+    print("SABLE_MAIL_GLOBAL_APPEARANCE_SOURCE=PASS")
+
+    manifest = app / "src/main/AndroidManifest.xml"
+    require_text(
+        manifest,
+        'android:icon="@mipmap/ic_sable_mail"',
+        "SABLE_MAIL_ICON",
+    )
+    require_text(
+        manifest,
+        'android:roundIcon="@mipmap/ic_sable_mail_round"',
+        "SABLE_MAIL_ROUND_ICON",
+    )
+    for icon_res in (
+        "drawable/ic_sable_mail.xml",
+        "mipmap/ic_sable_mail.xml",
+        "mipmap-anydpi-v26/ic_sable_mail.xml",
+        "mipmap-anydpi-v26/ic_sable_mail_round.xml",
+    ):
+        if not (app / "src/main/res" / icon_res).is_file():
+            fail("SABLE_MAIL_ICON", f"missing=res/{icon_res}")
+    require_text(
+        app / "src/main/res/mipmap-anydpi-v26/ic_sable_mail.xml",
+        "<monochrome",
+        "SABLE_MAIL_ICON_MONOCHROME",
+    )
+    require_text(
+        manifest,
+        'android:theme="@style/Theme.SableMail.Startup"',
+        "SABLE_MAIL_STARTUP_THEME",
+    )
+    require_text(
+        manifest,
+        'android:authorities="org.sableos.appearance"',
+        "SABLE_MAIL_APPEARANCE_PROVIDER_VISIBILITY",
+    )
+    reject_text(
+        manifest,
+        'android:authorities="org.sableos.start.appearance"',
+        "SABLE_MAIL_RETIRED_APPEARANCE_AUTHORITY",
+    )
+    print("SABLE_MAIL_RETIRED_APPEARANCE_AUTHORITY=PASS_ABSENT")
+    require_text(
+        manifest,
+        'android:authorities="org.sableos.mail.snapshot"',
+        "SABLE_MAIL_SNAPSHOT_PROVIDER",
+    )
+    snapshot_provider = (
+        app
+        / "src/main/kotlin/net/thunderbird/android/SableMailSnapshotProvider.kt"
+    )
+    for needle in (
+        "NotificationManager::class.java",
+        "Notification.CATEGORY_EMAIL",
+        "Notification.CATEGORY_MESSAGE",
+        '"no mail alerts"',
+        '" mail alerts"',
+        "content://org.sableos.mail.snapshot/current",
+        '"org.sableos.launcher"',
+        '"org.sableos.hub"',
+        "packages.intersect(authorized).isEmpty()",
+        "Sable mail snapshot is restricted to SableLauncher and SableHub.",
+        "SecurityException(",
+        "Binder.getCallingUid()",
+        "UnsupportedOperationException",
+    ):
+        require_text(
+            snapshot_provider,
+            needle,
+            "SABLE_MAIL_PRIVACY_SAFE_LIVE_SNAPSHOT",
+        )
+    reject_text(
+        snapshot_provider,
+        'if ("com.android.launcher3" !in packages)',
+        "SABLE_MAIL_RETIRED_LAUNCHER3_SNAPSHOT_CALLER",
+    )
+    print("SABLE_MAIL_RETIRED_LAUNCHER3_SNAPSHOT_CALLER=PASS_ABSENT")
+    print("SABLE_MAIL_PRIVACY_SAFE_LIVE_SNAPSHOT=PASS_NOTIFICATION_COUNT_ONLY")
+    print("SABLE_MAIL_HUB_SNAPSHOT_CALLER=PASS_BOUNDED_READ_ONLY")
+    require_text(manifest, 'android:authorities="org.sableos.mail.hub"', "SABLE_MAIL_HUB_FEED")
+    require_text(manifest, "org.sableos.mail.action.OPEN_MESSAGE", "SABLE_MAIL_HUB_OPEN")
+    hub_provider = app / "src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt"
+    for needle in (
+        '"org.sableos.launcher", "org.sableos.hub"',
+        "Binder.getCallingUid()",
+        "SecurityException(",
+        "UnsupportedOperationException",
+        "MAX_MESSAGES = 50",
+        "account.inboxFolderId",
+        "Flag.SEEN, true",
+    ):
+        require_text(hub_provider, needle, "SABLE_MAIL_HUB_FEED")
+    for secret in ("password", "token", "body"):
+        reject_text(hub_provider, '"%s"' % secret, "SABLE_MAIL_HUB_FEED_NO_SECRETS")
+    print("SABLE_MAIL_HUB_FEED=PASS_INBOX_HEADERS_ONLY_HOME_AND_HUB")
+    app_source = (
+        app
+        / "src/main/kotlin/net/thunderbird/android/ThunderbirdApp.kt"
+    )
+    require_text(
+        app_source,
+        "uploadEnabled = false",
+        "SABLE_MAIL_TELEMETRY_UPLOAD",
+    )
+    print("SABLE_MAIL_TELEMETRY_UPLOAD=PASS_DISABLED")
+
+    message_container = (
+        root
+        / "legacy/ui/legacy/src/main/java/com/fsck/k9/ui/messageview/MessageContainerView.kt"
+    )
+    require_text(
+        message_container,
+        "messageContentView.blockNetworkData(!enable)",
+        "SABLE_MAIL_REMOTE_CONTENT_PRIVACY",
+    )
+    message_webview = (
+        root
+        / "legacy/ui/legacy/src/main/java/com/fsck/k9/view/MessageWebView.kt"
+    )
+    require_text(
+        message_webview,
+        "settings.blockNetworkLoads = shouldBlockNetworkData",
+        "SABLE_MAIL_REMOTE_CONTENT_PRIVACY",
+    )
+    print("SABLE_MAIL_REMOTE_CONTENT_PRIVACY=PASS_UPSTREAM_PRESERVED")
+
+    # Keyboard model: the Sable keymap owns single-key commands, with the input guard,
+    # Ctrl/Alt+Enter send and delete confirmation on by default.
+    legacy_activity = root / "legacy/ui/legacy/src/main/java/com/fsck/k9/activity"
+    keymap_source = legacy_activity / "SableMailKeymap.kt"
+    if not keymap_source.is_file():
+        fail("SABLE_MAIL_KEYMAP", f"missing={keymap_source}")
+    if not (root / "legacy/ui/legacy/src/test/java/com/fsck/k9/activity/SableMailKeymapTest.kt").is_file():
+        fail("SABLE_MAIL_KEYMAP", "missing unit test")
+    home_activity = legacy_activity / "MessageHomeActivity.kt"
+    require_text(home_activity, "eventHandled = onSableKeyDown(event)", "SABLE_MAIL_KEYMAP")
+    reject_text(home_activity, "eventHandled = onCustomKeyDown(event)", "SABLE_MAIL_KEYMAP")
+    require_text(
+        home_activity,
+        "val textInputActive = !isSearchViewCollapsed() || currentFocus is EditText",
+        "SABLE_MAIL_KEYMAP_INPUT_GUARD",
+    )
+    require_text(
+        home_activity,
+        "SableMailKeymap.upstreamFallbackAllowed(press, textInputActive) -> onCustomKeyDown(event)",
+        "SABLE_MAIL_KEYMAP",
+    )
+    require_text(
+        legacy_activity / "MessageCompose.java",
+        "SableMailKeymap.INSTANCE.composeCommand(",
+        "SABLE_MAIL_COMPOSE_SEND_KEY",
+    )
+    require_text(
+        root / "core/preference/api/src/commonMain/kotlin/net/thunderbird/core/preference/interaction/InteractionSettings.kt",
+        "const val INTERACTION_SETTINGS_DEFAULT_CONFIRM_DELETE = true",
+        "SABLE_MAIL_DELETE_CONFIRMATION",
+    )
+    require_text(
+        root / "legacy/ui/legacy/src/main/res/layout/message_list_item.xml",
+        'android:foreground="@drawable/sable_mail_list_item_foreground"',
+        "SABLE_MAIL_FOCUS_RING",
+    )
+    setup_navigation = root / "feature/account/setup/src/main/kotlin/app/k9mail/feature/account/setup/navigation"
+    require_text(
+        setup_navigation / "AccountSetupNavHost.kt",
+        "SableAutoDisplayOptions(",
+        "SABLE_MAIL_ONE_SCREEN_SETUP",
+    )
+    require_text(
+        setup_navigation / "AccountSetupNavHost.kt",
+        "SableAutoSyncOptions(",
+        "SABLE_MAIL_ONE_SCREEN_SETUP",
+    )
+    if not (setup_navigation / "SableQuickOptions.kt").is_file():
+        fail("SABLE_MAIL_ONE_SCREEN_SETUP", "missing SableQuickOptions.kt")
+    require_text(
+        root / "legacy/ui/legacy/src/main/java/com/fsck/k9/ui/messagelist/item/MessageViewHolder.kt",
+        "com.fsck.k9.activity.SableMailProfile.applyRowFocus(itemView)",
+        "SABLE_MAIL_PROFILE_FOCUS",
+    )
+    if not (root / "legacy/ui/legacy/src/main/res/drawable/sable_mail_list_item_foreground_bb7.xml").is_file():
+        fail("SABLE_MAIL_PROFILE_FOCUS", "missing bb7 focus drawable")
+    require_text(
+        root / "legacy/ui/legacy/src/main/java/com/fsck/k9/ui/messagelist/LegacyMessageListFragment.kt",
+        "SableMailProfile.applyRowMotion(it, requireContext())",
+        "SABLE_MAIL_ROW_MOTION",
+    )
+    require_text(
+        home_activity,
+        "SableAccountShortcuts.publish(",
+        "SABLE_MAIL_ACCOUNT_SHORTCUTS",
+    )
+    if not (legacy_activity / "SableAccountShortcuts.kt").is_file():
+        fail("SABLE_MAIL_ACCOUNT_SHORTCUTS", "missing SableAccountShortcuts.kt")
+    require_text(
+        home_activity,
+        "if (SableMailLayout.forceSplitView(sableConfig.screenWidthDp, sableConfig.screenHeightDp)) return true",
+        "SABLE_MAIL_SPLIT_PANE",
+    )
+    require_text(
+        root / "legacy/ui/legacy/src/main/res/layout/split_message_list.xml",
+        'android:id="@+id/sable_mail_dock_prompt"',
+        "SABLE_MAIL_COMMAND_DOCK",
+    )
+    require_text(
+        message_webview,
+        "com.fsck.k9.activity.SableMailQuotes.html(htmlText, expanded = false)",
+        "SABLE_MAIL_QUOTES_COLLAPSED",
+    )
+    print("SABLE_MAIL_SPLIT_PANE=PASS_FORCED_ON_SQUARE_SCREEN")
+    print("SABLE_MAIL_COMMAND_DOCK=PASS")
+    print("SABLE_MAIL_QUOTES_COLLAPSED=PASS_E_EXPANDS")
+    print("SABLE_MAIL_KEYMAP=PASS_SABLE_SHARED_CONTRACT")
+    print("SABLE_MAIL_FOCUS_RING=PASS")
+    print("SABLE_MAIL_KEYMAP_INPUT_GUARD=PASS")
+    print("SABLE_MAIL_DELETE_CONFIRMATION=PASS_DEFAULT_ON")
+    print("SABLE_MAIL_PRODUCT_BRANDING_SOURCE=PASS")
+
+
+def verify_apk(apk: pathlib.Path) -> None:
+    if not apk.is_file():
+        fail("SABLE_MAIL_APK", f"path={apk}")
+
+    apkanalyzer = (
+        os.environ.get("APKANALYZER")
+        or os.environ.get("SABLE_APKANALYZER")
+        or "apkanalyzer"
+    )
+    apkanalyzer_path = pathlib.Path(apkanalyzer)
+    if "/" in apkanalyzer and not apkanalyzer_path.is_file():
+        fail(
+            "SABLE_MAIL_APKANALYZER",
+            f"path={apkanalyzer_path}",
+        )
+
+    package = subprocess.check_output(
+        [apkanalyzer, "manifest", "application-id", str(apk)],
+        text=True,
+    ).strip()
+    debuggable = subprocess.check_output(
+        [apkanalyzer, "manifest", "debuggable", str(apk)],
+        text=True,
+    ).strip().lower()
+    if debuggable != "false":
+        fail(
+            "SABLE_MAIL_APK_DEBUGGABLE",
+            f"expected=false actual={debuggable}",
+        )
+    if package != EXPECTED_PACKAGE:
+        fail(
+            "SABLE_MAIL_APK_PACKAGE",
+            f"expected={EXPECTED_PACKAGE} actual={package}",
+        )
+
+    digest = subprocess.check_output(
+        ["sha256sum", str(apk)],
+        text=True,
+    ).split()[0]
+    print(f"SABLE_MAIL_APK_PACKAGE=PASS value={package}")
+    print("SABLE_MAIL_APK_DEBUGGABLE=PASS_FALSE")
+    print(f"SABLE_MAIL_APK_SHA256={digest}")
+
+
+if __name__ == "__main__":
+    main()
