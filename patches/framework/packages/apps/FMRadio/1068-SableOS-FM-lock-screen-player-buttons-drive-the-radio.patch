@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 20 Nov 2026 16:00:00 +0000
+Subject: [PATCH 1068/1068] SableOS: FM lock screen player buttons drive the radio
+
+The FM media session only answered hardware media keys. A controller that presses the
+transport buttons directly (the Sable lock screen player and other media controllers) got
+no response, so previous, next and play or pause on the lock screen did nothing for FM.
+The session now handles play, pause, stop, skip to next and skip to previous: the skips seek
+to the next or previous station and pause and stop turn the radio off.
+---
+ src/com/android/fmradio/FmService.java | 32 +++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/src/com/android/fmradio/FmService.java b/src/com/android/fmradio/FmService.java
+--- a/src/com/android/fmradio/FmService.java
++++ b/src/com/android/fmradio/FmService.java
+@@ -1370,7 +1370,39 @@ public class FmService extends Service implements FmRecorder.OnRecorderStateChanged {
+         mMediaSession.setCallback(new MediaSession.Callback() {
+             @Override
+             public boolean onMediaButtonEvent(Intent mediaButtonIntent) {
+                 return listener.handleIntent(mediaButtonIntent);
+             }
++            // SableOS: the lock screen player and other media controllers drive the radio through
++            // these callbacks, so previous, next and play or pause on the lock screen work for FM.
++            @Override
++            public void onPlay() {
++                if (mPowerStatus != POWER_UP) {
++                    powerUpAsync(FmUtils.computeFrequency(getFrequency()));
++                }
++            }
++
++            @Override
++            public void onPause() {
++                if (mPowerStatus != POWER_DOWN) {
++                    powerDownAsync();
++                }
++            }
++
++            @Override
++            public void onStop() {
++                if (mPowerStatus != POWER_DOWN) {
++                    powerDownAsync();
++                }
++            }
++
++            @Override
++            public void onSkipToNext() {
++                seekStationAsync(FmUtils.computeFrequency(mCurrentStation), true);
++            }
++
++            @Override
++            public void onSkipToPrevious() {
++                seekStationAsync(FmUtils.computeFrequency(mCurrentStation), false);
++            }
+         });
+         mMediaSession.setPlaybackState(new PlaybackState.Builder().setActions(
+-- 
+2.43.0
