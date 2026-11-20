@@ -529,8 +529,13 @@ if [[ -z "$dg_bad" ]]; then pass "dialogs: BBOS 10 flat card, BBOS 7 boxed with 
 bn_bad=""
 bn_p=(patches/framework/frameworks/base/0508-*.patch)
 [[ -f "${bn_p[0]}" ]] || bn_bad="$bn_bad missing"
-[[ -z "$bn_bad" ]] && { grep -q 'SableBb7Banner' "${bn_p[0]}" || bn_bad="$bn_bad banner"; grep -q 'ACTION_WIRELESS_SETTINGS' "${bn_p[0]}" || bn_bad="$bn_bad action"; grep -q '"bb7"' "${bn_p[0]}" || bn_bad="$bn_bad profile"; }
+[[ -z "$bn_bad" ]] && { grep -q 'SableBb7Banner' "${bn_p[0]}" || bn_bad="$bn_bad banner"; grep -q 'org.sableos.settings.MANAGE_CONNECTIONS' "${bn_p[0]}" || bn_bad="$bn_bad action"; grep -q '"bb7"' "${bn_p[0]}" || bn_bad="$bn_bad profile"; }
 if [[ -z "$bn_bad" ]]; then pass "shade: BBOS 7 banner opens Manage Connections (framework 0508)"; else fail "bb7 banner:$bn_bad"; fi
+mc_p=(patches/framework/packages/apps/Settings/1623-*.patch)
+mc_bad=""
+[[ -f "${mc_p[0]}" ]] || mc_bad="$mc_bad patch"
+[[ -z "$mc_bad" ]] && { grep -q 'org.sableos.settings.MANAGE_CONNECTIONS' "${mc_p[0]}" || mc_bad="$mc_bad action"; grep -q 'sable_manage_connections_all_off' "${mc_p[0]}" || mc_bad="$mc_bad master"; grep -q 'NfcAdapter' "${mc_p[0]}" || mc_bad="$mc_bad nfc"; grep -q 'Services Status' "${mc_p[0]}" || mc_bad="$mc_bad links"; }
+if [[ -z "$mc_bad" ]]; then pass "Settings: Manage Connections list with master toggle, radios and links (Settings 1623)"; else fail "manage connections:$mc_bad"; fi
 
 # 6b0q. Contacts follows the BlackBerry profile (0757); Remind rows move by profile.
 pc_bad=""

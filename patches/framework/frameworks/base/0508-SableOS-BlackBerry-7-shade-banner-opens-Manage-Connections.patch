@@ -5,7 +5,7 @@ Subject: [PATCH] SableOS: BlackBerry 7 shade banner opens Manage Connections
 
 Owner decision 2026-11-19. On the BBOS 7 profile (Settings.Secure sable_profile
 is bb7) the Sable shade shows a blue banner under the header; tapping it opens
-the Networks and connections settings (Manage Connections). BBOS 10 does not
+the BlackBerry 7 Manage Connections screen in Settings (patch 1623). BBOS 10 does not
 show it and keeps its tiles. The banner is one composable (SableBb7Banner) called
 from SableQqsFooter, so it sits inside the QQS height with the Hub summary row.
 ---
@@ -52,7 +52,7 @@ index 01756c9..6bc2419 100644
 +        com.android.systemui.qs.composefragment.ui.SableBb7Banner(
 +            onClick = {
 +                activityStarter.postStartActivityDismissingKeyguard(
-+                    Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
++                    Intent("org.sableos.settings.MANAGE_CONNECTIONS").setPackage("com.android.settings")
 +                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
 +                    0 /* delay */,
 +                )

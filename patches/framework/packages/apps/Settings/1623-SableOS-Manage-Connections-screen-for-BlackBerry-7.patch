@@ -1,0 +1,340 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 20 Nov 2026 03:00:00 +0000
+Subject: [PATCH 1623/1623] SableOS: Manage Connections screen for BlackBerry 7
+
+Owner board 2026-11-20. One dark list with a checkbox per radio: Turn All
+Connections Off (airplane mode, reads Restore Connections when on), Mobile
+Network with the carrier, Wi-Fi with the SSID, Bluetooth, NFC where present, then
+links to Wi-Fi setup, Networks and Connections and Services Status. The shade
+banner opens it with action org.sableos.settings.MANAGE_CONNECTIONS.
+---
+diff --git a/AndroidManifest.xml b/AndroidManifest.xml
+index 5ff9a6a..3816b90 100644
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -3942,6 +3942,17 @@
+             </intent-filter>
+         </receiver>
+ 
++        <!-- SableOS: BlackBerry 7 Manage Connections, opened by the shade banner with the action alone. -->
++        <activity android:name=".sable.SableManageConnectionsActivity"
++            android:exported="true"
++            android:label="@string/sable_manage_connections_title"
++            android:theme="@android:style/Theme.DeviceDefault.DayNight">
++            <intent-filter>
++                <action android:name="org.sableos.settings.MANAGE_CONNECTIONS" />
++                <category android:name="android.intent.category.DEFAULT" />
++            </intent-filter>
++        </activity>
++
+         <!-- SableOS: Sable Audio, Bluetooth codec choices (Connected devices). -->
+         <activity android:name=".sable.SableAudioActivity"
+             android:exported="false"
+diff --git a/res/values/strings_sable_connections.xml b/res/values/strings_sable_connections.xml
+new file mode 100644
+index 0000000..eb47842
+--- /dev/null
++++ b/res/values/strings_sable_connections.xml
+@@ -0,0 +1,31 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!--
++     Copyright (C) 2026 The SableOS Project
++
++     Licensed under the Apache License, Version 2.0 (the "License");
++     you may not use this file except in compliance with the License.
++     You may obtain a copy of the License at
++
++          http://www.apache.org/licenses/LICENSE-2.0
++
++     Unless required by applicable law or agreed to in writing, software
++     distributed under the License is distributed on an "AS IS" BASIS,
++     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++     See the License for the specific language governing permissions and
++     limitations under the License.
++-->
++<resources>
++    <!-- SableOS: BlackBerry 7 Manage Connections. -->
++    <string name="sable_manage_connections_title">Manage Connections</string>
++    <string name="sable_manage_connections_all_off">Turn All Connections Off</string>
++    <string name="sable_manage_connections_restore">Restore Connections</string>
++    <string name="sable_manage_connections_mobile">Mobile Network</string>
++    <string name="sable_manage_connections_wifi">Wi-Fi</string>
++    <string name="sable_manage_connections_bluetooth">Bluetooth</string>
++    <string name="sable_manage_connections_nfc">NFC</string>
++    <string name="sable_manage_connections_on">On</string>
++    <string name="sable_manage_connections_off">Off</string>
++    <string name="sable_manage_connections_setup_wifi">Set Up Wi-Fi Network</string>
++    <string name="sable_manage_connections_networks">Networks and Connections</string>
++    <string name="sable_manage_connections_status">Services Status</string>
++</resources>
+diff --git a/src/com/android/settings/sable/SableManageConnectionsActivity.java b/src/com/android/settings/sable/SableManageConnectionsActivity.java
+new file mode 100644
+index 0000000..0a69f0f
+--- /dev/null
++++ b/src/com/android/settings/sable/SableManageConnectionsActivity.java
+@@ -0,0 +1,261 @@
++/*
++ * Copyright (C) 2026 The SableOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package com.android.settings.sable;
++
++import android.app.Activity;
++import android.bluetooth.BluetoothAdapter;
++import android.bluetooth.BluetoothManager;
++import android.content.BroadcastReceiver;
++import android.content.Context;
++import android.content.Intent;
++import android.content.IntentFilter;
++import android.graphics.Color;
++import android.graphics.drawable.ColorDrawable;
++import android.graphics.drawable.StateListDrawable;
++import android.net.ConnectivityManager;
++import android.net.wifi.WifiInfo;
++import android.net.wifi.WifiManager;
++import android.nfc.NfcAdapter;
++import android.os.Bundle;
++import android.provider.Settings;
++import android.telephony.SubscriptionManager;
++import android.telephony.TelephonyManager;
++import android.util.TypedValue;
++import android.view.Gravity;
++import android.view.View;
++import android.view.ViewGroup;
++import android.widget.CheckBox;
++import android.widget.LinearLayout;
++import android.widget.ScrollView;
++import android.widget.TextView;
++
++import com.android.settings.R;
++
++/**
++ * BlackBerry 7 Manage Connections (owner board 2026-11-20): one dark list with a checkbox per
++ * radio. The first row turns every connection off (airplane mode) and then reads Restore
++ * Connections. Below the divider are the links to Wi-Fi setup, the full network settings and
++ * the service status. Every row works with the trackpad and Enter. The SystemUI banner opens
++ * it with the action alone.
++ */
++public class SableManageConnectionsActivity extends Activity {
++
++    private static final int BLUE = 0xFF2E9BD6;
++
++    private LinearLayout mRows;
++
++    private final BroadcastReceiver mChanged = new BroadcastReceiver() {
++        @Override
++        public void onReceive(Context context, Intent intent) {
++            refresh();
++        }
++    };
++
++    @Override
++    protected void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        setTitle(R.string.sable_manage_connections_title);
++        ScrollView scroll = new ScrollView(this);
++        scroll.setBackgroundColor(Color.BLACK);
++        scroll.setFillViewport(true);
++        mRows = new LinearLayout(this);
++        mRows.setOrientation(LinearLayout.VERTICAL);
++        scroll.addView(mRows, new ViewGroup.LayoutParams(
++                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
++        setContentView(scroll);
++    }
++
++    @Override
++    protected void onStart() {
++        super.onStart();
++        IntentFilter filter = new IntentFilter();
++        filter.addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED);
++        filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
++        filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
++        filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
++        filter.addAction(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED);
++        registerReceiver(mChanged, filter, Context.RECEIVER_EXPORTED);
++        refresh();
++    }
++
++    @Override
++    protected void onStop() {
++        unregisterReceiver(mChanged);
++        super.onStop();
++    }
++
++    private boolean airplaneOn() {
++        return Settings.Global.getInt(getContentResolver(), Settings.Global.AIRPLANE_MODE_ON, 0) != 0;
++    }
++
++    private void refresh() {
++        View focused = getCurrentFocus();
++        int focusIndex = focused == null ? -1 : mRows.indexOfChild(focused);
++        mRows.removeAllViews();
++
++        final boolean airplane = airplaneOn();
++        addToggle(getString(airplane ? R.string.sable_manage_connections_restore
++                : R.string.sable_manage_connections_all_off), null, airplane, v -> {
++            ConnectivityManager cm = getSystemService(ConnectivityManager.class);
++            if (cm != null) {
++                cm.setAirplaneMode(!airplane);
++            }
++        });
++
++        TelephonyManager tm = getSystemService(TelephonyManager.class);
++        boolean dataOn = tm != null && tm.isDataEnabled();
++        String carrier = tm == null ? "" : tm.getNetworkOperatorName();
++        addToggle(getString(R.string.sable_manage_connections_mobile), carrier, dataOn, v -> {
++            if (tm != null) {
++                tm.setDataEnabled(SubscriptionManager.getDefaultDataSubscriptionId(), !tm.isDataEnabled());
++            }
++            postRefresh();
++        });
++
++        WifiManager wm = getSystemService(WifiManager.class);
++        boolean wifiOn = wm != null && wm.isWifiEnabled();
++        String ssid = "";
++        if (wifiOn) {
++            WifiInfo info = wm.getConnectionInfo();
++            if (info != null && info.getSSID() != null && !WifiManager.UNKNOWN_SSID.equals(info.getSSID())) {
++                ssid = info.getSSID().replace("\"", "");
++            }
++        }
++        addToggle(getString(R.string.sable_manage_connections_wifi), ssid, wifiOn, v -> {
++            if (wm != null) {
++                wm.setWifiEnabled(!wm.isWifiEnabled());
++            }
++            postRefresh();
++        });
++
++        BluetoothManager bm = getSystemService(BluetoothManager.class);
++        BluetoothAdapter bt = bm == null ? null : bm.getAdapter();
++        boolean btOn = bt != null && bt.isEnabled();
++        addToggle(getString(R.string.sable_manage_connections_bluetooth),
++                getString(btOn ? R.string.sable_manage_connections_on
++                        : R.string.sable_manage_connections_off), btOn, v -> {
++            if (bt != null) {
++                if (bt.isEnabled()) {
++                    bt.disable();
++                } else {
++                    bt.enable();
++                }
++            }
++            postRefresh();
++        });
++
++        NfcAdapter nfc = NfcAdapter.getDefaultAdapter(this);
++        if (nfc != null) {
++            boolean nfcOn = nfc.isEnabled();
++            addToggle(getString(R.string.sable_manage_connections_nfc), null, nfcOn, v -> {
++                if (nfc.isEnabled()) {
++                    nfc.disable();
++                } else {
++                    nfc.enable();
++                }
++                postRefresh();
++            });
++        }
++
++        View divider = new View(this);
++        divider.setBackgroundColor(0xFF3A3A3A);
++        mRows.addView(divider, new LinearLayout.LayoutParams(
++                ViewGroup.LayoutParams.MATCH_PARENT, dp(1)));
++
++        addLink(R.string.sable_manage_connections_setup_wifi, Settings.ACTION_WIFI_SETTINGS);
++        addLink(R.string.sable_manage_connections_networks, Settings.ACTION_WIRELESS_SETTINGS);
++        addLink(R.string.sable_manage_connections_status, Settings.ACTION_WIRELESS_SETTINGS);
++
++        int target = focusIndex >= 0 && focusIndex < mRows.getChildCount() ? focusIndex : 0;
++        View next = mRows.getChildAt(target);
++        if (next != null && next.isFocusable()) {
++            next.requestFocus();
++        }
++    }
++
++    /** Radios take a moment to change state; the broadcasts redraw, this covers a silent refusal. */
++    private void postRefresh() {
++        mRows.postDelayed(this::refresh, 600);
++    }
++
++    private void addToggle(String label, String sublabel, boolean checked, View.OnClickListener click) {
++        LinearLayout row = newRow();
++        LinearLayout text = new LinearLayout(this);
++        text.setOrientation(LinearLayout.VERTICAL);
++        text.addView(label(label, 17, true));
++        if (sublabel != null && !sublabel.isEmpty()) {
++            TextView sub = label(sublabel, 13, false);
++            sub.setTextColor(0xFFB8B8B8);
++            text.addView(sub);
++        }
++        row.addView(text, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
++        CheckBox box = new CheckBox(this);
++        box.setChecked(checked);
++        box.setFocusable(false);
++        box.setClickable(false);
++        row.addView(box);
++        row.setOnClickListener(click);
++        mRows.addView(row);
++    }
++
++    private void addLink(int labelRes, String action) {
++        LinearLayout row = newRow();
++        row.addView(label(getString(labelRes), 16, false));
++        row.setOnClickListener(v -> {
++            try {
++                startActivity(new Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
++            } catch (RuntimeException e) {
++                // The page is not in this build; the row does nothing.
++            }
++        });
++        mRows.addView(row);
++    }
++
++    private LinearLayout newRow() {
++        LinearLayout row = new LinearLayout(this);
++        row.setOrientation(LinearLayout.HORIZONTAL);
++        row.setGravity(Gravity.CENTER_VERTICAL);
++        row.setFocusable(true);
++        row.setClickable(true);
++        row.setPadding(dp(14), dp(10), dp(14), dp(10));
++        StateListDrawable bg = new StateListDrawable();
++        bg.addState(new int[] {android.R.attr.state_focused}, new ColorDrawable(BLUE));
++        bg.addState(new int[] {android.R.attr.state_pressed}, new ColorDrawable(BLUE));
++        bg.addState(new int[] {}, new ColorDrawable(Color.TRANSPARENT));
++        row.setBackground(bg);
++        row.setLayoutParams(new LinearLayout.LayoutParams(
++                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
++        return row;
++    }
++
++    private TextView label(String text, int sp, boolean bold) {
++        TextView view = new TextView(this);
++        view.setText(text);
++        view.setTextColor(Color.WHITE);
++        view.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
++        view.setSingleLine(true);
++        if (bold) {
++            view.setTypeface(view.getTypeface(), android.graphics.Typeface.BOLD);
++        }
++        return view;
++    }
++
++    private int dp(int value) {
++        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value,
++                getResources().getDisplayMetrics()));
++    }
++}
+-- 
+2.43.0
+
