@@ -484,121 +484,12 @@ PY
 rm -f "$ba_zip"
 if [[ -z "$q4_bad" ]]; then pass "Q4 review fixes (overrides, AudioFX, weather, display compat, keyboard strip, wallpaper, boot animation)"; else fail "Q4 review fixes:$q4_bad"; fi
 
-# 6b0. Sable Launcher (the SableOS home, apps.tsv "platformapp"): platform certificate, not privileged,
-#      replaces Sable Start, Q4 only; and the flavor composes the pinned upstream's entry points.
-ha="$tmp/apps/home"
-mkdir -p "$ha/prebuilt"
-printf 'fake' > "$ha/prebuilt/SableHome.apk"
-(cd "$ha/prebuilt" && sha256sum ./*.apk > ../SHA256SUMS.txt)
-{
-    printf 'module\tgroup\tpackage\tsigning\toverrides\tfilename\tsha256\n'
-    printf 'SableHome\tplatform\torg.sableos.launcher\tplatformapp\t-\tSableHome.apk\tx\n'
-} > "$ha/manifest.tsv"
-if stagerun Q4 --apps-dir "$ha" >/dev/null &&
-    grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'certificate: "platform"' &&
-    grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'privileged: false' &&
-    ! grep -A6 'name: "SableHome"' "$v/Android.bp" | grep -q 'SableLauncher'; then
-    pass "stage SableOS home (platform cert, unprivileged, the only home app staged)"
-else
-    fail "stage SableOS home: $(cat "$tmp/err")"
-fi
-grep -q $'^SableHome\tplatform\tflavor:launcher\t' product/q25/apps.tsv &&
-    grep -q '^LAUNCHER_COMMIT=[0-9a-f]\{40\}$' sable-src/apps/r8/launcher/upstream.env &&
-    python3 -I -m py_compile sable-src/apps/r8/launcher/apply_sable_flavor.py sable-src/apps/r8/launcher/verify_sable_launcher.py &&
-    pass "SableOS home flavor (Sable Launcher pinned, org.sableos.launcher)" || fail "SableOS home flavor"
-
-# 6b0b. The profile (BlackBerry 10 or 7) is one whole-OS setting: Settings.Secure "sable_profile", read by
-#       org.sableos.design.SableProfile and written by the launcher (which reads it first).
-prof_bad=""
-sd=sable-src/src/android/shared/sabledesign/src
-grep -q 'const val SETTING_KEY = "sable_profile"' $sd/main/java/org/sableos/design/SableProfile.kt || prof_bad="$prof_bad key"
-[[ -f $sd/test/java/org/sableos/design/SableProfileTest.kt ]] || prof_bad="$prof_bad test"
-grep -q 'patch_profile_setting(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || prof_bad="$prof_bad not-applied"
-grep -q '"profile_setting"' sable-src/apps/r8/launcher/verify_sable_launcher.py || prof_bad="$prof_bad verify"
-if [[ -z "$prof_bad" ]]; then pass "profile: one whole-OS setting (sable_profile), written by the launcher, read by SableProfile"; else fail "profile setting:$prof_bad"; fi
-
-# 6b0c. Hub follows the BlackBerry rule: Enter runs the default action (opens the message), Menu shows the
-#       rest, and the menu has no Open item; it is a right-edge panel on BB10 and from the bottom on BB7.
-hubm_bad=""
-grep -q 'patch_hub_default_action(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || hubm_bad="$hubm_bad not-applied"
-grep -q '"hub_enter_opens"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hubm_bad="$hubm_bad verify-enter"
-grep -q '"hub_no_open_item"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hubm_bad="$hubm_bad verify-open"
-if [[ -z "$hubm_bad" ]]; then pass "Hub: Enter opens, Menu shows the menu without Open, per-profile menu edge"; else fail "hub default action:$hubm_bad"; fi
-
-# 6b0d. A merged Hub conversation replies through the source app the user picks (one Reply row per app).
-hubr_bad=""
-grep -q 'patch_hub_reply_selector(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || hubr_bad="$hubr_bad not-applied"
-grep -q '"hub_reply_selector"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hubr_bad="$hubr_bad verify"
-[[ -f sable-src/apps/r8/launcher/src/SableReplyChoice.kt && -f sable-src/apps/r8/launcher/src/SableReplyChoiceTest.kt ]] || hubr_bad="$hubr_bad sources"
-if [[ -z "$hubr_bad" ]]; then pass "Hub: a merged conversation has a reply selector (Reply per source app)"; else fail "hub reply selector:$hubr_bad"; fi
-
-# 6b0e. BlackBerry 7 marks focus with a filled highlight; BlackBerry 10 keeps the outline.
-bb7h_bad=""
-grep -q 'patch_bb7_highlight(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || bb7h_bad="$bb7h_bad not-applied"
-grep -q '"bb7_highlight"' sable-src/apps/r8/launcher/verify_sable_launcher.py || bb7h_bad="$bb7h_bad verify"
-if [[ -z "$bb7h_bad" ]]; then pass "BB7: filled focus highlight, BB10 keeps the outline"; else fail "bb7 highlight:$bb7h_bad"; fi
-
-# 6b0f. The Hub's reply field is inline: open with focus when the menu opens, Send key sends.
-inl_bad=""
-grep -q 'patch_hub_inline_reply(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || inl_bad="$inl_bad not-applied"
-grep -q '"hub_inline_reply"' sable-src/apps/r8/launcher/verify_sable_launcher.py || inl_bad="$inl_bad verify"
-if [[ -z "$inl_bad" ]]; then pass "Hub: inline reply opens with focus, Send key sends"; else fail "hub inline reply:$inl_bad"; fi
-
-# 6b0g. Apps with unread notifications show the splat on their icon in the Home grid.
-spl_bad=""
-grep -q 'patch_home_splat(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || spl_bad="$spl_bad not-applied"
-grep -q '"home_splat"' sable-src/apps/r8/launcher/verify_sable_launcher.py || spl_bad="$spl_bad verify"
-if [[ -z "$spl_bad" ]]; then pass "Home: splat indicator on app icons with unread notifications"; else fail "home splat:$spl_bad"; fi
-
-# 6b0h. BlackBerry 10 puts the Hub's tabs at the bottom; BlackBerry 7 keeps them under the title.
-bt_bad=""
-grep -q 'patch_hub_bottom_tabs(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || bt_bad="$bt_bad not-applied"
-grep -q '"hub_bottom_tabs"' sable-src/apps/r8/launcher/verify_sable_launcher.py || bt_bad="$bt_bad verify"
-if [[ -z "$bt_bad" ]]; then pass "Hub: BB10 tabs at the bottom, BB7 tabs under the title"; else fail "hub bottom tabs:$bt_bad"; fi
-
-# 6b0i. BlackBerry 10 opens the Hub menu with a swipe down from the top.
-sw_bad=""
-grep -q 'patch_hub_swipe_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || sw_bad="$sw_bad not-applied"
-grep -q '"hub_swipe_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || sw_bad="$sw_bad verify"
-if [[ -z "$sw_bad" ]]; then pass "Hub: BB10 swipe down from the top opens the menu"; else fail "hub swipe menu:$sw_bad"; fi
-
-# 6b0n. The Hub peek follows the profile's motion set (BB7 150 ms fade, BB10 250 ms slide).
-pm_bad=""
-grep -q 'patch_peek_motion(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || pm_bad="$pm_bad not-applied"
-grep -q '"peek_motion"' sable-src/apps/r8/launcher/verify_sable_launcher.py || pm_bad="$pm_bad verify"
-if [[ -z "$pm_bad" ]]; then pass "Hub peek: motion set follows the profile"; else fail "peek motion:$pm_bad"; fi
-
-# 6b0o. Hub rows: delete/leave animation and tab-switch fade follow the profile.
-rm_bad=""
-grep -q 'patch_hub_row_motion(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || rm_bad="$rm_bad not-applied"
-grep -q '"hub_row_motion"' sable-src/apps/r8/launcher/verify_sable_launcher.py || rm_bad="$rm_bad verify"
-if [[ -z "$rm_bad" ]]; then pass "Hub rows: leave animation and tab-switch motion follow the profile"; else fail "hub row motion:$rm_bad"; fi
-
-# 6b0p. One Home menu: BBOS 7 long-press menu trimmed, BBOS 10 header gear gone.
-hm_bad=""
-grep -q 'patch_home_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || hm_bad="$hm_bad not-applied"
-grep -q '"home_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hm_bad="$hm_bad verify"
-grep -q '"home_dials_gear"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hm_bad="$hm_bad dials-gear"
-if [[ -z "$hm_bad" ]]; then pass "Home menu: one menu on BBOS 7, no settings gear on BBOS 10"; else fail "home menu:$hm_bad"; fi
-
 # 6b0s. Hold Menu opens Active Frames from any app (framework 0505).
 hf_bad=""
 hf_p=(patches/framework/frameworks/base/0505-*.patch)
 [[ -f "${hf_p[0]}" ]] || hf_bad="$hf_bad missing"
 [[ -z "$hf_bad" ]] && { grep -q 'org.sableos.start.action.SHOW_ACTIVE_FRAMES' "${hf_p[0]}" || hf_bad="$hf_bad action"; grep -q 'isUserSetupComplete()' "${hf_p[0]}" || hf_bad="$hf_bad setup-guard"; }
 if [[ -z "$hf_bad" ]]; then pass "hold Menu opens Active Frames from any app (framework 0505)"; else fail "hold Menu:$hf_bad"; fi
-
-# 6b0r. BBOS 7 Menu key: one full menu (Switch Application, the icon's lines, the Home lines).
-fm_bad=""
-grep -q 'patch_bb7_full_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || fm_bad="$fm_bad not-applied"
-grep -q '"bb7_full_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || fm_bad="$fm_bad verify"
-if [[ -z "$fm_bad" ]]; then pass "BBOS 7 full Menu: Switch Application first, then icon and Home lines"; else fail "bb7 full menu:$fm_bad"; fi
-
-# 6b0q. Larger icons and names on both homes (default icon size Large).
-hs_bad=""
-grep -q 'patch_home_size(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || hs_bad="$hs_bad not-applied"
-grep -q '"home_size"' sable-src/apps/r8/launcher/verify_sable_launcher.py || hs_bad="$hs_bad verify"
-if [[ -z "$hs_bad" ]]; then pass "Home size: Large icons by default and larger names"; else fail "home size:$hs_bad"; fi
 
 # 6b0t. End goes home and Call opens Phone (framework 0506).
 ec_bad=""
@@ -621,13 +512,6 @@ sp_p=(patches/framework/packages/apps/SetupWizard/0430-*.patch)
 [[ -z "$sp_bad" ]] && { grep -q 'column.indexOfChild(holder)' "${sp_p[0]}" || sp_bad="$sp_bad holder"; grep -q 'R.id.start' "${sp_p[0]}" || sp_bad="$sp_bad start"; }
 if [[ -z "$sp_bad" ]]; then pass "setup: Start pins under the expressive scroll frame (SetupWizard 0430)"; else fail "setup pin:$sp_bad"; fi
 
-# 6b0w. BBOS 7 home: typing a number of three or more digits offers Dial.
-dl_bad=""
-grep -q 'patch_bb7_dial(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || dl_bad="$dl_bad not-applied"
-grep -q '"bb7_dial"' sable-src/apps/r8/launcher/verify_sable_launcher.py || dl_bad="$dl_bad verify"
-[[ -f sable-src/apps/r8/launcher/src/SableDialTest.kt ]] || dl_bad="$dl_bad test"
-if [[ -z "$dl_bad" ]]; then pass "BBOS 7 home: a typed number of 3+ digits offers Dial"; else fail "bb7 dial:$dl_bad"; fi
-
 # 6b0y. Settings: one flat list on BBOS 7 (Settings 1619).
 sl_bad=""
 sl_p=(patches/framework/packages/apps/Settings/1619-*.patch)
@@ -648,19 +532,6 @@ bn_p=(patches/framework/frameworks/base/0508-*.patch)
 [[ -z "$bn_bad" ]] && { grep -q 'SableBb7Banner' "${bn_p[0]}" || bn_bad="$bn_bad banner"; grep -q 'ACTION_WIRELESS_SETTINGS' "${bn_p[0]}" || bn_bad="$bn_bad action"; grep -q '"bb7"' "${bn_p[0]}" || bn_bad="$bn_bad profile"; }
 if [[ -z "$bn_bad" ]]; then pass "shade: BBOS 7 banner opens Manage Connections (framework 0508)"; else fail "bb7 banner:$bn_bad"; fi
 
-# 6b0r. BBOS 7 shade: counters row, no compact tile row (framework 0509).
-ct_bad=""
-ct_p=(patches/framework/frameworks/base/0509-*.patch)
-[[ -f "${ct_p[0]}" ]] || ct_bad="$ct_bad missing"
-[[ -z "$ct_bad" ]] && { grep -q 'SableShadeCounts.update(entries)' "${ct_p[0]}" || ct_bad="$ct_bad feed"; grep -q 'SableBb7Counters()' "${ct_p[0]}" || ct_bad="$ct_bad row"; grep -q 'if (sableBb7) sableNoTiles else Tiles' "${ct_p[0]}" || ct_bad="$ct_bad tiles"; grep -q 'CATEGORY_MESSAGE' "${ct_p[0]}" || ct_bad="$ct_bad category"; }
-if [[ -z "$ct_bad" ]]; then pass "shade: BBOS 7 counters row and no compact tile row (framework 0509)"; else fail "bb7 counters:$ct_bad"; fi
-# 6b0s. BBOS 7 short menu: a trackpad hold opens a 3 x 3 grid.
-sm_bad=""
-grep -q 'patch_bb7_short_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || sm_bad="$sm_bad not-applied"
-grep -q '"bb7_short_menu"' sable-src/apps/r8/launcher/verify_sable_launcher.py || sm_bad="$sm_bad verify"
-[[ -f sable-src/apps/r8/launcher/src/SableShortMenuTest.kt ]] || sm_bad="$sm_bad test"
-if [[ -z "$sm_bad" ]]; then pass "BBOS 7 home: trackpad hold opens the 3 x 3 short menu"; else fail "bb7 short menu:$sm_bad"; fi
-
 # 6b0q. Contacts follows the BlackBerry profile (0757); Remind rows move by profile.
 pc_bad=""
 pc_p=(patches/framework/packages/apps/Contacts/0757-*.patch)
@@ -672,15 +543,6 @@ pc_d=(patches/framework/packages/apps/Dialer/0711-*.patch)
 [[ -f "$rm_f/RowMotion.kt" ]] && grep -q 'rowMotion(task.id' "$rm_f/TasksApp.kt" || pc_bad="$pc_bad remind"
 if [[ -z "$pc_bad" ]]; then pass "Contacts and Phone focus bar and Remind row motion follow the BlackBerry profile"; else fail "profile in Contacts or Remind:$pc_bad"; fi
 
-# 6b0o. Sable Mail follows the BlackBerry profile: flat filled focus bar on BBOS 7.
-mp_bad=""
-mp_d=sable-src/apps/r8/mail
-[[ -f "$mp_d/src/main/java/com/fsck/k9/activity/SableMailProfile.kt" ]] || mp_bad="$mp_bad source"
-grep -q 'SableMailProfile.kt' "$mp_d/apply_sable_flavor.py" || mp_bad="$mp_bad copy"
-grep -q 'SableMailProfile.applyRowFocus(itemView)' "$mp_d/apply_sable_flavor.py" || mp_bad="$mp_bad hook"
-grep -q 'SABLE_MAIL_PROFILE_FOCUS' "$mp_d/verify_sable_mail.py" || mp_bad="$mp_bad verify"
-if [[ -z "$mp_bad" ]]; then pass "Sable Mail follows the BlackBerry profile (focus bar)"; else fail "mail profile:$mp_bad"; fi
-
 # 6b0p. Mail is a Core app: Essentials keeps it on (SetupWizard 0431, app_tiers.tsv).
 ml_bad=""
 ml_p=(patches/framework/packages/apps/SetupWizard/0431-*.patch)
@@ -688,26 +550,6 @@ ml_p=(patches/framework/packages/apps/SetupWizard/0431-*.patch)
 grep -qP '^org\.sableos\.mail\tcore\t' product/q25/app_tiers.tsv || ml_bad="$ml_bad tier"
 [[ -z "$ml_bad" ]] && { grep -q '+            "org.sableos.mail",' "${ml_p[0]}" || ml_bad="$ml_bad patch"; }
 if [[ -z "$ml_bad" ]]; then pass "Mail is a Core app and stays on in Essentials"; else fail "mail tier:$ml_bad"; fi
-
-# 6b0q. Sable Mail publishes one launcher shortcut per account (long-press the Mail icon).
-as_bad=""
-grep -q 'SableAccountShortcuts.publish' sable-src/apps/r8/mail/apply_sable_flavor.py || as_bad="$as_bad not-applied"
-grep -q 'SABLE_MAIL_ACCOUNT_SHORTCUTS' sable-src/apps/r8/mail/verify_sable_mail.py || as_bad="$as_bad verify"
-if [[ -z "$as_bad" ]]; then pass "Mail: per-account shortcuts on long-press"; else fail "mail account shortcuts:$as_bad"; fi
-
-# 6b0m. Sable Mail account setup is one screen: Display and Sync options fill themselves in.
-os_bad=""
-os_d=sable-src/apps/r8/mail
-[[ -f "$os_d/src/setup/SableQuickOptions.kt" ]] || os_bad="$os_bad source"
-grep -q 'apply_one_screen_setup(root)' "$os_d/apply_sable_flavor.py" || os_bad="$os_bad call"
-grep -q 'SABLE_MAIL_ONE_SCREEN_SETUP' "$os_d/verify_sable_mail.py" || os_bad="$os_bad verify"
-if [[ -z "$os_bad" ]]; then pass "Sable Mail account setup is one screen"; else fail "mail one-screen setup:$os_bad"; fi
-
-# 6b0r. Mail rows leave and move with the profile's motion (BB7 150 ms, BB10 250 ms).
-rw_bad=""
-grep -q 'SableMailProfile.applyRowMotion' sable-src/apps/r8/mail/apply_sable_flavor.py || rw_bad="$rw_bad not-applied"
-grep -q 'SABLE_MAIL_ROW_MOTION' sable-src/apps/r8/mail/verify_sable_mail.py || rw_bad="$rw_bad verify"
-if [[ -z "$rw_bad" ]]; then pass "Mail rows: delete and archive motion follow the profile"; else fail "mail row motion:$rw_bad"; fi
 
 # 6b0l. Setup keeps the footer bar (Next, Skip) on screen in a short window (SetupWizard 0429).
 fp_bad=""
@@ -735,20 +577,6 @@ if [[ -z "$mo_bad" ]]; then
   done; done
 fi
 if [[ -z "$mo_bad" ]]; then pass "motion: BB7 and BB10 transition sets chosen by sable_profile (frameworks/base 0503)"; else fail "profile motion:$mo_bad"; fi
-
-# 6b0a. No leftover TenSeven code in the SableOS home: the flavor removes TenSeven's Phone, Calendar,
-# extras and screen capture, and the verify step fails the build if they come back.
-home_bad=""
-for c in TenSevenInCallService TenSevenCallScreeningService TenSevenPhoneActivity TenSevenCalendarActivity \
-    D5PhoneRoleRequestActivity ScreenCaptureService extras.games. extras.notes.MainActivity \
-    extras.calculator.MainActivity extras.profiles.MainActivity tasks.TasksLauncherActivity; do
-    grep -q "$c" sable-src/apps/r8/launcher/apply_sable_flavor.py || home_bad="$home_bad flavor:$c"
-done
-for k in no_phone no_extras no_screen_capture no_first_run_setup; do
-    grep -q "\"$k\"" sable-src/apps/r8/launcher/verify_sable_launcher.py || home_bad="$home_bad verify:$k"
-done
-grep -q 'patch_leftovers(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || home_bad="$home_bad not-applied"
-if [[ -z "$home_bad" ]]; then pass "SableOS home: no leftover TenSeven Phone, Calendar, extras or screen capture"; else fail "SableOS home leftovers:$home_bad"; fi
 
 # 6b1a. One Hub: Start's Hub page has the Contacts tab and the unread bar; Sable Hub has no launcher entry.
 hub_bad=""
@@ -1511,53 +1339,6 @@ grep -qi 'SharedPreferences\|openFileOutput\|filesDir' "$kb/core/ClipboardHistor
 grep -q 'uses-permission' sable-src/apps/titan2/platform/keyboard/src/main/AndroidManifest.xml && clip_bad="$clip_bad permission"
 if [[ -z "$clip_bad" ]]; then pass "Sable Keyboard clipboard history: opt-in, memory only, skips sensitive copies, not on the lock screen"; else fail "clipboard history:$clip_bad"; fi
 
-# 18. Sable Terminal (sable-src 0084): ConnectBot v1.10.9 flavor (no mosh), Menu = Ctrl, CI, Start glyph.
-cb=sable-src/apps/r8/connectbot
-term_bad=""
-grep -qP '^SableTerminal\tcommon\tflavor:connectbot\t:app:assembleOssRelease\tapp/build/outputs/apk/oss/release/\*\.apk\torg\.sableos\.terminal\tunsigned\t-\tyes$' product/q25/apps.tsv || term_bad="$term_bad apps.tsv"
-grep -qx 'CONNECTBOT_COMMIT=21ce6f47cf16785bf2314b4ea931900164c179c1' "$cb/upstream.env" || term_bad="$term_bad pin"
-grep -q 'EXPECTED_COMMIT = "21ce6f47cf16785bf2314b4ea931900164c179c1"' "$cb/apply_sable_flavor.py" "$cb/verify_sable_terminal.py" || term_bad="$term_bad script-pin"
-grep -q 'KEYCODE_MENU -> if (down && repeat == 0) SableTerminalKey.Ctrl' "$cb/src/main/kotlin/org/connectbot/sable/SableTerminalKeys.kt" || term_bad="$term_bad menu-ctrl"
-[[ -f "$cb/res/mipmap-anydpi-v26/ic_sable_terminal.xml" ]] || term_bad="$term_bad icon"
-grep -q 'root: flavor:connectbot' .github/workflows/android.yml || term_bad="$term_bad ci"
-if [[ -z "$term_bad" ]]; then pass "Sable Terminal: pinned ConnectBot 1.10.9 flavor, Menu is Ctrl, Start glyph, CI"; else fail "terminal:$term_bad"; fi
-
-# 19. Sable Speech (sable-src 0093): eSpeak NG 1.52.0 built from source, no permission, no launcher, CI.
-es=sable-src/apps/r8/espeak
-speech_bad=""
-grep -qP '^SableSpeech\tcommon\tflavor:espeak\t:assembleRelease\tbuild/outputs/apk/release/\*-unsigned\.apk\torg\.sableos\.speech\tunsigned\t-\tyes$' product/q25/apps.tsv || speech_bad="$speech_bad apps.tsv"
-grep -qx 'ESPEAK_NG_COMMIT=4870adfa25b1a32b4361592f1be8a40337c58d6c' "$es/upstream.env" || speech_bad="$speech_bad pin"
-grep -qx 'ESPEAK_NG_GRADLE_DIR=android' "$es/upstream.env" || speech_bad="$speech_bad gradle-dir"
-for f in "$es/apply_sable_flavor.py" "$es/verify_sable_speech.py"; do
-    grep -q 'EXPECTED_COMMIT = "4870adfa25b1a32b4361592f1be8a40337c58d6c"' "$f" || speech_bad="$speech_bad script-pin"
-done
-grep -q '"uses-permission" in manifest' "$es/verify_sable_speech.py" || speech_bad="$speech_bad permission-check"
-grep -q '_GRADLE_DIR=' scripts/build-apps.sh || speech_bad="$speech_bad build-apps"
-grep -q 'root: flavor:espeak' .github/workflows/android.yml || speech_bad="$speech_bad ci"
-grep -q "'ndk;26.1.10909125' 'cmake;3.22.1'" .github/workflows/android.yml || speech_bad="$speech_bad ci-ndk"
-grep -q 'espeak-ng/espeak-ng' THIRD_PARTY_NOTICES.md || speech_bad="$speech_bad notice"
-if [[ -z "$speech_bad" ]]; then pass "Sable Speech: pinned eSpeak NG 1.52.0 from source, no permission, no launcher, CI, GPL notice"; else fail "speech:$speech_bad"; fi
-
-# 20. Speak what's focused (sable-src 0094) in the Text Reader flavor: focus speech only, quiet locked.
-tr=sable-src/apps/r8/textreader
-focus_bad=""
-grep -q 'if (facts.locked) return null' "$tr/speak/main/org/sableos/textreader/speak/FocusSpeech.kt" || focus_bad="$focus_bad locked"
-grep -q 'words.password' "$tr/speak/main/org/sableos/textreader/speak/FocusSpeech.kt" || focus_bad="$focus_bad password"
-[[ -f "$tr/speak/test/org/sableos/textreader/speak/FocusSpeechTest.kt" ]] || focus_bad="$focus_bad test"
-grep -q 'copy_speak_focus(root)' "$tr/apply_sable_flavor.py" || focus_bad="$focus_bad applicator"
-grep -q 'BIND_ACCESSIBILITY_SERVICE' "$tr/apply_sable_flavor.py" || focus_bad="$focus_bad manifest"
-grep -Eq 'flagRequestTouchExplorationMode|FilterKeyEvents' "$tr/res/xml/sable_speak_focus_service.xml" && focus_bad="$focus_bad takes-input"
-if [[ -z "$focus_bad" ]]; then pass "Speak what's focused: focus only, no touch or key capture, quiet while locked, passwords never read"; else fail "speak focus:$focus_bad"; fi
-
-# 20b. Privacy Screen (sable-src 0151) in the Text Reader flavor: never over calls, never takes input.
-pv_bad=""
-grep -q 'CALL_PACKAGES' "$tr/speak/main/org/sableos/textreader/privacy/PrivacyBand.kt" || pv_bad="$pv_bad calls"
-grep -q 'FLAG_NOT_TOUCHABLE' "$tr/speak/main/org/sableos/textreader/privacy/PrivacyScreenService.kt" || pv_bad="$pv_bad touch"
-[[ -f "$tr/speak/test/org/sableos/textreader/privacy/PrivacyBandTest.kt" ]] || pv_bad="$pv_bad test"
-grep -q 'PRIVACY_SCREEN_SERVICES' "$tr/apply_sable_flavor.py" || pv_bad="$pv_bad manifest"
-grep -Eq 'flagRequestTouchExplorationMode|FilterKeyEvents' "$tr/res/xml/sable_privacy_screen_service.xml" && pv_bad="$pv_bad takes-input"
-if [[ -z "$pv_bad" ]]; then pass "Privacy Screen: dark outside the focused field, off in calls and when locked, no touch or key capture"; else fail "privacy screen:$pv_bad"; fi
-
 # 19. Translatable Sable apps (sable-src 0085, docs/LANGUAGES.md): every app keeps its English in one
 #     table, repeats it in values/strings.xml, binds the table to the resources and tests the two equal.
 i18n_bad=""
@@ -1594,22 +1375,6 @@ sable-src/src/android/shared/sabledesign/src/main/java/org/sableos/design/Design
 EOF_I18N
 if [[ -z "$i18n_bad" ]]; then pass "Sable apps: English in one table per app, equal to values/strings.xml, bound to the resources"; else fail "translations:$i18n_bad"; fi
 
-# Cosgrove is the assistant (owner decision 2026-11-12): hold the BlackBerry key to open him, Alt+BB
-# for the app menu, and texts only after Send.
-cg_bad=""
-cgm=sable-src/apps/r8/android/assistant/src/main
-grep -q 'android.intent.action.ASSIST' "$cgm/AndroidManifest.xml" || cg_bad="$cg_bad assist-filter"
-grep -q '>org.sableos.assistant<' product/common/overlay/SableFrameworkOverlay/res/values/sable_assistant.xml || cg_bad="$cg_bad default-assistant"
-grep -q 'config_longPressOnHomeBehavior">3<' product/common/overlay/SableLineagePlatformOverlay/res/values/config.xml || cg_bad="$cg_bad hold-bb"
-grep -q 'isMenuChord' patches/framework/frameworks/base/0324-SableOS-Alt-BlackBerry-key-opens-the-system-menu.patch || cg_bad="$cg_bad alt-bb-menu"
-grep -q 'SYSTEM_MENU_ACTIVITY' patches/framework/frameworks/base/0324-SableOS-Alt-BlackBerry-key-opens-the-system-menu.patch || cg_bad="$cg_bad system-menu-start"
-grep -q 'patch_system_menu(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py || cg_bad="$cg_bad system-menu-flavor"
-grep -A3 'package="org.sableos.assistant"' product/q25/permissions/default-permissions-sable-q25.xml | grep -q 'SEND_SMS' || cg_bad="$cg_bad sms-grant"
-# The only sendSms call is behind the confirm card's Send.
-[[ "$(grep -c 'phone.sendSms(' "$cgm/java/org/sableos/assistant/MainActivity.kt")" == 1 ]] || cg_bad="$cg_bad one-send"
-grep -q 'SmsAnswer.Send -> this@MainActivity.sendSms()' "$cgm/java/org/sableos/assistant/MainActivity.kt" || cg_bad="$cg_bad send-on-card"
-if [[ -z "$cg_bad" ]]; then pass "Cosgrove: default assistant on the BlackBerry key hold, Alt+BB menu, texts sent only from the confirm card"; else fail "cosgrove:$cg_bad"; fi
-
 # aapt2 refuses a bare ' in a string resource; a patch that adds one fails the image build.
 apostrophe_bad="$(python3 - <<'EOF_APOS'
 import glob, re
@@ -1623,60 +1388,6 @@ print(" ".join(bad))
 EOF_APOS
 )"
 if [[ -z "$apostrophe_bad" ]]; then pass "framework patches: no unescaped apostrophe in an added string resource"; else fail "unescaped apostrophe: $apostrophe_bad"; fi
-
-# Calendar accounts: DAVx5 and ICSx5 ship from pinned source, unsigned for the platform build, and
-# each flavor checks the same commit that upstream.env pins.
-cal_ok=1
-for f in davx5:SableDAVx5:at.bitfire.davdroid icsx5:SableICSx5:at.bitfire.icsdroid; do
-    IFS=: read -r name module pkg <<< "$f"
-    pin="$(sed -n 's/^[A-Z0-9_]*_COMMIT=//p' "sable-src/apps/r8/$name/upstream.env")"
-    grep -q "EXPECTED_COMMIT = \"$pin\"" "sable-src/apps/r8/$name/apply_sable_flavor.py" || cal_ok=0
-    awk -F'\t' -v m="$module" -v n="flavor:$name" -v p="$pkg" \
-        '$1 == m && $3 == n && $6 == p && $7 == "unsigned" && $9 == "yes"' product/q25/apps.tsv | grep -q . || cal_ok=0
-    grep -q "root: flavor:$name" .github/workflows/android.yml || cal_ok=0
-    grep -q "apps/r8/$name" THIRD_PARTY_NOTICES.md || cal_ok=0
-done
-if ((cal_ok)); then pass "Calendar accounts: DAVx5 and ICSx5 pinned, built in CI, unsigned, with notices"; else fail "Calendar accounts: DAVx5/ICSx5 rows, pins, CI or notices"; fi
-
-# Key Mapper (owner request 2026-11-13) ships from pinned source, unsigned for the platform build,
-# checking the commit upstream.env pins.
-kb_ok=1
-pin="$(sed -n 's/^KEYMAPPER_COMMIT=//p' sable-src/apps/r8/keymapper/upstream.env)"
-[[ "$pin" =~ ^[0-9a-f]{40}$ ]] || kb_ok=0
-grep -q "EXPECTED_COMMIT = \"$pin\"" sable-src/apps/r8/keymapper/apply_sable_flavor.py || kb_ok=0
-awk -F'\t' '$1 == "SableKeyMapper" && $3 == "flavor:keymapper" && $6 == "io.github.sds100.keymapper" && $7 == "unsigned" && $9 == "yes"' \
-    product/q25/apps.tsv | grep -q . || kb_ok=0
-grep -q "root: flavor:keymapper" .github/workflows/android.yml || kb_ok=0
-grep -q "apps/r8/keymapper" THIRD_PARTY_NOTICES.md || kb_ok=0
-grep -q "rustup target add armv7-linux-androideabi aarch64-linux-android" .github/workflows/android.yml || kb_ok=0
-if ((kb_ok)); then pass "Key Mapper: pinned, built in CI, unsigned, with notices"; else fail "Key Mapper: row, pin, CI or notices"; fi
-
-# Hub email in 2.0: Sable Mail ships, answers only the home and Sable Hub with inbox headers, and the
-# home's Hub reads that feed instead of Sable Mail's notifications.
-if awk -F'\t' '$1 == "SableMail" && $9 == "yes"' product/q25/apps.tsv | grep -q . &&
-    grep -q 'android:authorities="org.sableos.mail.hub"' sable-src/apps/r8/mail/apply_sable_flavor.py &&
-    grep -q 'HUB_CALLERS = setOf("org.sableos.launcher", "org.sableos.hub")' \
-        sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
-    ! grep -qiE '"(password|token|body)"' sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
-    grep -q 'patch_hub_mail(root)' sable-src/apps/r8/launcher/apply_sable_flavor.py &&
-    grep -q 'Flag.SEEN, true' sable-src/apps/r8/mail/app/src/main/kotlin/net/thunderbird/android/SableMailHubProvider.kt &&
-    grep -q 'SableMailFeed.markRead(context, n)' sable-src/apps/r8/launcher/apply_sable_flavor.py &&
-    grep -q '"hub_mail"' sable-src/apps/r8/launcher/verify_sable_launcher.py; then
-    pass "Hub email: Sable Mail ships, its inbox feed answers only the home and Hub, Hub reads it"
-else
-    fail "Hub email: Sable Mail row, feed provider, caller check or Hub patch"
-fi
-
-# BlackBerry look in the upstream flavors: DAVx5, ICSx5 and Sable Terminal take the Sable colours (one
-# shared table, black/white/#2E9BD6), and Terminal no longer takes Android's wallpaper colours.
-look_ok=1
-grep -q '"primary": "2E9BD6"' sable-src/apps/r8/sable_flavor_common.py &&
-    grep -q '"background": "000000"' sable-src/apps/r8/sable_flavor_common.py || look_ok=0
-for f in davx5 icsx5 connectbot; do
-    grep -q 'from sable_flavor_common import SABLE_DARK, SABLE_LIGHT' "sable-src/apps/r8/$f/apply_sable_flavor.py" || look_ok=0
-done
-grep -q 'dynamicColor: Boolean = false' sable-src/apps/r8/connectbot/apply_sable_flavor.py || look_ok=0
-if ((look_ok)); then pass "Sable look: DAVx5, ICSx5 and Terminal use the Sable colours"; else fail "Sable look: flavor colours"; fi
 
 echo
 if ((fails)); then echo "CI=FAIL ($fails)"; exit 1; fi

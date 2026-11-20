@@ -44,55 +44,9 @@ export ANDROID_HOME ANDROID_SDK_ROOT="$ANDROID_HOME"
 aapt2="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt2 -type f 2>/dev/null | LC_ALL=C sort | tail -n1)"
 [[ -x "$aapt2" ]] || sable_fail "aapt2 not found under $ANDROID_HOME/build-tools"
 
-# Rows whose gradle_root is "flavor:NAME" are built from a pinned upstream
-# checkout with the Sable flavor applied (sable-src/apps/r8/NAME: upstream.env,
-# apply_sable_flavor.py, verify_sable_*.py), the same way SableOS builds them.
-# The upstream is cloned once into SABLE_UPSTREAM_CACHE (needs
-# NETWORK_FETCH_AUTHORIZED=YES) and copied to a fresh SABLE_FLAVOR_WORK tree.
-declare -A flavor_dir=()
-prepare_flavor() {
-    local name="$1" spec="$SRC/apps/r8/$1" url commit cache work verify gradle_dir
-    [[ -f "$spec/upstream.env" && -f "$spec/apply_sable_flavor.py" ]] || sable_fail "no Sable flavor at $spec"
-    url="$(sed -n 's/^[A-Z0-9_]*_REPOSITORY=//p' "$spec/upstream.env" | head -n1)"
-    commit="$(sed -n 's/^[A-Z0-9_]*_COMMIT=//p' "$spec/upstream.env" | head -n1)"
-    [[ -n "$url" && "$commit" =~ ^[0-9a-f]{40}$ ]] || sable_fail "$spec/upstream.env lacks *_REPOSITORY or a full *_COMMIT"
-    cache="$SABLE_UPSTREAM_CACHE/$name"
-    if ! git -C "$cache" cat-file -e "$commit^{commit}" 2>/dev/null; then
-        [[ "${NETWORK_FETCH_AUTHORIZED:-NO}" == YES ]] || sable_fail "$name upstream $commit not cached; set NETWORK_FETCH_AUTHORIZED=YES to fetch $url"
-        # No background maintenance in the cache: a detached auto-gc or commit-graph write racing the
-        # local clone below makes it fail with "failed to copy file ... commit-graphs/tmp_graph_*".
-        [[ -d "$cache/.git" ]] || git -c maintenance.auto=false -c gc.auto=0 clone --no-checkout "$url" "$cache"
-        git -C "$cache" config maintenance.auto false
-        git -C "$cache" config gc.auto 0
-        git -C "$cache" config fetch.writeCommitGraph false
-        git -C "$cache" fetch origin "$commit"
-    fi
-    work="$SABLE_FLAVOR_WORK/$name"
-    rm -rf "$work"
-    mkdir -p "$SABLE_FLAVOR_WORK"
-    git clone --quiet --no-hardlinks --no-checkout "$cache" "$work"
-    git -C "$work" checkout --quiet --detach "$commit"
-    # An upstream that needs its git submodules (DAVx5's translations) says *_SUBMODULES=yes; they are
-    # fetched at the commits the pinned upstream commit records.
-    if [[ "$(sed -n 's/^[A-Z0-9_]*_SUBMODULES=//p' "$spec/upstream.env" | head -n1)" == yes ]]; then
-        [[ "${NETWORK_FETCH_AUTHORIZED:-NO}" == YES ]] || sable_fail "$name needs its submodules; set NETWORK_FETCH_AUTHORIZED=YES"
-        git -C "$work" config remote.origin.url "$url"
-        git -C "$work" submodule update --quiet --init --recursive
-    fi
-    python3 "$spec/apply_sable_flavor.py" "$work"
-    for verify in "$spec"/verify_sable_*.py; do
-        [[ -f "$verify" ]] && python3 "$verify" "$work"
-    done
-    # An upstream whose Gradle project is not at its root names it with *_GRADLE_DIR.
-    gradle_dir="$(sed -n 's/^[A-Z0-9_]*_GRADLE_DIR=//p' "$spec/upstream.env" | head -n1)"
-    [[ -z "$gradle_dir" || "$gradle_dir" =~ ^[A-Za-z0-9_][A-Za-z0-9_/-]*$ ]] || sable_fail "$spec/upstream.env: bad *_GRADLE_DIR $gradle_dir"
-    work="$work${gradle_dir:+/$gradle_dir}"
-    chmod +x "$work/gradlew"
-    flavor_dir[$name]="$work"
-}
-# SABLE_APPS_REPO: path to a checkout of sableos-project/sableos-android. When set, every app is
-# built straight from that tree (no upstream clone, no apply_sable_flavor.py), so the repo is the
-# one source of truth for the code that ships.
+# SABLE_APPS_REPO: path to a checkout of sableos-project/sableos-android. Every app is built straight
+# from that tree, so the repo is the one source of truth for the code that ships. The old flavor
+# scripts (upstream clone plus apply_sable_flavor.py) are gone.
 repo_dir() {
     case "$1" in
         flavor:espeak) echo "$SABLE_APPS_REPO/apps/espeak/android" ;; # its Gradle project is in android/
@@ -107,7 +61,7 @@ root_dir() {
     local root="$1"
     if [[ -n "${SABLE_APPS_REPO:-}" ]]; then repo_dir "$root"; return; fi
     case "$root" in
-        flavor:*) echo "${flavor_dir[${root#flavor:}]}" ;;
+        flavor:*) sable_fail "$root needs SABLE_APPS_REPO (a sableos-android checkout); the flavor scripts were removed" ;;
         *) echo "$SRC/$root" ;;
     esac
 }
@@ -123,13 +77,6 @@ while IFS=$'\t' read -r module group root task apk package signing overrides ena
     tasks_by_root[$root]+=" $task"
 done < "$TSV"
 ((${#rows[@]})) || sable_fail "no apps selected"
-
-for root in "${!tasks_by_root[@]}"; do
-    if [[ "$root" == flavor:* && -z "${SABLE_APPS_REPO:-}" ]]; then
-        sable_log "preparing Sable flavor ${root#flavor:}"
-        prepare_flavor "${root#flavor:}"
-    fi
-done
 
 for root in "${!tasks_by_root[@]}"; do
     dir="$(root_dir "$root")"

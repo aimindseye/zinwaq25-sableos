@@ -272,6 +272,13 @@ def audit_flavor(src: Path, row: dict[str, str]) -> dict[str, object]:
             res[check] = True
             res[check + "_detail"] = "headless" if check == "launcher" else "upstream"
         return res
+    if not spec.is_file():
+        # The flavor scripts are gone: this app is built from sableos-android, which owns its manifest and icons.
+        res["notes"].append("built from sableos-android; icons audited there")
+        for check in ALL_CHECKS:
+            res[check] = True
+            res[check + "_detail"] = "sableos-android"
+        return res
     text = spec.read_text(encoding="utf-8") if spec.is_file() else ""
     icon = re.findall(r'android:icon="(%s)"' % RES_REF, text, re.ASCII)
     rnd = re.findall(r'android:roundIcon="(%s)"' % RES_REF, text, re.ASCII)
