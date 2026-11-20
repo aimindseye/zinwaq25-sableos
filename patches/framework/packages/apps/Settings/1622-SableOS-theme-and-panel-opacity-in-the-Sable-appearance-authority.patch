@@ -5,10 +5,10 @@ Subject: [PATCH 1622/1622] SableOS: theme and panel opacity in the Sable appeara
 
 ---
 diff --git a/res/values/strings_sable_appearance.xml b/res/values/strings_sable_appearance.xml
-index 4c2ebd4..3048dae 100644
+index 4c2ebd4..3b46f53 100644
 --- a/res/values/strings_sable_appearance.xml
 +++ b/res/values/strings_sable_appearance.xml
-@@ -10,16 +10,48 @@
+@@ -10,16 +10,45 @@
  
      <string-array name="sable_accent_entries">
          <item>Sable Blue</item>
@@ -18,7 +18,6 @@ index 4c2ebd4..3048dae 100644
 -        <item>Slate</item>
 +        <item>Gold</item>
 +        <item>Teal</item>
-+        <item>Red</item>
      </string-array>
      <string-array name="sable_accent_values" translatable="false">
          <item>blue</item>
@@ -28,9 +27,7 @@ index 4c2ebd4..3048dae 100644
 -        <item>slate</item>
 +        <item>gold</item>
 +        <item>teal</item>
-+        <item>red</item>
 +    </string-array>
-+
 +    <!-- Settings > Display > Theme and Panel opacity (Profile and Theme board). -->
 +    <string name="sable_theme_title">Theme</string>
 +    <string name="sable_theme_keywords">theme, sable, daylight, graphite, harbor, dark, light, colour</string>
@@ -95,10 +92,10 @@ index dddabe3..d46e951 100644
              android:key="sable_accent"
              android:title="@string/sable_accent_title"
 diff --git a/src/com/android/settings/sable/SableAppearancePolicy.java b/src/com/android/settings/sable/SableAppearancePolicy.java
-index 73edae4..faf9f6b 100644
+index 73edae4..9da140c 100644
 --- a/src/com/android/settings/sable/SableAppearancePolicy.java
 +++ b/src/com/android/settings/sable/SableAppearancePolicy.java
-@@ -41,6 +41,10 @@ public final class SableAppearancePolicy {
+@@ -41,19 +41,34 @@ public final class SableAppearancePolicy {
      public static final String COLUMN_MODE = "mode";
      public static final String COLUMN_ACCENT = "accent";
      public static final String COLUMN_CORNER_STYLE = "corner_style";
@@ -109,15 +106,18 @@ index 73edae4..faf9f6b 100644
  
      public static final String MODE_FOLLOW_SYSTEM = "follow-system";
      public static final String MODE_LIGHT = "light";
-@@ -49,11 +53,22 @@ public final class SableAppearancePolicy {
+     public static final String MODE_DARK = "dark";
+ 
      /** Stable accent values, in display order. */
-     // SableOS 2.0 is black and white with one blue for focus and selection (UI direction,
-     // 2026-11-04); a 1.0 preset still stored reads as it.
+-    // SableOS 2.0 is black and white with one blue for focus and selection (UI direction,
+-    // 2026-11-04); a 1.0 preset still stored reads as it.
 -    public static final String[] ACCENTS = {"blue"};
-+    public static final String[] ACCENTS = {"blue", "gold", "teal", "red"};
++    // SableOS 2.0 is black and white with Sable Blue for focus; Gold and Teal come with the
++    // Graphite and Harbor themes. A 1.0 preset still stored reads as Blue.
++    public static final String[] ACCENTS = {"blue", "gold", "teal"};
      /** System palette seeds (RRGGBB), parallel to {@link #ACCENTS}. */
 -    public static final String[] ACCENT_SEEDS = {"2E9BD6"};
-+    public static final String[] ACCENT_SEEDS = {"2E9BD6", "D6A24A", "3BB3C9", "C95A5A"};
++    public static final String[] ACCENT_SEEDS = {"2E9BD6", "D6A24A", "3BB3C9"};
      public static final String DEFAULT_ACCENT = "blue";
  
 +    /**

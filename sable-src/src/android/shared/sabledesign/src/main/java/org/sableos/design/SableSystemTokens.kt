@@ -38,6 +38,7 @@ data class SableColorRoles(
 /**
  * The Sable accent. SableOS 2.0 is black and white with one blue (#2E9BD6) for focus and
  * selection, as agreed for the 2.0 UI direction on 2026-11-04; the colour presets of 1.0 are gone.
+ * The Graphite and Harbor themes of the Profile and Theme board add Gold and Teal.
  * A stored value of an old preset reads as this one.
  *
  * A Sable accent preset. [seed] is the stable preset color (the value Sable
@@ -54,6 +55,8 @@ enum class SableAccentTokens(
     val onLight: Long,
 ) {
     Blue("blue", 0xFF2E9BD6, 0xFF2E9BD6, 0xFF000000, 0xFF1A6FA0, 0xFFFFFFFF),
+    Gold("gold", 0xFFD6A24A, 0xFFD6A24A, 0xFF000000, 0xFF8A6420, 0xFFFFFFFF),
+    Teal("teal", 0xFF3BB3C9, 0xFF3BB3C9, 0xFF000000, 0xFF1A7384, 0xFFFFFFFF),
     ;
 
     fun accent(dark: Boolean): Long = if (dark) this.dark else light

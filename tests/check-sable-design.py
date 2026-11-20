@@ -110,7 +110,7 @@ def contrast(a: int, b: int) -> float:
 text = TOKENS.read_text(encoding="utf-8")
 roles = {"dark": parse_roles(text, "Dark"), "light": parse_roles(text, "Light")}
 accents = parse_accents(text)
-report(list(accents) == ["blue"], "token accents parsed (2.0: one blue)", str(list(accents)))
+report(list(accents) == ["blue", "gold", "teal"], "token accents parsed (blue, plus gold and teal for Graphite and Harbor)", str(list(accents)))
 report(all(len(r) == 10 for r in roles.values()), "token roles parsed", str({k: len(v) for k, v in roles.items()}))
 
 bad = []
