@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 20 Nov 2026 12:00:00 +0000
+Subject: [PATCH 1067/1067] SableOS: FM lock screen card shows the song and album art
+
+The FM media session now reports the song heard (the radio text the station broadcasts)
+as its title, the station name as the artist and the frequency as the album, with a
+station card bitmap as album art, so the lock screen shows art and the song playing
+the way it does for Sable Media. A station that broadcasts no radio text shows the
+station name as the title.
+---
+ src/com/android/fmradio/FmService.java | 22 ++++++++++++++++++----
+ 1 file changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/src/com/android/fmradio/FmService.java b/src/com/android/fmradio/FmService.java
+--- a/src/com/android/fmradio/FmService.java
++++ b/src/com/android/fmradio/FmService.java
+@@ -2019,10 +2019,25 @@ public class FmService extends Service implements FmRecorder.OnRecorderStateChan
+         // If radio text is "" or null, we also need to update notification.
+         mNotificationBuilder.setContentText(radioText);
+         Log.d(TAG, "showPlayingNotification PS:" + stationName + ", RT:" + radioText);
+-        // SableOS: the session reports the radio as playing, with the station as its title.
++        // SableOS: the session reports the radio as playing: the song (radio text) as the title,
++        // the station as the artist, the frequency as the album and a station card as album art.
++        String sableFrequency = "FM " + FmUtils.formatStation(getFrequency());
++        boolean sableHasSong = radioText != null && !radioText.trim().isEmpty();
++        android.graphics.Bitmap sableArt = android.graphics.Bitmap.createBitmap(
++                320, 320, android.graphics.Bitmap.Config.ARGB_8888);
++        android.graphics.Canvas sableCanvas = new android.graphics.Canvas(sableArt);
++        sableCanvas.drawColor(0xFF1B1B1B);
++        android.graphics.Paint sablePaint = new android.graphics.Paint(
++                android.graphics.Paint.ANTI_ALIAS_FLAG);
++        sablePaint.setColor(0xFFFFFFFF);
++        sablePaint.setTextAlign(android.graphics.Paint.Align.CENTER);
++        sablePaint.setTextSize(72f);
++        sableCanvas.drawText(sableFrequency, 160f, 180f, sablePaint);
+         mMediaSession.setMetadata(new MediaMetadata.Builder()
+-                .putString(MediaMetadata.METADATA_KEY_TITLE, stationName)
+-                .putString(MediaMetadata.METADATA_KEY_ARTIST, radioText)
++                .putString(MediaMetadata.METADATA_KEY_TITLE, sableHasSong ? radioText : stationName)
++                .putString(MediaMetadata.METADATA_KEY_ARTIST, stationName)
++                .putString(MediaMetadata.METADATA_KEY_ALBUM, sableFrequency)
++                .putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, sableArt)
+                 .build());
+         mMediaSession.setPlaybackState(new PlaybackState.Builder()
+                 .setState(PlaybackState.STATE_PLAYING, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1f)
+-- 
+2.43.0
