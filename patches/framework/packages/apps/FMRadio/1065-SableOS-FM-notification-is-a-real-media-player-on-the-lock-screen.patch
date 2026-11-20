@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 20 Nov 2026 00:40:00 +0000
+Subject: [PATCH 1065/1065] SableOS: FM notification is a real media player on
+ the lock screen
+
+FmService already created a MediaSession but never gave it a playing state, and the
+notification was a plain one. The notification now uses MediaStyle tied to the
+session, the session reports the radio as playing with the station name and radio
+text, and it reports stopped when the radio goes off, so the lock screen shows the
+player card with previous, stop and next.
+---
+ src/com/android/fmradio/FmService.java | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/src/com/android/fmradio/FmService.java b/src/com/android/fmradio/FmService.java
+--- a/src/com/android/fmradio/FmService.java
++++ b/src/com/android/fmradio/FmService.java
+@@ -49,6 +49,7 @@ import android.media.AudioRecord;
+ import android.media.AudioSystem;
+ import android.media.AudioTrack;
+ import android.media.MediaRecorder;
++import android.media.MediaMetadata;
+ import android.media.session.MediaSession;
+ import android.media.session.PlaybackState;
+ import android.net.Uri;
+@@ -1983,6 +1984,11 @@ public class FmService extends Service implements FmRecorder.OnRecorderStateChan
+             mNotificationBuilder.setAutoCancel(true);
+             mNotificationBuilder.setVisibility(Notification.VISIBILITY_PUBLIC);
+             mNotificationBuilder.setCategory(Notification.CATEGORY_TRANSPORT);
++            // SableOS: a media notification tied to the session, so the lock screen shows it as
++            // the player card (previous, stop, next).
++            mNotificationBuilder.setStyle(new Notification.MediaStyle()
++                    .setMediaSession(mMediaSession.getSessionToken())
++                    .setShowActionsInCompactView(0, 1, 2));
+ 
+             Intent intent = new Intent(FM_SEEK_PREVIOUS);
+             intent.setClass(mContext, FmService.class);
+@@ -2013,6 +2019,17 @@ public class FmService extends Service implements FmRecorder.OnRecorderStateChan
+         // If radio text is "" or null, we also need to update notification.
+         mNotificationBuilder.setContentText(radioText);
+         Log.d(TAG, "showPlayingNotification PS:" + stationName + ", RT:" + radioText);
++        // SableOS: the session reports the radio as playing, with the station as its title.
++        mMediaSession.setMetadata(new MediaMetadata.Builder()
++                .putString(MediaMetadata.METADATA_KEY_TITLE, stationName)
++                .putString(MediaMetadata.METADATA_KEY_ARTIST, radioText)
++                .build());
++        mMediaSession.setPlaybackState(new PlaybackState.Builder()
++                .setState(PlaybackState.STATE_PLAYING, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1f)
++                .setActions(PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_PLAY
++                        | PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_STOP
++                        | PlaybackState.ACTION_SKIP_TO_PREVIOUS
++                        | PlaybackState.ACTION_SKIP_TO_NEXT).build());
+ 
+         Notification n = mNotificationBuilder.build();
+         n.flags &= ~Notification.FLAG_NO_CLEAR;
+@@ -2031,6 +2048,10 @@ public class FmService extends Service implements FmRecorder.OnRecorderStateChan
+      */
+     public void removeNotification() {
+         stopForeground(true);
++        // SableOS: no player card once the radio is off.
++        mMediaSession.setPlaybackState(new PlaybackState.Builder()
++                .setState(PlaybackState.STATE_STOPPED, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 0f)
++                .build());
+     }
+ 
+     /**
+-- 
+2.43.0
+
