@@ -1,0 +1,103 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SableOS <noreply@sableos.invalid>
+Date: Fri, 20 Nov 2026 00:50:00 +0000
+Subject: [PATCH 1066/1066] SableOS: FM recording started from Sable Media shows
+ a Recording and Stop notification
+
+The stock recording notification (the time, "Recording in progress" and a STOP
+RECORDING button) is posted by the FM Radio recording screen, which is not open
+when Sable Media starts the recording through the bridge. The bridge now posts it
+itself while the recording runs, on the lock screen too, and its Stop button ends
+and saves the recording. The playing notification returns when the recording is
+saved.
+---
+diff --git a/src/com/android/fmradio/SableFmBridgeService.java b/src/com/android/fmradio/SableFmBridgeService.java
+--- a/src/com/android/fmradio/SableFmBridgeService.java
++++ b/src/com/android/fmradio/SableFmBridgeService.java
+@@ -16,6 +16,10 @@
+ 
+ package com.android.fmradio;
+ 
++import android.app.Notification;
++import android.app.NotificationChannel;
++import android.app.NotificationManager;
++import android.app.PendingIntent;
+ import android.app.Service;
+ import android.content.ComponentName;
+ import android.content.Intent;
+@@ -52,6 +56,9 @@ import java.util.Locale;
+  */
+ public class SableFmBridgeService extends Service implements FmListener {
+     private static final String TAG = "SableFmBridge";
++    /** The Stop button of the recording notification; handled by this service. */
++    private static final String ACTION_STOP_RECORD = "org.sableos.fm.action.STOP_RECORD";
++    private static final String RECORD_CHANNEL_ID = "sable_record";
+ 
+     private final Handler mHandler = new Handler(Looper.getMainLooper(), this::handleClientMessage);
+     private final Messenger mMessenger = new Messenger(mHandler);
+@@ -70,6 +77,7 @@ public class SableFmBridgeService extends Service implements FmListener {
+         public void run() {
+             broadcastState();
+             if (mBridgeRecording) {
++                showRecordingNotification();
+                 mHandler.postDelayed(this, 1000);
+             }
+         }
+@@ -112,6 +120,48 @@ public class SableFmBridgeService extends Service implements FmListener {
+         mBound = bindService(fm, mConnection, BIND_AUTO_CREATE);
+     }
+ 
++    @Override
++    public int onStartCommand(Intent intent, int flags, int startId) {
++        if (intent != null && ACTION_STOP_RECORD.equals(intent.getAction())) {
++            FmService service = mService;
++            if (service != null && service.getRecorderState() == FmRecorder.STATE_RECORDING) {
++                service.stopRecordingAsync();
++            }
++        }
++        return START_NOT_STICKY;
++    }
++
++    /** "mm:ss" with "Recording in progress" and a Stop button, in place of the playing notification. */
++    private void showRecordingNotification() {
++        FmService service = mService;
++        if (service == null) {
++            return;
++        }
++        NotificationManager manager = getSystemService(NotificationManager.class);
++        if (manager.getNotificationChannel(RECORD_CHANNEL_ID) == null) {
++            NotificationChannel channel = new NotificationChannel(RECORD_CHANNEL_ID,
++                    getString(R.string.channel_record_name), NotificationManager.IMPORTANCE_LOW);
++            channel.setDescription(getString(R.string.channel_record_description));
++            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
++            manager.createNotificationChannel(channel);
++        }
++        Intent stop = new Intent(ACTION_STOP_RECORD).setClass(this, SableFmBridgeService.class);
++        PendingIntent stopIntent = PendingIntent.getService(this, 0, stop,
++                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
++        long seconds = service.getRecordTime() / 1000;
++        Notification notification = new Notification.Builder(this, RECORD_CHANNEL_ID)
++                .setContentTitle(String.format(Locale.ROOT, "%02d:%02d", seconds / 60, seconds % 60))
++                .setContentText(getText(R.string.record_notification_message))
++                .setSmallIcon(R.mipmap.ic_launcher)
++                .setShowWhen(false)
++                .setOngoing(true)
++                .setVisibility(Notification.VISIBILITY_PUBLIC)
++                .addAction(R.drawable.btn_fm_rec_stop_enabled, getText(R.string.stop_record),
++                        stopIntent)
++                .build();
++        service.showRecordingNotification(notification);
++    }
++
+     @Override
+     public IBinder onBind(Intent intent) {
+         return mMessenger.getBinder();
+@@ -284,6 +334,8 @@ public class SableFmBridgeService extends Service implements FmListener {
+                 + new SimpleDateFormat("yyyy-MM-dd HH.mm.ss", Locale.ROOT).format(new Date());
+         service.saveRecordingAsync(name);
+         mLastRecordFile = name;
++        // Back to the playing notification once the recording notification is done.
++        service.updatePlayingNotification();
+     }
+ 
+     private Bundle state() {
