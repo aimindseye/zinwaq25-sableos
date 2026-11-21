@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: SableOS <noreply@sableos.invalid>
-Date: Fri, 20 Nov 2026 19:30:00 +0000
+Date: Sat, 21 Nov 2026 00:00:33 +0000
 Subject: [PATCH] SableOS: Welcome buttons shrink first and log early exits
 
 On the Q25 (device photo, 2026-11-20) Welcome's Start was still a full-size pill sitting over the
@@ -10,13 +10,15 @@ return there (no scroll view found, an unexpected parent) left both buttons at f
 trace in the log. The buttons now shrink first, to 48 dp with 18 sp text, before any of that
 work, and each early return logs why (tag BaseSetupWizardActivity).
 ---
- .../setupwizard/base/BaseSetupWizardActivity.kt | 31 ++++++++++++++-
- 1 file changed, 28 insertions(+), 3 deletions(-)
+ .../base/BaseSetupWizardActivity.kt           | 38 ++++++++++++++-----
+ 1 file changed, 28 insertions(+), 10 deletions(-)
 
 diff --git a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt b/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
+index 9e05670..684f77d 100644
 --- a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
 +++ b/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardActivity.kt
-@@ -388,13 +388,25 @@ abstract class BaseSetupWizardActivity : AppCompatActivity() {
+@@ -389,16 +389,28 @@ abstract class BaseSetupWizardActivity : AppCompatActivity() {
+             hideById(layout, resources.getIdentifier("sud_layout_icon", "id", packageName))
              hideById(layout, R.id.brand_logo)
              layout.headerTextView?.textSize = SableShortWindow.TITLE_SP
 -            val bar = findViewById<View>(R.id.sable_button_bar) ?: return
@@ -45,7 +47,19 @@ diff --git a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardAct
 +                return
 +            }
              val barParent = bar.parent as? ViewGroup ?: return
-@@ -440,8 +440,21 @@ abstract class BaseSetupWizardActivity : AppCompatActivity() {
+             if (column.orientation != LinearLayout.VERTICAL) return
+             barParent.removeView(bar)
+@@ -416,18 +428,24 @@ abstract class BaseSetupWizardActivity : AppCompatActivity() {
+                     ViewGroup.LayoutParams.WRAP_CONTENT,
+                 ),
+             )
+-            // Smaller Start and accessibility buttons, so the page keeps more of the short window.
+-            val small = Math.round(52 * resources.displayMetrics.density)
+-            bar.findViewById<View>(R.id.launch_accessibility)?.layoutParams?.let {
+-                it.width = small
+-                it.height = small
+-            }
+-            bar.findViewById<android.widget.Button>(R.id.start)?.minHeight = small
          } catch (e: RuntimeException) {
              Log.w(TAG, "could not fit setup to the short window", e)
          }
@@ -64,9 +78,9 @@ diff --git a/app/src/main/java/org/lineageos/setupwizard/base/BaseSetupWizardAct
 +        }
 +    }
 +
-     private fun hideById(root: View, id: Int) {
-         if (id == 0 || id == View.NO_ID) return
-         root.findViewById<View>(id)?.visibility = View.GONE
+     /**
+      * SableOS: on a short window the footer bar (Next, Skip) must stay on screen. If the Glif
+      * layout put it inside the scroll view, so that a long page had to be scrolled to reach Next
 -- 
 2.43.0
 
