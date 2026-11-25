@@ -4,7 +4,7 @@
 #   bash build/sable.sh q25 all --yes
 #
 # Steps, in order: check the computer, download LineageOS (first run only),
-# build the Sable apps, fetch microG, add the Sable layer, build the image,
+# build the Sable apps, fetch microG (and the Android Auto stub when asked for), add the Sable layer, build the image,
 # collect the files. It stops at the first problem and says what to do. Run
 # the same command again to carry on: finished downloads are reused.
 #
@@ -38,7 +38,7 @@ while (($#)); do
 done
 
 SABLE="$SABLE_REPO_ROOT/build/sable.sh"
-TOTAL=7
+TOTAL=8
 n=0
 step() {
     n=$((n + 1))
@@ -77,6 +77,17 @@ if [[ "$RELEASE" == full && "$SABLE_Q25_MICROG" == YES ]]; then
         echo "microG already downloaded and verified; not downloading again"
     else
         run "fetching microG" bash "$SABLE" q25 "$RELEASE" microg
+    fi
+else
+    echo "not needed for this release"
+fi
+
+step "fetch the Android Auto stub (only when built in)"
+if [[ "$RELEASE" == full && "${SABLE_Q25_ANDROID_AUTO:-NO}" == YES ]]; then
+    if bash "$SABLE" q25 "$RELEASE" androidauto --check >/dev/null 2>&1; then
+        echo "Android Auto stub already downloaded and verified; not downloading again"
+    else
+        run "fetching the Android Auto stub" bash "$SABLE" q25 "$RELEASE" androidauto
     fi
 else
     echo "not needed for this release"

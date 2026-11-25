@@ -11,7 +11,15 @@ not in git; the build fetches it and checks its hash.
 
 ## Building it in
 
-Android Auto needs microG, so build with both:
+Android Auto needs microG, so set both. The one-command build then fetches the stub itself:
+
+```bash
+export SABLE_Q25_MICROG=YES
+export SABLE_Q25_ANDROID_AUTO=YES
+bash build/sable.sh q25 all --yes
+```
+
+Step by step, the same thing is:
 
 ```bash
 NETWORK_FETCH_AUTHORIZED=YES bash build/sable.sh q25 Q4 microg
