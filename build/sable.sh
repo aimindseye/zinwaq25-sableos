@@ -50,6 +50,8 @@ functions:
   microg [--check|--from DIR] fetch and sha256-check the pinned microG and
                               Aurora Store APKs (Q4+, SABLE_Q25_MICROG=YES;
                               downloads need NETWORK_FETCH_AUTHORIZED=YES)
+  androidauto [--check|--from ZIP] fetch and sha256-check the pinned Android Auto stub
+                              (Q4+, SABLE_Q25_ANDROID_AUTO=YES)
   stage                       inject (Q2+) or remove (Q1) the Sable layer;
                               Q4+ also applies patches/framework, earlier
                               releases revert them
@@ -89,7 +91,7 @@ done
 set -- "${args[@]+"${args[@]}"}"
 
 # The release is optional: "q25 <function>" means "q25 full <function>".
-if (($# >= 2)) && [[ "$2" =~ ^(all|doctor|bootstrap|import|apps|microg|stage|build|artifacts|release|ci|flash)$ ]]; then
+if (($# >= 2)) && [[ "$2" =~ ^(all|doctor|bootstrap|import|apps|microg|androidauto|stage|build|artifacts|release|ci|flash)$ ]]; then
     set -- "$1" full "${@:2}"
 fi
 
@@ -130,6 +132,7 @@ case "$FUNCTION" in
     import)    exec bash "$ROOT/scripts/import-sable-sources.sh" "$@" ;;
     apps)      exec bash "$ROOT/scripts/build-apps.sh" "$@" ;;
     microg)    exec bash "$ROOT/scripts/fetch-microg.sh" "$@" ;;
+    androidauto) exec bash "$ROOT/scripts/fetch-android-auto.sh" "$@" ;;
     stage)     exec bash "$ROOT/scripts/stage-product.sh" "$RELEASE" "$@" ;;
     build)
         [[ "$SABLE_DEVICE_BUILD_SUPPORTED" == YES ]] || { echo "SABLE_BUILD=BLOCKED" >&2; exit 78; }

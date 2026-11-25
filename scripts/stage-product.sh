@@ -21,6 +21,9 @@
 # microG (product/q25/microg) as privileged apps for Q4 and later. The APKs come from
 # scripts/fetch-microg.sh and are sha256-checked again here; staging fails if
 # they are missing. NO leaves them out.
+#
+# SABLE_Q25_ANDROID_AUTO=YES (default NO, needs SABLE_Q25_MICROG=YES) also stages the Android Auto
+# stub (product/q25/androidauto) as a privileged app, from scripts/fetch-android-auto.sh.
 set -euo pipefail
 
 # shellcheck source=build/lib/common.sh
@@ -50,6 +53,9 @@ CAMERA_50MP="${SABLE_Q25_CAMERA_50MP:-NO}"
 [[ "$CAMERA_50MP" == YES || "$CAMERA_50MP" == NO ]] || sable_fail "SABLE_Q25_CAMERA_50MP must be YES or NO"
 MICROG="${SABLE_Q25_MICROG:-NO}"
 [[ "$MICROG" == YES || "$MICROG" == NO ]] || sable_fail "SABLE_Q25_MICROG must be YES or NO"
+ANDROID_AUTO="${SABLE_Q25_ANDROID_AUTO:-NO}"
+[[ "$ANDROID_AUTO" == YES || "$ANDROID_AUTO" == NO ]] || sable_fail "SABLE_Q25_ANDROID_AUTO must be YES or NO"
+[[ "$ANDROID_AUTO" == NO || "$MICROG" == YES ]] || sable_fail "SABLE_Q25_ANDROID_AUTO=YES needs SABLE_Q25_MICROG=YES (Android Auto needs microG)"
 
 # Undo the optional 50 MP change from an earlier stage; re-applied below when on.
 python3 -I "$SABLE_REPO_ROOT/scripts/camera-50mp.py" revert --android-root "$SABLE_ANDROID_ROOT" >/dev/null
@@ -285,6 +291,15 @@ MK
         done < "${SABLE_MICROG_PREBUILTS:-$SABLE_REPO_ROOT/product/q25/microg/prebuilts.tsv}"
         echo '-include vendor/sable/q25/microg/microg.mk' >> "$fw_mk"
     fi
+    # Android Auto stub built in (SABLE_Q25_ANDROID_AUTO=YES, needs microG), only with a hash-checked APK.
+    if [[ "$ANDROID_AUTO" == YES ]]; then
+        bash "$SABLE_REPO_ROOT/scripts/fetch-android-auto.sh" --check >/dev/null
+        mkdir -p "$VENDOR_SABLE/androidauto/prebuilt"
+        cp -a "$SABLE_REPO_ROOT/product/q25/androidauto/Android.bp" "$SABLE_REPO_ROOT/product/q25/androidauto/androidauto.mk" \
+            "$SABLE_REPO_ROOT/product/q25/androidauto/etc" "$VENDOR_SABLE/androidauto/"
+        install -m 0644 "$SABLE_MICROG_CACHE/AndroidAutoStub.apk" "$VENDOR_SABLE/androidauto/prebuilt/AndroidAutoStub.apk"
+        echo '-include vendor/sable/q25/androidauto/androidauto.mk' >> "$fw_mk"
+    fi
     bash "$SABLE_REPO_ROOT/scripts/apply-framework-patches.sh" apply
 else
     bash "$SABLE_REPO_ROOT/scripts/apply-framework-patches.sh" revert >/dev/null
@@ -309,3 +324,4 @@ echo "APP_COUNT=$count"
 echo "FRAMEWORK_LAYER=$FRAMEWORK"
 echo "CAMERA_50MP=$CAMERA_50MP"
 if [[ "$FRAMEWORK" == YES ]]; then echo "MICROG=$MICROG"; else echo "MICROG=NO (Q4 and later only)"; fi
+if [[ "$FRAMEWORK" == YES ]]; then echo "ANDROID_AUTO=$ANDROID_AUTO"; else echo "ANDROID_AUTO=NO (Q4 and later only)"; fi

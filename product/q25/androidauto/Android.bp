@@ -1,0 +1,40 @@
+// Android Auto stub for the Q25. Staged to vendor/sable/q25/androidauto by
+// scripts/stage-product.sh for Q4 and later when SABLE_Q25_ANDROID_AUTO=YES (off
+// by default; needs SABLE_Q25_MICROG=YES). The APK comes from
+// scripts/fetch-android-auto.sh (pinned in androidauto.tsv, sha256-checked).
+
+android_app_import {
+    name: "AndroidAutoStub",
+    apk: "prebuilt/AndroidAutoStub.apk",
+    // Google's own signature: updates from Aurora Store only install over it
+    // when it is unchanged.
+    presigned: true,
+    preprocessed: true,
+    product_specific: true,
+    // Privileged: Android Auto needs system-level permissions that are not
+    // granted to a normal app (privapp-permissions-sable-androidauto.xml).
+    privileged: true,
+    skip_preprocessed_apk_checks: true,
+    enforce_uses_libs: false,
+    dex_preopt: {
+        enabled: false,
+    },
+    required: [
+        "privapp-permissions-sable-androidauto.xml",
+        "default-permissions-sable-androidauto.xml",
+    ],
+}
+
+prebuilt_etc {
+    name: "privapp-permissions-sable-androidauto.xml",
+    src: "etc/permissions/privapp-permissions-sable-androidauto.xml",
+    sub_dir: "permissions",
+    product_specific: true,
+}
+
+prebuilt_etc {
+    name: "default-permissions-sable-androidauto.xml",
+    src: "etc/default-permissions/default-permissions-sable-androidauto.xml",
+    sub_dir: "default-permissions",
+    product_specific: true,
+}
