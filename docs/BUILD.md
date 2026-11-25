@@ -329,7 +329,10 @@ its path filter never reports.
   ~30 MB debug APK fixed it (PR #31). The other r8 apps (Media, Hub, Weather,
   Calendar, Text Reader) still ship debug builds of about 30 MB each, so moving
   one of them to release is the next way to free space. Re-run `apps` after any
-  change to `product/q25/apps.tsv`.
+  change to `product/q25/apps.tsv`. With `SABLE_Q25_MICROG=YES`, `build/config/q25.env`
+  also sets `WITHOUT_RESERVED_SIZE=true`, which drops the spare room LineageOS adds to
+  product, system and system_ext (1.38 GB in all). The 2026-11-25 build with microG and
+  Android Auto was 85,200,896 bytes over until that was set.
 * **`SystemUI scene_container is enabled or unreadable`:** the Q4 build reads
   `com.android.systemui.scene_container` from the partition aconfig stores and
   from SystemUI's own `com_android_systemui_flags` declarations. It is a
