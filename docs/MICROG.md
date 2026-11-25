@@ -45,7 +45,8 @@ old Android version.
 Installed this way they are normal apps. They get no privileged permissions, so there is
 no system network location provider, and the Doze exemption is granted only when microG
 asks and you allow it. Owners who want microG built in can build their own image with
-`SABLE_Q25_MICROG=YES` (below).
+`SABLE_Q25_MICROG=YES` (below). Android Auto needs microG built in; see
+[`ANDROID_AUTO.md`](ANDROID_AUTO.md).
 
 ## Building microG into the image (SABLE_Q25_MICROG=YES)
 

@@ -1,0 +1,10 @@
+# Android Auto stub for the Q25 (SABLE_Q25_ANDROID_AUTO=YES). Fetched by scripts/fetch-android-auto.sh.
+#
+# The stub is Google software and is not in git. It sits inside a NikGapps add-on, so two hashes are
+# pinned: the add-on zip (what is downloaded) and the stub APK inside it (what is staged).
+#   NikGapps Android 14 add-on 2024-07-28, AppSet/AndroidAuto/AndroidAuto.zip,
+#   ___priv-app___AndroidAutoStubPrebuilt/AndroidAutoStubPrebuilt.apk
+# sha256 values computed from the files downloaded on 2026-11-25.
+# Columns (tab-separated): package, zip_sha256, apk_sha256, url
+package	zip_sha256	apk_sha256	url
+com.google.android.projection.gearhead	0ad3113d1665a84060376879497803af6fa2f64ef82dc19a1c09f25fa9e6bcf6	d2e625c98e242edcdca8768730a9aab012a6cde89183ee6687f8b89c69809e09	https://sourceforge.net/projects/nikgapps/files/Releases/Android-14/28-Jul-2024/Addons/NikGapps-Addon-14-AndroidAuto-20240728-signed.zip/download
