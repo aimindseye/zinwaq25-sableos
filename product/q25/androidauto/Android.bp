@@ -14,7 +14,6 @@ android_app_import {
     // Privileged: Android Auto needs system-level permissions that are not
     // granted to a normal app (privapp-permissions-sable-androidauto.xml).
     privileged: true,
-    skip_preprocessed_apk_checks: true,
     enforce_uses_libs: false,
     dex_preopt: {
         enabled: false,
